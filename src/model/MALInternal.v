@@ -38,136 +38,108 @@
 Require Import Model.ADT Model.Hardware Model.Lib. 
 Require Import List Arith Omega.
 
-(** Define some constants *)
-(** default values *)
-Definition defaultIndex := CIndex 0.
-Definition defaultVAddr := CVaddr (repeat (CIndex 0) nbLevel).
-Definition defaultPage := CPage 0.
+Open Scope mpu_state_scope.
 
-(** Define first level number *)
-Definition fstLevel :=  CLevel 0.
 
-(** Define the second parameter value of store and fetch *) 
-Definition storeFetchIndex := CIndex 0.
+Module Constants.
+(* To be set by the user *)
+(*  # To be set by the user
+  self.kernel_structure_entries_bits = 3 *)
+Definition kernelStructureEntriesBits := 3.
 
-(** Define the entry position of the kernel mapping into the first indirection 
-    of partitions *)
-Definition Kidx := CIndex 1.
 
-Definition multiplexer := CPage 1.
+(** Fix positions into the partition descriptor
+    of the partition *)
+(*Definition pdidx := CPaddr 0.   (* descriptor *)*)
+Definition kernelstructureidx := CIndex 0.
+Definition nbfreeslotsidx := CIndex 1.
+Definition firstfreeslotaddressidx := CIndex 2.
+Definition nbprepareidx := CIndex 3.
+Definition parentidx := CIndex 4. (* parent (virtual address is null) *)
 
-(** Fix virtual addresses positions into the partition descriptor
-    of the partition (+1 to get the physical page position) *)
-Definition PRidx := CIndex 0.   (* descriptor *)
-Definition PDidx := CIndex 2.   (* page directory *)
-Definition sh1idx := CIndex 4.  (* shadow1 *) 
-Definition sh2idx := CIndex 6.  (* shadow2 *)
-Definition sh3idx := CIndex 8.  (* configuration pages list*)
-Definition PPRidx := CIndex 10. (* parent (virtual address is null) *)
+(* kernel structure *)
+(*# default values kernel structure
+  self.kernel_structure_entries_nb = pow(2, self.kernel_structure_entries_bits)
+  self.MPU_entry_length = (
+              self.kernel_structure_entries_bits + 2 * memory.size_of_int + 2)  # start - end - accessible - present
+  self.Sh1_entry_length = (2 * memory.size_of_int + 1)  # PDChild - PD flag - inChildLocation
+  self.SC_entry_length = 2 * memory.size_of_int  # origin - next
+  self.kernel_structure_total_length = self.kernel_structure_entries_nb * (
+          self.MPU_entry_length + self.Sh1_entry_length + self.SC_entry_length) \
+                                       + memory.size_of_int  # + next*)
+Definition kernelStructureEntriesNb := kernelStructureEntriesBits ^ 2.
 
-(** Define getter for each constant *)
-Definition getDefaultVAddr :=  ret defaultVAddr.
-Definition getDefaultPage := ret defaultPage.
-Definition getKidx : LLI index:= ret Kidx.
-Definition getPRidx : LLI index:= ret PRidx.
-Definition getPDidx : LLI index:= ret PDidx.
-Definition getSh1idx : LLI index:= ret sh1idx.
-Definition getSh2idx : LLI index:= ret sh2idx.
-Definition getSh3idx : LLI index:= ret sh3idx.
-Definition getPPRidx : LLI index:= ret PPRidx.
-Definition getStoreFetchIndex : LLI index := ret storeFetchIndex.
-Definition getMultiplexer : LLI page := ret multiplexer.
+Definition MPUEntryLength := Build_paddr 3.
+Definition SHEntryLength := Build_paddr 3.
+Definition SCEntryLength := Build_paddr 2.
 
-Definition beqIndex (a b : index) : bool := a =? b.
-Definition beqPage (a b : page) : bool := a =? b.
-Definition beqVAddr (a b : vaddr) : bool := eqList a b beqIndex.
+Definition mpuoffset := CPaddr 0.
+Definition sh1offset := CPaddr (mpuoffset + kernelStructureEntriesNb*MPUEntryLength).  (* shadow1 *) 
+Definition scoffset := CPaddr (sh1offset + kernelStructureEntriesNb*SHEntryLength).  (* shadow cut *)
+(*Definition getPDidx : LLI index:= ret pdidx.*)
+Definition nextoffset := CPaddr (scoffset + kernelStructureEntriesNb*SCEntryLength).
+
+Definition rootPart := CPaddr 0.
+
+Definition minBlockSize := Build_paddr 32.
+
+
+End Constants.
+
+
+Definition beqIdx (a b : ADT.index) : bool := a =? b.
+Definition beqAddr (a b : ADT.paddr) : bool := a =? b.
+Definition nullAddr : paddr := CPaddr 0.
+Definition getNullAddr := ret nullAddr.
+Definition getBeqAddr (p1 : paddr)  (p2 : paddr) : LLI bool := ret (p1 =? p2).
+Definition getBeqIdx (p1 : index)  (p2 : index) : LLI bool := ret (p1 =? p2).
+Definition getNextOffset : LLI paddr := ret Constants.nextoffset.
+Definition getKernelStructureEntriesNb : LLI nat := ret Constants.kernelStructureEntriesNb.
+Definition getMinBlockSize : LLI paddr := ret Constants.minBlockSize.
+
+(*         """Get the location of the Sh1's entry given the <MPU_entry_index>
+        and the <kernel_structure_address_begin"""*)
+(*Definition getSh1EntryIndexFromKernelStructureStart (kernelStartIndex MPUEntryIndex : PipMPU.index) : PipMPU.LLI index :=
+(* return kernel_structure_address_begin + self.constants.indexSh1 + MPU_entry_index*self.constants.Sh1_entry_length*)
+	let sh1EntryIdx := Build_index (kernelStartIndex + sh1idx + MPUEntryIndex) in
+	PipMPU.ret sh1EntryIdx.*)
+Definition getSh1EntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (MPUEntryIndex : index) : LLI paddr :=
+(* return kernel_structure_address_begin + self.constants.indexSh1 + MPU_entry_index*self.constants.Sh1_entry_length*)
+	let sh1EntryAddr := CPaddr (kernelStartAddr + Constants.sh1offset + MPUEntryIndex*Constants.SHEntryLength) in
+	ret sh1EntryAddr.
+
+Definition getNextAddrFromKernelStructureStart (kernelStartAddr : paddr) : LLI paddr :=
+	let nextAddr := CPaddr (kernelStartAddr + Constants.nextoffset) in
+	ret nextAddr.
+
+Definition getAddrAtIndexFromKernelStructureStart (kernelstructurestart : paddr) (idx : index) : LLI paddr :=
+	let addr := CPaddr (kernelstructurestart + idx*Constants.MPUEntryLength) in
+	ret addr.
+
+Definition pred (n : paddr) : paddr :=
+  match n with
+    | Build_paddr t => Build_paddr (t-1)
+  end.
+
+Definition succ (n : paddr) : paddr :=
+  match n with
+    | Build_paddr t => Build_paddr (t+1)
+  end.
+
+Module Paddr.
+Definition leb (a b : paddr) : LLI bool := ret (a <=? b).
+End Paddr.
 
 Module Index.
-Definition geb (a b : index) : LLI bool := ret (b <=? a).
-Definition leb (a b : index) : LLI bool := ret (a <=? b).
-Definition ltb (a b : index) : LLI bool := ret (a <? b).
-Definition gtb (a b : index) : LLI bool := ret (b <? a).
-Definition eqb (a b : index) : LLI bool := ret (a =? b). 
-Program Definition zero : LLI index:= ret (Build_index 0 _).
-Next Obligation.
-assert (tableSize > 14).
-apply tableSizeBigEnough.
-omega.
-Qed.
-
-Program Definition pred (n : index) : LLI index :=
-let (i,P) := n in
-if gt_dec i 0
-then
-  let ipred := i-1 in
-  ret ( Build_index ipred _)
-else  undefined 27.
-Next Obligation.
-omega.
-Qed.
-
 Program Definition succ (n : index) : LLI index :=
-(* let (i,P) := n in*)
+(*
 let isucc := n+1 in
 if (lt_dec isucc tableSize )
 then
   ret (Build_index isucc _ )
-else  undefined 28.
-(* Next Obligation.
-  omega.
-  Qed.
-  *)
-End Index. 
-
-Module Page.
-Definition eqb (p1 : page)  (p2 : page) : LLI bool := ret (p1 =? p2).
-End Page.
-
-Module Level.
-Program Definition pred (n : level) : LLI level :=
-if gt_dec n 0
-then
-  let ipred := n-1 in
-  ret (Build_level ipred _ )
-else  undefined 30.
-Next Obligation.
-destruct n;simpl;omega.
-Qed.
-
-Program Definition succ (n : level) : LLI level :=
+else  undefined 28.*)
 let isucc := n+1 in
-if lt_dec isucc nbLevel
-then
-  ret (Build_level isucc _ )
-else  undefined 31.
-Definition gtb (a b : level) : LLI bool := ret (b <? a).
-Definition eqb (a b : level) : LLI bool:= ret (a =? b).
-End Level.
+ret (Build_index isucc).
 
-Module VAddr.
-Definition eqbList(vaddr1 : vaddr) (vaddr2 : vaddr) : LLI bool :=
-  ret (beqVAddr vaddr1 vaddr2).
-End VAddr.
-
-Module Count.
-Program Definition mul3 (a : level) : LLI count :=
-ret (Build_count (a * 3) _).
-Next Obligation.
-destruct a; simpl.
-(* BEGIN SIMULATION
-  unfold nbLevel in Hl.
-   END SIMULATION *)
-omega.
-Qed.
-Definition geb (a b : count) : LLI bool := ret (b <=? a).
-Program Definition zero : LLI count :=  ret (Build_count 0 _).
-Next Obligation.
-omega.
-Qed.
-Program Definition succ (n : count) : LLI count :=
-let isucc := n+1 in
-if le_dec isucc ((3*nbLevel) + 1)
-then
-  ret (Build_count isucc _ )
-else  undefined 34.
-End Count.
+Program Definition zero : LLI index:= ret (Build_index 0).
+End Index.

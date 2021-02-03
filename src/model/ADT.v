@@ -54,63 +54,47 @@ Axiom tableSize nbLevel nbPage: nat.
 Axiom nbLevelNotZero: nbLevel > 0.
 Axiom nbPageNotZero: nbPage > 0.
 
-(* Axiom tableSizeNotZero : tableSize <> 0. *)
 
-Axiom tableSizeIsEven : Nat.Even tableSize.
-(* END NOT SIMULATION *)
-Definition tableSizeLowerBound := 14.  
-Axiom tableSizeBigEnough : tableSize > tableSizeLowerBound. (* to be fixed on count **) 
+(* index represents whatever entry in a kernel structure *) 
 Record index := {
-  i :> nat ;
-  Hi : i < tableSize }.
-
-Record page := { 
-  p :> nat;
-  Hp : p < nbPage }.
-
-Definition paddr := (page * index)%type.
-
-Record vaddr := {
-  va :> list index ;
-  Hva : length va = nbLevel + 1}.
-
-Record level := {
-  l :> nat ;
-  Hl : l < nbLevel }.
-
-Record count := {
-  c :> nat ;
-  Hnb : c <= (3*nbLevel) + 1  ;
- }.
-
-Parameter index_d : index.
-Parameter page_d : page.
-Parameter level_d : level.
-
-Require Import Coq.Program.Tactics.
+  i :> nat (*;
+  Hi : i < tableSize*) }.
 
 Program Definition CIndex  (p : nat) : index := 
-if (lt_dec p tableSize) then 
-Build_index p _ else index_d.
+(*if (lt_dec p tableSize) then 
+Build_index p _ else index_d.*)
+Build_index p.
 
+(* TODO: change nbPage + coercion removed*)
+Record paddr := { 
+  p :> nat(*;
+  Hp : p < nbPage *)}.
 
-Program Definition CPage (p : nat) : page := 
-if (lt_dec p nbPage) then Build_page p _ else  page_d.
+(* TODO : set nbPage coercion *)
+Program Definition CPaddr (p : nat) : paddr := 
+(*if (lt_dec p nbPage) then Build_paddr p _ else  page_d.*)
+Build_paddr p.
 
-Program Definition CVaddr (l: list index) : vaddr := 
-if ( Nat.eq_dec (length l)  (nbLevel+1))  
-  then Build_vaddr l _
-  else Build_vaddr (repeat (CIndex 0) (nbLevel+1)) _.
+Record block := { 
+  startAddr :> paddr;
+  endAddr :> paddr ;
+  Hp : startAddr < endAddr;
+	Hstart : 0 <= startAddr;
+	Hend : 0 < endAddr }.
 
-(* BEGIN NOT SIMULATION *)
+(* TODO: change tableSize*)
+Record MPUIndex := {
+  MPUi :> nat (*;
+  Hi : i < tableSize*) }.
 
-Next Obligation.
-apply repeat_length.
-Qed. 
+Inductive id : Type :=
+  | Id (n : nat).
 
-(* END NOT SIMULATION *)
-
-
-Program Definition CLevel ( a :nat) : level := 
-if lt_dec a nbLevel then  Build_level a _ 
-else level_d .
+Definition eqb_id (x1 x2 : id) :=
+  match x1, x2 with
+  | Id n1, Id n2 => n1 =? n2
+  end.
+  
+(*Inductive paddrOption : Type :=
+  | Some (n : nat)
+  | None.*)

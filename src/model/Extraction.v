@@ -50,3 +50,8 @@ Extraction Library MAL.
 Extraction Library Internal .
 Extraction Library Services.
 
+Extraction Language OCaml.
+
+Extraction "create.ml" createPartition.
+(*Extraction "imp2.ml" createPartition.*)
+

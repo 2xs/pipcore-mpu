@@ -35,258 +35,337 @@
      Memory Abstraction Layer : is the interface exposed to services to read and
     write data into physical memory  *)
 Require Export Model.MALInternal. 
-Require Import Model.ADT Model.Hardware Model.Lib Model.MMU.
+Require Import Model.ADT Model.Hardware Model.Lib.
 Require Import Arith Bool NPeano List Omega.
 
-(** Memory access : read and write functions for each data type "vaddr", "page", 
-    "index", "Count", "level", "bool" (control flags) *)
+Export Hardware.
 
-Definition readVirtual (paddr : page) (idx : index) : LLI vaddr:=
-  perform s := get in
-  let entry :=  lookup paddr idx s.(memory) beqPage beqIndex  in
-  match entry with
-  | Some (VA a) => ret a
-  | Some _ => undefined 3
-  | None => undefined 2
-  end.
+Set Printing Implicit.
+Print Visibility.
+Print Model.Hardware.get.
+Set Typeclasses Debug Verbosity 2.
+Open Scope mpu_state_scope.
 
-Definition readPhysical (paddr : page) ( idx : index)  : LLI page:=
-  perform s := get in
-  let entry :=  lookup paddr idx s.(memory) beqPage beqIndex  in
+Check (fun s => ret s.(currentPartition)).
+Check bind get (fun s => ret s.(currentPartition)).
+Check perform s := get in ret s.(currentPartition).
+
+  (** The 'getCurPartition' function returns the current Partition from the current state *)
+(*Definition getCurPartition : LLI index :=
+	perform s := PipMPU.get in PipMPU.ret s.(PipMPU.currentPartition).*)
+Definition getCurPartition : LLI paddr :=
+	perform s := get in ret s.(currentPartition).
+
+
+Definition readPDTable (paddr : paddr)  : LLI PDTable :=
+	perform s := get in
+  let entry :=  lookup paddr s.(memory) beqAddr in
   match entry with
-  | Some (PP a) => ret a
+  | Some (PDT a) => ret a
   | Some _ => undefined 5
   | None => undefined 4
   end.
 
-Definition readVirEntry (paddr : page) (idx : index) : LLI vaddr :=
+Definition readPDStructurePointer  (pdtablepaddr: paddr) : LLI paddr :=
   perform s := get in
-  let entry :=  lookup paddr idx s.(memory) beqPage beqIndex  in
+  let entry :=  lookup pdtablepaddr s.(memory) beqAddr in
   match entry with
-  | Some (VE a) => ret a.(va)
-  | Some _ => undefined 7
-  | None => undefined 6
-  end.
-
-Definition readPhyEntry (paddr : page) (idx : index) : LLI page :=
-  perform s := get in
-  let entry :=  lookup paddr idx s.(memory) beqPage beqIndex  in
-  match entry with
-  | Some (PE a) => ret a.(pa)
-  | Some _ => undefined 9
-  | None => undefined 8
-  end.
-
-Definition writeVirtual (paddr : page) (idx : index) (va : vaddr) : LLI unit:=
-  modify (fun s => {| currentPartition := s.(currentPartition);
-  memory :=   add paddr idx (VA va)  s.(memory) beqPage beqIndex|} ).
-
-Definition writePhysical (paddr : page) (idx : index) (addr : page)  : LLI unit:=
-  modify (fun s => {| currentPartition := s.(currentPartition);
-  memory :=   add paddr idx (PP addr)  s.(memory) beqPage beqIndex|} ).
-
-Definition writeVirEntry (paddr : page) (idx : index)(addr : vaddr) :=
-  let newEntry := {| pd := false ; va := addr |} in
-  modify (fun s => {|
-  currentPartition := s.(currentPartition);
-  memory :=   add paddr idx (VE newEntry) s.(memory) beqPage beqIndex|} ).
-
-Definition writePhyEntry (paddr : page) (idx : index)(addr : page) (p u r w e: bool) :=
-  modify (fun s => {| currentPartition := s.(currentPartition);
-  memory :=   add paddr idx (PE {| read := r; write := w ; exec := e; present := p ; user := u ; pa := addr|})  s.(memory) beqPage beqIndex|} ).
-
-Definition writeKernelPhyEntry (paddr : page) (idx : index)(addr : page) ( p u r w e: bool) :=
-  modify (fun s => {| currentPartition := s.(currentPartition);
-  memory :=   add paddr idx (PE {| read := r; write := w ; exec := e; present := p ; user := u ; pa := addr|})  
-  s.(memory) beqPage beqIndex|} ).
-
-
-Definition readAccessible  (paddr : page) (idx : index) : LLI bool:=
-  perform s := get in
-  let entry :=  lookup paddr idx  s.(memory) beqPage beqIndex in
-  match entry with
-  | Some (PE a) => ret a.(user)
+  | Some (PDT a) => ret a.(structure)
   | Some _ => undefined 12
   | None => undefined 11
   end.
 
-Definition writeAccessible  (paddr : page) (idx : index) (flag : bool) : LLI unit:=
-perform s := get in
-let entry :=  lookup paddr idx s.(memory) beqPage beqIndex in
-match entry with
-| Some (PE a) => let newEntry := {| read := a.(read) ; write := a.(write) ; exec := a.(exec); present := a.(present); user:= flag;
-  pa := a.(pa) |} in
-  modify (fun s => {|
-  currentPartition := s.(currentPartition);
-  memory := add paddr idx (PE newEntry)  s.(memory) beqPage beqIndex |} )
-| Some _ => undefined 14
-| None => undefined 13
-end.
+Definition writePDStructurePointer (pdtablepaddr: paddr) (structurepaddr : paddr) : LLI unit :=
+	perform s := get in
+	let entry :=  lookup pdtablepaddr s.(memory) beqAddr in
+	match entry with
+		| Some (PDT a) =>  let newEntry := {| structure := structurepaddr;
+																					firstfreeslot := a.(firstfreeslot);
+																					nbfreeslots := a.(nbfreeslots);
+																					nbprepare := a.(nbprepare);
+																					parent := a.(parent)
+																			|} in
+											modify (fun s => {| currentPartition := s.(currentPartition);
+																								memory := add pdtablepaddr (PDT newEntry) s.(memory) beqAddr|} )
+		| Some _ => undefined 60
+		| None => undefined 59
+	end.
 
-Definition writePresent (paddr : page) (idx : index) (flag : bool) : LLI unit:=
-perform s := get in
-let entry :=  lookup paddr idx s.(memory) beqPage beqIndex in
-match entry with
-| Some (PE a) => let newEntry := {| read := a.(read) ; write := a.(write) ; exec := a.(exec); present := flag; user:= a.(user);
-  pa := a.(pa) |} in
-  modify (fun s => {|
-  currentPartition := s.(currentPartition);
-  memory := add paddr idx (PE newEntry)  s.(memory) beqPage beqIndex|} )
+Definition writePDFirstFreeSlotAddr (pdtablepaddr: paddr) (firstfreeslotpaddr : paddr) : LLI unit :=
+	perform s := get in
+	let entry :=  lookup pdtablepaddr s.(memory) beqAddr in
+	match entry with
+		| Some (PDT a) =>  let newEntry := {| structure := a.(structure);
+																					firstfreeslot := firstfreeslotpaddr;
+																					nbfreeslots := a.(nbfreeslots);
+																					nbprepare := a.(nbprepare);
+																					parent := a.(parent)
+																			|} in
+											modify (fun s => {| currentPartition := s.(currentPartition);
+																								memory := add pdtablepaddr (PDT newEntry) s.(memory) beqAddr|} )
+		| Some _ => undefined 60
+		| None => undefined 59
+	end.
 
-| Some _ => undefined 16
-| None => undefined 15
-end.
+Definition writePDNbFreeSlots (pdtablepaddr: paddr) (nbfreeslots : nat) : LLI unit :=
+	perform s := get in
+	let entry :=  lookup pdtablepaddr s.(memory) beqAddr in
+	match entry with
+		| Some (PDT a) =>  let newEntry := {| structure := a.(structure);
+																					firstfreeslot := a.(firstfreeslot);
+																					nbfreeslots := nbfreeslots;
+																					nbprepare := a.(nbprepare);
+																					parent := a.(parent)
+																			|} in
+											modify (fun s => {| currentPartition := s.(currentPartition);
+																								memory := add pdtablepaddr (PDT newEntry) s.(memory) beqAddr|} )
+		| Some _ => undefined 60
+		| None => undefined 59
+	end.
 
-Definition readPresent  (paddr : page) (idx : index) : LLI bool:=
-perform s := get in
-let entry :=  lookup paddr idx s.(memory) beqPage beqIndex in
-match entry with
-  | Some (PE a) => ret a.(present)
-  | Some _ => undefined 18
-  | None => undefined 17
-end.
+Definition writePDNbPrepare (pdtablepaddr: paddr) (nbprepare : nat) : LLI unit :=
+	perform s := get in
+	let entry :=  lookup pdtablepaddr s.(memory) beqAddr in
+	match entry with
+		| Some (PDT a) =>  let newEntry := {| structure := a.(structure);
+																					firstfreeslot := a.(firstfreeslot);
+																					nbfreeslots := a.(nbfreeslots);
+																					nbprepare := nbprepare;
+																					parent := a.(parent)
+																			|} in
+											modify (fun s => {| currentPartition := s.(currentPartition);
+																								memory := add pdtablepaddr (PDT newEntry) s.(memory) beqAddr|} )
+		| Some _ => undefined 60
+		| None => undefined 59
+	end.
 
-Definition writePDflag (paddr : page) (idx : index) (flag : bool) : LLI unit:=
-perform s := get in
-let entry :=  lookup paddr idx s.(memory) beqPage beqIndex in
-match entry with
-  | Some (VE a) =>  let newEntry := {| pd := flag; va := a.(va) |} in
-    modify (fun s => {|
-    currentPartition := s.(currentPartition);
-    memory := add paddr idx (VE newEntry) s.(memory) beqPage beqIndex|} )
-  | Some _ => undefined 20
-  | None => undefined 19
-end.
-
-Definition readPDflag  (paddr : page) (idx : index) : LLI bool:=
-perform s := get in
-let entry :=  lookup paddr idx s.(memory) beqPage beqIndex in
-match entry with
-  | Some (VE a) =>  ret a.(pd)
-  | Some _ => undefined 21
-  | None => undefined 22
-end.
-
-Definition writeIndex  (paddr : page) (idx : index) (count : index) : LLI unit:=
-perform s := get in
-modify (fun s => {|
-    currentPartition := s.(currentPartition);
-    memory :=   add paddr idx (I count)  s.(memory) beqPage beqIndex|} ).
-
-Definition readIndex  (paddr : page) (idx : index) : LLI index:=
+Definition readPDParent  (pdtablepaddr: paddr) : LLI paddr :=
   perform s := get in
-  let entry := lookup paddr idx s.(memory) beqPage beqIndex in
+  let entry :=  lookup pdtablepaddr s.(memory) beqAddr in
   match entry with
-  | Some (I e) =>  ret e
-  | Some _ => undefined 24
-  | None => undefined 23
+  | Some (PDT a) => ret a.(parent)
+  | Some _ => undefined 12
+  | None => undefined 11
   end.
 
-Definition checkRights (r w e : bool):= 
-if (r && w && e) 
-then  
-ret true
-else ret (true || w).
-(*** End memory access *)
+Definition writePDParent (pdtablepaddr: paddr) (parent : paddr) : LLI unit :=
+	perform s := get in
+	let entry :=  lookup pdtablepaddr s.(memory) beqAddr in
+	match entry with
+		| Some (PDT a) =>  let newEntry := {| structure := a.(structure);
+																					firstfreeslot := a.(firstfreeslot);
+																					nbfreeslots := a.(nbfreeslots);
+																					nbprepare := a.(nbprepare);
+																					parent := parent
+																			|} in
+											modify (fun s => {| currentPartition := s.(currentPartition);
+																								memory := add pdtablepaddr (PDT newEntry) s.(memory) beqAddr|} )
+		| Some _ => undefined 60
+		| None => undefined 59
+	end.
 
-(** The 'getMaxIndex' function returns the physical page size (minus 1) *)
-Program Definition getMaxIndex : LLI index:=
-if gt_dec tableSize 0
-then
-  ret (Build_index (tableSize - 1) _)
-else undefined 36.
 
-(* BEGIN NOT SIMULATION *)
-
-Next Obligation.
-omega.
-Qed.
-
-(* END NOT SIMULATION *)
-
-(** The 'getIndexOfAddr' function returns the index of va that corresponds to l *)
-Definition getIndexOfAddr (va : vaddr) (l : level) : LLI index:=
-  ret ( nth ((length va) - (l + 2)) va defaultIndex ).
-
-(** The 'getNbLevel' function returns the number of levels of the MMU *)
-Program Definition getNbLevel : LLI level:=
-if gt_dec nbLevel 0
-then
-  ret (Build_level (nbLevel -1) _ ) else undefined 35.
-(* BEGIN NOT SIMULATION *)
-Next Obligation.
-omega.
-Qed.
-(* END NOT SIMULATION *)
-
-(** The 'getCurPartition' function returns the current Partition from the current state *)
-Definition getCurPartition : LLI page:=
-  perform s := get in  ret s.(currentPartition).
-
-(** The 'activate' function update the current Partition *)
-Definition activate (phyPartition : page) : LLI unit := 
-  modify (fun s => {| currentPartition := phyPartition;
-  memory := s.(memory)|} ).
-
-(***************************** STORE AND FETCH ****************************)
-(* (** The 'comparePageToNull' returns true if the given page is equal to the fixed
-    default page (null) *) 
-Definition comparePageToNull (p :page) : LLI bool :=
-  perform nullPaddr := getDefaultPage in
-  MALInternal.Page.eqb nullPaddr p.
-  
-(** The 'getTableAddrAux' returns the reference to the last page table  *)
-Fixpoint translateAux timeout (pd : page) (va : vaddr) (l : level) :=
-  match timeout with
-  | 0 => getDefaultPage
-  |S timeout1 =>
-  perform isFstLevel := MALInternal.Level.eqb l fstLevel in 
-    if isFstLevel 
-    then  ret pd 
-    else
-      perform idx :=  getIndexOfAddr va l in
-      perform addr :=  readPhyEntry pd idx in 
-      perform isNull := comparePageToNull addr in
-      if isNull then getDefaultPage else
-      perform p := MALInternal.Level.pred l in
-      translateAux timeout1 addr va p
-  end .
-
-(** The 'translate' *)
-Definition  translate (pd : page) (va : vaddr) (l : level)  :=
-  perform lastTable := translateAux nbLevel pd va l in 
-  perform isNull := comparePageToNull lastTable in
-  if isNull then getDefaultPage else
-  perform idx :=  getIndexOfAddr va fstLevel in
-  readPhyEntry lastTable idx. *)
-
-(** The 'getPd' function returns the page directory of a given partition *)
-Definition getPd partition :=
-  perform idxPD := getPDidx in
-  perform idx := MALInternal.Index.succ idxPD in
-  readPhysical partition idx.
-
-(** The 'fetchVirtual' function translates the given virtual address to physical address in the 
-    current partition and read the value stored into the physical address. This value is a 
-    virtual address  *)
-Definition fetchVirtual ( va : vaddr) (idx : index)  : LLI vaddr:=
-  perform currentPartition := getCurPartition in 
-  perform currentPD := getPd currentPartition in 
-  perform nbL := getNbLevel in 
-  perform optionphyPage := translate currentPD va nbL in
-  match optionphyPage with 
-  | None => getDefaultVAddr
-  | Some phyPage => readVirtual phyPage idx
+Definition readMPUEntry (paddr : paddr) : LLI MPUEntry :=
+  perform s := get in
+  let entry :=  lookup paddr s.(memory) beqAddr in
+  match entry with
+  | Some (MPUE a) => ret a
+  | Some _ => undefined 9
+  | None => undefined 8
   end.
-  
-(** The 'storeVirtual' function translates the given virtual address to physical address in the 
-    current partition and stores a value into the physical address. *)
-Definition storeVirtual (va : vaddr) (idx : index) (vaToStore : vaddr) : LLI unit:=
-  perform currentPartition := getCurPartition in 
-  perform currentPD := getPd currentPartition in 
-  perform nbL := getNbLevel in 
-  perform optionphyPage := translate currentPD va nbL in
-  match optionphyPage with 
-  | None => ret tt
-  | Some phyPage => writeVirtual phyPage idx vaToStore
+(*
+Definition readMPUAccessibleFromMPUEntryAddr  (paddridx : PipMPU.index) : LLI bool :=
+  perform s := get in
+  let entry :=  PipMPU.lookup paddridx s.(memory) PipMPU.beqIdx in
+  match entry with
+  | Some (MPUE a) => ret a.(accessible)
+  | Some _ => undefined 12
+  | None => undefined 11
+  end.*)
+Check LLI paddr.
+Definition readMPUStartFromMPUEntryAddr  (paddr : paddr) : LLI ADT.paddr :=
+  perform s := get in
+  let entry :=  lookup paddr s.(memory) beqAddr in
+  match entry with
+  | Some (MPUE a) => ret a.(mpublock).(startAddr)
+  | Some _ => undefined 12
+  | None => undefined 11
+  end.
+Print readMPUStartFromMPUEntryAddr.
+
+Definition readMPUAccessibleFromMPUEntryAddr  (paddr : paddr) : LLI bool :=
+  perform s := get in
+  let entry :=  lookup paddr s.(memory) beqAddr in
+  match entry with
+  | Some (MPUE a) => ret a.(accessible)
+  | Some _ => undefined 12
+  | None => undefined 11
+  end.
+
+Definition writeMPUAccessibleFromMPUEntryAddr  (paddr : paddr) (accessiblebit  : bool) : LLI unit :=
+  perform s := get in
+  let entry :=  lookup paddr s.(memory) beqAddr in
+  match entry with
+  | Some (MPUE a) => let newEntry := {|	read := a.(read);
+																			 	write := a.(write);
+																			 	exec := a.(exec);
+																			 	present := a.(present);
+																			 	accessible := accessiblebit;
+																			 	mpuindex := a.(mpuindex);
+																			 	mpublock := a.(mpublock)
+																			|} in
+											modify (fun s => {| currentPartition := s.(currentPartition);
+																								memory := add paddr (MPUE newEntry) s.(memory) beqAddr|} )
+		| Some _ => undefined 60
+		| None => undefined 59
+  end.
+
+Definition readMPUPresentFromMPUEntryAddr  (paddr : paddr) : LLI bool :=
+  perform s := get in
+  let entry :=  lookup paddr s.(memory) beqAddr in
+  match entry with
+  | Some (MPUE a) => ret a.(present)
+  | Some _ => undefined 12
+  | None => undefined 11
+  end.
+
+(*Definition readMPUIndexFromMPUEntry  (paddridx : PipMPU.index) : LLI nat :=
+  perform s := get in
+  let entry :=  PipMPU.lookup paddridx s.(memory) PipMPU.beqIdx in
+  match entry with
+  | Some (MPUE a) => ret a.(mpuindex)
+  | Some _ => undefined 12
+  | None => undefined 11
+  end.*)
+Definition readMPUIndexFromMPUEntry  (paddr : paddr) : LLI nat :=
+  perform s := get in
+  let entry :=  lookup paddr s.(memory) beqAddr in
+  match entry with
+  | Some (MPUE a) => ret a.(mpuindex)
+  | Some _ => undefined 12
+  | None => undefined 11
+  end.
+
+Definition readMPUBlockFromMPUEntryAddr  (paddr : paddr) : LLI block :=
+  perform s := get in
+  let entry :=  lookup paddr s.(memory) beqAddr in
+  match entry with
+  | Some (MPUE a) => ret a.(mpublock)
+  | Some _ => undefined 12
+  | None => undefined 11
+  end.
+
+
+(*Definition readPDChildFromMPUEntry (paddridx : PipMPU.index) : LLI PipMPU.index :=
+(* compute kernel start *)
+
+(* MPU_entry_index = self.get_MPU_index(MPU_entry_address)
+  # we compute the start of the kernel structure knowing the MPU's entry address and index
+  kernel_structure_start = MPU_entry_address - MPU_entry_index * self.constants.MPU_entry_length
+  return self.get_address_Sh1_PDchild_from_kernel_structure_start(kernel_structure_start, MPU_entry_index)*)
+	perform MPUEntryIndex := readMPUIndexFromMPUEntry paddridx in
+	let MPUEntryIndexidx := CIndex MPUEntryIndex in
+	let kernelStartIdx := CIndex (paddridx - MPUEntryIndexidx) in
+	perform Sh1Eidx := PipMPU.getSh1EntryIndexFromKernelStructureStart kernelStartIdx MPUEntryIndexidx in
+  perform s := get in
+  let entry :=  PipMPU.lookup Sh1Eidx s.(memory) PipMPU.beqIdx in
+  match entry with
+  | Some (SHE a) => ret a.(PDchild)
+  | Some _ => undefined 12
+  | None => undefined 11
+  end.*)
+
+Definition readSh1PDChildFromMPUEntryAddr (paddr : paddr) : LLI ADT.paddr :=
+(* compute kernel start *)
+
+(* MPU_entry_index = self.get_MPU_index(MPU_entry_address)
+  # we compute the start of the kernel structure knowing the MPU's entry address and index
+  kernel_structure_start = MPU_entry_address - MPU_entry_index * self.constants.MPU_entry_length
+  return self.get_address_Sh1_PDchild_from_kernel_structure_start(kernel_structure_start, MPU_entry_index)*)
+	perform MPUEntryIndex := readMPUIndexFromMPUEntry paddr in
+	let MPUEntryIndexidx := CIndex MPUEntryIndex in
+
+(* TODO : check if paddr - MPUEntryIndexidx*PipMPU.Constants.MPUEntryLength > 0 ? *)
+	let kernelStartAddr := CPaddr (paddr - MPUEntryIndexidx*Constants.MPUEntryLength) in
+perform Sh1EAddr := getSh1EntryAddrFromKernelStructureStart kernelStartAddr MPUEntryIndexidx in
+  perform s := get in
+  let entry :=  lookup Sh1EAddr s.(memory) beqAddr in
+  match entry with
+  | Some (SHE a) => ret a.(PDchild)
+  | Some _ => undefined 12
+  | None => undefined 11
+  end.
+Print readSh1PDChildFromMPUEntryAddr.
+
+Definition writeSh1PDFlagFromMPUEntryAddr (paddr : paddr) (pdflag : bool) : LLI unit :=
+(* compute kernel start *)
+
+(* MPU_entry_index = self.get_MPU_index(MPU_entry_address)
+  # we compute the start of the kernel structure knowing the MPU's entry address and index
+  kernel_structure_start = MPU_entry_address - MPU_entry_index * self.constants.MPU_entry_length
+  return self.get_address_Sh1_PDchild_from_kernel_structure_start(kernel_structure_start, MPU_entry_index)*)
+	perform MPUEntryIndex := readMPUIndexFromMPUEntry paddr in
+	let MPUEntryIndexidx := CIndex MPUEntryIndex in
+
+(* TODO : check if paddr - MPUEntryIndexidx*Constants.MPUEntryLength > 0 ? *)
+	let kernelStartAddr := CPaddr (paddr - MPUEntryIndexidx*Constants.MPUEntryLength) in
+	perform Sh1EAddr := getSh1EntryAddrFromKernelStructureStart kernelStartAddr MPUEntryIndexidx in
+  perform s := get in
+  let entry :=  lookup Sh1EAddr s.(memory) beqAddr in
+  match entry with
+  | Some (SHE a) => let newEntry := {|	PDchild := a.(PDchild);
+																			 	PDflag := pdflag;
+																			 	inChildLocation := a.(inChildLocation)
+																			|} in
+											modify (fun s => {| currentPartition := s.(currentPartition);
+																								memory := add paddr (SHE newEntry) s.(memory) beqAddr|} )
+  | Some _ => undefined 12
+  | None => undefined 11
+  end.
+
+
+Definition readSCOriginFromMPUEntryAddr  (paddr : paddr) : LLI ADT.paddr :=
+  perform s := get in
+  let entry :=  lookup paddr s.(memory) beqAddr in
+  match entry with
+  | Some (SCE a) => ret a.(origin)
+  | Some _ => undefined 12
+  | None => undefined 11
+  end.
+
+Definition readSCNextFromMPUEntryAddr  (paddr : paddr) : LLI ADT.paddr :=
+  perform s := get in
+  let entry :=  lookup paddr s.(memory) beqAddr in
+  match entry with
+  | Some (SCE a) => ret a.(next)
+  | Some _ => undefined 12
+  | None => undefined 11
+  end. 
+
+Definition eraseAddr (paddr : paddr): LLI unit :=
+modify (fun s => {| currentPartition := s.(currentPartition);
+	memory := removeDup paddr s.(memory) beqAddr|} ).
+
+Definition writePDTable (pdtablepaddr : paddr) (newEntry : PDTable)  : LLI unit:=
+  modify (fun s => {| 
+			currentPartition := s.(currentPartition);
+			memory := add pdtablepaddr (PDT newEntry) s.(memory) beqAddr|} ).
+
+Definition getEmptyPDTable : LLI PDTable :=
+	perform nullAddr := getNullAddr in
+	let emptyPDTable := {| structure := nullAddr;
+										firstfreeslot := nullAddr;
+										nbfreeslots := 0;
+										nbprepare := 0;
+										parent := nullAddr |} in 
+	ret emptyPDTable.
+
+Definition readNextFromKernelStructureStart  (structurepaddr : paddr) : LLI paddr :=
+	perform nextaddr :=  getNextAddrFromKernelStructureStart structurepaddr in (** Our last index is table size - 1, as we're indexed on zero*)
+  perform s := get in
+  let entry :=  lookup nextaddr s.(memory) beqAddr in
+  match entry with
+  | Some (PADDR a) => ret a
+  | Some _ => undefined 12
+  | None => undefined 11
   end.

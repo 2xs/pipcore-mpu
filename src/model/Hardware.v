@@ -64,94 +64,8 @@ This file contains the monad state and Hoare logic formalization.
 *)
 Require Import FunctionalExtensionality Model.ADT.
 
-Record Pentry : Type:=
-{read :bool;
- write : bool ;
- exec : bool;
- present : bool;
- user    : bool;
- pa      : page
-}.
 
-Record Ventry : Type:=
-{
- pd : bool;
- va : vaddr
-}.
-
-Inductive value : Type:= 
-|PE : Pentry -> value
-|VE : Ventry -> value
-|PP : page -> value
-|VA : vaddr -> value
-|I  : index -> value.  
-
-
-Record state : Type := {
- currentPartition : page;
- memory : list (paddr * value)
-}.
-
-Inductive result (A : Type) : Type :=
-| val : A -> result A
-(* | hlt : result A *)
-| undef : nat -> state-> result A.
-
-Arguments val [ A ].
-(* Arguments hlt [ A ]. *)
-Arguments undef [ A ]. 
-
-
-Definition LLI (A :Type) : Type := state -> result (A * state).
-
-Definition ret {A : Type} (a : A) : LLI A :=
-  fun s => val (a , s) .
-
-Definition bind {A B : Type} (m : LLI A)(f : A -> LLI B) : LLI B :=  
-fun s => match m s with
-    | val (a, s') => f a s'
-(*     | hlt => hlt *)
-    | undef a s' => undef a s'
-    end.
-
-Definition put (s : state) : LLI unit :=
-  fun _ => val (tt, s).
-
-Definition get : LLI state :=
-  fun s => val (s, s).
-
-(* 
-Definition halt {A : Type} : LLI A :=
-  fun _ => hlt.
- *)
-Definition undefined {A : Type} (code : nat ): LLI A :=
-  fun s => undef code s.
-
-Definition runvalue {A : Type} (m : LLI A) (s : state)  : option A :=
-match m s with 
-   |undef _ _=> None 
-   | val (a, _) => Some a
-   end.
-
-Definition runstate {A : Type} (m : LLI A) (s : state)  : option state :=
-match m s with 
-   |undef _ _=> None 
-   | val (_, s') => Some s'
-   end. 
- 
-Notation "'perform' x ':=' m 'in' e" := (bind m (fun x => e))
-  (at level 60, x ident, m at level 200, e at level 60, format "'[v' '[' 'perform'  x  ':='  m  'in' ']' '/' '[' e ']' ']'") : state_scope.
-
-Notation "m1 ;; m2" := (bind m1 (fun _ => m2)) (at level 60, right associativity) : state_scope.
-
-Open Scope state_scope.
-
-
-
-Definition modify (f : state -> state) : LLI unit :=
-  perform s := get in put (f s).
-
-Definition hoareTriple {A : Type} (P : state -> Prop) (m : LLI A) (Q : A -> state -> Prop) : Prop :=
+(*Definition hoareTriple {A : Type} (P : state -> Prop) (m : LLI A) (Q : A -> state -> Prop) : Prop :=
   forall s, P s -> match m s with
     | val (a, s') => Q a s'
 (*     | hlt => True *)
@@ -293,4 +207,110 @@ apply H0 in H2.
 destruct (m s); trivial.
 destruct p; intuition.
 Qed.
+*)
+Declare Scope mpu_state_scope.
+Set Typeclasses Debug Verbosity 2.
+Export ADT.
 
+Record MPUEntry : Type:=
+{read :bool;
+ write : bool ;
+ exec : bool;
+ present : bool;
+ accessible    : bool;
+ mpuindex : nat;
+ mpublock      : block
+}.
+
+
+(* dériver Sh1entry de Sh1 ?*)
+Record Sh1Entry : Type:=
+{
+ PDchild : paddr;
+ PDflag : bool;
+ inChildLocation : paddr
+}.
+
+Record SCEntry : Type:=
+{
+ origin : paddr;
+ next : paddr
+}.
+
+Record PDTable := { 
+  structure : paddr ;
+	firstfreeslot : paddr ;
+	nbfreeslots : nat ;
+	nbprepare : nat ; 
+	parent : paddr (*; 
+  Hp : pd < nbPage *)}.
+
+
+Inductive value : Type:= 
+|MPUE : MPUEntry -> value
+|SHE : Sh1Entry -> value
+|SCE : SCEntry -> value
+|PDT : PDTable -> value
+|PADDR : paddr -> value.
+
+(* memory only kernel addresses *)
+(*Record state : Type := {
+ currentPartition : PipMPU.index;
+ memory : list (PipMPU.index * value)
+}.*)
+Record state : Type := {
+ currentPartition : paddr;
+ memory : list (paddr * value)
+}.
+
+Inductive result (A : Type) : Type :=
+| val : A -> result A
+(* | hlt : result A *)
+| undef : nat -> state -> result A.
+
+Arguments val [ A ].
+(* Implicit Arguments hlt [ A ]. *)
+Arguments undef [ A ].
+
+Definition LLI (A :Type) : Type := state -> result (A * state).
+
+Definition put (s : state) : LLI unit :=
+  fun _ => val (tt, s).
+
+Definition get : LLI state :=
+  fun s => val (s, s).
+
+
+Definition ret {A : Type} (a : A) : LLI A :=
+  fun s => val (a , s) .
+
+Definition bind {A B : Type} (m : LLI A)(f : A -> LLI B) : LLI B :=  
+fun s => match m s with
+    | val (a, s') => f a s'
+(*     | hlt => hlt *)
+    | undef a s' => undef a s'
+    end.
+
+
+Definition undefined {A : Type} (code : nat ): LLI A :=
+  fun s => undef code s.
+
+Check bind.
+Check bind.
+Print Visibility.
+(*Close Scope state_scope.*)
+Print Visibility.
+
+Notation "'perform' x ':=' m 'in' e" := (bind m (fun x => e))
+  (at level 60, x ident, m at level 200, e at level 60, format "'[v' '[' 'perform'  x  ':='  m  'in' ']' '/' '[' e ']' ']'") : mpu_state_scope.
+
+
+Notation "m1 ;; m2" := (bind m1 (fun _ => m2)) (at level 60, right associativity) : mpu_state_scope.
+
+Bind Scope mpu_state_scope with state.
+Delimit Scope mpu_state_scope with pipmpu.
+Open Scope mpu_state_scope.
+
+Definition modify (f : state -> state) : LLI unit :=
+	(*PipMPU.bind PipMPU.get (fun s => put (f s)).*)
+  perform s := get in put (f s).
