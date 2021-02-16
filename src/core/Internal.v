@@ -131,7 +131,7 @@ Fixpoint findBlockInMPUAux (timeout : nat) (currentidx : index) (currentkernelst
 											else
 												findBlockInMPUAux timeout1 (CIndex 0) nextkernelstructure idblock (** Recursive call on the next table *)
 									else
-											perform entryaddr := getAddrAtIndexFromKernelStructureStart currentkernelstructure currentidx in
+											perform entryaddr := getMPUEntryAddrAtIndexFromKernelStructureStart currentkernelstructure currentidx in
 											perform ispresent := readMPUPresentFromMPUEntryAddr entryaddr in
 											perform mpustart := readMPUStartFromMPUEntryAddr entryaddr in
 											if ispresent && beqAddr mpustart idblock then
@@ -194,6 +194,72 @@ Fixpoint writeAccessibleRec timeout (pdbasepartition idblock : paddr) (accessibl
 Definition writeAccessibleRecAux (pdbasepartition idblock : paddr) (accessiblebit : bool) : LLI bool :=
 	writeAccessibleRec N pdbasepartition idblock accessiblebit.
 Print writeAccessibleRec.
+
+Definition writeAccessibleToAncestorsIfNoCut 	(pdbasepartition idblock mpublockaddr : paddr)
+																							(origin next : paddr)
+																							(accessiblebit : bool) : LLI bool :=
+		perform blockOrigin := readSCOriginFromMPUEntryAddr mpublockaddr in
+		perform blockStart := readMPUStartFromMPUEntryAddr mpublockaddr in
+		perform blockNext := readSCNextFromMPUEntryAddr mpublockaddr in
+		if beqAddr blockStart blockOrigin  && beqAddr blockNext nullAddr then
+			(* Block hasn't been cut previously, adjust accessible bit *)
+			writeAccessibleRecAux pdbasepartition idblock accessiblebit ;;
+			ret true
+		else ret true.
+
+(*     def __insert_new_entry(self, PD_insertion, entry_to_insert, block_origin):
+        """Insert the entry <entry_to_insert> in the partition <PD_insertion> with block origin <block_origin>
+        Used in cutMemoryBlock and addMemoryBlock"""
+        # insérerEntrée(idPDinsertion, entrée à insérer, origine bloc) : insère l’entrée au 1er emplacement libre dans la MPU de idPDinsertion et précise l’origine du bloc, retourne l’emplacement MPU où l’entrée a été insérée (O(1))
+        # Checks have been done before: PD is correct, MPU_entry is correct, block_origin is correct, there is one or
+        # more free slots
+
+        # entrée MPU libre <- idPDinsertion[pointeur libre] (récupérer la 1ère entrée libre)
+        new_entry_address = self.helpers.get_PD_first_free_slot_address(PD_insertion)
+
+        # // Ajuster le pointeur libre
+        # Adjust the free slot pointer and count
+        # Ecrire idPDinsertion[pointeur libre]->end à idPDinsertion[pointeur libre] (changer le pointeur libre vers la prochaine entrée MPU libre)
+        new_first_free_slot_address = self.helpers.get_MPU_end_from_MPU_entry_address(new_entry_address)
+        self.helpers.set_PD_first_free_slot_address(PD_insertion, new_first_free_slot_address)
+
+        # Ecrire (idPDinsertion[compteur]–1) à idPDinsertion[compteur] (enlever 1 au compteur d’entrées libres)
+        self.helpers.set_PD_nb_free_slots(PD_insertion, self.helpers.get_PD_nb_free_slots(PD_insertion) - 1)
+
+        # // Insérer l’entrée au 1er emplacement libre
+        # Ecrire (entrée à insérer) à @(entrée MPU libre) (insérer l’entrée à l’emplacement libre)
+        self.helpers.write_MPU_entry(new_entry_address, entry_to_insert[1], entry_to_insert[2], entry_to_insert[3], entry_to_insert[4])
+
+        # Ecrire (origine bloc) à SC[entrée MPU libre]->origin (indiquer que le bloc est l’origine des coupes futures, soit le start du bloc qui a été donné)
+        self.helpers.set_SC_origin_from_MPU_entry_address(new_entry_address, block_origin)
+
+        # RET @(entrée MPU libre)
+        return new_entry_address
+*)
+(** The [insertNewEntry] function inserts the entry (<startaddr>, <endaddr>, true, true)
+ 	in the partition <pdinsertion> with block origin <origin>.
+	Used in cutMemoryBlock and addMemoryBlock
+	Returns the inserted entry's MPU address
+	 *)
+Definition insertNewEntry (pdinsertion startaddr endaddr origin: paddr) : LLI paddr :=
+(** Checks have been done before: PD is correct, MPU_entry is correct, block_origin is correct, there is one or more free slots *)
+	perform newEntryMPUAddr := readPDFirstFreeSlotAddr pdinsertion in
+	(** Adjust the free slot pointer to the next free slot*)
+	perform newFirstFreeSlotAddr := readMPUEndFromMPUEntryAddr newEntryMPUAddr in
+	writePDFirstFreeSlotAddr pdinsertion newFirstFreeSlotAddr ;;
+	(** Adjust the free slots count to count - 1*)
+	perform currentNbFreeSlots := readPDNbFreeSlots pdinsertion in
+	writePDNbFreeSlots pdinsertion (currentNbFreeSlots - 1) ;;
+
+	(** Insert the new MPU entry in the free slot*)
+	writeMPUStartFromMPUEntryAddr newEntryMPUAddr startaddr ;;
+	writeMPUEndFromMPUEntryAddr newEntryMPUAddr endaddr ;;
+	writeMPUAccessibleFromMPUEntryAddr newEntryMPUAddr true ;;(** TODO accessible by default else no cut no add*)
+	writeMPUPresentFromMPUEntryAddr newEntryMPUAddr true ;;(** TODO present by default*)
+	(* TODO : set the block's RWX rights here ?*)
+	writeSCOriginFromMPUEntryAddr newEntryMPUAddr origin ;;
+
+	ret newEntryMPUAddr.
 
 Module Helpers.
 

@@ -104,7 +104,7 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
     if self.helpers.get_Sh1_PDchild_from_MPU_entry_address(block_in_current_partition_address) != 0:
         # block is already shared with a child partition
         return 0  # TODO: return NULL*)
-		(* if not accessible, then PDflag can't be set, we just need to check PDchild *)
+		(* if accessible, then PDflag can't be set, we just need to check PDchild *)
 		perform PDChildAddr := readPDChildFromMPUEntry	blockInCurrentPartitionAddr in
 		perform PDChildAddrIsNull := compareAddrToNull PDChildAddr in
 		if negb PDChildAddrIsNull (*shouldn't be null*) then ret false else
@@ -185,3 +185,138 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
 		ret true.
 Check createPartition.
 Print createPartition.
+
+(** ** The cutMemoryBlock PIP MPU service
+
+    The [cutMemoryBlock] system call cuts the memory block <idBlockToCut> 
+		at <cutAddress> which creates a new subbblock at that address.
+		Returns the new created subblock's MPU address:OK/NULL:NOK
+
+    <<idBlockToCut>>		the block to cut
+												(id = start field of an existing block)
+		<<cutAddress>>			the address where to cut the <idBlockToCut> block, 
+												becomes the id of the created block
+*)
+Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
+(*    def cutMemoryBlock(self, idBlockToCut, cutAddress):
+    """Cuts the memory block <idBlockToCut> and creates a new block at <cutAddress>
+    :param idBlockToCut: the block to cut
+    :param cutAddress: the address where to cut the <idBlockToCut> block, becomes the id of the created block
+    :return: address of the created block's MPU location:OK/0:NOK
+    """*)
+    (** Get the current partition (Partition Descriptor) *)
+    perform currentPart := getCurPartition in
+(*
+    # check that there is a free slot left
+    if self.helpers.get_PD_nb_free_slots(self.current_partition) <= 0:
+        # no free slot, stop
+        return 0  # TODO: return NULL*)
+		(** Check that there is a free slot left*)
+		perform nbFreeSlots := readPDNbFreeSlots currentPart in
+		if leb nbFreeSlots 0 then ret nullAddr else
+(*
+    # find the block in the current partition's MPU structure
+    block_to_cut_MPU_address= self.__find_block_in_MPU(self.current_partition, idBlockToCut)
+    if block_to_cut_MPU_address == -1:
+        # no block found, stop
+        return 0 # TODO: return NULL*)
+		(** Find the block in the current partition *)
+    perform blockToCutMPUAddr := findBlockInMPU currentPart idBlockToCut in
+		perform addrIsNull := compareAddrToNull	blockToCutMPUAddr in
+		if addrIsNull then(** no block found, stop *) ret nullAddr else
+
+(*
+    block_to_cut_MPU_entry = self.helpers.get_MPU_entry(block_to_cut_MPU_address)
+    block_to_cut_Sh1_entry = self.helpers.get_Sh1_entry_from_MPU_entry_address(block_to_cut_MPU_address)
+    # check that the block is accessible + not shared
+    if block_to_cut_MPU_entry[3] == False \
+        or block_to_cut_Sh1_entry[0] != 0 \
+        or block_to_cut_Sh1_entry[1] == True:
+        # root is always 0 so an entry 0 in shared is default
+        return 0 # TODO: return NULL*)
+		(** Check the block to cut is accessible *)
+		perform blockIsAccessible := readMPUAccessibleFromMPUEntryAddr blockToCutMPUAddr in
+		if negb blockIsAccessible then (** block is inaccessible *) ret nullAddr else
+
+		(** Check the block is not shared TODO: changed condition *)
+		(* if accessible, then PDflag can't be set, we just need to check PDchild is null*)
+		perform PDChildAddr := readPDChildFromMPUEntry	blockToCutMPUAddr in
+		perform PDChildAddrIsNull := compareAddrToNull PDChildAddr in
+		if negb PDChildAddrIsNull (*shouldn't be null*) then ret nullAddr else
+
+(*
+    # Check that the cut address lies between the start and the end address
+    if cutAddress < block_to_cut_MPU_entry[1] or cutAddress > block_to_cut_MPU_entry[2]:
+        # cutAddress outside bounds
+        return 0  # TODO: return NULL*)
+		(** Check the cut address lies between the start and the end address *)
+		perform blockToCutStartAddr := readMPUStartFromMPUEntryAddr blockToCutMPUAddr in
+		perform isCutAddrBelowStart := Paddr.leb cutAddr blockToCutStartAddr in
+		if isCutAddrBelowStart then (**cutAddress outside bounds*) ret nullAddr else
+
+		perform blockToCutEndAddr := readMPUEndFromMPUEntryAddr blockToCutMPUAddr in
+		perform isCutAddrAboveEnd := Paddr.leb blockToCutEndAddr cutAddr in
+		if isCutAddrAboveEnd then (**cutAddress outside bounds*) ret nullAddr else
+(*
+    # check that the new subblockS is at least 32 bytes (don't care if power of 2 because could be intermdiary)*)
+		(** Check that the block is greater than the minimum MPU region size*)
+		perform blockMPUentry := readMPUEntry blockToCutMPUAddr in
+		perform blockSize := sizeOfBlock blockMPUentry.(mpublock) in
+		perform minBlockSize := getMinBlockSize in
+		perform isBlockTooSmall := Paddr.leb blockSize minBlockSize in
+		if isBlockTooSmall then (** block is smaller than the minimum  *) ret nullAddr 
+		else
+(*
+    # // Parent et ancêtres : si on coupe le bloc pour la 1ère fois, on rend ce bloc inaccessible aux ancêtres
+    # Ecrire FALSE à MPU[ancêtres].accessible (O(p) car recherche dans p ancêtres, sinon besoin de stocker l’adresse du bloc dans l’ancêtre direct pour O(p))
+    block_origin = self.helpers.get_SC_origin_from_MPU_entry_address(block_to_cut_MPU_address)
+    if (self.helpers.get_SC_next_from_MPU_entry_address(block_to_cut_MPU_address) == 0) and \
+            (block_origin == idBlockToCut):
+        self.__write_accessible_to_ancestors_rec(self.current_partition, block_to_cut_MPU_entry[1], False)*)
+		(** Parents and ancestors: set the block unaccessible if this is the block's first cut*)
+		perform blockOrigin := readSCOriginFromMPUEntryAddr blockToCutMPUAddr in
+		perform blockNext := readSCNextFromMPUEntryAddr blockToCutMPUAddr in
+		writeAccessibleToAncestorsIfNoCut currentPart idBlockToCut blockToCutMPUAddr
+																			blockOrigin blockNext false ;;
+(*
+    # // Enfant : on créé un sous-bloc dérivé du bloc initial
+    # adresse MPU insertion <- insérerEntrée(idPDcourant, entrée à insérer, SC[entrée MPU courant]->origin) (insérer le nouveau bloc créé avec la même origine que le bloc initial)
+    new_entry = block_to_cut_MPU_entry
+    # the new entry has the same characteristics as the initial block except the start address becomes cutAddress
+    new_entry[1] = cutAddress  # index 1 is start address
+    new_entry_MPU_address = self.__insert_new_entry(
+        self.current_partition,
+        new_entry,
+        block_origin
+    )*)
+		(** Child: create the new subblock at cutAddr and insert it in the kernel structure*)
+		perform blockEndAddr := readMPUEndFromMPUEntryAddr blockToCutMPUAddr in
+		perform newSubblockMPUAddr := insertNewEntry currentPart cutAddr blockEndAddr blockOrigin in
+
+(*
+    # // Modifier le bloc initial
+    # modify initial block: the end address becomes (cutAddress - 1)
+    self.helpers.set_MPU_end_from_MPU_entry_address(block_to_cut_MPU_address, cutAddress - 1)*)
+		(** Modify initial block: the end address becomes (cutAddress - 1)*)
+		writeMPUEndFromMPUEntryAddr blockToCutMPUAddr (pred cutAddr) ;;
+
+(*
+    #  // Indiquer coupe dans Shadow Cut : bloc pourrait déjà être coupé auquel cas on doit l’insérer correctement dans la liste chaînée SC
+    # sous-bloc suivant <- SC[entrée MPU courant]->suivant (récupérer le pointeur vers le sous-bloc suivant, NULL si 1ère coupe ou fin de liste)
+    next_subblock = self.helpers.get_SC_next_from_MPU_entry_address(block_to_cut_MPU_address)
+		# Ecrire (sous-bloc suivant) à SC[adresse MPU insertion]->suivant (faire pointer le nouveau sous-bloc vers le sous-bloc suivant, NULL si 1ère coupe)
+    self.helpers.set_SC_next_from_MPU_entry_address(new_entry_MPU_address, next_subblock)
+		# Ecrire (adresse MPU insertion) à SC[entrée MPU courant]->suivant (faire pointer le bloc coupé vers le nouveau sous-bloc créé)
+    self.helpers.set_SC_next_from_MPU_entry_address(block_to_cut_MPU_address, new_entry_MPU_address)
+
+*)
+		(** Register the cut in the Shadow Cut: insert in middle if needed*)
+		perform originalNextSubblock := readSCNextFromMPUEntryAddr blockToCutMPUAddr in
+		writeSCNextFromMPUEntryAddr newSubblockMPUAddr originalNextSubblock ;;
+		writeSCNextFromMPUEntryAddr blockToCutMPUAddr newSubblockMPUAddr ;;
+(*
+    #  RET @coupe
+    return new_entry_MPU_address*)
+		ret newSubblockMPUAddr.
+
+Print cutMemoryBlock.

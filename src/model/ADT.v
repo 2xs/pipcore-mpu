@@ -78,9 +78,9 @@ Build_paddr p.
 Record block := { 
   startAddr :> paddr;
   endAddr :> paddr ;
-  Hp : startAddr < endAddr;
+  (*Hp : startAddr < endAddr;
 	Hstart : 0 <= startAddr;
-	Hend : 0 < endAddr }.
+	Hend : 0 < endAddr*) }.
 
 (* TODO: change tableSize*)
 Record MPUIndex := {

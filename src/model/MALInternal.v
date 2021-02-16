@@ -108,11 +108,25 @@ Definition getSh1EntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (MP
 	let sh1EntryAddr := CPaddr (kernelStartAddr + Constants.sh1offset + MPUEntryIndex*Constants.SHEntryLength) in
 	ret sh1EntryAddr.
 
+Definition getKernelStructureStartAddr (mpuentryaddr : paddr) (mpuindex : index) : LLI paddr :=
+	(* compute kernel start *)
+	(* MPU_entry_index = self.get_MPU_index(MPU_entry_address)
+  # we compute the start of the kernel structure knowing the MPU's entry address and index
+  kernel_structure_start = MPU_entry_address - MPU_entry_index * self.constants.MPU_entry_length*)
+(* TODO : check if paddr - MPUEntryIndexidx*Constants.MPUEntryLength > 0 ? *)
+	let kernelStartAddr := CPaddr (mpuentryaddr - mpuindex*Constants.MPUEntryLength) in
+	ret kernelStartAddr.
+
+Definition getSCEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (MPUEntryIndex : index) : LLI paddr :=
+(* return kernel_structure_address_begin + self.constants.indexSh1 + MPU_entry_index*self.constants.Sh1_entry_length*)
+	let scEntryAddr := CPaddr (kernelStartAddr + Constants.scoffset + MPUEntryIndex*Constants.SCEntryLength) in
+	ret scEntryAddr.
+
 Definition getNextAddrFromKernelStructureStart (kernelStartAddr : paddr) : LLI paddr :=
 	let nextAddr := CPaddr (kernelStartAddr + Constants.nextoffset) in
 	ret nextAddr.
 
-Definition getAddrAtIndexFromKernelStructureStart (kernelstructurestart : paddr) (idx : index) : LLI paddr :=
+Definition getMPUEntryAddrAtIndexFromKernelStructureStart (kernelstructurestart : paddr) (idx : index) : LLI paddr :=
 	let addr := CPaddr (kernelstructurestart + idx*Constants.MPUEntryLength) in
 	ret addr.
 
