@@ -46,6 +46,8 @@ Module Constants.
 (*  # To be set by the user
   self.kernel_structure_entries_bits = 3 *)
 Definition kernelStructureEntriesBits := 3.
+(* self.nb_prepare_max_bits = 3*)
+Definition nbPrepareMaxBits := 3.
 
 
 (** Fix positions into the partition descriptor
@@ -83,7 +85,10 @@ Definition rootPart := CPaddr 0.
 
 Definition minBlockSize := Build_paddr 32.
 
+Definition maxNbPrepare := nbPrepareMaxBits ^ 2.
 
+(* TODO : power of 2*)
+Definition kernelStructureTotalLength := CPaddr (nextoffset + 1).
 End Constants.
 
 
@@ -96,6 +101,13 @@ Definition getBeqIdx (p1 : index)  (p2 : index) : LLI bool := ret (p1 =? p2).
 Definition getNextOffset : LLI paddr := ret Constants.nextoffset.
 Definition getKernelStructureEntriesNb : LLI nat := ret Constants.kernelStructureEntriesNb.
 Definition getMinBlockSize : LLI paddr := ret Constants.minBlockSize.
+Definition getKernelStructureTotalLength : LLI paddr := ret Constants.kernelStructureTotalLength.
+Definition getAddr (paddr : paddr) : LLI ADT.paddr := ret paddr.
+
+Definition getMPUEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (MPUEntryIndex : index) : LLI paddr :=
+(* return kernel_structure_address_begin + self.constants.MPU + MPU_entry_index*self.constants.MPU_entry_length*)
+	let mpuEntryAddr := CPaddr (kernelStartAddr + Constants.mpuoffset + MPUEntryIndex*Constants.MPUEntryLength) in
+	ret mpuEntryAddr.
 
 (*         """Get the location of the Sh1's entry given the <MPU_entry_index>
         and the <kernel_structure_address_begin"""*)
@@ -118,7 +130,7 @@ Definition getKernelStructureStartAddr (mpuentryaddr : paddr) (mpuindex : index)
 	ret kernelStartAddr.
 
 Definition getSCEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (MPUEntryIndex : index) : LLI paddr :=
-(* return kernel_structure_address_begin + self.constants.indexSh1 + MPU_entry_index*self.constants.Sh1_entry_length*)
+(* return kernel_structure_address_begin + self.constants.indexSC + MPU_entry_index*self.constants.SC_entry_length*)
 	let scEntryAddr := CPaddr (kernelStartAddr + Constants.scoffset + MPUEntryIndex*Constants.SCEntryLength) in
 	ret scEntryAddr.
 
@@ -157,3 +169,7 @@ ret (Build_index isucc).
 
 Program Definition zero : LLI index:= ret (Build_index 0).
 End Index.
+
+Module NatMonadOp.
+Definition pred (n : nat) : LLI nat := ret n.
+End NatMonadOp.

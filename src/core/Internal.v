@@ -195,8 +195,8 @@ Definition writeAccessibleRecAux (pdbasepartition idblock : paddr) (accessiblebi
 	writeAccessibleRec N pdbasepartition idblock accessiblebit.
 Print writeAccessibleRec.
 
+(* TODO ret tt ? : unit*)
 Definition writeAccessibleToAncestorsIfNoCut 	(pdbasepartition idblock mpublockaddr : paddr)
-																							(origin next : paddr)
 																							(accessiblebit : bool) : LLI bool :=
 		perform blockOrigin := readSCOriginFromMPUEntryAddr mpublockaddr in
 		perform blockStart := readMPUStartFromMPUEntryAddr mpublockaddr in
@@ -261,6 +261,39 @@ Definition insertNewEntry (pdinsertion startaddr endaddr origin: paddr) : LLI pa
 
 	ret newEntryMPUAddr.
 
+(*    def __checkChild(self, idPDparent, idPDchild):
+        """
+        Checks that <idPDchild> is a child of <idPD> by going through the kernel structure of the parent looking for
+        the child
+        :param idPDparent: the parent partition
+        :param idPDchild: the supposed child partition of <idPDparent>
+        :return: OK (1) /NOK (0)
+        """
+        block_in_parent_partition_address = self.__find_block_in_MPU(idPDparent, idPDchild)
+        if block_in_parent_partition_address == -1:
+            # no block found, stop
+            return 0  # TODO: return NULL
+
+        if self.helpers.get_Sh1_PDflag_from_MPU_entry_address(block_in_parent_partition_address) != True:
+            # idPDchild is not a child partition, stop
+            return 0  # TODO: return NULL
+
+        return 1*)
+
+(** The [checkChild] function checks that <idPDchild> is a child of <idPDparent>
+		by looking for the child in the supposed parent't kernel structure.
+		Returns true:OK/false:NOK
+*)
+Definition checkChild (idPDparent idPDchild : paddr) : LLI bool :=
+	(* TODO : check idPDparent is valid*)
+	perform blockInParentPartAddr := findBlockInMPU idPDparent idPDchild in
+	perform addrIsNull := compareAddrToNull	blockInParentPartAddr in
+	if addrIsNull then(** child block not found, stop *) ret false else
+
+	perform isChild := readSh1PDFlagFromMPUEntryAddr blockInParentPartAddr in
+	if negb isChild then (* idPDchild is not a child partition, stop*) ret false else
+	ret true.
+
 Module Helpers.
 
 
@@ -303,4 +336,172 @@ Definition eraseBlock (b : block) : LLI unit :=
 										end
 	end.
 
+(*
+    def init_MPU(self, kernel_structure_start, index_start, index_end):
+        """
+        Initializes all entries of the MPU between <index_start> and <index_end>
+        The free slots list starts with the entry <index_start>, points to the next entry until reaching <index_end>
+        :param kernel_structure_address: kernel structure frame's start address
+        :param index_start: entry used as the free slots list's head
+        :param index_end: entry used as the free slots list's queue
+        :return: void
+        """
+        # middle entries are pointing their previous and following entries
+        for n in range(index_start, index_end - 1):
+            address = kernel_structure_start + n * self.constants.MPU_entry_length
+            start = 0
+            end = kernel_structure_start + (n + 1) * self.constants.MPU_entry_length
+            self.helpers.write_MPU_entry_with_index(address, n, start, end, False, False)
+        # last entry has no following entry
+        self.helpers.write_MPU_entry_with_index(
+            (index_end - 1) * self.constants.MPU_entry_length + kernel_structure_start,
+            index_end - 1,
+            0,
+            0,
+            False,
+            False
+        )
+*)
+(** The [initMPUEntryRec] function recursively initializes all MPU entries from
+		<indexCurr> to 0 of kernel structure located at <kernelStructureStartAddr>
+		by constructing a linked list of all entries representing the free slots.
+		The indexes are 0-indexed.
+	Returns unit
+*)
+Fixpoint initMPUEntryRec 	(kernelStructureStartAddr : paddr) (indexCurr : nat) 
+																																	: LLI unit :=
+	match indexCurr with
+	| 0 => 	perform mpuEntry := buildMPUEntry 
+																		nullAddr
+																		(CPaddr (kernelStructureStartAddr +
+																		Constants.MPUEntryLength))
+																		false
+																		false in
+					writeMPUEntryWithIndex (CPaddr kernelStructureStartAddr) 0 mpuEntry;;
+					ret tt
+	| S n => 	perform mpuEntry := buildMPUEntry 
+																		nullAddr
+																		(CPaddr (kernelStructureStartAddr 
+																			+ (S indexCurr)*Constants.MPUEntryLength))
+																		false
+																		false in
+						writeMPUEntryWithIndex (CPaddr (kernelStructureStartAddr 
+																			+ indexCurr*Constants.MPUEntryLength))
+																		indexCurr
+																		mpuEntry;;
+						initMPUEntryRec kernelStructureStartAddr n
+	end.
+
+(** The [initMPUStructure] function initializes the MPU part of the kernel
+		structure located at <kernelStructureStartAddr>. It creates the linked list
+		of the free slots. The MPU indexes are 0-indexed. The last index is special,
+		it should point to NULL.
+	Returns unit
+*)
+Definition initMPUStructure (kernelStructureStartAddr : paddr) : LLI unit :=
+	perform entriesnb := getKernelStructureEntriesNb in
+	perform lastindex := NatMonadOp.pred entriesnb in (* 0-indexed*)
+	(** Initialize the MPU entries until the penultimate entry, the last entry is
+			is not identical*)
+	initMPUEntryRec kernelStructureStartAddr (Nat.pred lastindex) ;;
+	(** Last entry has no following entry: make it point to NULL*)
+	perform lastMPUEntry := buildMPUEntry nullAddr
+																				nullAddr
+																				false
+																				false in
+	writeMPUEntryWithIndex (CPaddr (kernelStructureStartAddr 
+														+ lastindex*Constants.MPUEntryLength))
+													lastindex
+													lastMPUEntry;;
+	ret tt.
+
+(*
+def init_Sh1(self, kernel_structure_start, index_start, index_end):
+      """
+      Initializes all entries of the Sh1 between <index_start> and <index_end> (excluded) to default -> 0 | 0 | 0
+      :param kernel_structure_address: kernel structure frame's start address
+      :param index_start: start entry
+      :param index_end: end entry
+      :return: void
+      """
+      for i in range(index_start, index_end):
+          self.helpers.set_Sh1_entry_from_MPU_entry_address(kernel_structure_start
+                                                            + i * self.constants.MPU_entry_length,
+                                                            0, 0, 0)*)
+
+(** The [initSh1EntryRec] function recursively initializes all Sh1 entries from
+		<indexCurr> to 0 of kernel structure located at <kernelStructureStartAddr>
+		wit the default Sh1 entry value.
+		The indexes are 0-indexed.
+	Returns unit
+*)
+Fixpoint initSh1EntryRec 	(kernelStructureStartAddr : paddr) 
+													(indexCurr : nat) : LLI unit :=
+	match indexCurr with
+	| 0 => perform defaultSh1Entry := getDefaultSh1Entry in
+				 writeSh1EntryFromMPUEntryAddr (CPaddr kernelStructureStartAddr)
+																				defaultSh1Entry;;
+				ret tt
+	| S n => 	perform defaultSh1Entry := getDefaultSh1Entry in
+						writeSh1EntryFromMPUEntryAddr (CPaddr (kernelStructureStartAddr + 
+																						indexCurr*Constants.MPUEntryLength))
+																					defaultSh1Entry;;
+					initSh1EntryRec kernelStructureStartAddr n
+	end.
+
+(** The [initSh1Structure] function initializes the Sh1 part of the kernel
+		structure located at <kernelStructureStartAddr>. The indexes are 
+		0-indexed.
+	Returns unit
+*)
+Definition initSh1Structure (kernelStructureStartAddr : paddr) : LLI unit :=
+	perform entriesnb := getKernelStructureEntriesNb in
+	perform lastindex := NatMonadOp.pred entriesnb in
+	initSh1EntryRec kernelStructureStartAddr lastindex ;;
+	ret tt.
+(*
+  def init_SC(self, kernel_structure_start, index_start, index_end):
+      """
+      Initializes all entries of the SC between <index_start> and <index_end> (excluded) to default -> 0 | 0
+      :param kernel_structure_address: kernel structure frame's start address
+      :param index_start: start entry
+      :param index_end: end entry
+      :return: void
+      """
+      for i in range(index_start, index_end):
+          self.helpers.set_SC_entry_from_MPU_entry_address(kernel_structure_start
+                                                           + i * self.constants.MPU_entry_length,
+                                                           0, 0)
+*)
+
+(** The [initSCEntryRec] function recursively initializes all SC entries from
+		<indexCurr> to 0 of kernel structure located at <kernelStructureStartAddr>
+		wit the default SC entry value.
+		The indexes are 0-indexed.
+	Returns unit
+*)
+Fixpoint initSCEntryRec 	(kernelStructureStartAddr : paddr) 
+													(indexCurr : nat) : LLI unit :=
+	match indexCurr with
+	| 0 => 	perform defaultSCEntry := getDefaultSCEntry in
+					writeSCEntryFromMPUEntryAddr (CPaddr kernelStructureStartAddr)
+																			defaultSCEntry;;
+					ret tt
+	| S n => 	perform defaultSCEntry := getDefaultSCEntry in
+						writeSCEntryFromMPUEntryAddr (CPaddr (kernelStructureStartAddr + 
+																		indexCurr*Constants.MPUEntryLength))
+																				defaultSCEntry;;
+					initSCEntryRec kernelStructureStartAddr n
+	end.
+
+(** The [initSCStructure] function initializes the SC part of the kernel
+		structure located at <kernelStructureStartAddr>. The indexes are 
+		0-indexed.
+	Returns unit
+*)
+Definition initSCStructure (kernelStructureStartAddr : paddr) : LLI unit :=
+	perform entriesnb := getKernelStructureEntriesNb in
+	perform lastindex := NatMonadOp.pred entriesnb in
+	initSCEntryRec kernelStructureStartAddr lastindex ;;
+	ret tt.
 End Helpers.
