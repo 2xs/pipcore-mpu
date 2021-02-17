@@ -586,5 +586,54 @@ Definition addMemoryBlock (idPDchild idBlockToShare: paddr) : LLI paddr :=
 																											blockInCurrPartAddr in
 		ret blockChildMPUAddr.
 
+(** ** The addMemoryBlockFast PIP MPU service
 
+    The [addMemoryBlockFast] system call adds a block to a child partition (faster
+		version).
+		The block is still accessible from the current partition (shared memory).
+    This variant finds the block to share by directly checking the provided index,
+		thus faster than going through all entries of each structure
 
+		Returns the child's MPU entry address used to store the shared block:OK/NULL:NOK
+
+    <<idPDchild>>							the child partition to share with
+		<<idBlockToShare>>				the block to share
+		<MPUAddressBlockToShare>>	the MPU address where the block <idBlocktoShare> lies
+*)
+Definition addMemoryBlockFast (idPDchild idBlockToShare MPUAddressBlockToShare: paddr)
+																																	: LLI paddr :=
+		(** Get the current partition (Partition Descriptor) *)
+    perform currentPart := getCurPartition in
+
+(*
+def addMemoryBlockFast(self, idPDchild, idBlockToShare, MPUAddressBlockToShare):
+    """Adds a block to a child partition (fast)
+    The block is still accessible from the current partition (shared memory)
+    This variant finds the block to share by directly checking the provided index, thus faster than going through
+    all entries of each structure
+    :param idPDchild: the child partition to share with
+    :param idBlockToShare: the block to share
+    :param MPUAddressBlockToShare: the MPU address where the block <idBlocktoShare> lies
+    :return:the child's MPU entry address where the block has been added
+    """
+    # entrée MPU courant <- ChercherBlocDansMPU(PD courant, idBlocADonner) (trouver le bloc en parcourant MPU en O(m))
+    # find and check idBlockToShare and MPUAddressBlockToShare
+    block_to_share_in_current_partition_address = self.__find_block_in_MPU_with_address(self.current_partition,
+                                                                                          idBlockToShare,
+																																													MPUAddressBlockToShare)
+		if block_to_share_in_current_partition_address == -1:
+		    # no block found, stop
+		    return 0  # TODO: return NULL
+*)
+		(* Find the block to share in the current partition (with MPU address) *)
+    perform blockInCurrPartAddr := findBlockInMPUWithAddr 	currentPart
+																													idBlockToShare
+																													MPUAddressBlockToShare in
+		perform addrIsNull := compareAddrToNull	blockInCurrPartAddr in
+		if addrIsNull then(* no block found, stop *) ret nullAddr else
+(*
+		return self.__add_memory_block(idPDchild, block_to_share_in_current_partition_address)*)
+		(** Call the internal addMemoryBlock function shared with the faster interface*)
+		perform blockChildMPUAddr := addMemoryBlockCommon idPDchild
+																											blockInCurrPartAddr in
+		ret blockChildMPUAddr.

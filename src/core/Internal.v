@@ -138,20 +138,123 @@ Fixpoint findBlockInMPUAux (timeout : nat) (currentidx : index) (currentkernelst
 												ret entryaddr
 											else 
 												perform nextidx := Index.succ currentidx in
-												findBlockInMPUAux timeout1 currentidx currentkernelstructure idblock (** Recursive call on the next table**)
+												findBlockInMPUAux timeout1 nextidx currentkernelstructure idblock (** Recursive call on the next table**)
 	end.
 
 
 
 (* TODO: return Some MPUentry or None *)
-(** The [findBlockInMPU] function fixes the timeout value of [findBlockInMPURec] *)
-Definition findBlockInMPU (currentPartition : paddr) (idBlock: paddr) : LLI paddr := 
-	perform kernelstructurestart := readPDStructurePointer currentPartition in
+(** The [findBlockInMPU] function fixes the timeout value of [findBlockInMPUAux] *)
+Definition findBlockInMPU (idPD : paddr) (idBlock: paddr) : LLI paddr :=
+	perform kernelstructurestart := readPDStructurePointer idPD in
 	perform zero := Index.zero in
 	findBlockInMPUAux N zero kernelstructurestart idBlock.
 
-Print findBlockInMPU.
+(*
+def __find_block_in_MPU_with_address_rec(self, next_kernel_structure, id_block_to_find, MPU_address_block_to_find):
+    """Recursive search by going through the structure list and search for the <id_block_to_find> given the
+    <MPU_address_block_to_find> (only look the entries at this address, so faster than blind search going through
+    all the entries of a kernel structure)
+    Stop conditions:
+        1: reached end of structure list (maximum number of iterations)
+        2: found <id_block_to_find>
+        3: issue with the block, i.e. block not found, incorrect MPU address or block not present
+    Recursive calls: until the end of the list
+    """
+    # Stop condition 1: reached end of structure list
+    if next_kernel_structure == 0:  # TODO: NULL
+        # end of structure list, stop
+        return -1
 
+    # Stop conditions 2 and 3: found block OR issue with the entry
+    if next_kernel_structure <= MPU_address_block_to_find < (next_kernel_structure + self.constants.indexSh1):
+        # the provided address lies in this kernel structure
+        index = self.helpers.get_MPU_index(MPU_address_block_to_find)
+        if 0 <= index < self.constants.kernel_structure_entries_nb:
+            if self.helpers.get_MPU_start_from_MPU_entry_address(MPU_address_block_to_find) == id_block_to_find\
+                    and self.helpers.get_MPU_present_from_MPU_entry_address(MPU_address_block_to_find) != 0:
+                    # the block has been found and is present (i.e. it's a real block)
+                    block_in_MPU = MPU_address_block_to_find
+                    return block_in_MPU
+        # Stop condition 3: issue with the entry (i.e. block not found OR incorrect MPU address OR block not present)
+        return -1
+
+    # RECURSIVE call: block not found in current structure, check next kernel structure
+    next_kernel_structure = self.helpers.get_kernel_structure_next_from_kernel_structure_start(next_kernel_structure)
+    return self.__find_block_in_MPU_with_address_rec(next_kernel_structure,
+                                                     id_block_to_find,
+                                                     MPU_address_block_to_find)
+*)
+(** The [findBlockInMPUWithAddrAux] function recursively search by going through
+		the structure list and search for the <id_block_to_find> given the
+    <MPU_address_block_to_find> (only look the entries at this address, so faster
+		than blind search going through all the entries of a kernel structure)
+    Stop conditions:
+        1: 	reached end of structure list (maximum number of iterations)
+        2: 	found <id_block_to_find>
+        3: 	issue with the block, i.e. block not found, incorrect MPU address or
+						block not present
+    Recursive calls: until the end of the linked list *)
+Fixpoint findBlockInMPUWithAddrAux (timeout : nat)
+																	(currentkernelstructure idblock : paddr)
+																	(blockMPUAddr: paddr) : LLI paddr :=
+	match timeout with
+		| O => getNullAddr (*Stop condition 1: reached end of structure list*)
+		| S timeout1 => (*Stop conditions 2 and 3: found block OR issue with the entry *)
+										perform isMPUAddrAboveStart := Paddr.leb currentkernelstructure blockMPUAddr in
+										perform maxMPUAddrInStructure := getAddr (CPaddr (currentkernelstructure
+																															+ Constants.sh1offset)) in
+										perform isMPUAddrBelowEnd := Paddr.leb maxMPUAddrInStructure blockMPUAddr in
+										if isMPUAddrAboveStart && isMPUAddrBelowEnd
+										then (* the provided address lies in this kernel structure*)
+											(** Check 0 <= index < max entries nb*)
+											perform index := readMPUIndexFromMPUEntryAddr blockMPUAddr in
+
+											perform maxEntriesNb := getKernelStructureEntriesNb in
+
+											if (leb 0 index) && (Nat.ltb index maxEntriesNb)
+											then (* index is valid*)
+												(** Check the MPU entry matches the submitted idblock
+														and is present*)
+												perform entryBlockStart := readMPUStartFromMPUEntryAddr blockMPUAddr in
+												perform isEntryValid := getBeqAddr entryBlockStart idblock in
+												perform isPresent := readMPUPresentFromMPUEntryAddr blockMPUAddr in
+												if isEntryValid && isPresent
+												then (* Stop condition 2: the block has been found and is present (i.e. it's a real block)*)
+													ret blockMPUAddr
+												else (*Stop condition 3a: bad arguments OR block not present *)
+													ret nullAddr
+											else (*Stop condition 3b: block not found at the correct MPU location *)
+														ret nullAddr
+										else (* RECURSIVE call: block not found in current structure,
+														check next kernel structure*)
+											perform nextKernelStructure := readNextFromKernelStructureStart
+																											currentkernelstructure in
+											findBlockInMPUWithAddrAux timeout1 nextKernelStructure
+																												idblock
+																												blockMPUAddr
+	end.
+
+(*
+def __find_block_in_MPU_with_address(self, PD_to_find_in, id_block_to_find, MPU_address_block_to_find):
+    """Go through the kernel structure linked list searching in the MPU structure for the <id_block_to_find>
+    located at <MPU_address_block_to_find>
+    :return block address / NOK (-1)"""
+    # all checks done before
+    # go through the MPU structure finding the block (== start address of MPU entry)
+    next_kernel_structure = self.helpers.get_PD_pointer_to_MPU_linked_list(PD_to_find_in)
+    return self.__find_block_in_MPU_with_address_rec(next_kernel_structure,
+                                                     id_block_to_find,
+                                                     MPU_address_block_to_find)
+*)
+(* TODO: return Some MPUentry or None *)
+(** The [findBlockInMPUWithAddr] function fixes the timeout value of
+		[findBlockInMPUWithAddrAux] *)
+Definition findBlockInMPUWithAddr (idPD idBlock blockMPUAddr: paddr) : LLI paddr :=
+	(** All checks done before*)
+	(** go through the MPU structure finding the block (== start address of MPU entry)*)
+	perform kernelstructurestart := readPDStructurePointer idPD in
+	findBlockInMPUWithAddrAux N kernelstructurestart idBlock blockMPUAddr.
 
 (* 
     def __write_accessible_to_ancestors_rec(self, PD_base_partition, id_base_block, accessible_bit):
