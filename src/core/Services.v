@@ -541,3 +541,50 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : nat)
     		return 1*)
 			ret true
 		else ret true.
+
+(** ** The addMemoryBlock PIP MPU service
+
+    The [addMemoryBlock] system call adds a block to a child partition (slower
+		version).
+		The block is still accessible from the current partition (shared memory).
+    This variant finds the block to share by going through all entries of each 
+		structure in search for the block.
+
+		Returns the child's MPU entry address used to store the shared block:OK/NULL:NOK
+
+    <<idPDchild>>				the child partition to share with
+		<<idBlockToShare>>	the block to share
+*)
+Definition addMemoryBlock (idPDchild idBlockToShare: paddr) : LLI paddr :=
+		(** Get the current partition (Partition Descriptor) *)
+    perform currentPart := getCurPartition in
+
+(*def addMemoryBlock(self, idPDchild, idBlockToShare):
+    """Adds a block to a child partition (slow)
+    The block is still accessible from the current partition (shared memory)
+    This variant finds the block to share by going through all entries of each structure in search for the block
+    :param idPDchild: the child partition to share with
+    :param idBlockToShare: the block to share
+    :return:the child's MPU entry address where the block has been added
+    """*)
+(*
+    # entrée MPU courant <- ChercherBlocDansMPU(PD courant, idBlocADonner) (trouver le bloc en parcourant MPU en O(m))
+    # find and check idBlockToShare
+    block_to_share_in_current_partition_address = self.__find_block_in_MPU(self.current_partition, idBlockToShare)
+    if block_to_share_in_current_partition_address == -1:
+        # no block found, stop
+        return 0  # TODO: return NULL*)
+		(* Find the block to share in the current partition *)
+    perform blockInCurrPartAddr := findBlockInMPU 	currentPart
+																									idBlockToShare in
+		perform addrIsNull := compareAddrToNull	blockInCurrPartAddr in
+		if addrIsNull then(* no block found, stop *) ret nullAddr else
+(*
+    return self.__add_memory_block(idPDchild, block_to_share_in_current_partition_address)*)
+		(** Call the internal addMemoryBlock function shared with the faster interface*)
+		perform blockChildMPUAddr := addMemoryBlockCommon idPDchild 
+																											blockInCurrPartAddr in
+		ret blockChildMPUAddr.
+
+
+

@@ -294,6 +294,109 @@ Definition checkChild (idPDparent idPDchild : paddr) : LLI bool :=
 	if negb isChild then (* idPDchild is not a child partition, stop*) ret false else
 	ret true.
 
+(** ** The addMemoryBlockCommon PIP MPU service
+
+    The [addMemoryBlockCommon] system call adds a block to a child partition
+		The block is still accessible from the current partition (shared memory)
+
+		Returns the child's MPU entry address used to store the shared block:OK/NULL:NOK
+
+    <<idPDchild>>				the child partition to share with
+		<<blockToShareMPUAddr>>	the block to share MPU address in the parent
+*)
+Definition addMemoryBlockCommon (idPDchild blockToShareMPUAddr: paddr) : LLI paddr :=
+(*
+def __add_memory_block(self, idPDchild, block_to_share_in_current_partition_address):
+    """
+    Adds a block to a child partition
+    The block is still accessible from the current partition (shared memory)
+    :param idPDchild: the child partition to share with
+    :param block_to_share_in_current_partition_address: the block to share MPU address
+    :return:the child's MPU entry address where the block has been added
+    """
+    # check of block_to_share_in_current_partition_address done in previous internal function
+*)
+		(** Get the current partition (Partition Descriptor) *)
+    perform currentPart := getCurPartition in
+
+		(** Checks (blockToShareMPUAddr checked before)*)
+(*
+    # Check idPDchild is a child of the current partition
+    if self.__checkChild(self.current_partition, idPDchild) == 0:
+        # idPD is not a child partition, stop
+        return 0  # TODO: return NULL
+*)
+		(* Check idPDchild is a child of the current partition*)
+		perform isChildCurrPart := checkChild currentPart idPDchild in
+		if negb isChildCurrPart 
+		then (* idPDchild is not a child partition, stop*) ret nullAddr 
+		else
+
+(*
+    # Vérifier idPDenfant[compteur libre] > 0 SINON RET NULL
+    # Check there are free slots in the the child to add the block to share
+    if self.helpers.get_PD_nb_free_slots(idPDchild) <= 0:
+        # no free slots left, stop
+        return 0  # TODO: return NULL
+*)
+		(* Check there are free slots in the the child to add the block to share*)
+		perform currentFreeSlotsNb := readPDNbFreeSlots idPDchild in
+		if leb currentFreeSlotsNb 0 then (* no free slots left, stop*) ret nullAddr 
+		else
+
+(*
+    block_to_share_entry = self.helpers.get_MPU_entry(block_to_share_in_current_partition_address)
+
+    # Check block is accessible and present
+    if block_to_share_entry[3] is False or block_to_share_entry[4] is False:
+        # block not accessible or present, stop
+        return 0  # TODO: return NULL
+*)
+		(* Check block is accessible and present*)
+		perform addrIsAccessible := readMPUAccessibleFromMPUEntryAddr
+																	blockToShareMPUAddr in
+		if negb addrIsAccessible then (* block is inaccessible *) ret nullAddr else
+		perform addrIsPresent := readMPUPresentFromMPUEntryAddr
+																	blockToShareMPUAddr in
+		if negb addrIsPresent then (** block is not present *) ret nullAddr else
+
+(*
+    # // Enfant : Placer le bloc du parent dans le 1er emplacement libre de l’enfant
+    # entrée MPU enfant <- insérerEntrée(idPDenfant, entrée MPU courant, entrée MPU courant->start)
+    # add the block to the child partition with itself as origin in the child
+    block_shared_child_MPU_address = self.__insert_new_entry(
+        idPDchild,
+        block_to_share_entry,
+        block_to_share_entry[1]  # origin
+    )
+*)
+		(** Child: set the block to share in the child's first free slot*)
+		(* the block start is set as origin in the child*)
+		perform blockstart := readMPUStartFromMPUEntryAddr blockToShareMPUAddr in
+		perform blockend := readMPUEndFromMPUEntryAddr blockToShareMPUAddr in
+		perform blockToShareChildMPUAddr := insertNewEntry 	idPDchild 
+																												blockstart blockend
+																												blockstart in
+
+
+(*
+    # // Parent : Partage du bloc avec son enfant
+    # Ecrire idPDenfant à Sh1courant[entrée MPU courant ] (indiquer le partage du blocADonner dans le Shadow 1 de la partition courante)
+    self.helpers.set_Sh1_PDchild_from_MPU_entry_address(block_to_share_in_current_partition_address, idPDchild)
+    # Ecrire (entrée MPU enfant) à Sh1courant[entrée MPU courant]->inChildLocation (faire pointer inChildLocation à l’endroit où est stocké le bloc partagé dans la MPU enfant)
+    self.helpers.set_Sh1_inChildLocation_from_MPU_entry_address(block_to_share_in_current_partition_address, block_shared_child_MPU_address)
+*)
+		(** Parent: register the shared block in Sh1*)
+		writeSh1PDChildFromMPUEntryAddr blockToShareMPUAddr idPDchild;;
+		writeSh1InChildLocationFromMPUEntryAddr blockToShareMPUAddr 
+																						blockToShareChildMPUAddr;;
+(*
+    # RET @entrée MPU enfant
+    return block_shared_child_MPU_address*)
+		ret blockToShareChildMPUAddr.
+
+
+
 Module Helpers.
 
 
