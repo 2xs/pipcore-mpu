@@ -174,7 +174,7 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
 		perform blockNext := readSCNextFromMPUEntryAddr blockInCurrentPartitionAddr in
 		if beqAddr blockOrigin blockStart && beqAddr blockNext nullAddr then
 			(* Block hasn't been cut previously, need to be set unaccessible for the ancestors *)
-			writeAccessibleRecAux currentPart idBlock false ;;
+			writeAccessibleRec currentPart idBlock false ;;
 			ret true 
 		else
 (*
@@ -781,3 +781,56 @@ def addMemoryBlockFast(self, idPDchild, idBlockToShare, MPUAddressBlockToShare):
 		return self.__add_memory_block(idPDchild, block_to_share_in_current_partition_address)*)
 		(** Call the internal addMemoryBlock function shared with the faster interface*)
 		addMemoryBlockCommon idPDchild blockInCurrPartAddr.
+
+(** ** The removeMemoryBlock PIP MPU service
+
+    The [removeMemoryBlock] system call removes a block from a child partition
+		(slower version).
+		This variant finds the block to remove by going through all entries of each
+		structure in search for the block
+    The block could be cut in the child partition but with all subblocks still
+		accessible
+    This operation succeeds for any shared memory block previously added, but
+		fails if the purpose of the block is not shared memory anymore, in particular
+		in such cases:
+          - The block can't be removed if the child or its descendants used it
+						(or part of it) as a kernel structure
+          - The block can't be removed if the child's descendants cut the block
+
+		Returns true:OK/false:NOK
+
+    <<idPDchild>>				the child partition to remove from
+		<<idBlockToRemove>>	the block to remove
+*)
+Definition removeMemoryBlock (idPDchild idBlockToRemove: paddr) : LLI bool :=
+		(** Get the current partition (Partition Descriptor) *)
+    perform currentPart := getCurPartition in
+(*
+    def removeMemoryBlock(self, idPDchild, idBlockToRemove):
+        """
+        Removes a block from a child partition
+        This variant finds the block to remove by going through all entries of each structure in search for the block
+        The block could be cut in the child partition but all subblocks still accessible
+        This operation succeeds for any shared memory block previously added, but fails if the purpose of the block is
+        not shared memory anymore, in particular in such cases:
+            - The block can't be removed if the child or its descendants used it (or part of it) as a kernel structure
+            - The block can't be removed if the child's descendants cut the block
+        :param idPDchild: the child partition to remove from
+        :param idBlockToRemove: the block to remove
+        :return: OK(1)/NOK(0)
+        """
+*)
+(*
+        # entrée MPU courant <- ChercherBlocDansMPU(PD courant, idBlocARetirer) (trouver le bloc en parcourant MPU COURANT en O(m))
+        block_to_remove_in_current_partition_address = self.__find_block_in_MPU(self.current_partition, idBlockToRemove)
+        if block_to_remove_in_current_partition_address == -1:
+            # no block found, stop
+            return 0  # TODO: return NULL*)
+		(* Find the block to remove in the current partition *)
+    perform blockToRemoveInCurrPartAddr := findBlockInMPU 	currentPart
+																									idBlockToRemove in
+		perform addrIsNull := compareAddrToNull	blockToRemoveInCurrPartAddr in
+		if addrIsNull then(* no block found, stop *) ret false else
+(*
+    return self.__remove_memory_block(idPDchild, block_to_remove_in_current_partition_address)*)
+		removeMemoryBlockCommon idPDchild idBlockToRemove blockToRemoveInCurrPartAddr.

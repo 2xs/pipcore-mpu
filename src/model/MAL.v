@@ -422,8 +422,18 @@ Definition writeSh1PDFlagFromMPUEntryAddr (paddr : paddr) (pdflag : bool) : LLI 
   | None => undefined 11
   end.
 
-Definition writeSh1InChildLocationFromMPUEntryAddr (paddr : paddr) 
-																										(newinchildlocation : ADT.paddr)
+Definition readSh1InChildLocationFromMPUEntryAddr (paddr : paddr) : LLI ADT.paddr :=
+	perform Sh1EAddr := getSh1EntryAddrFromMPUEntryAddr paddr in
+	perform s := get in
+  let entry :=  lookup Sh1EAddr s.(memory) beqAddr in
+  match entry with
+  | Some (SHE a) => ret a.(inChildLocation)
+  | Some _ => undefined 12
+  | None => undefined 11
+  end.
+
+Definition writeSh1InChildLocationFromMPUEntryAddr (paddr : paddr)
+																									(newinchildlocation : ADT.paddr)
 																										 : LLI unit :=
 	perform Sh1EAddr := getSh1EntryAddrFromMPUEntryAddr paddr in
   perform s := get in
