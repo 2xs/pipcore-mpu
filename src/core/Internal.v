@@ -349,6 +349,56 @@ Definition insertNewEntry (pdinsertion startaddr endaddr origin: paddr) : LLI pa
 
 	ret newEntryMPUAddr.
 
+
+(*
+    def __free_slot(self, idPD, entryToFreeMPUAddress):
+        """Free the slot by setting to default"""
+        # Checks have been done before: check idPD comes from Pip, check entryToFreeMPUAddress comes from Pip
+
+        # Ecrire default à (entrée MPU à libérer) (écraser l’entrée MPU -> le bloc n’existe plus)
+        self.helpers.set_MPU_entry_from_MPU_entry_address(entryToFreeMPUAddress, 0, 0, 0, 0)
+        # Ecrire default à Sh1[entrée MPU à libérer] (écraser l’entrée Sh1 associée à l’entrée MPU à libérer -> bloc enlevé de la descendance)
+        self.helpers.set_Sh1_entry_from_MPU_entry_address(entryToFreeMPUAddress, 0, 0, 0)
+        # Ecrire default à SC[entrée MPU à libérer] (écraser l’entrée SC associée à l’entrée MPU à libérer)
+        self.helpers.set_SC_entry_from_MPU_entry_address(entryToFreeMPUAddress, 0, 0)
+        # // Insérer l’emplacement dans la liste des emplacements libres
+        # Ecrire idPDlibération[pointeur libre] à (entrée MPU à libérer)->end (insérer l’entrée dans la chaîne des emplacements libres)
+        current_first_free_slot_address = self.helpers.get_PD_first_free_slot_address(idPD)
+        self.helpers.set_MPU_end_from_MPU_entry_address(entryToFreeMPUAddress, current_first_free_slot_address)
+        # Ecrire (entrée MPU à libérer) à idPDlibération[pointeur libre] (le pointeur libre devient l’emplacement libéré)
+        self.helpers.set_PD_first_free_slot_address(idPD, entryToFreeMPUAddress)
+        # Ecrire (idPDlibération[compteur]+1) à idPDlibération[compteur] (+1 au compteur des emplacements libres)
+        self.helpers.set_PD_nb_free_slots(idPD, self.helpers.get_PD_nb_free_slots(idPD) + 1)
+        # RET @entrée MPU à libérer
+        return entryToFreeMPUAddress
+*)
+(** The [freeSlot] function frees the entry at <entrytofreempuaddr> in the
+		partition <pdfree>.
+	Used in mergeMemoryBlock and removeMemoryBlock
+
+	Returns the freed slot's MPU address
+	 *)
+Definition freeSlot (pdfree entrytofreempuaddr: paddr) : LLI paddr :=
+(** Checks have been done before: check idPD comes from Pip, check entryToFreeMPUAddress comes from Pip *)
+		(* set default values in slot to free *)
+		perform defaultMPUEntry := getDefaultMPUEntry in
+		writeMPUEntryFromMPUEntryAddr entrytofreempuaddr defaultMPUEntry;;
+		perform defaultSh1Entry := getDefaultSh1Entry in
+		writeSh1EntryFromMPUEntryAddr entrytofreempuaddr defaultSh1Entry;;
+		perform defaultSCEntry := getDefaultSCEntry in
+		writeSCEntryFromMPUEntryAddr entrytofreempuaddr defaultSCEntry;;
+		(* insert free slot in the free slot list *)
+		perform currFirstFreeSlot := readPDFirstFreeSlotAddr pdfree in
+		writeMPUEndFromMPUEntryAddr entrytofreempuaddr currFirstFreeSlot ;;
+		writePDFirstFreeSlotAddr pdfree entrytofreempuaddr ;;
+		(* add 1 to the number of free slots*)
+		perform nbfreeslots := readPDNbFreeSlots pdfree in
+		perform nbfreeslotssucc := Index.succ nbfreeslots in
+		writePDNbFreeSlots pdfree nbfreeslotssucc ;;
+		(* return the freed slot's MPU address *)
+		ret entrytofreempuaddr.
+
+
 (*    def __checkChild(self, idPDparent, idPDchild):
         """
         Checks that <idPDchild> is a child of <idPD> by going through the kernel structure of the parent looking for
@@ -367,6 +417,7 @@ Definition insertNewEntry (pdinsertion startaddr endaddr origin: paddr) : LLI pa
             return 0  # TODO: return NULL
 
         return 1*)
+
 
 (** The [checkChild] function checks that <idPDchild> is a child of <idPDparent>
 		by looking for the child in the supposed parent't kernel structure.
@@ -576,8 +627,10 @@ Fixpoint initMPUEntryRec 	(timeout : nat)
 																						Constants.MPUEntryLength))
 																						false
 																						false in
-											writeMPUEntryWithIndex (CPaddr kernelStructureStartAddr)
-																							zero mpuEntry;;
+											writeMPUEntryWithIndexFromMPUEntryAddr
+													(CPaddr kernelStructureStartAddr)
+													zero
+													mpuEntry;;
 											ret tt
 										else
 											perform idxsucc := Index.succ indexCurr in
@@ -588,10 +641,11 @@ Fixpoint initMPUEntryRec 	(timeout : nat)
 																							+ idxsucc*Constants.MPUEntryLength))
 																						false
 																						false in
-											writeMPUEntryWithIndex (CPaddr (kernelStructureStartAddr
-																							+ indexCurr*Constants.MPUEntryLength))
-																						indexCurr
-																						mpuEntry;;
+											writeMPUEntryWithIndexFromMPUEntryAddr
+													(CPaddr (kernelStructureStartAddr
+														+ indexCurr*Constants.MPUEntryLength))
+													indexCurr
+													mpuEntry;;
 											perform idxpred := Index.pred indexCurr in
 											initMPUEntryRec timeout1 kernelStructureStartAddr idxpred
 	end.
@@ -614,10 +668,10 @@ Definition initMPUStructure (kernelStructureStartAddr : paddr) : LLI unit :=
 																				nullAddr
 																				false
 																				false in
-	writeMPUEntryWithIndex (CPaddr (kernelStructureStartAddr 
-														+ lastindex*Constants.MPUEntryLength))
-													lastindex
-													lastMPUEntry;;
+	writeMPUEntryWithIndexFromMPUEntryAddr (CPaddr (kernelStructureStartAddr
+																						+ lastindex*Constants.MPUEntryLength))
+																					lastindex
+																					lastMPUEntry;;
 	ret tt.
 
 (*

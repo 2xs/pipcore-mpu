@@ -348,7 +348,7 @@ Definition readMPUEntry (paddr : paddr) : LLI MPUEntry :=
     self.memory.write_bit(MPU_entry_address + self.constants.kernel_structure_entries_bits + 2*self.memory.size_of_int, accessible)
     self.memory.write_bit(MPU_entry_address + self.constants.kernel_structure_entries_bits + 2*self.memory.size_of_int + 1, present)*)
 
-Definition writeMPUEntry (mpuentryaddr : paddr) (mpuentry : MPUEntry) : LLI unit :=
+Definition writeMPUEntryFromMPUEntryAddr (mpuentryaddr : paddr) (mpuentry : MPUEntry) : LLI unit :=
 	writeMPUStartFromMPUEntryAddr mpuentryaddr mpuentry.(mpublock).(startAddr);;
 	writeMPUEndFromMPUEntryAddr mpuentryaddr mpuentry.(mpublock).(endAddr);;
 	writeMPUAccessibleFromMPUEntryAddr mpuentryaddr mpuentry.(accessible);;
@@ -359,9 +359,9 @@ Definition writeMPUEntry (mpuentryaddr : paddr) (mpuentry : MPUEntry) : LLI unit
     """Writes at the MPU entry <MPU_entry_address> the values (<index>, <start>, <end>, <accessible bit>, <present bit>)"""
     self.memory.write_bits(MPU_entry_address, index, self.constants.kernel_structure_entries_bits)
     self.write_MPU_entry(MPU_entry_address, start, end, accessible, present)*)
-Definition writeMPUEntryWithIndex 	(mpuentryaddr : paddr) (index : index)
+Definition writeMPUEntryWithIndexFromMPUEntryAddr 	(mpuentryaddr : paddr) (index : index)
 																	(mpuentry : MPUEntry) : LLI unit :=
-	writeMPUEntry mpuentryaddr mpuentry;;
+	writeMPUEntryFromMPUEntryAddr mpuentryaddr mpuentry;;
 	writeMPUIndexFromMPUEntryAddr mpuentryaddr index;;
 	ret tt.
 

@@ -319,6 +319,152 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
 		ret newSubblockMPUAddr.
 
 
+(** ** The mergeMemoryBlocks PIP MPU service
+
+    The [mergeMemoryBlocks] system call merges <idBlockToMerge1> and
+		<idBlockToMerge2> together.
+		The two blocks have been cut before so idBlockToMerge1 < idBlockToMerge2.
+
+		Returns idBlockToMerge1:OK/NULL:NOK
+
+    <<idBlockToMerge1>>	the block to merge in becomes the id of the merged blocks
+												(id = start field of an existing block)
+		<<idBlockToMerge2>>	the block to be merged disappears from the lits of blocks
+												(id = start field of an existing block)
+*)
+Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr) : LLI paddr :=
+(*    def mergeMemoryBlocks(self, idBlockToMerge1, idBlockToMerge2):
+    """Merge <idBlockToMerge1> and <idBlockToMerge2> together
+    """*)
+    (** Get the current partition (Partition Descriptor) *)
+    perform currentPart := getCurPartition in
+(*
+    """fusionne 2 blocs dont le deuxième a été obtenu à partir du premier (@bloc1 < @bloc2) (O(p))"""
+    # entrée MPU courant 1 <- ChercherBlocDansMPU(idPDcourant, idBlocAFusionner1)
+    block_to_merge1_address = self.__find_block_in_MPU(self.current_partition, idBlockToMerge1)
+    if block_to_merge1_address == -1:
+        # no block found, stop
+        return 0  # TODO: return NULL
+*)
+		(* Find idBlockToMerge1 in the current partition *)
+    perform block1InCurrPartAddr := findBlockInMPU currentPart idBlockToMerge2 in
+		perform addrIsNull := compareAddrToNull	block1InCurrPartAddr in
+		if addrIsNull then(* no block found, stop *) ret nullAddr else
+(*
+    # entrée MPU courant 2 <- ChercherBlocDansMPU(idPDcourant, idBlocAFusionner2)
+    block_to_merge2_address = self.__find_block_in_MPU(self.current_partition, idBlockToMerge2)
+    if block_to_merge2_address == -1:
+        # no block found, stop
+        return 0  # TODO: return NULL
+*)
+		(* Find idBlockToMerge2 in the current partition *)
+    perform block2InCurrPartAddr := findBlockInMPU currentPart idBlockToMerge2 in
+		perform addrIsNull := compareAddrToNull	block2InCurrPartAddr in
+		if addrIsNull then(* no block found, stop *) ret nullAddr else
+
+		(** Checks**)
+(*
+    # Vérifier que les blocs ne sont pas partagés et accessibles (voir Sh1)
+    # Check blocks are accessible
+    if (self.helpers.get_MPU_accessible_from_MPU_entry_address(block_to_merge1_address) is False
+            or self.helpers.get_MPU_accessible_from_MPU_entry_address(block_to_merge2_address) is False):
+        # one/both blocks not accessible, stop
+        return 0  # TODO: return NULL
+*)
+		(* Check blocks are accessible *)
+		perform isBlock1Accessible := readMPUAccessibleFromMPUEntryAddr block1InCurrPartAddr in
+		perform isBlock2Accessible := readMPUAccessibleFromMPUEntryAddr block2InCurrPartAddr in
+		if negb (isBlock1Accessible && isBlock2Accessible)
+		then (* one/both blocks not accessible, stop *) ret nullAddr
+		else
+(*
+    # Check blocks are not shared
+    if ((self.helpers.get_Sh1_PDchild_from_MPU_entry_address(block_to_merge1_address) != 0
+            or self.helpers.get_Sh1_PDflag_from_MPU_entry_address(block_to_merge1_address) is True)
+        or (self.helpers.get_Sh1_PDchild_from_MPU_entry_address(block_to_merge2_address) != 0
+            or self.helpers.get_Sh1_PDflag_from_MPU_entry_address(block_to_merge2_address) is True)):
+        # one/both blocks shared
+        return 0  # TODO: return NULL
+*)
+		(* Check blocks are not shared TODO changed condition*)
+		(* if accessible, then PDflag can't be set, we just need to check PDchild *)
+		perform block1PDChildAddr := readSh1PDChildFromMPUEntryAddr	block1InCurrPartAddr in
+		perform block1PDChildAddrIsNull := compareAddrToNull block1PDChildAddr in
+		perform block2PDChildAddr := readSh1PDChildFromMPUEntryAddr	block2InCurrPartAddr in
+		perform block2PDChildAddrIsNull := compareAddrToNull block2PDChildAddr in
+		if block1PDChildAddrIsNull || block2PDChildAddrIsNull
+		then (* one/both blocks shared, stop *) ret nullAddr
+		else
+
+		(* Check block 2 follows block 1 TODO changed check order with following instruction*)
+(*
+    else:
+        # block 2 does not follow block 1, no merge possible, stop
+        return 0  # TODO: return NULL*)
+		perform block1Next := readSCNextFromMPUEntryAddr block1InCurrPartAddr in
+		perform isBlock2Next := getBeqAddr idBlockToMerge2 block1Next in
+		if isBlock2Next then (* no merge possible, stop*) ret nullAddr else
+
+		(** Merge block 2 in block 1 *)
+(*
+    # SI SC[entrée MPU courant1]->suivant == entrée MPU courant 2 ALORS (le 1er sous-bloc pointe vers le 2e)
+    if self.helpers.get_SC_next_from_MPU_entry_address(block_to_merge1_address) == block_to_merge2_address:
+        # Block2 is block1's next cut -> Merge both blocks
+        # // Fusionner les données entre les blocs
+        # Ecrire SC[entrée MPU courant 2] ->suivant à SC[entrée MPU courant 1]->suivant (faire pointer le sous-bloc 1 vers le suivant du sous-bloc 2)
+        self.helpers.set_SC_next_from_MPU_entry_address(
+            block_to_merge1_address,
+            self.helpers.get_SC_next_from_MPU_entry_address(block_to_merge2_address)
+        )
+*)
+		(* replace block 1's next subblock with block 2's next subblock *)
+		perform block2Next := readSCNextFromMPUEntryAddr block2InCurrPartAddr in
+		writeSCNextFromMPUEntryAddr block1InCurrPartAddr block2Next ;;
+
+(*
+        # Ecrire MPUcourant[entrée MPU courant 2]->end à MPUcourant[entrée MPU courant 1]->end (fusionner le sous-bloc 2 dans le sous-bloc 1)
+        self.helpers.set_MPU_end_from_MPU_entry_address(
+            block_to_merge1_address,
+            self.helpers.get_MPU_end_from_MPU_entry_address(block_to_merge2_address)
+        )
+*)
+		(* replace block 1's end address with block 2's end address *)
+		perform block2MPUEnd := readMPUEndFromMPUEntryAddr block2InCurrPartAddr in
+		writeMPUEndFromMPUEntryAddr block1InCurrPartAddr block2MPUEnd ;;
+
+(*
+        # // Supprimer le bloc 2
+        # Remove block 2
+        # libérerEmplacement(PD courant, entrée MPU courant 2)
+        self.__free_slot(self.current_partition, block_to_merge2_address)
+*)
+		(* remove block 2 entry TODO *)
+		freeSlot currentPart block2InCurrPartAddr ;;
+(*
+        # //Parent : remet le bloc accessible si plus aucun sous-blocs
+        # Parent : set block back to accessible if no more subblocks
+        # SI SC[entrée MPU courant 1]->origine == (entrée MPU courant 1)->start ET SC[entrée MPU courant 1]->suivant == NULL ALORS (Plus de sous-blocs)
+        if self.helpers.get_SC_origin_from_MPU_entry_address(block_to_merge1_address) == idBlockToMerge1 and \
+                self.helpers.get_SC_next_from_MPU_entry_address(block_to_merge1_address) == 0:
+            # back to initial block before cut
+            # Ecrire TRUE à MPU[ancêtres].accessible (O(p) car recherche dans p ancêtres, sinon besoin de stocker l’adresse du bloc dans l’ancêtre direct pour O(p))
+            self.__write_accessible_to_ancestors_rec(self.current_partition, idBlockToMerge1, True)
+        # SINON rien
+*)
+		(** Parents and ancestors: set the block accessible again if there are no
+		subblocks anymore of block 1 TODO rename with RecAux ?*)
+		perform blockOrigin := readSCOriginFromMPUEntryAddr block1InCurrPartAddr in
+		perform blockNext := readSCNextFromMPUEntryAddr block1InCurrPartAddr in
+		writeAccessibleToAncestorsIfNoCut currentPart
+																			idBlockToMerge1 block1InCurrPartAddr
+																			true ;;
+(*
+    # RET @bloc 1
+    return block_to_merge1_address
+*)
+		ret idBlockToMerge1.
+
+
 (** ** The prepare PIP MPU service
 
     The [prepare] system call prepares the partition <idPD> (current partition 
