@@ -31,22 +31,21 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 (**  * Summary 
-      In this file we define the required configuration to extract the  MALInternal, MAL, Internal and 
-      Services functions from Coq to JSON.
-      The JSON output will be analyzed to generate the corresponding C implementation *)
-Require Import Model.MAL Model.Monad Model.ADT Core.Services Core.Internal.
-Require Import Extraction.
+			This file contains the definition of some user constants
+*)
+Require Import Arith.
 
-Extraction Language JSON.
+(*******************************************************************************)
+(* User Constants *)
+(*******************************************************************************)
+(* To be set by the user *)
+(*  # To be set by the user
+  self.kernel_structure_entries_bits = 3 *)
+Definition kernelStructureEntriesBits := 3.
+(* self.nb_prepare_max_bits = 3*)
+Definition nbPrepareMaxBits := 3.
+(*******************************************************************************)
 
-(** Coq standard library *)
-(* Tell Coq to extract those names verbatim, instead of using if-then-else *)
-Extract Inlined Constant andb => "andb".
-Extract Inlined Constant orb => "orb".
-
-(** EXTRACTION *)
-Extraction Library MALInternal. 
-Extraction Library MAL.
-Extraction Library Internal .
-Extraction Library Services.
-
+Definition kernelStructureEntriesNb := kernelStructureEntriesBits ^ 2.
+Definition maxNbPrepare := nbPrepareMaxBits ^ 2.
+(*******************************************************************************)

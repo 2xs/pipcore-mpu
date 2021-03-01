@@ -33,12 +33,14 @@
 
 (** * Summary 
     This file contains some internal functions used by services *)
-Require Import Model.Hardware Model.ADT Model.MAL Bool Arith List Coq.Init.Peano.
+Require Import Model.Monad Model.ADT Model.MAL.
+Require Import Bool Arith List.
+
+Open Scope mpu_state_scope.
+
+(** Fixed fuel/timeout value to prove function termination *)
 Definition N := 100.
 
-Import MAL.
-Open Scope mpu_state_scope.
-  
 (** The [getPd] function returns the page directory of a given partition *)
 Definition getPd partition :=
   readPDTable partition.
@@ -87,40 +89,16 @@ Definition compareAddrToNull (p : paddr) : LLI bool :=
         next_kernel_structure = self.helpers.get_PD_pointer_to_MPU_linked_list(PD_to_find_in)
         return self.__find_block_in_MPU_rec(next_kernel_structure, id_block_to_find)
 *)
-(*
-Fixpoint findBlockInMPURec (currentidx : PipMPU.index) (currentkernelstructure idblock: paddr) : PipMPU.LLI paddr := 
-	match currentidx with
-		| Build_index n => if beq n O then 
-		| 0 => PipMPU.getNullAddr
-		| S timeout1 => 
-										perform maxindex :=  Constants.getKernelStructureEntriesNb in (** Our last index is table size - 1, as we're indexed on zero*)
-										perform islastidx := PipMPU.eqbIdx currentidx maxindex in
-										if (islastidx)
-										then
-											perform nextkernelstructure := readPDNextFromKernelStructureStart currentkernelstructure in
-											perform nullAddr :=  PipMPU.getNullAddr in
-											perform isnull :=  PipMPU.eqbAddr nextkernelstructure nullAddr in
-											if isnull 
-											then PipMPU.getNullAddr
-											else
-												findBlockInMPURec timeout1 nextkernelstructure idblock (** Recursive call on the next table *)
-									else
-											perform entryaddr := currentkernelstructure + currentidx*Constants.MPUEntryLength in
-											perform ispresent := readMPUPresentFromMPUEntryAddr entryaddr in
-											perform mpustart := readMPUStartFromMPUEntryAddr entryaddr in
-											if ispresent && PipMPU.beqAddr mpustart idblock then
-												ret entryaddr
-											else 
-												findBlockInMPURec timeout1 currentkernelstructure idblock (** Recursive call on the next table **)
-	end.*)
 
 
-Fixpoint findBlockInMPUAux (timeout : nat) (currentidx : index) (currentkernelstructure idblock: paddr) : LLI paddr := 
+Fixpoint findBlockInMPUAux (timeout : nat) (currentidx : index)
+													(currentkernelstructure idblock: paddr) : LLI paddr :=
 	match timeout with
-		| O => getNullAddr
+		| 0 => getNullAddr
 		| S timeout1 => 
-										perform maxindex := getKernelStructureEntriesNb in (** Our last index is table size - 1, as we're indexed on zero*)
-										perform islastidx := getBeqIdx currentidx (CIndex maxindex) in
+										perform maxentriesnb := getKernelStructureEntriesNb in (** Our last index is table size - 1, as we're indexed on zero*)
+										perform maxindex := Index.pred maxentriesnb in
+										perform islastidx := getBeqIdx currentidx maxindex in
 										if (islastidx)
 										then
 											perform nextkernelstructure := readNextFromKernelStructureStart currentkernelstructure in
@@ -129,16 +107,20 @@ Fixpoint findBlockInMPUAux (timeout : nat) (currentidx : index) (currentkernelst
 											if isnull
 											then getNullAddr
 											else
-												findBlockInMPUAux timeout1 (CIndex 0) nextkernelstructure idblock (** Recursive call on the next table *)
+												(** Recursive call on the next table, start at index 0 *)
+												perform zero := Index.zero in
+												findBlockInMPUAux timeout1 zero nextkernelstructure idblock
 									else
 											perform entryaddr := getMPUEntryAddrAtIndexFromKernelStructureStart currentkernelstructure currentidx in
 											perform ispresent := readMPUPresentFromMPUEntryAddr entryaddr in
 											perform mpustart := readMPUStartFromMPUEntryAddr entryaddr in
 											if ispresent && beqAddr mpustart idblock then
+												(* block found*)
 												ret entryaddr
 											else 
+												(** Recursive call to the next index**)
 												perform nextidx := Index.succ currentidx in
-												findBlockInMPUAux timeout1 nextidx currentkernelstructure idblock (** Recursive call on the next table**)
+												findBlockInMPUAux timeout1 nextidx currentkernelstructure idblock
 	end.
 
 
@@ -199,7 +181,7 @@ Fixpoint findBlockInMPUWithAddrAux (timeout : nat)
 																	(currentkernelstructure idblock : paddr)
 																	(blockMPUAddr: paddr) : LLI paddr :=
 	match timeout with
-		| O => getNullAddr (*Stop condition 1: reached end of structure list*)
+		| 0 => getNullAddr (*Stop condition 1: reached end of structure list*)
 		| S timeout1 => (*Stop conditions 2 and 3: found block OR issue with the entry *)
 										perform isMPUAddrAboveStart := Paddr.leb currentkernelstructure blockMPUAddr in
 										perform maxMPUAddrInStructure := getAddr (CPaddr (currentkernelstructure
@@ -211,9 +193,12 @@ Fixpoint findBlockInMPUWithAddrAux (timeout : nat)
 											perform index := readMPUIndexFromMPUEntryAddr blockMPUAddr in
 
 											perform maxEntriesNb := getKernelStructureEntriesNb in
-
-											if (leb 0 index) && (Nat.ltb index maxEntriesNb)
-											then (* index is valid*)
+											perform zero := Index.zero in
+											perform lastindex := Index.pred maxEntriesNb in
+											perform isAbove0 := Index.leb zero index in
+											perform isLessMaxEntriesNb := Index.leb index maxEntriesNb in
+											if isAbove0 && isLessMaxEntriesNb
+											then (* 0 <= index <= lastidx is valid*)
 												(** Check the MPU entry matches the submitted idblock
 														and is present*)
 												perform entryBlockStart := readMPUStartFromMPUEntryAddr blockMPUAddr in
@@ -293,10 +278,9 @@ Fixpoint writeAccessibleRec timeout (pdbasepartition idblock : paddr) (accessibl
 	end.
 
 
-
+(** The [writeAccessibleRecAux] function fixes the timeout value of [writeAccessibleRecAux] *)
 Definition writeAccessibleRecAux (pdbasepartition idblock : paddr) (accessiblebit : bool) : LLI bool :=
 	writeAccessibleRec N pdbasepartition idblock accessiblebit.
-Print writeAccessibleRec.
 
 (* TODO ret tt ? : unit*)
 Definition writeAccessibleToAncestorsIfNoCut 	(pdbasepartition idblock mpublockaddr : paddr)
@@ -352,7 +336,8 @@ Definition insertNewEntry (pdinsertion startaddr endaddr origin: paddr) : LLI pa
 	writePDFirstFreeSlotAddr pdinsertion newFirstFreeSlotAddr ;;
 	(** Adjust the free slots count to count - 1*)
 	perform currentNbFreeSlots := readPDNbFreeSlots pdinsertion in
-	writePDNbFreeSlots pdinsertion (currentNbFreeSlots - 1) ;;
+	perform predCurrentNbFreeSlots := Index.pred currentNbFreeSlots in
+	writePDNbFreeSlots pdinsertion predCurrentNbFreeSlots ;;
 
 	(** Insert the new MPU entry in the free slot*)
 	writeMPUStartFromMPUEntryAddr newEntryMPUAddr startaddr ;;
@@ -444,7 +429,9 @@ def __add_memory_block(self, idPDchild, block_to_share_in_current_partition_addr
 *)
 		(* Check there are free slots in the the child to add the block to share*)
 		perform currentFreeSlotsNb := readPDNbFreeSlots idPDchild in
-		if leb currentFreeSlotsNb 0 then (* no free slots left, stop*) ret nullAddr 
+		perform zero := Index.zero in
+		perform isFull := Index.leb currentFreeSlotsNb zero in
+		if isFull then (* no free slots left, stop*) ret nullAddr
 		else
 
 (*
@@ -499,48 +486,49 @@ def __add_memory_block(self, idPDchild, block_to_share_in_current_partition_addr
 		ret blockToShareChildMPUAddr.
 
 
+(** The [sizeOfBlock] function computes the size of block referenced in an MPU entry
+	Returns the difference between the block's end and start addresses
+*)
+Definition sizeOfBlock (mpuentryaddr : paddr) : LLI paddr :=
+	perform startAddr := readMPUStartFromMPUEntryAddr mpuentryaddr in
+	perform endAddr := readMPUEndFromMPUEntryAddr mpuentryaddr in
+	ret (CPaddr (endAddr - startAddr)).
 
-Module Helpers.
-
-
-Definition readPDChildFromMPUEntry (paddr : paddr) : LLI ADT.paddr :=
-(* if MPU_entry_address == 0:
-				  print("Error in get_Sh1_PDchild_from_MPU_entry_address")
-					exit(108)
-   return self.memory.memory_getint(
-        self.get_address_Sh1_PDchild_from_MPU_entry_address(MPU_entry_address)
-        )*)
-	perform addrIsNull := compareAddrToNull paddr in
-	if addrIsNull then undefined 50 else
-	readSh1PDChildFromMPUEntryAddr paddr.
-
-Definition sizeOfBlock (memblock : block) : LLI paddr :=
-	ret (CPaddr (memblock.(endAddr) - memblock.(startAddr))). 
-
+(** The [initPDTable] function initializes the PD table pointed by <pdtableaddr>
+		with the default PD table
+	Returns unit
+*)
 Definition initPDTable (pdtablepaddr : paddr) : LLI unit :=
 	perform emptytable := getEmptyPDTable in
 	writePDTable pdtablepaddr emptytable.
 
-Fixpoint eraseBlockRec (startAddr currentAddr : nat): LLI unit :=
-match currentAddr with
-| O => ret tt (*Address 0 is the low-limit*)
-| S n => 	eraseAddr (CPaddr currentAddr) ;; (*erase the current address*)
-					if Nat.eqb currentAddr startAddr then
-						(*Reached start address, no more addresses to erase*)
-						ret tt
-					else
-						(*Continue to erase lower addresses*)
-						eraseBlockRec startAddr n 
+
+(** The [findBlockInMPUWithAddrAux] function recursively search by going through
+		the structure list and search for the <id_block_to_find> given the
+    <MPU_address_block_to_find> (only look the entries at this address, so faster
+		than blind search going through all the entries of a kernel structure)
+    Stop conditions:
+        1: 	reached end of structure list (maximum number of iterations)
+        2: 	found <id_block_to_find>
+        3: 	issue with the block, i.e. block not found, incorrect MPU address or
+						block not present
+    Recursive calls: until the end of the linked list *)
+Fixpoint eraseBlockAux 	(timeout : nat) (startAddr currentAddr : paddr): LLI unit :=
+	match timeout with
+		| 0 => ret tt (*Stop condition 1: reached end of structure list*)
+		| S timeout1 =>	eraseAddr currentAddr ;; (*erase the current address*)
+										if beqAddr currentAddr startAddr then
+											(*Reached start address, no more addresses to erase*)
+											ret tt
+										else
+											(*Continue to erase lower addresses*)
+											perform predAddr := Paddr.pred currentAddr in
+											eraseBlockAux timeout1 startAddr predAddr
 end.
 
-
-(* Transform paddr into nat *)
-Definition eraseBlock (b : block) : LLI unit :=
-	match b.(startAddr) with
-	| Build_paddr s => match b.(endAddr) with
-										| Build_paddr e => eraseBlockRec s e
-										end
-	end.
+(** The [eraseBlock] function fixes the timeout value of [eraseBlockAux] *)
+Definition eraseBlock (startAddr endAddr : paddr) : LLI unit :=
+	eraseBlockAux N startAddr endAddr.
 
 (*
     def init_MPU(self, kernel_structure_start, index_start, index_end):
@@ -574,28 +562,38 @@ Definition eraseBlock (b : block) : LLI unit :=
 		The indexes are 0-indexed.
 	Returns unit
 *)
-Fixpoint initMPUEntryRec 	(kernelStructureStartAddr : paddr) (indexCurr : nat) 
-																																	: LLI unit :=
-	match indexCurr with
-	| 0 => 	perform mpuEntry := buildMPUEntry 
-																		nullAddr
-																		(CPaddr (kernelStructureStartAddr +
-																		Constants.MPUEntryLength))
-																		false
-																		false in
-					writeMPUEntryWithIndex (CPaddr kernelStructureStartAddr) 0 mpuEntry;;
-					ret tt
-	| S n => 	perform mpuEntry := buildMPUEntry 
-																		nullAddr
-																		(CPaddr (kernelStructureStartAddr 
-																			+ (S indexCurr)*Constants.MPUEntryLength))
-																		false
-																		false in
-						writeMPUEntryWithIndex (CPaddr (kernelStructureStartAddr 
-																			+ indexCurr*Constants.MPUEntryLength))
-																		indexCurr
-																		mpuEntry;;
-						initMPUEntryRec kernelStructureStartAddr n
+Fixpoint initMPUEntryRec 	(timeout : nat)
+													(kernelStructureStartAddr : paddr)
+													(indexCurr : index): LLI unit :=
+	match timeout with
+	| 0 => 	ret tt
+	| S timeout1 => 	perform zero := Index.zero in
+										if beqIdx indexCurr zero
+										then
+											perform mpuEntry := buildMPUEntry
+																						nullAddr
+																						(CPaddr (kernelStructureStartAddr +
+																						Constants.MPUEntryLength))
+																						false
+																						false in
+											writeMPUEntryWithIndex (CPaddr kernelStructureStartAddr)
+																							zero mpuEntry;;
+											ret tt
+										else
+											perform idxsucc := Index.succ indexCurr in
+											(* current entry points to the next via the endAddr field*)
+											perform mpuEntry := buildMPUEntry
+																						nullAddr
+																						(CPaddr (kernelStructureStartAddr
+																							+ idxsucc*Constants.MPUEntryLength))
+																						false
+																						false in
+											writeMPUEntryWithIndex (CPaddr (kernelStructureStartAddr
+																							+ indexCurr*Constants.MPUEntryLength))
+																						indexCurr
+																						mpuEntry;;
+											perform idxpred := Index.pred indexCurr in
+											initMPUEntryRec timeout1 kernelStructureStartAddr idxpred
 	end.
 
 (** The [initMPUStructure] function initializes the MPU part of the kernel
@@ -606,10 +604,11 @@ Fixpoint initMPUEntryRec 	(kernelStructureStartAddr : paddr) (indexCurr : nat)
 *)
 Definition initMPUStructure (kernelStructureStartAddr : paddr) : LLI unit :=
 	perform entriesnb := getKernelStructureEntriesNb in
-	perform lastindex := NatMonadOp.pred entriesnb in (* 0-indexed*)
+	perform lastindex := Index.pred entriesnb in (* 0-indexed*)
 	(** Initialize the MPU entries until the penultimate entry, the last entry is
 			is not identical*)
-	initMPUEntryRec kernelStructureStartAddr (Nat.pred lastindex) ;;
+	perform secondlastindex := Index.pred lastindex in
+	initMPUEntryRec N kernelStructureStartAddr secondlastindex ;;
 	(** Last entry has no following entry: make it point to NULL*)
 	perform lastMPUEntry := buildMPUEntry nullAddr
 																				nullAddr
@@ -641,18 +640,26 @@ def init_Sh1(self, kernel_structure_start, index_start, index_end):
 		The indexes are 0-indexed.
 	Returns unit
 *)
-Fixpoint initSh1EntryRec 	(kernelStructureStartAddr : paddr) 
-													(indexCurr : nat) : LLI unit :=
-	match indexCurr with
-	| 0 => perform defaultSh1Entry := getDefaultSh1Entry in
-				 writeSh1EntryFromMPUEntryAddr (CPaddr kernelStructureStartAddr)
+Fixpoint initSh1EntryRec 	(timeout : nat) (kernelStructureStartAddr : paddr)
+													(indexCurr : index) : LLI unit :=
+	match timeout with
+		| 0 => 	ret tt
+		| S timeout1 => perform zero := Index.zero in
+										if beqIdx indexCurr zero
+										then
+											perform defaultSh1Entry := getDefaultSh1Entry in
+											writeSh1EntryFromMPUEntryAddr
+																				(CPaddr kernelStructureStartAddr)
 																				defaultSh1Entry;;
-				ret tt
-	| S n => 	perform defaultSh1Entry := getDefaultSh1Entry in
-						writeSh1EntryFromMPUEntryAddr (CPaddr (kernelStructureStartAddr + 
-																						indexCurr*Constants.MPUEntryLength))
-																					defaultSh1Entry;;
-					initSh1EntryRec kernelStructureStartAddr n
+											ret tt
+										else
+											perform defaultSh1Entry := getDefaultSh1Entry in
+											writeSh1EntryFromMPUEntryAddr
+																				(CPaddr (kernelStructureStartAddr
+																					+ indexCurr*Constants.MPUEntryLength))
+																				defaultSh1Entry;;
+											perform idxpred := Index.pred indexCurr in
+											initSh1EntryRec timeout1 kernelStructureStartAddr idxpred
 	end.
 
 (** The [initSh1Structure] function initializes the Sh1 part of the kernel
@@ -662,8 +669,8 @@ Fixpoint initSh1EntryRec 	(kernelStructureStartAddr : paddr)
 *)
 Definition initSh1Structure (kernelStructureStartAddr : paddr) : LLI unit :=
 	perform entriesnb := getKernelStructureEntriesNb in
-	perform lastindex := NatMonadOp.pred entriesnb in
-	initSh1EntryRec kernelStructureStartAddr lastindex ;;
+	perform lastindex := Index.pred entriesnb in (* 0-indexed*)
+	initSh1EntryRec N kernelStructureStartAddr lastindex ;;
 	ret tt.
 (*
   def init_SC(self, kernel_structure_start, index_start, index_end):
@@ -686,18 +693,26 @@ Definition initSh1Structure (kernelStructureStartAddr : paddr) : LLI unit :=
 		The indexes are 0-indexed.
 	Returns unit
 *)
-Fixpoint initSCEntryRec 	(kernelStructureStartAddr : paddr) 
-													(indexCurr : nat) : LLI unit :=
-	match indexCurr with
-	| 0 => 	perform defaultSCEntry := getDefaultSCEntry in
-					writeSCEntryFromMPUEntryAddr (CPaddr kernelStructureStartAddr)
-																			defaultSCEntry;;
-					ret tt
-	| S n => 	perform defaultSCEntry := getDefaultSCEntry in
-						writeSCEntryFromMPUEntryAddr (CPaddr (kernelStructureStartAddr + 
-																		indexCurr*Constants.MPUEntryLength))
-																				defaultSCEntry;;
-					initSCEntryRec kernelStructureStartAddr n
+Fixpoint initSCEntryRec 	(timeout : nat) (kernelStructureStartAddr : paddr)
+													(indexCurr : index) : LLI unit :=
+	match timeout with
+		| 0 => 	ret tt
+		| S timeout1 => perform zero := Index.zero in
+										if beqIdx indexCurr zero
+										then
+											perform defaultSCEntry := getDefaultSCEntry in
+											writeSCEntryFromMPUEntryAddr
+																					(CPaddr kernelStructureStartAddr)
+																					defaultSCEntry;;
+											ret tt
+										else
+											perform defaultSCEntry := getDefaultSCEntry in
+											writeSCEntryFromMPUEntryAddr
+																					(CPaddr (kernelStructureStartAddr
+																						+ indexCurr*Constants.MPUEntryLength))
+																					defaultSCEntry;;
+											perform idxpred := Index.pred indexCurr in
+											initSCEntryRec timeout1 kernelStructureStartAddr idxpred
 	end.
 
 (** The [initSCStructure] function initializes the SC part of the kernel
@@ -707,7 +722,6 @@ Fixpoint initSCEntryRec 	(kernelStructureStartAddr : paddr)
 *)
 Definition initSCStructure (kernelStructureStartAddr : paddr) : LLI unit :=
 	perform entriesnb := getKernelStructureEntriesNb in
-	perform lastindex := NatMonadOp.pred entriesnb in
-	initSCEntryRec kernelStructureStartAddr lastindex ;;
+	perform lastindex := Index.pred entriesnb in (* 0-indexed*)
+	initSCEntryRec N kernelStructureStartAddr lastindex ;;
 	ret tt.
-End Helpers.

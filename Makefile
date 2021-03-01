@@ -140,7 +140,7 @@ src/model/Extraction.vo $(JSONS): src/model/Extraction.v
 
 extract: $(EXTRACTEDCSOURCES)
 
-DIGGERFLAGS := -m Hardware -M coq_LLI
+DIGGERFLAGS := -m Monad -M coq_LLI
 DIGGERFLAGS += -m Datatypes -r Coq_true:true -r Coq_false:false -r Coq_tt:tt
 DIGGERFLAGS += -m MALInternal -d :MALInternal.json
 DIGGERFLAGS += -m MAL -d :MAL.json

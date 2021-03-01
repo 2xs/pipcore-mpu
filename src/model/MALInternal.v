@@ -32,24 +32,59 @@
 (*******************************************************************************)
 
 (** * Summary 
-    This file contains the definition of some constants and its monadic getters;
+    This file contains the definition of some constants and their monadic getters;
     and the module definition of each abstract data type in which we define required
     monadic functions  *)
-Require Import Model.ADT Model.Hardware Model.Lib. 
+Require Import Model.ADT Model.Monad Model.UserConstants.
 Require Import List Arith Omega.
 
 Open Scope mpu_state_scope.
 
 
+Module Paddr.
+Definition leb (a b : paddr) : LLI bool := ret (a <=? b).
+Program Definition succ (n : paddr) : LLI paddr :=
+let isucc := n+1 in
+if (lt_dec isucc maxAddr )
+then
+  ret (Build_paddr isucc _ )
+else  undefined 68.
+
+Program Definition pred (n : paddr) : LLI paddr :=
+let ipred := n-1 in
+if (lt_dec ipred maxAddr )
+then
+  ret (Build_paddr ipred _ )
+else  undefined 69.
+
+Program Definition mulIdxPaddr (n : index) (m: paddr) : LLI paddr :=
+let res := n*m in
+if (lt_dec res maxAddr )
+then
+  ret (Build_paddr res _ )
+else  undefined 70.
+End Paddr.
+
+Module Index.
+Definition leb (a b : index) : LLI bool := ret (a <=? b).
+Definition ltb (a b : index) : LLI bool := ret (a <? b).
+Program Definition succ (n : index) : LLI index :=
+let isucc := n+1 in
+if (lt_dec isucc maxIdx)
+then
+  ret (Build_index isucc _ )
+else  undefined 68.
+Program Definition pred (n : index) : LLI index :=
+let ipred := n-1 in
+if (lt_dec ipred maxIdx)
+then
+  ret (Build_index ipred _ )
+else  undefined 71.
+
+Program Definition zero : LLI index:= ret (CIndex 0).
+End Index.
+
 Module Constants.
-(* To be set by the user *)
-(*  # To be set by the user
-  self.kernel_structure_entries_bits = 3 *)
-Definition kernelStructureEntriesBits := 3.
-(* self.nb_prepare_max_bits = 3*)
-Definition nbPrepareMaxBits := 3.
-
-
 (** Fix positions into the partition descriptor
     of the partition *)
 (*Definition pdidx := CPaddr 0.   (* descriptor *)*)
@@ -59,38 +94,28 @@ Definition firstfreeslotaddressidx := CIndex 2.
 Definition nbprepareidx := CIndex 3.
 Definition parentidx := CIndex 4. (* parent (virtual address is null) *)
 
-(* kernel structure *)
-(*# default values kernel structure
-  self.kernel_structure_entries_nb = pow(2, self.kernel_structure_entries_bits)
-  self.MPU_entry_length = (
-              self.kernel_structure_entries_bits + 2 * memory.size_of_int + 2)  # start - end - accessible - present
-  self.Sh1_entry_length = (2 * memory.size_of_int + 1)  # PDChild - PD flag - inChildLocation
-  self.SC_entry_length = 2 * memory.size_of_int  # origin - next
-  self.kernel_structure_total_length = self.kernel_structure_entries_nb * (
-          self.MPU_entry_length + self.Sh1_entry_length + self.SC_entry_length) \
-                                       + memory.size_of_int  # + next*)
-Definition kernelStructureEntriesNb := kernelStructureEntriesBits ^ 2.
-
-Definition MPUEntryLength := Build_paddr 3.
-Definition SHEntryLength := Build_paddr 3.
-Definition SCEntryLength := Build_paddr 2.
+Definition MPUEntryLength := CPaddr 3.
+Definition SHEntryLength := CPaddr 3.
+Definition SCEntryLength := CPaddr 2.
 
 Definition mpuoffset := CPaddr 0.
 Definition sh1offset := CPaddr (mpuoffset + kernelStructureEntriesNb*MPUEntryLength).  (* shadow1 *) 
 Definition scoffset := CPaddr (sh1offset + kernelStructureEntriesNb*SHEntryLength).  (* shadow cut *)
-(*Definition getPDidx : LLI index:= ret pdidx.*)
 Definition nextoffset := CPaddr (scoffset + kernelStructureEntriesNb*SCEntryLength).
 
 Definition rootPart := CPaddr 0.
 
-Definition minBlockSize := Build_paddr 32.
-
-Definition maxNbPrepare := nbPrepareMaxBits ^ 2.
+Definition minBlockSize := CPaddr 32.
 
 (* TODO : power of 2*)
 Definition kernelStructureTotalLength := CPaddr (nextoffset + 1).
 End Constants.
 
+Definition getNextOffset : LLI paddr := ret Constants.nextoffset.
+Definition getKernelStructureEntriesNb : LLI index := ret (CIndex kernelStructureEntriesNb).
+Definition getMaxNbPrepare : LLI index := ret (CIndex maxNbPrepare).
+Definition getMinBlockSize : LLI paddr := ret Constants.minBlockSize.
+Definition getKernelStructureTotalLength : LLI paddr := ret Constants.kernelStructureTotalLength.
 
 Definition beqIdx (a b : ADT.index) : bool := a =? b.
 Definition beqAddr (a b : ADT.paddr) : bool := a =? b.
@@ -98,10 +123,7 @@ Definition nullAddr : paddr := CPaddr 0.
 Definition getNullAddr := ret nullAddr.
 Definition getBeqAddr (p1 : paddr)  (p2 : paddr) : LLI bool := ret (p1 =? p2).
 Definition getBeqIdx (p1 : index)  (p2 : index) : LLI bool := ret (p1 =? p2).
-Definition getNextOffset : LLI paddr := ret Constants.nextoffset.
-Definition getKernelStructureEntriesNb : LLI nat := ret Constants.kernelStructureEntriesNb.
-Definition getMinBlockSize : LLI paddr := ret Constants.minBlockSize.
-Definition getKernelStructureTotalLength : LLI paddr := ret Constants.kernelStructureTotalLength.
+
 Definition getAddr (paddr : paddr) : LLI ADT.paddr := ret paddr.
 
 Definition getMPUEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (MPUEntryIndex : index) : LLI paddr :=
@@ -141,35 +163,3 @@ Definition getNextAddrFromKernelStructureStart (kernelStartAddr : paddr) : LLI p
 Definition getMPUEntryAddrAtIndexFromKernelStructureStart (kernelstructurestart : paddr) (idx : index) : LLI paddr :=
 	let addr := CPaddr (kernelstructurestart + idx*Constants.MPUEntryLength) in
 	ret addr.
-
-Definition pred (n : paddr) : paddr :=
-  match n with
-    | Build_paddr t => Build_paddr (t-1)
-  end.
-
-Definition succ (n : paddr) : paddr :=
-  match n with
-    | Build_paddr t => Build_paddr (t+1)
-  end.
-
-Module Paddr.
-Definition leb (a b : paddr) : LLI bool := ret (a <=? b).
-End Paddr.
-
-Module Index.
-Program Definition succ (n : index) : LLI index :=
-(*
-let isucc := n+1 in
-if (lt_dec isucc tableSize )
-then
-  ret (Build_index isucc _ )
-else  undefined 28.*)
-let isucc := n+1 in
-ret (Build_index isucc).
-
-Program Definition zero : LLI index:= ret (Build_index 0).
-End Index.
-
-Module NatMonadOp.
-Definition pred (n : nat) : LLI nat := ret n.
-End NatMonadOp.

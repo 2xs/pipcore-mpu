@@ -31,7 +31,7 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-Require Import List NPeano Omega Coq.Logic.Classical_Prop Bool Model.ADT.
+Require Import List.
 Import List.ListNotations.
 
 Fixpoint lookup {A C: Type} (a : A)  (assoc : list (A*C))  (eqA : A -> A -> bool) :=

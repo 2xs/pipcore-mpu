@@ -44,14 +44,10 @@
       - part 3 : <<funtionName>> is the PIP service. It calls <<functionNameAux>>
                 with the required parameters *)
 
-Require Import Model.Hardware Model.ADT Model.Lib Model.MAL Bool Core.Internal Arith  List.
-Import List.ListNotations.
+Require Import Model.Monad Model.MAL Core.Internal.
+Import Bool Arith List List.ListNotations.
 
-Export Internal.Helpers.
-Set Printing Implicit.
-Set Typeclasses Debug Verbosity 5.
 Open Scope mpu_state_scope.
-Print Visibility.
 
 (** ** The createPartition PIP MPU service
 
@@ -81,7 +77,7 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
 		perform addrIsNull := compareAddrToNull	blockInCurrentPartitionAddr in
 		if addrIsNull then(** no block found, stop *) ret false else
 		(*block_MPU_entry = self.helpers.get_MPU_entry(block_in_current_partition_address) *)
-		perform blockMPUentry := readMPUEntry blockInCurrentPartitionAddr in
+
 (*
     if not block_MPU_entry[3]:
         # block is inaccessible
@@ -95,7 +91,7 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
         # block is smaller than the MPU region constraint
         return 0 
 *)
-		perform blockSize := sizeOfBlock blockMPUentry.(mpublock) in
+		perform blockSize := sizeOfBlock blockInCurrentPartitionAddr in
 		perform minBlockSize := getMinBlockSize in
 		perform isBlockTooSmall := Paddr.leb blockSize minBlockSize in
 		if isBlockTooSmall then (** block is smaller than the minimum  *) ret false 
@@ -106,7 +102,7 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
         # block is already shared with a child partition
         return 0  # TODO: return NULL*)
 		(* if accessible, then PDflag can't be set, we just need to check PDchild *)
-		perform PDChildAddr := readPDChildFromMPUEntry	blockInCurrentPartitionAddr in
+		perform PDChildAddr := readSh1PDChildFromMPUEntryAddr	blockInCurrentPartitionAddr in
 		perform PDChildAddrIsNull := compareAddrToNull PDChildAddr in
 		if negb PDChildAddrIsNull (*shouldn't be null*) then ret false else
 
@@ -115,42 +111,44 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
     # // Initialiser bloc PD enfant
     # blocPD <- RécupérerBloc(entrée MPU)
     new_PD_block = self.helpers.get_MPU_start_from_MPU_entry_address(block_in_current_partition_address)*)
-		perform newPDBlock := readMPUBlockFromMPUEntryAddr blockInCurrentPartitionAddr in
-
+		perform newPDBlockStartAddr := readMPUStartFromMPUEntryAddr blockInCurrentPartitionAddr in
+		perform newPDBlockEndAddr := readMPUEndFromMPUEntryAddr blockInCurrentPartitionAddr in
 (*
     # Mettre à 0 le blocPD entier (ou jusqu’à index pointeur libre-> cas où le bloc est très grand)
     for i in range(self.helpers.get_MPU_start_from_MPU_entry_address(block_in_current_partition_address),
                    self.helpers.get_MPU_end_from_MPU_entry_address(block_in_current_partition_address)):
         self.memory.write_bit(i, 0)*)
 		(** Erase the future Partition Descriptor content*)
-		eraseBlock newPDBlock ;;
+		eraseBlock newPDBlockStartAddr newPDBlockEndAddr;;
 
 (*
     # Ecrire NULL à blocPD[index MPU]
     self.helpers.set_PD_pointer_to_MPU_linked_list(new_PD_block, 0)*)
 		(* create PD Table by setting the structure to the default values *)
-		initPDTable newPDBlock.(startAddr) ;;
+		initPDTable newPDBlockStartAddr ;;
 		perform nullAddr := getNullAddr in
-		writePDStructurePointer newPDBlock.(startAddr) nullAddr ;; 
+		writePDStructurePointer newPDBlockStartAddr nullAddr ;;
 
+
+		perform zero := MALInternal.Index.zero in
 (*
     # Ecrire 0 à blocPD[compteur libre]
     self.helpers.set_PD_nb_free_slots(new_PD_block, 0)*)
-		writePDNbFreeSlots newPDBlock.(startAddr) 0 ;;
+		writePDNbFreeSlots newPDBlockStartAddr zero ;;
 (*
     # Ecrire NULL à blocPD[pointeur libre]
     self.helpers.set_PD_first_free_slot_address(new_PD_block, 0)*)
-		writePDFirstFreeSlotAddr newPDBlock.(startAddr) nullAddr ;;
+		writePDFirstFreeSlotAddr newPDBlockStartAddr nullAddr ;;
 
 (*
     # Ecrire 0 à blocPD[compteur nbPrepare]
     self.helpers.set_PD_nb_prepare(new_PD_block, 0)*)
-		writePDNbPrepare newPDBlock.(startAddr) 0 ;;
+		writePDNbPrepare newPDBlockStartAddr zero ;;
 (*
     # //Lier PD enfant à la partition courante
     # Ecrire PDcourant à blocPD[parent]
     self.helpers.set_PD_parent(new_PD_block, self.current_partition)*)
-		writePDParent newPDBlock.(startAddr) currentPart ;;
+		writePDParent newPDBlockStartAddr currentPart ;;
 
 (*
     # Ecrire FALSE dans MPUcourant[entrée MPU]->Accessible (bloc inaccessible pour la partition courante)
@@ -184,8 +182,6 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
     # RET OK
     return 1*)
 		ret true.
-Check createPartition.
-Print createPartition.
 
 (** ** The cutMemoryBlock PIP MPU service
 
@@ -214,7 +210,9 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
         return 0  # TODO: return NULL*)
 		(** Check that there is a free slot left*)
 		perform nbFreeSlots := readPDNbFreeSlots currentPart in
-		if leb nbFreeSlots 0 then ret nullAddr else
+		perform zero := Index.zero in
+		perform isFull := Index.leb nbFreeSlots zero in
+		if isFull then ret nullAddr else
 (*
     # find the block in the current partition's MPU structure
     block_to_cut_MPU_address= self.__find_block_in_MPU(self.current_partition, idBlockToCut)
@@ -241,7 +239,7 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
 
 		(** Check the block is not shared TODO: changed condition *)
 		(* if accessible, then PDflag can't be set, we just need to check PDchild is null*)
-		perform PDChildAddr := readPDChildFromMPUEntry	blockToCutMPUAddr in
+		perform PDChildAddr := readSh1PDChildFromMPUEntryAddr	blockToCutMPUAddr in
 		perform PDChildAddrIsNull := compareAddrToNull PDChildAddr in
 		if negb PDChildAddrIsNull (*shouldn't be null*) then ret nullAddr else
 
@@ -261,8 +259,7 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
 (*
     # check that the new subblockS is at least 32 bytes (don't care if power of 2 because could be intermdiary)*)
 		(** Check that the block is greater than the minimum MPU region size*)
-		perform blockMPUentry := readMPUEntry blockToCutMPUAddr in
-		perform blockSize := sizeOfBlock blockMPUentry.(mpublock) in
+		perform blockSize := sizeOfBlock blockToCutMPUAddr in
 		perform minBlockSize := getMinBlockSize in
 		perform isBlockTooSmall := Paddr.leb blockSize minBlockSize in
 		if isBlockTooSmall then (** block is smaller than the minimum  *) ret nullAddr 
@@ -299,7 +296,8 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
     # modify initial block: the end address becomes (cutAddress - 1)
     self.helpers.set_MPU_end_from_MPU_entry_address(block_to_cut_MPU_address, cutAddress - 1)*)
 		(** Modify initial block: the end address becomes (cutAddress - 1)*)
-		writeMPUEndFromMPUEntryAddr blockToCutMPUAddr (pred cutAddr) ;;
+		perform predCutAddr := Paddr.pred cutAddr in
+		writeMPUEndFromMPUEntryAddr blockToCutMPUAddr predCutAddr ;;
 
 (*
     #  // Indiquer coupe dans Shadow Cut : bloc pourrait déjà être coupé auquel cas on doit l’insérer correctement dans la liste chaînée SC
@@ -320,7 +318,6 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
     return new_entry_MPU_address*)
 		ret newSubblockMPUAddr.
 
-Print cutMemoryBlock.
 
 (** ** The prepare PIP MPU service
 
@@ -340,7 +337,7 @@ Print cutMemoryBlock.
 		<<projectedSlotsNb>>			the number of requested slots
 		<<idRequisitionedBlock>>	the block used as the new kernel structure
 *)
-Definition prepare (idPD : paddr) (projectedSlotsNb : nat) 
+Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 									(idRequisitionedBlock : paddr) : LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
@@ -364,7 +361,9 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : nat)
         return 0  # TODO: return NULL*)
 		(* Check the max number of prepare hasn't been reached yet*)
 		perform nbPrepare := readPDNbPrepare idPD in
-		if leb Constants.maxNbPrepare nbPrepare 
+		perform maxnbprepare := getMaxNbPrepare in
+		perform isMaxPrepare := Index.leb maxnbprepare nbPrepare in
+		if isMaxPrepare
 		then (* reached maximum nb of allowed prepare, stop*) ret false 
 		else
 (*
@@ -378,8 +377,10 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : nat)
 		(* Check that there is a need for a prepare (nb of free slots not enough to hold the projected slots) *)
 		(* Check that no more than the max entries of a new kernel structure is planned*)
 		perform currentFreeSlotsNb := readPDNbFreeSlots idPD in
-		if leb projectedSlotsNb currentFreeSlotsNb 
-				&& negb (Nat.eqb currentFreeSlotsNb Constants.kernelStructureEntriesNb)
+		perform isEnoughFreeSlots := Index.leb projectedSlotsNb currentFreeSlotsNb in
+		perform kernelentriesnb := getKernelStructureEntriesNb in
+		perform isForcedPrepare :=  getBeqIdx currentFreeSlotsNb kernelentriesnb in
+		if isEnoughFreeSlots && negb isForcedPrepare
 		then (* no need for a prepare, stop*) ret false 
 		else
 
@@ -389,7 +390,8 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : nat)
         # bad arguments, stop
         return 0  # TODO: return NULL*)
 		(* Check that the nb of projected slots aren't superior to the max entries that a prepare can offer (max kernel entries)*)
-		if Nat.ltb Constants.kernelStructureEntriesNb projectedSlotsNb
+		perform isOutsideBound := Index.ltb kernelentriesnb projectedSlotsNb in
+		if isOutsideBound
 		then (* bad arguments, stop*) ret false
 		else 
 
@@ -407,8 +409,6 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : nat)
 																										idRequisitionedBlock in
 		perform addrIsNull := compareAddrToNull	requisitionedBlockInCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret false else
-		perform requisitionedBlockEntry := readMPUEntry 
-																					requisitionedBlockInCurrPartAddr in
 
 (*
     # Vérifier taille bloc réquisitionné > MinBlcoPrepare
@@ -416,7 +416,7 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : nat)
         # block is smaller than the MPU region constraint
         return 0  # TODO: return NULL*)
 		(* Check the block is big enough to hold a kernel structure*)
-		perform blockSize := sizeOfBlock requisitionedBlockEntry.(mpublock) in
+		perform blockSize := sizeOfBlock requisitionedBlockInCurrPartAddr in
 		perform kStructureTotalLength := getKernelStructureTotalLength in
 		perform isBlockTooSmall := Paddr.leb blockSize kStructureTotalLength in
 		if isBlockTooSmall then (* block is smaller than the minimum  *) ret false 
@@ -512,19 +512,21 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : nat)
     self.helpers.set_PD_nb_prepare(idPD, self.helpers.get_PD_nb_prepare(idPD) + 1)
 *)
 		(** Adjust the free slot pointer to the next free slot*)
+		perform lastidx := Index.pred kernelentriesnb in
 		perform lastMPUEntryAddr := getMPUEntryAddrFromKernelStructureStart 
-																	newKStructurePointer
-																	(CIndex (Constants.kernelStructureEntriesNb -1)) in
+																		newKStructurePointer
+																		lastidx in
 		perform currFirstFreeSlot := readPDFirstFreeSlotAddr idPD in
 		writeMPUEndFromMPUEntryAddr lastMPUEntryAddr currFirstFreeSlot ;;
 		(* set the first free slot addr to the first entry of the new kernel structure*)
 		writePDFirstFreeSlotAddr idPD newKStructurePointer ;;
 		(* new count = (count + number of new entries)*)
 		perform currentNbFreeSlots := readPDNbFreeSlots idPD in
-		writePDNbFreeSlots idPD (currentNbFreeSlots + Constants.kernelStructureEntriesNb) ;;
+		writePDNbFreeSlots idPD (CIndex (currentNbFreeSlots + kernelentriesnb)) ;;
 		(* new nbprepare = nbprepare + 1*)
 		perform currentNbPrepare := readPDNbPrepare idPD in
-		writePDNbPrepare idPD (currentNbPrepare + 1) ;;
+		perform succCurrentNbPrepare := Index.succ currentNbPrepare in
+		writePDNbPrepare idPD succCurrentNbPrepare ;;
 
 (*    #// Traitement spécial si prepare pour un enfant -> mettre le bloc partagé dans le parent
     # SI idPD != PDcourant ALORS (prepare pour autre que soit)
@@ -582,9 +584,7 @@ Definition addMemoryBlock (idPDchild idBlockToShare: paddr) : LLI paddr :=
 (*
     return self.__add_memory_block(idPDchild, block_to_share_in_current_partition_address)*)
 		(** Call the internal addMemoryBlock function shared with the faster interface*)
-		perform blockChildMPUAddr := addMemoryBlockCommon idPDchild 
-																											blockInCurrPartAddr in
-		ret blockChildMPUAddr.
+		addMemoryBlockCommon idPDchild blockInCurrPartAddr.
 
 (** ** The addMemoryBlockFast PIP MPU service
 
@@ -634,6 +634,4 @@ def addMemoryBlockFast(self, idPDchild, idBlockToShare, MPUAddressBlockToShare):
 (*
 		return self.__add_memory_block(idPDchild, block_to_share_in_current_partition_address)*)
 		(** Call the internal addMemoryBlock function shared with the faster interface*)
-		perform blockChildMPUAddr := addMemoryBlockCommon idPDchild
-																											blockInCurrPartAddr in
-		ret blockChildMPUAddr.
+		addMemoryBlockCommon idPDchild blockInCurrPartAddr.

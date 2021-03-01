@@ -34,21 +34,11 @@
 (** * Summary 
      Memory Abstraction Layer : is the interface exposed to services to read and
     write data into physical memory  *)
-Require Export Model.MALInternal. 
-Require Import Model.ADT Model.Hardware Model.Lib.
+Require Export Model.MALInternal Model.ADT.
+Require Import Model.Monad Model.Lib.
 Require Import Arith Bool NPeano List Omega.
 
-Export Hardware.
-
-Set Printing Implicit.
-Print Visibility.
-Print Model.Hardware.get.
-Set Typeclasses Debug Verbosity 2.
 Open Scope mpu_state_scope.
-
-Check (fun s => ret s.(currentPartition)).
-Check bind get (fun s => ret s.(currentPartition)).
-Check perform s := get in ret s.(currentPartition).
 
   (** The 'getCurPartition' function returns the current Partition from the current state *)
 (*Definition getCurPartition : LLI index :=
@@ -116,7 +106,7 @@ Definition writePDFirstFreeSlotAddr (pdtablepaddr: paddr) (firstfreeslotpaddr : 
 		| None => undefined 59
 	end.
 
-Definition readPDNbFreeSlots  (pdtablepaddr: paddr) : LLI nat :=
+Definition readPDNbFreeSlots  (pdtablepaddr: paddr) : LLI index :=
   perform s := get in
   let entry :=  lookup pdtablepaddr s.(memory) beqAddr in
   match entry with
@@ -125,7 +115,7 @@ Definition readPDNbFreeSlots  (pdtablepaddr: paddr) : LLI nat :=
   | None => undefined 11
   end.
 
-Definition writePDNbFreeSlots (pdtablepaddr: paddr) (nbfreeslots : nat) : LLI unit :=
+Definition writePDNbFreeSlots (pdtablepaddr: paddr) (nbfreeslots : index) : LLI unit :=
 	perform s := get in
 	let entry :=  lookup pdtablepaddr s.(memory) beqAddr in
 	match entry with
@@ -141,7 +131,7 @@ Definition writePDNbFreeSlots (pdtablepaddr: paddr) (nbfreeslots : nat) : LLI un
 		| None => undefined 59
 	end.
 
-Definition readPDNbPrepare  (pdtablepaddr: paddr) : LLI nat :=
+Definition readPDNbPrepare  (pdtablepaddr: paddr) : LLI index :=
   perform s := get in
   let entry :=  lookup pdtablepaddr s.(memory) beqAddr in
   match entry with
@@ -150,7 +140,7 @@ Definition readPDNbPrepare  (pdtablepaddr: paddr) : LLI nat :=
   | None => undefined 11
   end.
 
-Definition writePDNbPrepare (pdtablepaddr: paddr) (nbprepare : nat) : LLI unit :=
+Definition writePDNbPrepare (pdtablepaddr: paddr) (nbprepare : index) : LLI unit :=
 	perform s := get in
 	let entry :=  lookup pdtablepaddr s.(memory) beqAddr in
 	match entry with
@@ -191,16 +181,6 @@ Definition writePDParent (pdtablepaddr: paddr) (parent : paddr) : LLI unit :=
 		| None => undefined 59
 	end.
 
-(*
-Definition readMPUAccessibleFromMPUEntryAddr  (paddridx : PipMPU.index) : LLI bool :=
-  perform s := get in
-  let entry :=  PipMPU.lookup paddridx s.(memory) PipMPU.beqIdx in
-  match entry with
-  | Some (MPUE a) => ret a.(accessible)
-  | Some _ => undefined 12
-  | None => undefined 11
-  end.*)
-Check LLI paddr.
 Definition readMPUStartFromMPUEntryAddr  (paddr : paddr) : LLI ADT.paddr :=
   perform s := get in
   let entry :=  lookup paddr s.(memory) beqAddr in
@@ -209,16 +189,13 @@ Definition readMPUStartFromMPUEntryAddr  (paddr : paddr) : LLI ADT.paddr :=
   | Some _ => undefined 12
   | None => undefined 11
   end.
-Print readMPUStartFromMPUEntryAddr.
 
 Definition writeMPUStartFromMPUEntryAddr  (paddr : paddr) (newstartaddr : ADT.paddr) : LLI unit :=
   perform s := get in
   let entry :=  lookup paddr s.(memory) beqAddr in
   match entry with
   | Some (MPUE a) => 	let endaddr := a.(mpublock).(endAddr) in
-											let newblock := {| 	startAddr := newstartaddr;
-  																				endAddr := endaddr 
-																			|} in
+											let newblock := CBlock newstartaddr endaddr in
 											let newEntry := {|	read := a.(read);
 																			 	write := a.(write);
 																			 	exec := a.(exec);
@@ -247,9 +224,7 @@ Definition writeMPUEndFromMPUEntryAddr  (paddr : paddr) (newendaddr : ADT.paddr)
   let entry :=  lookup paddr s.(memory) beqAddr in
   match entry with
   | Some (MPUE a) => 	let startaddr := a.(mpublock).(startAddr) in
-											let newblock := {| 	startAddr := startaddr;
-  																				endAddr := newendaddr 
-																			|} in
+											let newblock := CBlock startaddr newendaddr in
 											let newEntry := {|	read := a.(read);
 																			 	write := a.(write);
 																			 	exec := a.(exec);
@@ -318,15 +293,8 @@ Definition writeMPUPresentFromMPUEntryAddr  (paddr : paddr) (presentbit  : bool)
 		| None => undefined 59
   end.
 
-(*Definition readMPUIndexFromMPUEntry  (paddridx : PipMPU.index) : LLI nat :=
-  perform s := get in
-  let entry :=  PipMPU.lookup paddridx s.(memory) PipMPU.beqIdx in
-  match entry with
-  | Some (MPUE a) => ret a.(mpuindex)
-  | Some _ => undefined 12
-  | None => undefined 11
-  end.*)
-Definition readMPUIndexFromMPUEntryAddr  (paddr : paddr) : LLI nat :=
+
+Definition readMPUIndexFromMPUEntryAddr  (paddr : paddr) : LLI index :=
   perform s := get in
   let entry :=  lookup paddr s.(memory) beqAddr in
   match entry with
@@ -335,7 +303,8 @@ Definition readMPUIndexFromMPUEntryAddr  (paddr : paddr) : LLI nat :=
   | None => undefined 11
   end.
 
-Definition writeMPUIndexFromMPUEntryAddr  (paddr : paddr) (newindex : nat) : LLI unit :=
+Definition writeMPUIndexFromMPUEntryAddr  	(paddr : paddr) (newindex : index)
+																					: LLI unit :=
   perform s := get in
   let entry :=  lookup paddr s.(memory) beqAddr in
   match entry with
@@ -390,7 +359,7 @@ Definition writeMPUEntry (mpuentryaddr : paddr) (mpuentry : MPUEntry) : LLI unit
     """Writes at the MPU entry <MPU_entry_address> the values (<index>, <start>, <end>, <accessible bit>, <present bit>)"""
     self.memory.write_bits(MPU_entry_address, index, self.constants.kernel_structure_entries_bits)
     self.write_MPU_entry(MPU_entry_address, start, end, accessible, present)*)
-Definition writeMPUEntryWithIndex (mpuentryaddr : paddr) (index : nat) 
+Definition writeMPUEntryWithIndex 	(mpuentryaddr : paddr) (index : index)
 																	(mpuentry : MPUEntry) : LLI unit :=
 	writeMPUEntry mpuentryaddr mpuentry;;
 	writeMPUIndexFromMPUEntryAddr mpuentryaddr index;;
@@ -549,10 +518,11 @@ Definition writePDTable (pdtablepaddr : paddr) (newEntry : PDTable)  : LLI unit:
 
 Definition getEmptyPDTable : LLI PDTable :=
 	perform nullAddr := getNullAddr in
+	perform zero := Index.zero in
 	let emptyPDTable := {| structure := nullAddr;
 										firstfreeslot := nullAddr;
-										nbfreeslots := 0;
-										nbprepare := 0;
+										nbfreeslots := zero;
+										nbprepare := zero;
 										parent := nullAddr |} in 
 	ret emptyPDTable.
 
@@ -578,16 +548,16 @@ Definition writeNextFromKernelStructureStart (structurepaddr : paddr) (newnext :
   end.
 
 Definition getDefaultMPUEntry : LLI MPUEntry :=
-	let emptyblock := {| 	startAddr := nullAddr;
-													endAddr := nullAddr 
-											|} in
+	let emptyblock := CBlock nullAddr nullAddr in
+	perform entriesnb := getKernelStructureEntriesNb in
+	perform idxsucc := Index.succ entriesnb in
 	let emptyentry := {|	read := false;
 										 	write := false;
 										 	exec := false;
 										 	present := false;
 										 	accessible := false;
 											(* default index is outside possible values*)
-										 	mpuindex := S Constants.kernelStructureEntriesNb;
+											mpuindex := idxsucc;
 										 	mpublock := emptyblock
 									|} in
 	ret emptyentry.
@@ -608,9 +578,7 @@ Definition getDefaultSCEntry : LLI SCEntry :=
 Definition buildMPUEntry (startaddr endaddr : paddr) 
 												(accessiblebit presentbit : bool): LLI MPUEntry :=
 	perform defaultentry := getDefaultMPUEntry in
-	let newblock := {| 	startAddr := startaddr;
-											endAddr := endaddr 
-										|} in
+	let newblock := CBlock startaddr endaddr in
 	let entry := {|	read := defaultentry.(read);
 								 	write := defaultentry.(write);
 								 	exec := defaultentry.(exec);
