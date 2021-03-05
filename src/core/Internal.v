@@ -955,16 +955,12 @@ Definition initPDTable (pdtablepaddr : paddr) : LLI unit :=
 	writePDTable pdtablepaddr emptytable.
 
 
-(** The [findBlockInMPUWithAddrAux] function recursively search by going through
-		the structure list and search for the <id_block_to_find> given the
-    <MPU_address_block_to_find> (only look the entries at this address, so faster
-		than blind search going through all the entries of a kernel structure)
-    Stop conditions:
-        1: 	reached end of structure list (maximum number of iterations)
-        2: 	found <id_block_to_find>
-        3: 	issue with the block, i.e. block not found, incorrect MPU address or
-						block not present
-    Recursive calls: until the end of the linked list *)
+(** The [eraseBlockAux] function recursively zeroes all addresses until it reaches
+		the <startAddr>
+		Stop condition: reached base address
+    Processing: zeroes the current address
+    Recursive calls: until base address
+*)
 Fixpoint eraseBlockAux 	(timeout : nat) (startAddr currentAddr : paddr): LLI unit :=
 	match timeout with
 		| 0 => ret tt (*Stop condition 1: reached end of structure list*)
@@ -1012,7 +1008,7 @@ Definition eraseBlock (startAddr endAddr : paddr) : LLI unit :=
 		<indexCurr> to 0 of kernel structure located at <kernelStructureStartAddr>
 		by constructing a linked list of all entries representing the free slots.
 		The indexes are 0-indexed.
-	Returns unit
+	Returns true:OK/false:NOK
 *)
 Fixpoint initMPUEntryRecAux 	(timeout : nat)
 													(kernelStructureStartAddr : paddr)
@@ -1058,7 +1054,7 @@ Fixpoint initMPUEntryRecAux 	(timeout : nat)
 		structure located at <kernelStructureStartAddr>. It creates the linked list
 		of the free slots. The MPU indexes are 0-indexed. The last index is special,
 		it should point to NULL.
-	Returns unit
+	Returns true:OK/false:NOK
 *)
 Definition initMPUStructure (kernelStructureStartAddr : paddr) : LLI bool :=
 	perform entriesnb := getKernelStructureEntriesNb in
@@ -1099,7 +1095,7 @@ def init_Sh1(self, kernel_structure_start, index_start, index_end):
 		<indexCurr> to 0 of kernel structure located at <kernelStructureStartAddr>
 		wit the default Sh1 entry value.
 		The indexes are 0-indexed.
-	Returns unit
+	Returns true:OK/false:NOK
 *)
 Fixpoint initSh1EntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 													(indexCurr : index) : LLI bool :=
@@ -1129,7 +1125,7 @@ Fixpoint initSh1EntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 (** The [initSh1Structure] function initializes the Sh1 part of the kernel
 		structure located at <kernelStructureStartAddr>. The indexes are 
 		0-indexed.
-	Returns unit
+	Returns true:OK/false:NOK
 *)
 Definition initSh1Structure (kernelStructureStartAddr : paddr) : LLI bool :=
 	perform entriesnb := getKernelStructureEntriesNb in
@@ -1156,7 +1152,7 @@ Definition initSh1Structure (kernelStructureStartAddr : paddr) : LLI bool :=
 		<indexCurr> to 0 of kernel structure located at <kernelStructureStartAddr>
 		wit the default SC entry value.
 		The indexes are 0-indexed.
-	Returns unit
+	Returns true:OK/false:NOK
 *)
 Fixpoint initSCEntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 													(indexCurr : index) : LLI bool :=
@@ -1186,7 +1182,7 @@ Fixpoint initSCEntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 (** The [initSCStructure] function initializes the SC part of the kernel
 		structure located at <kernelStructureStartAddr>. The indexes are 
 		0-indexed.
-	Returns unit
+	Returns true:OK/false:NOK
 *)
 Definition initSCStructure (kernelStructureStartAddr : paddr) : LLI bool :=
 	perform entriesnb := getKernelStructureEntriesNb in
@@ -1194,3 +1190,163 @@ Definition initSCStructure (kernelStructureStartAddr : paddr) : LLI bool :=
 	perform initEnded := initSCEntryRecAux N kernelStructureStartAddr lastindex in
 	if negb initEnded then (* timeout reached *) ret false else
 	ret true.
+
+(*
+def __delete_shared_blocks_rec(self, current_MPU_kernel_structure, idPDchildToDelete):
+    """Recursive deletion by going through the structure list and remove all blocks belonging to the child that is
+    deleted
+    Stop condition: reached end of structure list (maximum number of iterations)
+    Processing: remove all blocks shared with the child to delete in the current structure
+    Recursive calls: until the end of the structure
+    """
+    # Stop condition: reached end of structure list
+    if current_MPU_kernel_structure == 0:  # TODO NULL
+        return
+
+    # PROCESSING: remove all blocks shared with the child to delete in the current structure
+    for i in range(self.constants.kernel_structure_entries_nb):
+        # SI ptSh1courant[indexCourant]->PDChild == PDenfantASupprimer ALORS (le bloc à l’index courant appartient à la partition enfant à supprimer)
+        current_MPU_entry_address = current_MPU_kernel_structure + i*self.constants.MPU_entry_length
+        block_id = self.helpers.get_MPU_start_from_MPU_entry_address(current_MPU_entry_address)
+        if self.helpers.get_Sh1_PDchild_from_MPU_entry_address(current_MPU_entry_address) == idPDchildToDelete:
+            # the slot corresponds to memory shared or prepared  with the child to destruct, remove sharing
+            # Ecrire TRUE à MPU[ancêtres].accessible (O(m*p) car recherche dans p ancêtres, sinon besoin de stocker l’adresse du bloc dans l’ancêtre direct pour O(p))
+            if self.helpers.get_SC_next_from_MPU_entry_address(current_MPU_entry_address) == 0 \
+                    and self.helpers.get_SC_origin_from_MPU_entry_address(current_MPU_entry_address) \
+                    == block_id:
+                # if the block isn't cut in the current partition, set as accessible in the ancestors
+                self.__write_accessible_to_ancestors_rec(self.current_partition, block_id, True)
+            # Ecrire TRUE à MPUcourant[indexCourant].accessible (si le bloc a été coupé alors il faut rendre le bloc accessible de nouveau à la partition courante et aux ancêtres)
+            self.helpers.set_MPU_accessible_from_MPU_entry_address(current_MPU_entry_address, True)
+            # Ecrire default à ptSh1courant[indexCourant] (Mettre à default Sh1)
+            self.helpers.set_Sh1_entry_from_MPU_entry_address(current_MPU_entry_address, 0, 0, 0)
+    # RECURSIVE call to next structure
+    # ptMPUcourant <- ptMPUcourant[indexCourant] (passer au nœud MPU suivant)
+    current_MPU_kernel_structure = self.helpers.get_kernel_structure_next_from_kernel_structure_start(current_MPU_kernel_structure)
+    return self.__delete_shared_blocks_rec(current_MPU_kernel_structure, idPDchildToDelete)
+*)
+(** The [deleteSharedBlocksInStructRecAux] function recursively removes all blocks
+		belonging to the child <idPDchildToDelete> in the <currentPart> by going
+		through all entries of the structure <kernelStructureStartAddr> from the 
+		last entry
+		Stop condition: reached first entry of the structure (maximum number of iterations)
+		Processing: remove all blocks shared with the child to delete in the current
+								structure
+    Recursive calls: until the first entry
+
+		Returns true:OK/false:NOK*)
+Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
+																						(currentPart : paddr)
+																						(kernelStructureStartAddr : paddr)
+																						(idPDchildToDelete : paddr)
+																						(currIndex : index): LLI bool :=
+	match timeout with
+		| 0 => 	ret false (* timeout reached *)
+		| S timeout1 =>
+										perform zero := Index.zero in
+										if beqIdx currIndex zero
+										then
+											(** STOP condition: parsed all entries *)
+											ret true
+										else
+											(** PROCESSING: remove all blocks shared with the child to 
+																			delete in the current structure *)
+											perform offset := Paddr.mulIdxPaddr currIndex Constants.MPUEntryLength in
+											perform currMPUEntryAddr :=	Paddr.addPaddr 	kernelStructureStartAddr
+																														offset in
+											(*perform currMPUEntryAddr :=	getAddr (CPaddr (kernelStructureStartAddr
+																						+ currIndex*Constants.MPUEntryLength)) in*)
+											perform blockID := readMPUStartFromMPUEntryAddr
+																						currMPUEntryAddr in
+											perform currPDChild := readSh1PDChildFromMPUEntryAddr
+																								currMPUEntryAddr in
+											if beqAddr currPDChild idPDchildToDelete
+											then (* the slot corresponds to memory shared or prepared
+														with the child to destruct, remove sharing *)
+															(* Set block accessible in current partition *)
+															writeMPUAccessibleFromMPUEntryAddr 	currMPUEntryAddr
+																																	true ;;
+															perform defaultSh1Entry := getDefaultSh1Entry in
+															writeSh1EntryFromMPUEntryAddr currMPUEntryAddr
+																														defaultSh1Entry ;;
+														(* 	whatever the accessibility of the block that could
+																not be accessible because of the child's operations,
+																set the block accessible again*)
+														perform isCut := checkBlockCut currMPUEntryAddr in
+														if isCut
+														then (* if the block isn't cut in the current
+																	partition, set as accessible in the ancestors *)
+																	writeAccessibleRec currentPart blockID true ;;
+																	(** RECURSIVE call: delete block of next entry
+																											if needed *)
+																	perform idxpred := Index.pred currIndex in
+																	deleteSharedBlocksInStructRecAux 	timeout1
+																																		currentPart
+																																		kernelStructureStartAddr
+																																		idPDchildToDelete
+																																		idxpred
+														else
+																	(** RECURSIVE call: delete block of next entry
+																											if needed *)
+																	perform idxpred := Index.pred currIndex in
+																	deleteSharedBlocksInStructRecAux 	timeout1
+																																		currentPart
+																																		kernelStructureStartAddr
+																																		idPDchildToDelete
+																																		idxpred
+										else
+													(** RECURSIVE call: delete block of next entry if needed *)
+													perform idxpred := Index.pred currIndex in
+													deleteSharedBlocksInStructRecAux 	timeout1
+																														currentPart
+																														kernelStructureStartAddr
+																														idPDchildToDelete
+																														idxpred
+	end.
+
+(** The [deleteSharedBlocksRecAux] function recursively removes all blocks
+		belonging to the child <idPDchildToDelete> in the <currentPart> by going
+		through the structure list
+		Stop condition: reached end of structure list (maximum number of iterations)
+		Processing: remove all blocks shared with the child to delete in the current
+								structure
+    Recursive calls: until the end of the linked list
+
+		Returns true:OK/false:NOK*)
+Fixpoint deleteSharedBlocksRecAux 	(timeout : nat)
+																		(currentPart : paddr)
+																		(currKernelStructureStartAddr : paddr)
+																		(idPDchildToDelete : paddr) : LLI bool :=
+	match timeout with
+		| 0 => 	ret false (* timeout reached *)
+		| S timeout1 =>
+										if beqAddr idPDchildToDelete nullAddr
+										then
+											(** STOP condition: reached end of structure list *)
+											ret true
+										else
+											(** PROCESSING: remove all blocks shared with the child to 
+																			delete in the current structure *)
+											perform entriesnb := getKernelStructureEntriesNb in
+											perform lastindex := Index.pred entriesnb in (* 0-indexed*)
+											deleteSharedBlocksInStructRecAux 	N
+																												currentPart
+																												currKernelStructureStartAddr
+																												idPDchildToDelete
+																												lastindex;;
+											(** RECURSIVE call: write default values in precedent index *)
+											perform nextStructureAddr := readNextFromKernelStructureStart
+																											currKernelStructureStartAddr in
+											deleteSharedBlocksRecAux timeout1
+																							currentPart
+																							nextStructureAddr
+																							idPDchildToDelete
+	end.
+
+(** The [deleteSharedBlocksRec] function fixes the timeout value of
+		[deleteSharedBlocksRecAux] *)
+Definition deleteSharedBlocksRec (currentPart : paddr)
+																(kernelStructureStartAddr : paddr)
+																(idPDchildToDelete : paddr) : LLI bool :=
+	deleteSharedBlocksRecAux N currentPart kernelStructureStartAddr idPDchildToDelete.
+

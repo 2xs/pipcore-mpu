@@ -63,7 +63,15 @@ if (lt_dec res maxAddr )
 then
   ret (Build_paddr res _ )
 else  undefined 70.
+
+Program Definition addPaddr (n : paddr) (m: paddr) : LLI paddr :=
+let res := n+m in
+if (lt_dec res maxAddr )
+then
+  ret (Build_paddr res _ )
+else  undefined 71.
 End Paddr.
+
 
 Module Index.
 Definition leb (a b : index) : LLI bool := ret (a <=? b).

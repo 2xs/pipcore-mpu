@@ -893,3 +893,100 @@ def removeMemoryBlockFast(self, idPDchild, idBlockToRemove, CurrentMPUAddressBlo
 (*
 		return self.__remove_memory_block(idPDchild, block_to_remove_in_current_partition_address)*)
 		removeMemoryBlockCommon idPDchild idBlockToRemove blockInCurrPartAddr.
+
+(** ** The deletePartition PIP MPU service 
+
+    The [deletePartition] system call deletes the partition <idPDchildToDelete> 
+		which is a child of the current partition, e.g. prunes the partition tree by 
+		removing all references of the child and its respective blocks from the 
+		current partition
+
+		Returns true:OK/false:NOK
+
+    <<idPDchildToDelete>>	the child partition to delete
+*)
+Definition deletePartition (idPDchildToDelete: paddr) : LLI bool :=
+		(** Get the current partition (Partition Descriptor) *)
+    perform currentPart := getCurPartition in
+(*
+
+def deletePartition(self, idPDchildToDelete):
+    """ Deletes the partition <idPDchildToDelete> which is a child of the current partition, e.g. prunes the
+    partition tree by removing all references of the child and its respective blocks from the current partition
+    :param idPDchildToDelete: the child partition to delete
+    :return: 1:OK/0:NOK
+    """*)
+(*
+    # PDenfantASupprimer <- ChercherBlocDansMPU(idPDcourant, idPDenfantASupprimer)
+    block_to_remove_in_current_partition_address = self.__find_block_in_MPU(self.current_partition, idPDchildToDelete)
+    if block_to_remove_in_current_partition_address == -1:
+        # no block found, stop
+        return 0  # TODO: return NULL
+*)
+		(* Find the block to delete in the current partition *)
+    perform blockToDeleteInCurrPartAddr := findBlockInMPU 	currentPart
+																													idPDchildToDelete in
+		perform addrIsNull := compareAddrToNull	blockToDeleteInCurrPartAddr in
+		if addrIsNull then(* no block found, stop *) ret false else
+
+(*
+    # Check idPDchild is a child of the current partition
+    if self.helpers.get_Sh1_PDflag_from_MPU_entry_address(block_to_remove_in_current_partition_address) is not True:
+        # idPDchild is not a child partition, stop
+        return 0  # TODO: return NULL*)
+		(** Checks *)
+		(* Check idPDchild is a child of the current partition TODO use checkchild*)
+		perform isChild := readSh1PDFlagFromMPUEntryAddr blockToDeleteInCurrPartAddr in
+		if negb isChild then (* idPDchild is not a child partition, stop*) ret false else
+(*
+    # Mettre à 0 tous les blocs (fuites de données)?
+    # Reset PD block
+    for i in range(self.constants.kernel_structure_total_length):
+        self.memory.write_bit(idPDchildToDelete + i, 0)*)
+		(** Reset PD block TODO reset also kernel structures ?*)
+		perform blockStartAddr := readMPUStartFromMPUEntryAddr
+																	blockToDeleteInCurrPartAddr in
+		perform blockEndAddr := readMPUEndFromMPUEntryAddr
+																	blockToDeleteInCurrPartAddr in
+		eraseBlock blockStartAddr blockEndAddr ;;
+(*
+    # // Enlever tous les blocs partagés avec l’enfant (hors PD)
+    # ptMPUCourant < - PDcourant[pointeur MPU] (pointeur vers le 1er nœud de MPU)
+    current_MPU_kernel_structure = self.helpers.get_PD_pointer_to_MPU_linked_list(self.current_partition)
+    # Tant que ptMPUcourant[indexCourant] != NULL : (parcourir les listes chaînées en synchronisation MPU et Sh1 jusqu’au dernier noeud)
+    self.__delete_shared_blocks_rec(current_MPU_kernel_structure, idPDchildToDelete)
+*)
+		(** Remove all shared blocks references in current partition, except PD child*)
+		perform currKernelStructureStart := readPDStructurePointer currentPart in
+		deleteSharedBlocksRec currentPart currKernelStructureStart idPDchildToDelete ;;
+(*
+    # // Ecraser l’entrée PD
+    # //Si bloc pas coupé alors remettre accessible au parent et aux ancêtres (bloc coupé ->reste inaccessible aux ancêtres)
+    # SI SCcourant[PDenfantASupprimer]->suivant == NULL ET SC[PDenfantASupprimer]->origin == PDenfantASupprimer ALORS (bloc pas coupé)
+    if self.helpers.get_SC_next_from_MPU_entry_address(block_to_remove_in_current_partition_address) == 0 \
+        and self.helpers.get_SC_origin_from_MPU_entry_address(block_to_remove_in_current_partition_address)\
+            == self.helpers.get_MPU_start_from_MPU_entry_address(block_to_remove_in_current_partition_address):
+        # if the PD child block to remove isn't cut, set it accessible to parent and ancestors
+        # Ecrire TRUE dans MPU[ancêtres]->accessible (O(m*p) car recherche dans p ancêtres, sinon besoin de stocker l’adresse du bloc dans l’ancêtre direct pour O(p))
+        self.__write_accessible_to_ancestors_rec(self.current_partition, idPDchildToDelete, True)
+    # Ecrire TRUE à PDenfantASupprimer->accessible (écraser le bloc PD de l’enfant supprimé)
+    self.helpers.set_MPU_accessible_from_MPU_entry_address(block_to_remove_in_current_partition_address, True)
+    # Ecrire default à Sh1courant[PDenfantASupprimer] (mettre à default Sh1)
+    self.helpers.set_Sh1_entry_from_MPU_entry_address(block_to_remove_in_current_partition_address, 0, 0, 0)*)
+		(** Erase PD entry: remove sharing and set accessible for current partition
+				TODO changed order because of else *)
+		writeMPUAccessibleFromMPUEntryAddr blockToDeleteInCurrPartAddr true ;;
+		perform defaultSh1Entry := getDefaultSh1Entry in
+		writeSh1EntryFromMPUEntryAddr blockToDeleteInCurrPartAddr defaultSh1Entry ;;
+		perform isCut := checkBlockCut blockToDeleteInCurrPartAddr in
+		if isCut
+		then	(* if the PD child block to remove is cut, remains not accessible in
+							parent and ancestors *)
+					(* # RET OK
+    				return 1*)
+					ret true
+		else (* if the PD child block to remove isn't cut, set it accessible to
+							parent and ancestors *)
+					writeAccessibleRec currentPart idPDchildToDelete true ;;
+					ret true.
+
