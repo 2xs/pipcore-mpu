@@ -32,16 +32,17 @@
 (*******************************************************************************)
 
 (** * Summary
-    This file contains PIP memory services : [createPartition],
-      [deletePartition], [addVAddr], [removeVAddr], [countToMap],
+    This file contains PIP memory services : [createPartition], [deletePartition],
+			[addMemoryBlock], [removeMemoryBlock],
+			[cutMemoryBlock], [mergeMemoryBlocks],
       [prepare] and [collect].
 
-    The definitions of recursive functions like [countToMap], [prepare] and
+    The definitions of recursive functions like [prepare] and
       [collect] match the same form :
-      - part 1 : <<functionNameRec>> is the recursive funtion
-      - part 2 : <<functionNameAux>> fixes the sufficient timeout value for recursion
+      - part 1 : <<functionNameRecAux>> is the recursive funtion
+      - part 2 : <<functionNameRec>> fixes the sufficient timeout value for recursion
                  to complete
-      - part 3 : <<funtionName>> is the PIP service. It calls <<functionNameAux>>
+      - part 3 : <<funtionName>> is the PIP service. It calls <<functionNameRec>>
                 with the required parameters *)
 
 Require Import Model.Monad Model.MAL Core.Internal.
@@ -272,10 +273,10 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
             (block_origin == idBlockToCut):
         self.__write_accessible_to_ancestors_rec(self.current_partition, block_to_cut_MPU_entry[1], False)*)
 		(** Parents and ancestors: set the block unaccessible if this is the block's first cut*)
-		perform blockOrigin := readSCOriginFromMPUEntryAddr blockToCutMPUAddr in
-		perform blockNext := readSCNextFromMPUEntryAddr blockToCutMPUAddr in
-		writeAccessibleToAncestorsIfNoCut currentPart idBlockToCut blockToCutMPUAddr
-																			false ;;
+		writeAccessibleToAncestorsIfNotCutRec currentPart
+																					idBlockToCut
+																					blockToCutMPUAddr
+																					false ;;
 (*
     # // Enfant : on créé un sous-bloc dérivé du bloc initial
     # adresse MPU insertion <- insérerEntrée(idPDcourant, entrée à insérer, SC[entrée MPU courant]->origin) (insérer le nouveau bloc créé avec la même origine que le bloc initial)
@@ -289,7 +290,11 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
     )*)
 		(** Child: create the new subblock at cutAddr and insert it in the kernel structure*)
 		perform blockEndAddr := readMPUEndFromMPUEntryAddr blockToCutMPUAddr in
-		perform newSubblockMPUAddr := insertNewEntry currentPart cutAddr blockEndAddr blockOrigin in
+		perform blockOrigin := readSCOriginFromMPUEntryAddr blockToCutMPUAddr in
+		perform newSubblockMPUAddr := insertNewEntry 	currentPart
+																									cutAddr
+																									blockEndAddr
+																									blockOrigin in
 
 (*
     # // Modifier le bloc initial
@@ -438,7 +443,7 @@ Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr) : LLI pad
         # libérerEmplacement(PD courant, entrée MPU courant 2)
         self.__free_slot(self.current_partition, block_to_merge2_address)
 *)
-		(* remove block 2 entry TODO *)
+		(* remove block 2 entry *)
 		freeSlot currentPart block2InCurrPartAddr ;;
 (*
         # //Parent : remet le bloc accessible si plus aucun sous-blocs
@@ -452,12 +457,11 @@ Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr) : LLI pad
         # SINON rien
 *)
 		(** Parents and ancestors: set the block accessible again if there are no
-		subblocks anymore of block 1 TODO rename with RecAux ?*)
-		perform blockOrigin := readSCOriginFromMPUEntryAddr block1InCurrPartAddr in
-		perform blockNext := readSCNextFromMPUEntryAddr block1InCurrPartAddr in
-		writeAccessibleToAncestorsIfNoCut currentPart
-																			idBlockToMerge1 block1InCurrPartAddr
-																			true ;;
+		subblocks anymore of block 1 *)
+		writeAccessibleToAncestorsIfNotCutRec currentPart
+																					idBlockToMerge1
+																					block1InCurrPartAddr
+																					true ;;
 (*
     # RET @bloc 1
     return block_to_merge1_address
@@ -599,12 +603,12 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
     self.init_Sh1(requisitioned_block_entry[1], 0, self.constants.kernel_structure_entries_nb)
     self.init_SC(requisitioned_block_entry[1], 0, self.constants.kernel_structure_entries_nb)
 *)
-		(*TODO inits : set to zero*)
+		(*init structure *)
 		perform requisitionedBlockStart := readMPUStartFromMPUEntryAddr 
 																						requisitionedBlockInCurrPartAddr in
-		initMPUStructure requisitionedBlockStart ;;
-		initSh1Structure requisitionedBlockStart ;;
-		initSCStructure requisitionedBlockStart ;;
+		perform requisitionedBlockEnd := readMPUEndFromMPUEntryAddr 
+																						requisitionedBlockInCurrPartAddr in
+		initStructure requisitionedBlockStart requisitionedBlockEnd ;;
 
 		perform newKStructurePointer := getAddr requisitionedBlockStart in
 (*
@@ -622,10 +626,12 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
             # mark the block as inaccessible to all ancestors
             self.__write_accessible_to_ancestors_rec(self.current_partition, idRequisitionedBlock, False)*)
 		(** Set the requisitioned block inaccessible*)
-		writeMPUAccessibleFromMPUEntryAddr requisitionedBlockInCurrPartAddr false;;
+		writeMPUAccessibleFromMPUEntryAddr requisitionedBlockInCurrPartAddr false ;;
 		(** Parent and ancestors: set the block unaccessible if the block is not cut*)
-		writeAccessibleToAncestorsIfNoCut currentPart idRequisitionedBlock 
-																				requisitionedBlockInCurrPartAddr false ;;
+		writeAccessibleToAncestorsIfNotCutRec currentPart
+																					idRequisitionedBlock
+																					requisitionedBlockInCurrPartAddr
+																					false ;;
 
 		(** Change idPD *)
 (*

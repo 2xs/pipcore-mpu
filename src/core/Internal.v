@@ -308,13 +308,20 @@ Fixpoint writeAccessibleRecAux 	timeout
 	end.
 
 
-(** The [writeAccessibleRecAux] function fixes the timeout value of [writeAccessibleRecAux] *)
-Definition writeAccessibleRec (pdbasepartition idblock : paddr) (accessiblebit : bool) : LLI bool :=
+(** The [writeAccessibleRec] function fixes the timeout value of
+		[writeAccessibleRecAux] *)
+Definition writeAccessibleRec 	(pdbasepartition : paddr)
+															(idblock : paddr)
+															(accessiblebit : bool) : LLI bool :=
 	writeAccessibleRecAux N pdbasepartition idblock accessiblebit.
 
-(* TODO ret tt ? : unit*)
-Definition writeAccessibleToAncestorsIfNoCut 	(pdbasepartition idblock mpublockaddr : paddr)
-																							(accessiblebit : bool) : LLI bool :=
+(** The [writeAccessibleToAncestorsRecIfNotCut] sets the block <idblock>
+	 	in all ancestors (including the parent) of <pdbasepartition> to
+		accessible or inaccessible depending on the	<accessiblebit>. *)
+Definition writeAccessibleToAncestorsIfNotCutRec (pdbasepartition : paddr)
+																								(idblock : paddr)
+																								(mpublockaddr : paddr)
+																								(accessiblebit : bool) : LLI bool :=
 		perform blockOrigin := readSCOriginFromMPUEntryAddr mpublockaddr in
 		perform blockStart := readMPUStartFromMPUEntryAddr mpublockaddr in
 		perform blockNext := readSCNextFromMPUEntryAddr mpublockaddr in
@@ -412,7 +419,8 @@ Definition insertNewEntry (pdinsertion startaddr endaddr origin: paddr) : LLI pa
 	Returns the freed slot's MPU address
 	 *)
 Definition freeSlot (pdfree entrytofreempuaddr: paddr) : LLI paddr :=
-(** Checks have been done before: check idPD comes from Pip, check entryToFreeMPUAddress comes from Pip *)
+(** Checks have been done before: check idPD comes from Pip, 
+		check entryToFreeMPUAddress comes from Pip *)
 		(* set default values in slot to free *)
 		perform defaultMPUEntry := getDefaultMPUEntry in
 		writeMPUEntryFromMPUEntryAddr entrytofreempuaddr defaultMPUEntry;;
@@ -453,7 +461,7 @@ Definition freeSlot (pdfree entrytofreempuaddr: paddr) : LLI paddr :=
 
 
 (** The [checkChild] function checks that <idPDchild> is a child of <idPDparent>
-		by looking for the child in the supposed parent't kernel structure.
+		by looking for the child in the supposed parent's kernel structure.
 		Returns true:OK/false:NOK
 *)
 Definition checkChild (idPDparent idPDchild : paddr) : LLI bool :=
@@ -1011,8 +1019,8 @@ Definition eraseBlock (startAddr endAddr : paddr) : LLI unit :=
 	Returns true:OK/false:NOK
 *)
 Fixpoint initMPUEntryRecAux 	(timeout : nat)
-													(kernelStructureStartAddr : paddr)
-													(indexCurr : index): LLI bool :=
+															(kernelStructureStartAddr : paddr)
+															(indexCurr : index): LLI bool :=
 	match timeout with
 	| 0 => 	ret false (* timeout reached *)
 	| S timeout1 => 	(** PROCESSING: set default values in current entry *)
@@ -1191,6 +1199,17 @@ Definition initSCStructure (kernelStructureStartAddr : paddr) : LLI bool :=
 	if negb initEnded then (* timeout reached *) ret false else
 	ret true.
 
+(** The [initSh1Structure] function initializes the Sh1 part of the kernel
+		structure located at <kernelStructureStartAddr>. The indexes are 
+		0-indexed.
+	Returns true:OK/false:NOK
+*)
+Definition initStructure (kernelStructureStartAddr kernelStructureEndAddr: paddr)
+																																	: LLI bool :=
+	eraseBlock kernelStructureStartAddr kernelStructureEndAddr ;;
+	initMPUStructure kernelStructureStartAddr ;;
+	initSh1Structure kernelStructureStartAddr ;;
+	initSCStructure kernelStructureStartAddr.
 (*
 def __delete_shared_blocks_rec(self, current_MPU_kernel_structure, idPDchildToDelete):
     """Recursive deletion by going through the structure list and remove all blocks belonging to the child that is
@@ -1741,11 +1760,11 @@ match timeout with
                 # block used to prepare is not cut ->set accesible in ancestors
                 # Ecrire TRUE dans MPU[ancêtres]->accessible (O(m*p) car recherche dans p ancêtres, sinon besoin de stocker l’adresse du bloc dans l’ancêtre direct pour O(p))
                 self.__write_accessible_to_ancestors_rec(idPD, current_structure_address, True)*)
-											(* Set block accessible in parent and ancestors if cut *)
-											writeAccessibleToAncestorsIfNoCut idPD
-																												currStructureAddr
-																												blockToCollectMPUAddr
-																												true ;;
+											(* Set block accessible in parent and ancestors if not cut *)
+											writeAccessibleToAncestorsIfNotCutRec idPD
+																														currStructureAddr
+																														blockToCollectMPUAddr
+																														true ;;
 (*
             # Ecrire default à Sh1[noeudASupprimer] (écraser l’entrée Sh1 dans le cas où ce serait un collect sur un enfant)
             self.helpers.set_Sh1_entry_from_MPU_entry_address(structure_to_collect_MPU_address, 0, 0, 0)*)
