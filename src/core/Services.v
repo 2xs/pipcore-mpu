@@ -990,3 +990,67 @@ def deletePartition(self, idPDchildToDelete):
 					writeAccessibleRec currentPart idPDchildToDelete true ;;
 					ret true.
 
+(** ** The collect PIP MPU service
+
+    The [collect] system call collects an empty structure (if possible) from
+		the partition <idPD> (current partition or a child) and returns the retrieved
+		block.
+
+		Returns the collected structure block id :OK/NULL:NOK
+
+    <<idPD>>	the current partition or a child
+*)
+Definition collect (idPD: paddr) : LLI paddr :=
+		(** Get the current partition (Partition Descriptor) *)
+    perform currentPart := getCurPartition in
+(*
+def collect(self, idPD):
+    """
+    Collects an empty structure (if possible) from the partition <idPD> and returns the location of the collected
+    structure.
+    :param idPD: current partition or a child
+    :return: collected structure address / NOK(0)
+    """*)
+		(** Checks *)
+(*
+    # Vérifier que idPD est soit lui-même soit un enfant
+    # Check idPD is either the current partition or a child
+    if idPD != self.current_partition and self.__checkChild(self.current_partition, idPD) == 0:
+        # idPD is not itself or a child partition, stop
+        return 0  # TODO: return NULL
+*)
+		(* Check idPD is the current partition or one of its child*)
+		perform isCurrentPart := getBeqAddr idPD currentPart in
+		perform isChildCurrPart := checkChild currentPart idPD in
+		if negb isCurrentPart && negb isChildCurrPart
+		then (* idPD is not itself or a child partition, stop*) ret nullAddr
+		else
+
+(*
+    # Vérifier que ce n'est pas le dernier collect sur lui-même car structure donnée par le parent
+    # Check that if a collect is done on the current partition, there will still remain
+    if idPD == self.current_partition and self.helpers.get_PD_nb_prepare(idPD) == 1:
+        # can't SELF remove the initial structure given by parent, stop
+        return 0  # TODO: return NULL
+*)
+		(* Check that if a collect is done on the current partition, there will
+				still remain a structure because can't SELF remove the inital structure
+				given by the parent *)
+		perform nbPrepare := readPDNbPrepare idPD in
+		perform zero := MALInternal.Index.zero in
+		perform one := Index.succ zero in
+		perform onlyInitialStructureLeft := getBeqIdx one nbPrepare in
+		if isCurrentPart && onlyInitialStructureLeft then (*stop*) ret nullAddr else
+(*
+    # ptMPUsuivantPrécédent <- @idPD[pointeur MPU] ; ptMPUcourant <- PD[pointeur MPU] (pointeur vers le next du précédent nœud (l’emplacement où est indiqué le nœud suivant) et le 1er nœud de MPU )
+    previous_structure_address = self.helpers.get_address_PD_pointer_to_MPU_linked_list(idPD)
+    current_structure_address = self.helpers.get_PD_pointer_to_MPU_linked_list(idPD)
+    # Tant que ptMPUcourant != NULL : (parcourir les listes chaînées en synchronisation MPU,Sh1,SC jusqu’au dernier nœud ou jusqu’à 1ère page à collecter)
+    # Call recursive function: go through list of structure nodes and collect the first free structure
+    return self.__collect_structure_rec(idPD, previous_structure_address, current_structure_address)*)
+		(** Call recursive function: go through list of structure nodes and collect
+				the first encountered free structure *)
+		perform currStructureAddr := readPDStructurePointer idPD in
+		perform predStructureAddr := MALInternal.getPDStructurePointerAddrFromPD
+																		idPD in (* location of the pointer, not the content *)
+		collectStructureRec currentPart idPD predStructureAddr currStructureAddr.

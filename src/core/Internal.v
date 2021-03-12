@@ -1254,8 +1254,6 @@ Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
 											perform offset := Paddr.mulIdxPaddr currIndex Constants.MPUEntryLength in
 											perform currMPUEntryAddr :=	Paddr.addPaddr 	kernelStructureStartAddr
 																														offset in
-											(*perform currMPUEntryAddr :=	getAddr (CPaddr (kernelStructureStartAddr
-																						+ currIndex*Constants.MPUEntryLength)) in*)
 											perform blockID := readMPUStartFromMPUEntryAddr
 																						currMPUEntryAddr in
 											perform currPDChild := readSh1PDChildFromMPUEntryAddr
@@ -1349,4 +1347,423 @@ Definition deleteSharedBlocksRec (currentPart : paddr)
 																(kernelStructureStartAddr : paddr)
 																(idPDchildToDelete : paddr) : LLI bool :=
 	deleteSharedBlocksRecAux N currentPart kernelStructureStartAddr idPDchildToDelete.
+
+
+(** The [collectStructure] function pulls the structure to be collected out of
+		the list of structures.
+		Returns unit
+
+    <<idPD>>									the PD where the collect is done
+		<<predStructureAddr>>			the structure before the stucture to be collected
+		<<collectStructureAddr>>	the structure to be collected
+
+ *)
+Definition collectStructure (idPD predStructureAddr collectStructureAddr : paddr)
+																																: LLI unit :=
+(*
+  # // sortir le nœud vide collecté de la liste des structures
+  # all collected slots removed from free slot list
+  # Ecrire ptNoeudCourant->next à ptMPUsuivantPrécédent (relier le bloc MPU précédent au bloc MPU suivant de celui qu’on enlève)
+  next_structure_address = self.helpers.get_kernel_structure_next_from_kernel_structure_start(
+      current_structure_address)
+	if current_structure_address == self.helpers.get_PD_pointer_to_MPU_linked_list(idPD):*)
+	perform nextStructureAddr := readNextFromKernelStructureStart collectStructureAddr in
+	perform firstStructure := readPDStructurePointer idPD in
+	perform isFirstStructure := getBeqAddr collectStructureAddr firstStructure in
+	if isFirstStructure
+	then (* Special case: structure to remove is the first structure -> adjust pointers *)
+(*
+        # Special case: structure to remove is the first structure -> adjust pointers
+        if next_structure_address == 0:
+            # no more structures in list
+            self.helpers.set_PD_pointer_to_MPU_linked_list(previous_structure_address,
+                                                           next_structure_address)
+        else:
+            # still structures in list, set correct pointers to PD's Sh1 and PD's SC
+            self.helpers.set_PD_pointer_to_MPU_linked_list(previous_structure_address,
+                                                           next_structure_address)*)
+				(* 	set the PD's structure pointer to the next structure (which could
+						be NULL if it was the last TODO compressed statements*)
+				writePDStructurePointer idPD nextStructureAddr ;;
+				ret tt
+(*
+    else:
+        # structure to remove is in the chained list of structures -> link previous to next structure
+        self.helpers.set_kernel_structure_next_from_kernel_structure_start(previous_structure_address,
+                                                                                   next_structure_address)*)
+	else (* the structure to remove is somewhere in the middle of the list of
+					structures, link previous structure to next structure *)
+				writeNextFromKernelStructureStart predStructureAddr nextStructureAddr ;;
+				ret tt.
+
+(*
+    # Stop condition 2: found a free structure to collect
+    # toCollect <- True
+    collect = True
+    # Pour indexCourant de 0 à MaxEntrées : (Parcourir les entrées du nœud : on vérifie qu’aucune entrée n’est présente dans le noeud)
+    for current_index in range(self.constants.kernel_structure_entries_nb):
+       # SI MPUcourant[indexCourant]->present == 1 ALORS (une entrée est présente, le nœud n’est pas collectable, on peut passer au noeud suivant) || start = NULL pour enlever dépendance à present
+        if self.helpers.get_MPU_present_from_MPU_entry_address(
+                current_structure_address + current_index*self.constants.MPU_entry_length):
+            # toCollect <- False ;
+            collect = False
+            # break
+            break*)
+
+(** The [checkStructureEmptyRecAux] function recursively checks the current
+		structure is empty from last entry until first entry.
+
+		Stop conditions:
+				1: found a used entry
+				2: all entries of the structure are empty (maximum number of iterations)
+		Processing: check the current entry
+    Recursive calls: until all entries are cheked
+
+		Returns true:structure empty/false:structure not empty
+
+		<<currIndex>>				the current checked index
+    <<structureAddr>>		the structure to check
+*)
+Fixpoint checkStructureEmptyRecAux 	(timeout : nat)
+																		(structureAddr :paddr)
+																		(currIndex : index): LLI bool :=
+	match timeout with
+		| 0 => 	ret false (* timeout reached *)
+		| S timeout1 =>	(** PROCESSING: check the current entry *)
+										perform offset := Paddr.mulIdxPaddr currIndex Constants.MPUEntryLength in
+										perform currMPUEntryAddr :=	Paddr.addPaddr 	structureAddr
+																																offset in
+										perform isPresent := readMPUPresentFromMPUEntryAddr
+																						currMPUEntryAddr in
+										if isPresent
+										then
+												(** STOP condition 1: found a used entry *)
+												ret false
+										else
+											perform zero := Index.zero in
+											if beqIdx currIndex zero
+											then
+													(** STOP condition 2: all entries parsed, structure is
+															empty *)
+													ret true
+											else
+													(** RECURSIVE call: check previous entry *)
+													perform idxpred := Index.pred currIndex in
+													checkStructureEmptyRecAux timeout1
+																										structureAddr
+																										idxpred
+	end.
+
+(** The [collectFreeSlotsRecAux] function recursively removes all free slots
+		belonging to the empty structure that is collected by going through the free
+		slots list.
+
+		Stop condition: reached end of free slots list (maximum number of iterations)
+		Processing: remove slots to collect from free slots list
+    Recursive calls: until the end of the list
+
+		Returns unit
+
+		<<currFreeSlotAddr>>				the recursive checked free slot
+    <<predFreeSlotAddr>>				pointer to the previous free slot
+		<<idPD>>										the PD from where to collect
+		<<structureCollectAddr>>		the structure to collect
+*)
+Fixpoint collectFreeSlotsRecAux (timeout : nat)
+																(predFreeSlotAddr currFreeSlotAddr : paddr)
+																(idPD :paddr)
+																(structureCollectAddr : paddr) : LLI unit :=
+(*
+  def __collect_free_slots_rec(self, previous_free_slot_address, current_free_slot_address, idPD, current_structure_address):
+      """Recursive removal by going through the free slots list and remove the free slots belonging to the empty
+      structure that is collected
+      Stop condition: reached end of free slots list (maximum number of iterations)
+      Recursive calls: until the end of the list
+      """*)
+
+match timeout with
+		| 0 => 	ret tt (* timeout reached *)
+		| S timeout1 =>
+
+										if beqAddr currFreeSlotAddr nullAddr
+										then
+											(** STOP condition: reached end of free slots list *)
+(*
+      # Stop condition: reached end of free slots list
+      if current_free_slot_address == 0:
+          return*)
+											ret tt
+										else
+											(** PROCESSING: remove slots to collect from free slots list*)
+(*
+      # RECURSIVE call to next free slot inspection (slot to be removed if belongs to the empty structure collected)
+      # compute the current slot's kernel structure
+      slot_structure = current_free_slot_address \
+                       - self.helpers.get_MPU_index(current_free_slot_address) * self.constants.MPU_entry_length*)
+											(* compute the current slot's kernel structure *)
+											perform MPUEntryIndex := readMPUIndexFromMPUEntryAddr
+																										currFreeSlotAddr in
+											perform slotKStructureStart := getKernelStructureStartAddr
+																												currFreeSlotAddr
+																												(CIndex MPUEntryIndex) in
+(*
+      # get next free slot
+      next_free_slot_address = self.helpers.get_MPU_end_from_MPU_entry_address(current_free_slot_address)*)
+											(* get next free slot from MPU end field *)
+											perform nextFreeSlotAddr := readMPUEndFromMPUEntryAddr
+																											currFreeSlotAddr in
+(*
+      # SI slotLibreCourant appartient à ptMPUCourant (le slot est dans la page à collecter, on l’enlève)
+      if (slot_structure == current_structure_address):
+          # slot must be collected*)
+											if beqAddr slotKStructureStart structureCollectAddr
+											then
+												(* the slot is located in the structure to collect *)
+(*
+          # SI slotLibreCourant == PDcourant[pointeur emplacement libre] ALORS (l’emplacement à libérer est le 1er emplacement libre)
+          if current_free_slot_address == self.helpers.get_PD_first_free_slot_address(idPD):
+              # // Ajuster pointeur libre
+              # Special case if slot to remove is the first free slot
+              # Ecrire slotLibreCourant->end à idPD[pointeur libre] (décaler le 1er emplacement libre au prochain)
+              self.helpers.set_PD_first_free_slot_address(idPD, next_free_slot_address)*)
+
+												perform firstFreeSlotAddr := readPDFirstFreeSlotAddr idPD in
+												if beqAddr currFreeSlotAddr firstFreeSlotAddr
+												then
+													(* Special case if slot to remove is the first free
+														slot: the next free slot becomes the first free slot
+														of the free slots list *)
+													writePDFirstFreeSlotAddr idPD nextFreeSlotAddr ;;
+													(** RECURSIVE call: continue collect with rest of list *)
+													collectFreeSlotsRecAux 	timeout1
+																									idPD
+																									currFreeSlotAddr
+																									nextFreeSlotAddr
+																									structureCollectAddr
+(*
+          # SINON
+          else:
+              # // Supprimer le bloc libre de la chaîne libre : relier le bloc libre précédent au bloc libre suivant
+              # remove current slot from free slot list: chain previous to next free slot
+              # Ecrire slotLibreCourant ->end à slotLibrePrécédent->end (end contient l’emplacement libre suivant qu’on décale)
+              self.helpers.set_MPU_end_from_MPU_entry_address(previous_free_slot_address, next_free_slot_address)*)
+												else
+													(* remove current slot from free slot list: chain
+														previous to next free slot *)
+														writeMPUEndFromMPUEntryAddr predFreeSlotAddr
+																												nextFreeSlotAddr ;;
+														(** RECURSIVE call: continue collect with rest of list *)
+														collectFreeSlotsRecAux 	timeout1
+																										idPD
+																										currFreeSlotAddr
+																										nextFreeSlotAddr
+																										structureCollectAddr
+(*
+      # SINON slotLibrePrécédent <- slotLibreCourant (slot courant reste dans la liste des emplacements libres, traité donc devient précédent)
+      else:
+          # slot is not collected, adjust previous pointer
+          previous_free_slot_address = current_free_slot_address
+      # slotLibreCourant <- slotLibreCourant ->end
+      current_free_slot_address = next_free_slot_address
+      return self.__collect_free_slots_rec(previous_free_slot_address,
+                                           current_free_slot_address,
+                                           idPD,
+                                           current_structure_address)*)
+										else
+											(* the slot is not located in the structure to collect *)
+											(** RECURSIVE call: continue collect with rest of list *)
+											collectFreeSlotsRecAux 	timeout1
+																							idPD
+																							currFreeSlotAddr
+																							nextFreeSlotAddr
+																							structureCollectAddr
+end.
+
+(** The [collectStructureRecAux] function recursively search for a structure
+		to collect by going through the structure list and do the collect if found
+
+		Stop conditions:
+				1: reached end of structure list (maximum number of iterations) OR
+        2: found a free structure
+		Processing: collect the structure
+    Recursive calls: until the last structure and if the current structure is
+        - not empty
+        - empty but has not been prepared by the current partition
+					(e.g. the child tries to collect/steal a structure from its
+					parent's set of blocks
+
+		Returns the collected structure's block id:OK/NULL:NOK
+
+		<<currStructureAddr>>				the current checked structure
+		<<predStructureAddr>>				pointer to the previous structure
+    <<currentPart>>							the current partition
+		<<idPD>>										the PD where to collect
+*)
+Fixpoint collectStructureRecAux (timeout : nat)
+																(currentPart : paddr)
+																(idPD :paddr)
+																(predStructureAddr currStructureAddr :paddr)
+																																	: LLI paddr :=
+(*
+def __collect_structure_rec(self, idPD, previous_structure_address, current_structure_address):
+    """Recursive collect by going through the structure list
+    Stop conditions:
+        1: reached end of structure list (maximum number of iterations) OR
+        2: found a free structure
+    Recursive calls:
+        - the structure is not empty
+        - the structure is empty but has not been prepared by the current partition (e.g. the child tries to collect/
+            steal a structure from its parent's set of blocks
+    """*)
+match timeout with
+		| 0 => 	ret nullAddr (* timeout reached *)
+		| S timeout1 =>
+										if beqAddr currStructureAddr nullAddr
+										then
+											(** STOP condition 1: reached end of structure list *)
+											(*# Stop condition 1: reached end of structure list
+													if current_structure_address == 0:  # TODO: if NULL
+															# RET NULL
+															return 0  # TODO: return NULL*)
+											ret nullAddr
+										else
+											(* Check if structure is empty *)
+											perform entriesnb := getKernelStructureEntriesNb in
+											perform lastindex := Index.pred entriesnb in (* 0-indexed*)
+											perform isEmpty := checkStructureEmptyRecAux
+																						N
+																						currStructureAddr
+																						lastindex in
+											if negb isEmpty
+											then
+												(* not empty, can't collect *)
+												(** RECURSIVE call: check next structure TODO changed order*)
+(*
+    # RECURSIVE call to next structure inspection (structure not empty or can't be collected)
+    # SINON ptMPUsuivantPrécédent <- ptMPUcourant ; ptNoeudCourant <- ptNoeudCourant->next (passer au nœud MPU suivant)
+    previous_structure_address = current_structure_address
+    current_structure_address = self.helpers.get_kernel_structure_next_from_kernel_structure_start(
+        current_structure_address)
+    return self.__collect_structure_rec(idPD, previous_structure_address, current_structure_address)
+*)
+												perform nextStructureAddr := readNextFromKernelStructureStart
+																											currStructureAddr in
+												collectStructureRecAux 	timeout1
+																								currentPart
+																								idPD
+																								currStructureAddr
+																								nextStructureAddr
+											else
+												(* structure empty, MAY be collected, check first *)
+(*
+    # SI toCollect ==  True ALORS (on a atteint la fin du nœud courant, tous les emplacements de la page sont libres, on collecte la page courante)
+    if collect is True:
+        # collect structure
+
+        # check structure is a block in current partition
+        # otherwise means the current partition wants to collect a node given by its parent and this can't be
+        # collected so pass to next node
+        # noeudASupprimer <- ChercherBlocDansMPU(idPD, ptMPUcourant) (O(m) acceptable car collect, PDcourant peut être soit l’enfant lui-même soit le parent)
+        structure_to_collect_MPU_address = self.__find_block_in_MPU(self.current_partition, current_structure_address)
+        if structure_to_collect_MPU_address != -1:
+            # structure to collect comes from previous prepare of current partition, ok to collect
+*)
+											(** Checks *)
+											(* Check structure is a block in current partition,
+													otherwise means the current partition wants to collect
+													a node given by its parent and this can't be collected
+													so pass to next node*)
+											(* Find the block in the current partition *)
+											perform blockToCollectMPUAddr := findBlockInMPU
+																													currentPart
+																													currStructureAddr in
+											perform addrIsNull := compareAddrToNull	blockToCollectMPUAddr in
+											if addrIsNull
+											then(* can't remove a block prepared by parent, can't collect *)
+												(** RECURSIVE call: check next structure *)
+												perform nextStructureAddr := readNextFromKernelStructureStart
+																											currStructureAddr in
+												collectStructureRecAux 	timeout1
+																								currentPart
+																								idPD
+																								currStructureAddr
+																								nextStructureAddr
+											else
+												(** PROCESSING: collect structure *)
+(*
+            # find inner slots to remove from list of free slots
+            #slotLibreCourant <- PDcourant[pointeur emplacement libre] (on démarre du 1er emplacement libre, forcément non NULL car on peut retirer une page)
+            current_free_slot_address = self.helpers.get_PD_first_free_slot_address(idPD)
+            # slotLibrePrécédent <- NULL (pointeur vers le slot précédent qu’on va devoir relier au suivant si besoin d’enlever le slot courant)
+            previous_free_slot_address = 0
+            # Tant que slotLibrecourant != NULL : (Parcourir la liste des emplacements libres et libérer les slots dans la page à collecter)
+            self.__collect_free_slots_rec(previous_free_slot_address, current_free_slot_address, idPD, current_structure_address)*)
+												(* remove all slots to collect from list of free slots*)
+												perform firstFreeSlotAddr := readPDFirstFreeSlotAddr idPD in
+												collectFreeSlotsRecAux 	N
+																								nullAddr
+																								firstFreeSlotAddr
+																								idPD
+																								currStructureAddr ;;
+												(* Pull out the structure from the list of structures
+														TODO created specific function*)
+												collectStructure idPD predStructureAddr currStructureAddr ;;
+(*
+						# Change PD structure accordingly
+            # Ecrire (idPD[nbPrepare]-1) à idPD[nbPrepare] (-1 à nbPrepare)
+            self.helpers.set_PD_nb_prepare(idPD, self.helpers.get_PD_nb_prepare(idPD) - 1)
+            # Ecrire (idPD[compteur]-MaxEntrees) à idPD[compteur] (enlever #MaxEntrees emplacements libres)
+            self.helpers.set_PD_nb_free_slots(idPD,
+                                              self.helpers.get_PD_nb_free_slots(idPD)
+                                              - self.constants.kernel_structure_entries_nb)
+*)
+											(* Change PD structure accordingly *)
+											perform nbPrepare := readPDNbPrepare idPD in
+											perform predNbPrepare := Index.pred nbPrepare in
+											writePDNbPrepare idPD predNbPrepare ;;
+											perform nbFreeSlots := readPDNbFreeSlots idPD in
+											perform entriesnb := getKernelStructureEntriesNb in
+											perform subNbFreeSlots := Index.subIdx nbFreeSlots entriesnb in
+											writePDNbFreeSlots idPD subNbFreeSlots ;;
+(*
+            # // remettre accessible le bloc où il est (parent ou enfant même traitement)
+            # Ecrire TRUE à @noeudASupprimer->accessible
+            self.helpers.set_MPU_accessible_from_MPU_entry_address(structure_to_collect_MPU_address, True)*)
+											(* Set block accessible where it is (current or child) *)
+											writeMPUAccessibleFromMPUEntryAddr 	blockToCollectMPUAddr
+																													true ;;
+(*
+            # //Si bloc pas coupé alors remettre accessible au parent et aux ancêtres (bloc coupé ->reste inaccessible aux ancêtres)
+            # SI SC[noeudASupprimer]->suivant == NULL ET SC[noeudASupprimer]->origin == noeudASupprimer ALORS (bloc pas coupé)
+            if (self.helpers.get_SC_next_from_MPU_entry_address(structure_to_collect_MPU_address) == 0 and
+                    self.helpers.get_SC_origin_from_MPU_entry_address(structure_to_collect_MPU_address)
+                    == self.helpers.get_MPU_start_from_MPU_entry_address(structure_to_collect_MPU_address)):
+                # block used to prepare is not cut ->set accesible in ancestors
+                # Ecrire TRUE dans MPU[ancêtres]->accessible (O(m*p) car recherche dans p ancêtres, sinon besoin de stocker l’adresse du bloc dans l’ancêtre direct pour O(p))
+                self.__write_accessible_to_ancestors_rec(idPD, current_structure_address, True)*)
+											(* Set block accessible in parent and ancestors if cut *)
+											writeAccessibleToAncestorsIfNoCut idPD
+																												currStructureAddr
+																												blockToCollectMPUAddr
+																												true ;;
+(*
+            # Ecrire default à Sh1[noeudASupprimer] (écraser l’entrée Sh1 dans le cas où ce serait un collect sur un enfant)
+            self.helpers.set_Sh1_entry_from_MPU_entry_address(structure_to_collect_MPU_address, 0, 0, 0)*)
+											perform defaultSh1Entry := getDefaultSh1Entry in
+											writeSh1EntryFromMPUEntryAddr blockToCollectMPUAddr
+																										defaultSh1Entry ;;
+
+(*            # RET ptMPUCourant
+            return current_structure_address*)
+											(** STOP condition 2: found a structure to collect *)
+											ret currStructureAddr
+	end.
+
+(** The [collectStructureRec] function fixes the timeout value of
+		[collectStructureRecAux] *)
+Definition collectStructureRec (currentPart
+															idPD
+															predStructureAddr currStructureAddr :paddr)
+																																	: LLI paddr :=
+	collectStructureRecAux N currentPart idPD predStructureAddr currStructureAddr.
 

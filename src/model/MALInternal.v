@@ -90,6 +90,13 @@ then
 else  undefined 71.
 
 Program Definition zero : LLI index:= ret (CIndex 0).
+
+Program Definition subIdx (n : index) (m: index) : LLI index :=
+let res := n-m in
+if (lt_dec res maxIdx )
+then
+  ret (Build_index res _ )
+else  undefined 72.
 End Index.
 
 Module Constants.
@@ -171,3 +178,7 @@ Definition getNextAddrFromKernelStructureStart (kernelStartAddr : paddr) : LLI p
 Definition getMPUEntryAddrAtIndexFromKernelStructureStart (kernelstructurestart : paddr) (idx : index) : LLI paddr :=
 	let addr := CPaddr (kernelstructurestart + idx*Constants.MPUEntryLength) in
 	ret addr.
+
+Definition getPDStructurePointerAddrFromPD (pdAddr : paddr) : LLI paddr :=
+	let structurePointerAddr := CPaddr (pdAddr + Constants.kernelstructureidx) in
+	ret structurePointerAddr.
