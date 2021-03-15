@@ -81,7 +81,7 @@ Definition writePDStructurePointer (pdtablepaddr: paddr) (structurepaddr : paddr
 		| None => undefined 59
 	end.
 
-Definition readPDFirstFreeSlotAddr  (pdtablepaddr: paddr) : LLI paddr :=
+Definition readPDFirstFreeSlotPointer  (pdtablepaddr: paddr) : LLI paddr :=
   perform s := get in
   let entry :=  lookup pdtablepaddr s.(memory) beqAddr in
   match entry with
@@ -90,7 +90,7 @@ Definition readPDFirstFreeSlotAddr  (pdtablepaddr: paddr) : LLI paddr :=
   | None => undefined 61
   end.
 
-Definition writePDFirstFreeSlotAddr (pdtablepaddr: paddr) (firstfreeslotpaddr : paddr) : LLI unit :=
+Definition writePDFirstFreeSlotPointer (pdtablepaddr: paddr) (firstfreeslotpaddr : paddr) : LLI unit :=
 	perform s := get in
 	let entry :=  lookup pdtablepaddr s.(memory) beqAddr in
 	match entry with

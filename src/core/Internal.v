@@ -370,10 +370,10 @@ Definition writeAccessibleToAncestorsIfNotCutRec (pdbasepartition : paddr)
 	 *)
 Definition insertNewEntry (pdinsertion startaddr endaddr origin: paddr) : LLI paddr :=
 (** Checks have been done before: PD is correct, MPU_entry is correct, block_origin is correct, there is one or more free slots *)
-	perform newEntryMPUAddr := readPDFirstFreeSlotAddr pdinsertion in
+	perform newEntryMPUAddr := readPDFirstFreeSlotPointer pdinsertion in
 	(** Adjust the free slot pointer to the next free slot*)
 	perform newFirstFreeSlotAddr := readMPUEndFromMPUEntryAddr newEntryMPUAddr in
-	writePDFirstFreeSlotAddr pdinsertion newFirstFreeSlotAddr ;;
+	writePDFirstFreeSlotPointer pdinsertion newFirstFreeSlotAddr ;;
 	(** Adjust the free slots count to count - 1*)
 	perform currentNbFreeSlots := readPDNbFreeSlots pdinsertion in
 	perform predCurrentNbFreeSlots := Index.pred currentNbFreeSlots in
@@ -429,9 +429,9 @@ Definition freeSlot (pdfree entrytofreempuaddr: paddr) : LLI paddr :=
 		perform defaultSCEntry := getDefaultSCEntry in
 		writeSCEntryFromMPUEntryAddr entrytofreempuaddr defaultSCEntry;;
 		(* insert free slot in the free slot list *)
-		perform currFirstFreeSlot := readPDFirstFreeSlotAddr pdfree in
+		perform currFirstFreeSlot := readPDFirstFreeSlotPointer pdfree in
 		writeMPUEndFromMPUEntryAddr entrytofreempuaddr currFirstFreeSlot ;;
-		writePDFirstFreeSlotAddr pdfree entrytofreempuaddr ;;
+		writePDFirstFreeSlotPointer pdfree entrytofreempuaddr ;;
 		(* add 1 to the number of free slots*)
 		perform nbfreeslots := readPDNbFreeSlots pdfree in
 		perform nbfreeslotssucc := Index.succ nbfreeslots in
@@ -1546,13 +1546,13 @@ match timeout with
               # Ecrire slotLibreCourant->end à idPD[pointeur libre] (décaler le 1er emplacement libre au prochain)
               self.helpers.set_PD_first_free_slot_address(idPD, next_free_slot_address)*)
 
-												perform firstFreeSlotAddr := readPDFirstFreeSlotAddr idPD in
+												perform firstFreeSlotAddr := readPDFirstFreeSlotPointer idPD in
 												if beqAddr currFreeSlotAddr firstFreeSlotAddr
 												then
 													(* Special case if slot to remove is the first free
 														slot: the next free slot becomes the first free slot
 														of the free slots list *)
-													writePDFirstFreeSlotAddr idPD nextFreeSlotAddr ;;
+													writePDFirstFreeSlotPointer idPD nextFreeSlotAddr ;;
 													(** RECURSIVE call: continue collect with rest of list *)
 													collectFreeSlotsRecAux 	timeout1
 																									idPD
@@ -1718,7 +1718,7 @@ match timeout with
             # Tant que slotLibrecourant != NULL : (Parcourir la liste des emplacements libres et libérer les slots dans la page à collecter)
             self.__collect_free_slots_rec(previous_free_slot_address, current_free_slot_address, idPD, current_structure_address)*)
 												(* remove all slots to collect from list of free slots*)
-												perform firstFreeSlotAddr := readPDFirstFreeSlotAddr idPD in
+												perform firstFreeSlotAddr := readPDFirstFreeSlotPointer idPD in
 												collectFreeSlotsRecAux 	N
 																								nullAddr
 																								firstFreeSlotAddr

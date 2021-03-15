@@ -139,7 +139,7 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
 (*
     # Ecrire NULL à blocPD[pointeur libre]
     self.helpers.set_PD_first_free_slot_address(new_PD_block, 0)*)
-		writePDFirstFreeSlotAddr newPDBlockStartAddr nullAddr ;;
+		writePDFirstFreeSlotPointer newPDBlockStartAddr nullAddr ;;
 
 (*
     # Ecrire 0 à blocPD[compteur nbPrepare]
@@ -668,10 +668,10 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 		perform lastMPUEntryAddr := getMPUEntryAddrFromKernelStructureStart 
 																		newKStructurePointer
 																		lastidx in
-		perform currFirstFreeSlot := readPDFirstFreeSlotAddr idPD in
+		perform currFirstFreeSlot := readPDFirstFreeSlotPointer idPD in
 		writeMPUEndFromMPUEntryAddr lastMPUEntryAddr currFirstFreeSlot ;;
 		(* set the first free slot addr to the first entry of the new kernel structure*)
-		writePDFirstFreeSlotAddr idPD newKStructurePointer ;;
+		writePDFirstFreeSlotPointer idPD newKStructurePointer ;;
 		(* new count = (count + number of new entries)*)
 		perform currentNbFreeSlots := readPDNbFreeSlots idPD in
 		writePDNbFreeSlots idPD (CIndex (currentNbFreeSlots + kernelentriesnb)) ;;
