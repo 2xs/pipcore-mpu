@@ -35,7 +35,7 @@
     This file contains the definition of some constants and their monadic getters;
     and the module definition of each abstract data type in which we define required
     monadic functions  *)
-Require Import Model.ADT Model.Monad Model.UserConstants.
+Require Import Model.ADT Model.Monad.
 Require Import List Arith Omega.
 
 Open Scope mpu_state_scope.
@@ -66,6 +66,13 @@ else  undefined 70.
 
 Program Definition addPaddr (n : paddr) (m: paddr) : LLI paddr :=
 let res := n+m in
+if (lt_dec res maxAddr )
+then
+  ret (Build_paddr res _ )
+else  undefined 71.
+
+Program Definition subPaddr (n : paddr) (m: paddr) : LLI paddr :=
+let res := n-m in
 if (lt_dec res maxAddr )
 then
   ret (Build_paddr res _ )
@@ -102,12 +109,7 @@ End Index.
 Module Constants.
 (** Fix positions into the partition descriptor
     of the partition *)
-(*Definition pdidx := CPaddr 0.   (* descriptor *)*)
 Definition kernelstructureidx := CIndex 0.
-Definition nbfreeslotsidx := CIndex 1.
-Definition firstfreeslotaddressidx := CIndex 2.
-Definition nbprepareidx := CIndex 3.
-Definition parentidx := CIndex 4. (* parent (virtual address is null) *)
 
 Definition MPUEntryLength := CPaddr 3.
 Definition SHEntryLength := CPaddr 3.
@@ -178,7 +180,3 @@ Definition getNextAddrFromKernelStructureStart (kernelStartAddr : paddr) : LLI p
 Definition getMPUEntryAddrAtIndexFromKernelStructureStart (kernelstructurestart : paddr) (idx : index) : LLI paddr :=
 	let addr := CPaddr (kernelstructurestart + idx*Constants.MPUEntryLength) in
 	ret addr.
-
-Definition getPDStructurePointerAddrFromPD (pdAddr : paddr) : LLI paddr :=
-	let structurePointerAddr := CPaddr (pdAddr + Constants.kernelstructureidx) in
-	ret structurePointerAddr.

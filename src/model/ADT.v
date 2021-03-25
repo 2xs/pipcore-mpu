@@ -40,6 +40,12 @@
 Require Import List Bool Arith Omega Model.UserConstants.
 Import List.ListNotations.
 
+(*******************************************************************************)
+(* Constants (computed from USER CONSTANTS *)
+(*******************************************************************************)
+Definition kernelStructureEntriesNb := kernelStructureEntriesBits ^ 2.
+Definition maxNbPrepare := nbPrepareMaxBits ^ 2.
+(*******************************************************************************)
 
 
 (* BEGIN SIMULATION

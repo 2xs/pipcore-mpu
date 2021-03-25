@@ -184,8 +184,8 @@ Fixpoint findBlockInMPUWithAddrAux (timeout : nat)
 		| 0 => getNullAddr (*Stop condition 1: reached end of structure list*)
 		| S timeout1 => (*Stop conditions 2 and 3: found block OR issue with the entry *)
 										perform isMPUAddrAboveStart := Paddr.leb currentkernelstructure blockMPUAddr in
-										perform maxMPUAddrInStructure := getAddr (CPaddr (currentkernelstructure
-																															+ Constants.sh1offset)) in
+										perform maxMPUAddrInStructure :=  Paddr.addPaddr currentkernelstructure
+																															Constants.sh1offset in
 										perform isMPUAddrBelowEnd := Paddr.leb maxMPUAddrInStructure blockMPUAddr in
 										if isMPUAddrAboveStart && isMPUAddrBelowEnd
 										then (* the provided address lies in this kernel structure*)
@@ -952,7 +952,7 @@ Definition removeMemoryBlockCommon (	idPDchild
 Definition sizeOfBlock (mpuentryaddr : paddr) : LLI paddr :=
 	perform startAddr := readMPUStartFromMPUEntryAddr mpuentryaddr in
 	perform endAddr := readMPUEndFromMPUEntryAddr mpuentryaddr in
-	ret (CPaddr (endAddr - startAddr)).
+	Paddr.subPaddr endAddr startAddr.
 
 (** The [initPDTable] function initializes the PD table pointed by <pdtableaddr>
 		with the default PD table
@@ -1028,29 +1028,42 @@ Fixpoint initMPUEntryRecAux 	(timeout : nat)
 										if beqIdx indexCurr zero
 										then
 											(** STOP condition: parsed all entries *)
+											perform secondEntryPointer := Paddr.addPaddr
+																											kernelStructureStartAddr
+																											Constants.MPUEntryLength in
 											perform mpuEntry := buildMPUEntry
 																						nullAddr
-																						(CPaddr (kernelStructureStartAddr +
-																						Constants.MPUEntryLength))
+																						secondEntryPointer
 																						false
 																						false in
 											writeMPUEntryWithIndexFromMPUEntryAddr
-													(CPaddr kernelStructureStartAddr)
+													kernelStructureStartAddr
 													zero
 													mpuEntry;;
 											ret true
 										else
 											perform idxsucc := Index.succ indexCurr in
 											(* current entry points to the next via the endAddr field*)
+
+											perform nextEntryOffset := Paddr.mulIdxPaddr
+																									idxsucc
+																									Constants.MPUEntryLength in
+											perform nextEntryPointer := Paddr.addPaddr
+																										kernelStructureStartAddr
+																										nextEntryOffset in
 											perform mpuEntry := buildMPUEntry
 																						nullAddr
-																						(CPaddr (kernelStructureStartAddr
-																							+ idxsucc*Constants.MPUEntryLength))
+																						nextEntryPointer
 																						false
 																						false in
+											perform currEntryOffset := Paddr.mulIdxPaddr
+																									indexCurr
+																									Constants.MPUEntryLength in
+											perform currEntryPointer := Paddr.addPaddr
+																										kernelStructureStartAddr
+																										currEntryOffset in
 											writeMPUEntryWithIndexFromMPUEntryAddr
-													(CPaddr (kernelStructureStartAddr
-														+ indexCurr*Constants.MPUEntryLength))
+													currEntryPointer
 													indexCurr
 													mpuEntry;;
 											(** RECURSIVE call: write default values in precedent index *)
@@ -1079,8 +1092,11 @@ Definition initMPUStructure (kernelStructureStartAddr : paddr) : LLI bool :=
 																				nullAddr
 																				false
 																				false in
-	writeMPUEntryWithIndexFromMPUEntryAddr (CPaddr (kernelStructureStartAddr
-																						+ lastindex*Constants.MPUEntryLength))
+	perform lastEntryOffset := Paddr.mulIdxPaddr lastindex
+																							Constants.MPUEntryLength in
+	perform lastEntryPointer := Paddr.addPaddr 	kernelStructureStartAddr
+																							lastEntryOffset in
+	writeMPUEntryWithIndexFromMPUEntryAddr 	lastEntryPointer
 																					lastindex
 																					lastMPUEntry;;
 	ret true.
@@ -1115,16 +1131,19 @@ Fixpoint initSh1EntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 										then
 											(** STOP condition: parsed all entries *)
 											perform defaultSh1Entry := getDefaultSh1Entry in
-											writeSh1EntryFromMPUEntryAddr
-																				(CPaddr kernelStructureStartAddr)
-																				defaultSh1Entry;;
+											writeSh1EntryFromMPUEntryAddr kernelStructureStartAddr
+																										defaultSh1Entry;;
 											ret true
 										else
 											perform defaultSh1Entry := getDefaultSh1Entry in
-											writeSh1EntryFromMPUEntryAddr
-																				(CPaddr (kernelStructureStartAddr
-																					+ indexCurr*Constants.MPUEntryLength))
-																				defaultSh1Entry;;
+											perform currEntryOffset := Paddr.mulIdxPaddr
+																									indexCurr
+																									Constants.MPUEntryLength in
+											perform currEntryPointer := Paddr.addPaddr
+																										kernelStructureStartAddr
+																										currEntryOffset in
+											writeSh1EntryFromMPUEntryAddr currEntryPointer
+																										defaultSh1Entry;;
 											(** RECURSIVE call: write default values in precedent index *)
 											perform idxpred := Index.pred indexCurr in
 											initSh1EntryRecAux timeout1 kernelStructureStartAddr idxpred
@@ -1172,16 +1191,19 @@ Fixpoint initSCEntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 										then
 											(** STOP condition: parsed all entries *)
 											perform defaultSCEntry := getDefaultSCEntry in
-											writeSCEntryFromMPUEntryAddr
-																					(CPaddr kernelStructureStartAddr)
-																					defaultSCEntry;;
+											writeSCEntryFromMPUEntryAddr 	kernelStructureStartAddr
+																										defaultSCEntry;;
 											ret true
 										else
 											perform defaultSCEntry := getDefaultSCEntry in
-											writeSCEntryFromMPUEntryAddr
-																					(CPaddr (kernelStructureStartAddr
-																						+ indexCurr*Constants.MPUEntryLength))
-																					defaultSCEntry;;
+											perform currEntryOffset := Paddr.mulIdxPaddr
+																									indexCurr
+																									Constants.MPUEntryLength in
+											perform currEntryPointer := Paddr.addPaddr
+																										kernelStructureStartAddr
+																										currEntryOffset in
+											writeSCEntryFromMPUEntryAddr 	currEntryPointer
+																										defaultSCEntry;;
 											(** RECURSIVE call: write default values in precedent index *)
 											perform idxpred := Index.pred indexCurr in
 											initSCEntryRecAux timeout1 kernelStructureStartAddr idxpred

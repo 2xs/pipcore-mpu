@@ -44,8 +44,3 @@ Require Import Arith.
 Definition kernelStructureEntriesBits := 3.
 (* self.nb_prepare_max_bits = 3*)
 Definition nbPrepareMaxBits := 3.
-(*******************************************************************************)
-
-Definition kernelStructureEntriesNb := kernelStructureEntriesBits ^ 2.
-Definition maxNbPrepare := nbPrepareMaxBits ^ 2.
-(*******************************************************************************)

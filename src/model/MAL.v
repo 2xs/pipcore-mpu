@@ -322,24 +322,6 @@ Definition writeMPUIndexFromMPUEntryAddr  	(paddr : paddr) (newindex : index)
 		| None => undefined 59
   end.
 
-Definition readMPUBlockFromMPUEntryAddr  (paddr : paddr) : LLI block :=
-  perform s := get in
-  let entry :=  lookup paddr s.(memory) beqAddr in
-  match entry with
-  | Some (MPUE a) => ret a.(mpublock)
-  | Some _ => undefined 12
-  | None => undefined 11
-  end.
-
-Definition readMPUEntry (paddr : paddr) : LLI MPUEntry :=
-  perform s := get in
-  let entry :=  lookup paddr s.(memory) beqAddr in
-  match entry with
-  | Some (MPUE a) => ret a
-  | Some _ => undefined 9
-  | None => undefined 8
-  end.
-
 (*def write_MPU_entry(self, MPU_entry_address, start, end, accessible, present):
     """Writes at the MPU entry <MPU_entry_address> the values (<start>, <end>, <accessible bit>, <present bit>)"""
     # index (0), start (1), end (2), accessible (3), present (4)
@@ -598,3 +580,7 @@ Definition buildMPUEntry (startaddr endaddr : paddr)
 								 	mpublock := newblock
 								|} in
 	ret entry.
+
+Definition getPDStructurePointerAddrFromPD (pdAddr : paddr) : LLI paddr :=
+	let structurePointerAddr := CPaddr (pdAddr + Constants.kernelstructureidx) in
+	ret structurePointerAddr.
