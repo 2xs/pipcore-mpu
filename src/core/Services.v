@@ -94,7 +94,7 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
 *)
 		perform blockSize := sizeOfBlock blockInCurrentPartitionAddr in
 		perform minBlockSize := getMinBlockSize in
-		perform isBlockTooSmall := Paddr.leb blockSize minBlockSize in
+		perform isBlockTooSmall := Index.leb blockSize minBlockSize in
 		if isBlockTooSmall then (** block is smaller than the minimum  *) ret false 
 		else
 
@@ -262,7 +262,7 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
 		(** Check that the block is greater than the minimum MPU region size*)
 		perform blockSize := sizeOfBlock blockToCutMPUAddr in
 		perform minBlockSize := getMinBlockSize in
-		perform isBlockTooSmall := Paddr.leb blockSize minBlockSize in
+		perform isBlockTooSmall := Index.leb blockSize minBlockSize in
 		if isBlockTooSmall then (** block is smaller than the minimum  *) ret nullAddr 
 		else
 (*
@@ -568,7 +568,7 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 		(* Check the block is big enough to hold a kernel structure*)
 		perform blockSize := sizeOfBlock requisitionedBlockInCurrPartAddr in
 		perform kStructureTotalLength := getKernelStructureTotalLength in
-		perform isBlockTooSmall := Paddr.leb blockSize kStructureTotalLength in
+		perform isBlockTooSmall := Index.leb blockSize kStructureTotalLength in
 		if isBlockTooSmall then (* block is smaller than the minimum  *) ret false 
 		else
 
@@ -674,7 +674,8 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 		writePDFirstFreeSlotPointer idPD newKStructurePointer ;;
 		(* new count = (count + number of new entries)*)
 		perform currentNbFreeSlots := readPDNbFreeSlots idPD in
-		writePDNbFreeSlots idPD (CIndex (currentNbFreeSlots + kernelentriesnb)) ;;
+		perform newNbFreeSlots := Index.addIdx currentNbFreeSlots kernelentriesnb in
+		writePDNbFreeSlots idPD newNbFreeSlots ;;
 		(* new nbprepare = nbprepare + 1*)
 		perform currentNbPrepare := readPDNbPrepare idPD in
 		perform succCurrentNbPrepare := Index.succ currentNbPrepare in
@@ -1057,6 +1058,6 @@ def collect(self, idPD):
 		(** Call recursive function: go through list of structure nodes and collect
 				the first encountered free structure *)
 		perform currStructureAddr := readPDStructurePointer idPD in
-		perform predStructureAddr := MALInternal.getPDStructurePointerAddrFromPD
-																		idPD in (* location of the pointer, not the content *)
+		perform predStructureAddr := getPDStructurePointerAddrFromPD idPD in
+																(* location of the pointer, not the content *)
 		collectStructureRec currentPart idPD predStructureAddr currStructureAddr.

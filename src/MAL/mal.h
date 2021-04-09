@@ -38,52 +38,25 @@
 
 #ifndef __MAL__
 #define __MAL__
-
+#include "ADT.h"
 #include <stdint.h>
 
-void enable_paging();
-void disable_paging();
+#include <stdbool.h>
+#include <stddef.h>
+
 
 /* Activate : deprecated */
-void activate(uint32_t dir);
+void activate(paddr dir);
 
 /* Current page directory */
-uint32_t getCurPartition(void); //!< Interface to get the current Page Directory
-void updateCurPartition (uint32_t descriptor);
+paddr getCurPartition(void); //!< Interface to get the current Page Directory
+void updateCurPartition (paddr descriptor);
 
-uint32_t getRootPartition(void); //!< Interface to get the current Page Directory
-void updateRootPartition (uint32_t descriptor);
+paddr getRootPartition(void); //!< Interface to get the current Page Directory
+void updateRootPartition (paddr descriptor);
 
-/* Address manipulation stuff */
-uint32_t getNbIndex(); //!< Get amount of indirection tables
-uint32_t getIndexOfAddr(uint32_t addr, uint32_t index); //!< Get index of indirection level given
-uint32_t getOffsetOfAddr(uint32_t addr); //!< Get offset from address
-uint32_t readTableVirtual(uint32_t table, uint32_t index); //!< FETCH address stored in indirection table
-uint32_t readTableVirtualNoFlags(uint32_t table, uint32_t index); //!< FETCH address stored in indirection table
-uint32_t readArray(uint32_t table, uint32_t index); //!< Read an array's contents
-void writeTableVirtual(uint32_t table, uint32_t index, uint32_t addr); //!< STORE an address in an indirection table
-void writeTableVirtualNoFlags(uint32_t table, uint32_t index, uint32_t addr); //!< STORE an address in an indirection table
-uint32_t readPresent(uint32_t table, uint32_t index); //!< Reads the present flag 
-void writePresent(uint32_t table, uint32_t index, uint32_t value); //!< Writes the present flag
-uint32_t readAccessible(uint32_t table, uint32_t index); //!< Reads the accessible flag
-void writeAccessible(uint32_t table, uint32_t index, uint32_t value); //!< Writes the accessible flag
-uint32_t readPhysical(uint32_t table, uint32_t index); //!< FETCH address stored in indirection table, physical version
-uint32_t readPhysicalNoFlags(uint32_t table, uint32_t index);
-void writePhysical(uint32_t table, uint32_t index, uint32_t addr); //!< STORE an address in an indirection table, physical version
-void writePhysicalNoFlags(uint32_t table, uint32_t index, uint32_t addr);
-uint32_t readIndex(uint32_t table, uint32_t index); //!< FETCH index stored in indirection table, physical version
-void writeIndex(uint32_t table, uint32_t index, uint32_t idx); //!< STORE an index in an indirection table, physical version
-uint32_t dereferenceVirtual(uint32_t addr);
-uint32_t derivated(uint32_t table, uint32_t index); //!< Returns 1 if the page is derivated, 0 else
-
-uint32_t readPDflag(uint32_t table, uint32_t index); //!< 
-void writePDflag(uint32_t table, uint32_t index, uint32_t value); //!< Writes the page directory flag contents
-uint32_t get_pd(); //!< Returns the VIRTUAL ADDRESS of the current Page Directory
-
-void cleanPageEntry(uint32_t table, uint32_t index); //!< Cleans a page entry, setting its contents to 0x00000000
-
-uint32_t defaultAddr(void); //!< Default address, should be 0x00000000
-extern const uint32_t defaultVAddr; //!< Default address, should be 0x00000000
+//uint32_t defaultAddr(void); //!< Default address, should be 0x00000000
+//extern const uint32_t defaultVAddr; //!< Default address, should be 0x00000000
 uint32_t getTableSize(void); //!< Table size
 uint32_t getMaxIndex(void); //!< Table size
 uint32_t addressEquals(uint32_t addr, uint32_t addr2); //!< Checks whether an address is equal to another.
@@ -93,11 +66,11 @@ uint32_t checkRights(uint32_t read, uint32_t write, uint32_t execute); //!< Chec
 uint32_t applyRights(uint32_t table, uint32_t index, uint32_t read, uint32_t write, uint32_t execute); //!< Apply the asked rights to the given entry
 
 uint32_t toAddr(uint32_t input); //!< Converts a given uint32_t to an address (only for Haskell FFI purposes)
-extern const uint32_t nbLevel;
+//extern const uint32_t nbLevel;
 
 /* Amount of pages available, meh */
-extern uint32_t maxPages;
-#define nbPage maxPages
+/*extern uint32_t maxPages;
+#define nbPage maxPages*/
 
 /* Coq related stuff */
 int geb(const uint32_t a, const uint32_t b); //!< Greater or equal
@@ -107,11 +80,11 @@ int ltb(const uint32_t a, const uint32_t b); //!< Lower than
 int eqb(const uint32_t a, const uint32_t b); //!< Equals
 uint32_t mul3(uint32_t v); //!< Multiply an integer with 3
 uint32_t inc(uint32_t val); //!< Increment an integer
-uint32_t sub(uint32_t val); //!< Decrement an integer
+uint32_t dec(uint32_t val); //!< Decrement an integer
 uint32_t zero(); //!< Zero. That's it.
 
 
-uint32_t indexPR(void); //!< Partiton descriptor index into itself
+/*uint32_t indexPR(void); //!< Partiton descriptor index into itself
 uint32_t indexPD(void); //!< Page directory index within partition descriptor
 uint32_t indexSh1(void); //!< Shadow 1 index within partition descriptor
 uint32_t indexSh2(void); //!< Shadow 2 index within partition descriptor
@@ -120,6 +93,103 @@ uint32_t PPRidx(void); //!< Parent partition index within partition descriptor
 uint32_t kernelIndex(void); //!< Index of kernel's page directory entry
 void writePhysicalWithLotsOfFlags(uint32_t table, uint32_t index, uint32_t addr, uint32_t present, uint32_t user, uint32_t read, uint32_t write, uint32_t execute); //!< Write a physical entry with all the possible flags we might need
 void writeKPhysicalWithLotsOfFlags(uint32_t table, uint32_t index, uint32_t addr, uint32_t present, uint32_t user, uint32_t read, uint32_t write, uint32_t execute); //!< Write a physical entry with all the possible flags we might need
-uint32_t extractPreIndex(uint32_t vaddr, uint32_t index);
+uint32_t extractPreIndex(uint32_t vaddr, uint32_t index);*/
+void mal_init(void);
+
+/* ARM */
+/* MALInternal */
+uint32_t mul(uint32_t a, uint32_t b); //!< Multiply two integers
+uint32_t sub(uint32_t a, uint32_t b); //!< Substract two integers
+uint32_t add(uint32_t a, uint32_t b); //!< Add two integers
+
+extern uint32_t kernelstructureentriesnb;
+uint32_t KERNELSTRUCTUREENTRIESNB(void); //!< The number of entries in a kernel structure
+uint32_t MAXNBPREPARE(void);//!< The maximum number of times a partition can be prepared.
+uint32_t KERNELSTRUCTURETOTALLENGTH(void);
+extern uint32_t min_mpu_region;
+uint32_t MINBLOCKSIZE(void);
+
+extern uint32_t mpuentrylength;
+extern uint32_t sh1entrylength;
+extern uint32_t scentrylength;
+uint32_t MPUENTRYLENGTH(void); //!< The MPU entry size.
+uint32_t SH1ENTRYLENGTH(void); //!< The shadow 1 entry size.
+uint32_t SCENTRYLENGTH(void); //!< The shadow cut entry size.
+
+extern uint32_t mpuoffset;
+extern uint32_t sh1offset;
+extern uint32_t scoffset;
+extern uint32_t nextoffset;
+uint32_t MPUOFFSET(void); //!< The MPU structure offset.
+uint32_t SH1OFFSET(void); //!< The Shadow 1 structure offset.
+uint32_t SCOFFSET(void); //!< The Shadow Cut structure offset.
+uint32_t NEXTOFFSET(void); //!< The next structure pointer offset.
+
+paddr getKernelStructureStartAddr(paddr mpuentryaddr, uint32_t mpuentryindex); //!< The start of the kernel structure frame
+paddr getMPUEntryAddrFromKernelStructureStart(paddr mpuentryaddr, uint32_t mpuentryindex); //!< The address of the MPU entry
+paddr getSh1EntryAddrFromKernelStructureStart(paddr mpuentryaddr, uint32_t mpuentryindex); //!< The address of the shadow 1 entry
+paddr getSCEntryAddrFromKernelStructureStart(paddr mpuentryaddr, uint32_t mpuentryindex); //!< The address of the shadow cut entry
+paddr getNextAddrFromKernelStructureStart(paddr mpuentryaddr); //!< The address of the next structure pointer
+uint32_t fit_mpu_region(uint32_t block_size);
+uint32_t next_pow2(uint32_t v);
+
+paddr getNullAddr(void); //!< Returns the default null address.
+bool beqAddr(paddr a, paddr b); //!< Compare two addresses
+bool beqIdx(uint32_t a, uint32_t b); //!< Compare two indexes
+paddr addPaddrIdx(paddr a, uint32_t b); //!< adds an offset to a paddr
+uint32_t subPaddr(paddr a, paddr b); //!< substracts the first paddr to the second.
+bool lebPaddr(const paddr a, const paddr b); //!< the first parameter is less than or equal to the second one.
+paddr predPaddr(paddr a); //!< decrements the given address.
+paddr getAddr(paddr addr); //!< returns the address //TODO to remove
+
+
+/* MAL */
+PDTable_t readPDTable(paddr pdaddr); //!< Gets the Partition Descriptor (PD)
+paddr readPDStructurePointer(paddr pdaddr); //!< Gets the first kernel structure
+void writePDStructurePointer(paddr pdaddr, paddr value); //!< Sets the first kernel structure
+paddr readPDFirstFreeSlotPointer(paddr pdaddr); //!< Gets the first free slot's address
+void writePDFirstFreeSlotPointer(paddr pdaddr, paddr value); //!< Sets the first free slot's address
+uint32_t readPDNbFreeSlots(paddr pdaddr); //!< Gets the number of free slots left
+void writePDNbFreeSlots(paddr pdaddr, uint32_t value); //!< Sets the number of free slots left
+uint32_t readPDNbPrepare(paddr pdaddr); //!< Gets the number of prepare done util then.
+void writePDNbPrepare(paddr pdaddr, uint32_t value); //!< Sets the number of prepare done util then
+paddr readPDParent(paddr pdaddr); //!< Gets the parent PD's address
+void writePDParent(paddr pdaddr, paddr value); //!< Sets the parent PD's address
+paddr readMPUStartFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the block's start address from the given entry
+void writeMPUStartFromMPUEntryAddr(paddr mpuentryaddr, paddr value); //!< Sets the block's start address
+paddr readMPUEndFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the block's end address from the given entry
+void writeMPUEndFromMPUEntryAddr(paddr mpuentryaddr, paddr value); //!< Sets the block's end address
+bool readMPUAccessibleFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the Accessible flag from the given entry
+void writeMPUAccessibleFromMPUEntryAddr(paddr mpuentryaddr, bool value); //!< Sets a memory block as accessible or not
+bool readMPUPresentFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the Present flag from the given entry
+void writeMPUPresentFromMPUEntryAddr(paddr mpuentryaddr, bool value); //!< Sets a memory block as present or not
+uint32_t readMPUIndexFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the MPU index from the given entry
+void writeMPUIndexFromMPUEntryAddr(paddr mpuentryaddr, uint32_t value); //!< Sets the MPU index
+void writeMPUEntryFromMPUEntryAddr(paddr mpuentryaddr, MPUEntry_t value); //!< Sets the MPU entry
+void writeMPUEntryWithIndexFromMPUEntryAddr(paddr mpuentryaddr, uint32_t index, MPUEntry_t value); //!< Sets the MPU entry with given index
+paddr getSh1EntryAddrFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the Sh1 entry from the MPU entry
+paddr readSh1PDChildFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the child's PD from the given entry
+void writeSh1PDChildFromMPUEntryAddr(paddr mpuentryaddr, paddr value); //!< Sets the entry's child PD
+bool readSh1PDFlagFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the child's PD from the given entry
+void writeSh1PDFlagFromMPUEntryAddr(paddr mpuentryaddr, bool value); //!< Sets the entry's PD flag
+paddr readSh1InChildLocationFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the location of the block in the child
+void writeSh1InChildLocationFromMPUEntryAddr(paddr mpuentryaddr, paddr value); //!<Sets the block's location in the child
+void writeSh1EntryFromMPUEntryAddr(paddr mpuentryaddr, Sh1Entry_t newsh1entry);//! Sets the block's Sh1 entry
+paddr getSCEntryAddrFromMPUEntryAddr(paddr mpuentryaddr); //! Gets the SC entry from the MPU entry
+paddr readSCOriginFromMPUEntryAddr(paddr mpuentryaddr); //! Gets the block's origin
+void writeSCOriginFromMPUEntryAddr(paddr mpuentryaddr, paddr value); //! Sets the block's origin
+paddr readSCNextFromMPUEntryAddr(paddr mpuentryaddr); //! Gets the block's next subblock
+void writeSCNextFromMPUEntryAddr(paddr mpuentryaddr, paddr value); //! Sets the block's next subblock
+void writeSCEntryFromMPUEntryAddr(paddr mpuentryaddr, SCEntry_t newscentry); //! Sets the block's SC entry
+paddr readNextFromKernelStructureStart(paddr structureaddr); //! Gets the block's next subblock
+void writeNextFromKernelStructureStart(paddr structureaddr, paddr newnextstructure); //! Sets the block's SC entry
+void eraseAddr(paddr addr); //! Sets the address to NULL
+void writePDTable(paddr addr, PDTable_t newpdtable); //! Sets a new PD Table at the given address
+PDTable_t getEmptyPDTable(); //! Returns the default PD Table
+MPUEntry_t getDefaultMPUEntry(); //! Returns the default MPU entry
+Sh1Entry_t getDefaultSh1Entry(); //! Returns the default Sh1 entry
+SCEntry_t getDefaultSCEntry(); //! Returns the default SC entry
+MPUEntry_t buildMPUEntry(paddr startaddr, paddr endaddr, bool accessiblebit, bool presentbit); //! Constructs an MPU entry given the attributes
+paddr getPDStructurePointerAddrFromPD(paddr pdaddr); //! Gets the structure pointer of the given PD
 
 #endif

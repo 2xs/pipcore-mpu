@@ -160,6 +160,10 @@ SECTIONS
 
     } > RAM
 
+    /* USER SECTION */
+    user_mem_start = .;
+    user_mem_end = _eram;
+
 
 
     /*_end = . ;*/

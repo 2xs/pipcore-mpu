@@ -3,34 +3,10 @@ AS = arm-none-eabi-as
 #LD = arm-none-eabi-ld
 BI = arm-none-eabi-objcopy
 
-## COMPILER FLAGS
-CFLAGS = -mthumb -mcpu=cortex-m4  #
-CFLAGS += -Isrc/boot/dwm1001/ARM/cmsis/include -Isrc/boot/dwm1001/ARM #-Isrc/boot/dwm1001/ARM/newlib #-lc #-I/usr/arm-none-eabi/include #-nostdinc --specs=nano.specs --specs=nosys.specs
-CFLAGS += -Isrc/boot/dwm1001/ARM/mdk -Isrc/boot/dwm1001/ARM/mdk/headers
-CFLAGS += -Isrc/boot/dwm1001/ARM/mdk/util -Isrc/boot/dwm1001/ARM/mdk/common -Isrc/boot/dwm1001/ARM/mdk/hal
-# include debug symbols
-CFLAGS += -g -DDEBUG # debug symbols for GDB
-CFLAGS += -Og # optimize debugging experience more than -O0
-# debug through semihosting TODO: set as commandline var
-CFLAGS += -DTRACE -DOS_USE_TRACE_SEMIHOSTING_DEBUG -Isrc/boot/dwm1001/ARM/debug # debug on semihosting debug channel and trace API
-# debug through UART TODO: set as commandline var
-CFLAGS += -DDEBUG_UART -Isrc/boot/dwm1001/ARM/uart # debug through UART
-#CFLAGS += -fmessage-length=0
-#CFLAGS += -ffunction-sections
-#CFLAGS += -fdata-sections
-#CFLAGS += --specs=nosys.specs
-CFLAGS += -DNRF52832_XXAA
-BIN = $(CURDIR)
-OBJ = $(CURDIR)
-
-# LINKER FLAGS
-LDFLAGS += -nostartfiles  # do not include start files but keep default libs: -nostdlib = -nostartfiles + -nodefaultlibs
-LDFLAGS += -lc -lgcc -lm -std=gnu11
-LDFLAGS += -Wall # recommended compiler warnings
-LDFLAGS += -ffreestanding # remove printf to puts optimizations
-LDFLAGS += -mthumb -mcpu=cortex-m4
-#LDFLAGS = -lgcc -lc -lm -lrdimon -std=gnu11 -Og -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -ffreestanding -fno-move-loop-invariants -Wall -Wextra
-#LDFLAGS += --specs=nosys.specs --specs=rdimon.specs -lrdimon
+# UART DEBUG
+UART_DEBUG ?= yes
+# Semihosting DEBUG
+SEMI_DEBUG ?= yes
 
 # LINKER VARIABLES
 TARGET = dwm1001
@@ -42,36 +18,142 @@ KERNEL_BASENAME=pip
 #KERNEL_BIN=$(KERNEL_BASENAME).bin
 LINKSCRIPT := $(SRC_DIR)/boot/$(TARGET)/ARM/link.ld
 
+DIGGER_DIR=tools/digger
+DIGGER=$(DIGGER_DIR)/digger
+
+COQDEP=coqdep -c
+COQC=coqc -q
+COQDOC=coqdoc -toc -interpolate -utf8 -html
+
+## COMPILER FLAGS
+CFLAGS = -mthumb -mcpu=cortex-m4  #
+CFLAGS += -Isrc/boot/dwm1001/ARM/cmsis/include -Isrc/boot/dwm1001/ARM #-Isrc/boot/dwm1001/ARM/newlib #-lc #-I/usr/arm-none-eabi/include #-nostdinc --specs=nano.specs --specs=nosys.specs
+CFLAGS += -Isrc/boot/dwm1001/ARM/mdk -Isrc/boot/dwm1001/ARM/mdk/headers
+CFLAGS += -Isrc/boot/dwm1001/ARM/mdk/util -Isrc/boot/dwm1001/ARM/mdk/common
+CFLAGS += -Isrc/boot/dwm1001/ARM/mdk/hal
+CFLAGS += -I$(SRC_DIR)/MAL
+CFLAGS += -I$(SRC_DIR)/MAL/$(TARGET)
+CFLAGS += -I$(TARGET_DIR)/pipcore
+# include debug symbols
+CFLAGS += -g # debug symbols for GDB -DDEBUG
+CFLAGS += -Og # optimize debugging experience more than -O0
+ifeq ($(SEMI_DEBUG), yes)
+# debug through semihosting TODO: set as commandline var
+CFLAGS += -DTRACE -DOS_USE_TRACE_SEMIHOSTING_DEBUG -Isrc/boot/dwm1001/ARM/debug # debug on semihosting debug channel and trace API
+endif
+ifeq ($(UART_DEBUG), yes)
+# debug through UART
+CFLAGS += -DDEBUG_UART -Isrc/boot/dwm1001/ARM/uart # debug through UART
+endif
+#CFLAGS += -fmessage-length=0
+#CFLAGS += -ffunction-sections
+#CFLAGS += -fdata-sections
+#CFLAGS += --specs=nosys.specs
+CFLAGS += -DNRF52832_XXAA
+
+# LINKER FLAGS
+LDFLAGS += -nostartfiles  # do not include start files but keep default libs: -nostdlib = -nostartfiles + -nodefaultlibs
+LDFLAGS += -lc -lgcc -lm -std=gnu11
+LDFLAGS += -Wall # recommended compiler warnings
+LDFLAGS += -ffreestanding # remove printf to puts optimizations
+LDFLAGS += -mthumb -mcpu=cortex-m4
+#LDFLAGS = -lgcc -lc -lm -lrdimon -std=gnu11 -Og -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -ffreestanding -fno-move-loop-invariants -Wall -Wextra
+#LDFLAGS += --specs=nosys.specs --specs=rdimon.specs -lrdimon
+
+# Coq Sources
+COQCODEDIRS=$(SRC_DIR)/core $(SRC_DIR)/model
+COQPROOFDIRS=$(PROOF_DIR) $(PROOF_DIR)/invariants
+VCODESOURCES=$(foreach dir, ${COQCODEDIRS}, $(wildcard $(dir)/*.v))
+VPROOFSOURCES=$(foreach dir, ${COQPROOFDIRS}, $(wildcard $(dir)/*.v))
+VSOURCES=$(VCODESOURCES) $(VPROOFSOURCES)
+VOBJECTS=$(VSOURCES:.v=.vo)
+
+# JSON files extracted from Coq
+JSONS=Internal.json Services.json
+EXTRACTEDCSOURCES=$(addprefix $(TARGET_DIR)/pipcore/, $(JSONS:.json=.c))
+
 # .c & .S FILES
 C_FILES = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/*.c)
+C_FILES_MAL = $(wildcard $(SRC_DIR)/MAL/$(TARGET)/*.c)
 C_FILES_UART = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/uart/*.c)
 C_FILES_MDK = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/mdk/*.c)
 C_FILES_MDK_COM = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/mdk/common/*.c)
 C_FILES_DEBUG = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/debug/*.c)
 C_FILES_NEWLIB = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/newlib/*.c)
+C_FILES_PIPCORE = $(wildcard $(TARGET_DIR)/pipcore/*.c)
 S_FILES = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/*.S)
 
 # OBJECT FILES
 # String substitution for every C/C++ file.
-#OBJS := $(C_FILES:%=$(TARGET_DIR)/%.o)
-#OBJS := $(patsubst %.c, $(TARGET_DIR)/%.o, $(C_FILES))
 OBJS = $(patsubst %.c, $(TARGET_DIR)/%.o, $(notdir $(C_FILES))) # .c -> .o but do not include the name of the directory
-#OBJS = $(patsubst %.c, %.o, $(C_FILES))
-
-OBJS_UART = $(patsubst %.c, $(TARGET_DIR)/uart/%.o, $(notdir $(C_FILES_UART)))
-OBJS += $(OBJS_UART)
+OBJS_MAL = $(patsubst %.c, $(TARGET_DIR)/MAL/%.o, $(notdir $(C_FILES_MAL)))
+OBJS += $(OBJS_MAL)
+OBJS_PIPCORE = $(patsubst %.c, $(TARGET_DIR)/pipcore/%.o, $(notdir $(C_FILES_PIPCORE)))
+OBJS += $(OBJS_PIPCORE)
 OBJS_MDK = $(patsubst %.c, $(TARGET_DIR)/mdk/%.o, $(notdir $(C_FILES_MDK)))
 OBJS += $(OBJS_MDK)
-OBJS_MDK_COM = $(patsubst %.c, $(TARGET_DIR)/mdk/common/%.o, $(notdir $(C_FILES_MDK_COM)))
-OBJS += $(OBJS_MDK_COM)
-OBJS_DEBUG = $(patsubst %.c, $(TARGET_DIR)/debug/%.o, $(notdir $(C_FILES_DEBUG)))
-OBJS += $(OBJS_DEBUG)
 OBJS_NEWLIB = $(patsubst %.c, $(TARGET_DIR)/newlib/%.o, $(notdir $(C_FILES_NEWLIB)))
 OBJS += $(OBJS_NEWLIB)
 OBJS += $(patsubst %.S, $(TARGET_DIR)/%.o, $(notdir $(S_FILES)))
 
+ifeq ($(UART_DEBUG), yes)
+OBJS_UART = $(patsubst %.c, $(TARGET_DIR)/uart/%.o, $(notdir $(C_FILES_UART)))
+OBJS += $(OBJS_UART)
+OBJS_MDK_COM = $(patsubst %.c, $(TARGET_DIR)/mdk/common/%.o, $(notdir $(C_FILES_MDK_COM)))
+OBJS += $(OBJS_MDK_COM)
+endif
+
+ifeq ($(SEMI_DEBUG), yes)
+OBJS_DEBUG = $(patsubst %.c, $(TARGET_DIR)/debug/%.o, $(notdir $(C_FILES_DEBUG)))
+OBJS += $(OBJS_DEBUG)
+endif
+
+
 # RULES
 all: app.bin
+
+$(DIGGER):
+	make -C $(DIGGER_DIR)
+
+# Coq options
+COQOPTS=$(shell cat _CoqProject)
+
+# Implicit rules for Coq source files
+$(addsuffix .d,$(filter-out src/model/Extraction.v,$(VSOURCES))): %.v.d: %.v
+	$(COQDEP) $(COQOPTS) "$<" > "$@"
+
+src/model/Extraction.v.d: src/model/Extraction.v
+	$(COQDEP) $(COQOPTS) "$<" | $(SED) 's/Extraction.vo/Extraction.vo Internal.json Services.json/' > "$@"
+
+%.vo: %.v
+	$(COQC) $(COQOPTS) $<
+
+$(VSOURCES:.v=.glob): %.glob: %.vo
+
+# Extract C code from Coq source
+src/model/Extraction.vo $(JSONS): src/model/Extraction.v
+	#coq_makefile -f _CoqProject src/model/*.v src/core/*.v -o MakefileCoq # if MakefileCoq doesn't exist yet
+	make -f MakefileCoq src/model/Extraction.vo
+	# compile all .v into .vo
+	#$(COQC) $(COQOPTS) -w all $<
+
+extract: $(TARGET_DIR) $(EXTRACTEDCSOURCES)
+
+DIGGERFLAGS := -m Monad -M coq_LLI
+DIGGERFLAGS += -m Datatypes -r Coq_true:true -r Coq_false:false -r Coq_tt:tt
+DIGGERFLAGS += -m MALInternal -d :MALInternal.json
+DIGGERFLAGS += -m MAL -d :MAL.json
+DIGGERFLAGS += -m ADT -m Nat
+DIGGERFLAGS += -q maldefines.h
+
+$(TARGET_DIR)/pipcore/Internal.c: Internal.json $(DIGGER)
+	$(DIGGER) $(DIGGERFLAGS) --ignore coq_N $< -o $@
+
+$(TARGET_DIR)/pipcore/Internal.h: Internal.json $(DIGGER)
+	$(DIGGER) $(DIGGERFLAGS) --ignore coq_N --header $< -o $@
+
+$(TARGET_DIR)/pipcore/Services.c: Services.json $(DIGGER) $(TARGET_DIR)/pipcore/Internal.h
+	$(DIGGER) $(DIGGERFLAGS) -m Internal -d :Internal.json -q Internal.h $< -o $@
 
 #%.o: %.S
 $(TARGET_DIR)/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/%.S
@@ -93,7 +175,13 @@ $(TARGET_DIR)/mdk/common/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/mdk/common/%.c
 $(TARGET_DIR)/debug/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/debug/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
+$(TARGET_DIR)/MAL/%.o: $(SRC_DIR)/MAL/$(TARGET)/%.c
+	$(CC) -o $@ $^ -c $(CFLAGS)
+
 $(TARGET_DIR)/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/%.c
+	$(CC) -o $@ $^ -c $(CFLAGS)
+
+$(TARGET_DIR)/pipcore/%.o: $(TARGET_DIR)/pipcore/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
 app.elf: $(OBJS)
@@ -102,14 +190,23 @@ app.elf: $(OBJS)
 app.bin: $(TARGET_DIR) app.elf
 	$(BI) -O binary $(TARGET_DIR)/app.elf $(TARGET_DIR)/app.bin
 
-clean:
+clean: clean-c clean-coq
+
+clean-coq:
+	rm -f $(TARGET_DIR)/pipcore/Internal.h *.json
+	rm -f $(VOBJECTS) $(VSOURCES:.v=.v.d) $(VSOURCES:.v=.glob)
+
+clean-c:
 	rm -rf $(TARGET_DIR)/
+
 
 # Generate build directory
 $(TARGET_DIR):
 	mkdir -p $@
+	mkdir -p $@/pipcore
 	mkdir -p $@/newlib
 	mkdir -p $@/uart
 	mkdir -p $@/mdk
 	mkdir -p $@/mdk/common
 	mkdir -p $@/debug
+	mkdir -p $@/MAL

@@ -111,7 +111,7 @@ Fixpoint findBlockInMPUAux (timeout : nat) (currentidx : index)
 												perform zero := Index.zero in
 												findBlockInMPUAux timeout1 zero nextkernelstructure idblock
 									else
-											perform entryaddr := getMPUEntryAddrAtIndexFromKernelStructureStart currentkernelstructure currentidx in
+											perform entryaddr := getMPUEntryAddrFromKernelStructureStart currentkernelstructure currentidx in
 											perform ispresent := readMPUPresentFromMPUEntryAddr entryaddr in
 											perform mpustart := readMPUStartFromMPUEntryAddr entryaddr in
 											if ispresent && beqAddr mpustart idblock then
@@ -184,8 +184,9 @@ Fixpoint findBlockInMPUWithAddrAux (timeout : nat)
 		| 0 => getNullAddr (*Stop condition 1: reached end of structure list*)
 		| S timeout1 => (*Stop conditions 2 and 3: found block OR issue with the entry *)
 										perform isMPUAddrAboveStart := Paddr.leb currentkernelstructure blockMPUAddr in
-										perform maxMPUAddrInStructure :=  Paddr.addPaddr currentkernelstructure
-																															Constants.sh1offset in
+										perform maxMPUAddrInStructure :=  Paddr.addPaddrIdx
+																													currentkernelstructure
+																													Constants.sh1offset in
 										perform isMPUAddrBelowEnd := Paddr.leb maxMPUAddrInStructure blockMPUAddr in
 										if isMPUAddrAboveStart && isMPUAddrBelowEnd
 										then (* the provided address lies in this kernel structure*)
@@ -949,7 +950,7 @@ Definition removeMemoryBlockCommon (	idPDchild
 (** The [sizeOfBlock] function computes the size of block referenced in an MPU entry
 	Returns the difference between the block's end and start addresses
 *)
-Definition sizeOfBlock (mpuentryaddr : paddr) : LLI paddr :=
+Definition sizeOfBlock (mpuentryaddr : paddr) : LLI index :=
 	perform startAddr := readMPUStartFromMPUEntryAddr mpuentryaddr in
 	perform endAddr := readMPUEndFromMPUEntryAddr mpuentryaddr in
 	Paddr.subPaddr endAddr startAddr.
@@ -1028,7 +1029,7 @@ Fixpoint initMPUEntryRecAux 	(timeout : nat)
 										if beqIdx indexCurr zero
 										then
 											(** STOP condition: parsed all entries *)
-											perform secondEntryPointer := Paddr.addPaddr
+											perform secondEntryPointer := Paddr.addPaddrIdx
 																											kernelStructureStartAddr
 																											Constants.MPUEntryLength in
 											perform mpuEntry := buildMPUEntry
@@ -1044,11 +1045,13 @@ Fixpoint initMPUEntryRecAux 	(timeout : nat)
 										else
 											perform idxsucc := Index.succ indexCurr in
 											(* current entry points to the next via the endAddr field*)
-
-											perform nextEntryOffset := Paddr.mulIdxPaddr
+											perform nextEntryOffset := Index.mulIdx
 																									idxsucc
 																									Constants.MPUEntryLength in
-											perform nextEntryPointer := Paddr.addPaddr
+											(*perform nextEntryPointer := Paddr.addPaddr
+																										kernelStructureStartAddr
+																										nextEntryOffset in*)
+											perform nextEntryPointer := Paddr.addPaddrIdx
 																										kernelStructureStartAddr
 																										nextEntryOffset in
 											perform mpuEntry := buildMPUEntry
@@ -1056,10 +1059,10 @@ Fixpoint initMPUEntryRecAux 	(timeout : nat)
 																						nextEntryPointer
 																						false
 																						false in
-											perform currEntryOffset := Paddr.mulIdxPaddr
+											perform currEntryOffset := Index.mulIdx
 																									indexCurr
 																									Constants.MPUEntryLength in
-											perform currEntryPointer := Paddr.addPaddr
+											perform currEntryPointer := Paddr.addPaddrIdx
 																										kernelStructureStartAddr
 																										currEntryOffset in
 											writeMPUEntryWithIndexFromMPUEntryAddr
@@ -1092,10 +1095,9 @@ Definition initMPUStructure (kernelStructureStartAddr : paddr) : LLI bool :=
 																				nullAddr
 																				false
 																				false in
-	perform lastEntryOffset := Paddr.mulIdxPaddr lastindex
-																							Constants.MPUEntryLength in
-	perform lastEntryPointer := Paddr.addPaddr 	kernelStructureStartAddr
-																							lastEntryOffset in
+	perform lastEntryOffset := Index.mulIdx lastindex Constants.MPUEntryLength in
+	perform lastEntryPointer := Paddr.addPaddrIdx 	kernelStructureStartAddr
+																									lastEntryOffset in
 	writeMPUEntryWithIndexFromMPUEntryAddr 	lastEntryPointer
 																					lastindex
 																					lastMPUEntry;;
@@ -1136,10 +1138,10 @@ Fixpoint initSh1EntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 											ret true
 										else
 											perform defaultSh1Entry := getDefaultSh1Entry in
-											perform currEntryOffset := Paddr.mulIdxPaddr
+											perform currEntryOffset := Index.mulIdx
 																									indexCurr
 																									Constants.MPUEntryLength in
-											perform currEntryPointer := Paddr.addPaddr
+											perform currEntryPointer := Paddr.addPaddrIdx
 																										kernelStructureStartAddr
 																										currEntryOffset in
 											writeSh1EntryFromMPUEntryAddr currEntryPointer
@@ -1196,10 +1198,10 @@ Fixpoint initSCEntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 											ret true
 										else
 											perform defaultSCEntry := getDefaultSCEntry in
-											perform currEntryOffset := Paddr.mulIdxPaddr
+											perform currEntryOffset := Index.mulIdx
 																									indexCurr
 																									Constants.MPUEntryLength in
-											perform currEntryPointer := Paddr.addPaddr
+											perform currEntryPointer := Paddr.addPaddrIdx
 																										kernelStructureStartAddr
 																										currEntryOffset in
 											writeSCEntryFromMPUEntryAddr 	currEntryPointer
@@ -1292,9 +1294,10 @@ Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
 										else
 											(** PROCESSING: remove all blocks shared with the child to 
 																			delete in the current structure *)
-											perform offset := Paddr.mulIdxPaddr currIndex Constants.MPUEntryLength in
-											perform currMPUEntryAddr :=	Paddr.addPaddr 	kernelStructureStartAddr
-																														offset in
+											perform offset := Index.mulIdx currIndex Constants.MPUEntryLength in
+											perform currMPUEntryAddr :=	Paddr.addPaddrIdx
+																												kernelStructureStartAddr
+																												offset in
 											perform blockID := readMPUStartFromMPUEntryAddr
 																						currMPUEntryAddr in
 											perform currPDChild := readSh1PDChildFromMPUEntryAddr
@@ -1471,9 +1474,10 @@ Fixpoint checkStructureEmptyRecAux 	(timeout : nat)
 	match timeout with
 		| 0 => 	ret false (* timeout reached *)
 		| S timeout1 =>	(** PROCESSING: check the current entry *)
-										perform offset := Paddr.mulIdxPaddr currIndex Constants.MPUEntryLength in
-										perform currMPUEntryAddr :=	Paddr.addPaddr 	structureAddr
-																																offset in
+										perform offset := Index.mulIdx currIndex
+																									Constants.MPUEntryLength in
+										perform currMPUEntryAddr :=	Paddr.addPaddrIdx 	structureAddr
+																																		offset in
 										perform isPresent := readMPUPresentFromMPUEntryAddr
 																						currMPUEntryAddr in
 										if isPresent
@@ -1546,7 +1550,7 @@ match timeout with
 																										currFreeSlotAddr in
 											perform slotKStructureStart := getKernelStructureStartAddr
 																												currFreeSlotAddr
-																												(CIndex MPUEntryIndex) in
+																												MPUEntryIndex in
 (*
       # get next free slot
       next_free_slot_address = self.helpers.get_MPU_end_from_MPU_entry_address(current_free_slot_address)*)

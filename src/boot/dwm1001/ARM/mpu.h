@@ -126,7 +126,7 @@ static inline uint32_t MPU_ATTR(
  * @return 0 on success
  * @return <0 on failure or no MPU present
  */
-int mpu_disable(void);
+//int mpu_disable(void);
 
 /**
  * @brief enable the MPU

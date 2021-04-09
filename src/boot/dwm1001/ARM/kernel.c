@@ -7,6 +7,8 @@
 //#include <drivers/timer.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include "mpu.h"
+#include "mal.h"
 
 /*
  * This file is part of the µOS++ distribution.
@@ -198,7 +200,7 @@ _start (void)
   // clock frequency in the global CMSIS variable, cleared above.
   __initialize_hardware ();
 
-	//mpu_enable();// TODO: set PRIVDEFENA
+  mpu_enable();// PRIVDEFENA is set
 
 
 	/*#if MODULE_NEWLIB || MODULE_PICOLIBC
@@ -208,7 +210,7 @@ _start (void)
 	#endif*/
 
 	/* Initialize the root partition */
-	//mal_init();
+	mal_init();
 
 	/*
 	// At this point, mmu is still not enabled.

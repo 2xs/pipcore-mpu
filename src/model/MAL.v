@@ -341,10 +341,11 @@ Definition writeMPUEntryFromMPUEntryAddr (mpuentryaddr : paddr) (mpuentry : MPUE
     """Writes at the MPU entry <MPU_entry_address> the values (<index>, <start>, <end>, <accessible bit>, <present bit>)"""
     self.memory.write_bits(MPU_entry_address, index, self.constants.kernel_structure_entries_bits)
     self.write_MPU_entry(MPU_entry_address, start, end, accessible, present)*)
-Definition writeMPUEntryWithIndexFromMPUEntryAddr 	(mpuentryaddr : paddr) (index : index)
-																	(mpuentry : MPUEntry) : LLI unit :=
+Definition writeMPUEntryWithIndexFromMPUEntryAddr 	(mpuentryaddr : paddr)
+																									(mpuindex : index)
+																									(mpuentry : MPUEntry) : LLI unit :=
 	writeMPUEntryFromMPUEntryAddr mpuentryaddr mpuentry;;
-	writeMPUIndexFromMPUEntryAddr mpuentryaddr index;;
+	writeMPUIndexFromMPUEntryAddr mpuentryaddr mpuindex;;
 	ret tt.
 
 Definition getSh1EntryAddrFromMPUEntryAddr (mpuentryaddr : paddr) : LLI paddr :=
@@ -542,14 +543,13 @@ Definition writeNextFromKernelStructureStart (structurepaddr : paddr) (newnext :
 Definition getDefaultMPUEntry : LLI MPUEntry :=
 	let emptyblock := CBlock nullAddr nullAddr in
 	perform entriesnb := getKernelStructureEntriesNb in
-	perform idxsucc := Index.succ entriesnb in
 	let emptyentry := {|	read := false;
 										 	write := false;
 										 	exec := false;
 										 	present := false;
 										 	accessible := false;
 											(* default index is outside possible values*)
-											mpuindex := idxsucc;
+											mpuindex := entriesnb;
 										 	mpublock := emptyblock
 									|} in
 	ret emptyentry.

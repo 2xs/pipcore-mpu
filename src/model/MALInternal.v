@@ -31,7 +31,7 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary 
+(** * Summary
     This file contains the definition of some constants and their monadic getters;
     and the module definition of each abstract data type in which we define required
     monadic functions  *)
@@ -57,13 +57,6 @@ then
   ret (Build_paddr ipred _ )
 else  undefined 69.
 
-Program Definition mulIdxPaddr (n : index) (m: paddr) : LLI paddr :=
-let res := n*m in
-if (lt_dec res maxAddr )
-then
-  ret (Build_paddr res _ )
-else  undefined 70.
-
 Program Definition addPaddr (n : paddr) (m: paddr) : LLI paddr :=
 let res := n+m in
 if (lt_dec res maxAddr )
@@ -71,11 +64,18 @@ then
   ret (Build_paddr res _ )
 else  undefined 71.
 
-Program Definition subPaddr (n : paddr) (m: paddr) : LLI paddr :=
-let res := n-m in
+Program Definition addPaddrIdx (n : paddr) (m: index) : LLI paddr :=
+let res := n+m in
 if (lt_dec res maxAddr )
 then
   ret (Build_paddr res _ )
+else  undefined 71.
+
+Program Definition subPaddr (n : paddr) (m: paddr) : LLI index :=
+let res := n-m in
+if (lt_dec res maxIdx)
+then
+  ret (Build_index res _ )
 else  undefined 71.
 End Paddr.
 
@@ -104,6 +104,21 @@ if (lt_dec res maxIdx )
 then
   ret (Build_index res _ )
 else  undefined 72.
+
+Program Definition addIdx (n : index) (m: index) : LLI index :=
+let res := n+m in
+if (lt_dec res maxIdx )
+then
+  ret (Build_index res _ )
+else  undefined 72.
+
+Program Definition mulIdx (n : index) (m: index) : LLI index :=
+let res := n*m in
+if (lt_dec res maxIdx )
+then
+  ret (Build_index res _ )
+else  undefined 70.
+
 End Index.
 
 Module Constants.
@@ -111,28 +126,32 @@ Module Constants.
     of the partition *)
 Definition kernelstructureidx := CIndex 0.
 
-Definition MPUEntryLength := CPaddr 3.
-Definition SHEntryLength := CPaddr 3.
-Definition SCEntryLength := CPaddr 2.
+Definition MPUEntryLength := CIndex 3.
+Definition SHEntryLength := CIndex 3.
+Definition SCEntryLength := CIndex 2.
 
-Definition mpuoffset := CPaddr 0.
-Definition sh1offset := CPaddr (mpuoffset + kernelStructureEntriesNb*MPUEntryLength).  (* shadow1 *) 
-Definition scoffset := CPaddr (sh1offset + kernelStructureEntriesNb*SHEntryLength).  (* shadow cut *)
-Definition nextoffset := CPaddr (scoffset + kernelStructureEntriesNb*SCEntryLength).
+Definition mpuoffset := CIndex 0.
+Definition sh1offset := CIndex (mpuoffset + kernelStructureEntriesNb*MPUEntryLength).  (* shadow1 *)
+Definition scoffset := CIndex (sh1offset + kernelStructureEntriesNb*SHEntryLength).  (* shadow cut *)
+Definition nextoffset := CIndex (scoffset + kernelStructureEntriesNb*SCEntryLength).
 
 Definition rootPart := CPaddr 0.
 
-Definition minBlockSize := CPaddr 32.
+(*Definition minBlockSize := CPaddr 32.*)
+Definition minBlockSize := CIndex 32.
 
 (* TODO : power of 2*)
-Definition kernelStructureTotalLength := CPaddr (nextoffset + 1).
+(*Definition kernelStructureTotalLength := CPaddr (nextoffset + 1).*)
+Definition kernelStructureTotalLength := CIndex (nextoffset + 1).
 End Constants.
 
-Definition getNextOffset : LLI paddr := ret Constants.nextoffset.
+(*Definition getNextOffset : LLI paddr := ret Constants.nextoffset.*)
+Definition getNextOffset : LLI index := ret Constants.nextoffset.
 Definition getKernelStructureEntriesNb : LLI index := ret (CIndex kernelStructureEntriesNb).
 Definition getMaxNbPrepare : LLI index := ret (CIndex maxNbPrepare).
-Definition getMinBlockSize : LLI paddr := ret Constants.minBlockSize.
-Definition getKernelStructureTotalLength : LLI paddr := ret Constants.kernelStructureTotalLength.
+(*Definition getMinBlockSize : LLI paddr := ret Constants.minBlockSize.*)
+Definition getMinBlockSize : LLI index := ret Constants.minBlockSize.
+Definition getKernelStructureTotalLength : LLI index := ret Constants.kernelStructureTotalLength.
 
 Definition beqIdx (a b : ADT.index) : bool := a =? b.
 Definition beqAddr (a b : ADT.paddr) : bool := a =? b.
@@ -176,7 +195,3 @@ Definition getSCEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (MPU
 Definition getNextAddrFromKernelStructureStart (kernelStartAddr : paddr) : LLI paddr :=
 	let nextAddr := CPaddr (kernelStartAddr + Constants.nextoffset) in
 	ret nextAddr.
-
-Definition getMPUEntryAddrAtIndexFromKernelStructureStart (kernelstructurestart : paddr) (idx : index) : LLI paddr :=
-	let addr := CPaddr (kernelstructurestart + idx*Constants.MPUEntryLength) in
-	ret addr.

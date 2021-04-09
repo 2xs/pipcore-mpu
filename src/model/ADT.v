@@ -103,11 +103,6 @@ Parameter block_d : block.
 Program Definition CBlock (startAddr endAddr : paddr) : block :=
 if (lt_dec startAddr endAddr) then Build_block startAddr endAddr _ else  block_d.
 
-(* MPU index represents an entry number in an MPU structure *)
-Record MPUIndex := {
-  MPUi :> nat ;
-  Hmpu : MPUi < kernelStructureEntriesNb }.
-
 Record MPUEntry : Type:=
 {
  read :bool;

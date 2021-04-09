@@ -18,17 +18,19 @@
  * @}
  */
 
-#include "cpu.h"
+//#include "cpu.h"
+#include "nrf52.h"
+#include "core_cm4.h"
 #include "mpu.h"
 
-int mpu_disable(void) {
+/*int mpu_disable(void) {
 #if __MPU_PRESENT
     MPU->CTRL &= ~MPU_CTRL_ENABLE_Msk;
     return 0;
 #else
     return -1;
 #endif
-}
+}*/
 
 int mpu_enable(void) {
 #if __MPU_PRESENT
