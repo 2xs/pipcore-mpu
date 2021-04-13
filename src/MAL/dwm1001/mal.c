@@ -85,7 +85,7 @@ paddr readPDStructurePointer(paddr pdaddr)
 	PDTable_t* pd = (PDTable_t*)pdaddr; // TODO: Exception ? Only called with current partition
 
 	//MALDBG("readPDStructurePointer(%d) -> %d\r\n", pdaddr, pd);
-	printf("readPDStructurePointer(%d) -> %d\r\n", pdaddr, pd);
+	//printf("readPDStructurePointer(%x) -> %d\r\n", pdaddr, pd);
 
 	// Return the pointer to the first kernel structure
 	return pd->structure;
@@ -312,7 +312,7 @@ bool readMPUAccessibleFromMPUEntryAddr(paddr mpuentryaddr)
 	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
 
 	//MALDBG("readMPUAccessibleFromMPUEntryAddr(%d) -> %d\r\n", mpuentryaddr, mpuentry->accessible);
-	printf("readMPUAccessibleFromMPUEntryAddr(%d) -> %d\r\n", mpuentryaddr, mpuentry->accessible);
+	//printf("readMPUAccessibleFromMPUEntryAddr(%x) -> %d\r\n", mpuentryaddr, mpuentry->accessible);
 
 	// Return the accessible flag
 	return mpuentry->accessible;
@@ -347,7 +347,7 @@ bool readMPUPresentFromMPUEntryAddr(paddr mpuentryaddr)
 	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
 
 	//MALDBG("readMPUPresentFromMPUEntryAddr(%d) -> %d\r\n", mpuentryaddr, mpuentry->present);
-	printf("readMPUPresentFromMPUEntryAddr(%d) -> %d\r\n", mpuentryaddr, mpuentry->present);
+	//printf("readMPUPresentFromMPUEntryAddr(%x) -> %d\r\n", mpuentryaddr, mpuentry->present);
 
 	// Return the present flag
 	return mpuentry->present;
@@ -708,11 +708,13 @@ paddr readNextFromKernelStructureStart(paddr structureaddr)
 	// Get the structure next entry address
 	paddr nextstructureaddr = getNextAddrFromKernelStructureStart(structureaddr);
 
+	paddr nextstructure = *nextstructureaddr;
+
 	//MALDBG("readNextFromKernelStructureStart(%d) -> %d\r\n", structureaddr, nextstructureaddr);
-	printf("readNextFromKernelStructureStart(%d) -> %d\r\n", structureaddr, nextstructureaddr);
+	//printf("readNextFromKernelStructureStart(%x) -> %d\r\n", structureaddr, nextstructure);
 
 	// Return the pointer to the next structure
-	return nextstructureaddr;
+	return nextstructure;
 }
 
 /*!

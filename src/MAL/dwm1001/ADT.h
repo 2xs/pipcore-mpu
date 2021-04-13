@@ -42,21 +42,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
-/*****************************************/
-//TODOs: write descriptions in structures
-/*****************************************/
-/* bool */
-/*typedef uint32_t bool;
-
-#define true    1
-#define false   0*/
 
 /* Paddr */
-//typedef uintptr_t paddr;
 typedef uint32_t* paddr;
-
-/* Index */
-//typedef uint32_t index;
 
 /**
  * \struct PDTable
@@ -64,15 +52,13 @@ typedef uint32_t* paddr;
  */
 typedef struct PDTable
 {
-    uint32_t* structure    ;   //!< Page present in memory
-    uint32_t* firstfreeslot    ;   //!< Page present in memory
-    uint32_t nbfreeslots    ;   //!< Page present in memory
-    uint32_t nbprepare    ;   //!< Page present in memory
-    uint32_t* parent    ;   //!< Page present in memory
+    uint32_t* structure    ;   //!< Pointer to the first kernel structure of the structure linked list
+    uint32_t* firstfreeslot ;   //!< Pointer to the first free slot in one of the kernel structures (if any)
+    uint32_t nbfreeslots    ;   //!< Number of free slots left
+    uint32_t nbprepare    ;   //!< Number of Prepare done on this partition
+    uint32_t* parent    ;   //!< Pointer to the parent partition
 }__attribute__((packed)) PDTable_t;
 
-//#define DEFAULT_PD_TABLE(X) PDTable_t X = {NULL, NULL, 0, 0, NULL}
-//static const PDTable_t DEFAULT_PD_TABLE = {NULL, NULL, 0, 0, NULL};
 
 /**
  * \struct block
@@ -80,12 +66,9 @@ typedef struct PDTable
  */
 typedef struct block
 {
-	uint32_t* startAddr;
-	uint32_t* endAddr;
+	uint32_t* startAddr ; //!< The block's start address
+	uint32_t* endAddr   ; //!< The block's end address (or pointer to the next free slot if it is one)
 }__attribute__((packed)) block_t;
-//} block_t;
-//#define DEFAULT_BLOCK(X) block_t X = {0, 0}
-//static const block_t DEFAULT_BLOCK = {0, 0};
 
 
 /**
@@ -94,11 +77,8 @@ typedef struct block
  */
 typedef struct MPUIndex
 {
-	uint32_t MPUi; // TODO : compute index size
+	uint32_t MPUi; //!< Index of the slot in the kernel structure containing it // TODO : compute index size
 }__attribute__((packed)) MPUIndex_t;
-
-//#define DEFAULT_MPU_INDEX(X) MPUIndex_t X = {-1}// will fail TODO: set max kernel entries + 1
-//static const MPUIndex_t DEFAULT_MPU_INDEX = {-1};
 
 /**
  * \struct MPUEntry
@@ -106,17 +86,14 @@ typedef struct MPUIndex
  */
 typedef struct MPUEntry
 {
-    block_t mpublock    ;   //!< Page present in memory
-    MPUIndex_t mpuindex    ;   //!< Page present in memory
-    bool read         ;   //!< Read-only if clear, readwrite if set
-    bool write       ;   //!< Supervisor level only if clear
-    bool exec   ;   //!< Has the page been accessed since last refresh?
-    bool present      ;   //!< Has the page been written to since last refresh?
-    bool accessible     ;   //!< Amalgamation of unused and reserved bits
+    block_t mpublock        ;   //!< Block present in memory
+    MPUIndex_t mpuindex     ;   //!< Slot index in its kernel structure
+    bool read               ;   //!< Read permission
+    bool write              ;   //!< Write permission
+    bool exec               ;   //!< Exec permission
+    bool present            ;   //!< Block present
+    bool accessible         ;   //!< block accessible
 }__attribute__((packed)) MPUEntry_t;
-
-//#define DEFAULT_MPU_ENTRY(X) MPUEntry_t X = {DEFAULT_BLOCK(B), DEFAULT_MPU_INDEX(I), false, false, false, false, false}
-//static const MPUEntry_t DEFAULT_MPU_ENTRY = {DEFAULT_BLOCK, DEFAULT_MPU_INDEX, false, false, false, false, false};
 
 /**
  * \struct Sh1Entry
@@ -124,13 +101,10 @@ typedef struct MPUEntry
  */
 typedef struct Sh1Entry
 {
-    uint32_t* PDchild    ;   //!< Page present in memory // TODO: PDTable_t ?
-    bool PDflag    ;   //!< Page present in memory
-    uint32_t* inChildLocation         ;   //!< Read-only if clear, readwrite if set
+    uint32_t* PDchild          ;   //!< Pointer to the child the block is shared with // TODO: PDTable_t ?
+    bool PDflag                ;   //!< Block content is a PD
+    uint32_t* inChildLocation  ;   //!< Pointer to the slot where the block lies in the child partition
 }__attribute__((packed)) Sh1Entry_t;
-
-//#define DEFAULT_SH1_ENTRY(X) Sh1Entry_t X = {NULL, false, NULL} // TODO: fail because not pointer
-//static const Sh1Entry_t DEFAULT_SH1_ENTRY = {NULL, false, NULL}; // TODO: fail because not pointer
 
 /**
  * \struct SCEntry
@@ -138,11 +112,8 @@ typedef struct Sh1Entry
  */
 typedef struct SCEntry
 {
-    uint32_t* origin    ;   //!< Page present in memory // TODO: MPUEntry_t
-    uint32_t* next    ;   //!< Page present in memory // TODO: MPUEntry_t
+    uint32_t* origin  ;   //!< Pointer to the original (sub)block // TODO: MPUEntry_t
+    uint32_t* next    ;   //!< Pointer to the next subblock // TODO: MPUEntry_t
 }__attribute__((packed)) SCEntry_t;
-
-//#define DEFAULT_SC_ENTRY(X) SCEntry_t X = {NULL, NULL} // TODO: fail because not pointers
-//static const SCEntry_t DEFAULT_SC_ENTRY = {NULL, NULL}; // TODO: fail because not pointer
 
 #endif /* ADT_H */

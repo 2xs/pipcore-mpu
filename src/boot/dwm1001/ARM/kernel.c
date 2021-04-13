@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include "mpu.h"
 #include "mal.h"
+#include "pip_debug.h"
 
 /*
  * This file is part of the µOS++ distribution.
@@ -211,6 +212,10 @@ _start (void)
 
 	/* Initialize the root partition */
 	mal_init();
+
+  paddr root = getRootPartition();
+  dump_ancestors(root);
+
 
 	/*
 	// At this point, mmu is still not enabled.

@@ -4,7 +4,7 @@ AS = arm-none-eabi-as
 BI = arm-none-eabi-objcopy
 
 # UART DEBUG
-UART_DEBUG ?= yes
+UART_DEBUG ?= no
 # Semihosting DEBUG
 SEMI_DEBUG ?= yes
 
