@@ -70,6 +70,9 @@ Axiom maxAddrNotZero: maxAddr > 0.
 Axiom maxIdx: nat. (* max prepare * kernel entries nb *)
 Axiom maxIdxNotZero: maxAddr > 0.
 
+Axiom MPURegionsNb: nat.
+Axiom MPURegionsNbNotZero: MPURegionsNb > 0.
+
 (*******************************************************************************)
 (* Elementary datatypes *)
 (*******************************************************************************)
@@ -133,6 +136,10 @@ Record PDTable :=
  firstfreeslot : paddr ;
  nbfreeslots : index ;
  nbprepare : index ;
- parent : paddr (*;
+ parent : paddr ;
+ MPU : list paddr (*;
+ HMPU : length MPU = MPURegionsNb*)
+
+(*;
  Hp : pd < nbPage *)
 }.

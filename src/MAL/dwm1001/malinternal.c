@@ -42,6 +42,7 @@
 #include "mal.h"
 #include <stddef.h>
 #include "userconstants.h"
+#include "mpu.h"
 
  uint32_t mpuoffset;
  uint32_t sh1offset;
@@ -327,14 +328,14 @@ paddr getSCEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpu
 }
 
 /*!
- * \fn paddr getNextAddrFromKernelStructureStart(paddr kernelstartaddr)
+ * \fn paddr* getNextAddrFromKernelStructureStart(paddr kernelstartaddr)
  * \brief Gets the address where to find the next structure pointer.
  * \param kernelstartaddr The address where the kernel structure starts
  * \return The address of the next structure pointer
  */
-paddr getNextAddrFromKernelStructureStart(paddr kernelstartaddr)
+paddr* getNextAddrFromKernelStructureStart(paddr kernelstartaddr)
 {
-	return kernelstartaddr + nextoffset;
+	return (paddr*) kernelstartaddr + nextoffset;
 }
 
 /*!
@@ -357,6 +358,23 @@ uint32_t next_pow2(uint32_t v)
 }
 
 /*!
+ * \fn uint32_t powlog2(uint32_t v)
+ * \brief  	Finds the log base 2 of a 32-bit integer with the MSB N set in O(N) operations (the obvious way)
+ * 			https://graphics.stanford.edu/~seander/bithacks.html#IntegerLogObvious
+ *			We expect small integers (a high number of leading zeroes) so the naive approach is acceptable
+ * \param v The 32-bit integer
+ * \return The position of the highest bit of v.
+ */
+uint32_t powlog2(uint32_t v)
+{
+	unsigned r = 0;
+
+	while (v >>= 1) { // shifts to the right until the highest bit disappears
+		r++;
+	}
+}
+
+/*!
  * \fn uint32_t getMinBlockSize(void)
  * \brief Returns the minimum size of a block (MPU constraint).
  * \return The minimum size of an MPU block.
@@ -367,11 +385,21 @@ uint32_t MINBLOCKSIZE(void)
 }
 
 /*!
- * \fn uint32_t KERNELSTRUCTURETOTALLENGTH(void)
- * \brief Returns the size of a kernel structure.
- * \return The size of a kernel structure.
+ * \fn uint32_t PDSTRUCTURETOTALLENGTH(void)
+ * \brief Returns the size of a PD structure expanded to fill an MPU region.
+ * \return The size of a PD structure (matching a power of 2).
  */
-uint32_t KERNELSTRUCTURETOTALLENGTH(void) // TODO return uint32_t ?
+uint32_t PDSTRUCTURETOTALLENGTH(void)
+{
+	return fit_mpu_region(sizeof(PDTable_t));
+}
+
+/*!
+ * \fn uint32_t KERNELSTRUCTURETOTALLENGTH(void)
+ * \brief Returns the size of a kernel structure expanded to fill an MPU region.
+ * \return The size of a kernel structure (matching a power of 2).
+ */
+uint32_t KERNELSTRUCTURETOTALLENGTH(void)
 {
 	return fit_mpu_region(kernelstructureentriesnb*mpuentrylength + kernelstructureentriesnb*sh1entrylength + kernelstructureentriesnb*scentrylength + sizeof(uint32_t));
 }
@@ -460,4 +488,54 @@ paddr getAddr(paddr addr)
 	return addr;
 }
 
+/*!
+ * \fn void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr)
+ * \brief  	Configures the LUT entry at given index with the given MPU entry
+ * \param LUT The LUT to configure at the given index
+ * \param entryindex The index where to configure
+ * \param mpuentryaddr The block to configure
+ * \return void
+ */
+void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr)
+{
+	// the MPUEntry respects the minimum MPU size
+    MPUEntry_t* mpuentry = (MPUEntry_t*) mpuentryaddr;
+	// MPU region size = 2^(regionsize +1) on 5 bits
+	uint8_t regionsize = (uint8_t) powlog2((mpuentry->mpublock).endAddr - (mpuentry->mpublock).startAddr) - 1;
+	LUT[entryindex*2] = ((uint32_t)(mpuentry->mpublock).startAddr | MPU_RBAR_VALID_Msk | entryindex);
+	LUT[entryindex*2+1] = (
+							MPU_RASR_ENABLE_Msk |
+							((regionsize << MPU_RASR_SIZE_Pos) & MPU_RASR_SIZE_Msk) |
+							((3U << MPU_RASR_AP_Pos) & MPU_RASR_AP_Msk)  |  //full access R/W Priv/UnPriv TODO: restrict to permissions set to the block
+							((1U << MPU_RASR_SRD_Pos) & MPU_RASR_SRD_Msk) | // subregion SRD disabled (=1)
+							// ARM_MPU_ACCESS_(0U, 1U, 1U, 1U)     TEX  = b000,  C =  1, B =  1 -> Write back, no write allocate
+							((0U << MPU_RASR_TEX_Pos) & MPU_RASR_TEX_Msk) | //TypeExtField
+							((1U << MPU_RASR_S_Pos) & MPU_RASR_S_Msk) | //IsShareable
+							((1U << MPU_RASR_C_Pos) & MPU_RASR_C_Msk) | //IsCacheable
+							((1U << MPU_RASR_B_Pos) & MPU_RASR_B_Msk) //IsBufferable
+						);
+}
 
+/*!
+ * \fn void erase_LUT_entry(uint32_t* LUT, uint32_t entryindex)
+ * \brief  Defaults the LUT entry at the given index
+ * \param LUT The LUT where to erase the entry
+ * \param entryindex The entry to erase
+ * \return void
+ */
+void erase_LUT_entry(uint32_t* LUT, uint32_t entryindex)
+{
+	LUT[entryindex*2] = (entryindex & 0xF) | MPU_RBAR_VALID_Msk;
+	LUT[entryindex*2+1] = 0; // disable region
+}
+
+/*!
+ * \fn int checkMPU()
+ * \brief  	Checks that there is an MPU and that the compiled version matches the MPU attributes
+ * \return -1 if the physical MPU doesn't match expectations of the code
+ */
+int checkMPU()
+{
+	if (MPU_NUM_REGIONS < 0 || MPU_NUM_REGIONS != MPU_REGIONS_NB) return -1;
+	else return 0;
+}

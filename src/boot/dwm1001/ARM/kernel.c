@@ -201,7 +201,15 @@ _start (void)
   // clock frequency in the global CMSIS variable, cleared above.
   __initialize_hardware ();
 
-  mpu_enable();// PRIVDEFENA is set
+  // Check the MPU
+  if (checkMPU()<0)
+  {
+    // the check doesn't pass, panic since Pip relies on the MPU
+    printf("DEBUG: (kernel) MPU ERROR");
+    while(1);
+  }
+  // Enable the MPU with PRIVDEFENA
+  mpu_enable();
 
 
 	/*#if MODULE_NEWLIB || MODULE_PICOLIBC
@@ -214,8 +222,8 @@ _start (void)
 	mal_init();
 
   paddr root = getRootPartition();
-  dump_ancestors(root);
-
+  dump_partition(root);
+  activate(root);
 
 	/*
 	// At this point, mmu is still not enabled.

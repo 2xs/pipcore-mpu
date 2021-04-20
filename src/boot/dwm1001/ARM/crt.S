@@ -154,8 +154,6 @@ NMI_Handler:
     nop
 HardFault_Handler:
     nop
-MemoryManagement_Handler:
-    nop
 BusFault_Handler:
     nop
 UsageFault_Handler:

@@ -472,7 +472,7 @@ HardFault_Handler_C (ExceptionStackFrame* frame __attribute__((unused)),
 
 
 #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
-
+/*
 void __attribute__ ((section(".after_vectors"),weak))
 MemManage_Handler (void)
 {
@@ -482,6 +482,71 @@ MemManage_Handler (void)
   while (1)
     {
     }
+}*/
+
+void __attribute__ ((section(".after_vectors"),weak,naked))
+MemoryManagement_Handler (void)
+{
+  asm volatile(
+      " tst lr,#4       \n"
+      " ite eq          \n"
+      " mrseq r0,msp    \n"
+      " mrsne r0,psp    \n"
+      " mov r1,lr       \n"
+      " ldr r2,=MemoryManagement_Handler_C \n"
+      " bx r2"
+
+      : /* Outputs */
+      : /* Inputs */
+      : /* Clobbers */
+  );
+}
+
+void __attribute__ ((section(".after_vectors"),weak,used))
+MemoryManagement_Handler_C (ExceptionStackFrame* frame __attribute__((unused)),
+                     uint32_t lr __attribute__((unused)))
+{
+#if defined(TRACE)
+  uint32_t mmfar = SCB->MMFAR; // MemManage Fault Address
+  uint32_t bfar = SCB->BFAR; // Bus Fault Address
+  uint32_t cfsr = SCB->CFSR; // Configurable Fault Status Registers
+#endif
+
+#if defined(OS_USE_SEMIHOSTING) || defined(OS_USE_TRACE_SEMIHOSTING_STDOUT) || defined(OS_USE_TRACE_SEMIHOSTING_DEBUG)
+
+  // If the BKPT instruction is executed with C_DEBUGEN == 0 and MON_EN == 0,
+  // it will cause the processor to enter a HardFault exception, with DEBUGEVT
+  // in the Hard Fault Status register (HFSR) set to 1, and BKPT in the
+  // Debug Fault Status register (DFSR) also set to 1.
+
+  if (((SCB->DFSR & SCB_DFSR_BKPT_Msk) != 0)
+      && ((SCB->HFSR & SCB_HFSR_DEBUGEVT_Msk) != 0))
+    {
+      if (isSemihosting (frame, 0xBE00 + (AngelSWI & 0xFF)))
+        {
+          // Clear the exception cause in exception status.
+          SCB->HFSR = SCB_HFSR_DEBUGEVT_Msk;
+
+          // Continue after the BKPT
+          return;
+        }
+    }
+
+#endif
+
+#if defined(TRACE)
+  trace_printf ("[MemManageFault]\n");
+  dumpExceptionStack (frame, cfsr, mmfar, bfar, lr);
+#endif // defined(TRACE)
+
+
+#if defined(DEBUG)
+  __DEBUG_BKPT();
+#endif
+  while (1)
+    {
+    }
+
 }
 
 void __attribute__ ((section(".after_vectors"),weak,naked))

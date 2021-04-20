@@ -141,8 +141,8 @@ Definition rootPart := CPaddr 0.
 Definition minBlockSize := CIndex 32.
 
 (* TODO : power of 2*)
-(*Definition kernelStructureTotalLength := CPaddr (nextoffset + 1).*)
 Definition kernelStructureTotalLength := CIndex (nextoffset + 1).
+Definition PDStructureTotalLength := CIndex (5+8). (*5 fields + table of 8 MPU regions *)
 End Constants.
 
 (*Definition getNextOffset : LLI paddr := ret Constants.nextoffset.*)
@@ -152,6 +152,7 @@ Definition getMaxNbPrepare : LLI index := ret (CIndex maxNbPrepare).
 (*Definition getMinBlockSize : LLI paddr := ret Constants.minBlockSize.*)
 Definition getMinBlockSize : LLI index := ret Constants.minBlockSize.
 Definition getKernelStructureTotalLength : LLI index := ret Constants.kernelStructureTotalLength.
+Definition getPDStructureTotalLength : LLI index := ret Constants.PDStructureTotalLength.
 
 Definition beqIdx (a b : ADT.index) : bool := a =? b.
 Definition beqAddr (a b : ADT.paddr) : bool := a =? b.

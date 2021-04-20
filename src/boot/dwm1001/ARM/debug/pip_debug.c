@@ -9,15 +9,25 @@
  */
 void dump_PD_structure(paddr pd)
 {
-    //
     PDTable_t* pdt = (PDTable_t*) pd;
-    printf("\r\n----------PD %x ------------\r\n", pdt);
+    printf("\r\n----------PD %x (size: %d/%d)------------\r\n", pdt, sizeof(PDTable_t), PDSTRUCTURETOTALLENGTH());
     printf("%x:PD\t%x\r\n", &(pdt->structure), pdt->structure);
     printf("%x:PD\t%x\r\n", &(pdt->firstfreeslot), pdt->firstfreeslot);
     printf("%x:PD\t%u\r\n", &(pdt->nbfreeslots), pdt->nbfreeslots);
     printf("%x:PD\t%u\r\n", &(pdt->nbprepare), pdt->nbprepare);
     printf("%x:PD\t%x\r\n", &(pdt->parent), pdt->parent);
-
+    printf("%x:PD\t", &(pdt->blocks));
+    for(int i = 0 ; i < MPU_REGIONS_NB ; i++)
+    {
+        printf(" %x ", (pdt->blocks[i]));
+    }
+    printf("\r\n%x:PD\t", &(pdt->LUT));
+    for(int i = 0 ; i < MPU_REGIONS_NB ; i++)
+    {
+        printf(" %x ", (pdt->LUT[i*2]));
+        printf(" %x ", (pdt->LUT[i*2+1]));
+    }
+    printf("\r\n");
 }
 
 /*!
@@ -28,6 +38,8 @@ void dump_PD_structure(paddr pd)
  */
 void dump_kernel_structure(paddr kernel_structure_start_addr)
 {
+    printf("\r\n----------Kernel structure %x (size: %d)----\r\n", kernel_structure_start_addr,
+                                                                KERNELSTRUCTURETOTALLENGTH());
     printf("\r\n----------MPU---------------------------\r\n");
     for (int i=0;i<kernelstructureentriesnb;i++)
     {

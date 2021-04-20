@@ -52,7 +52,7 @@ extern "C"
 
 #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
   extern void
-  MemManage_Handler (void);
+  MemoryManagement_Handler (void);
   extern void
   BusFault_Handler (void);
   extern void

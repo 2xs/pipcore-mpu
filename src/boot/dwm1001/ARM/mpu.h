@@ -23,6 +23,8 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "nrf52.h"
+#include "core_cm4.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,6 +34,12 @@ extern "C" {
  * @brief Number of MPU regions available (will vary depending on the Cortex-M version)
  */
 #define MPU_NUM_REGIONS ( (MPU->TYPE & MPU_TYPE_DREGION_Msk) >> MPU_TYPE_DREGION_Pos )
+
+/**
+ * @brief Number of MPU register aliases available
+ */
+#define MPU_ALIAS_REG_NB 4
+
 
 /**
  * @brief Access Permission words
@@ -155,6 +163,16 @@ bool mpu_enabled(void);
  * @return <0 on failure or no MPU present
  */
 int mpu_configure(uint_fast8_t region, uintptr_t base, uint_fast32_t attr);
+
+/**
+ * @brief configure the MPU based on a lookup table (LUT)
+ *
+ * @param[in]   LUT     MPU regions to configure
+ *
+ * @return 0 on success
+ * @return <0 on failure
+ */
+int mpu_configure_from_LUT(uint32_t* LUT);
 
 #ifdef __cplusplus
 }

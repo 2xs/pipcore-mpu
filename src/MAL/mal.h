@@ -39,7 +39,6 @@
 #ifndef __MAL__
 #define __MAL__
 #include "ADT.h"
-#include <stdint.h>
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -106,6 +105,7 @@ extern uint32_t kernelstructureentriesnb;
 uint32_t KERNELSTRUCTUREENTRIESNB(void); //!< The number of entries in a kernel structure
 uint32_t MAXNBPREPARE(void);//!< The maximum number of times a partition can be prepared.
 uint32_t KERNELSTRUCTURETOTALLENGTH(void);
+uint32_t PDSTRUCTURETOTALLENGTH(void);
 extern uint32_t min_mpu_region;
 uint32_t MINBLOCKSIZE(void);
 
@@ -129,9 +129,10 @@ paddr getKernelStructureStartAddr(paddr mpuentryaddr, uint32_t mpuentryindex); /
 paddr getMPUEntryAddrFromKernelStructureStart(paddr mpuentryaddr, uint32_t mpuentryindex); //!< The address of the MPU entry
 paddr getSh1EntryAddrFromKernelStructureStart(paddr mpuentryaddr, uint32_t mpuentryindex); //!< The address of the shadow 1 entry
 paddr getSCEntryAddrFromKernelStructureStart(paddr mpuentryaddr, uint32_t mpuentryindex); //!< The address of the shadow cut entry
-paddr getNextAddrFromKernelStructureStart(paddr mpuentryaddr); //!< The address of the next structure pointer
+paddr* getNextAddrFromKernelStructureStart(paddr kernelstartaddr); //!< The address of the next structure pointer
 uint32_t fit_mpu_region(uint32_t block_size);
 uint32_t next_pow2(uint32_t v);
+uint32_t powlog2(uint32_t v);
 
 paddr getNullAddr(void); //!< Returns the default null address.
 bool beqAddr(paddr a, paddr b); //!< Compare two addresses
@@ -192,4 +193,9 @@ SCEntry_t getDefaultSCEntry(); //! Returns the default SC entry
 MPUEntry_t buildMPUEntry(paddr startaddr, paddr endaddr, bool accessiblebit, bool presentbit); //! Constructs an MPU entry given the attributes
 paddr getPDStructurePointerAddrFromPD(paddr pdaddr); //! Gets the structure pointer of the given PD
 
+void removeBlockFromPhysicalMPUIfNotAccessible (paddr pd, paddr idblock, bool accessiblebit); //! Removes a block from the physical MPU.
+
+void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr); //! Configures the LUT entry at given index with the given MPU entry
+void erase_LUT_entry(uint32_t* LUT, uint32_t entryindex); //! Defaults the LUT entry at the given index
+int checkMPU(); //! Checks the MPU
 #endif

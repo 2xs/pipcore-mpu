@@ -51,7 +51,7 @@
 //#include "Services.h"
 #include <stdio.h>
 
-//#include "Internal.h"
+#include "Internal.h"
 #include "mal.h"
 
 /* TODO: implement self debug */
@@ -74,14 +74,6 @@
  */
 //#define DEBUG(loglvl,msg,...) if(loglvl<=LOGLEVEL){ printf(#loglvl " [%s:%d] " msg, __FILE__, __LINE__, ##__VA_ARGS__);}
 
-#if defined(DEBUG_UART)
-#include "uart_debug_init.h"
-#endif // DEBUG_UART
-
-#if defined(TRACE)
-#include "Trace.h"
-#endif // TRACE
-
 // Start address for the user section; defined in linker script
 extern uint32_t user_mem_start;
 // End address for the user section; defined in linker script
@@ -94,8 +86,7 @@ static uint32_t* user_alloc_pos = &user_mem_start;
  */
 static paddr mal_create_root_part(void)
 {
-	uint32_t PD_SIZE = fit_mpu_region(sizeof(PDTable_t));
-
+	uint32_t PD_SIZE = PDSTRUCTURETOTALLENGTH();//already MPU sized
 	paddr part = user_alloc_pos;
 	//  # init PD root partition: zero the block + fill in [0; PD length]
 	while (user_alloc_pos < (part + PD_SIZE))// defined as bigger than minimal MPU region size
@@ -110,7 +101,7 @@ static paddr mal_create_root_part(void)
 
 /* mal_init_root_part: Map the root partition code, give it all user memory.
 */
-void mal_init_root_part(unsigned int *part)
+void mal_init_root_part(paddr part)
 {
 	uint32_t KS_SIZE = KERNELSTRUCTURETOTALLENGTH();//already MPU sized
 	paddr kstructure = user_alloc_pos;
@@ -135,8 +126,12 @@ void mal_init_root_part(unsigned int *part)
 	writePDNbFreeSlots(part, kernelstructureentriesnb);
 	writePDNbPrepare(part, 1);
 
-	// add user memory blocks
-	insertNewEntry(part, user_alloc_pos, &user_mem_end, user_alloc_pos);// idpartition, start, end, origin
+	// add user memory block(s)
+	paddr mpuentryaddr = insertNewEntry(part, user_alloc_pos, &user_mem_end, user_alloc_pos);// idpartition, start, end, origin
+	// Pre-configure the MPU LUT with inserted block(s)
+	PDTable_t* PDT = (PDTable_t*) part;
+	PDT->blocks[0] = (MPUEntry_t*) mpuentryaddr;
+	configure_LUT_entry(PDT->LUT, 0, mpuentryaddr);
 
 	//DEBUG(TRACE, "mal_init_root_part( part=%08x) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
 	printf("mal_init_root_part( part=%08x) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
@@ -161,7 +156,7 @@ void mal_init_root_part(unsigned int *part)
 	user_alloc_pos = &user_mem_end;
 
 	// Register created root partition to Pip
-	updateRootPartition((unsigned)part);
+	updateRootPartition(part);
 }
 
 void mal_init_global_var(void)

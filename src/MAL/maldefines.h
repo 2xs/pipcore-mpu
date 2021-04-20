@@ -87,6 +87,7 @@
 #define getMaxNbPrepare MAXNBPREPARE
 #define getMinBlockSize MINBLOCKSIZE
 #define getKernelStructureTotalLength KERNELSTRUCTURETOTALLENGTH
+#define getPDStructureTotalLength PDSTRUCTURETOTALLENGTH
 #define getKernelStructureEntriesNb KERNELSTRUCTUREENTRIESNB
 #define kernelStructureEntriesNb KERNELSTRUCTUREENTRIESNB
 

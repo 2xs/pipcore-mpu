@@ -44,5 +44,6 @@
 /*********************************/
 #define KERNELSTRUCTUREENTRIESBITS 3
 #define NBPREPAREMAXBITS 3
+#define MPU_REGIONS_NB 8
 
 #endif /* USERCONSTANTS_H */

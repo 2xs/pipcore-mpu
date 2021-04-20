@@ -706,9 +706,9 @@ void writeSCEntryFromMPUEntryAddr(paddr mpuentryaddr, SCEntry_t newscentry)
 paddr readNextFromKernelStructureStart(paddr structureaddr)
 {
 	// Get the structure next entry address
-	paddr nextstructureaddr = getNextAddrFromKernelStructureStart(structureaddr);
+	paddr* nextstructureaddr = getNextAddrFromKernelStructureStart(structureaddr);
 
-	paddr nextstructure = *nextstructureaddr;
+	paddr nextstructure = (paddr) *nextstructureaddr;
 
 	//MALDBG("readNextFromKernelStructureStart(%d) -> %d\r\n", structureaddr, nextstructureaddr);
 	//printf("readNextFromKernelStructureStart(%x) -> %d\r\n", structureaddr, nextstructure);
@@ -727,7 +727,7 @@ paddr readNextFromKernelStructureStart(paddr structureaddr)
 void writeNextFromKernelStructureStart(paddr structureaddr, paddr newnextstructure)
 {
 	// Get the structure next entry address
-	paddr nextstructureaddr = getNextAddrFromKernelStructureStart(structureaddr);
+	paddr* nextstructureaddr = getNextAddrFromKernelStructureStart(structureaddr);
 
 	*nextstructureaddr = newnextstructure;
 
@@ -843,7 +843,35 @@ paddr getPDStructurePointerAddrFromPD(paddr pdaddr)
 {
 	// Cast it into a PDTable_t structure
 	PDTable_t* pdtable = (PDTable_t*)pdaddr;
-	return &(pdtable->structure);
+	return (paddr) &(pdtable->structure);
+}
+
+/*!
+ * \fn void removeBlockFromPhysicalMPUIfNotAccessible (paddr pd, paddr mpuentryaddr, bool accessiblebit)
+ * \brief 	Removes the given block from the set to be configured in the MPU for the given pd.
+			Should only be removed if the block becomes not accessible, otherwise doesn't break the MPU consistency.
+ * \param pd The PD where the block should be removed from
+ * \param mpuentryaddr The block to remove
+ * \param accessiblebit The accessible bit of the block
+ * \return void
+ */
+void removeBlockFromPhysicalMPUIfNotAccessible (paddr pd, paddr mpuentryaddr, bool accessiblebit)
+{
+	if (!accessiblebit)
+	{
+		// the block is not accessible and should be removed from the physical MPU
+		PDTable_t* PDT = (PDTable_t*) pd;
+		for (int i=0; i < MPU_REGIONS_NB ; i++)
+		{
+			if (PDT->blocks[i] == (MPUEntry_t*)mpuentryaddr)
+			{
+				// block is configured in the physical MPU and is removed
+				erase_LUT_entry(PDT->LUT, i);
+				PDT->blocks[i] = NULL;
+			}
+		}
+	}
+
 }
 
 /*! \fn paddr getCurPartition()
@@ -919,11 +947,11 @@ void activate(paddr desc)
 	{
 		//DEBUG(TRACE, "activate %08x\r\n", desc);
 		//enable_paging();
-		printf("DEBUG: activate %08x\r\n", desc);
+		printf("DEBUG: activate %08x\r\n, no load", desc);
 		return;
 	}
 	//DEBUG(TRACE, "activate %08x: activating\r\n", desc);
-	printf("DEBUG: activate %08x: activating\r\n", desc);
+	printf("DEBUG: activate %08x\r\n", desc);
 
 	/* switch to partition va */
 	/*activate_s(mmu_make_ttbr(
@@ -932,6 +960,18 @@ void activate(paddr desc)
 		RGN_NOCACHE,	// FIXME: No cache
 		0, 1					// Non shareable
 	));*/
-
+	PDTable_t* PDT = (PDTable_t*) desc;
+	if (PDT == NULL)
+	{
+		printf("ERROR: can't activate %08x\r\n", desc);
+		while(1);
+	}
+	printf("DEBUG: activate %08x: loading MPU...\r\n", desc);
+	if (mpu_configure_from_LUT(PDT->LUT) < 0)
+	{
+		printf("ERROR: can't activate %08x\r\n", desc);
+		while(1);
+	}
+	printf("DEBUG: activate %08x: MPU loaded\r\n", desc);
 	updateCurPartition(desc);
 }

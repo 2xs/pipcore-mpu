@@ -73,7 +73,8 @@ Definition writePDStructurePointer (pdtablepaddr: paddr) (structurepaddr : paddr
 																					firstfreeslot := a.(firstfreeslot);
 																					nbfreeslots := a.(nbfreeslots);
 																					nbprepare := a.(nbprepare);
-																					parent := a.(parent)
+																					parent := a.(parent);
+																					MPU := a.(MPU)
 																			|} in
 											modify (fun s => {| currentPartition := s.(currentPartition);
 																								memory := add pdtablepaddr (PDT newEntry) s.(memory) beqAddr|} )
@@ -98,7 +99,8 @@ Definition writePDFirstFreeSlotPointer (pdtablepaddr: paddr) (firstfreeslotpaddr
 																					firstfreeslot := firstfreeslotpaddr;
 																					nbfreeslots := a.(nbfreeslots);
 																					nbprepare := a.(nbprepare);
-																					parent := a.(parent)
+																					parent := a.(parent);
+																					MPU := a.(MPU)
 																			|} in
 											modify (fun s => {| currentPartition := s.(currentPartition);
 																								memory := add pdtablepaddr (PDT newEntry) s.(memory) beqAddr|} )
@@ -123,7 +125,8 @@ Definition writePDNbFreeSlots (pdtablepaddr: paddr) (nbfreeslots : index) : LLI 
 																					firstfreeslot := a.(firstfreeslot);
 																					nbfreeslots := nbfreeslots;
 																					nbprepare := a.(nbprepare);
-																					parent := a.(parent)
+																					parent := a.(parent);
+																					MPU := a.(MPU)
 																			|} in
 											modify (fun s => {| currentPartition := s.(currentPartition);
 																								memory := add pdtablepaddr (PDT newEntry) s.(memory) beqAddr|} )
@@ -148,7 +151,8 @@ Definition writePDNbPrepare (pdtablepaddr: paddr) (nbprepare : index) : LLI unit
 																					firstfreeslot := a.(firstfreeslot);
 																					nbfreeslots := a.(nbfreeslots);
 																					nbprepare := nbprepare;
-																					parent := a.(parent)
+																					parent := a.(parent);
+																					MPU := a.(MPU)
 																			|} in
 											modify (fun s => {| currentPartition := s.(currentPartition);
 																								memory := add pdtablepaddr (PDT newEntry) s.(memory) beqAddr|} )
@@ -173,7 +177,34 @@ Definition writePDParent (pdtablepaddr: paddr) (parent : paddr) : LLI unit :=
 																					firstfreeslot := a.(firstfreeslot);
 																					nbfreeslots := a.(nbfreeslots);
 																					nbprepare := a.(nbprepare);
-																					parent := parent
+																					parent := parent;
+																					MPU := a.(MPU)
+																			|} in
+											modify (fun s => {| currentPartition := s.(currentPartition);
+																								memory := add pdtablepaddr (PDT newEntry) s.(memory) beqAddr|} )
+		| Some _ => undefined 60
+		| None => undefined 59
+	end.
+
+Definition readPDMPU  (pdtablepaddr: paddr) : LLI (list paddr) :=
+  perform s := get in
+  let entry :=  lookup pdtablepaddr s.(memory) beqAddr in
+  match entry with
+  | Some (PDT a) => ret a.(MPU)
+  | Some _ => undefined 62
+  | None => undefined 61
+  end.
+
+Definition writePDMPU (pdtablepaddr: paddr) (MPUlist : list paddr) : LLI unit :=
+	perform s := get in
+	let entry :=  lookup pdtablepaddr s.(memory) beqAddr in
+	match entry with
+		| Some (PDT a) =>  let newEntry := {| structure := a.(structure);
+																					firstfreeslot := a.(firstfreeslot);
+																					nbfreeslots := a.(nbfreeslots);
+																					nbprepare := a.(nbprepare);
+																					parent := a.(parent);
+																					MPU := MPUlist
 																			|} in
 											modify (fun s => {| currentPartition := s.(currentPartition);
 																								memory := add pdtablepaddr (PDT newEntry) s.(memory) beqAddr|} )
@@ -516,7 +547,8 @@ Definition getEmptyPDTable : LLI PDTable :=
 										firstfreeslot := nullAddr;
 										nbfreeslots := zero;
 										nbprepare := zero;
-										parent := nullAddr |} in 
+										parent := nullAddr;
+										MPU := nil |} in 
 	ret emptyPDTable.
 
 Definition readNextFromKernelStructureStart  (structurepaddr : paddr) : LLI paddr :=
@@ -584,3 +616,23 @@ Definition buildMPUEntry (startaddr endaddr : paddr)
 Definition getPDStructurePointerAddrFromPD (pdAddr : paddr) : LLI paddr :=
 	let structurePointerAddr := CPaddr (pdAddr + Constants.kernelstructureidx) in
 	ret structurePointerAddr.
+
+Fixpoint removeBlockFromList (mpuentryaddr : paddr) (realMPU : list paddr)
+																															: list paddr :=
+  match realMPU with
+    | nil => realMPU
+    | realentryaddr::l' =>if beqAddr realentryaddr mpuentryaddr
+													then (* the entry should be removed, stop *)
+														l'
+													else (* entry is in the rest of the list *)
+														realentryaddr::removeBlockFromList mpuentryaddr l'
+  end.
+
+Definition removeBlockFromPhysicalMPUIfNotAccessible (pd : paddr)
+																								(mpuentryaddr : paddr)
+																								(accessiblebit : bool) : LLI unit :=
+	if negb accessiblebit then
+	(* the block becomes inaccessible: remove from this pd's MPU configuration *)
+		perform realMPU := readPDMPU pd in
+		writePDMPU pd (removeBlockFromList mpuentryaddr realMPU)
+	else ret tt.

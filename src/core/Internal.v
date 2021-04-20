@@ -31,7 +31,7 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary 
+(** * Summary
     This file contains some internal functions used by services *)
 Require Import Model.Monad Model.ADT Model.MAL.
 Require Import Bool Arith List.
@@ -46,7 +46,7 @@ Definition getPd partition :=
   readPDTable partition.
 
 (** The [compareAddrToNull] returns true if the given addr is equal to the fixed
-    default addr (null) *) 
+    default addr (null) *)
 Definition compareAddrToNull (p : paddr) : LLI bool :=
   perform nullAddr := getNullAddr in
   getBeqAddr nullAddr p.
@@ -95,7 +95,7 @@ Fixpoint findBlockInMPUAux (timeout : nat) (currentidx : index)
 													(currentkernelstructure idblock: paddr) : LLI paddr :=
 	match timeout with
 		| 0 => getNullAddr
-		| S timeout1 => 
+		| S timeout1 =>
 										perform maxentriesnb := getKernelStructureEntriesNb in (** Our last index is table size - 1, as we're indexed on zero*)
 										perform maxindex := Index.pred maxentriesnb in
 										perform islastidx := getBeqIdx currentidx maxindex in
@@ -117,7 +117,7 @@ Fixpoint findBlockInMPUAux (timeout : nat) (currentidx : index)
 											if ispresent && beqAddr mpustart idblock then
 												(* block found*)
 												ret entryaddr
-											else 
+											else
 												(** Recursive call to the next index**)
 												perform nextidx := Index.succ currentidx in
 												findBlockInMPUAux timeout1 nextidx currentkernelstructure idblock
@@ -253,7 +253,7 @@ Definition checkBlockCut (mpublockaddr : paddr) : LLI bool :=
 		ret false
 	else (* Block has been cut previously *) ret true.
 
-(* 
+(*
     def __write_accessible_to_ancestors_rec(self, PD_base_partition, id_base_block, accessible_bit):
         """Write the accessible bit of value <accessible_bit> to the block identified as
             <id_base_block> to all ancestors of <PD_base_partition>"""
@@ -292,7 +292,9 @@ Fixpoint writeAccessibleRecAux 	timeout
 												(** STOP condition: reached root partition *)
 												ret true
 											else
-												(** PROCESSING: write accessible bit in this ancestor *)
+												(** PROCESSING: write accessible bit in this ancestor
+																				and if inaccessible also remove the
+																				block from the real MPU *)
 												perform pdparent := readPDParent pdbasepartition in
 												perform blockInParentPartitionAddr := findBlockInMPU
 																																	pdparent
@@ -303,6 +305,10 @@ Fixpoint writeAccessibleRecAux 	timeout
 												writeMPUAccessibleFromMPUEntryAddr
 														blockInParentPartitionAddr
 														accessiblebit ;;
+												removeBlockFromPhysicalMPUIfNotAccessible
+																											pdparent
+																											blockInParentPartitionAddr
+																											accessiblebit ;;
 
 												(** RECURSIVE call: write accessible in the remaining ancestors*)
 												writeAccessibleRecAux timeout1 pdparent idblock accessiblebit
@@ -420,7 +426,7 @@ Definition insertNewEntry (pdinsertion startaddr endaddr origin: paddr) : LLI pa
 	Returns the freed slot's MPU address
 	 *)
 Definition freeSlot (pdfree entrytofreempuaddr: paddr) : LLI paddr :=
-(** Checks have been done before: check idPD comes from Pip, 
+(** Checks have been done before: check idPD comes from Pip,
 		check entryToFreeMPUAddress comes from Pip *)
 		(* set default values in slot to free *)
 		perform defaultMPUEntry := getDefaultMPUEntry in
@@ -509,8 +515,8 @@ def __add_memory_block(self, idPDchild, block_to_share_in_current_partition_addr
 *)
 		(* Check idPDchild is a child of the current partition*)
 		perform isChildCurrPart := checkChild currentPart idPDchild in
-		if negb isChildCurrPart 
-		then (* idPDchild is not a child partition, stop*) ret nullAddr 
+		if negb isChildCurrPart
+		then (* idPDchild is not a child partition, stop*) ret nullAddr
 		else
 
 (*
@@ -557,7 +563,7 @@ def __add_memory_block(self, idPDchild, block_to_share_in_current_partition_addr
 		(* the block start is set as origin in the child*)
 		perform blockstart := readMPUStartFromMPUEntryAddr blockToShareMPUAddr in
 		perform blockend := readMPUEndFromMPUEntryAddr blockToShareMPUAddr in
-		perform blockToShareChildMPUAddr := insertNewEntry 	idPDchild 
+		perform blockToShareChildMPUAddr := insertNewEntry 	idPDchild
 																												blockstart blockend
 																												blockstart in
 
@@ -571,7 +577,7 @@ def __add_memory_block(self, idPDchild, block_to_share_in_current_partition_addr
 *)
 		(** Parent: register the shared block in Sh1*)
 		writeSh1PDChildFromMPUEntryAddr blockToShareMPUAddr idPDchild;;
-		writeSh1InChildLocationFromMPUEntryAddr blockToShareMPUAddr 
+		writeSh1InChildLocationFromMPUEntryAddr blockToShareMPUAddr
 																						blockToShareChildMPUAddr;;
 (*
     # RET @entrée MPU enfant
@@ -1152,7 +1158,7 @@ Fixpoint initSh1EntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 	end.
 
 (** The [initSh1Structure] function initializes the Sh1 part of the kernel
-		structure located at <kernelStructureStartAddr>. The indexes are 
+		structure located at <kernelStructureStartAddr>. The indexes are
 		0-indexed.
 	Returns true:OK/false:NOK
 *)
@@ -1212,7 +1218,7 @@ Fixpoint initSCEntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 	end.
 
 (** The [initSCStructure] function initializes the SC part of the kernel
-		structure located at <kernelStructureStartAddr>. The indexes are 
+		structure located at <kernelStructureStartAddr>. The indexes are
 		0-indexed.
 	Returns true:OK/false:NOK
 *)
@@ -1224,7 +1230,7 @@ Definition initSCStructure (kernelStructureStartAddr : paddr) : LLI bool :=
 	ret true.
 
 (** The [initSh1Structure] function initializes the Sh1 part of the kernel
-		structure located at <kernelStructureStartAddr>. The indexes are 
+		structure located at <kernelStructureStartAddr>. The indexes are
 		0-indexed.
 	Returns true:OK/false:NOK
 *)
@@ -1270,7 +1276,7 @@ def __delete_shared_blocks_rec(self, current_MPU_kernel_structure, idPDchildToDe
 *)
 (** The [deleteSharedBlocksInStructRecAux] function recursively removes all blocks
 		belonging to the child <idPDchildToDelete> in the <currentPart> by going
-		through all entries of the structure <kernelStructureStartAddr> from the 
+		through all entries of the structure <kernelStructureStartAddr> from the
 		last entry
 		Stop condition: reached first entry of the structure (maximum number of iterations)
 		Processing: remove all blocks shared with the child to delete in the current
@@ -1292,7 +1298,7 @@ Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
 											(** STOP condition: parsed all entries *)
 											ret true
 										else
-											(** PROCESSING: remove all blocks shared with the child to 
+											(** PROCESSING: remove all blocks shared with the child to
 																			delete in the current structure *)
 											perform offset := Index.mulIdx currIndex Constants.MPUEntryLength in
 											perform currMPUEntryAddr :=	Paddr.addPaddrIdx
@@ -1367,7 +1373,7 @@ Fixpoint deleteSharedBlocksRecAux 	(timeout : nat)
 											(** STOP condition: reached end of structure list *)
 											ret true
 										else
-											(** PROCESSING: remove all blocks shared with the child to 
+											(** PROCESSING: remove all blocks shared with the child to
 																			delete in the current structure *)
 											perform entriesnb := getKernelStructureEntriesNb in
 											perform lastindex := Index.pred entriesnb in (* 0-indexed*)

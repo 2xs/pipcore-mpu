@@ -42,23 +42,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include "userconstants.h"
 
 /* Paddr */
 typedef uint32_t* paddr;
-
-/**
- * \struct PDTable
- * \brief PDTable structure
- */
-typedef struct PDTable
-{
-    uint32_t* structure    ;   //!< Pointer to the first kernel structure of the structure linked list
-    uint32_t* firstfreeslot ;   //!< Pointer to the first free slot in one of the kernel structures (if any)
-    uint32_t nbfreeslots    ;   //!< Number of free slots left
-    uint32_t nbprepare    ;   //!< Number of Prepare done on this partition
-    uint32_t* parent    ;   //!< Pointer to the parent partition
-}__attribute__((packed)) PDTable_t;
-
 
 /**
  * \struct block
@@ -115,5 +102,20 @@ typedef struct SCEntry
     uint32_t* origin  ;   //!< Pointer to the original (sub)block // TODO: MPUEntry_t
     uint32_t* next    ;   //!< Pointer to the next subblock // TODO: MPUEntry_t
 }__attribute__((packed)) SCEntry_t;
+
+/**
+ * \struct PDTable
+ * \brief PDTable structure
+ */
+typedef struct PDTable
+{
+    uint32_t* structure     ;   //!< Pointer to the first kernel structure of the structure linked list
+    uint32_t* firstfreeslot ;   //!< Pointer to the first free slot in one of the kernel structures (if any)
+    uint32_t nbfreeslots    ;   //!< Number of free slots left
+    uint32_t nbprepare      ;   //!< Number of Prepare done on this partition
+    uint32_t* parent        ;   //!< Pointer to the parent partition
+    MPUEntry_t* blocks[MPU_REGIONS_NB]   ;   //!< List of pointers to enabled blocks
+    uint32_t LUT[MPU_REGIONS_NB*2]    ;   //!< MPU registers' configuration sequence
+}__attribute__((packed)) PDTable_t;
 
 #endif /* ADT_H */

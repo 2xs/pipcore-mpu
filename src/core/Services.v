@@ -53,11 +53,11 @@ Open Scope mpu_state_scope.
 (** ** The createPartition PIP MPU service
 
     The [createPartition] system call creates a new child (sub-partition of the
-    current partition), e.g. initializes the block <idBlock> as a PD block and 
+    current partition), e.g. initializes the block <idBlock> as a PD block and
 		sets the current partition as the parent partition.
 		Returns true:OK/false:NOK
 
-    <<idBlock>>       	The block to become the child Partition Descriptor 
+    <<idBlock>>       	The block to become the child Partition Descriptor
 												(id = start field of an existing block)
 *)
 Definition createPartition (idBlock: paddr) : LLI bool :=
@@ -69,7 +69,7 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
     *)
 		(** Find the block in the current partition *)
     perform blockInCurrentPartitionAddr := findBlockInMPU currentPart idBlock in
-		
+
 		(** Check the block exists and not shared and size > minimum MPU region size ELSE NOK*)
 (*
     if block_in_current_partition_address == -1:
@@ -90,12 +90,16 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
 (*
     if (block_MPU_entry[2] - block_MPU_entry[1]) < self.constants.MPU_region_min_size:
         # block is smaller than the MPU region constraint
-        return 0 
+        return 0
 *)
 		perform blockSize := sizeOfBlock blockInCurrentPartitionAddr in
 		perform minBlockSize := getMinBlockSize in
-		perform isBlockTooSmall := Index.leb blockSize minBlockSize in
-		if isBlockTooSmall then (** block is smaller than the minimum  *) ret false 
+		perform isBlockTooSmall1 := Index.leb blockSize minBlockSize in
+		if isBlockTooSmall1 then (** smaller than the minimum MPU size *) ret false
+		else
+		perform PDStructureTotalLength := getPDStructureTotalLength in
+		perform isBlockTooSmall2 := Index.leb blockSize PDStructureTotalLength in
+		if isBlockTooSmall2 then (** too small to become a PD *) ret false
 		else
 
 (*
@@ -176,7 +180,7 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
 		if beqAddr blockOrigin blockStart && beqAddr blockNext nullAddr then
 			(* Block hasn't been cut previously, need to be set unaccessible for the ancestors *)
 			writeAccessibleRec currentPart idBlock false ;;
-			ret true 
+			ret true
 		else
 (*
     #
@@ -186,13 +190,13 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
 
 (** ** The cutMemoryBlock PIP MPU service
 
-    The [cutMemoryBlock] system call cuts the memory block <idBlockToCut> 
+    The [cutMemoryBlock] system call cuts the memory block <idBlockToCut>
 		at <cutAddress> which creates a new subbblock at that address.
 		Returns the new created subblock's MPU address:OK/NULL:NOK
 
     <<idBlockToCut>>		the block to cut
 												(id = start field of an existing block)
-		<<cutAddress>>			the address where to cut the <idBlockToCut> block, 
+		<<cutAddress>>			the address where to cut the <idBlockToCut> block,
 												becomes the id of the created block
 *)
 Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
@@ -263,7 +267,7 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
 		perform blockSize := sizeOfBlock blockToCutMPUAddr in
 		perform minBlockSize := getMinBlockSize in
 		perform isBlockTooSmall := Index.leb blockSize minBlockSize in
-		if isBlockTooSmall then (** block is smaller than the minimum  *) ret nullAddr 
+		if isBlockTooSmall then (** block is smaller than the minimum  *) ret nullAddr
 		else
 (*
     # // Parent et ancêtres : si on coupe le bloc pour la 1ère fois, on rend ce bloc inaccessible aux ancêtres
@@ -272,7 +276,7 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
     if (self.helpers.get_SC_next_from_MPU_entry_address(block_to_cut_MPU_address) == 0) and \
             (block_origin == idBlockToCut):
         self.__write_accessible_to_ancestors_rec(self.current_partition, block_to_cut_MPU_entry[1], False)*)
-		(** Parents and ancestors: set the block unaccessible if this is the block's first cut*)
+		(** Parent and ancestors: set the block unaccessible if this is the block's first cut*)
 		writeAccessibleToAncestorsIfNotCutRec currentPart
 																					idBlockToCut
 																					blockToCutMPUAddr
@@ -288,7 +292,8 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
         new_entry,
         block_origin
     )*)
-		(** Child: create the new subblock at cutAddr and insert it in the kernel structure*)
+		(** Current partition: create the new subblock at cutAddr and insert it in
+				the kernel structure*)
 		perform blockEndAddr := readMPUEndFromMPUEntryAddr blockToCutMPUAddr in
 		perform blockOrigin := readSCOriginFromMPUEntryAddr blockToCutMPUAddr in
 		perform newSubblockMPUAddr := insertNewEntry 	currentPart
@@ -303,6 +308,7 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
 		(** Modify initial block: the end address becomes (cutAddress - 1)*)
 		perform predCutAddr := Paddr.pred cutAddr in
 		writeMPUEndFromMPUEntryAddr blockToCutMPUAddr predCutAddr ;;
+		removeBlockFromPhysicalMPUIfNotAccessible currentPart idBlockToCut false ;;
 
 (*
     #  // Indiquer coupe dans Shadow Cut : bloc pourrait déjà être coupé auquel cas on doit l’insérer correctement dans la liste chaînée SC
@@ -471,14 +477,14 @@ Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr) : LLI pad
 
 (** ** The prepare PIP MPU service
 
-    The [prepare] system call prepares the partition <idPD> (current partition 
-		or child) to receive <projectedSlotsNb> of blocks and use the 
-		<idRequisitionedBlock> as a metadata structure, e.g. this will prepare 
-		<idRequisitionedBlock> to be a kernel structure added to the kernel structure 
+    The [prepare] system call prepares the partition <idPD> (current partition
+		or child) to receive <projectedSlotsNb> of blocks and use the
+		<idRequisitionedBlock> as a metadata structure, e.g. this will prepare
+		<idRequisitionedBlock> to be a kernel structure added to the kernel structure
 		list of the partition <idPD>
         - if enough free slots to receive <projectedSlotsNb> then won't do anything
 				- if not enough free slots then prepare the block
-        - if <projectedSlotsNb> == nb of kernel structure entries then will 
+        - if <projectedSlotsNb> == nb of kernel structure entries then will
 				prepare anyways the block
 		Returns true:OK/false:NOK
 
@@ -502,7 +508,7 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 		perform isCurrentPart := getBeqAddr idPD currentPart in
 		perform isChildCurrPart := checkChild currentPart idPD in
 		if negb isCurrentPart && negb isChildCurrPart
-		then (* idPD is not itself or a child partition, stop*) ret false 
+		then (* idPD is not itself or a child partition, stop*) ret false
 		else
 
 (*
@@ -514,7 +520,7 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 		perform maxnbprepare := getMaxNbPrepare in
 		perform isMaxPrepare := Index.leb maxnbprepare nbPrepare in
 		if isMaxPrepare
-		then (* reached maximum nb of allowed prepare, stop*) ret false 
+		then (* reached maximum nb of allowed prepare, stop*) ret false
 		else
 (*
 		current_free_slots_nb = self.helpers.get_PD_nb_free_slots(idPD)
@@ -531,7 +537,7 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 		perform kernelentriesnb := getKernelStructureEntriesNb in
 		perform isForcedPrepare :=  getBeqIdx currentFreeSlotsNb kernelentriesnb in
 		if isEnoughFreeSlots && negb isForcedPrepare
-		then (* no need for a prepare, stop*) ret false 
+		then (* no need for a prepare, stop*) ret false
 		else
 
 (*
@@ -543,7 +549,7 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 		perform isOutsideBound := Index.ltb kernelentriesnb projectedSlotsNb in
 		if isOutsideBound
 		then (* bad arguments, stop*) ret false
-		else 
+		else
 
 		(** The requisioned block becomes a kernel structure*)
 (*
@@ -569,7 +575,7 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 		perform blockSize := sizeOfBlock requisitionedBlockInCurrPartAddr in
 		perform kStructureTotalLength := getKernelStructureTotalLength in
 		perform isBlockTooSmall := Index.leb blockSize kStructureTotalLength in
-		if isBlockTooSmall then (* block is smaller than the minimum  *) ret false 
+		if isBlockTooSmall then (* block is smaller than the minimum  *) ret false
 		else
 
 (*
@@ -604,9 +610,9 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
     self.init_SC(requisitioned_block_entry[1], 0, self.constants.kernel_structure_entries_nb)
 *)
 		(*init structure *)
-		perform requisitionedBlockStart := readMPUStartFromMPUEntryAddr 
+		perform requisitionedBlockStart := readMPUStartFromMPUEntryAddr
 																						requisitionedBlockInCurrPartAddr in
-		perform requisitionedBlockEnd := readMPUEndFromMPUEntryAddr 
+		perform requisitionedBlockEnd := readMPUEndFromMPUEntryAddr
 																						requisitionedBlockInCurrPartAddr in
 		initStructure requisitionedBlockStart requisitionedBlockEnd ;;
 
@@ -646,7 +652,7 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 *)
 		(** Insert the requisitioned block in the kernel structure list *)
 		perform oldKStructurePointer := readPDStructurePointer idPD in
-		writeNextFromKernelStructureStart newKStructurePointer 
+		writeNextFromKernelStructureStart newKStructurePointer
 																			oldKStructurePointer;;
 		writePDStructurePointer idPD newKStructurePointer;;
 (*
@@ -665,7 +671,7 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 *)
 		(** Adjust the free slot pointer to the next free slot*)
 		perform lastidx := Index.pred kernelentriesnb in
-		perform lastMPUEntryAddr := getMPUEntryAddrFromKernelStructureStart 
+		perform lastMPUEntryAddr := getMPUEntryAddrFromKernelStructureStart
 																		newKStructurePointer
 																		lastidx in
 		perform currFirstFreeSlot := readPDFirstFreeSlotPointer idPD in
@@ -687,11 +693,11 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
         # prepare is done for another partition than itself
         # Ecrire idPD à Sh1courant[entrée MPU]
         self.helpers.set_Sh1_PDchild_from_MPU_entry_address(requisitioned_block_in_current_partition_address, idPD)*)
-		(** Special treatment for a prepare on a child: set the block as shared in 
+		(** Special treatment for a prepare on a child: set the block as shared in
 				the parent*)
-		if isChildCurrPart 
+		if isChildCurrPart
 		then (*prepare is done for another partition than itself*)
-			writeSh1PDChildFromMPUEntryAddr requisitionedBlockInCurrPartAddr idPD ;; 
+			writeSh1PDChildFromMPUEntryAddr requisitionedBlockInCurrPartAddr idPD ;;
 			(* # RET OK
     		return 1*)
 			ret true
@@ -702,7 +708,7 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
     The [addMemoryBlock] system call adds a block to a child partition (slower
 		version).
 		The block is still accessible from the current partition (shared memory).
-    This variant finds the block to share by going through all entries of each 
+    This variant finds the block to share by going through all entries of each
 		structure in search for the block.
 
 		Returns the child's MPU entry address used to store the shared block:OK/NULL:NOK
@@ -901,11 +907,11 @@ def removeMemoryBlockFast(self, idPDchild, idBlockToRemove, CurrentMPUAddressBlo
 		return self.__remove_memory_block(idPDchild, block_to_remove_in_current_partition_address)*)
 		removeMemoryBlockCommon idPDchild idBlockToRemove blockInCurrPartAddr.
 
-(** ** The deletePartition PIP MPU service 
+(** ** The deletePartition PIP MPU service
 
-    The [deletePartition] system call deletes the partition <idPDchildToDelete> 
-		which is a child of the current partition, e.g. prunes the partition tree by 
-		removing all references of the child and its respective blocks from the 
+    The [deletePartition] system call deletes the partition <idPDchildToDelete>
+		which is a child of the current partition, e.g. prunes the partition tree by
+		removing all references of the child and its respective blocks from the
 		current partition
 
 		Returns true:OK/false:NOK
