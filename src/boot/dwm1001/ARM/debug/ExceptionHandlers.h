@@ -99,6 +99,7 @@ extern "C"
 
   void
   HardFault_Handler_C (ExceptionStackFrame* frame, uint32_t lr);
+  /*void HardFault_Handler_C(unsigned int * hardfault_args);*/
 
 #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
   void

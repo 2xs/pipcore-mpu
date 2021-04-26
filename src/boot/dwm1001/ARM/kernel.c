@@ -80,12 +80,16 @@ extern uint32_t _sbss;
 // End address for the .bss section; defined in linker script
 extern uint32_t _ebss;
 
+// End address for the user section; defined in linker script
+extern uint32_t user_mem_end;
+
 // main() is the entry point for newlib based applications.
 // By default, there are no arguments, but this can be customised
 // by redefining __initialize_args(), which is done when the
 // semihosting configurations are used.
-extern int
-main (int argc, char* argv[]);
+/*extern int
+main (int argc, char* argv[]);*/
+void main(void);
 
 // The implementation for the exit routine; for embedded
 // applications, a system reset will be performed.
@@ -225,6 +229,12 @@ _start (void)
   dump_partition(root);
   activate(root);
 
+  // set PSP to root stack and switch to unprivileged mode
+  __set_PSP(&user_mem_end);
+  __set_CONTROL(__get_CONTROL() |
+                CONTROL_SPSEL_Msk | // use psp
+                CONTROL_nPRIV_Msk ); // switch to unprivileged Thread Mode
+  __ISB();
 	/*
 	// At this point, mmu is still not enabled.
 	ial_get_ctx_addr(0, getRootPartition(), &ctx_p, &ctx_v);
@@ -234,21 +244,22 @@ _start (void)
 	// cpu_switch_context_exit(); -> Yield, switchto root partition
 
     // Get the argc/argv (useful in semihosting configurations).
-  int argc;
+  /*int argc;
   char** argv;
-  __initialize_args (&argc, &argv);
+  __initialize_args (&argc, &argv);*/
 
   // Call the standard library initialisation (mandatory for C++ to
   // execute the constructors for the static objects).
   //__run_init_array ();
 
   // Call the main entry point, and save the exit code.
-  int code = main (argc, argv);
+  //int code = main (argc, argv);
+  main();
 
   // Run the C++ static destructors.
   //__run_fini_array ();
 
-  _exit (code);
+  //_exit (code);
 
   // Should never reach this, _exit() should have already
   // performed a reset.

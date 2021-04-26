@@ -614,7 +614,9 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 																						requisitionedBlockInCurrPartAddr in
 		perform requisitionedBlockEnd := readMPUEndFromMPUEntryAddr
 																						requisitionedBlockInCurrPartAddr in
-		initStructure requisitionedBlockStart requisitionedBlockEnd ;;
+		perform isStructureInitialised := initStructure requisitionedBlockStart
+																										requisitionedBlockEnd in
+		if negb isStructureInitialised then (** error during init *) ret false else
 
 		perform newKStructurePointer := getAddr requisitionedBlockStart in
 (*

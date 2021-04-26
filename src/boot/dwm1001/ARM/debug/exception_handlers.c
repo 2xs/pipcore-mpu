@@ -38,6 +38,8 @@
 #include "Trace.h"
 #include "nrf52.h"
 #include "core_cm4.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 // ----------------------------------------------------------------------------
 /*
@@ -368,6 +370,7 @@ HardFault_Handler (void)
   );
 }
 
+
 void __attribute__ ((section(".after_vectors"),weak,used))
 HardFault_Handler_C (ExceptionStackFrame* frame __attribute__((unused)),
                      uint32_t lr __attribute__((unused)))
@@ -413,6 +416,64 @@ HardFault_Handler_C (ExceptionStackFrame* frame __attribute__((unused)),
     }
 }
 
+/*
+// hard fault handler wrapper in assembly
+// it extract the location of stack frame and pass it
+// to handler in C as pointer.
+void __attribute__ ((section(".after_vectors"),weak,naked))
+HardFault_Handler (void)
+{
+    __asm volatile
+    (
+        " tst lr, #4                                                \n"
+        " ite eq                                                    \n"
+        " mrseq r0, msp                                             \n"
+        " mrsne r0, psp                                             \n"
+        " ldr r2, HardFault_Handler_C                            \n"
+        " bx r2                                                     \n"
+    );
+}
+
+// hard fault handler in C,
+// with stack frame location as input parameter
+void HardFault_Handler_C(unsigned int * hardfault_args)
+{
+unsigned int stacked_r0;
+unsigned int stacked_r1;
+unsigned int stacked_r2;
+unsigned int stacked_r3;
+unsigned int stacked_r12;
+unsigned int stacked_lr;
+unsigned int stacked_pc;
+unsigned int stacked_psr;
+stacked_r0  = ((unsigned long) hardfault_args[0]);
+stacked_r1  = ((unsigned long) hardfault_args[1]);
+stacked_r2  = ((unsigned long) hardfault_args[2]);
+stacked_r3  = ((unsigned long) hardfault_args[3]);
+stacked_r12 = ((unsigned long) hardfault_args[4]);
+stacked_lr  = ((unsigned long) hardfault_args[5]);
+stacked_pc  = ((unsigned long) hardfault_args[6]);
+stacked_psr = ((unsigned long) hardfault_args[7]);
+printf ("[Hard fault handler]\n");
+printf ("R0  = %x\n", stacked_r0);
+printf ("R1  = %x\n", stacked_r1);
+printf ("R2  = %x\n", stacked_r2);
+printf ("R3  = %x\n", stacked_r3);
+printf ("R12  = %x\n", stacked_r12);
+printf ("LR   = %x\n", stacked_lr);
+printf ("PC   = %x\n", stacked_pc);
+printf ("PSR  = %x\n", stacked_psr);
+printf ("BFAR = %x\n", (*((volatile unsigned long *)(0xE000ED38))));
+printf ("CFSR = %x\n", (*((volatile unsigned long *)(0xE000ED28))));
+printf ("HFSR = %x\n", (*((volatile unsigned long *)(0xE000ED2C))));
+printf ("DFSR = %x\n", (*((volatile unsigned long *)(0xE000ED30))));
+printf ("AFSR = %x\n", (*((volatile unsigned long *)(0xE000ED3C))));
+while (1)
+    {
+    }
+return;
+}*/
+
 #endif // defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
 
 
@@ -442,9 +503,9 @@ HardFault_Handler (void)
       " ldr r2,=HardFault_Handler_C \n"
       " bx r2"
 
-      : /* Outputs */
-      : /* Inputs */
-      : /* Clobbers */
+      : // Outputs
+      : // Inputs
+      : // Clobbers
   );
 }
 
@@ -484,6 +545,54 @@ MemManage_Handler (void)
     }
 }*/
 
+
+/*
+void __attribute__ ((section(".after_vectors"),weak,naked))
+MemoryManagement_Handler (void)
+{
+    __asm volatile
+    (
+        " tst lr, #4                                                \n"
+        " ite eq                                                    \n"
+        " mrseq r0, msp                                             \n"
+        " mrsne r0, psp                                             \n"
+        " ldr r1, [r0, #24]                                         \n"
+        " ldr r2, handler2_address_const                            \n"
+        " bx r2                                                     \n"
+        " handler2_address_const: .word prvGetRegistersFromStack    \n"
+    );
+}
+
+void prvGetRegistersFromStack( uint32_t *pulFaultStackAddress )
+{
+// These are volatile to try and prevent the compiler/linker optimising them
+//away as the variables never actually get used.  If the debugger won't show the
+//values of the variables, make them global my moving their declaration outside
+//of this function.
+volatile uint32_t r0;
+volatile uint32_t r1;
+volatile uint32_t r2;
+volatile uint32_t r3;
+volatile uint32_t r12;
+volatile uint32_t lr; // Link register.
+volatile uint32_t pc; // Program counter.
+volatile uint32_t psr;// Program status register.
+
+    r0 = pulFaultStackAddress[ 0 ];
+    r1 = pulFaultStackAddress[ 1 ];
+    r2 = pulFaultStackAddress[ 2 ];
+    r3 = pulFaultStackAddress[ 3 ];
+
+    r12 = pulFaultStackAddress[ 4 ];
+    lr = pulFaultStackAddress[ 5 ];
+    pc = pulFaultStackAddress[ 6 ];
+    psr = pulFaultStackAddress[ 7 ];
+
+    // When the following line is hit, the variables contain the register values.
+    for( ;; );
+}*/
+
+
 void __attribute__ ((section(".after_vectors"),weak,naked))
 MemoryManagement_Handler (void)
 {
@@ -496,9 +605,9 @@ MemoryManagement_Handler (void)
       " ldr r2,=MemoryManagement_Handler_C \n"
       " bx r2"
 
-      : /* Outputs */
-      : /* Inputs */
-      : /* Clobbers */
+      : // Outputs
+      : // Inputs
+      : // Clobbers
   );
 }
 

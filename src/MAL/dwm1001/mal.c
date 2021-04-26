@@ -39,6 +39,7 @@
 #include <stdint.h>
 #include "mal.h"
 #include <stddef.h>
+#include "mpu.h"
 //#include "debug.h"
 
 /*#ifdef DEBUG_MAL
@@ -51,7 +52,7 @@
 paddr current_partition = NULL; /* Current partition, default root */
 paddr root_partition = NULL; /* Multiplexer's partition descriptor, default 0*/
 
-static const PDTable_t DEFAULT_PD_TABLE = {NULL, NULL, 0, 0, NULL};
+static const PDTable_t DEFAULT_PD_TABLE = {NULL, NULL, 0, 0, NULL}; // BEWARE : LUT not initialized
 static const block_t DEFAULT_BLOCK = {0, 0};
 static const MPUIndex_t DEFAULT_MPU_INDEX = {-1};
 static const MPUEntry_t DEFAULT_MPU_ENTRY = {DEFAULT_BLOCK, DEFAULT_MPU_INDEX, false, false, false, false, false};
@@ -734,9 +735,8 @@ void writeNextFromKernelStructureStart(paddr structureaddr, paddr newnextstructu
 	return;
 }
 
-
 /*!
- * \fn void eraseAddr(paddr addr)
+ * \fn void eraseAddr(paddr addr) // TODO: remove from coq as well
  * \brief Sets the address to NULL.
  * \param addr The address of the reference MPU entry
  * \return void
@@ -746,6 +746,23 @@ void eraseAddr(paddr addr)
 	*addr = NULL;
 
 	return;
+}
+
+/*!
+ * \fn bool eraseBlock (paddr startAddr, paddr endAddr)
+ * \brief Erases the memory block defined by (startAddr, endAddr).
+ * \param startAddr The block's start address
+ * \param endAddr The block's end address
+ * \return 0 if the block has been sucessfully erased, -1 otherwise
+ */
+bool eraseBlock (paddr startAddr, paddr endAddr)
+{
+	if (endAddr < startAddr) return false;
+	for (paddr curraddr = endAddr ; startAddr <= curraddr ; curraddr--)
+	{
+		eraseAddr(curraddr);
+	}
+	return true;
 }
 
 /*!
@@ -765,15 +782,25 @@ void writePDTable(paddr addr, PDTable_t newpdtable)
 }
 
 /*!
- * \fn PDTable_t getEmptyPDTable()
- * \brief Returns the default PD Table.
+ * \fn PDTable_t getDefaultPDTable()
+ * \brief Returns the default PD Table without LUT initialisation.
  * \return default PD Table
+ */
+PDTable_t getDefaultPDTable()
+{
+	return DEFAULT_PD_TABLE;
+}
+
+/*!
+ * \fn PDTable_t getEmptyPDTable()
+ * \brief Returns the default PD Table with LUT initialisation.
+ * \return initialised default PD Table
  */
 PDTable_t getEmptyPDTable()
 {
-	//DEFAULT_PD_TABLE(emptyPD);
-	//return emptyPD;
-	return DEFAULT_PD_TABLE;
+	PDTable_t defaultpdt = getDefaultPDTable();
+	clear_LUT(defaultpdt.LUT);
+	return defaultpdt;
 }
 
 /*!
@@ -866,7 +893,7 @@ void removeBlockFromPhysicalMPUIfNotAccessible (paddr pd, paddr mpuentryaddr, bo
 			if (PDT->blocks[i] == (MPUEntry_t*)mpuentryaddr)
 			{
 				// block is configured in the physical MPU and is removed
-				erase_LUT_entry(PDT->LUT, i);
+				clear_LUT_entry(PDT->LUT, i);
 				PDT->blocks[i] = NULL;
 			}
 		}

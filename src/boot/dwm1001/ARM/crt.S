@@ -1,4 +1,3 @@
-.set __StackTop, 0x20010000
 .cpu cortex-m4
 .thumb
 
@@ -151,8 +150,6 @@ Reset_Handler:
     bl _start
 
 NMI_Handler:
-    nop
-HardFault_Handler:
     nop
 BusFault_Handler:
     nop

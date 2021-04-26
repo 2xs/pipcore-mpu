@@ -43,6 +43,7 @@ Open Scope mpu_state_scope.
 
 Module Paddr.
 Definition leb (a b : paddr) : LLI bool := ret (a <=? b).
+Definition ltb (a b : paddr) : LLI bool := ret (a <? b).
 Program Definition succ (n : paddr) : LLI paddr :=
 let isucc := n+1 in
 if (lt_dec isucc maxAddr )

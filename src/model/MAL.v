@@ -40,6 +40,10 @@ Require Import Arith Bool NPeano List Omega.
 
 Open Scope mpu_state_scope.
 
+
+(** Fixed fuel/timeout value to prove function termination *)
+Definition N := 100.
+
   (** The 'getCurPartition' function returns the current Partition from the current state *)
 (*Definition getCurPartition : LLI index :=
 	perform s := PipMPU.get in PipMPU.ret s.(PipMPU.currentPartition).*)
@@ -636,3 +640,29 @@ Definition removeBlockFromPhysicalMPUIfNotAccessible (pd : paddr)
 		perform realMPU := readPDMPU pd in
 		writePDMPU pd (removeBlockFromList mpuentryaddr realMPU)
 	else ret tt.
+
+(** The [eraseBlockAux] function recursively zeroes all addresses until it reaches
+		the <startAddr>
+		Stop condition: reached base address
+    Processing: zeroes the current address
+    Recursive calls: until base address
+*)
+Fixpoint eraseBlockAux 	(timeout : nat) (startAddr currentAddr : paddr): LLI unit :=
+	match timeout with
+		| 0 => ret tt (*Stop condition 1: reached end of structure list*)
+		| S timeout1 =>	eraseAddr currentAddr ;; (*erase the current address*)
+										if beqAddr currentAddr startAddr then
+											(*Reached start address, no more addresses to erase*)
+											ret tt
+										else
+											(*Continue to erase lower addresses*)
+											perform predAddr := Paddr.pred currentAddr in
+											eraseBlockAux timeout1 startAddr predAddr
+end.
+
+(** The [eraseBlock] function fixes the timeout value of [eraseBlockAux] *)
+Definition eraseBlock (startAddr endAddr : paddr) : LLI bool :=
+	perform isEndAddrBeforeStartAddr := Paddr.ltb endAddr startAddr in
+	if isEndAddrBeforeStartAddr then ret false else
+	eraseBlockAux N startAddr endAddr ;;
+	ret true.

@@ -976,7 +976,7 @@ Definition initPDTable (pdtablepaddr : paddr) : LLI unit :=
     Processing: zeroes the current address
     Recursive calls: until base address
 *)
-Fixpoint eraseBlockAux 	(timeout : nat) (startAddr currentAddr : paddr): LLI unit :=
+(*Fixpoint eraseBlockAux 	(timeout : nat) (startAddr currentAddr : paddr): LLI unit :=
 	match timeout with
 		| 0 => ret tt (*Stop condition 1: reached end of structure list*)
 		| S timeout1 =>	eraseAddr currentAddr ;; (*erase the current address*)
@@ -987,11 +987,11 @@ Fixpoint eraseBlockAux 	(timeout : nat) (startAddr currentAddr : paddr): LLI uni
 											(*Continue to erase lower addresses*)
 											perform predAddr := Paddr.pred currentAddr in
 											eraseBlockAux timeout1 startAddr predAddr
-end.
+end.*)
 
 (** The [eraseBlock] function fixes the timeout value of [eraseBlockAux] *)
-Definition eraseBlock (startAddr endAddr : paddr) : LLI unit :=
-	eraseBlockAux N startAddr endAddr.
+(*Definition eraseBlock (startAddr endAddr : paddr) : LLI unit :=
+	eraseBlockAux N startAddr endAddr.*)
 
 (*
     def init_MPU(self, kernel_structure_start, index_start, index_end):
@@ -1236,10 +1236,13 @@ Definition initSCStructure (kernelStructureStartAddr : paddr) : LLI bool :=
 *)
 Definition initStructure (kernelStructureStartAddr kernelStructureEndAddr: paddr)
 																																	: LLI bool :=
-	eraseBlock kernelStructureStartAddr kernelStructureEndAddr ;;
+	perform isBlockErased := 	eraseBlock 	kernelStructureStartAddr
+																				kernelStructureEndAddr in
+	if negb isBlockErased then (** error in block erasure *) ret false else
 	initMPUStructure kernelStructureStartAddr ;;
 	initSh1Structure kernelStructureStartAddr ;;
-	initSCStructure kernelStructureStartAddr.
+	initSCStructure kernelStructureStartAddr ;;
+	ret true.
 (*
 def __delete_shared_blocks_rec(self, current_MPU_kernel_structure, idPDchildToDelete):
     """Recursive deletion by going through the structure list and remove all blocks belonging to the child that is

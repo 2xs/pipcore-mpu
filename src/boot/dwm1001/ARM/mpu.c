@@ -97,6 +97,11 @@ int mpu_configure_from_LUT(uint32_t* LUT)
 		memcpy((void*)&( MPU->RBAR), LUT+i*2*sizeof(uint32_t), MPU_ALIAS_REG_NB*2*sizeof(uint32_t));
 
 	}
+    /*for (int i = 0; i < MPU_NUM_REGIONS ; i++){
+        //MPU->RNR  = i; // no need if VALID bit with REGION bits are set in RBAR
+        MPU->RBAR = LUT[i*2];
+        MPU->RASR = LUT[i*2+1];
+    }*/
 #endif
 #if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
     return -1;

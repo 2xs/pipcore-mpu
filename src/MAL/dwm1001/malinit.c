@@ -79,6 +79,8 @@ extern uint32_t user_mem_start;
 // End address for the user section; defined in linker script
 extern uint32_t user_mem_end;
 
+extern uint32_t _sram;
+
 static uint32_t* user_alloc_pos = &user_mem_start;
 
 /* Root partition initialisation.
@@ -117,7 +119,11 @@ void mal_init_root_part(paddr part)
 	if (!isRootPrepared)
 		PANIC("Root partition kernel structure init failed!\r\n");*/
 
-	initStructure(kstructure, user_alloc_pos);// TODO: defined as bigger than minimal MPU region size)
+	if (!initStructure(kstructure, user_alloc_pos))// TODO: defined as bigger than minimal MPU region size)
+	{
+		printf("mal_init_root_part( part=%08x) : couldn't initialise structure\r\n", part);
+		while(1);
+	}
 	// TODO change ed of kernel structure param ?
 
 	// prepare the root partition with the intialized structure
@@ -127,11 +133,15 @@ void mal_init_root_part(paddr part)
 	writePDNbPrepare(part, 1);
 
 	// add user memory block(s)
-	paddr mpuentryaddr = insertNewEntry(part, user_alloc_pos, &user_mem_end, user_alloc_pos);// idpartition, start, end, origin
+	//paddr mpuentryaddr = insertNewEntry(part, user_alloc_pos, &user_mem_end, user_alloc_pos);// idpartition, start, end, origin
+	paddr mpuentryaddr_flash = insertNewEntry(part, 0,  fit_mpu_region(0x1FFFFFFF) - 1, 0);
+	paddr mpuentryaddr_ram = insertNewEntry(part, &_sram, fit_mpu_region(&user_mem_end) - 1, &_sram);
 	// Pre-configure the MPU LUT with inserted block(s)
 	PDTable_t* PDT = (PDTable_t*) part;
-	PDT->blocks[0] = (MPUEntry_t*) mpuentryaddr;
-	configure_LUT_entry(PDT->LUT, 0, mpuentryaddr);
+	PDT->blocks[0] = (MPUEntry_t*) mpuentryaddr_flash;
+	PDT->blocks[1] = (MPUEntry_t*) mpuentryaddr_ram;
+	configure_LUT_entry(PDT->LUT, 0, mpuentryaddr_flash);
+	configure_LUT_entry(PDT->LUT, 1, mpuentryaddr_ram);
 
 	//DEBUG(TRACE, "mal_init_root_part( part=%08x) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
 	printf("mal_init_root_part( part=%08x) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
