@@ -80,22 +80,19 @@ extern uint32_t _sbss;
 // End address for the .bss section; defined in linker script
 extern uint32_t _ebss;
 
-// End address for the user section; defined in linker script
-extern uint32_t user_mem_end;
-
 // main() is the entry point for newlib based applications.
 // By default, there are no arguments, but this can be customised
 // by redefining __initialize_args(), which is done when the
 // semihosting configurations are used.
-/*extern int
-main (int argc, char* argv[]);*/
-void main(void);
+extern int
+main (int argc, char* argv[]);
+//void main(void);
 
 // The implementation for the exit routine; for embedded
 // applications, a system reset will be performed.
-extern void
+/*extern void
 __attribute__((noreturn))
-_exit (int);
+_exit (int);*/
 
 // ----------------------------------------------------------------------------
 
@@ -205,59 +202,15 @@ _start (void)
   // clock frequency in the global CMSIS variable, cleared above.
   __initialize_hardware ();
 
-  // Check the MPU
-  if (checkMPU()<0)
-  {
-    // the check doesn't pass, panic since Pip relies on the MPU
-    printf("DEBUG: (kernel) MPU ERROR");
-    while(1);
-  }
-  // Enable the MPU with PRIVDEFENA
-  mpu_enable();
-
-
-	/*#if MODULE_NEWLIB || MODULE_PICOLIBC
-    // initialize std-c library (this must be done after board_init)
-    extern void __libc_init_array(void);
-    __libc_init_array();
-	#endif*/
-
-	/* Initialize the root partition */
-	mal_init();
-
-  paddr root = getRootPartition();
-  dump_partition(root);
-  activate(root);
-
-  // set PSP to root stack and switch to unprivileged mode
-  __set_PSP(&user_mem_end);
-  __set_CONTROL(__get_CONTROL() |
-                CONTROL_SPSEL_Msk | // use psp
-                CONTROL_nPRIV_Msk ); // switch to unprivileged Thread Mode
-  __ISB();
-	/*
-	// At this point, mmu is still not enabled.
-	ial_get_ctx_addr(0, getRootPartition(), &ctx_p, &ctx_v);
-
-	return ial_prepare_yield(getRootPartition(), ctx_v);*/
-
-	// cpu_switch_context_exit(); -> Yield, switchto root partition
-
     // Get the argc/argv (useful in semihosting configurations).
   /*int argc;
   char** argv;
   __initialize_args (&argc, &argv);*/
 
-  // Call the standard library initialisation (mandatory for C++ to
-  // execute the constructors for the static objects).
-  //__run_init_array ();
-
   // Call the main entry point, and save the exit code.
   //int code = main (argc, argv);
-  main();
-
-  // Run the C++ static destructors.
-  //__run_fini_array ();
+  int code = main (0, NULL); // Pip main
+  //main();
 
   //_exit (code);
 
@@ -265,6 +218,10 @@ _start (void)
   // performed a reset.
   //for (;;)
   //  ;
+  #if defined(TRACE)
+    printf("Main exit with %d\r\n", code);
+  #endif // TRACE
+
   while (1) {}
 }
 

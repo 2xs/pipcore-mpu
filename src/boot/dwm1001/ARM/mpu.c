@@ -50,11 +50,11 @@ int mpu_enable(void) {
 #endif
 }
 
-bool mpu_enabled(void) {
+int mpu_enabled(void) {
 #if __MPU_PRESENT
     return (MPU->CTRL & MPU_CTRL_ENABLE_Msk) != 0;
 #else
-    return false;
+    return 0;
 #endif
 }
 
@@ -106,7 +106,7 @@ int mpu_configure_from_LUT(uint32_t* LUT)
 #if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
     return -1;
 #endif
-	// Enable MPU
+	// Enable MPU with PRIVDEFENA
 	mpu_enable();
 	__ISB();
 	__DSB();

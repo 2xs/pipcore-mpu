@@ -40,7 +40,6 @@
 #define __MAL__
 #include "ADT.h"
 
-#include <stdbool.h>
 #include <stddef.h>
 
 

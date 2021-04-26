@@ -40,9 +40,14 @@
 #define ADT_H
 
 #include <stdint.h>
-#include <stdbool.h>
 #include <stddef.h>
 #include "userconstants.h"
+
+/* bool */
+typedef uint32_t boolean;
+#define true    1
+#define false   0
+#define bool boolean
 
 /* Paddr */
 typedef uint32_t* paddr;

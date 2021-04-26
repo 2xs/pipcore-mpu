@@ -8,7 +8,7 @@ MEMORY
 
 
 
-OUTPUT_FORMAT("elf32-littlearm", "elf32-littlearm", "elf32-littlearm")
+OUTPUT_FORMAT("elf32-littlearm")
 OUTPUT_ARCH(arm)
 
 /*ENTRY(Reset_Handler) /*int_vector*/
@@ -161,6 +161,7 @@ SECTIONS
     } > RAM
 
     /* USER SECTION */
+    . = ALIGN(32); /* Align to MPU region grain */
     user_mem_start = .;
     user_mem_end = _eram;
 

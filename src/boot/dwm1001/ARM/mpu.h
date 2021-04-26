@@ -21,7 +21,6 @@
 #ifndef MPU_H
 #define MPU_H
 
-#include <stdbool.h>
 #include <stdint.h>
 #include "nrf52.h"
 #include "core_cm4.h"
@@ -150,7 +149,7 @@ int mpu_enable(void);
  * @return true if enabled
  * @return false if disabled
  */
-bool mpu_enabled(void);
+int mpu_enabled(void);
 
 /**
  * @brief configure the base address and attributes for an MPU region
