@@ -1,6 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/stat.h>
 #include "maldefines.h"
 #include "nrf52.h"
 #include "core_cm4.h"
@@ -30,14 +28,6 @@ extern uint32_t user_mem_end;
  */
 int main (int argc, char* argv[])
 {
-  // Check the MPU
-  if (checkMPU()<0)
-  {
-    // the check doesn't pass, panic since Pip relies on the MPU
-    printf("DEBUG: (kernel) MPU ERROR");
-    while(1);
-  }
-
 	/* Initialize the root partition */
 	mal_init();
 

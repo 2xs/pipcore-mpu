@@ -88,6 +88,9 @@ extern int
 main (int argc, char* argv[]);
 //void main(void);
 
+extern int
+main_test (int argc, char* argv[]);
+
 // The implementation for the exit routine; for embedded
 // applications, a system reset will be performed.
 /*extern void
@@ -209,8 +212,11 @@ _start (void)
 
   // Call the main entry point, and save the exit code.
   //int code = main (argc, argv);
+#if defined UNIT_TESTS
+  int code = main_test (0, NULL); // Pip test main
+#else
   int code = main (0, NULL); // Pip main
-  //main();
+#endif // UNIT_TESTS
 
   //_exit (code);
 

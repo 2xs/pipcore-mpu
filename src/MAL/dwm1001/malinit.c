@@ -53,6 +53,7 @@
 
 #include "Internal.h"
 #include "mal.h"
+#include "pip_debug.h"
 
 /* TODO: implement self debug */
 /**
@@ -133,6 +134,16 @@ void mal_init_root_part(paddr part)
 	writePDNbPrepare(part, 1);
 
 	// add user memory block(s)
+#if defined UNIT_TESTS
+	// One RAM block for unit testing
+	paddr mpuentryaddr_ram = insertNewEntry(part, user_alloc_pos, &user_mem_end, user_alloc_pos);// idpartition, start, end, origin
+
+	// Pre-configure the MPU LUT with inserted block(s)
+	PDTable_t* PDT = (PDTable_t*) part;
+	PDT->blocks[0] = (MPUEntry_t*) mpuentryaddr_ram;
+	configure_LUT_entry(PDT->LUT, 0, mpuentryaddr_ram);
+#else
+	// One FLASH block and one RAM block
 	//paddr mpuentryaddr = insertNewEntry(part, user_alloc_pos, &user_mem_end, user_alloc_pos);// idpartition, start, end, origin
 	paddr mpuentryaddr_flash = insertNewEntry(part, 0,  fit_mpu_region(0x1FFFFFFF) - 1, 0);
 	paddr mpuentryaddr_ram = insertNewEntry(part, &_sram, fit_mpu_region(&user_mem_end) - 1, &_sram);
@@ -142,7 +153,7 @@ void mal_init_root_part(paddr part)
 	PDT->blocks[1] = (MPUEntry_t*) mpuentryaddr_ram;
 	configure_LUT_entry(PDT->LUT, 0, mpuentryaddr_flash);
 	configure_LUT_entry(PDT->LUT, 1, mpuentryaddr_ram);
-
+#endif // UNIT_TESTS
 	//DEBUG(TRACE, "mal_init_root_part( part=%08x) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
 	printf("mal_init_root_part( part=%08x) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
 
@@ -184,6 +195,14 @@ void mal_init_global_var(void)
 
 void mal_init(void)
 {
+	// Check the MPU
+	if (checkMPU()<0)
+	{
+		// the check didnt pass, panic since Pip relies on the MPU
+		printf("DEBUG: (kernel) MPU ERROR");
+		while(1);
+	}
+
 	mal_init_global_var();
 	//unsigned *part;
 	paddr part;

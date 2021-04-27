@@ -8,6 +8,9 @@ UART_DEBUG ?= no
 # Semihosting DEBUG
 SEMI_DEBUG ?= yes
 
+# UNIT TESTS
+UNIT_TESTS ?= yes
+
 # LINKER VARIABLES
 TARGET = dwm1001
 BUILD_DIR=build
@@ -44,6 +47,10 @@ endif
 ifeq ($(UART_DEBUG), yes)
 # debug through UART
 CFLAGS += -DDEBUG_UART -Isrc/boot/dwm1001/ARM/uart # debug through UART
+endif
+ifeq ($(UNIT_TESTS), yes)
+# check the unit tests
+CFLAGS += -DUNIT_TESTS
 endif
 #CFLAGS += -fmessage-length=0
 #CFLAGS += -ffunction-sections
