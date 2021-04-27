@@ -75,11 +75,12 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
         printf("%-10x\r\n",
                                                 entry->inChildLocation);*/
 
+        paddr mpuentryadddr = kernel_structure_start_addr + i*mpuentrylength;
         paddr sh1entryadddr = kernel_structure_start_addr + sh1offset + i*sh1entrylength;
         printf("%x:SH1\t%-10x|%-1u|%-10x\r\n",  sh1entryadddr,
-                                                readSh1PDChildFromMPUEntryAddr(sh1entryadddr),
-                                                readSh1PDFlagFromMPUEntryAddr(sh1entryadddr),
-                                                readSh1InChildLocationFromMPUEntryAddr(sh1entryadddr));
+                                                readSh1PDChildFromMPUEntryAddr(mpuentryadddr),
+                                                readSh1PDFlagFromMPUEntryAddr(mpuentryadddr),
+                                                readSh1InChildLocationFromMPUEntryAddr(mpuentryadddr));
     }
     printf("\r\n----------SC---------------------------\r\n");
     for (int i=0;i<kernelstructureentriesnb;i++)
@@ -90,10 +91,12 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
                                                 entry->origin);
         printf("%-10x\r\n",
                                                 entry->next);*/
+
+        paddr mpuentryadddr = kernel_structure_start_addr + i*mpuentrylength;
         paddr scentryadddr = kernel_structure_start_addr + scoffset + i*scentrylength;
         printf("%x:SC\t%-10x|%-1u|%-10x\r\n",  scentryadddr,
-                                                readSCOriginFromMPUEntryAddr(scentryadddr),
-                                                readSCNextFromMPUEntryAddr(scentryadddr));
+                                                readSCOriginFromMPUEntryAddr(mpuentryadddr),
+                                                readSCNextFromMPUEntryAddr(mpuentryadddr));
     }
 
     printf("\r\n----------next = %x----------------------\r\n", *(kernel_structure_start_addr + nextoffset));
