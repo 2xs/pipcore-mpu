@@ -1242,6 +1242,7 @@ Definition initStructure (kernelStructureStartAddr kernelStructureEndAddr: paddr
 	initMPUStructure kernelStructureStartAddr ;;
 	initSh1Structure kernelStructureStartAddr ;;
 	initSCStructure kernelStructureStartAddr ;;
+	writeNextFromKernelStructureStart kernelStructureStartAddr nullAddr ;;
 	ret true.
 (*
 def __delete_shared_blocks_rec(self, current_MPU_kernel_structure, idPDchildToDelete):
