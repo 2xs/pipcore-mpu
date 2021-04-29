@@ -47,6 +47,7 @@
 void activate(paddr dir);
 
 /* Current page directory */
+extern paddr root_partition;
 paddr getCurPartition(void); //!< Interface to get the current Page Directory
 void updateCurPartition (paddr descriptor);
 
@@ -136,7 +137,7 @@ uint32_t powlog2(uint32_t v);
 paddr getNullAddr(void); //!< Returns the default null address.
 bool beqAddr(paddr a, paddr b); //!< Compare two addresses
 bool beqIdx(uint32_t a, uint32_t b); //!< Compare two indexes
-paddr addPaddrIdx(paddr a, uint32_t b); //!< adds an offset to a paddr
+paddr addPaddrIdxBytes(paddr a, uint32_t b); //!< adds an offset to a paddr
 uint32_t subPaddr(paddr a, paddr b); //!< substracts the first paddr to the second.
 bool lebPaddr(const paddr a, const paddr b); //!< the first parameter is less than or equal to the second one.
 paddr predPaddr(paddr a); //!< decrements the given address.

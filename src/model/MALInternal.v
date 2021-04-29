@@ -58,13 +58,6 @@ then
   ret (Build_paddr ipred _ )
 else  undefined 69.
 
-Program Definition addPaddr (n : paddr) (m: paddr) : LLI paddr :=
-let res := n+m in
-if (lt_dec res maxAddr )
-then
-  ret (Build_paddr res _ )
-else  undefined 71.
-
 Program Definition addPaddrIdx (n : paddr) (m: index) : LLI paddr :=
 let res := n+m in
 if (lt_dec res maxAddr )

@@ -82,18 +82,18 @@ extern uint32_t user_mem_end;
 
 extern uint32_t _sram;
 
-static uint32_t* user_alloc_pos = &user_mem_start;
+static uint32_t* user_alloc_pos = NULL;
 
 /* Root partition initialisation.
  * All this code will run at startup.
  */
 static paddr mal_create_root_part(void)
 {
-	uint32_t PD_SIZE = PDSTRUCTURETOTALLENGTH();//already MPU sized
+	uint32_t PD_SIZE = PDSTRUCTURETOTALLENGTH();//already MPU sized, in bytes
 	paddr part = user_alloc_pos;
 	//  # init PD root partition: zero the block + fill in [0; PD length]
-	while (user_alloc_pos < (part + PD_SIZE))// defined as bigger than minimal MPU region size
-		*user_alloc_pos++ = 0;
+	user_alloc_pos = (uint32_t*) ((uint8_t*) user_alloc_pos + PD_SIZE); // PD_SIZE is in bytes
+	eraseBlock(part, user_alloc_pos);
 
 	// Cast to PDTable_t structure
 	PDTable_t* pdtable = (PDTable_t*) part;
@@ -106,12 +106,13 @@ static paddr mal_create_root_part(void)
 */
 void mal_init_root_part(paddr part)
 {
-	uint32_t KS_SIZE = KERNELSTRUCTURETOTALLENGTH();//already MPU sized
+	uint32_t KS_SIZE = KERNELSTRUCTURETOTALLENGTH();//already MPU sized, in bytes
 	paddr kstructure = user_alloc_pos;
+	user_alloc_pos = (uint32_t*) ((uint8_t*) user_alloc_pos + KS_SIZE); // KS_SIZE is in bytes
 
 	//  # init structure kernel of root partition: zero the block + fill in [0; kernel length]
-	while (user_alloc_pos < (kstructure + KS_SIZE))// TODO: defined as bigger than minimal MPU region size
-		*user_alloc_pos++ = 0;
+	/*while (user_alloc_pos < (kstructure + KS_SIZE))// TODO: defined as bigger than minimal MPU region size
+		*user_alloc_pos++ = 0;*/
 
 	//*kstructure = getEmptyKernelStructure();
 
@@ -120,6 +121,7 @@ void mal_init_root_part(paddr part)
 	if (!isRootPrepared)
 		PANIC("Root partition kernel structure init failed!\r\n");*/
 
+	//  init structure kernel of root partition: zero the block + fill in [0; kernel length]
 	if (!initStructure(kstructure, user_alloc_pos))// TODO: defined as bigger than minimal MPU region size)
 	{
 		printf("mal_init_root_part( part=%08x) : couldn't initialise structure\r\n", part);
@@ -145,8 +147,8 @@ void mal_init_root_part(paddr part)
 #else
 	// One FLASH block and one RAM block
 	//paddr mpuentryaddr = insertNewEntry(part, user_alloc_pos, &user_mem_end, user_alloc_pos);// idpartition, start, end, origin
-	paddr mpuentryaddr_flash = insertNewEntry(part, 0,  fit_mpu_region(0x1FFFFFFF) - 1, 0);
-	paddr mpuentryaddr_ram = insertNewEntry(part, &_sram, fit_mpu_region(&user_mem_end) - 1, &_sram);
+	paddr mpuentryaddr_flash = insertNewEntry(part, 0,  0x1FFFFFFF, 0);
+	paddr mpuentryaddr_ram = insertNewEntry(part, &_sram, &user_mem_end, &_sram);
 	// Pre-configure the MPU LUT with inserted block(s)
 	PDTable_t* PDT = (PDTable_t*) part;
 	PDT->blocks[0] = (MPUEntry_t*) mpuentryaddr_flash;
@@ -182,6 +184,7 @@ void mal_init_root_part(paddr part)
 
 void mal_init_global_var(void)
 {
+	user_alloc_pos = &user_mem_start;
 	kernelstructureentriesnb = KERNELSTRUCTUREENTRIESNB();
 	mpuentrylength = MPUENTRYLENGTH();
 	sh1entrylength = SH1ENTRYLENGTH();
@@ -190,7 +193,7 @@ void mal_init_global_var(void)
 	sh1offset = SH1OFFSET();
 	scoffset = SCOFFSET();
 	nextoffset = NEXTOFFSET();
-	min_mpu_region = MINBLOCKSIZE();
+	min_mpu_region = MINBLOCKSIZE() << 2; // block is in words
 }
 
 void mal_init(void)

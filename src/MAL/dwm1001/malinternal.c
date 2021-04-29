@@ -287,7 +287,7 @@ uint32_t NEXTOFFSET(void)
  */
 paddr getKernelStructureStartAddr(paddr mpuentryaddr, uint32_t mpuentryindex)
 {
-	return mpuentryaddr-(mpuentryindex*mpuentrylength); // TODO: Over/underflow ?
+	return (paddr) ((uint8_t*) mpuentryaddr-(mpuentryindex*mpuentrylength)); // TODO: Over/underflow ?
 }
 
 /*!
@@ -299,7 +299,7 @@ paddr getKernelStructureStartAddr(paddr mpuentryaddr, uint32_t mpuentryindex)
  */
 paddr getMPUEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
 {
-	return kernelstartaddr + mpuoffset + (mpuentryindex*mpuentrylength); // TODO: Over/underflow ?
+	return (paddr) ((uint8_t*) kernelstartaddr + mpuoffset + (mpuentryindex*mpuentrylength)); // TODO: Over/underflow ?
 }
 
 /*!
@@ -311,7 +311,7 @@ paddr getMPUEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mp
  */
 paddr getSh1EntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
 {
-	return kernelstartaddr + sh1offset + (mpuentryindex*sh1entrylength); // TODO: Over/underflow ?
+	return (paddr) ((uint8_t*) kernelstartaddr + sh1offset + (mpuentryindex*sh1entrylength)); // TODO: Over/underflow ?
 }
 
 /*!
@@ -323,7 +323,7 @@ paddr getSh1EntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mp
  */
 paddr getSCEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
 {
-	return kernelstartaddr + scoffset + (mpuentryindex*scentrylength); // TODO: Over/underflow ?
+	return (paddr) ((uint8_t*) kernelstartaddr + scoffset + (mpuentryindex*scentrylength)); // TODO: Over/underflow ?
 }
 
 /*!
@@ -334,7 +334,7 @@ paddr getSCEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpu
  */
 paddr* getNextAddrFromKernelStructureStart(paddr kernelstartaddr)
 {
-	return (paddr*) kernelstartaddr + nextoffset;
+	return (paddr*) (kernelstartaddr + nextoffset);
 }
 
 /*!
@@ -376,8 +376,8 @@ uint32_t powlog2(uint32_t v)
 
 /*!
  * \fn uint32_t getMinBlockSize(void)
- * \brief Returns the minimum size of a block (MPU constraint).
- * \return The minimum size of an MPU block.
+ * \brief Returns the minimum size of a block in bytes (MPU region constraint).
+ * \return The minimum size in bytes of an MPU region.
  */
 uint32_t MINBLOCKSIZE(void)
 {
@@ -387,7 +387,7 @@ uint32_t MINBLOCKSIZE(void)
 /*!
  * \fn uint32_t PDSTRUCTURETOTALLENGTH(void)
  * \brief Returns the size of a PD structure expanded to fill an MPU region.
- * \return The size of a PD structure (matching a power of 2).
+ * \return The size in bytes of a PD structure (matching a power of 2).
  */
 uint32_t PDSTRUCTURETOTALLENGTH(void)
 {
@@ -397,7 +397,7 @@ uint32_t PDSTRUCTURETOTALLENGTH(void)
 /*!
  * \fn uint32_t KERNELSTRUCTURETOTALLENGTH(void)
  * \brief Returns the size of a kernel structure expanded to fill an MPU region.
- * \return The size of a kernel structure (matching a power of 2).
+ * \return The size in bytes of a kernel structure (matching a power of 2).
  */
 uint32_t KERNELSTRUCTURETOTALLENGTH(void)
 {
@@ -407,8 +407,8 @@ uint32_t KERNELSTRUCTURETOTALLENGTH(void)
 
 /*!
  * \fn uint32_t fit_mpu_region(uint32_t block_size)
- * \brief  	Adapts to the MPU region size constraints
- * \param v The original size of the memory block
+ * \brief  	Adapts to the MPU region size constraints (in bytes)
+ * \param block_size The original size in bytes of the memory block
  * \return The next highest power of 2 of the given block size,
  			or the minimim MPU region size if too small.
  */
@@ -469,13 +469,15 @@ bool lebPaddr(const paddr a, const paddr b)
 }
 
 /*!
- * \fn paddr addPaddrIdx(paddr a, uint32_t b)
- * \brief adds an offset to a paddr
+ * \fn paddr addPaddrIdxBytes(paddr a, uint32_t b)
+ * \brief adds an offset in bytes to a paddr
+ * \param a Address to offset
+ * \param b the offset in bytes
  * \return the offseted address.
  */
-paddr addPaddrIdx(paddr a, uint32_t b)
+paddr addPaddrIdxBytes(paddr a, uint32_t b)
 {
-	return a + b;
+	return (paddr) ((uint8_t*) a + b);
 }
 
 /*!

@@ -51,7 +51,7 @@
 #define Constants_sh1offset sh1offset
 #define Constants_scoffset scoffset
 #define Constants_nextoffset nextoffset
-#define Constants_rootPart 0
+#define Constants_rootPart root_partition
 
 /* ADT structure */
 #define coq_PDTable PDTable_t
@@ -61,10 +61,9 @@
 
 /* MALInternals */
 #define Paddr_leb lebPaddr
-#define Paddr_addPaddr addPaddr
 #define Paddr_subPaddr subPaddr
 #define Paddr_pred predPaddr
-#define Paddr_addPaddrIdx addPaddrIdx
+#define Paddr_addPaddrIdx addPaddrIdxBytes
 
 #define index uint32_t
 #define Index_succ      inc

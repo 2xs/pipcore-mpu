@@ -55,7 +55,7 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
                                                 entry->accessible);
         printf("%-1u\r\n",
                                                 entry->present);*/
-        paddr mpuentryadddr = kernel_structure_start_addr + i*mpuentrylength;
+        paddr mpuentryadddr = (paddr) ((uint8_t*) kernel_structure_start_addr + i*mpuentrylength);
         printf("%x:%-1d:MPU\t%-10x|%-10x|%-1u|%-1u\r\n",    mpuentryadddr,
                                                             readMPUIndexFromMPUEntryAddr(mpuentryadddr),
                                                             readMPUStartFromMPUEntryAddr(mpuentryadddr),
@@ -75,8 +75,8 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
         printf("%-10x\r\n",
                                                 entry->inChildLocation);*/
 
-        paddr mpuentryadddr = kernel_structure_start_addr + i*mpuentrylength;
-        paddr sh1entryadddr = kernel_structure_start_addr + sh1offset + i*sh1entrylength;
+        paddr mpuentryadddr = (paddr) ((uint8_t*) kernel_structure_start_addr + i*mpuentrylength);
+        paddr sh1entryadddr = (paddr) ((uint8_t*) kernel_structure_start_addr + sh1offset + i*sh1entrylength);
         printf("%x:SH1\t%-10x|%-1u|%-10x\r\n",  sh1entryadddr,
                                                 readSh1PDChildFromMPUEntryAddr(mpuentryadddr),
                                                 readSh1PDFlagFromMPUEntryAddr(mpuentryadddr),
@@ -92,14 +92,14 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
         printf("%-10x\r\n",
                                                 entry->next);*/
 
-        paddr mpuentryadddr = kernel_structure_start_addr + i*mpuentrylength;
-        paddr scentryadddr = kernel_structure_start_addr + scoffset + i*scentrylength;
-        printf("%x:SC\t%-10x|%-1u|%-10x\r\n",  scentryadddr,
+        paddr mpuentryadddr = (paddr) ((uint8_t*) kernel_structure_start_addr + i*mpuentrylength);
+        paddr scentryadddr = (paddr) ((uint8_t*) kernel_structure_start_addr + scoffset + i*scentrylength);
+        printf("%x:SC\t%-10x|%-10x\r\n",  scentryadddr,
                                                 readSCOriginFromMPUEntryAddr(mpuentryadddr),
                                                 readSCNextFromMPUEntryAddr(mpuentryadddr));
     }
 
-    printf("\r\n----------next = %x----------------------\r\n", *(kernel_structure_start_addr + nextoffset));
+    printf("\r\n----------next = %x----------------------\r\n", *((paddr) ((uint8_t*) kernel_structure_start_addr + nextoffset)));
 
 }
 
