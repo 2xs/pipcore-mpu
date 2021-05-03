@@ -439,13 +439,13 @@ bool beqIdx(uint32_t a, uint32_t b)
 }
 
 /*!
- * \fn paddr subPaddr(paddr a, paddr b)
+ * \fn uint32_t subPaddr(paddr a, paddr b)
  * \brief substracts the first paddr to the second.
  * \return the result of the substraction.
  */
 uint32_t subPaddr(paddr a, paddr b)
 {
-	return a-b;
+	return (uint8_t*) a - (uint8_t*) b;
 }
 
 /*!

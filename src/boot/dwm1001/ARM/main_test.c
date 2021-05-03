@@ -16,17 +16,36 @@ paddr initial_block_start = NULL;
 paddr initial_block_end = NULL;
 extern uint32_t kernelstructureentriesnb;
 
+/*!
+ * \fn void init_tests()
+ * \brief Resets to the after-startup state
+ */
 void init_tests(){
 	/* Initialize the root partition */
 	mal_init();
 
   root = getRootPartition();
-  dump_partition(root);
+  //dump_partition(root);
   activate(root);
 }
 
 
 // COMMON ASSERTIONS
+/*!
+ * \fn void MPU_structure_is_empty(paddr kernel_structure_start)
+ * \brief Check that no slot in the MPU of kernel structure <kernel_structure_start> is used by checking the
+ * present flag
+ */
+void MPU_structure_is_empty(paddr kernel_structure_start)
+{
+  for(int i = 0 ; i < kernelstructureentriesnb ; i++)
+  {
+    assert(
+        readMPUPresentFromMPUEntryAddr((paddr) ((uint8_t*) kernel_structure_start + i*mpuentrylength)) ==
+        false
+    );
+  }
+}
 
 /*!
  * \fn void remaining_MPU_slots_form_a_linked_list(uint32_t start_index, uint32_t end_index, paddr kernel_structure_start)
@@ -48,16 +67,16 @@ void remaining_MPU_slots_form_a_linked_list(uint32_t start_index, uint32_t end_i
 
   paddr empty_block_MPU_entry = (paddr) ((uint8_t*) kernel_structure_start + end_index * mpuentrylength);
   assert(readMPUIndexFromMPUEntryAddr(empty_block_MPU_entry) == end_index);
-  assert(readMPUStartFromMPUEntryAddr(empty_block_MPU_entry) == 0);
-  assert(readMPUEndFromMPUEntryAddr(empty_block_MPU_entry) == 0);
+  assert(readMPUStartFromMPUEntryAddr(empty_block_MPU_entry) == NULL);
+  assert(readMPUEndFromMPUEntryAddr(empty_block_MPU_entry) == NULL);
   assert(readMPUAccessibleFromMPUEntryAddr(empty_block_MPU_entry) == false);
   assert(readMPUPresentFromMPUEntryAddr(empty_block_MPU_entry) == false);
 }
 
 /*!
- * \fn void remaining_MPU_slots_form_a_linked_list(uint32_t start_index, uint32_t end_index, paddr kernel_structure_start)
+ * \fn void remaining_Sh1_slots_are_default(uint32_t start_index, uint32_t end_index, paddr kernel_structure_start)
  * \brief Tests that the whole Sh1 structure from <start_index> to <end_index> is default
-  All entries should be [PDchild=0, PDflag=False, inChildLocation=0]
+ * All entries should be [PDchild=0, PDflag=False, inChildLocation=0]
  */
 void remaining_Sh1_slots_are_default(uint32_t start_index, uint32_t end_index, paddr kernel_structure_start)
 {
@@ -71,7 +90,7 @@ void remaining_Sh1_slots_are_default(uint32_t start_index, uint32_t end_index, p
 }
 
 /*!
- * \fn void remaining_MPU_slots_form_a_linked_list(uint32_t start_index, uint32_t end_index, paddr kernel_structure_start)
+ * \fn void Sh1_structure_is_default(paddr kernel_structure_start)
  * \brief Tests that the whole Sh1 structure is default
   All entries should be [PDchild=0, PDflag=False, inChildLocation=0]
  */
@@ -81,9 +100,9 @@ void Sh1_structure_is_default(paddr kernel_structure_start)
 }
 
 /*!
- * \fn void remaining_MPU_slots_form_a_linked_list(uint32_t start_index, uint32_t end_index, paddr kernel_structure_start)
+ * \fn void remaining_SC_slots_are_default(uint32_t start_index, uint32_t end_index, paddr kernel_structure_start)
  * \brief Tests that the SC structure from <start_index> to <end_index> is default
-  All entries should be [origin=0, next=0]
+ *  All entries should be [origin=0, next=0]
  */
 void remaining_SC_slots_are_default(uint32_t start_index, uint32_t end_index, paddr kernel_structure_start)
 {
@@ -96,9 +115,9 @@ void remaining_SC_slots_are_default(uint32_t start_index, uint32_t end_index, pa
 }
 
 /*!
- * \fn void remaining_MPU_slots_form_a_linked_list(uint32_t start_index, uint32_t end_index, paddr kernel_structure_start)
+ * \fn void SC_structure_is_default(paddr kernel_structure_start)
  * \brief Tests that the whole SC structure is default
-  All entries should be [origin=0, next=0]
+ * All entries should be [origin=0, next=0]
  */
 void SC_structure_is_default(paddr kernel_structure_start)
 {
@@ -250,6 +269,227 @@ void test_initial_root()
   test_initial_root_MPU_values();
   test_initial_root_Sh1_values();
   test_initial_root_SC_values();
+}
+
+// TESTS SET UP FONCTIONS
+paddr child_partition_pd;
+paddr block_create_child_MPU_root_address;
+paddr block_prepare_child_id;
+paddr block_prepare_child_MPU_root_address;
+paddr block_to_share_id;
+paddr block_to_share_MPU_root_address;
+paddr block_to_share_MPU_child_address;
+paddr grandchild_partition_pd;
+paddr block_create_grandchild_MPU_child_address;
+paddr block_prepare_grandchild_id;
+paddr block_prepare_grandchild_MPU_child_address;
+paddr block_to_share_child_MPU_address;
+paddr block_to_share_MPU_grandchild_address;
+
+/*!
+ * \fn void build_create_child_block_out_of_initial_block()
+ * \brief
+  Build a block which shall be used as a child partition PD
+ */
+void build_create_child_block_out_of_initial_block()
+{ // build block create -> block create = first block already existing
+  child_partition_pd = (paddr) ((uint8_t*)initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 40);
+  block_create_child_MPU_root_address = cutMemoryBlock(initial_block_start,
+                                                                      child_partition_pd);
+
+  // block_create_child_MPU_root_address = readPDStructurePointer(
+  //     current_partition)
+  assert(block_create_child_MPU_root_address != false);
+}
+/*!
+ * \fn void build_prepare_child_block_out_of_initial_block()
+ * \brief  Build a block which shall be used to prepare a child partition
+ */
+void build_prepare_child_block_out_of_initial_block()
+{ // build block prepare
+  block_prepare_child_id = (paddr) ((uint8_t*)initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 25);
+  block_prepare_child_MPU_root_address = cutMemoryBlock(initial_block_start, block_prepare_child_id);
+  assert(block_prepare_child_MPU_root_address != false);
+}
+
+/*!
+ * \fn void build_share_block_out_of_initial_block()
+ * \brief  Build a block which shall be used to be shared with a child partition
+ * Size = (block_create_start + KERNELSTRUCTURETOTALLENGTH()) -> (block_prepare_start = block_create_start + KERNELSTRUCTURETOTALLENGTH() * 30)
+ */
+void build_share_block_out_of_initial_block()
+{
+  // build block to share
+  block_to_share_id = (paddr) ((uint8_t*)initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 15);
+  block_to_share_MPU_root_address = cutMemoryBlock(initial_block_start, block_to_share_id);
+  assert(block_to_share_MPU_root_address != false);
+}
+
+/*!
+ * \fn void init_test_with_create_without_prepare_child(standalone=true)
+ * \brief  Init with a child partition without prepare
+ * Can be used in standalone mode (to test with a sole child partition creation) or in combination with other
+ * init_tests functions in such case they are responsible to cut the block at first (can't cut once block are
+ * created or prepared)
+ * \param standalone: pre-treatment by default cuts the initial block to be used, otherwise avoid this operation
+ */
+void init_test_with_create_without_prepare_child(int standalone)
+{
+  if (standalone)
+  {
+      build_create_child_block_out_of_initial_block();
+  }
+  // Create child partition
+  assert(createPartition(child_partition_pd) != false);
+}
+
+/*!
+ * \fn void init_test_with_create_prepare_child(standalone=True)
+ * \brief  Init with a child partition and prepare it by cutting the initial block -> 1 block is left
+ *   Can be used in standalone mode (to test with a sole child partition creation + preparation) or in combination
+ *   with other init_tests functions in such case they are responsible to cut the block at first (can't cut once
+ *   block are created or prepared)
+ * :param standalone: pre-treatment by default cuts the initial block to be used, otherwise avoid this operation
+ */
+void init_test_with_create_prepare_child(int standalone)
+{
+  if (standalone)
+  {
+      // First cut the initial block
+      build_create_child_block_out_of_initial_block();
+      build_prepare_child_block_out_of_initial_block();
+  }
+
+  // create child partition
+  init_test_with_create_without_prepare_child(false);
+
+  // prepare child partition
+  assert(
+      prepare(child_partition_pd, 1, block_prepare_child_id) != false);
+}
+
+/*!
+ * \fn void init_test_with_create_prepare_share_child(standalone=True)
+ * \brief Create and prepare a child partition and add a shared block by cutting the initial block
+ * Can be used in standalone mode (to test with a sole child partition creation + preparation + share) or in
+ * combination with other init_tests functions in such case they are responsible to cut the block at first (can't
+ * cut once block are created or prepared)
+ * :param standalone: pre-treatment by default cuts the initial block to be used, otherwise avoid this operation
+ */
+void init_test_with_create_prepare_share_child(int standalone)
+{
+  if (standalone)
+  {
+      // First cut the initial block
+      build_create_child_block_out_of_initial_block();
+      build_prepare_child_block_out_of_initial_block();
+      build_share_block_out_of_initial_block();
+  }
+
+  // create and prepare child partition
+  init_test_with_create_prepare_child(false);
+
+  // add the shared block to the child
+  block_to_share_MPU_child_address = addMemoryBlock(child_partition_pd, block_to_share_id);
+  assert(block_to_share_MPU_child_address != false);
+}
+
+/*!
+ * \fn void build_create_grandchild_block()
+ * \brief  Build a block which shall be used as a grandchild partition PD
+ */
+void build_create_grandchild_block(paddr base_block)
+{ // build block grandchild create
+  grandchild_partition_pd = (paddr) ((uint8_t*) base_block + KERNELSTRUCTURETOTALLENGTH() * 4);
+  block_create_grandchild_MPU_child_address = cutMemoryBlock(base_block,
+                                                                            grandchild_partition_pd);
+  assert(block_create_grandchild_MPU_child_address != false);
+}
+
+/*!
+ * \fn void build_prepare_grandchild_block()
+ * \brief  Build a block which shall be used to prepare a grandchild partition
+ */
+void build_prepare_grandchild_block(paddr base_block)
+{
+  // build block grandchild prepare
+  block_prepare_grandchild_id = (paddr) ((uint8_t*) base_block + KERNELSTRUCTURETOTALLENGTH() * 2);
+  block_prepare_grandchild_MPU_child_address = cutMemoryBlock(base_block,
+                                                                            block_prepare_grandchild_id);
+  assert(block_prepare_grandchild_MPU_child_address != false);
+}
+
+/*!
+ * \fn void init_test_with_create_prepare_child_and_create_prepare_grandchild(standalone=True)
+ * \brief  Create a grandchild and prepare it
+  (= create and prepare a child partition + add a shared block by cutting the initial block
+  + create and prepare grandchild by cutting the shared block)
+  Can be used in standalone mode (to test with a sole child partition creation + preparation + share child
+  + grandchild creation + preparation) or in combination with other init_tests functions in such case they are
+  responsible to cut the block at first (can't cut once block are created or prepared)
+  :param standalone: pre-treatment by default cuts the initial block to be used, otherwise avoid this operation
+ */
+void init_test_with_create_prepare_child_and_create_prepare_grandchild(int standalone)
+{
+  if (standalone)
+  {
+      updateCurPartition(root);
+      // First cut the initial block to create and prepare  the child
+      build_create_child_block_out_of_initial_block();
+      build_prepare_child_block_out_of_initial_block();
+      build_share_block_out_of_initial_block();
+      // create and prepare child partition
+      init_test_with_create_prepare_share_child(false);
+      // Then cut the shared block to create and prepare the grandchild
+      updateCurPartition(child_partition_pd);
+      build_create_grandchild_block(block_to_share_id);
+      build_prepare_grandchild_block(block_to_share_id);
+      // block to share
+      block_to_share_child_MPU_address = readPDStructurePointer(getCurPartition());
+  }
+
+  updateCurPartition(child_partition_pd);
+
+  // create grandchild partition
+  assert(createPartition(grandchild_partition_pd) != false);
+  // prepare child partition
+  assert(prepare(grandchild_partition_pd, 1, block_prepare_grandchild_id) != false);
+}
+
+/*!
+ * \fn void init_test_with_create_prepare_child_and_create_prepare_share_grandchild(standalone=True)
+ * \brief   Child partition shares a block with the grandchild
+  (= create and prepare a child partition + create a grandchild and prepare it + share a block)
+  Can be used in standalone mode (to test with a sole child partition creation + preparation + share child +
+  grandchild creation + preparation + share grandchild) or in combination with other init_tests functions in such
+  case they are responsible to cut the block at first (can't cut once block are created or prepared)
+  :param standalone: pre-treatment by default cuts the initial block to be used, otherwise avoid this operation
+ */
+void init_test_with_create_prepare_child_and_create_prepare_share_grandchild(int standalone)
+{
+  if (standalone)
+  {
+      updateCurPartition(root);
+      // First cut the initial block to create and prepare  the child
+      build_create_child_block_out_of_initial_block();
+      build_prepare_child_block_out_of_initial_block();
+      build_share_block_out_of_initial_block();
+      // create and prepare child partition
+      init_test_with_create_prepare_share_child(false);
+      // Then cut the shared block to create and prepare the grandchild
+      updateCurPartition(child_partition_pd);
+      build_create_grandchild_block(block_to_share_id);
+      build_prepare_grandchild_block(block_to_share_id);
+  }
+  updateCurPartition(child_partition_pd);
+
+  // create and prepare child and grandchild partitions
+  init_test_with_create_prepare_child_and_create_prepare_grandchild(false);
+
+  // add the shared block to the grandchild
+  block_to_share_MPU_grandchild_address = addMemoryBlock(grandchild_partition_pd,
+                                                                        block_to_share_id);
+  assert(block_to_share_MPU_grandchild_address != false);
 }
 
 
@@ -434,7 +674,6 @@ void three_cuts_in_a_row(paddr cut_address1, paddr cut_address2, paddr cut_addre
  */
 void test_cut_max_free_slots_used()
 {
-
   paddr block1 = (paddr) ((uint8_t*) initial_block_start + KERNELSTRUCTURETOTALLENGTH()*30);
   paddr block2 = (paddr) ((uint8_t*) initial_block_start + KERNELSTRUCTURETOTALLENGTH()*29);
   paddr block3 = (paddr) ((uint8_t*) initial_block_start + KERNELSTRUCTURETOTALLENGTH()*28);
@@ -557,7 +796,7 @@ void test_cut_bad_arguments()
   assert(cutMemoryBlock((paddr) ((uint8_t*) initial_block_start + 0x3000), (paddr) ((uint8_t*) initial_block_start + 0x4000)) == 0);
 
   // Tests don't accept a cut address outside the block
-  assert(cutMemoryBlock(initial_block_start, 0) == 0);
+  assert(cutMemoryBlock(initial_block_start, 0x0) == 0);
   assert(cutMemoryBlock(initial_block_start, (paddr) ((uint8_t*) initial_block_start - 32)) == 0);
   assert(cutMemoryBlock(initial_block_start, (paddr) ((uint8_t*) initial_block_end + 32)) == 0);
 
@@ -589,7 +828,7 @@ void test_cut_6_cuts_in_a_row()
   cutMemoryBlock((paddr) ((uint8_t*) initial_block_start + 15 * KERNELSTRUCTURETOTALLENGTH()),
                           (paddr) ((uint8_t*) initial_block_start + 16 * KERNELSTRUCTURETOTALLENGTH()));
 
-  dump_partition(root_partition);
+  dump_partition(root);
 
   // Check the only free slot left is as expected
   paddr MPU_free_slot_entry = (paddr) ((uint8_t*) root_kernel_structure_start + 7*mpuentrylength);
@@ -653,6 +892,1981 @@ void test_cut()
   test_cut_fails_when_block_not_accessible();
 }
 
+// TEST CREATE PARTITION SYSTEM CALL
+
+/*!
+ * \fn void test_create_partition()
+ * \brief  Tests that a createPartition creates a new PD with the desired block and make it inaccessible to the ancestors
+ */
+void test_create_partition()
+{
+  // Check the block to become the PD of the child partition
+  assert(readMPUIndexFromMPUEntryAddr(root_kernel_structure_start) == false);
+  assert(readMPUStartFromMPUEntryAddr(root_kernel_structure_start) == initial_block_start);
+  assert(readMPUEndFromMPUEntryAddr(root_kernel_structure_start) == initial_block_end);
+  assert(readMPUAccessibleFromMPUEntryAddr(root_kernel_structure_start) == true);
+  assert(readMPUPresentFromMPUEntryAddr(root_kernel_structure_start) == true);
+
+  remaining_MPU_slots_form_a_linked_list(1, kernelstructureentriesnb - 1, root_kernel_structure_start);
+
+  assert(createPartition(initial_block_start) == true);
+  dump_ancestors(initial_block_start);
+
+  // Check init of new partition's PD is correct
+  assert(readPDStructurePointer(initial_block_start) == NULL);
+  assert(readPDNbFreeSlots(initial_block_start) == 0);
+  assert(readPDFirstFreeSlotPointer(initial_block_start) == NULL);
+  assert(readPDNbPrepare(initial_block_start) == 0);
+  assert(readPDParent(initial_block_start) == root);
+
+  // MPU structure: Check the block became inaccessible in the parent partition (root) + remaining untouched
+  assert(readMPUIndexFromMPUEntryAddr(root_kernel_structure_start) == 0);
+  assert(readMPUStartFromMPUEntryAddr(root_kernel_structure_start) == initial_block_start);
+  assert(readMPUEndFromMPUEntryAddr(root_kernel_structure_start) == initial_block_end);
+  assert(readMPUAccessibleFromMPUEntryAddr(root_kernel_structure_start) == false);
+  assert(readMPUPresentFromMPUEntryAddr(root_kernel_structure_start) == true);
+  remaining_MPU_slots_form_a_linked_list(1, kernelstructureentriesnb - 1, root_kernel_structure_start);
+
+  // Sh1 structure: check the block's PDflag is set + remaining untouched
+  assert(readSh1PDChildFromMPUEntryAddr(root_kernel_structure_start) == false);
+  assert(readSh1PDFlagFromMPUEntryAddr(root_kernel_structure_start) == 1);
+  assert(readSh1InChildLocationFromMPUEntryAddr(root_kernel_structure_start) == false);
+  remaining_Sh1_slots_are_default(1, kernelstructureentriesnb, root_kernel_structure_start);
+
+  // SC structure: untouched
+  assert(readSCOriginFromMPUEntryAddr(root_kernel_structure_start) == initial_block_start);
+  assert(readSCNextFromMPUEntryAddr(root_kernel_structure_start) == false);
+  remaining_Sh1_slots_are_default(1, kernelstructureentriesnb, root_kernel_structure_start);
+}
+
+/*!
+ * \fn void test_create_partitions_bad_arguments()
+ * \brief   Tests bad arguments should fail the system call
+ * Tests:
+ * - createPartition fails if feeded with a non existing block
+ * - createPartition fails if feeded with a block that have already been used to create a partition (not accessible);
+ * - createPartition fails if feeded with a block < minimum MPU region block: cut the initial block again and
+ * create a block of size 12 and tries to create a partition out of it
+ * - createPartition fails if feeded with a shared block
+ */
+void test_create_partitions_bad_arguments()
+{
+  paddr block1 = (paddr) ((uint8_t*) initial_block_start + 30*KERNELSTRUCTURETOTALLENGTH());
+  assert(
+      cutMemoryBlock(initial_block_start, block1) ==
+      (paddr) ((uint8_t*)root_kernel_structure_start + mpuentrylength));  // 2nd entry
+
+  // block not existing
+  assert(createPartition(initial_block_start + 1) == false);  // Fail
+
+  // block not accessible
+  assert(createPartition(block1) != false);
+  assert(createPartition(block1) == false);  // Fail
+
+  // block too small: block of size < minimum for a create
+  paddr block2 = (paddr) ((uint8_t*) initial_block_start + 25 * KERNELSTRUCTURETOTALLENGTH());
+  paddr block3 = (paddr) ((uint8_t*) initial_block_start + 25 * KERNELSTRUCTURETOTALLENGTH() + 12);  // too small block
+  assert(
+      cutMemoryBlock(initial_block_start, block2) ==
+      (paddr) ((uint8_t*) root_kernel_structure_start + 2*mpuentrylength)
+  );  // 3rd entry
+  assert(
+      cutMemoryBlock(block2, block3) ==
+      (paddr) ((uint8_t*) root_kernel_structure_start + 3*mpuentrylength)
+  );  // 4th entry
+  assert(createPartition(block2) == false);  // Fail
+
+  // block shared: prepare child partition and add a shared block
+  paddr block4 = (paddr) ((uint8_t*) initial_block_start + 20 * KERNELSTRUCTURETOTALLENGTH());
+  assert(cutMemoryBlock(initial_block_start, block4) != false);  // 5th entry
+  assert(prepare(block1, 8, block4) != false);
+  assert(addMemoryBlock(block1, block3) != false);
+  assert(createPartition(block3) == false);  // Fail
+}
+
+/*!
+ * \fn void test_create_sister_partitions()
+ * \brief Cuts 6 times = 6 created blocks + initial block + last free slot
+ * Each block becomes a PD of a sister partition except initial block and last entry (free slot)
+ */
+void test_create_sister_partitions()
+{
+  uint32_t cut_offset = PDSTRUCTURETOTALLENGTH() + 1;
+  assert(cutMemoryBlock(initial_block_start, initial_block_start + cut_offset) != false);
+  assert(cutMemoryBlock(initial_block_start + cut_offset, initial_block_start + 2*cut_offset) != false);
+  assert(cutMemoryBlock(initial_block_start + 2*cut_offset, initial_block_start + 3*cut_offset) != false);
+  assert(cutMemoryBlock(initial_block_start + 3*cut_offset, initial_block_start + 4*cut_offset) != false);
+  assert(cutMemoryBlock(initial_block_start + 4*cut_offset, initial_block_start + 5*cut_offset) != false);
+  assert(cutMemoryBlock(initial_block_start + 5*cut_offset, initial_block_start + 6*cut_offset) != false);
+
+  assert(createPartition(initial_block_start + cut_offset) != false);
+  assert(createPartition(initial_block_start + 2*cut_offset) != false);
+  assert(createPartition(initial_block_start + 3*cut_offset) != false);
+  assert(createPartition(initial_block_start + 4*cut_offset) != false);
+  assert(createPartition(initial_block_start + 5*cut_offset) != false);
+  assert(createPartition(initial_block_start + 6*cut_offset) != false);
+
+  dump_partition(root);
+
+  // Check the Sh1 structure
+  assert(readSh1PDChildFromMPUEntryAddr(root_kernel_structure_start) == NULL);
+  assert(readSh1PDFlagFromMPUEntryAddr(root_kernel_structure_start) == false); // untouched
+  assert(readSh1InChildLocationFromMPUEntryAddr(root_kernel_structure_start) == NULL);
+
+  paddr cut1_offset_Sh1_entry = (paddr) ((uint8_t*) root_kernel_structure_start + 1*mpuentrylength);
+  assert(readSh1PDChildFromMPUEntryAddr(cut1_offset_Sh1_entry) == NULL);
+  assert(readSh1PDFlagFromMPUEntryAddr(cut1_offset_Sh1_entry) == true);
+  assert(readSh1InChildLocationFromMPUEntryAddr(cut1_offset_Sh1_entry) == NULL);
+
+  paddr cut2_offset_Sh1_entry = (paddr) ((uint8_t*) root_kernel_structure_start + 2*mpuentrylength);
+  assert(readSh1PDChildFromMPUEntryAddr(cut2_offset_Sh1_entry) == NULL);
+  assert(readSh1PDFlagFromMPUEntryAddr(cut2_offset_Sh1_entry) == true);
+  assert(readSh1InChildLocationFromMPUEntryAddr(cut2_offset_Sh1_entry) == NULL);
+
+  paddr cut3_offset_Sh1_entry = (paddr) ((uint8_t*) root_kernel_structure_start + 3*mpuentrylength);
+  assert(readSh1PDChildFromMPUEntryAddr(cut3_offset_Sh1_entry) == NULL);
+  assert(readSh1PDFlagFromMPUEntryAddr(cut3_offset_Sh1_entry) == true);
+  assert(readSh1InChildLocationFromMPUEntryAddr(cut3_offset_Sh1_entry) == NULL);
+
+  paddr cut4_offset_Sh1_entry = (paddr) ((uint8_t*) root_kernel_structure_start + 4*mpuentrylength);
+  assert(readSh1PDChildFromMPUEntryAddr(cut4_offset_Sh1_entry) == NULL);
+  assert(readSh1PDFlagFromMPUEntryAddr(cut4_offset_Sh1_entry) == true);
+  assert(readSh1InChildLocationFromMPUEntryAddr(cut4_offset_Sh1_entry) == NULL);
+
+  paddr cut5_offset_Sh1_entry = (paddr) ((uint8_t*) root_kernel_structure_start + 5*mpuentrylength);
+  assert(readSh1PDChildFromMPUEntryAddr(cut5_offset_Sh1_entry) == NULL);
+  assert(readSh1PDFlagFromMPUEntryAddr(cut5_offset_Sh1_entry) == true);
+  assert(readSh1InChildLocationFromMPUEntryAddr(cut5_offset_Sh1_entry) == NULL);
+
+  paddr cut6_offset_Sh1_entry = (paddr) ((uint8_t*) root_kernel_structure_start + 6*mpuentrylength);
+  assert(readSh1PDChildFromMPUEntryAddr(cut6_offset_Sh1_entry) == NULL);
+  assert(readSh1PDFlagFromMPUEntryAddr(cut6_offset_Sh1_entry) == true);
+  assert(readSh1InChildLocationFromMPUEntryAddr(cut6_offset_Sh1_entry) == NULL);
+
+  paddr free_slot_Sh1_entry = (paddr) ((uint8_t*) root_kernel_structure_start + 7*mpuentrylength);
+  assert(readSh1PDChildFromMPUEntryAddr(free_slot_Sh1_entry) == NULL);
+  assert(readSh1PDFlagFromMPUEntryAddr(free_slot_Sh1_entry) == false); // untouched
+  assert(readSh1InChildLocationFromMPUEntryAddr(free_slot_Sh1_entry) == NULL);
+}
+
+/*!
+ * \fn void test_create()
+ * \brief Launches the tests of the createPartition system call
+ */
+void test_create()
+{
+  init_tests();
+  test_create_partition();
+
+  init_tests();
+  test_create_partitions_bad_arguments();
+
+  init_tests();
+  test_create_sister_partitions();
+}
+
+// TEST PREPARE SYSTEM CALL
+
+/*!
+ * \fn void prepare_test_generic(idPD, idBlockPrepare)
+ * \brief  Generic test for prepare
+ * Prepares the partition <idPD> (current partition or child partition) and checks that the concerned PD is updated
+ * as expected and checks the kernel structures are all default
+ */
+void prepare_test_generic(paddr idPD, paddr idBlockPrepare)
+{
+  paddr old_pointer_to_MPU_linked_list = readPDStructurePointer(idPD);
+  paddr old_first_free_slot_address = readPDFirstFreeSlotPointer(idPD);
+  uint32_t old_nb_free_slots = readPDNbFreeSlots(idPD);
+  uint32_t old_nb_prepare = readPDNbPrepare(idPD);
+  paddr old_parent = readPDParent(idPD);
+
+  assert(prepare(idPD, kernelstructureentriesnb, idBlockPrepare) != false);
+
+  // Check correct PD changes
+  assert(readPDStructurePointer(idPD) == idBlockPrepare);
+  assert(readPDNbFreeSlots(idPD) == (old_nb_free_slots + 8));  // initial free slots + prepare
+  assert(readPDFirstFreeSlotPointer(idPD) == idBlockPrepare);
+  assert(readPDNbPrepare(idPD) == (old_nb_prepare + 1));
+  assert(readPDParent(idPD) == old_parent);
+
+  // Check correct MPU init of prepare block
+  assert(readMPUIndexFromMPUEntryAddr(idBlockPrepare) == 0);
+  assert(readMPUStartFromMPUEntryAddr(idBlockPrepare) == NULL);
+  assert(readMPUEndFromMPUEntryAddr(idBlockPrepare) == ((paddr) ((uint8_t*) idBlockPrepare + 1 * mpuentrylength)));
+  assert(readMPUAccessibleFromMPUEntryAddr(idBlockPrepare) == false);
+  assert(readMPUPresentFromMPUEntryAddr(idBlockPrepare) == false);
+
+  for(int i = 1 ; i < kernelstructureentriesnb - 1 ; i++)
+  {
+      paddr empty_block_MPU_entry = (paddr) ((uint8_t*) idBlockPrepare + i * mpuentrylength);
+      // assert(empty_block_MPU_entry[1],
+      //                  idBlockPrepare + (i - 1) * mpuentrylength);
+      assert(readMPUIndexFromMPUEntryAddr(empty_block_MPU_entry) == i);
+      assert(readMPUStartFromMPUEntryAddr(empty_block_MPU_entry) == NULL);
+      assert(readMPUEndFromMPUEntryAddr(empty_block_MPU_entry) ==
+                                        ((paddr) ((uint8_t*) idBlockPrepare + (i + 1) * mpuentrylength)));
+      assert(readMPUAccessibleFromMPUEntryAddr(empty_block_MPU_entry) == false);
+      assert(readMPUPresentFromMPUEntryAddr(empty_block_MPU_entry) == false);
+  }
+
+  // Check that last (free) entry points to previous first free slot
+  paddr last_entry_address = (paddr) ((uint8_t*) idBlockPrepare + (kernelstructureentriesnb - 1) * mpuentrylength);
+  assert(readMPUIndexFromMPUEntryAddr(last_entry_address) == (kernelstructureentriesnb - 1));
+  assert(readMPUStartFromMPUEntryAddr(last_entry_address) == NULL);
+  assert(readMPUEndFromMPUEntryAddr(last_entry_address) == old_first_free_slot_address);
+  assert(readMPUAccessibleFromMPUEntryAddr(last_entry_address) == false);
+  assert(readMPUPresentFromMPUEntryAddr(last_entry_address) == false);
+
+  // Check that the previous first free slot points back to the last entry of the new structure
+  if (old_first_free_slot_address !=0)
+{     // if there was still at least one free slot before
+      assert(readMPUIndexFromMPUEntryAddr(old_first_free_slot_address) == 1);
+      assert(readMPUStartFromMPUEntryAddr(old_first_free_slot_address) == NULL);
+      assert(readMPUEndFromMPUEntryAddr(old_first_free_slot_address) ==
+                                        ((paddr) ((uint8_t*) old_first_free_slot_address + mpuentrylength)));
+      assert(readMPUAccessibleFromMPUEntryAddr(old_first_free_slot_address) == false);
+      assert(readMPUPresentFromMPUEntryAddr(old_first_free_slot_address) == false);
+  }
+  // Check that the new SC and Sh1 structures are default
+  Sh1_structure_is_default(readPDStructurePointer(idPD));
+  SC_structure_is_default(readPDStructurePointer(idPD));
+
+  // Check next pointer points to previous kernel structure
+  assert(readNextFromKernelStructureStart(idBlockPrepare) == old_pointer_to_MPU_linked_list);
+}
+
+/*!
+ * \fn void test_prepare_current_partition()
+ * \brief  Launches the generic test as the current partition and do a prepare on itself
+ */
+void test_prepare_current_partition()
+{
+  prepare_test_generic(getCurPartition(), initial_block_start);
+  // Check that the block is not marked as shared in the parent
+  assert(readSh1PDChildFromMPUEntryAddr(
+      readPDStructurePointer(getCurPartition())) ==
+                    NULL);
+}
+
+/*!
+ * \fn void test_prepare_child()
+ * \brief  Launches the generic test as the parent partition and do a prepare on one of its children
+ * First cut the initial block to create a partition out of it and prepare the child partition from the parent
+ * taking the initial block as new kernel structure for the child
+ */
+void test_prepare_child()
+{
+  // Cut initial block and create a child partition with the created block
+  paddr prepare_block_MPU_address = readPDStructurePointer(getCurPartition());
+  paddr id_child_pd = (paddr) ((uint8_t*) initial_block_start + 0x4096);
+  paddr child_pd_MPU_address = cutMemoryBlock(initial_block_start, id_child_pd);
+  assert(child_pd_MPU_address != false);
+  assert(createPartition(id_child_pd) != false);
+  dump_partition(root);
+  prepare_test_generic(id_child_pd, initial_block_start);
+  // Check that the block is marked as shared in the parent
+  assert(readSh1PDChildFromMPUEntryAddr(prepare_block_MPU_address) == id_child_pd);
+  dump_partition(root);
+}
+
+/*!
+ * \fn void test_prepare_planned_nb_slots_less_than_current_free_slots_nb()
+ * \brief Tests if prepare fails when there are enough free slots for the projected slots
+ */
+void test_prepare_planned_nb_slots_less_than_current_free_slots_nb()
+{
+  uint32_t current_nb_free_slots = readPDNbFreeSlots(root);
+  // Check a prepare fails if enough free slots
+  assert(prepare(root, current_nb_free_slots - 1, initial_block_start) == false);
+}
+
+/*!
+ * \fn void test_prepare_fails_when_reaching_max_nb_prepare()
+ * \brief  Tests if prepare fails when the partition reached the maximum number of allowed prepare
+ * Init: cut 8 blocks (including initial) + prepare 7 times
+ * Test:
+ *     - prepare should fail when reaching max number of prepare
+ */
+void test_prepare_fails_when_reaching_max_nb_prepare()
+{
+  // Init
+  paddr initial_block = initial_block_start;
+  paddr block1 = initial_block + 20 * KERNELSTRUCTURETOTALLENGTH();
+  paddr block2 = initial_block + 18 * KERNELSTRUCTURETOTALLENGTH();
+  paddr block3 = initial_block + 16 * KERNELSTRUCTURETOTALLENGTH();
+  paddr block4 = initial_block + 14 * KERNELSTRUCTURETOTALLENGTH();
+  paddr block5 = initial_block + 12 * KERNELSTRUCTURETOTALLENGTH();
+  paddr block6 = initial_block + 10 * KERNELSTRUCTURETOTALLENGTH();
+  paddr block7 = initial_block + 8 * KERNELSTRUCTURETOTALLENGTH();
+  // cut 8 blocks
+  assert(cutMemoryBlock(initial_block, block1) != false);
+  assert(cutMemoryBlock(initial_block, block2) != false);
+  assert(cutMemoryBlock(initial_block, block3) != false);
+  assert(cutMemoryBlock(initial_block, block4) != false);
+  assert(cutMemoryBlock(initial_block, block5) != false);
+  assert(cutMemoryBlock(initial_block, block6) != false);
+  assert(cutMemoryBlock(initial_block, block7) != false);
+  // prepare 7 times
+  assert(
+      prepare(getCurPartition(), kernelstructureentriesnb, initial_block) !=
+      false);
+  assert(
+      prepare(getCurPartition(), kernelstructureentriesnb, block1) != false);
+  assert(
+      prepare(getCurPartition(), kernelstructureentriesnb, block2) != false);
+  assert(
+      prepare(getCurPartition(), kernelstructureentriesnb, block3) != false);
+  assert(
+      prepare(getCurPartition(), kernelstructureentriesnb, block4) != false);
+  assert(
+      prepare(getCurPartition(), kernelstructureentriesnb, block5) != false);
+  assert(
+      prepare(getCurPartition(), kernelstructureentriesnb, block6) != false);
+
+  // Fail because max number of prepare reached
+  assert(prepare(getCurPartition(), kernelstructureentriesnb, block7) == false);
+}
+
+/*!
+ * \fn void test_prepare_bad_arguments()
+ * \brief  Tests that providing bad arguments fail
+ * Bad arguments:
+ * - projectedSlotsNb: too many projected slots
+ * - idPD: the provided PD is not the current partition or a child
+ * - idRequisitionedBlock: the block doesn't exist or is not accessible or is too small
+ */
+void test_prepare_bad_arguments()
+{
+  // Fail because too many projected slots
+  assert(prepare(root, kernelstructureentriesnb + 1, initial_block_start) == false);
+
+  // Fail because PD is neither the current partition or a child
+  assert(prepare((paddr) 0x1, kernelstructureentriesnb, initial_block_start) == false);
+
+  // Fail because the block given to hold the prepared structure doesn't exist
+  assert(prepare(root, kernelstructureentriesnb, initial_block_start - 0x100) == false);
+
+  // cut initial block in a small block and a huge block + create child partition with huge block
+  paddr small_block = initial_block_start;
+  paddr huge_block = (paddr) ((uint8_t*) initial_block_start + KERNELSTRUCTURETOTALLENGTH() - 0x100);
+  assert(cutMemoryBlock(small_block, huge_block) != false);
+  assert(createPartition(huge_block) != false);
+  // Fail because block used to prepare is inaccessible (PD of child partition);
+  assert(
+      prepare(getCurPartition(),
+                        kernelstructureentriesnb,
+                        huge_block)
+       == false
+  );
+  // Fail because block used to prepare is too small
+  assert(prepare(huge_block, kernelstructureentriesnb, small_block) == false);
+}
+
+/*!
+ * \fn void test_prepare()
+ * \brief Launches the tests of the prepare system call
+ */
+void test_prepare()
+{
+  init_tests();
+  test_prepare_current_partition();
+
+  init_tests();
+  test_prepare_child();
+
+  init_tests();
+  test_prepare_planned_nb_slots_less_than_current_free_slots_nb();
+
+  //init_tests();
+  //test_prepare_fails_when_reaching_max_nb_prepare();
+
+  init_tests();
+  test_prepare_bad_arguments();
+}
+
+
+
+// TEST ADD MEMORY BLOCK SYSTEM CALL
+
+/*!
+ * \fn void add_alone(fast=false)
+ * \brief  Adds a block to a child and the other to share with the child
+ * Tests that the add behaves according to expectations
+ * init_test creates a partition and prepares it. There is one block left <block_to_share_id>
+ */
+void add_alone(int fast)
+{
+  // Init 3 blocks (create, prepare, share) + create a child partition + prepare it
+  build_create_child_block_out_of_initial_block();
+  build_prepare_child_block_out_of_initial_block();
+  build_share_block_out_of_initial_block();
+  init_test_with_create_prepare_child(false);
+
+  // adding a block
+  paddr block_to_share_in_child_address = NULL;
+  if (fast)
+  {
+      block_to_share_in_child_address = addMemoryBlockFast(child_partition_pd,
+                                                                block_to_share_id,
+                                                                block_to_share_MPU_root_address);
+  }
+  else
+  {
+      block_to_share_in_child_address = addMemoryBlock(child_partition_pd,
+                                                                block_to_share_id);
+  }
+  assert(block_to_share_in_child_address != false);
+
+  dump_ancestors(child_partition_pd);
+
+  // Check the added block is still accessible from the current partition
+  assert(readMPUStartFromMPUEntryAddr(block_to_share_MPU_root_address) == block_to_share_id);
+  assert(readMPUEndFromMPUEntryAddr(block_to_share_MPU_root_address) == (block_prepare_child_id - 1));
+  assert(readMPUAccessibleFromMPUEntryAddr(block_to_share_MPU_root_address) == true);
+  assert(readMPUPresentFromMPUEntryAddr(block_to_share_MPU_root_address) == true);
+
+  // Check the added block marked shared with the child in the current partition
+  assert(readSh1PDChildFromMPUEntryAddr(block_to_share_MPU_root_address) == child_partition_pd);
+  assert(readSh1PDFlagFromMPUEntryAddr(block_to_share_MPU_root_address) == false);
+  assert(readSh1InChildLocationFromMPUEntryAddr(block_to_share_MPU_root_address) == block_to_share_in_child_address);
+
+  // Check the added block is in the child partition
+  assert(readMPUStartFromMPUEntryAddr(block_to_share_in_child_address) == readMPUStartFromMPUEntryAddr(block_to_share_MPU_root_address));
+  assert(readMPUEndFromMPUEntryAddr(block_to_share_in_child_address) == readMPUEndFromMPUEntryAddr(block_to_share_MPU_root_address));
+  assert(readMPUAccessibleFromMPUEntryAddr(block_to_share_in_child_address) == readMPUAccessibleFromMPUEntryAddr(block_to_share_MPU_root_address));
+  assert(readMPUPresentFromMPUEntryAddr(block_to_share_in_child_address) == readMPUPresentFromMPUEntryAddr(block_to_share_MPU_root_address));
+
+  // Check the remaining slots are default
+  remaining_MPU_slots_form_a_linked_list(1, kernelstructureentriesnb - 1,
+                                              readPDStructurePointer(child_partition_pd));
+
+  // Check the Sh1 structure is default in child
+  Sh1_structure_is_default(readPDStructurePointer(child_partition_pd));
+
+  // Check the SC structure: first entry not cut and initial block is hte block to share + remaining slots defaults
+  assert(readSCOriginFromMPUEntryAddr(block_to_share_in_child_address) == block_to_share_id);
+  assert(readSCNextFromMPUEntryAddr(block_to_share_in_child_address) == false);
+  remaining_SC_slots_are_default(1, kernelstructureentriesnb - 1,
+                                      readPDStructurePointer(child_partition_pd));
+}
+
+/*!
+ * \fn void test_add_alone()
+ * \brief Launches the add_alone test
+ */
+void test_add_alone()
+{
+  add_alone(false);
+}
+
+/*!
+ * \fn void test_add_alone_Fast()
+ * \brief Launches the add_alone_Fast test
+ */
+void test_add_alone_Fast()
+{
+  add_alone(true);
+}
+
+/*!
+ * \fn void add_no_free_slots_left(fast=false)
+ * \brief  Tests that no add can be performed when no free slots are available in the child partition
+ */
+void add_no_free_slots_left(int fast)
+{
+  build_create_child_block_out_of_initial_block();
+  build_prepare_child_block_out_of_initial_block();
+  build_share_block_out_of_initial_block();
+  init_test_with_create_without_prepare_child(false);
+
+  if (fast)
+  {
+      assert(addMemoryBlockFast(child_partition_pd,
+                                                    block_to_share_id,
+                                                    block_to_share_MPU_root_address) == false);
+  }
+  else
+  {
+      assert(addMemoryBlock(child_partition_pd,
+                                                block_to_share_id) == false);
+  }
+}
+
+/*!
+ * \fn void test_add_no_free_slots_left()
+ * \brief Launches the add_no_free_slots_left test
+ */
+void test_add_no_free_slots_left()
+{
+  add_no_free_slots_left(false);
+}
+
+/*!
+ * \fn void test_add_no_free_slots_left_Fast()
+ * \brief Launches the add_no_free_slots_left test
+ */
+void test_add_no_free_slots_left_Fast()
+{
+  add_no_free_slots_left(true);
+}
+
+
+/*!
+ * \fn void add_bad_arguments(fast=false)
+ * \brief  Tests that providing bad arguments fail
+ * init_test creates a partition and prepares it. There is one block left <block_to_share_id>
+ * Bad arguments:
+ * - idPDchild: the provided PD is not a child of the current partition
+ * - idBlockToShare: the block doesn't exist or is not accessible
+ */
+void add_bad_arguments(int fast)
+{
+  build_create_child_block_out_of_initial_block();
+  build_prepare_child_block_out_of_initial_block();
+  build_share_block_out_of_initial_block();
+  init_test_with_create_prepare_child(false);
+
+  // Check PD is not a child
+  if (fast)
+  {
+      assert(addMemoryBlockFast((paddr) 0x01,
+                                                    block_to_share_id,
+                                                    block_to_share_MPU_root_address) == false);
+  }
+  else
+  {
+      assert(addMemoryBlock((paddr) 0x01, block_to_share_id) == false);
+  }
+  // Check the block to be shared doesn't exist in one-numbered kernel structure list
+  if (fast)
+  {
+      // with valid provided MPU address
+      assert(addMemoryBlockFast(child_partition_pd,
+                                                    initial_block_start - 100,
+                                                    root_kernel_structure_start) == false);
+      // with invalid MPU address (not included in the kernel structures);
+      assert(addMemoryBlockFast(child_partition_pd,
+                                                    initial_block_start - 100,
+                                                    root_kernel_structure_start - 50) == false);
+  }
+  else
+  {
+      assert(addMemoryBlock(child_partition_pd, initial_block_start - 100) == false);
+  }
+  // Check the block to be shared doesn't exist in two-numbered kernel structure list
+  assert(prepare(getCurPartition(),
+                                        kernelstructureentriesnb,
+                                        block_to_share_id) != false);
+  if (fast)
+  {
+      assert(addMemoryBlockFast(child_partition_pd,
+                                                    initial_block_start - 100,
+                                                    root_kernel_structure_start) == false);
+  }
+  else
+  {
+      assert(addMemoryBlock(child_partition_pd, initial_block_start - 100) == false);
+  }
+  // Check the block to be shared is inaccessible (block to share has been used in the previous prepare);
+  if (fast)
+  {
+      assert(addMemoryBlockFast(child_partition_pd,
+                                                    block_to_share_id,
+                                                    block_to_share_MPU_root_address) == false);
+  }
+  else
+  {
+      assert(addMemoryBlock(child_partition_pd, block_to_share_id) == false);
+  }
+}
+
+/*!
+ * \fn void test_add_bad_arguments()
+ * \brief Test bad arguments on add
+ */
+void test_add_bad_arguments()
+{
+  add_bad_arguments(false);
+}
+
+/*!
+ * \fn void test_add_bad_arguments_Fast()
+ * \brief Test bad arguments on add Fast
+ */
+void test_add_bad_arguments_Fast()
+{
+  add_bad_arguments(true);
+}
+
+/*!
+ * \fn void test_add()
+ * \brief Launches the tests of the add system call
+ */
+void test_add()
+{
+  init_tests();
+  test_add_alone();
+
+  init_tests();
+  test_add_alone_Fast();
+
+  init_tests();
+  test_add_no_free_slots_left();
+
+  init_tests();
+  test_add_no_free_slots_left_Fast();
+
+  init_tests();
+  test_add_bad_arguments();
+
+  init_tests();
+  test_add_bad_arguments_Fast();
+}
+
+// TEST REMOVE MEMORY BLOCK SYSTEM CALL
+
+/*!
+ * \fn void remove_alone(fast=false)
+ * \brief  Tests that an add followed by a remove gets back to the same state as before the add
+ * Tests that:
+ * - addMemoryBlock changes the MPU structure
+ * - PD is the same after remove
+ * - MPU is default after remove
+ * - Sh1 is default after remove
+ * - SC is default after remove
+ */
+void remove_alone(int fast)
+{
+  // First cut the initial block
+  build_create_child_block_out_of_initial_block();
+  build_prepare_child_block_out_of_initial_block();
+  build_share_block_out_of_initial_block();
+
+  // create and prepare child partition
+  init_test_with_create_prepare_child(false);
+
+  // keep state of PD and check kernel structure where to add is empty
+  paddr old_pointer_to_MPU_linked_list = readPDStructurePointer(child_partition_pd);
+  paddr old_first_free_slot_address = readPDFirstFreeSlotPointer(child_partition_pd);
+  uint32_t old_nb_free_slots = readPDNbFreeSlots(child_partition_pd);
+  uint32_t old_nb_prepare = readPDNbPrepare(child_partition_pd);
+  paddr old_parent = readPDParent(child_partition_pd);
+
+  // add + remove = same as before
+  assert(addMemoryBlock(child_partition_pd, block_to_share_id) != false);
+  // check first entry is not default after add
+  paddr child_kernel_structure_start = readPDStructurePointer(child_partition_pd);
+  assert(readMPUStartFromMPUEntryAddr(child_kernel_structure_start) != NULL);
+  assert(readMPUEndFromMPUEntryAddr(child_kernel_structure_start) != NULL);
+  assert(readMPUAccessibleFromMPUEntryAddr(child_kernel_structure_start) != false);
+  assert(readMPUPresentFromMPUEntryAddr(child_kernel_structure_start) != false);
+  remaining_MPU_slots_form_a_linked_list(1, kernelstructureentriesnb - 1, child_kernel_structure_start);
+
+  // REMOVE block + checks PD is same as before + MPU/Sh1/SC are default
+  if (fast)
+  {
+      assert(removeMemoryBlockFast( child_partition_pd,
+                                    block_to_share_id,
+                                    block_to_share_MPU_root_address) != false);
+  }
+  else
+  {
+      assert(removeMemoryBlock(child_partition_pd, block_to_share_id) != false);
+  }
+  assert(old_pointer_to_MPU_linked_list == readPDStructurePointer(child_partition_pd));
+  assert(old_first_free_slot_address == readPDFirstFreeSlotPointer(child_partition_pd));
+  assert(old_nb_free_slots == readPDNbFreeSlots(child_partition_pd));
+  assert(old_nb_prepare == readPDNbPrepare(child_partition_pd));
+  assert(old_parent == readPDParent(child_partition_pd));
+  remaining_MPU_slots_form_a_linked_list(0, kernelstructureentriesnb - 1, child_kernel_structure_start);
+  Sh1_structure_is_default(child_kernel_structure_start);
+  SC_structure_is_default(child_kernel_structure_start);
+}
+
+/*!
+ * \fn void test_remove_alone()
+ * \brief Launches the remove alone test
+ */
+void test_remove_alone()
+{
+  remove_alone(false);
+}
+
+/*!
+ * \fn void test_remove_alone_Fast()
+ * \brief Launches the remove alone Fast test
+ */
+void test_remove_alone_Fast()
+{
+  remove_alone(true);
+}
+
+
+/*!
+ * \fn void remove_in_grandchildren()
+ * \brief  Tests that a remove of an accessible shared memory block is also removed in all grandchildren
+ * This block can't be cut otherwise becomes not accessible
+ *
+ * Init:
+ * - create + prepare a child
+ * - create + prepare a grandchild
+ * - add a shared memory block from the root partition to the child
+ * - add the same memory block from the child to the grandchild
+ *
+ * Tests after remove:
+ * - the shared memory block is removed in the child from the root partition and should also be removed in the
+ * grandchild
+ */
+void remove_in_grandchildren(int fast)
+{
+  updateCurPartition(root);
+  // First cut the initial block to create and prepare the child
+  build_create_child_block_out_of_initial_block();
+  build_prepare_child_block_out_of_initial_block();
+  build_share_block_out_of_initial_block();
+
+  // build 1 block later cut to create+prepare grandchild
+  paddr grandchild_block_id = (paddr) ((uint8_t*) block_prepare_child_id + KERNELSTRUCTURETOTALLENGTH() * 4);
+  paddr block_grandchild_MPU_root_address = cutMemoryBlock(block_prepare_child_id, grandchild_block_id);
+  assert(block_grandchild_MPU_root_address != false);
+
+  // create and prepare child partition
+  init_test_with_create_prepare_child(false);
+
+  // give the block to create+prepare grandchild
+  assert(addMemoryBlock(child_partition_pd, grandchild_block_id) != false);
+  dump_ancestors(child_partition_pd);
+
+  // Then move to child and create and prepare the grandchild
+  updateCurPartition(child_partition_pd);
+  build_create_grandchild_block(grandchild_block_id);
+  build_prepare_grandchild_block(grandchild_block_id);
+  assert(createPartition(grandchild_partition_pd) != false);
+  assert(prepare(grandchild_partition_pd, 1, block_prepare_grandchild_id) != false);
+
+  // Switch back to parent and add block-to-share to child
+  updateCurPartition(root);
+  paddr block_to_share_MPU_child_address = addMemoryBlock(child_partition_pd, block_to_share_id);
+  assert(block_to_share_MPU_child_address != false);
+
+  // Switch to child and add block to grandchild
+  updateCurPartition(child_partition_pd);
+  paddr block_to_share_MPU_grandchild_address = addMemoryBlock(grandchild_partition_pd, block_to_share_id);
+  assert(block_to_share_MPU_grandchild_address != false);
+
+  // Tests that block-to-share is present and accessible in child and grandchild
+  assert(readMPUStartFromMPUEntryAddr(block_to_share_MPU_child_address) == block_to_share_id);
+  assert(readMPUAccessibleFromMPUEntryAddr(block_to_share_MPU_child_address) == true);
+  assert(readMPUPresentFromMPUEntryAddr(block_to_share_MPU_child_address) == true);
+
+  assert(readMPUStartFromMPUEntryAddr(block_to_share_MPU_grandchild_address) == block_to_share_id);
+  assert(readMPUAccessibleFromMPUEntryAddr(block_to_share_MPU_grandchild_address) == true);
+  assert(readMPUPresentFromMPUEntryAddr(block_to_share_MPU_grandchild_address) == true);
+
+  // REMOVE : Switch back to parent and remove block to share
+  updateCurPartition(root);
+  if (fast)
+  {
+      assert(removeMemoryBlockFast(child_partition_pd,
+                                                          block_to_share_id,
+                                                          block_to_share_MPU_root_address) != false);
+  }
+  else
+  {
+      assert(removeMemoryBlock(child_partition_pd, block_to_share_id) != false);
+  }
+
+  // test block is not present anymore in child AND grandchild
+  assert(readMPUStartFromMPUEntryAddr(block_to_share_MPU_child_address) != block_to_share_id); // NOT equal
+  //assert(child_MPU_entry[2], block_to_share_id + KERNELSTRUCTURETOTALLENGTH() - 1);  // NOT equal
+  assert(readMPUAccessibleFromMPUEntryAddr(block_to_share_MPU_child_address) == false);
+  assert(readMPUPresentFromMPUEntryAddr(block_to_share_MPU_child_address) == false);
+
+  assert(readMPUStartFromMPUEntryAddr(block_to_share_MPU_grandchild_address) != block_to_share_id); // NOT equal
+  //assert(grandchild_MPU_entry[2], block_to_share_id + KERNELSTRUCTURETOTALLENGTH() - 1);  // NOT equal
+  assert(readMPUAccessibleFromMPUEntryAddr(block_to_share_MPU_grandchild_address) == false);
+  assert(readMPUPresentFromMPUEntryAddr(block_to_share_MPU_grandchild_address) == false);
+
+  // test grandchild is empty again
+  remaining_MPU_slots_form_a_linked_list(0, kernelstructureentriesnb - 1, block_prepare_grandchild_id);
+}
+
+/*!
+ * \fn void test_remove_in_grandchildren()
+ * \brief Launches the remove_in_grandchildren test
+ */
+void test_remove_in_grandchildren()
+{
+  remove_in_grandchildren(false);
+
+}
+
+/*!
+ * \fn void test_remove_in_grandchildren_Fast()
+ * \brief Launches the remove_in_grandchildren Fast test
+ */
+void test_remove_in_grandchildren_Fast()
+{
+  remove_in_grandchildren(true);
+}
+
+/*!
+ * \fn void remove_accessible_subblocks(fast=false)
+ * \brief  Tests that a remove of a shared memory block succeeds when it is cut in the child with all subblocks still
+ * accessible
+ *
+ * Init:
+ * - create + prepare a child
+ * - add a shared memory block from the root partition to the child
+ * - cuts 3 times the shared memory block
+ * Tests:
+ * - the shared memory block is removed from the child
+ *     - No subblocks remain in the child
+ * - the PD structure of the child is the same as before the add + cuts except for the first free slot pointer
+ */
+void remove_accessible_subblocks(int fast)
+{
+  build_create_child_block_out_of_initial_block();
+  build_prepare_child_block_out_of_initial_block();
+  build_share_block_out_of_initial_block();
+  init_test_with_create_prepare_child(false);
+
+  // keep state of PD (except pointer to first free which changes because of the removal order of the subblocks
+  // compared to a single remove) and check kernel structure where to add is empty
+  paddr old_pointer_to_MPU_linked_list = readPDStructurePointer(child_partition_pd);
+  uint32_t old_nb_free_slots = readPDNbFreeSlots(child_partition_pd);
+  uint32_t old_nb_prepare = readPDNbPrepare(child_partition_pd);
+  paddr old_parent = readPDParent(child_partition_pd);
+
+  // ADD
+  assert(addMemoryBlock(child_partition_pd, block_to_share_id) != false);
+
+  // CUT Switch to child -> cut shared block 3x
+  updateCurPartition(child_partition_pd);
+  assert(cutMemoryBlock((paddr) ((uint8_t*) block_to_share_id),
+                        (paddr) ((uint8_t*) block_to_share_id + KERNELSTRUCTURETOTALLENGTH())) !=
+                      false);
+  assert(cutMemoryBlock((paddr) ((uint8_t*) block_to_share_id + KERNELSTRUCTURETOTALLENGTH()),
+                        (paddr) ((uint8_t*) block_to_share_id + 2*KERNELSTRUCTURETOTALLENGTH()) ) !=
+                      false);
+  assert(cutMemoryBlock((paddr) ((uint8_t*) block_to_share_id + 2*KERNELSTRUCTURETOTALLENGTH()),
+                        (paddr) ((uint8_t*) block_to_share_id + 3*KERNELSTRUCTURETOTALLENGTH())) !=
+                      false);
+  // Check MPU structure is not empty (check first entry);
+  paddr MPU_kernel_structure_start = readPDStructurePointer(child_partition_pd);
+  assert(readMPUStartFromMPUEntryAddr(MPU_kernel_structure_start) != NULL); // NOT equal
+  assert(readMPUEndFromMPUEntryAddr(MPU_kernel_structure_start) != NULL); // NOT equal
+  assert(readMPUAccessibleFromMPUEntryAddr(MPU_kernel_structure_start) != false);
+  assert(readMPUPresentFromMPUEntryAddr(MPU_kernel_structure_start) != false);
+
+  remaining_MPU_slots_form_a_linked_list(4, kernelstructureentriesnb - 1, MPU_kernel_structure_start);
+
+  // REMOVE switch back to parent -> remove block in child
+  updateCurPartition(root);
+  if (fast)
+  {
+      assert(removeMemoryBlockFast( child_partition_pd,
+                                    block_to_share_id,
+                                    block_to_share_MPU_root_address) != false);
+  }
+  else
+  {
+      assert(removeMemoryBlock(child_partition_pd, block_to_share_id) != false);
+  }
+
+  // Test PD is same as before + MPU/Sh1/SC are default -> all cuts are removed as well
+  assert(old_pointer_to_MPU_linked_list ==
+                    readPDStructurePointer(child_partition_pd));
+  assert(old_nb_free_slots == readPDNbFreeSlots(child_partition_pd));
+  assert(old_nb_prepare == readPDNbPrepare(child_partition_pd));
+  assert(old_parent == readPDParent(child_partition_pd));
+
+  // Test the kernel structure of the child is empty again
+  MPU_structure_is_empty(block_prepare_child_id);
+  Sh1_structure_is_default(block_prepare_child_id);
+  SC_structure_is_default(block_prepare_child_id);
+}
+
+/*!
+ * \fn void test_remove_accessible_subblocks()
+ * \brief Launches the remove_accessible_subblocks test
+ */
+void test_remove_accessible_subblocks()
+{
+  remove_accessible_subblocks(false);
+}
+
+/*!
+ * \fn void test_remove_accessible_subblocks_Fast()
+ * \brief Launches the test_remove_accessible_subblocks_Fast test
+ */
+void test_remove_accessible_subblocks_Fast()
+{
+  remove_accessible_subblocks(true);
+}
+
+
+/*!
+ * \fn void remove_fails_with_subblocks_inaccessible(fast=false)
+ * \brief  Tests that a remove fails if the child cuts the shared memory block and used it so it is inaccessible
+ * Init:
+ * - create + prepare a child
+ * - add a shared memory block from the root partition to the child
+ * - cuts 3 times the shared memory block
+ * - prepare the child with the last cut block (which becomes inaccessible to him and its ancestors);
+ * Tests:
+ * - the removeMemoryBlock operation fails
+ */
+void remove_fails_with_subblocks_inaccessible(int fast)
+{
+  build_create_child_block_out_of_initial_block();
+  build_prepare_child_block_out_of_initial_block();
+  build_share_block_out_of_initial_block();
+  init_test_with_create_prepare_child(false);
+
+  // ADD
+  assert(addMemoryBlock(child_partition_pd, block_to_share_id) != false);
+
+  // CUT Switch to child -> cut shared block 3x
+  updateCurPartition(child_partition_pd);
+  assert(cutMemoryBlock(block_to_share_id, (paddr) ((uint8_t*) block_to_share_id + KERNELSTRUCTURETOTALLENGTH())) !=
+                      false);
+  assert(cutMemoryBlock((paddr) ((uint8_t*) block_to_share_id + KERNELSTRUCTURETOTALLENGTH()),
+                                              (paddr) ((uint8_t*) block_to_share_id + 2 * KERNELSTRUCTURETOTALLENGTH())) !=
+                      false);
+  assert(cutMemoryBlock((paddr) ((uint8_t*) block_to_share_id + 2 * KERNELSTRUCTURETOTALLENGTH()),
+                                              (paddr) ((uint8_t*) block_to_share_id + 3 * KERNELSTRUCTURETOTALLENGTH())) !=
+                      false);
+  // PREPARE the child prepares itself to add a kernel structure with one of the subblocks
+  assert(prepare(getCurPartition(),
+                                    kernelstructureentriesnb,
+                                    (paddr) ((uint8_t*) block_to_share_id + 3 * KERNELSTRUCTURETOTALLENGTH())) != false);
+  // REMOVE fails
+  updateCurPartition(root);
+  if (fast)
+  {
+      assert(removeMemoryBlockFast(child_partition_pd,
+                                                      block_to_share_id,
+                                                      block_to_share_MPU_root_address) == false);
+  }
+  else
+  {
+      assert(removeMemoryBlock(child_partition_pd, block_to_share_id) == false);
+  }
+}
+
+/*!
+ * \fn void test_remove_fails_with_subblocks_inaccessible()
+ * \brief Launches the test_remove_fails_with_subblocks_inaccessible test
+ */
+void test_remove_fails_with_subblocks_inaccessible()
+{
+  remove_fails_with_subblocks_inaccessible(false);
+}
+
+/*!
+ * \fn void test_remove_fails_with_subblocks_inaccessible_Fast()
+ * \brief Launches the remove_fails_with_subblocks_inaccessible Fast test
+ */
+void test_remove_fails_with_subblocks_inaccessible_Fast()
+{
+  remove_fails_with_subblocks_inaccessible(true);
+}
+
+
+/*!
+ * \fn void remove_fails_with_block_in_child_not_accessible(fast=false)
+ * \brief  Tests that a remove fails if the child uses the block differently as a shared memory block making it
+ * inaccessible
+ * Init:
+ * - create + prepare a child
+ * - add a shared memory block from the root partition to the child
+ * - prepare the child with the block (which becomes inaccessible to him and its ancestors);
+ * Tests:
+ * - the removeMemoryBlock operation fails
+ */
+void remove_fails_with_block_in_child_not_accessible(int fast)
+{
+  build_create_child_block_out_of_initial_block();
+  build_prepare_child_block_out_of_initial_block();
+  build_share_block_out_of_initial_block();
+  init_test_with_create_prepare_child(false);
+
+  // ADD
+  assert(addMemoryBlock(child_partition_pd, block_to_share_id) != false);
+
+  // PREPARE the child prepares itself to add a kernel structure with one of the subblocks
+  updateCurPartition(child_partition_pd);
+  assert(prepare(getCurPartition(),
+                                        kernelstructureentriesnb,
+                                        block_to_share_id) !=
+                      false);
+  // REMOVE fails
+  updateCurPartition(root);
+  if (fast)
+  {
+      assert(removeMemoryBlockFast(child_partition_pd,
+                                                      block_to_share_id,
+                                                      block_to_share_MPU_root_address) == false);
+  }
+  else
+  {
+      assert(removeMemoryBlock(child_partition_pd, block_to_share_id) == false);
+  }
+}
+
+/*!
+ * \fn void test_remove_fails_with_block_in_child_not_accessible()
+ * \brief Launches the remove_fails_with_block_in_child_not_accessible test
+ */
+void test_remove_fails_with_block_in_child_not_accessible()
+{
+  remove_fails_with_block_in_child_not_accessible(false);
+}
+
+/*!
+ * \fn void test_cut()
+ * \brief Launches the test_remove_fails_with_block_in_child_not_accessible_Fast test
+ */
+void test_remove_fails_with_block_in_child_not_accessible_Fast()
+{
+  remove_fails_with_block_in_child_not_accessible(true);
+}
+
+/*!
+ * \fn void remove_bad_arguments(fast=false)
+ * \brief  Tests that providing bad arguments fail
+ *     init_test creates a partition and prepares it. There is one block left <block_to_share_id>
+ *     Bad arguments:
+ *     - idPDchild: the provided PD is not a child of the current partition
+ *     - idBlockToRemove: the block doesn't exist or is not accessible
+ */
+void remove_bad_arguments(int fast)
+{
+  build_create_child_block_out_of_initial_block();
+  build_prepare_child_block_out_of_initial_block();
+  build_share_block_out_of_initial_block();
+  init_test_with_create_prepare_child(false);
+
+  // Check PD is not a child
+  if (fast)
+  {
+      assert(removeMemoryBlockFast((paddr) 0x1,
+                                                      block_to_share_id,
+                                                      block_to_share_MPU_root_address) == false);
+  }
+  else
+  {
+      assert(removeMemoryBlock((paddr) 0x1, block_to_share_id) == false);
+  }
+
+  // Check the block to be shared doesn't exist in one-numbered kernel structure list
+  if (fast)
+  {
+      // with valid provided MPU address
+      assert(removeMemoryBlockFast(child_partition_pd,
+                                                      initial_block_start - 100,
+                                                      root_kernel_structure_start) == false);
+      // with invalid MPU address (not included in the kernel structures);
+      assert(removeMemoryBlockFast(child_partition_pd,
+                                                      initial_block_start - 100,
+                                                      root_kernel_structure_start - 50) == false);
+  }
+  else
+  {
+      assert(
+          removeMemoryBlock(initial_block_start, initial_block_start - 100) == false);
+  }
+
+  // PREPARE + Check the block to be shared doesn't exist in two-numbered kernel structure list
+  assert(prepare(getCurPartition(),
+                                        kernelstructureentriesnb,
+                                        block_to_share_id) != false);
+  if (fast)
+  {
+      assert(removeMemoryBlockFast(initial_block_start,
+                                                      initial_block_start - 100,
+                                                      block_to_share_MPU_root_address) == false);
+  }
+  else
+  {
+      assert(
+          removeMemoryBlock(initial_block_start, initial_block_start - 100) == false);
+  }
+
+
+  // Check the block to be shared is inaccessible (block to share used in previous prepare);
+  if (fast)
+  {
+      assert(removeMemoryBlockFast(initial_block_start,
+                                                      block_to_share_id,
+                                                      block_to_share_MPU_root_address) == false);
+  }
+  else
+  {
+      assert(removeMemoryBlock(initial_block_start, block_to_share_id) == false);
+  }
+}
+/*!
+ * \fn void test_remove_bad_arguments()
+ * \brief Launches the remove_bad_arguments test
+ */
+void test_remove_bad_arguments()
+{
+  remove_bad_arguments(false);
+}
+
+/*!
+ * \fn void test_remove_bad_arguments_Fast()
+ * \brief Launches the remove_bad_arguments Fast test
+ */
+void test_remove_bad_arguments_Fast()
+{
+  remove_bad_arguments(true);
+}
+
+/*!
+ * \fn void test_remove()
+ * \brief Launches the tests of the remove system call
+ */
+void test_remove()
+{
+  init_tests();
+  test_remove_alone();
+
+  init_tests();
+  test_remove_alone_Fast();
+
+  init_tests();
+  test_remove_in_grandchildren();
+
+  init_tests();
+  test_remove_in_grandchildren_Fast();
+
+  init_tests();
+  test_remove_accessible_subblocks();
+
+  init_tests();
+  test_remove_accessible_subblocks_Fast();
+
+  init_tests();
+  test_remove_fails_with_subblocks_inaccessible();
+
+  init_tests();
+  test_remove_fails_with_subblocks_inaccessible_Fast();
+
+  init_tests();
+  test_remove_fails_with_block_in_child_not_accessible();
+
+  init_tests();
+  test_remove_fails_with_block_in_child_not_accessible_Fast();
+
+  init_tests();
+  test_remove_bad_arguments();
+
+  init_tests();
+  test_remove_bad_arguments_Fast();
+}
+
+// TEST DELETE PARTITION SYSTEM CALL
+
+/*!
+ * \fn void test_delete_partition()
+ * \brief  Tests that a delete partition succeeds
+ *
+ * Init:
+ * - create a child
+ * Tests after delete:
+ * - the created partition is no more referenced in the current partition
+ *     - the PDflag is unset again
+ *     - the block used to create the partition is accessible again
+ */
+void test_delete_partition()
+{
+  // Check the PD is referenced in the parent and block is NOT accessible anymore
+  init_test_with_create_without_prepare_child(true);
+  assert(readSh1PDFlagFromMPUEntryAddr(block_create_child_MPU_root_address) ==
+                    true);
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(block_create_child_MPU_root_address) ==
+      false
+  );
+  assert(deletePartition(child_partition_pd) != false);
+  // Check the PD is NOT referenced in the parent and block is accessible again
+  assert(readSh1PDFlagFromMPUEntryAddr(block_create_child_MPU_root_address) ==
+                    false);
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(block_create_child_MPU_root_address) ==
+      true
+  );
+}
+
+/*!
+ * \fn void test_delete_partition_with_block_shared()
+ * \brief  Tests to delete a child partition after create child + prepare child + shared block with child.
+ * After delete, all blocks should be accessible and not shared.
+ *
+ * Init:
+ * - create + prepare + share a block with a child
+ * Tests after delete:
+ * - the created partition is no more referenced in the current partition + shared block not shared anymore
+ *     - the block used to create the partition is accessible again
+ *     - the block used to prepare the child partition is accessible again
+ *     - the block shared is not shared anymore (or PDflag is unset);
+ */
+void test_delete_partition_with_block_shared()
+{
+  init_test_with_create_prepare_share_child(true);
+
+  // Delete the child partition
+  assert(deletePartition(child_partition_pd) != false);
+
+  // check that the (create + prepare) blocks are accessible again
+  assert(readMPUAccessibleFromMPUEntryAddr(block_create_child_MPU_root_address)==
+                    true);
+  assert(readMPUAccessibleFromMPUEntryAddr(block_prepare_child_MPU_root_address)==
+                    true);
+  // check the shared block is still accessible
+  assert(readMPUAccessibleFromMPUEntryAddr(block_to_share_MPU_root_address)==
+                    true);
+  // check they are all NOT shared with anyone
+  assert(readSh1PDChildFromMPUEntryAddr(block_create_child_MPU_root_address) ==
+                    false);
+  assert(readSh1PDFlagFromMPUEntryAddr(block_create_child_MPU_root_address)==
+                    false);
+  assert(
+      readSh1InChildLocationFromMPUEntryAddr(block_create_child_MPU_root_address) ==
+      false
+  );
+  assert(readSh1PDChildFromMPUEntryAddr(block_prepare_child_MPU_root_address) ==
+                    false);
+  assert(readSh1PDFlagFromMPUEntryAddr(block_prepare_child_MPU_root_address)==
+                    false);
+  assert(
+      readSh1InChildLocationFromMPUEntryAddr(block_prepare_child_MPU_root_address) ==
+      false
+  );
+  assert(readSh1PDChildFromMPUEntryAddr(block_to_share_MPU_root_address) ==
+                    false);
+  assert(readSh1PDFlagFromMPUEntryAddr(block_to_share_MPU_root_address)==
+                    false);
+  assert(
+      readSh1InChildLocationFromMPUEntryAddr(block_to_share_MPU_root_address) ==
+      false
+  );
+}
+
+/*!
+ * \fn void test_delete_partition_with_block_shared_and_grandchild()
+ * \brief  Tests to delete a child partition that has a child (grandchild of root partition). After delete, all blocks
+ * should be accessible again and not shared.
+ *
+ * Init:
+ * - create a child + prepare the child + share a block
+ * - create a grandchild + prepare grandchild + share a block
+ * Tests after delete:
+ * - the child partition is no more referenced in the current partition + shared block not shared anymore
+ *     - the block used to create the partition is accessible again
+ *     - the block used to prepare the child partition is accessible again
+ *     - the block shared and trimmed down to grandchild is accessible again
+ */
+void test_delete_partition_with_block_shared_and_grandchild()
+{
+  init_test_with_create_prepare_child_and_create_prepare_grandchild(true);
+  updateCurPartition(child_partition_pd);
+  assert(addMemoryBlock(grandchild_partition_pd, block_to_share_id) != false);
+  dump_partition(grandchild_partition_pd);
+  // Delete the child partition
+  updateCurPartition(root);
+  assert(deletePartition(child_partition_pd) != false);
+
+  // check that the (create + prepare child) blocks in root are accessible again
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(block_create_child_MPU_root_address) ==
+      true);
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(block_prepare_child_MPU_root_address) ==
+      true);
+  // check the shared block is still accessible for root
+  assert(readMPUAccessibleFromMPUEntryAddr(block_to_share_MPU_root_address)==
+                    true);
+  // check they are all NOT shared with anyone
+  // for create child block
+  assert(readSh1PDChildFromMPUEntryAddr(block_create_child_MPU_root_address) ==
+                    false);
+  assert(readSh1PDFlagFromMPUEntryAddr(block_create_child_MPU_root_address)==
+                    false);
+  assert(
+      readSh1InChildLocationFromMPUEntryAddr(block_create_child_MPU_root_address) ==
+      false
+  );
+  // for prepare child block
+  assert(readSh1PDChildFromMPUEntryAddr(block_prepare_child_MPU_root_address) ==
+                    false);
+  assert(readSh1PDFlagFromMPUEntryAddr(block_prepare_child_MPU_root_address)==
+                    false);
+  assert(
+      readSh1InChildLocationFromMPUEntryAddr(block_prepare_child_MPU_root_address) ==
+      false
+  );
+  // for shared block (used afterwards to create grandchild);
+  assert(readSh1PDChildFromMPUEntryAddr(block_to_share_MPU_root_address) ==
+                    false);
+  assert(readSh1PDFlagFromMPUEntryAddr(block_to_share_MPU_root_address)==
+                    false);
+  assert(
+      readSh1InChildLocationFromMPUEntryAddr(block_to_share_MPU_root_address) ==
+      false
+  );
+}
+
+/*!
+ * \fn void test_delete_partition_grandchild_with_blocks_not_cut()
+ * \brief  Test deleting a grandchild that has cut a shared block is deleted correctly and blocks set available
+ * All grandchild blocks including cut blocks and crete/prepare should be available for root partition again after
+ * deletion
+ * Init: cut 4 blocks in root (+ initial) + create/prepare/share child + create/prepare/share grandchild + cut
+ * shared block in grandchild (no more accessible to root and child partitions);
+ * Test after deletion:
+ *     - all blocks used in the grandchild (create/prepare/cut share) should be available to the root partition
+ *     again
+ */
+void test_delete_partition_grandchild_with_blocks_not_cut()
+{
+  // INIT
+  paddr child_partition_pd = initial_block_start;
+  paddr block_prepare_child_id = (paddr) ((uint8_t*) initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 2);
+  paddr grandchild_partition_pd = (paddr) ((uint8_t*) initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 4);
+  paddr block_prepare_grandchild_id = (paddr) ((uint8_t*) initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 6);
+  paddr block_shared_id = (paddr) ((uint8_t*) initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 8);
+  // cut all blocks in root partition
+  assert(cutMemoryBlock(child_partition_pd, block_prepare_child_id) != false);
+  assert(cutMemoryBlock(block_prepare_child_id, grandchild_partition_pd) != false);
+  assert(cutMemoryBlock(grandchild_partition_pd, block_prepare_grandchild_id) != false);
+  assert(cutMemoryBlock(block_prepare_grandchild_id, block_shared_id) != false);
+  // create/prepare/share child + give all blocks for grandchild
+  assert(createPartition(child_partition_pd) != false);
+  assert(prepare(child_partition_pd, 8, block_prepare_child_id) != false);
+  assert(addMemoryBlock(child_partition_pd, block_shared_id) != false);
+  assert(addMemoryBlock(child_partition_pd, grandchild_partition_pd) != false);
+  assert(addMemoryBlock(child_partition_pd, block_prepare_grandchild_id) != false);
+  // create/prepare/share grandchild
+  updateCurPartition(child_partition_pd);
+  assert(createPartition(grandchild_partition_pd) != false);
+  assert(prepare(grandchild_partition_pd, 8, block_prepare_grandchild_id) != false);
+  assert(addMemoryBlock(grandchild_partition_pd, block_shared_id) != false);
+  // cut shared block in grandchild
+  updateCurPartition(grandchild_partition_pd);
+  assert(cutMemoryBlock(block_shared_id, (paddr) ((uint8_t*) block_shared_id + KERNELSTRUCTURETOTALLENGTH())) != false);
+
+  // Check all grandchild blocks are NOT accessible anymore to root partition
+  paddr root_kernel_structure_start = readPDStructurePointer(root_partition);
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(
+          (paddr) ((uint8_t*) root_kernel_structure_start + 2*mpuentrylength)
+      ) == false
+  );
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(
+          (paddr) ((uint8_t*) root_kernel_structure_start + 3*mpuentrylength)
+      ) == false
+  );
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(
+          (paddr) ((uint8_t*) root_kernel_structure_start + 4*mpuentrylength)
+      ) == false
+  );
+  printf("*******Before******");
+  dump_ancestors(child_partition_pd);
+
+  // DELETE grandchild from child partition
+  updateCurPartition(child_partition_pd);
+  assert(deletePartition(grandchild_partition_pd) != false);
+  printf("*******After******");
+  dump_ancestors(child_partition_pd);
+
+  // Test all grandchild blocks are accessible AGAIN to root partition
+  root_kernel_structure_start = readPDStructurePointer(root_partition);
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(
+          (paddr) ((uint8_t*) root_kernel_structure_start + 2*mpuentrylength)
+      ) == true
+  );
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(
+          (paddr) ((uint8_t*) root_kernel_structure_start + 3 * mpuentrylength)
+      ) == true
+  );
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(
+          (paddr) ((uint8_t*) root_kernel_structure_start + 4 * mpuentrylength)
+      ) == true
+  );
+}
+
+/*!
+ * \fn void test_delete_partition_bad_arguments()
+ * \brief  Tests that providing bad arguments fail
+ * Init: create child
+ * Bad arguments:
+ * - idPDchildToDelete: does not exist
+ * - idPDchildToDelete: is not a child
+ */
+void test_delete_partition_bad_arguments()
+{
+  // Test fails because block doesn't exist
+  assert(deletePartition(initial_block_start + KERNELSTRUCTURETOTALLENGTH()) == false);
+
+  // Test fails because initial block is not a child
+  assert(deletePartition(initial_block_start) == false);
+}
+
+/*!
+ * \fn void test_delete()
+ * \brief Launches the tests of the delete system call
+ */
+void test_delete()
+{
+  init_tests();
+  test_delete_partition();
+
+  init_tests();
+  test_delete_partition_with_block_shared();
+
+  init_tests();
+  test_delete_partition_with_block_shared_and_grandchild();
+
+  init_tests();
+  test_delete_partition_grandchild_with_blocks_not_cut();
+
+  init_tests();
+  test_delete_partition_bad_arguments();
+}
+
+// TEST MERGE SYSTEM CALL
+/*!
+ * \fn void test_merge_two_blocks()
+ * \brief  Test merging two blocks
+ * Init: cut the initial block
+ * Test:
+ *     - PD should be the same after merge back
+ *         - first free slot is the same as before
+ *         - nb free slots is the same as before (only initial block);
+ */
+void test_merge_two_blocks()
+{
+  paddr block1 = (paddr) ((uint8_t*) initial_block_start + KERNELSTRUCTURETOTALLENGTH());
+
+  // keep state of PD
+  paddr old_pointer_to_MPU_linked_list = readPDStructurePointer(getCurPartition());
+  uint32_t old_nb_free_slots = readPDNbFreeSlots(getCurPartition());
+  paddr old_first_free_slot = readPDFirstFreeSlotPointer(getCurPartition());
+  uint32_t old_nb_prepare = readPDNbPrepare(getCurPartition());
+  paddr old_parent = readPDParent(getCurPartition());
+
+  assert(cutMemoryBlock(initial_block_start, block1) != false);
+
+  // Test PD changed -> first free slot pointer, nb free slots
+  assert(readPDNbFreeSlots(getCurPartition()) !=
+                    old_nb_free_slots); // NOT
+  assert(readPDFirstFreeSlotPointer(getCurPartition()) !=
+                    old_first_free_slot); // NOT
+  dump_partition(root);
+  // MERGE
+  assert(mergeMemoryBlocks(initial_block_start, block1) != NULL);
+
+  // Test PD is back in the same state
+  assert(readPDStructurePointer(getCurPartition()) ==
+                    old_pointer_to_MPU_linked_list);
+  assert(readPDNbFreeSlots(getCurPartition()) ==
+                    old_nb_free_slots);
+  assert(readPDFirstFreeSlotPointer(getCurPartition()) ==
+                    old_first_free_slot);
+  assert(readPDNbPrepare(getCurPartition()) ==
+                    old_nb_prepare);
+  assert(readPDParent(getCurPartition()) ==
+                    old_parent);
+}
+
+/*!
+ * \fn void test_merge_full_MPU_structure()
+ * \brief  Test several merges in a row
+ * Init: 7 cuts in a row to fill MPU structure
+ * Tests: merge all blocks
+ *     - final state should be the same as initial state
+ */
+void test_merge_full_MPU_structure()
+{
+  paddr block1 = (paddr) ((uint8_t*) initial_block_start + KERNELSTRUCTURETOTALLENGTH());
+  paddr block2 = (paddr) ((uint8_t*) block1 + KERNELSTRUCTURETOTALLENGTH());
+  paddr block3 = (paddr) ((uint8_t*) block2 + KERNELSTRUCTURETOTALLENGTH());
+  paddr block4 = (paddr) ((uint8_t*) block3 + KERNELSTRUCTURETOTALLENGTH());
+  paddr block5 = (paddr) ((uint8_t*) block4 + KERNELSTRUCTURETOTALLENGTH());
+  paddr block6 = (paddr) ((uint8_t*) block5 + KERNELSTRUCTURETOTALLENGTH());
+  paddr block7 = (paddr) ((uint8_t*) block6 + KERNELSTRUCTURETOTALLENGTH());
+
+  // Fill MPU structure
+  assert(cutMemoryBlock(initial_block_start, block1) != false);
+  assert(cutMemoryBlock(block1, block2) != false);
+  assert(cutMemoryBlock(block2, block3) != false);
+  assert(cutMemoryBlock(block3, block4) != false);
+  assert(cutMemoryBlock(block4, block5) != false);
+  assert(cutMemoryBlock(block5, block6) != false);
+  assert(cutMemoryBlock(block6, block7) != false);
+
+  // Check cuts are in place
+  assert(readPDNbFreeSlots(root) == 0);
+
+  // MERGE
+  assert(mergeMemoryBlocks(block6, block7) != NULL);
+  assert(mergeMemoryBlocks(block5, block6) != NULL);
+  assert(mergeMemoryBlocks(block4, block5) != NULL);
+  assert(mergeMemoryBlocks(block3, block4) != NULL);
+  assert(mergeMemoryBlocks(block2, block3) != NULL);
+  assert(mergeMemoryBlocks(block1, block2) != NULL);
+  assert(mergeMemoryBlocks(initial_block_start, block1) != NULL);
+
+  // Test structure is as initial state after merging all cut blocks -> only initial block in MPU and remainting
+  // entries are free slots, Sh1 default, SC first entry is initial block
+  assert(readPDNbFreeSlots(root) == 7);
+
+  remaining_MPU_slots_form_a_linked_list(
+      1,
+      kernelstructureentriesnb - 1,
+      readPDStructurePointer(root)
+  );
+  Sh1_structure_is_default(readPDStructurePointer(root));
+  remaining_SC_slots_are_default(
+      1,
+      kernelstructureentriesnb -1,
+      readPDStructurePointer(root)
+  );
+}
+
+/*!
+ * \fn void test_merge_subblocks_child()
+ * \brief  Test that merging the last subblocks in a child gives back the initial block which becomes accessible
+ * again as shared memory to ancestors
+ * Init: create and prepare a child + share a block + cut the shared block (becomes inaccessible to root);
+ * Test after merge:
+ *     - shared block is accessible again to root
+ */
+void test_merge_subblocks_child()
+{
+  init_test_with_create_prepare_share_child(true);
+
+  // check shared block is still accessible to root partition
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(block_to_share_MPU_root_address) ==
+      true
+  );
+  // cut the shared block in child
+  updateCurPartition(child_partition_pd);
+  assert(
+      cutMemoryBlock(block_to_share_id, block_to_share_id + KERNELSTRUCTURETOTALLENGTH()) !=
+      false
+  );
+
+  // check that shared block is now not accessible anymore
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(block_to_share_MPU_root_address) ==
+      false
+  );
+
+  // MERGE
+  assert(
+      mergeMemoryBlocks(block_to_share_id, block_to_share_id + KERNELSTRUCTURETOTALLENGTH()) !=
+      NULL
+  );
+
+  // Test that shared block is accessible again to root partition after merge
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(block_to_share_MPU_root_address) ==
+      true
+  );
+}
+
+/*!
+ * \fn void test_merge_bad_arguments()
+ * \brief  Tests that providing bad arguments fail
+ * Init: create child
+ * Bad arguments:
+ * - idBlockToMerge1: does not exist or is shared or is not accessible
+ * - idBlockToMerge1: does not exist or is shared or is not accessible or does not follow block 1
+ */
+void test_merge_bad_arguments()
+{
+  build_create_child_block_out_of_initial_block();
+  build_prepare_child_block_out_of_initial_block();
+  build_share_block_out_of_initial_block();
+  paddr root_accessible_block_id = (paddr) ((uint8_t*) block_to_share_id + KERNELSTRUCTURETOTALLENGTH());
+  assert(cutMemoryBlock(block_to_share_id, root_accessible_block_id) != false);
+  init_test_with_create_prepare_share_child(false);
+
+  dump_ancestors(child_partition_pd);
+
+  // Check do not exist
+  updateCurPartition(root);
+  assert(mergeMemoryBlocks((paddr) 0x1, root_accessible_block_id) == NULL);
+  assert(mergeMemoryBlocks(root_accessible_block_id, (paddr) 0x2) == NULL);
+
+  // Check not shared
+  assert(mergeMemoryBlocks(root_accessible_block_id, block_to_share_id) == NULL);
+  assert(mergeMemoryBlocks(block_to_share_id, root_accessible_block_id) == NULL);
+
+  // Check not accessible
+  assert(mergeMemoryBlocks(root_accessible_block_id, child_partition_pd) == NULL);
+  assert(mergeMemoryBlocks(child_partition_pd, root_accessible_block_id) == NULL);
+
+  // Check block 2 follows block 1 -> cut accessible block and try to merge
+  assert(
+      cutMemoryBlock(root_accessible_block_id, root_accessible_block_id + KERNELSTRUCTURETOTALLENGTH()) !=
+      false
+  );
+  assert(
+      mergeMemoryBlocks(root_accessible_block_id + KERNELSTRUCTURETOTALLENGTH(), root_accessible_block_id) ==
+      NULL
+  );  // Fail
+  assert(
+      mergeMemoryBlocks(root_accessible_block_id, root_accessible_block_id + KERNELSTRUCTURETOTALLENGTH()) !=
+      NULL
+  );  // NOT Succeed
+}
+
+/*!
+ * \fn void test_merge()
+ * \brief Launches the tests of the merge system call
+ */
+void test_merge()
+{
+  init_tests();
+  test_merge_two_blocks();
+
+  init_tests();
+  test_merge_full_MPU_structure();
+
+  init_tests();
+  test_merge_subblocks_child();
+
+  init_tests();
+  test_merge_bad_arguments();
+}
+
+// TEST COLLECT SYSTEM CALL
+
+/*!
+ * \fn void test_collect_in_child()
+ * \brief  Test collecting a child
+ * Init: create and prepare a child
+ * Test after collect:
+ *     - the child has default values in PD (not prepared anymore);
+ *     - the block collected is accessible again for the parent
+ */
+void test_collect_in_child()
+{
+  // Create and prepare a child
+  init_test_with_create_prepare_child(true);
+
+  // Check the block to collect is not accessible for the parent (since it's the child's kernel structure);
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(block_prepare_child_MPU_root_address) ==
+      false
+  );
+
+  // COLLECT
+  assert(collect(child_partition_pd) != false);
+
+  // Test that the child has no kernel structure anymore
+  assert(
+      readPDStructurePointer(child_partition_pd) ==
+      NULL
+  );
+  assert(
+      readPDNbFreeSlots(child_partition_pd) ==
+      0
+  );
+  assert(
+      readPDFirstFreeSlotPointer(child_partition_pd) ==
+      NULL
+  );
+  assert(
+      readPDNbPrepare(child_partition_pd) ==
+      0
+  );
+  assert(
+      readPDParent(child_partition_pd) ==
+      getCurPartition()
+  );
+
+  // Test that the collected block is accessible again for the root partition
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(block_prepare_child_MPU_root_address) ==
+      true
+  );
+}
+
+/*!
+ * \fn void test_collect_in_current_partition()
+ * \brief  Test collecting oneself
+ * Init: create and prepare a child + share a child
+ * + use the shared block to prepare the child again
+ * Test after collect:
+ *     - the child has the same values as before the prepare
+ *     - the block collected is accessible again for the current partition
+ */
+void test_collect_in_current_partition()
+{
+  init_test_with_create_prepare_share_child(true);
+
+  // switch to child partition
+  updateCurPartition(child_partition_pd);
+
+  // retain state of child PD
+  paddr old_pointer_to_MPU_linked_list = readPDStructurePointer(getCurPartition());
+  uint32_t old_nb_free_slots = readPDNbFreeSlots(getCurPartition());
+  paddr old_first_free_slot = readPDFirstFreeSlotPointer(getCurPartition());
+  uint32_t old_nb_prepare = readPDNbPrepare(getCurPartition());
+  paddr old_parent = readPDParent(getCurPartition());
+
+  // prepare itself (child partition);
+  assert(
+      prepare(getCurPartition(), 8, block_to_share_id) !=
+      false
+  );
+
+  // Check number of prepare is 2 now
+  assert(readPDNbPrepare(getCurPartition()) == 2);
+
+  // Check that the block used to prepare is not accessible to the current partition
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(block_to_share_MPU_child_address) ==
+      false
+  );
+
+  // COLLECT
+  assert(collect(getCurPartition()) != false);
+
+  // Test that the PD state is back to initial values
+  assert(
+      readPDStructurePointer(getCurPartition()) ==
+      old_pointer_to_MPU_linked_list
+  );
+  assert(
+      readPDNbFreeSlots(getCurPartition()) ==
+      old_nb_free_slots
+  );
+  assert(
+      readPDFirstFreeSlotPointer(getCurPartition()) ==
+      old_first_free_slot
+  );
+  assert(
+      readPDNbPrepare(getCurPartition()) ==
+      old_nb_prepare
+  );
+  assert(
+      readPDParent(getCurPartition()) ==
+      old_parent
+  );
+
+  // Test that the block used to prepare is accessible again to the current partition
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(block_to_share_MPU_child_address) ==
+      true
+  );
+}
+
+/*!
+ * \fn void test_collect_in_grandchild()
+ * \brief  Test that a collect in a grandchild make the block accessible again to the ancestors
+ * Init: create and prepare a child + create and prepare a grandchild + prepare the grandchild again with a shared
+ * block
+ * Test after collect:
+ *     - the child and root partitions gain access again to the block used to the grandchild prepare
+ */
+void test_collect_in_grandchild()
+{
+  init_test_with_create_prepare_child_and_create_prepare_share_grandchild(true);
+
+  // add initial block to child
+  updateCurPartition(root);
+  paddr initial_block_MPU_child_address = addMemoryBlock(child_partition_pd, initial_block_start);
+  assert(initial_block_MPU_child_address != false);
+
+  // add initial block to grandchild
+  updateCurPartition(child_partition_pd);
+  paddr initial_block_MPU_grandchild_address = addMemoryBlock(grandchild_partition_pd, initial_block_start);
+  assert(initial_block_MPU_grandchild_address != false);
+
+  // switch to grandchild and prepare a 2nd time
+  updateCurPartition(grandchild_partition_pd);
+  assert(prepare(getCurPartition(), 8, initial_block_start) != false);
+
+  // Test the block used to the 2nd grandchild prepare is NOT accessible in child and root partitions anymore
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(initial_block_MPU_child_address) ==
+      false
+  );
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(readPDStructurePointer(root)) ==
+      false
+  );
+
+  // COLLECT
+  assert(collect(getCurPartition()) != false);
+
+  // Test the block used to the 2nd grandchild prepare is accessible in child and root partitions again
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(initial_block_MPU_child_address) ==
+      true
+  );
+  assert(
+      readMPUAccessibleFromMPUEntryAddr(readPDStructurePointer(root)) ==
+      true
+  );
+}
+
+/*!
+ * \fn void test_collect_with_several_structures()
+ * \brief  Test collecting an empty structure in a list of structures
+ * Init: create and prepare a child + prepare the child again + add a block to child (1st prepare empty/2nd prepare
+ *   not empty);
+ * Test after collect:
+ *     - the 1st prepare empty structure (in 2nd position of the structure list) is properly collected
+ */
+void test_collect_with_several_structures()
+{
+  build_create_child_block_out_of_initial_block();
+  build_prepare_child_block_out_of_initial_block();
+  build_share_block_out_of_initial_block();
+  init_test_with_create_prepare_child(false);
+
+  // cut share block in three (2 cuts + original block);
+  assert(
+      cutMemoryBlock(block_to_share_id, block_to_share_id + 2*KERNELSTRUCTURETOTALLENGTH()) !=
+      false
+  );
+  assert(
+      cutMemoryBlock(block_to_share_id, block_to_share_id + KERNELSTRUCTURETOTALLENGTH()) !=
+      false
+  );
+
+  // prepare the child again (2nd prepare) without adding a block -> 1st prepare is empty and can be collected
+  assert(prepare(child_partition_pd, 8, block_to_share_id + 2*KERNELSTRUCTURETOTALLENGTH()) != false);
+
+  // add another block to child (2nd prepare not empty anymore);
+  assert(addMemoryBlock(child_partition_pd, block_to_share_id + KERNELSTRUCTURETOTALLENGTH()) != false);
+
+  // check nb of prepare is 2
+  assert(readPDNbPrepare(child_partition_pd) == 2);
+  dump_partition(child_partition_pd);
+
+  // COLLECT
+  assert(collect(child_partition_pd) != false);
+
+  // check nb of prepare is 1
+  assert(readPDNbPrepare(child_partition_pd) == 1);
+}
+
+/*!
+ * \fn void test_collect_fails_with_no_empty_structure()
+ * \brief  Test collecting a partition that has no empty structures fails
+ * Test :
+ *     - collecting the root partition fails (never possible since never empty);
+ */
+void test_collect_fails_with_no_empty_structure()
+{
+  updateCurPartition(root);
+  // Fails because root partition is never empty
+  assert(collect(getCurPartition()) == false);
+}
+
+/*!
+ * \fn void test_collect_fails_trying_to_collect_a_structure_that_the_current_partition_did_not_prepare()
+ * \brief  Test collecting a partition that with no empty structure prepared by its own fails
+ * Init :
+ *     - create + prepare + share child
+ *     - prepare the child (2nd prepare empty so possible to collect by the parent only);
+ * Test :
+ *     - the child fails to collect itself since it didn't prepare itself (it was the parent);
+ */
+void test_collect_fails_trying_to_collect_a_structure_that_the_current_partition_did_not_prepare()
+{
+  // cut initial block several times
+  child_partition_pd = (paddr) ((uint8_t*) initial_block_start + 20*KERNELSTRUCTURETOTALLENGTH());
+  block_prepare_child_id = (paddr) ((uint8_t*) initial_block_start + 15*KERNELSTRUCTURETOTALLENGTH());
+  block_to_share_id = (paddr) ((uint8_t*) initial_block_start + 10*KERNELSTRUCTURETOTALLENGTH());
+  paddr block_prepare_child_2_id = (paddr) ((uint8_t*) initial_block_start + 5*KERNELSTRUCTURETOTALLENGTH());
+
+  paddr child_partition_pd_address = cutMemoryBlock(initial_block_start, child_partition_pd);
+  assert(child_partition_pd_address != false);
+  paddr block_prepare_child_id_address = cutMemoryBlock(initial_block_start, block_prepare_child_id);
+  assert(block_prepare_child_id_address != false);
+  paddr block_to_share_id_address = cutMemoryBlock(initial_block_start, block_to_share_id);
+  assert(block_to_share_id_address != false);
+  paddr block_prepare_child_2_id_address = cutMemoryBlock(initial_block_start, block_prepare_child_2_id);
+  assert(block_prepare_child_2_id_address != false);
+
+  // Create + prepare + share child -> 1st prepare not empty
+  init_test_with_create_prepare_share_child(false);
+
+  // Prepare the child
+  assert(prepare(child_partition_pd, 8, block_prepare_child_2_id) != false);
+
+  // switch to child
+  updateCurPartition(child_partition_pd);
+
+  // COLLECT ITSELF fails because has not prepared itself (the parent prepared the child);
+  assert(collect(getCurPartition()) == false);
+}
+
+/*!
+ * \fn void test_collect_bad_arguments()
+ * \brief  Tests that providing bad arguments fail
+ * Bad arguments:
+ * - idPD: the provided PD is not the current partition or a child
+ * - idPD = current partition and nbprepare = 1
+ */
+void test_collect_bad_arguments()
+{
+  init_test_with_create_prepare_child(true);
+
+  // Fails because initial block is not a child
+  assert(collect(block_prepare_child_id) == false);
+
+  // Fails because not possible to SELF collect the only structure prepare left (originally given by the parent);
+  updateCurPartition(child_partition_pd);
+  assert(collect(getCurPartition()) == false);
+}
+
+/*!
+ * \fn void test_collect()
+ * \brief Launches the tests of the collect system call
+ */
+void test_collect()
+{
+  init_tests();
+  test_collect_in_child();
+
+  init_tests();
+  test_collect_in_current_partition();
+
+  init_tests();
+  test_collect_in_grandchild();
+
+  init_tests();
+  test_collect_with_several_structures();
+
+  init_tests();
+  test_collect_fails_with_no_empty_structure();
+
+  init_tests();
+  test_collect_fails_trying_to_collect_a_structure_that_the_current_partition_did_not_prepare();
+
+  init_tests();
+  test_collect_bad_arguments();
+}
+
 /**
  * Unit tests main entry point.
  * If -DDEBUG_UART flag is set, sends printf messages on UART
@@ -670,12 +2884,35 @@ int main_test (int argc, char* argv[])
   initial_block_start = &user_mem_start;
   initial_block_start = (paddr) ((uint8_t*)initial_block_start + PDSTRUCTURETOTALLENGTH()); // size in bytes
   initial_block_start = (paddr) ((uint8_t*) initial_block_start + KERNELSTRUCTURETOTALLENGTH()); // size in bytes
-  initial_block_end = &user_mem_end;
+  initial_block_end = &user_mem_end - 1;
 
   // Test initial root partition definition
   test_initial_root();
   // Test cut system call
   test_cut();
+  printf("main_test: CUT OK\r\n");
+  // Test create system call
+  test_create();
+  printf("main_test: CREATE OK\r\n");
+  // Test prepare system call
+  //test_prepare();
+  //printf("main_test: PREPARE OK\r\n");
+  // Test add system call
+  test_add();
+  printf("main_test: ADD OK\r\n");
+  // Test remove system call
+  test_remove();
+  printf("main_test: REMOVE OK\r\n");
+  // Test delete system call
+  test_delete();
+  printf("main_test: DELETE OK\r\n");
+  // Test merge system call
+  test_merge();
+  printf("main_test: MERGE OK\r\n");
+  // Test collect system call
+  test_collect();
+  printf("main_test: COLLECT OK\r\n");
+
   printf("\r\nmain_test: All tests PASSED\r\n");
 
 }

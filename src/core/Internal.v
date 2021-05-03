@@ -96,30 +96,36 @@ Fixpoint findBlockInMPUAux (timeout : nat) (currentidx : index)
 	match timeout with
 		| 0 => getNullAddr
 		| S timeout1 =>
-										perform maxentriesnb := getKernelStructureEntriesNb in (** Our last index is table size - 1, as we're indexed on zero*)
-										perform maxindex := Index.pred maxentriesnb in
-										perform islastidx := getBeqIdx currentidx maxindex in
-										if (islastidx)
-										then
-											perform nextkernelstructure := readNextFromKernelStructureStart currentkernelstructure in
-											perform nullAddr :=  getNullAddr in
-											perform isnull :=  getBeqAddr nextkernelstructure nullAddr in
-											if isnull
-											then getNullAddr
+										(** PROCESSING: check if the entry is the searched one *)
+										perform entryaddr := getMPUEntryAddrFromKernelStructureStart currentkernelstructure currentidx in
+										perform ispresent := readMPUPresentFromMPUEntryAddr entryaddr in
+										perform mpustart := readMPUStartFromMPUEntryAddr entryaddr in
+										if ispresent && beqAddr mpustart idblock then
+											(** STOP CONDITION 2: block found*)
+											ret entryaddr
+										else
+											(** continue search *)
+											perform nextidx := Index.succ currentidx in
+											perform maxentriesnb := getKernelStructureEntriesNb in
+											(** Our last index is table size - 1, as we're indexed on zero*)
+											perform maxindex := Index.pred maxentriesnb in
+											perform islastidx := getBeqIdx currentidx maxindex in
+											if (islastidx)
+											then
+												(** reached end of current structure *)
+												perform nextkernelstructure := readNextFromKernelStructureStart currentkernelstructure in
+												perform nullAddr :=  getNullAddr in
+												perform isnull :=  getBeqAddr nextkernelstructure nullAddr in
+												if isnull
+												then
+													(** STOP CONDITION 1: reached last block, not found *)
+													ret nullAddr
+												else
+													(** RECURSIVE call on the next table, start at index 0 *)
+													perform zero := Index.zero in
+													findBlockInMPUAux timeout1 zero nextkernelstructure idblock
 											else
-												(** Recursive call on the next table, start at index 0 *)
-												perform zero := Index.zero in
-												findBlockInMPUAux timeout1 zero nextkernelstructure idblock
-									else
-											perform entryaddr := getMPUEntryAddrFromKernelStructureStart currentkernelstructure currentidx in
-											perform ispresent := readMPUPresentFromMPUEntryAddr entryaddr in
-											perform mpustart := readMPUStartFromMPUEntryAddr entryaddr in
-											if ispresent && beqAddr mpustart idblock then
-												(* block found*)
-												ret entryaddr
-											else
-												(** Recursive call to the next index**)
-												perform nextidx := Index.succ currentidx in
+												(** RECURSIVE call to the next index**)
 												findBlockInMPUAux timeout1 nextidx currentkernelstructure idblock
 	end.
 
@@ -792,7 +798,7 @@ Definition removeBlockInChildAndDescendants (currentPart
 		perform blockToRemoveInChildAddr := readSh1InChildLocationFromMPUEntryAddr
 																						blockToRemoveInCurrPartAddr in
 		perform isBlockCut := checkBlockCut blockToRemoveInChildAddr in
-		if isBlockCut
+		if negb isBlockCut
 		then (** Case 1: the block is not cut in the child partition -> remove the
 							block in the child and all grand-children *)
 (*
@@ -1030,54 +1036,40 @@ Fixpoint initMPUEntryRecAux 	(timeout : nat)
 															(indexCurr : index): LLI bool :=
 	match timeout with
 	| 0 => 	ret false (* timeout reached *)
-	| S timeout1 => 	(** PROCESSING: set default values in current entry *)
-										perform zero := Index.zero in
-										if beqIdx indexCurr zero
-										then
-											(** STOP condition: parsed all entries *)
-											perform secondEntryPointer := Paddr.addPaddrIdx
-																											kernelStructureStartAddr
-																											Constants.MPUEntryLength in
-											perform mpuEntry := buildMPUEntry
-																						nullAddr
-																						secondEntryPointer
-																						false
-																						false in
-											writeMPUEntryWithIndexFromMPUEntryAddr
-													kernelStructureStartAddr
-													zero
-													mpuEntry;;
-											ret true
-										else
-											perform idxsucc := Index.succ indexCurr in
-											(* current entry points to the next via the endAddr field*)
-											perform nextEntryOffset := Index.mulIdx
-																									idxsucc
-																									Constants.MPUEntryLength in
-											(*perform nextEntryPointer := Paddr.addPaddr
-																										kernelStructureStartAddr
-																										nextEntryOffset in*)
-											perform nextEntryPointer := Paddr.addPaddrIdx
-																										kernelStructureStartAddr
-																										nextEntryOffset in
-											perform mpuEntry := buildMPUEntry
-																						nullAddr
-																						nextEntryPointer
-																						false
-																						false in
-											perform currEntryOffset := Index.mulIdx
-																									indexCurr
-																									Constants.MPUEntryLength in
-											perform currEntryPointer := Paddr.addPaddrIdx
-																										kernelStructureStartAddr
-																										currEntryOffset in
-											writeMPUEntryWithIndexFromMPUEntryAddr
-													currEntryPointer
-													indexCurr
-													mpuEntry;;
-											(** RECURSIVE call: write default values in precedent index *)
-											perform idxpred := Index.pred indexCurr in
-											initMPUEntryRecAux timeout1 kernelStructureStartAddr idxpred
+	| S timeout1 =>
+									(** PROCESSING: set default values in current entry *)
+									perform idxsucc := Index.succ indexCurr in
+									(* current entry points to the next via the endAddr field*)
+									perform nextEntryOffset := Index.mulIdx
+																							idxsucc
+																							Constants.MPUEntryLength in
+									perform nextEntryPointer := Paddr.addPaddrIdx
+																								kernelStructureStartAddr
+																								nextEntryOffset in
+									perform mpuEntry := buildMPUEntry
+																				nullAddr
+																				nextEntryPointer
+																				false
+																				false in
+									perform currEntryOffset := Index.mulIdx
+																							indexCurr
+																							Constants.MPUEntryLength in
+									perform currEntryPointer := Paddr.addPaddrIdx
+																								kernelStructureStartAddr
+																								currEntryOffset in
+									writeMPUEntryWithIndexFromMPUEntryAddr
+											currEntryPointer
+											indexCurr
+											mpuEntry;;
+									(** RECURSIVE call: write default values in precedent index *)
+
+									perform zero := Index.zero in
+									if beqIdx indexCurr zero
+									then (** STOP condition: parsed all entries *)
+										ret true
+									else
+										perform idxpred := Index.pred indexCurr in
+										initMPUEntryRecAux timeout1 kernelStructureStartAddr idxpred
 	end.
 
 (** The [initMPUStructure] function initializes the MPU part of the kernel
@@ -1134,25 +1126,21 @@ Fixpoint initSh1EntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 	match timeout with
 		| 0 => 	ret false (* timeout reached *)
 		| S timeout1 => (** PROCESSING: set default values in current entry *)
+										perform defaultSh1Entry := getDefaultSh1Entry in
+										perform currEntryOffset := Index.mulIdx
+																								indexCurr
+																								Constants.MPUEntryLength in
+										perform currEntryPointer := Paddr.addPaddrIdx
+																									kernelStructureStartAddr
+																									currEntryOffset in
+										writeSh1EntryFromMPUEntryAddr currEntryPointer
+																									defaultSh1Entry;;
+										(** RECURSIVE call: write default values in precedent index *)
 										perform zero := Index.zero in
 										if beqIdx indexCurr zero
-										then
-											(** STOP condition: parsed all entries *)
-											perform defaultSh1Entry := getDefaultSh1Entry in
-											writeSh1EntryFromMPUEntryAddr kernelStructureStartAddr
-																										defaultSh1Entry;;
+										then (** STOP condition: parsed all entries *)
 											ret true
 										else
-											perform defaultSh1Entry := getDefaultSh1Entry in
-											perform currEntryOffset := Index.mulIdx
-																									indexCurr
-																									Constants.MPUEntryLength in
-											perform currEntryPointer := Paddr.addPaddrIdx
-																										kernelStructureStartAddr
-																										currEntryOffset in
-											writeSh1EntryFromMPUEntryAddr currEntryPointer
-																										defaultSh1Entry;;
-											(** RECURSIVE call: write default values in precedent index *)
 											perform idxpred := Index.pred indexCurr in
 											initSh1EntryRecAux timeout1 kernelStructureStartAddr idxpred
 	end.
@@ -1194,25 +1182,21 @@ Fixpoint initSCEntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 	match timeout with
 		| 0 => 	ret false (* timeout reached *)
 		| S timeout1 => (** PROCESSING: set default values in current entry *)
+										perform defaultSCEntry := getDefaultSCEntry in
+										perform currEntryOffset := Index.mulIdx
+																								indexCurr
+																								Constants.MPUEntryLength in
+										perform currEntryPointer := Paddr.addPaddrIdx
+																									kernelStructureStartAddr
+																									currEntryOffset in
+										writeSCEntryFromMPUEntryAddr 	currEntryPointer
+																									defaultSCEntry;;
+										(** RECURSIVE call: write default values in precedent index *)
 										perform zero := Index.zero in
 										if beqIdx indexCurr zero
-										then
-											(** STOP condition: parsed all entries *)
-											perform defaultSCEntry := getDefaultSCEntry in
-											writeSCEntryFromMPUEntryAddr 	kernelStructureStartAddr
-																										defaultSCEntry;;
+										then (** STOP condition: parsed all entries *)
 											ret true
 										else
-											perform defaultSCEntry := getDefaultSCEntry in
-											perform currEntryOffset := Index.mulIdx
-																									indexCurr
-																									Constants.MPUEntryLength in
-											perform currEntryPointer := Paddr.addPaddrIdx
-																										kernelStructureStartAddr
-																										currEntryOffset in
-											writeSCEntryFromMPUEntryAddr 	currEntryPointer
-																										defaultSCEntry;;
-											(** RECURSIVE call: write default values in precedent index *)
 											perform idxpred := Index.pred indexCurr in
 											initSCEntryRecAux timeout1 kernelStructureStartAddr idxpred
 	end.
@@ -1296,50 +1280,56 @@ Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
 	match timeout with
 		| 0 => 	ret false (* timeout reached *)
 		| S timeout1 =>
-										perform zero := Index.zero in
-										if beqIdx currIndex zero
-										then
-											(** STOP condition: parsed all entries *)
-											ret true
-										else
-											(** PROCESSING: remove all blocks shared with the child to
-																			delete in the current structure *)
-											perform offset := Index.mulIdx currIndex Constants.MPUEntryLength in
-											perform currMPUEntryAddr :=	Paddr.addPaddrIdx
-																												kernelStructureStartAddr
-																												offset in
-											perform blockID := readMPUStartFromMPUEntryAddr
-																						currMPUEntryAddr in
-											perform currPDChild := readSh1PDChildFromMPUEntryAddr
-																								currMPUEntryAddr in
-											if beqAddr currPDChild idPDchildToDelete
-											then (* the slot corresponds to memory shared or prepared
-														with the child to destruct, remove sharing *)
-															(* Set block accessible in current partition *)
-															writeMPUAccessibleFromMPUEntryAddr 	currMPUEntryAddr
-																																	true ;;
-															perform defaultSh1Entry := getDefaultSh1Entry in
-															writeSh1EntryFromMPUEntryAddr currMPUEntryAddr
-																														defaultSh1Entry ;;
-														(* 	whatever the accessibility of the block that could
-																not be accessible because of the child's operations,
-																set the block accessible again*)
-														perform isCut := checkBlockCut currMPUEntryAddr in
-														if isCut
-														then (* if the block isn't cut in the current
-																	partition, set as accessible in the ancestors *)
-																	writeAccessibleRec currentPart blockID true ;;
-																	(** RECURSIVE call: delete block of next entry
-																											if needed *)
+										(** PROCESSING: remove all blocks shared with the child to
+																		delete in the current structure *)
+										perform offset := Index.mulIdx currIndex Constants.MPUEntryLength in
+										perform currMPUEntryAddr :=	Paddr.addPaddrIdx
+																											kernelStructureStartAddr
+																											offset in
+										perform blockID := readMPUStartFromMPUEntryAddr
+																					currMPUEntryAddr in
+										perform currPDChild := readSh1PDChildFromMPUEntryAddr
+																							currMPUEntryAddr in
+										if beqAddr currPDChild idPDchildToDelete
+										then (* the slot corresponds to memory shared or prepared
+													with the child to destruct, remove sharing *)
+														(* Set block accessible in current partition *)
+														writeMPUAccessibleFromMPUEntryAddr 	currMPUEntryAddr
+																																true ;;
+														perform defaultSh1Entry := getDefaultSh1Entry in
+														writeSh1EntryFromMPUEntryAddr currMPUEntryAddr
+																													defaultSh1Entry ;;
+													(* 	whatever the accessibility of the block that could
+															not be accessible because of the child's operations,
+															set the block accessible again*)
+													perform isCut := checkBlockCut currMPUEntryAddr in
+													if negb isCut
+													then (* if the block isn't cut in the current
+																partition, set as accessible in the ancestors *)
+																writeAccessibleRec currentPart blockID true ;;
+																(** RECURSIVE call: delete block of next entry
+																										if needed *)
+																perform zero := Index.zero in
+																if beqIdx currIndex zero
+																then
+																	(** STOP condition: parsed all entries *)
+																	ret true
+																else
 																	perform idxpred := Index.pred currIndex in
 																	deleteSharedBlocksInStructRecAux 	timeout1
 																																		currentPart
 																																		kernelStructureStartAddr
 																																		idPDchildToDelete
 																																		idxpred
-														else
-																	(** RECURSIVE call: delete block of next entry
-																											if needed *)
+													else
+																(** RECURSIVE call: delete block of next entry
+																										if needed *)
+																perform zero := Index.zero in
+																if beqIdx currIndex zero
+																then
+																	(** STOP condition: parsed all entries *)
+																	ret true
+																else
 																	perform idxpred := Index.pred currIndex in
 																	deleteSharedBlocksInStructRecAux 	timeout1
 																																		currentPart
@@ -1348,12 +1338,19 @@ Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
 																																		idxpred
 										else
 													(** RECURSIVE call: delete block of next entry if needed *)
-													perform idxpred := Index.pred currIndex in
-													deleteSharedBlocksInStructRecAux 	timeout1
-																														currentPart
-																														kernelStructureStartAddr
-																														idPDchildToDelete
-																														idxpred
+
+													perform zero := Index.zero in
+													if beqIdx currIndex zero
+													then
+														(** STOP condition: parsed all entries *)
+														ret true
+													else
+														perform idxpred := Index.pred currIndex in
+														deleteSharedBlocksInStructRecAux 	timeout1
+																															currentPart
+																															kernelStructureStartAddr
+																															idPDchildToDelete
+																															idxpred
 	end.
 
 (** The [deleteSharedBlocksRecAux] function recursively removes all blocks
@@ -1372,7 +1369,7 @@ Fixpoint deleteSharedBlocksRecAux 	(timeout : nat)
 	match timeout with
 		| 0 => 	ret false (* timeout reached *)
 		| S timeout1 =>
-										if beqAddr idPDchildToDelete nullAddr
+										if beqAddr currKernelStructureStartAddr nullAddr
 										then
 											(** STOP condition: reached end of structure list *)
 											ret true
@@ -1526,7 +1523,7 @@ Fixpoint checkStructureEmptyRecAux 	(timeout : nat)
 *)
 Fixpoint collectFreeSlotsRecAux (timeout : nat)
 																(predFreeSlotAddr currFreeSlotAddr : paddr)
-																(idPD :paddr)
+																(idPD : paddr)
 																(structureCollectAddr : paddr) : LLI unit :=
 (*
   def __collect_free_slots_rec(self, previous_free_slot_address, current_free_slot_address, idPD, current_structure_address):
@@ -1591,9 +1588,9 @@ match timeout with
 													writePDFirstFreeSlotPointer idPD nextFreeSlotAddr ;;
 													(** RECURSIVE call: continue collect with rest of list *)
 													collectFreeSlotsRecAux 	timeout1
-																									idPD
 																									currFreeSlotAddr
 																									nextFreeSlotAddr
+																									idPD
 																									structureCollectAddr
 (*
           # SINON
@@ -1609,9 +1606,9 @@ match timeout with
 																												nextFreeSlotAddr ;;
 														(** RECURSIVE call: continue collect with rest of list *)
 														collectFreeSlotsRecAux 	timeout1
-																										idPD
 																										currFreeSlotAddr
 																										nextFreeSlotAddr
+																										idPD
 																										structureCollectAddr
 (*
       # SINON slotLibrePrécédent <- slotLibreCourant (slot courant reste dans la liste des emplacements libres, traité donc devient précédent)
@@ -1628,9 +1625,9 @@ match timeout with
 											(* the slot is not located in the structure to collect *)
 											(** RECURSIVE call: continue collect with rest of list *)
 											collectFreeSlotsRecAux 	timeout1
-																							idPD
 																							currFreeSlotAddr
 																							nextFreeSlotAddr
+																							idPD
 																							structureCollectAddr
 end.
 
