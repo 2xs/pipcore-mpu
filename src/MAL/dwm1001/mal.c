@@ -75,7 +75,7 @@ PDTable_t readPDTable(paddr pdaddr)
 }
 
 /*!
- * \fn paddr* readPDStructurePointer(paddr pdaddr)
+ * \fn paddr readPDStructurePointer(paddr pdaddr)
  * \brief Gets the first kernel structure.
  * \param pdaddr The address of the PD
  * \return the pointer to the first kernel structure
@@ -412,11 +412,11 @@ void writeMPUIndexFromMPUEntryAddr(paddr mpuentryaddr, uint32_t value)
  */
 void writeMPUEntryFromMPUEntryAddr(paddr mpuentryaddr, MPUEntry_t value)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
-
-	// write the MPU entry
-	*mpuentry = value;
+	// write the MPU entry without the index
+	writeMPUStartFromMPUEntryAddr(mpuentryaddr, value.mpublock.startAddr);
+	writeMPUEndFromMPUEntryAddr(mpuentryaddr, value.mpublock.endAddr);
+	writeMPUAccessibleFromMPUEntryAddr(mpuentryaddr, value.accessible);
+	writeMPUPresentFromMPUEntryAddr(mpuentryaddr, value.present);
 	return;
 }
 
@@ -430,12 +430,9 @@ void writeMPUEntryFromMPUEntryAddr(paddr mpuentryaddr, MPUEntry_t value)
  */
 void writeMPUEntryWithIndexFromMPUEntryAddr(paddr mpuentryaddr, uint32_t index, MPUEntry_t value)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
-
-	// write the MPU entry
-	(value.mpuindex).MPUi = index;
-	*mpuentry = value;
+	// write the MPU entry with the index
+	writeMPUEntryFromMPUEntryAddr(mpuentryaddr, value);
+	writeMPUIndexFromMPUEntryAddr(mpuentryaddr, index);
 	return;
 }
 

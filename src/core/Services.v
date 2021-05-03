@@ -358,7 +358,7 @@ Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr) : LLI pad
         return 0  # TODO: return NULL
 *)
 		(* Find idBlockToMerge1 in the current partition *)
-    perform block1InCurrPartAddr := findBlockInMPU currentPart idBlockToMerge2 in
+    perform block1InCurrPartAddr := findBlockInMPU currentPart idBlockToMerge1 in
 		perform addrIsNull := compareAddrToNull	block1InCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret nullAddr else
 (*
@@ -403,7 +403,7 @@ Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr) : LLI pad
 		perform block1PDChildAddrIsNull := compareAddrToNull block1PDChildAddr in
 		perform block2PDChildAddr := readSh1PDChildFromMPUEntryAddr	block2InCurrPartAddr in
 		perform block2PDChildAddrIsNull := compareAddrToNull block2PDChildAddr in
-		if block1PDChildAddrIsNull || block2PDChildAddrIsNull
+		if negb block1PDChildAddrIsNull || negb block2PDChildAddrIsNull
 		then (* one/both blocks shared, stop *) ret nullAddr
 		else
 
@@ -413,8 +413,8 @@ Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr) : LLI pad
         # block 2 does not follow block 1, no merge possible, stop
         return 0  # TODO: return NULL*)
 		perform block1Next := readSCNextFromMPUEntryAddr block1InCurrPartAddr in
-		perform isBlock2Next := getBeqAddr idBlockToMerge2 block1Next in
-		if isBlock2Next then (* no merge possible, stop*) ret nullAddr else
+		perform isBlock2Next := getBeqAddr block2InCurrPartAddr block1Next in
+		if negb isBlock2Next then (* no merge possible, stop*) ret nullAddr else
 
 		(** Merge block 2 in block 1 *)
 (*
@@ -535,7 +535,7 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 		perform currentFreeSlotsNb := readPDNbFreeSlots idPD in
 		perform isEnoughFreeSlots := Index.leb projectedSlotsNb currentFreeSlotsNb in
 		perform kernelentriesnb := getKernelStructureEntriesNb in
-		perform isForcedPrepare :=  getBeqIdx currentFreeSlotsNb kernelentriesnb in
+		perform isForcedPrepare :=  getBeqIdx projectedSlotsNb kernelentriesnb in
 		if isEnoughFreeSlots && negb isForcedPrepare
 		then (* no need for a prepare, stop*) ret false
 		else

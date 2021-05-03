@@ -138,7 +138,7 @@ void mal_init_root_part(paddr part)
 	// add user memory block(s)
 #if defined UNIT_TESTS
 	// One RAM block for unit testing
-	paddr mpuentryaddr_ram = insertNewEntry(part, user_alloc_pos, &user_mem_end, user_alloc_pos);// idpartition, start, end, origin
+	paddr mpuentryaddr_ram = insertNewEntry(part, user_alloc_pos, &user_mem_end - 1, user_alloc_pos);// idpartition, start, end, origin
 
 	// Pre-configure the MPU LUT with inserted block(s)
 	PDTable_t* PDT = (PDTable_t*) part;
