@@ -1280,8 +1280,8 @@ void test_prepare()
   init_tests();
   test_prepare_planned_nb_slots_less_than_current_free_slots_nb();
 
-  //init_tests();
-  //test_prepare_fails_when_reaching_max_nb_prepare();
+  init_tests();
+  test_prepare_fails_when_reaching_max_nb_prepare();
 
   init_tests();
   test_prepare_bad_arguments();
@@ -2895,8 +2895,8 @@ int main_test (int argc, char* argv[])
   test_create();
   printf("main_test: CREATE OK\r\n");
   // Test prepare system call
-  //test_prepare();
-  //printf("main_test: PREPARE OK\r\n");
+  test_prepare();
+  printf("main_test: PREPARE OK\r\n");
   // Test add system call
   test_add();
   printf("main_test: ADD OK\r\n");
