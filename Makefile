@@ -96,8 +96,7 @@ OBJS = $(patsubst %.c, $(TARGET_DIR)/%.o, $(notdir $(C_FILES))) # .c -> .o but d
 OBJS_MAL = $(patsubst %.c, $(TARGET_DIR)/MAL/%.o, $(notdir $(C_FILES_MAL)))
 OBJS += $(OBJS_MAL)
 OBJS_PIPCORE = $(patsubst %.c, $(TARGET_DIR)/pipcore/%.o, $(notdir $(C_FILES_PIPCORE)))
-#OBJS += $(OBJS_PIPCORE)
-OBJS += $(TARGET_DIR)/pipcore/Internal.o
+OBJS += $(OBJS_PIPCORE)
 OBJS_MDK = $(patsubst %.c, $(TARGET_DIR)/mdk/%.o, $(notdir $(C_FILES_MDK)))
 OBJS += $(OBJS_MDK)
 OBJS_NEWLIB = $(patsubst %.c, $(TARGET_DIR)/newlib/%.o, $(notdir $(C_FILES_NEWLIB)))
@@ -160,8 +159,11 @@ $(TARGET_DIR)/pipcore/Internal.c: Internal.json $(DIGGER)
 $(TARGET_DIR)/pipcore/Internal.h: Internal.json $(DIGGER)
 	$(DIGGER) $(DIGGERFLAGS) --ignore coq_N --header $< -o $@
 
-$(TARGET_DIR)/pipcore/Services.c: Services.json $(DIGGER) $(TARGET_DIR)/pipcore/Internal.h
+$(TARGET_DIR)/pipcore/Services.c: Services.json $(DIGGER) $(TARGET_DIR)/pipcore/Internal.h $(TARGET_DIR)/pipcore/Services.h
 	$(DIGGER) $(DIGGERFLAGS) -m Internal -d :Internal.json -q Internal.h $< -o $@
+
+$(TARGET_DIR)/pipcore/Services.h: Services.json $(DIGGER)
+	$(DIGGER) $(DIGGERFLAGS) --ignore coq_N --header $< -o $@
 
 #%.o: %.S
 $(TARGET_DIR)/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/%.S
@@ -201,7 +203,7 @@ app.bin: $(TARGET_DIR) app.elf
 clean: clean-c clean-coq
 
 clean-coq:
-	rm -f $(TARGET_DIR)/pipcore/Internal.h *.json
+	rm -f $(TARGET_DIR)/pipcore/* *.json
 	rm -f $(VOBJECTS) $(VSOURCES:.v=.v.d) $(VSOURCES:.v=.glob)
 
 clean-c:

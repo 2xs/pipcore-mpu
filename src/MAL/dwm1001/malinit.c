@@ -82,7 +82,7 @@ extern uint32_t user_mem_end;
 
 extern uint32_t _sram;
 
-static uint32_t* user_alloc_pos = NULL;
+static void* user_alloc_pos = NULL;
 
 /* Root partition initialisation.
  * All this code will run at startup.
@@ -92,7 +92,7 @@ static paddr mal_create_root_part(void)
 	uint32_t PD_SIZE = PDSTRUCTURETOTALLENGTH();//already MPU sized, in bytes
 	paddr part = user_alloc_pos;
 	//  # init PD root partition: zero the block + fill in [0; PD length]
-	user_alloc_pos = (uint32_t*) ((uint8_t*) user_alloc_pos + PD_SIZE); // PD_SIZE is in bytes
+	user_alloc_pos = user_alloc_pos + PD_SIZE; // PD_SIZE is in bytes
 	eraseBlock(part, user_alloc_pos);
 
 	// Cast to PDTable_t structure
@@ -108,7 +108,7 @@ void mal_init_root_part(paddr part)
 {
 	uint32_t KS_SIZE = KERNELSTRUCTURETOTALLENGTH();//already MPU sized, in bytes
 	paddr kstructure = user_alloc_pos;
-	user_alloc_pos = (uint32_t*) ((uint8_t*) user_alloc_pos + KS_SIZE); // KS_SIZE is in bytes
+	user_alloc_pos = user_alloc_pos + KS_SIZE; // KS_SIZE is in bytes
 
 	//  # init structure kernel of root partition: zero the block + fill in [0; kernel length]
 	/*while (user_alloc_pos < (kstructure + KS_SIZE))// TODO: defined as bigger than minimal MPU region size
