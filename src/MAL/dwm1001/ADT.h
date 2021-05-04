@@ -50,7 +50,7 @@ typedef uint32_t boolean;
 #define bool boolean
 
 /* Paddr */
-typedef uint32_t* paddr;
+typedef void* paddr;
 
 /**
  * \struct block

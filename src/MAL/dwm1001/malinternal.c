@@ -445,7 +445,7 @@ bool beqIdx(uint32_t a, uint32_t b)
  */
 uint32_t subPaddr(paddr a, paddr b)
 {
-	return (uint8_t*) a - (uint8_t*) b;
+	return a - b;
 }
 
 /*!

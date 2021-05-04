@@ -738,7 +738,7 @@ void writeNextFromKernelStructureStart(paddr structureaddr, paddr newnextstructu
  * \param addr The address of the reference MPU entry
  * \return void
  */
-void eraseAddr(paddr addr)
+void eraseAddr(uint8_t* addr)
 {
 	*addr = NULL;
 
@@ -757,7 +757,7 @@ bool eraseBlock (paddr startAddr, paddr endAddr)
 	if (endAddr < startAddr) return false;
 	for (paddr curraddr = endAddr ; startAddr <= curraddr ; curraddr--)
 	{
-		eraseAddr(curraddr);
+		eraseAddr((uint8_t*)curraddr);
 	}
 	return true;
 }
