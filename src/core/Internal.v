@@ -90,43 +90,91 @@ Definition compareAddrToNull (p : paddr) : LLI bool :=
         return self.__find_block_in_MPU_rec(next_kernel_structure, id_block_to_find)
 *)
 
+(** The [findBlockInMPUStructAux] function recursively search by going through
+		the current structure list and search for the <id_block_to_find>.
+    Stop conditions:
+        1: 	reached end of structure (maximum number of iterations)
+        2: 	found <id_block_to_find>
+        3: 	issue with the block, i.e. block not found, incorrect MPU address or
+						block not present
+    Recursive calls: until the current's structure last index
+		Max recursion depth: number of kernel structure entries
 
-Fixpoint findBlockInMPUAux (timeout : nat) (currentidx : index)
+		Returns the block's MPU address or NULL
+*)
+Fixpoint findBlockInMPUInStructAux (timeout : nat) (currentidx : index)
 													(currentkernelstructure idblock: paddr) : LLI paddr :=
 	match timeout with
 		| 0 => getNullAddr
 		| S timeout1 =>
 										(** PROCESSING: check if the entry is the searched one *)
-										perform entryaddr := getMPUEntryAddrFromKernelStructureStart currentkernelstructure currentidx in
+										perform entryaddr := getMPUEntryAddrFromKernelStructureStart
+																						currentkernelstructure
+																						currentidx in
 										perform ispresent := readMPUPresentFromMPUEntryAddr entryaddr in
 										perform mpustart := readMPUStartFromMPUEntryAddr entryaddr in
 										if ispresent && beqAddr mpustart idblock then
-											(** STOP CONDITION 2: block found*)
+											(** STOP CONDITION 2: block found *)
 											ret entryaddr
 										else
 											(** continue search *)
-											perform nextidx := Index.succ currentidx in
 											perform maxentriesnb := getKernelStructureEntriesNb in
 											(** Our last index is table size - 1, as we're indexed on zero*)
 											perform maxindex := Index.pred maxentriesnb in
 											perform islastidx := getBeqIdx currentidx maxindex in
 											if (islastidx)
 											then
-												(** reached end of current structure *)
-												perform nextkernelstructure := readNextFromKernelStructureStart currentkernelstructure in
-												perform nullAddr :=  getNullAddr in
-												perform isnull :=  getBeqAddr nextkernelstructure nullAddr in
-												if isnull
-												then
-													(** STOP CONDITION 1: reached last block, not found *)
-													ret nullAddr
-												else
-													(** RECURSIVE call on the next table, start at index 0 *)
-													perform zero := Index.zero in
-													findBlockInMPUAux timeout1 zero nextkernelstructure idblock
+												(** STOP CONDITION 1: reached end of current structure,
+																							block not found *)
+												ret nullAddr
 											else
 												(** RECURSIVE call to the next index**)
-												findBlockInMPUAux timeout1 nextidx currentkernelstructure idblock
+												perform nextidx := Index.succ currentidx in
+												findBlockInMPUInStructAux 	timeout1
+																								nextidx
+																								currentkernelstructure
+																								idblock
+	end.
+
+(** The [findBlockInMPUAux] function recursively search by going through
+		the structure list and search for the <id_block_to_find>.
+    Stop conditions:
+        1: 	reached end of structure list (maximum number of iterations)
+        2: 	found <id_block_to_find>
+        3: 	issue with the block, i.e. block not found, incorrect MPU address or
+						block not present
+    Recursive calls: until the end of the linked list
+		Max recursion depth: length of the linked list + findBlockInMPUInStructAux
+
+		Returns the found block's MPU address or NULL
+*)
+Fixpoint findBlockInMPUAux (timeout : nat)
+													(currentkernelstructure idblock: paddr) : LLI paddr :=
+	match timeout with
+		| 0 => getNullAddr
+		| S timeout1 =>	(** PROCESSING: seach for the block in the current structure *)
+										perform zero := Index.zero in
+										perform foundblock := findBlockInMPUInStructAux 	N
+																																		zero
+																																		currentkernelstructure
+																																		idblock in
+										perform isnull := getBeqAddr foundblock nullAddr in
+										if negb isnull
+										then
+											(** STOP CONDITION 2: block found, stop *)
+											ret foundblock
+										else
+											(** block not found in current structure, continue search *)
+											perform nextkernelstructure := readNextFromKernelStructureStart
+																												currentkernelstructure in
+											perform isnull :=  getBeqAddr nextkernelstructure nullAddr in
+											if isnull
+											then
+												(** STOP CONDITION 1: reached last structure, not found *)
+												ret nullAddr
+											else
+												(** RECURSIVE call on the next structure *)
+												findBlockInMPUAux timeout1 nextkernelstructure idblock
 	end.
 
 
@@ -135,8 +183,7 @@ Fixpoint findBlockInMPUAux (timeout : nat) (currentidx : index)
 (** The [findBlockInMPU] function fixes the timeout value of [findBlockInMPUAux] *)
 Definition findBlockInMPU (idPD : paddr) (idBlock: paddr) : LLI paddr :=
 	perform kernelstructurestart := readPDStructurePointer idPD in
-	perform zero := Index.zero in
-	findBlockInMPUAux N zero kernelstructurestart idBlock.
+	findBlockInMPUAux N kernelstructurestart idBlock.
 
 (*
 def __find_block_in_MPU_with_address_rec(self, next_kernel_structure, id_block_to_find, MPU_address_block_to_find):
@@ -182,7 +229,11 @@ def __find_block_in_MPU_with_address_rec(self, next_kernel_structure, id_block_t
         2: 	found <id_block_to_find>
         3: 	issue with the block, i.e. block not found, incorrect MPU address or
 						block not present
-    Recursive calls: until the end of the linked list *)
+    Recursive calls: until the end of the linked list
+		Max recursion depth: length of the linked list
+
+		Returns the block's MPU address or NULL
+*)
 Fixpoint findBlockInMPUWithAddrAux (timeout : nat)
 																	(currentkernelstructure idblock : paddr)
 																	(blockMPUAddr: paddr) : LLI paddr :=
@@ -287,6 +338,8 @@ Definition checkBlockCut (mpublockaddr : paddr) : LLI bool :=
     Stop condition: reached root partiton (last ancestor)
     Processing: remove the block at this level of descendants
     Recursive calls: until the last ancestor
+		Max recursion depth: number of ancestors
+												+ max(findBlockInMPU, removeBlockFromPhysicalMPUIfNotAccessible)
 
 		Returns true:OK/false:NOK*)
 Fixpoint writeAccessibleRecAux 	timeout
@@ -624,6 +677,7 @@ def __remove_block_in_descendants_rec(self, current_idPDchild, current_block_to_
     Stop condition: reached last descendant (leaf) (maximum number of iterations)
     Processing: remove the block at this level of descendants
     Recursive calls: until the last descendant
+		Max recursion depth: number of descendants
 
 		Returns unit*)
 Fixpoint removeBlockInDescendantsRecAux (timeout : nat)
@@ -693,6 +747,7 @@ def __remove_check_subblocks_rec(self, subblock):
         1: reached last subblock (maximum number of iterations)
         2: the subblock is not accessible, not present or shared
     Recursive calls: until the last subblock
+		Max recursion depth: length of the subblocks linked list
 
 		Returns true:OK/false:NOK*)
 Fixpoint checkRemoveSubblocksRecAux (timeout : nat) (subblockAddr : paddr): LLI bool :=
@@ -751,6 +806,7 @@ Definition checkRemoveSubblocksRec (subblockAddr : paddr): LLI bool :=
     Stop condition: reached last subblock (maximum number of iterations)
     Processing: free the subblock's slot
     Recursive calls: until last subblock
+		ax recursion depth: lenth of the subblocks linked list
 
 		Returns true:OK/false:NOK*)
 Fixpoint removeSubblocksRecAux (timeout : nat) (idPDchild subblockAddr : paddr)
@@ -975,30 +1031,6 @@ Definition initPDTable (pdtablepaddr : paddr) : LLI unit :=
 	perform emptytable := getEmptyPDTable in
 	writePDTable pdtablepaddr emptytable.
 
-
-(** The [eraseBlockAux] function recursively zeroes all addresses until it reaches
-		the <startAddr>
-		Stop condition: reached base address
-    Processing: zeroes the current address
-    Recursive calls: until base address
-*)
-(*Fixpoint eraseBlockAux 	(timeout : nat) (startAddr currentAddr : paddr): LLI unit :=
-	match timeout with
-		| 0 => ret tt (*Stop condition 1: reached end of structure list*)
-		| S timeout1 =>	eraseAddr currentAddr ;; (*erase the current address*)
-										if beqAddr currentAddr startAddr then
-											(*Reached start address, no more addresses to erase*)
-											ret tt
-										else
-											(*Continue to erase lower addresses*)
-											perform predAddr := Paddr.pred currentAddr in
-											eraseBlockAux timeout1 startAddr predAddr
-end.*)
-
-(** The [eraseBlock] function fixes the timeout value of [eraseBlockAux] *)
-(*Definition eraseBlock (startAddr endAddr : paddr) : LLI unit :=
-	eraseBlockAux N startAddr endAddr.*)
-
 (*
     def init_MPU(self, kernel_structure_start, index_start, index_end):
         """
@@ -1029,6 +1061,8 @@ end.*)
 		<indexCurr> to 0 of kernel structure located at <kernelStructureStartAddr>
 		by constructing a linked list of all entries representing the free slots.
 		The indexes are 0-indexed.
+	Max recursion depth: number of kernel structure entries
+
 	Returns true:OK/false:NOK
 *)
 Fixpoint initMPUEntryRecAux 	(timeout : nat)
@@ -1061,13 +1095,13 @@ Fixpoint initMPUEntryRecAux 	(timeout : nat)
 											currEntryPointer
 											indexCurr
 											mpuEntry;;
-									(** RECURSIVE call: write default values in precedent index *)
 
 									perform zero := Index.zero in
 									if beqIdx indexCurr zero
 									then (** STOP condition: parsed all entries *)
 										ret true
 									else
+										(** RECURSIVE call: write default values in precedent index *)
 										perform idxpred := Index.pred indexCurr in
 										initMPUEntryRecAux timeout1 kernelStructureStartAddr idxpred
 	end.
@@ -1119,6 +1153,8 @@ def init_Sh1(self, kernel_structure_start, index_start, index_end):
 		<indexCurr> to 0 of kernel structure located at <kernelStructureStartAddr>
 		wit the default Sh1 entry value.
 		The indexes are 0-indexed.
+	Max recursion depth: number of kernel structure entries
+
 	Returns true:OK/false:NOK
 *)
 Fixpoint initSh1EntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
@@ -1135,12 +1171,12 @@ Fixpoint initSh1EntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 																									currEntryOffset in
 										writeSh1EntryFromMPUEntryAddr currEntryPointer
 																									defaultSh1Entry;;
-										(** RECURSIVE call: write default values in precedent index *)
 										perform zero := Index.zero in
 										if beqIdx indexCurr zero
 										then (** STOP condition: parsed all entries *)
 											ret true
 										else
+											(** RECURSIVE call: write default values in precedent index *)
 											perform idxpred := Index.pred indexCurr in
 											initSh1EntryRecAux timeout1 kernelStructureStartAddr idxpred
 	end.
@@ -1175,6 +1211,8 @@ Definition initSh1Structure (kernelStructureStartAddr : paddr) : LLI bool :=
 		<indexCurr> to 0 of kernel structure located at <kernelStructureStartAddr>
 		wit the default SC entry value.
 		The indexes are 0-indexed.
+	Max recursion depth: number of kernel structure entries
+
 	Returns true:OK/false:NOK
 *)
 Fixpoint initSCEntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
@@ -1191,12 +1229,12 @@ Fixpoint initSCEntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 																									currEntryOffset in
 										writeSCEntryFromMPUEntryAddr 	currEntryPointer
 																									defaultSCEntry;;
-										(** RECURSIVE call: write default values in precedent index *)
 										perform zero := Index.zero in
 										if beqIdx indexCurr zero
 										then (** STOP condition: parsed all entries *)
 											ret true
 										else
+											(** RECURSIVE call: write default values in precedent index *)
 											perform idxpred := Index.pred indexCurr in
 											initSCEntryRecAux timeout1 kernelStructureStartAddr idxpred
 	end.
@@ -1270,6 +1308,7 @@ def __delete_shared_blocks_rec(self, current_MPU_kernel_structure, idPDchildToDe
 		Processing: remove all blocks shared with the child to delete in the current
 								structure
     Recursive calls: until the first entry
+		Max recursion depth: number of kernel structure entries + writeAccessibleRec
 
 		Returns true:OK/false:NOK*)
 Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
@@ -1307,29 +1346,31 @@ Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
 													then (* if the block isn't cut in the current
 																partition, set as accessible in the ancestors *)
 																writeAccessibleRec currentPart blockID true ;;
-																(** RECURSIVE call: delete block of next entry
-																										if needed *)
+
 																perform zero := Index.zero in
 																if beqIdx currIndex zero
 																then
-																	(** STOP condition: parsed all entries *)
+																	(** STOP condition: parsed all entries of the 
+																											current structure *)
 																	ret true
 																else
+																	(** RECURSIVE call: delete block of next entry *)
 																	perform idxpred := Index.pred currIndex in
 																	deleteSharedBlocksInStructRecAux 	timeout1
 																																		currentPart
 																																		kernelStructureStartAddr
 																																		idPDchildToDelete
 																																		idxpred
-													else
-																(** RECURSIVE call: delete block of next entry
-																										if needed *)
+													else	(* the block is cut, don't set it back as
+																		accessible in ancestors, continue *)
 																perform zero := Index.zero in
 																if beqIdx currIndex zero
 																then
-																	(** STOP condition: parsed all entries *)
+																	(** STOP condition: parsed all entries of the 
+																											current structure *)
 																	ret true
 																else
+																	(** RECURSIVE call: delete block of next entry *)
 																	perform idxpred := Index.pred currIndex in
 																	deleteSharedBlocksInStructRecAux 	timeout1
 																																		currentPart
@@ -1337,14 +1378,14 @@ Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
 																																		idPDchildToDelete
 																																		idxpred
 										else
-													(** RECURSIVE call: delete block of next entry if needed *)
-
+													(* current block entry is not shared, check next entry *)
 													perform zero := Index.zero in
 													if beqIdx currIndex zero
 													then
 														(** STOP condition: parsed all entries *)
 														ret true
 													else
+														(** RECURSIVE call: delete block of next entry *)
 														perform idxpred := Index.pred currIndex in
 														deleteSharedBlocksInStructRecAux 	timeout1
 																															currentPart
@@ -1360,6 +1401,7 @@ Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
 		Processing: remove all blocks shared with the child to delete in the current
 								structure
     Recursive calls: until the end of the linked list
+		Max recursion depth: length of the linked list + deleteSharedBlocksInStructRecAux
 
 		Returns true:OK/false:NOK*)
 Fixpoint deleteSharedBlocksRecAux 	(timeout : nat)
@@ -1383,7 +1425,7 @@ Fixpoint deleteSharedBlocksRecAux 	(timeout : nat)
 																												currKernelStructureStartAddr
 																												idPDchildToDelete
 																												lastindex;;
-											(** RECURSIVE call: write default values in precedent index *)
+											(** RECURSIVE call: remove shared blocks in the next structure *)
 											perform nextStructureAddr := readNextFromKernelStructureStart
 																											currKernelStructureStartAddr in
 											deleteSharedBlocksRecAux timeout1
@@ -1469,6 +1511,7 @@ Definition collectStructure (idPD predStructureAddr collectStructureAddr : paddr
 				2: all entries of the structure are empty (maximum number of iterations)
 		Processing: check the current entry
     Recursive calls: until all entries are cheked
+		Max recursion depth: number of kernel structure entries
 
 		Returns true:structure empty/false:structure not empty
 
@@ -1513,6 +1556,7 @@ Fixpoint checkStructureEmptyRecAux 	(timeout : nat)
 		Stop condition: reached end of free slots list (maximum number of iterations)
 		Processing: remove slots to collect from free slots list
     Recursive calls: until the end of the list
+		Max recursion depth: length of the free slots linked list
 
 		Returns unit
 
@@ -1643,6 +1687,8 @@ end.
         - empty but has not been prepared by the current partition
 					(e.g. the child tries to collect/steal a structure from its
 					parent's set of blocks
+		Max recursion depth: length of the kernel structure linked list +
+													max(checkStructureEmptyRecAux, collectFreeSlotsRecAux)
 
 		Returns the collected structure's block id:OK/NULL:NOK
 
