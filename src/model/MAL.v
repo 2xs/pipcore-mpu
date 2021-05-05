@@ -40,7 +40,6 @@ Require Import Arith Bool NPeano List Omega.
 
 Open Scope mpu_state_scope.
 
-
 (** Fixed fuel/timeout value to prove function termination *)
 Definition N := 100.
 
@@ -357,6 +356,87 @@ Definition writeMPUIndexFromMPUEntryAddr  	(paddr : paddr) (newindex : index)
 		| None => undefined 59
   end.
 
+Definition readMPURFromMPUEntryAddr  (paddr : paddr) : LLI bool :=
+  perform s := get in
+  let entry :=  lookup paddr s.(memory) beqAddr in
+  match entry with
+  | Some (MPUE a) => ret a.(read)
+  | Some _ => undefined 12
+  | None => undefined 11
+  end.
+
+Definition writeMPURFromMPUEntryAddr (paddr : paddr) (newread : bool) : LLI unit :=
+  perform s := get in
+  let entry :=  lookup paddr s.(memory) beqAddr in
+  match entry with
+  | Some (MPUE a) => let newEntry := {|	read := newread;
+																			 	write := a.(write);
+																			 	exec := a.(exec);
+																			 	present := a.(present);
+																			 	accessible := a.(accessible);
+																			 	mpuindex := a.(mpuindex);
+																			 	mpublock := a.(mpublock)
+																			|} in
+											modify (fun s => {| currentPartition := s.(currentPartition);
+																								memory := add paddr (MPUE newEntry) s.(memory) beqAddr|} )
+		| Some _ => undefined 60
+		| None => undefined 59
+  end.
+
+Definition readMPUWFromMPUEntryAddr  (paddr : paddr) : LLI bool :=
+  perform s := get in
+  let entry :=  lookup paddr s.(memory) beqAddr in
+  match entry with
+  | Some (MPUE a) => ret a.(write)
+  | Some _ => undefined 12
+  | None => undefined 11
+  end.
+
+Definition writeMPUWFromMPUEntryAddr (paddr : paddr) (newwrite : bool) : LLI unit :=
+  perform s := get in
+  let entry :=  lookup paddr s.(memory) beqAddr in
+  match entry with
+  | Some (MPUE a) => let newEntry := {|	read := a.(read);
+																			 	write := newwrite;
+																			 	exec := a.(exec);
+																			 	present := a.(present);
+																			 	accessible := a.(accessible);
+																			 	mpuindex := a.(mpuindex);
+																			 	mpublock := a.(mpublock)
+																			|} in
+											modify (fun s => {| currentPartition := s.(currentPartition);
+																								memory := add paddr (MPUE newEntry) s.(memory) beqAddr|} )
+		| Some _ => undefined 60
+		| None => undefined 59
+  end.
+
+Definition readMPUXFromMPUEntryAddr  (paddr : paddr) : LLI bool :=
+  perform s := get in
+  let entry :=  lookup paddr s.(memory) beqAddr in
+  match entry with
+  | Some (MPUE a) => ret a.(exec)
+  | Some _ => undefined 12
+  | None => undefined 11
+  end.
+
+Definition writeMPUXFromMPUEntryAddr (paddr : paddr) (newexec : bool) : LLI unit :=
+  perform s := get in
+  let entry :=  lookup paddr s.(memory) beqAddr in
+  match entry with
+  | Some (MPUE a) => let newEntry := {|	read := a.(read);
+																			 	write := a.(write);
+																			 	exec := newexec;
+																			 	present := a.(present);
+																			 	accessible := a.(accessible);
+																			 	mpuindex := a.(mpuindex);
+																			 	mpublock := a.(mpublock)
+																			|} in
+											modify (fun s => {| currentPartition := s.(currentPartition);
+																								memory := add paddr (MPUE newEntry) s.(memory) beqAddr|} )
+		| Some _ => undefined 60
+		| None => undefined 59
+  end.
+
 (*def write_MPU_entry(self, MPU_entry_address, start, end, accessible, present):
     """Writes at the MPU entry <MPU_entry_address> the values (<start>, <end>, <accessible bit>, <present bit>)"""
     # index (0), start (1), end (2), accessible (3), present (4)
@@ -665,4 +745,27 @@ Definition eraseBlock (startAddr endAddr : paddr) : LLI bool :=
 	perform isEndAddrBeforeStartAddr := Paddr.ltb endAddr startAddr in
 	if isEndAddrBeforeStartAddr then ret false else
 	eraseBlockAux N startAddr endAddr ;;
+	ret true.
+
+(** A new right is compatible to another if it is less or equal to it *)
+Definition compatibleRight (originalright newright : bool) : bool :=
+	if newright then eqb originalright newright else true.
+
+
+(** The [checkRights] function checks that the rights <r, w, x> are compatible
+		with Pip's access control policy for unprivileged accesses given a base block.
+
+		Policy:
+			- always readable (only enabled regions are present)
+			- can't give more rights than the original block
+
+		Returns OK/NOK
+*)
+Definition checkRights (originalmpuentryaddr : paddr) (r w x : bool) : LLI bool :=
+	if negb r then ret false else
+	perform woriginal := readMPUWFromMPUEntryAddr originalmpuentryaddr in
+	perform xoriginal := readMPUXFromMPUEntryAddr originalmpuentryaddr in
+
+	if negb (compatibleRight woriginal w && compatibleRight xoriginal x )
+	then (** incompatible rights *) ret false else
 	ret true.

@@ -340,7 +340,7 @@ void writeMPUAccessibleFromMPUEntryAddr(paddr mpuentryaddr, bool value)
  * \fn bool readMPUPresentFromMPUEntryAddr(paddr mpuentryaddr)
  * \brief Gets the Present flag from the given entry.
  * \param mpuentryaddr The address of the MPU entry to read from
- * \return 1 if the page is present, 0 else
+ * \return 1 if the block is present, 0 else
  */
 bool readMPUPresentFromMPUEntryAddr(paddr mpuentryaddr)
 {
@@ -400,6 +400,102 @@ void writeMPUIndexFromMPUEntryAddr(paddr mpuentryaddr, uint32_t value)
 
 	// write the MPU index
 	(mpuentry->mpuindex).MPUi = value;
+	return;
+}
+
+/*!
+ * \fn bool readMPURFromMPUEntryAddr(paddr mpuentryaddr)
+ * \brief Gets the Present flag from the given entry.
+ * \param mpuentryaddr The address of the MPU entry to read from
+ * \return 1 if the read flag is set, 0 else
+ */
+bool readMPURFromMPUEntryAddr(paddr mpuentryaddr)
+{
+	// Cast it into a MPUEntry_t structure
+	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+
+	// Return the read flag
+	return mpuentry->read;
+}
+
+/*!
+ * \fn void writeMPURFromMPUEntryAddr(paddr mpuentryaddr, bool value)
+ * \brief Sets a memory block as readable or not.
+ * \param mpuentryaddr The address of the MPU entry to write in
+ * \param value The new value
+ * \return void
+ */
+void writeMPURFromMPUEntryAddr(paddr mpuentryaddr, bool value)
+{
+	// Cast it into a MPUEntry_t structure
+	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+
+	// write the read flag
+	mpuentry->read = value;
+	return;
+}
+
+/*!
+ * \fn bool readMPUWFromMPUEntryAddr(paddr mpuentryaddr)
+ * \brief Gets the write flag from the given entry.
+ * \param mpuentryaddr The address of the MPU entry to read from
+ * \return 1 if the write flag is set, 0 else
+ */
+bool readMPUWFromMPUEntryAddr(paddr mpuentryaddr)
+{
+	// Cast it into a MPUEntry_t structure
+	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+
+	// Return the write flag
+	return mpuentry->write;
+}
+
+/*!
+ * \fn void writeMPUWFromMPUEntryAddr(paddr mpuentryaddr, bool value)
+ * \brief Sets a memory block as writable or not.
+ * \param mpuentryaddr The address of the MPU entry to write in
+ * \param value The new value
+ * \return void
+ */
+void writeMPUWFromMPUEntryAddr(paddr mpuentryaddr, bool value)
+{
+	// Cast it into a MPUEntry_t structure
+	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+
+	// write the flag
+	mpuentry->write = value;
+	return;
+}
+
+/*!
+ * \fn bool readMPUXFromMPUEntryAddr(paddr mpuentryaddr)
+ * \brief Gets the exec flag from the given entry.
+ * \param mpuentryaddr The address of the MPU entry to read from
+ * \return 1 if the exec flag is set, 0 else
+ */
+bool readMPUXFromMPUEntryAddr(paddr mpuentryaddr)
+{
+	// Cast it into a MPUEntry_t structure
+	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+
+	// Return the exec flag
+	return mpuentry->exec;
+}
+
+/*!
+ * \fn void writeMPUXFromMPUEntryAddr(paddr mpuentryaddr, bool value)
+ * \brief Sets a memory block as executable or not.
+ * \param mpuentryaddr The address of the MPU entry to write in
+ * \param value The new value
+ * \return void
+ */
+void writeMPUXFromMPUEntryAddr(paddr mpuentryaddr, bool value)
+{
+	// Cast it into a MPUEntry_t structure
+	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+
+	// write the flag
+	mpuentry->exec = value;
 	return;
 }
 
@@ -937,29 +1033,40 @@ updateRootPartition(paddr partition)
 {
 	root_partition = partition;
 }
+/*!
+ * \fn bool checkRights(paddr originalmpuentryaddr, bool read, bool write, bool execute)
+ * \brief Checks that the <newright> is compatible with the <originalright>
+ * \param newright 		the new right to set
+ * \param originalright	the original right
+ */
+bool compatibleRight(bool originalright, bool newright)
+{
+	return (newright <= originalright);
+}
 
 /*!
- * \fn uint32_t checkRights(uint32_t read, uint32_t write, uint32_t execute)
+ * \fn bool checkRights(paddr originalmpuentryaddr, bool read, bool write, bool execute)
+ * \brief Checks that the rights <r, w, x> are compatible with Pip's access control policy
+ * 			for unprivileged accesses given a base block.
+		Policy:
+			- always readable (only enabled regions are present in the kernel structure)
+			- can't give more rights than the original block
+		Returns OK/NOK
+ * \param originalmpuentryaddr the original block to copy from
  * \param read The read right
  * \param write The write right
- * \param execute The execute right
- * \brief Checks whether we can apply the given rights on the target architecture
- * \return 1 if we can, 0 if we can't
+ * \param exec The exec right
+ * \return True/false
  */
-uint32_t checkRights(uint32_t read, uint32_t write, uint32_t execute)
+bool checkRights(paddr originalmpuentryaddr, bool read, bool write, bool exec)
 {
-	// Read has to be 1 (only user/kernel in x86)
-	if(read==0)
-		return 0;
-
-	// No XD bit on i386
-	if(execute==0)
-		return 0;
-
-	// Well the complier will complain about a unused parameter thing so...
-	if(write==0 || write == 1)
-		return 1;
-	else return 0;
+	// Read has to be true
+	if(read == false) return false;
+	// Check the rights are not increased
+	bool woriginal = readMPUWFromMPUEntryAddr(originalmpuentryaddr);
+	bool xoriginal = readMPUXFromMPUEntryAddr(originalmpuentryaddr);
+	if (!(compatibleRight(woriginal, write) && compatibleRight(xoriginal, exec))) return false;
+	else return true;
 }
 
 /* activate:

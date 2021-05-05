@@ -505,11 +505,16 @@ void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr)
 	// MPU region size = 2^(regionsize +1) on 5 bits
 	uint32_t size =  (uint32_t) (mpuentry->mpublock).endAddr - (uint32_t)(mpuentry->mpublock).startAddr;
 	uint8_t regionsize = (uint8_t) powlog2(size) - 1;
-	uint32_t XNbit = 0;
+	uint32_t AP = 7U; // PRIV/UNPRIV RO, region always readbale checked before
+	if (mpuentry->write == 1)
+	{
+		AP = 3U; // PRIV/UNPRIV RW Full access
+	}
+	uint32_t XNbit = !mpuentry->exec; // Execute Never 0 = executable, 1 = not executable
 	LUT[entryindex*2] = ((uint32_t)(mpuentry->mpublock).startAddr | MPU_RBAR_VALID_Msk | entryindex);
 	LUT[entryindex*2+1] = 	MPU_RASR_ENABLE_Msk |
 							(regionsize << MPU_RASR_SIZE_Pos) | //& MPU_RASR_SIZE_Msk) |
-							(3U << MPU_RASR_AP_Pos)  |  //full access R/W Priv/UnPriv TODO: restrict to permissions set to the block
+							(AP << MPU_RASR_AP_Pos)  |  // R/W Priv/UnPriv
 							//(1U << MPU_RASR_SRD_Pos) | // subregion SRD disabled (=1)
 							(XNbit << MPU_RASR_XN_Pos) | // 0 = executable, 1 = not executable
 							// ARM_MPU_ACCESS_(0U, 1U, 1U, 1U)     TEX  = b000,  C =  1, B =  1 -> Write back, no write allocate

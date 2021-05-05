@@ -431,10 +431,19 @@ Definition writeAccessibleToAncestorsIfNotCutRec (pdbasepartition : paddr)
 *)
 (** The [insertNewEntry] function inserts the entry (<startaddr>, <endaddr>, true, true)
  	in the partition <pdinsertion> with block origin <origin>.
-	Used in cutMemoryBlock and addMemoryBlock
+	Used in cutMemoryBlock and addMemoryBlock.
+	The rights have been checked before.
+
 	Returns the inserted entry's MPU address
-	 *)
-Definition insertNewEntry (pdinsertion startaddr endaddr origin: paddr) : LLI paddr :=
+
+	<<pdinsertion>> the PD where to insert the new entry
+	<<startaddr>>		the new entry's start address
+	<<endaddr>>			the new entry's end address
+	<<origin>>			the new entry's block origin
+	<<r w e >>			the new entry's rights
+*)
+Definition insertNewEntry 	(pdinsertion startaddr endaddr origin: paddr)
+													(r w e : bool) 													: LLI paddr :=
 (** Checks have been done before: PD is correct, MPU_entry is correct, block_origin is correct, there is one or more free slots *)
 	perform newEntryMPUAddr := readPDFirstFreeSlotPointer pdinsertion in
 	(** Adjust the free slot pointer to the next free slot*)
@@ -450,7 +459,9 @@ Definition insertNewEntry (pdinsertion startaddr endaddr origin: paddr) : LLI pa
 	writeMPUEndFromMPUEntryAddr newEntryMPUAddr endaddr ;;
 	writeMPUAccessibleFromMPUEntryAddr newEntryMPUAddr true ;;(** TODO accessible by default else no cut no add*)
 	writeMPUPresentFromMPUEntryAddr newEntryMPUAddr true ;;(** TODO present by default*)
-	(* TODO : set the block's RWX rights here ?*)
+	writeMPURFromMPUEntryAddr newEntryMPUAddr r ;;
+	writeMPUWFromMPUEntryAddr newEntryMPUAddr w ;;
+	writeMPUXFromMPUEntryAddr newEntryMPUAddr e ;;
 	writeSCOriginFromMPUEntryAddr newEntryMPUAddr origin ;;
 
 	ret newEntryMPUAddr.
@@ -547,10 +558,12 @@ Definition checkChild (idPDparent idPDchild : paddr) : LLI bool :=
 
 		Returns the child's MPU entry address used to store the shared block:OK/NULL:NOK
 
-    <<idPDchild>>				the child partition to share with
+    <<idPDchild>>						the child partition to share with
 		<<blockToShareMPUAddr>>	the block to share MPU address in the parent
+		<<r w e >>							the rights to apply in the child partition
 *)
-Definition addMemoryBlockCommon (idPDchild blockToShareMPUAddr: paddr) : LLI paddr :=
+Definition addMemoryBlockCommon 	(idPDchild blockToShareMPUAddr: paddr)
+																(r w e : bool) : LLI paddr :=
 (*
 def __add_memory_block(self, idPDchild, block_to_share_in_current_partition_address):
     """
@@ -624,7 +637,9 @@ def __add_memory_block(self, idPDchild, block_to_share_in_current_partition_addr
 		perform blockend := readMPUEndFromMPUEntryAddr blockToShareMPUAddr in
 		perform blockToShareChildMPUAddr := insertNewEntry 	idPDchild
 																												blockstart blockend
-																												blockstart in
+																												blockstart
+																												r w e
+																												in
 
 
 (*

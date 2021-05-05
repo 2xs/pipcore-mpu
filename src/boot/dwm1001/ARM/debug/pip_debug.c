@@ -56,12 +56,16 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
         printf("%-1u\r\n",
                                                 entry->present);*/
         paddr mpuentryadddr = kernel_structure_start_addr + i*mpuentrylength;
-        printf("%x:%-1d:MPU\t%-10x|%-10x|%-1u|%-1u\r\n",    mpuentryadddr,
+        printf("%x:%-1d:MPU\t%-10x|%-10x\t|%-1u|%-1u|%-1u%-1u%-1u\r\n",    mpuentryadddr,
                                                             readMPUIndexFromMPUEntryAddr(mpuentryadddr),
                                                             readMPUStartFromMPUEntryAddr(mpuentryadddr),
                                                             readMPUEndFromMPUEntryAddr(mpuentryadddr),
                                                             readMPUAccessibleFromMPUEntryAddr(mpuentryadddr),
-                                                            readMPUPresentFromMPUEntryAddr(mpuentryadddr));
+                                                            readMPUPresentFromMPUEntryAddr(mpuentryadddr),
+                                                            readMPURFromMPUEntryAddr(mpuentryadddr),
+                                                            readMPUWFromMPUEntryAddr(mpuentryadddr),
+                                                            readMPUXFromMPUEntryAddr(mpuentryadddr)
+                                                            );
     }
     printf("\r\n----------SH1---------------------------\r\n");
     for (int i=0;i<kernelstructureentriesnb;i++)

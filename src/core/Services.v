@@ -293,13 +293,18 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
         block_origin
     )*)
 		(** Current partition: create the new subblock at cutAddr and insert it in
-				the kernel structure*)
+				the kernel structure, keep the original rights *)
 		perform blockEndAddr := readMPUEndFromMPUEntryAddr blockToCutMPUAddr in
 		perform blockOrigin := readSCOriginFromMPUEntryAddr blockToCutMPUAddr in
+		perform blockR := readMPURFromMPUEntryAddr blockToCutMPUAddr in
+		perform blockW := readMPUWFromMPUEntryAddr blockToCutMPUAddr in
+		perform blockX := readMPUXFromMPUEntryAddr blockToCutMPUAddr in
 		perform newSubblockMPUAddr := insertNewEntry 	currentPart
 																									cutAddr
 																									blockEndAddr
-																									blockOrigin in
+																									blockOrigin 
+																									blockR blockW blockX
+																									in
 
 (*
     # // Modifier le bloc initial
@@ -717,8 +722,11 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 
     <<idPDchild>>				the child partition to share with
 		<<idBlockToShare>>	the block to share
+		<<r w e >>					the rights to apply in the child partition
 *)
-Definition addMemoryBlock (idPDchild idBlockToShare: paddr) : LLI paddr :=
+Definition addMemoryBlock (idPDchild idBlockToShare: paddr) (r w e : bool)
+																																	: LLI paddr :=
+
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 
@@ -742,10 +750,13 @@ Definition addMemoryBlock (idPDchild idBlockToShare: paddr) : LLI paddr :=
 																									idBlockToShare in
 		perform addrIsNull := compareAddrToNull	blockInCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret nullAddr else
+		(** Check rights *)
+		 perform rcheck := checkRights blockInCurrPartAddr r w e in
+    if negb rcheck then (* new rights not OK, stop *) ret nullAddr else
 (*
     return self.__add_memory_block(idPDchild, block_to_share_in_current_partition_address)*)
 		(** Call the internal addMemoryBlock function shared with the faster interface*)
-		addMemoryBlockCommon idPDchild blockInCurrPartAddr.
+		addMemoryBlockCommon idPDchild blockInCurrPartAddr r w e.
 
 (** ** The addMemoryBlockFast PIP MPU service
 
@@ -760,8 +771,10 @@ Definition addMemoryBlock (idPDchild idBlockToShare: paddr) : LLI paddr :=
     <<idPDchild>>							the child partition to share with
 		<<idBlockToShare>>				the block to share
 		<MPUAddressBlockToShare>>	the MPU address where the block <idBlocktoShare> lies
+		<<r w e >>								the rights to apply in the child partition
 *)
-Definition addMemoryBlockFast (idPDchild idBlockToShare MPUAddressBlockToShare: paddr)
+Definition addMemoryBlockFast 	(idPDchild idBlockToShare MPUAddressBlockToShare: paddr)
+															(r w e : bool)
 																																	: LLI paddr :=
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
@@ -792,10 +805,12 @@ def addMemoryBlockFast(self, idPDchild, idBlockToShare, MPUAddressBlockToShare):
 																													MPUAddressBlockToShare in
 		perform addrIsNull := compareAddrToNull	blockInCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret nullAddr else
+		perform rcheck := checkRights blockInCurrPartAddr r w e in
+    if negb rcheck then (* new rights not OK, stop *) ret nullAddr else
 (*
 		return self.__add_memory_block(idPDchild, block_to_share_in_current_partition_address)*)
 		(** Call the internal addMemoryBlock function shared with the faster interface*)
-		addMemoryBlockCommon idPDchild blockInCurrPartAddr.
+		addMemoryBlockCommon idPDchild blockInCurrPartAddr r w e.
 
 (** ** The removeMemoryBlock PIP MPU service
 

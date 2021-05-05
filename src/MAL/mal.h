@@ -54,22 +54,15 @@ void updateCurPartition (paddr descriptor);
 paddr getRootPartition(void); //!< Interface to get the current Page Directory
 void updateRootPartition (paddr descriptor);
 
-//uint32_t defaultAddr(void); //!< Default address, should be 0x00000000
-//extern const uint32_t defaultVAddr; //!< Default address, should be 0x00000000
 uint32_t getTableSize(void); //!< Table size
 uint32_t getMaxIndex(void); //!< Table size
 uint32_t addressEquals(uint32_t addr, uint32_t addr2); //!< Checks whether an address is equal to another.
 void cleanPage(uint32_t paddr); //!< Cleans a given page, filling it with zero
 
-uint32_t checkRights(uint32_t read, uint32_t write, uint32_t execute); //!< Checks whether the asked rights are applicable to the architecture or not
-uint32_t applyRights(uint32_t table, uint32_t index, uint32_t read, uint32_t write, uint32_t execute); //!< Apply the asked rights to the given entry
+bool compatibleRight(bool originalright, bool newright); //!< Checks the compatibility of a right to another
+bool checkRights(paddr originalmpuentryaddr, bool read, bool write, bool exec); //!< Checks whether the asked rights are compatible with the original block
 
 uint32_t toAddr(uint32_t input); //!< Converts a given uint32_t to an address (only for Haskell FFI purposes)
-//extern const uint32_t nbLevel;
-
-/* Amount of pages available, meh */
-/*extern uint32_t maxPages;
-#define nbPage maxPages*/
 
 /* Coq related stuff */
 int geb(const uint32_t a, const uint32_t b); //!< Greater or equal
@@ -166,6 +159,12 @@ bool readMPUPresentFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the Present f
 void writeMPUPresentFromMPUEntryAddr(paddr mpuentryaddr, bool value); //!< Sets a memory block as present or not
 uint32_t readMPUIndexFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the MPU index from the given entry
 void writeMPUIndexFromMPUEntryAddr(paddr mpuentryaddr, uint32_t value); //!< Sets the MPU index
+bool readMPURFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the read flag
+void writeMPURFromMPUEntryAddr(paddr mpuentryaddr, bool value); //!< Sets the read flag
+bool readMPUWFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the write flag
+void writeMPUWFromMPUEntryAddr(paddr mpuentryaddr, bool value); //!< Sets the write flag
+bool readMPUXFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the exec flag
+void writeMPUXFromMPUEntryAddr(paddr mpuentryaddr, bool value); //!< Sets the exec flag
 void writeMPUEntryFromMPUEntryAddr(paddr mpuentryaddr, MPUEntry_t value); //!< Sets the MPU entry
 void writeMPUEntryWithIndexFromMPUEntryAddr(paddr mpuentryaddr, uint32_t index, MPUEntry_t value); //!< Sets the MPU entry with given index
 paddr getSh1EntryAddrFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the Sh1 entry from the MPU entry

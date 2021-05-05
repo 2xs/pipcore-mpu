@@ -392,7 +392,9 @@ void init_test_with_create_prepare_share_child(int standalone)
   init_test_with_create_prepare_child(false);
 
   // add the shared block to the child
-  block_to_share_MPU_child_address = addMemoryBlock(child_partition_pd, block_to_share_id);
+  block_to_share_MPU_child_address = addMemoryBlock(child_partition_pd,
+                                                    block_to_share_id,
+                                                    true, true, false);
   assert(block_to_share_MPU_child_address != false);
 }
 
@@ -490,7 +492,8 @@ void init_test_with_create_prepare_child_and_create_prepare_share_grandchild(int
 
   // add the shared block to the grandchild
   block_to_share_MPU_grandchild_address = addMemoryBlock(grandchild_partition_pd,
-                                                                        block_to_share_id);
+                                                        block_to_share_id,
+                                                        true, true, false);
   assert(block_to_share_MPU_grandchild_address != false);
 }
 
@@ -982,7 +985,7 @@ void test_create_partitions_bad_arguments()
   paddr block4 = initial_block_start + 20 * KERNELSTRUCTURETOTALLENGTH();
   assert(cutMemoryBlock(initial_block_start, block4) != false);  // 5th entry
   assert(prepare(block1, 8, block4) != false);
-  assert(addMemoryBlock(block1, block3) != false);
+  assert(addMemoryBlock(block1, block3, true, true, false) != false);
   assert(createPartition(block3) == false);  // Fail
 }
 
@@ -1310,13 +1313,15 @@ void add_alone(int fast)
   if (fast)
   {
       block_to_share_in_child_address = addMemoryBlockFast(child_partition_pd,
-                                                                block_to_share_id,
-                                                                block_to_share_MPU_root_address);
+                                                            block_to_share_id,
+                                                            block_to_share_MPU_root_address,
+                                                            true, true, false); // RW = true, X = false
   }
   else
   {
       block_to_share_in_child_address = addMemoryBlock(child_partition_pd,
-                                                                block_to_share_id);
+                                                      block_to_share_id,
+                                                      true, false, false); // R = true, WX = false
   }
   assert(block_to_share_in_child_address != false);
 
@@ -1333,13 +1338,25 @@ void add_alone(int fast)
   assert(readSh1PDFlagFromMPUEntryAddr(block_to_share_MPU_root_address) == false);
   assert(readSh1InChildLocationFromMPUEntryAddr(block_to_share_MPU_root_address) == block_to_share_in_child_address);
 
-  // Check the added block is in the child partition
+  // Check the added block is in the child partition with correct rights
   assert(readMPUStartFromMPUEntryAddr(block_to_share_in_child_address) == readMPUStartFromMPUEntryAddr(block_to_share_MPU_root_address));
   assert(readMPUEndFromMPUEntryAddr(block_to_share_in_child_address) == readMPUEndFromMPUEntryAddr(block_to_share_MPU_root_address));
   assert(readMPUAccessibleFromMPUEntryAddr(block_to_share_in_child_address) == readMPUAccessibleFromMPUEntryAddr(block_to_share_MPU_root_address));
   assert(readMPUPresentFromMPUEntryAddr(block_to_share_in_child_address) == readMPUPresentFromMPUEntryAddr(block_to_share_MPU_root_address));
+  if (fast)
+  {
+      assert(readMPURFromMPUEntryAddr(block_to_share_in_child_address) == true);
+      assert(readMPUWFromMPUEntryAddr(block_to_share_in_child_address) == true); // true
+      assert(readMPUXFromMPUEntryAddr(block_to_share_in_child_address) == false);
+  }
+  else
+  {
+      assert(readMPURFromMPUEntryAddr(block_to_share_in_child_address) == true);
+      assert(readMPUWFromMPUEntryAddr(block_to_share_in_child_address) == false); // false
+      assert(readMPUXFromMPUEntryAddr(block_to_share_in_child_address) == false);
+  }
 
-  // Check the remaining slots are default
+  // Check the remaining slots are default in child
   remaining_MPU_slots_form_a_linked_list(1, kernelstructureentriesnb - 1,
                                               readPDStructurePointer(child_partition_pd));
 
@@ -1385,13 +1402,15 @@ void add_no_free_slots_left(int fast)
   if (fast)
   {
       assert(addMemoryBlockFast(child_partition_pd,
-                                                    block_to_share_id,
-                                                    block_to_share_MPU_root_address) == false);
+                                block_to_share_id,
+                                block_to_share_MPU_root_address,
+                                true, true, false) == false);
   }
   else
   {
       assert(addMemoryBlock(child_partition_pd,
-                                                block_to_share_id) == false);
+                            block_to_share_id,
+                            true, true, false) == false);
   }
 }
 
@@ -1433,28 +1452,35 @@ void add_bad_arguments(int fast)
   if (fast)
   {
       assert(addMemoryBlockFast((paddr) 0x01,
-                                                    block_to_share_id,
-                                                    block_to_share_MPU_root_address) == false);
+                                block_to_share_id,
+                                block_to_share_MPU_root_address,
+                                true, true, false) == false);
   }
   else
   {
-      assert(addMemoryBlock((paddr) 0x01, block_to_share_id) == false);
+      assert(addMemoryBlock((paddr) 0x01,
+                            block_to_share_id,
+                            true, true, false) == false);
   }
   // Check the block to be shared doesn't exist in one-numbered kernel structure list
   if (fast)
   {
       // with valid provided MPU address
       assert(addMemoryBlockFast(child_partition_pd,
-                                                    initial_block_start - 100,
-                                                    root_kernel_structure_start) == false);
+                                initial_block_start - 100,
+                                root_kernel_structure_start,
+                                true, true, false) == false);
       // with invalid MPU address (not included in the kernel structures);
       assert(addMemoryBlockFast(child_partition_pd,
-                                                    initial_block_start - 100,
-                                                    root_kernel_structure_start - 50) == false);
+                                initial_block_start - 100,
+                                root_kernel_structure_start - 50,
+                                true, true, false) == false);
   }
   else
   {
-      assert(addMemoryBlock(child_partition_pd, initial_block_start - 100) == false);
+      assert(addMemoryBlock(child_partition_pd,
+                            initial_block_start - 100,
+                            true, true, false) == false);
   }
   // Check the block to be shared doesn't exist in two-numbered kernel structure list
   assert(prepare(getCurPartition(),
@@ -1463,23 +1489,54 @@ void add_bad_arguments(int fast)
   if (fast)
   {
       assert(addMemoryBlockFast(child_partition_pd,
-                                                    initial_block_start - 100,
-                                                    root_kernel_structure_start) == false);
+                                initial_block_start - 100,
+                                root_kernel_structure_start,
+                                true, true, false) == false);
   }
   else
   {
-      assert(addMemoryBlock(child_partition_pd, initial_block_start - 100) == false);
+      assert(addMemoryBlock(child_partition_pd,
+                            initial_block_start - 100,
+                            true, true, false) == false);
   }
   // Check the block to be shared is inaccessible (block to share has been used in the previous prepare);
   if (fast)
   {
       assert(addMemoryBlockFast(child_partition_pd,
-                                                    block_to_share_id,
-                                                    block_to_share_MPU_root_address) == false);
+                                block_to_share_id,
+                                block_to_share_MPU_root_address,
+                                true, true, false) == false);
   }
   else
   {
-      assert(addMemoryBlock(child_partition_pd, block_to_share_id) == false);
+      assert(addMemoryBlock(child_partition_pd,
+                            block_to_share_id,
+                            true, true, false) == false);
+  }
+  // Check the block's rights : must be readable and compatible to initial (RW=true, X=false)
+  if (fast)
+  {
+      // Read must be set
+      assert(addMemoryBlockFast(child_partition_pd,
+                                block_to_share_id,
+                                block_to_share_MPU_root_address,
+                                false, true, false) == false); // Read = false
+      // Execute can't be set
+      assert(addMemoryBlockFast(child_partition_pd,
+                                block_to_share_id,
+                                block_to_share_MPU_root_address,
+                                true, true, true) == false); // exec = true
+  }
+  else
+  {
+      // Read must be set
+      assert(addMemoryBlock(child_partition_pd,
+                            block_to_share_id,
+                            false, true, false) == false); // Read = false
+      // Execute can't be set
+      assert(addMemoryBlock(child_partition_pd,
+                            block_to_share_id,
+                            true, true, true) == false); // exec = true
   }
 }
 
@@ -1556,7 +1613,9 @@ void remove_alone(int fast)
   paddr old_parent = readPDParent(child_partition_pd);
 
   // add + remove = same as before
-  assert(addMemoryBlock(child_partition_pd, block_to_share_id) != false);
+  assert(addMemoryBlock(child_partition_pd,
+                        block_to_share_id,
+                        true, true, false) != false);
   // check first entry is not default after add
   paddr child_kernel_structure_start = readPDStructurePointer(child_partition_pd);
   assert(readMPUStartFromMPUEntryAddr(child_kernel_structure_start) != NULL);
@@ -1637,7 +1696,9 @@ void remove_in_grandchildren(int fast)
   init_test_with_create_prepare_child(false);
 
   // give the block to create+prepare grandchild
-  assert(addMemoryBlock(child_partition_pd, grandchild_block_id) != false);
+  assert(addMemoryBlock(child_partition_pd,
+                        grandchild_block_id,
+                        true, true, false) != false);
   dump_ancestors(child_partition_pd);
 
   // Then move to child and create and prepare the grandchild
@@ -1649,12 +1710,16 @@ void remove_in_grandchildren(int fast)
 
   // Switch back to parent and add block-to-share to child
   updateCurPartition(root);
-  paddr block_to_share_MPU_child_address = addMemoryBlock(child_partition_pd, block_to_share_id);
+  paddr block_to_share_MPU_child_address = addMemoryBlock(child_partition_pd,
+                                                          block_to_share_id,
+                                                          true, true, false);
   assert(block_to_share_MPU_child_address != false);
 
   // Switch to child and add block to grandchild
   updateCurPartition(child_partition_pd);
-  paddr block_to_share_MPU_grandchild_address = addMemoryBlock(grandchild_partition_pd, block_to_share_id);
+  paddr block_to_share_MPU_grandchild_address = addMemoryBlock(grandchild_partition_pd,
+                                                              block_to_share_id,
+                                                              true, true, false);
   assert(block_to_share_MPU_grandchild_address != false);
 
   // Tests that block-to-share is present and accessible in child and grandchild
@@ -1742,7 +1807,9 @@ void remove_accessible_subblocks(int fast)
   paddr old_parent = readPDParent(child_partition_pd);
 
   // ADD
-  assert(addMemoryBlock(child_partition_pd, block_to_share_id) != false);
+  assert(addMemoryBlock(child_partition_pd,
+                        block_to_share_id,
+                        true, true, false) != false);
 
   // CUT Switch to child -> cut shared block 3x
   updateCurPartition(child_partition_pd);
@@ -1828,7 +1895,9 @@ void remove_fails_with_subblocks_inaccessible(int fast)
   init_test_with_create_prepare_child(false);
 
   // ADD
-  assert(addMemoryBlock(child_partition_pd, block_to_share_id) != false);
+  assert(addMemoryBlock(child_partition_pd,
+                        block_to_share_id,
+                        true, true, false) != false);
 
   // CUT Switch to child -> cut shared block 3x
   updateCurPartition(child_partition_pd);
@@ -1896,7 +1965,9 @@ void remove_fails_with_block_in_child_not_accessible(int fast)
   init_test_with_create_prepare_child(false);
 
   // ADD
-  assert(addMemoryBlock(child_partition_pd, block_to_share_id) != false);
+  assert(addMemoryBlock(child_partition_pd,
+                        block_to_share_id,
+                        true, true, false) != false);
 
   // PREPARE the child prepares itself to add a kernel structure with one of the subblocks
   updateCurPartition(child_partition_pd);
@@ -2177,7 +2248,9 @@ void test_delete_partition_with_block_shared_and_grandchild()
 {
   init_test_with_create_prepare_child_and_create_prepare_grandchild(true);
   updateCurPartition(child_partition_pd);
-  assert(addMemoryBlock(grandchild_partition_pd, block_to_share_id) != false);
+  assert(addMemoryBlock(grandchild_partition_pd,
+                        block_to_share_id,
+                        true, true, false) != false);
   dump_partition(grandchild_partition_pd);
   // Delete the child partition
   updateCurPartition(root);
@@ -2250,14 +2323,22 @@ void test_delete_partition_grandchild_with_blocks_not_cut()
   // create/prepare/share child + give all blocks for grandchild
   assert(createPartition(child_partition_pd) != false);
   assert(prepare(child_partition_pd, 8, block_prepare_child_id) != false);
-  assert(addMemoryBlock(child_partition_pd, block_shared_id) != false);
-  assert(addMemoryBlock(child_partition_pd, grandchild_partition_pd) != false);
-  assert(addMemoryBlock(child_partition_pd, block_prepare_grandchild_id) != false);
+  assert(addMemoryBlock(child_partition_pd,
+  block_shared_id,
+  true, true, false) != false);
+  assert(addMemoryBlock(child_partition_pd,
+                        grandchild_partition_pd,
+                        true, true, false) != false);
+  assert(addMemoryBlock(child_partition_pd,
+                        block_prepare_grandchild_id,
+                        true, true, false) != false);
   // create/prepare/share grandchild
   updateCurPartition(child_partition_pd);
   assert(createPartition(grandchild_partition_pd) != false);
   assert(prepare(grandchild_partition_pd, 8, block_prepare_grandchild_id) != false);
-  assert(addMemoryBlock(grandchild_partition_pd, block_shared_id) != false);
+  assert(addMemoryBlock(grandchild_partition_pd,
+                        block_shared_id,
+                        true, true, false) != false);
   // cut shared block in grandchild
   updateCurPartition(grandchild_partition_pd);
   assert(cutMemoryBlock(block_shared_id, block_shared_id + KERNELSTRUCTURETOTALLENGTH()) != false);
@@ -2692,12 +2773,16 @@ void test_collect_in_grandchild()
 
   // add initial block to child
   updateCurPartition(root);
-  paddr initial_block_MPU_child_address = addMemoryBlock(child_partition_pd, initial_block_start);
+  paddr initial_block_MPU_child_address = addMemoryBlock(child_partition_pd,
+                                                        initial_block_start,
+                                                        true, true, false);
   assert(initial_block_MPU_child_address != false);
 
   // add initial block to grandchild
   updateCurPartition(child_partition_pd);
-  paddr initial_block_MPU_grandchild_address = addMemoryBlock(grandchild_partition_pd, initial_block_start);
+  paddr initial_block_MPU_grandchild_address = addMemoryBlock(grandchild_partition_pd,
+                                                              initial_block_start,
+                                                              true, true, false);
   assert(initial_block_MPU_grandchild_address != false);
 
   // switch to grandchild and prepare a 2nd time
@@ -2757,7 +2842,9 @@ void test_collect_with_several_structures()
   assert(prepare(child_partition_pd, 8, block_to_share_id + 2*KERNELSTRUCTURETOTALLENGTH()) != false);
 
   // add another block to child (2nd prepare not empty anymore);
-  assert(addMemoryBlock(child_partition_pd, block_to_share_id + KERNELSTRUCTURETOTALLENGTH()) != false);
+  assert(addMemoryBlock(child_partition_pd,
+                        block_to_share_id + KERNELSTRUCTURETOTALLENGTH(),
+                        true, true, false) != false);
 
   // check nb of prepare is 2
   assert(readPDNbPrepare(child_partition_pd) == 2);
