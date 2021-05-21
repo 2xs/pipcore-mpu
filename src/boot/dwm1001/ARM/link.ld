@@ -21,6 +21,7 @@ ENTRY(_start)
 
 __Main_Stack_Size = 1024 ;
 __Heap_Size = 1024 ;
+__User_Stack_Size = 1024 ; /* must be a power of two else will be ceiled to be so */
 
 /* Populate information about ram size */
 _sram = ORIGIN(RAM);
@@ -125,7 +126,7 @@ SECTIONS
         _ebss = .;
     } > RAM
 
-    .heap (COPY):
+    .heap (NOLOAD) :
     {
         __HeapBase = .;
         _Heap_Begin = __HeapBase;
@@ -148,15 +149,11 @@ SECTIONS
     {
         . = ALIGN(8);
         __StackLimit = .;
-        /*_sstack = .;*/
         . = . + __Main_Stack_Size;
         . = ALIGN(8);
         __StackTop = .;
-        /*_estack = .;
-        __StackTop = _estack;
-        __stack = _estack;*/
       /* Check if data + heap + stack exceeds RAM limit */
-      /*ASSERT(__StackLimit >= __HeapLimit, "region RAM overflowed");*/
+      ASSERT(__HeapLimit <= __StackLimit, "region RAM overflowed");
 
     } > RAM
 
@@ -165,7 +162,16 @@ SECTIONS
     user_mem_start = .;
     user_mem_end = _eram;
 
+    /* Set the user stack at end of RAM with MPU alignment constraints */
+    ASSERT(32 <= __User_Stack_Size, "stack size too small")
 
+    _user_stack_size_aligned = (2 << (LOG2CEIL(__User_Stack_Size)-1)); /* 2^(log2(stack size not aligned)-1) */
+    user_stack_limit = ALIGN(_eram - 2*_user_stack_size_aligned + 1, _user_stack_size_aligned); /* be sure to align at end of RAM */
+    user_stack_top = user_stack_limit + _user_stack_size_aligned;
+
+
+    ASSERT(user_mem_start <= user_stack_limit, "stack limit before start of RAM")
+    ASSERT(user_stack_top <= _eram , "stack top higher than end of RAM")
 
     /*_end = . ;*/
 

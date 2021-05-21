@@ -136,19 +136,11 @@ void mal_init_root_part(paddr part)
 	writePDNbPrepare(part, 1);
 
 	// add user memory block(s)
-#if defined UNIT_TESTS
-	// One RAM block for unit testing
-	paddr mpuentryaddr_ram = insertNewEntry(part, user_alloc_pos, &user_mem_end - 1, user_alloc_pos, true, true, false);// idpartition, start, end, origin, RW = true, X = false
-
-	// Pre-configure the MPU LUT with inserted block(s)
-	PDTable_t* PDT = (PDTable_t*) part;
-	PDT->blocks[0] = (MPUEntry_t*) mpuentryaddr_ram;
-	configure_LUT_entry(PDT->LUT, 0, mpuentryaddr_ram);
-#else
+#if !defined UNIT_TESTS // unit tests are prepared differently
 	// One FLASH block and one RAM block
 	//paddr mpuentryaddr = insertNewEntry(part, user_alloc_pos, &user_mem_end, user_alloc_pos);// idpartition, start, end, origin, RWX
-	paddr mpuentryaddr_flash = insertNewEntry(part, 0,  0x1FFFFFFF, 0, true, true, false);
-	paddr mpuentryaddr_ram = insertNewEntry(part, &_sram, &user_mem_end, &_sram, true, true, true);
+	paddr mpuentryaddr_flash = insertNewEntry(part, 0,  0x1FFFFFFF, 0, true, true, true);
+	paddr mpuentryaddr_ram = insertNewEntry(part, &_sram, &user_mem_end, &_sram, true, true, false);
 	// Pre-configure the MPU LUT with inserted block(s)
 	PDTable_t* PDT = (PDTable_t*) part;
 	PDT->blocks[0] = (MPUEntry_t*) mpuentryaddr_flash;

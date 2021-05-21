@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include "Services.h"
 #include "pip_debug.h"
+#include "nrf52.h"
+#include "core_cm4.h"
+#include "Internal.h"
 
 #include <assert.h>
 
@@ -8,6 +11,12 @@
 extern uint32_t user_mem_end;
 // Start address for the user section; defined in linker script
 extern uint32_t user_mem_start;
+// Start and end addresses for the user stack section; defined in linker script
+extern uint32_t user_stack_limit;
+extern uint32_t user_stack_top;
+
+// Start address of RAM
+extern uint32_t _sram;
 
 // Global identifiers
 paddr root = NULL;
@@ -17,14 +26,53 @@ paddr initial_block_end = NULL;
 extern uint32_t kernelstructureentriesnb;
 
 /*!
- * \fn void init_tests()
+ * \fn void init_tests_only_ram()
  * \brief Resets to the after-startup state
  */
-void init_tests(){
-	/* Initialize the root partition */
+void init_tests_only_ram()
+{
+	// Initialize the root partition with no blocks
 	mal_init();
-
   root = getRootPartition();
+
+  // add user memory block(s)
+  // One RAM block for unit testing
+	paddr mpuentryaddr_ram = insertNewEntry(root, initial_block_start, &user_mem_end - 1, initial_block_start, true, true, false);// idpartition, start, end, origin, RW = true, X = false
+
+	// Pre-configure the MPU LUT with inserted block(s)
+	PDTable_t* PDT = (PDTable_t*) root;
+	PDT->blocks[0] = (MPUEntry_t*) mpuentryaddr_ram;
+	configure_LUT_entry(PDT->LUT, 0, mpuentryaddr_ram);
+
+
+  //dump_partition(root);
+  activate(root);
+}
+
+/*!
+ * \fn void init_tests_flash_ram_w_stack()
+ * \brief Resets to the after-startup state with user stack
+ */
+void init_tests_flash_ram_w_stack()
+{
+	// Initialize the root partition with no blocks
+	mal_init();
+  root = getRootPartition();
+
+  // add user memory block(s)
+  // One FLASH block and two RAM blocks (data + stack)
+	paddr mpuentryaddr_flash = insertNewEntry(root, 0,  (paddr) 0x1FFFFFFF, 0, true, true, true);
+	paddr mpuentryaddr_ram1 = insertNewEntry(root, &_sram, &user_stack_limit, &_sram, true, true, false);
+	paddr mpuentryaddr_ram2 = insertNewEntry(root, &user_stack_limit, &user_stack_top, &user_stack_limit, true, true, false);
+	// Pre-configure the MPU LUT with inserted block(s)
+	PDTable_t* PDT = (PDTable_t*) root;
+	PDT->blocks[0] = (MPUEntry_t*) mpuentryaddr_flash;
+	PDT->blocks[1] = (MPUEntry_t*) mpuentryaddr_ram1;
+	PDT->blocks[1] = (MPUEntry_t*) mpuentryaddr_ram2;
+	configure_LUT_entry(PDT->LUT, 0, mpuentryaddr_flash);
+	configure_LUT_entry(PDT->LUT, 1, mpuentryaddr_ram1);
+  configure_LUT_entry(PDT->LUT, 1, mpuentryaddr_ram2);
+
   //dump_partition(root);
   activate(root);
 }
@@ -136,7 +184,6 @@ void test_initial_root_PD_values()
   assert(root == &user_mem_start);
   root_kernel_structure_start = (void*) &user_mem_start + PDSTRUCTURETOTALLENGTH();//size in bytes
   dump_partition(root);
-  printf("%x %x\r\n", root_kernel_structure_start, readPDStructurePointer(root));
   assert(readPDStructurePointer(root) == root_kernel_structure_start);
   assert(readPDFirstFreeSlotPointer(root) == root_kernel_structure_start + mpuentrylength);
   assert(readPDNbFreeSlots(root) == 7);
@@ -266,7 +313,7 @@ void test_initial_root_SC_values()
  */
 void test_initial_root()
 {
-  init_tests();
+  init_tests_only_ram();
   test_initial_root_PD_values();
   test_initial_root_MPU_values();
   test_initial_root_Sh1_values();
@@ -877,23 +924,23 @@ void test_cut_fails_when_block_not_accessible()
  */
 void test_cut()
 {
-  init_tests();
+  init_tests_only_ram();
 
   paddr cut_address1 = initial_block_start + 0x600;
   paddr cut_address2 = initial_block_start + 0x700;
   paddr cut_address3 = initial_block_start + 0x300;
   three_cuts_in_a_row(cut_address1, cut_address2, cut_address3);
 
-  init_tests();
+  init_tests_only_ram();
   test_cut_max_free_slots_used();
 
-  init_tests();
+  init_tests_only_ram();
   test_cut_bad_arguments();
 
-  init_tests();
+  init_tests_only_ram();
   test_cut_6_cuts_in_a_row();
 
-  init_tests();
+  init_tests_only_ram();
   test_cut_fails_when_block_not_accessible();
 }
 
@@ -1060,13 +1107,13 @@ void test_create_sister_partitions()
  */
 void test_create()
 {
-  init_tests();
+  init_tests_only_ram();
   test_create_partition();
 
-  init_tests();
+  init_tests_only_ram();
   test_create_partitions_bad_arguments();
 
-  init_tests();
+  init_tests_only_ram();
   test_create_sister_partitions();
 }
 
@@ -1274,19 +1321,19 @@ void test_prepare_bad_arguments()
  */
 void test_prepare()
 {
-  init_tests();
+  init_tests_only_ram();
   test_prepare_current_partition();
 
-  init_tests();
+  init_tests_only_ram();
   test_prepare_child();
 
-  init_tests();
+  init_tests_only_ram();
   test_prepare_planned_nb_slots_less_than_current_free_slots_nb();
 
-  init_tests();
+  init_tests_only_ram();
   test_prepare_fails_when_reaching_max_nb_prepare();
 
-  init_tests();
+  init_tests_only_ram();
   test_prepare_bad_arguments();
 }
 
@@ -1564,22 +1611,22 @@ void test_add_bad_arguments_Fast()
  */
 void test_add()
 {
-  init_tests();
+  init_tests_only_ram();
   test_add_alone();
 
-  init_tests();
+  init_tests_only_ram();
   test_add_alone_Fast();
 
-  init_tests();
+  init_tests_only_ram();
   test_add_no_free_slots_left();
 
-  init_tests();
+  init_tests_only_ram();
   test_add_no_free_slots_left_Fast();
 
-  init_tests();
+  init_tests_only_ram();
   test_add_bad_arguments();
 
-  init_tests();
+  init_tests_only_ram();
   test_add_bad_arguments_Fast();
 }
 
@@ -2105,40 +2152,40 @@ void test_remove_bad_arguments_Fast()
  */
 void test_remove()
 {
-  init_tests();
+  init_tests_only_ram();
   test_remove_alone();
 
-  init_tests();
+  init_tests_only_ram();
   test_remove_alone_Fast();
 
-  init_tests();
+  init_tests_only_ram();
   test_remove_in_grandchildren();
 
-  init_tests();
+  init_tests_only_ram();
   test_remove_in_grandchildren_Fast();
 
-  init_tests();
+  init_tests_only_ram();
   test_remove_accessible_subblocks();
 
-  init_tests();
+  init_tests_only_ram();
   test_remove_accessible_subblocks_Fast();
 
-  init_tests();
+  init_tests_only_ram();
   test_remove_fails_with_subblocks_inaccessible();
 
-  init_tests();
+  init_tests_only_ram();
   test_remove_fails_with_subblocks_inaccessible_Fast();
 
-  init_tests();
+  init_tests_only_ram();
   test_remove_fails_with_block_in_child_not_accessible();
 
-  init_tests();
+  init_tests_only_ram();
   test_remove_fails_with_block_in_child_not_accessible_Fast();
 
-  init_tests();
+  init_tests_only_ram();
   test_remove_bad_arguments();
 
-  init_tests();
+  init_tests_only_ram();
   test_remove_bad_arguments_Fast();
 }
 
@@ -2411,19 +2458,19 @@ void test_delete_partition_bad_arguments()
  */
 void test_delete()
 {
-  init_tests();
+  init_tests_only_ram();
   test_delete_partition();
 
-  init_tests();
+  init_tests_only_ram();
   test_delete_partition_with_block_shared();
 
-  init_tests();
+  init_tests_only_ram();
   test_delete_partition_with_block_shared_and_grandchild();
 
-  init_tests();
+  init_tests_only_ram();
   test_delete_partition_grandchild_with_blocks_not_cut();
 
-  init_tests();
+  init_tests_only_ram();
   test_delete_partition_bad_arguments();
 }
 
@@ -2623,16 +2670,16 @@ void test_merge_bad_arguments()
  */
 void test_merge()
 {
-  init_tests();
+  init_tests_only_ram();
   test_merge_two_blocks();
 
-  init_tests();
+  init_tests_only_ram();
   test_merge_full_MPU_structure();
 
-  init_tests();
+  init_tests_only_ram();
   test_merge_subblocks_child();
 
-  init_tests();
+  init_tests_only_ram();
   test_merge_bad_arguments();
 }
 
@@ -2934,26 +2981,66 @@ void test_collect_bad_arguments()
  */
 void test_collect()
 {
-  init_tests();
+  init_tests_only_ram();
   test_collect_in_child();
 
-  init_tests();
+  init_tests_only_ram();
   test_collect_in_current_partition();
 
-  init_tests();
+  init_tests_only_ram();
   test_collect_in_grandchild();
 
-  init_tests();
+  init_tests_only_ram();
   test_collect_with_several_structures();
 
-  init_tests();
+  init_tests_only_ram();
   test_collect_fails_with_no_empty_structure();
 
-  init_tests();
+  init_tests_only_ram();
   test_collect_fails_trying_to_collect_a_structure_that_the_current_partition_did_not_prepare();
 
-  init_tests();
+  init_tests_only_ram();
   test_collect_bad_arguments();
+}
+
+// TEST MPU
+
+/*!
+ * \fn void test_mpu()
+ * \brief Launches the tests of the MPU
+ */
+void test_mpu()
+{
+  init_tests_flash_ram_w_stack();
+
+  // must switch to unprivileged mode because priv has always access (MPU PRIVDEFENA set)
+
+  // root has a correct dedicated stack block
+  // set PSP to root stack and switch to unprivileged mode
+  __set_PSP(&user_stack_top);
+  //__set_PSP(&user_mem_start);
+  __set_CONTROL(__get_CONTROL() |
+              CONTROL_SPSEL_Msk );
+  __ISB();
+  __set_CONTROL(__get_CONTROL() |
+                CONTROL_SPSEL_Msk | // use psp
+                CONTROL_nPRIV_Msk ); // switch to unprivileged Thread Mode
+  __ISB();
+
+  // the ram block is reable, writable, not executable
+
+  // cut the ram block: blocks are still accessible (through MPU recovery reconfiguration)
+  // tests : same operations as previously -> accessing these blocks trigger the MemManage handler that reconfigures the MPU
+
+  // create child, prepare, share without write permission
+  // child block is not writable
+
+  // cut the child shared block: child has access but root partition looses the access
+
+  // can't access an address not part of the owned block
+  uint32_t* addr = (uint32_t*) initial_block_start - 1;
+  uint32_t v = *(addr);
+  printf("v=%d, x=%x\n", v, addr);
 }
 
 /**
@@ -2999,6 +3086,7 @@ int main_test (int argc, char* argv[])
   // Test collect system call
   test_collect();
   printf("main_test: COLLECT OK\r\n");
+  //test_mpu();
 
   printf("\r\nmain_test: All tests PASSED\r\n");
 

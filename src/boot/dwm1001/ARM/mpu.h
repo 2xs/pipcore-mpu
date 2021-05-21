@@ -24,6 +24,8 @@
 #include <stdint.h>
 #include "nrf52.h"
 #include "core_cm4.h"
+#include "ExceptionHandlers.h"
+#include "Trace.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,6 +41,8 @@ extern "C" {
  */
 #define MPU_ALIAS_REG_NB 4
 
+extern void
+  MemoryManagement_Handler (void);
 
 /**
  * @brief Access Permission words

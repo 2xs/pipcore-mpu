@@ -52,8 +52,6 @@ extern "C"
 
 #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
   extern void
-  MemoryManagement_Handler (void);
-  extern void
   BusFault_Handler (void);
   extern void
   UsageFault_Handler (void);
