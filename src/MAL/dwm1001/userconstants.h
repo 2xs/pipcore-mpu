@@ -46,4 +46,8 @@
 #define NBPREPAREMAXBITS 3
 #define MPU_REGIONS_NB 8
 
+// Computed constants
+#define KERNELSTRUCTUREENTRIESNB (1<<KERNELSTRUCTUREENTRIESBITS) //!< The number of entries in a kernel structure.
+#define MAXNBPREPARE (1<<NBPREPAREMAXBITS) //!< The maximum number of times a partition can be prepared.
+
 #endif /* USERCONSTANTS_H */

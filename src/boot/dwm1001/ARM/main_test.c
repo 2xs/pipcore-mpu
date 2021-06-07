@@ -1,3 +1,6 @@
+
+#if defined UNIT_TESTS // include file only when testing
+
 #include <stdio.h>
 #include "Services.h"
 #include "pip_debug.h"
@@ -23,7 +26,6 @@ paddr root = NULL;
 paddr root_kernel_structure_start = NULL;
 paddr initial_block_start = NULL;
 paddr initial_block_end = NULL;
-extern uint32_t kernelstructureentriesnb;
 
 /*!
  * \fn void init_tests_only_ram()
@@ -86,10 +88,11 @@ void init_tests_flash_ram_w_stack()
  */
 void MPU_structure_is_empty(paddr kernel_structure_start)
 {
-  for(int i = 0 ; i < kernelstructureentriesnb ; i++)
+  KStructure_t* ks = (KStructure_t*) kernel_structure_start;
+  for(int i = 0 ; i < KERNELSTRUCTUREENTRIESNB ; i++)
   {
     assert(
-        readMPUPresentFromMPUEntryAddr(kernel_structure_start + i*mpuentrylength) ==
+        readMPUPresentFromMPUEntryAddr(&ks->mpu[i]) ==
         false
     );
   }
@@ -103,17 +106,18 @@ void MPU_structure_is_empty(paddr kernel_structure_start)
 void remaining_MPU_slots_form_a_linked_list(uint32_t start_index, uint32_t end_index, paddr kernel_structure_start)
 {
   // test remaining empty slots: special case -> last end is 0
+  KStructure_t* ks = (KStructure_t*) kernel_structure_start;
   for(int i = start_index ; i < end_index - 1 ; i++)
   {
-      paddr empty_block_MPU_entry = kernel_structure_start + i * mpuentrylength;
+      paddr empty_block_MPU_entry = &ks->mpu[i];
       assert(readMPUIndexFromMPUEntryAddr(empty_block_MPU_entry) == i);
       assert(readMPUStartFromMPUEntryAddr(empty_block_MPU_entry) == 0);
-      assert(readMPUEndFromMPUEntryAddr(empty_block_MPU_entry) == kernel_structure_start + (i + 1) * mpuentrylength);
+      assert(readMPUEndFromMPUEntryAddr(empty_block_MPU_entry) == &ks->mpu[i+1]);
       assert(readMPUAccessibleFromMPUEntryAddr(empty_block_MPU_entry) == false);
       assert(readMPUPresentFromMPUEntryAddr(empty_block_MPU_entry) == false);
   }
 
-  paddr empty_block_MPU_entry = kernel_structure_start + end_index * mpuentrylength;
+  paddr empty_block_MPU_entry = &ks->mpu[end_index];
   assert(readMPUIndexFromMPUEntryAddr(empty_block_MPU_entry) == end_index);
   assert(readMPUStartFromMPUEntryAddr(empty_block_MPU_entry) == NULL);
   assert(readMPUEndFromMPUEntryAddr(empty_block_MPU_entry) == NULL);
@@ -128,12 +132,13 @@ void remaining_MPU_slots_form_a_linked_list(uint32_t start_index, uint32_t end_i
  */
 void remaining_Sh1_slots_are_default(uint32_t start_index, uint32_t end_index, paddr kernel_structure_start)
 {
+  KStructure_t* ks = (KStructure_t*) kernel_structure_start;
   for(int i = start_index ; i < end_index ; i++)
   {
-      paddr MPU_entry = kernel_structure_start + i * mpuentrylength;
-      assert(readSh1PDChildFromMPUEntryAddr(MPU_entry) == NULL);
-      assert(readSh1PDFlagFromMPUEntryAddr(MPU_entry) == false);
-      assert(readSh1InChildLocationFromMPUEntryAddr(MPU_entry) == NULL);
+      paddr MPU_entry_addr = &ks->mpu[i];
+      assert(readSh1PDChildFromMPUEntryAddr(MPU_entry_addr) == NULL);
+      assert(readSh1PDFlagFromMPUEntryAddr(MPU_entry_addr) == false);
+      assert(readSh1InChildLocationFromMPUEntryAddr(MPU_entry_addr) == NULL);
   }
 }
 
@@ -144,7 +149,7 @@ void remaining_Sh1_slots_are_default(uint32_t start_index, uint32_t end_index, p
  */
 void Sh1_structure_is_default(paddr kernel_structure_start)
 {
-  remaining_Sh1_slots_are_default(0, kernelstructureentriesnb, kernel_structure_start);
+  remaining_Sh1_slots_are_default(0, KERNELSTRUCTUREENTRIESNB, kernel_structure_start);
 }
 
 /*!
@@ -154,11 +159,12 @@ void Sh1_structure_is_default(paddr kernel_structure_start)
  */
 void remaining_SC_slots_are_default(uint32_t start_index, uint32_t end_index, paddr kernel_structure_start)
 {
+  KStructure_t* ks = (KStructure_t*) kernel_structure_start;
   for(int i = start_index ; i < end_index ; i++)
   {
-      paddr MPU_entry = kernel_structure_start + i * mpuentrylength;
-      assert(readSCOriginFromMPUEntryAddr(MPU_entry) == 0);
-      assert(readSCNextFromMPUEntryAddr(MPU_entry) == 0);
+      paddr MPU_entry_addr = &ks->mpu[i];
+      assert(readSCOriginFromMPUEntryAddr(MPU_entry_addr) == 0);
+      assert(readSCNextFromMPUEntryAddr(MPU_entry_addr) == 0);
   }
 }
 
@@ -169,7 +175,7 @@ void remaining_SC_slots_are_default(uint32_t start_index, uint32_t end_index, pa
  */
 void SC_structure_is_default(paddr kernel_structure_start)
 {
-  remaining_SC_slots_are_default(0, kernelstructureentriesnb, kernel_structure_start);
+  remaining_SC_slots_are_default(0, KERNELSTRUCTUREENTRIESNB, kernel_structure_start);
 }
 
 
@@ -183,9 +189,10 @@ void test_initial_root_PD_values()
 {
   assert(root == &user_mem_start);
   root_kernel_structure_start = (void*) &user_mem_start + PDSTRUCTURETOTALLENGTH();//size in bytes
+  KStructure_t* ks = (KStructure_t*) root_kernel_structure_start;
   dump_partition(root);
   assert(readPDStructurePointer(root) == root_kernel_structure_start);
-  assert(readPDFirstFreeSlotPointer(root) == root_kernel_structure_start + mpuentrylength);
+  assert(readPDFirstFreeSlotPointer(root) == &ks->mpu[1]);
   assert(readPDNbFreeSlots(root) == 7);
   assert(readPDNbPrepare(root) == 1);
   assert(readPDParent(root) == NULL);
@@ -204,6 +211,7 @@ void test_initial_root_PD_values()
  */
 void test_initial_root_MPU_values()
 {
+  KStructure_t* ks = (KStructure_t*) root_kernel_structure_start;
   // first entry contains the initial blocks
   assert(readMPUIndexFromMPUEntryAddr(root_kernel_structure_start) == 0);
   assert(
@@ -218,41 +226,38 @@ void test_initial_root_MPU_values()
       readMPUPresentFromMPUEntryAddr(root_kernel_structure_start) == 1);
 
   // middle entries are default
-  for(int i = 1 ; i < (kernelstructureentriesnb - 1) ; i++)   // 0-indexed, index nb -1 not included
+  for(int i = 1 ; i < (KERNELSTRUCTUREENTRIESNB - 1) ; i++)   // 0-indexed, index nb -1 not included
   {
       assert(
           readMPUIndexFromMPUEntryAddr(
-            root_kernel_structure_start + i * mpuentrylength) == i
+           &ks->mpu[i]) == i
       );
       assert(
-          readMPUStartFromMPUEntryAddr(root_kernel_structure_start + i*mpuentrylength) ==
+          readMPUStartFromMPUEntryAddr(&ks->mpu[i]) ==
           0);
       assert(
-          readMPUEndFromMPUEntryAddr(root_kernel_structure_start + i*mpuentrylength) ==
-          root_kernel_structure_start + (i+1)*mpuentrylength);
+          readMPUEndFromMPUEntryAddr(&ks->mpu[i]) ==
+          &ks->mpu[i+1]);
       assert(
-          readMPUAccessibleFromMPUEntryAddr(root_kernel_structure_start + i*mpuentrylength) ==
+          readMPUAccessibleFromMPUEntryAddr(&ks->mpu[i]) ==
           0);
       assert(
-          readMPUPresentFromMPUEntryAddr(root_kernel_structure_start + i*mpuentrylength)==
+          readMPUPresentFromMPUEntryAddr(&ks->mpu[i])==
           0);
   }
 
   // last entry is special since it ends with null
-  assert(readMPUIndexFromMPUEntryAddr(root_kernel_structure_start +
-                                            (kernelstructureentriesnb - 1)
-                                            * mpuentrylength
+  assert(readMPUIndexFromMPUEntryAddr(&ks->mpu[KERNELSTRUCTUREENTRIESNB - 1]
                                             )==
-                    kernelstructureentriesnb - 1
+                    KERNELSTRUCTUREENTRIESNB - 1
   );
-  assert(readMPUStartFromMPUEntryAddr(
-      root_kernel_structure_start + (kernelstructureentriesnb - 1) * mpuentrylength) ==
+  assert(readMPUStartFromMPUEntryAddr(&ks->mpu[KERNELSTRUCTUREENTRIESNB - 1]) ==
                     0);
-  assert(readMPUEndFromMPUEntryAddr(root_kernel_structure_start + (kernelstructureentriesnb-1)*mpuentrylength) ==
+  assert(readMPUEndFromMPUEntryAddr(&ks->mpu[KERNELSTRUCTUREENTRIESNB - 1]) ==
                     0);
-  assert(readMPUAccessibleFromMPUEntryAddr(root_kernel_structure_start + (kernelstructureentriesnb-1)*mpuentrylength) ==
+  assert(readMPUAccessibleFromMPUEntryAddr(&ks->mpu[KERNELSTRUCTUREENTRIESNB - 1]) ==
                     0);
-  assert(readMPUPresentFromMPUEntryAddr(root_kernel_structure_start + (kernelstructureentriesnb-1)*mpuentrylength) ==
+  assert(readMPUPresentFromMPUEntryAddr(&ks->mpu[KERNELSTRUCTUREENTRIESNB - 1]) ==
                     0);
 }
 
@@ -264,22 +269,20 @@ void test_initial_root_MPU_values()
  */
 void test_initial_root_Sh1_values()
 {
+  KStructure_t* ks = (KStructure_t*) root_kernel_structure_start;
   // all values are default
-  for(int i = 1 ; i < kernelstructureentriesnb ; i++)   // 0-indexed
+  for(int i = 1 ; i < KERNELSTRUCTUREENTRIESNB ; i++)   // 0-indexed
   {
       assert(
-          readSh1PDChildFromMPUEntryAddr(root_kernel_structure_start +
-                                                                  i*mpuentrylength)
+          readSh1PDChildFromMPUEntryAddr(&ks->mpu[i])
           == 0
       );
       assert(
-          readSh1PDFlagFromMPUEntryAddr(root_kernel_structure_start +
-                                                                  i*mpuentrylength)
+          readSh1PDFlagFromMPUEntryAddr(&ks->mpu[i])
           == 0
       );
       assert(
-          readSh1InChildLocationFromMPUEntryAddr(root_kernel_structure_start +
-                                                                          i*mpuentrylength)
+          readSh1InChildLocationFromMPUEntryAddr(&ks->mpu[i])
           == 0
       );
   }
@@ -293,16 +296,17 @@ void test_initial_root_Sh1_values()
  */
 void test_initial_root_SC_values()
 {
+  KStructure_t* ks = (KStructure_t*) root_kernel_structure_start;
   // first entry is special since an initial block is present
   assert(readSCOriginFromMPUEntryAddr(root_kernel_structure_start) == initial_block_start);
   assert(readSCNextFromMPUEntryAddr(root_kernel_structure_start) == 0);
 
   // remaining entries are default
-  for(int i = 1 ; i < kernelstructureentriesnb ; i++)  // 0-indexed
+  for(int i = 1 ; i < KERNELSTRUCTUREENTRIESNB ; i++)  // 0-indexed
   {
-      assert(readSCOriginFromMPUEntryAddr(root_kernel_structure_start + i*mpuentrylength)==
+      assert(readSCOriginFromMPUEntryAddr(&ks->mpu[i])==
                         0);
-      assert(readSCNextFromMPUEntryAddr(root_kernel_structure_start + i*mpuentrylength) ==
+      assert(readSCNextFromMPUEntryAddr(&ks->mpu[i]) ==
                         0);
   }
 }
@@ -575,14 +579,16 @@ void three_cuts_in_a_row(paddr cut_address1, paddr cut_address2, paddr cut_addre
   cutMemoryBlock(initial_block_start, cut_address1);
   dump_partition(root);
 
-  paddr initial_block_MPU_entry = root_kernel_structure_start;
-  assert(readMPUIndexFromMPUEntryAddr(root_kernel_structure_start) == 0);
-  assert(readMPUStartFromMPUEntryAddr(root_kernel_structure_start) == initial_block_start);
-  assert(readMPUEndFromMPUEntryAddr(root_kernel_structure_start) == cut_address1 - 1);
-  assert(readMPUAccessibleFromMPUEntryAddr(root_kernel_structure_start) == true);
-  assert(readMPUPresentFromMPUEntryAddr(root_kernel_structure_start) == true);
+  KStructure_t* ks_root = (KStructure_t*) root_kernel_structure_start;
 
-  paddr cut1_block_MPU_entry = root_kernel_structure_start + mpuentrylength;
+  paddr initial_block_MPU_entry = ks_root->mpu;
+  assert(readMPUIndexFromMPUEntryAddr(initial_block_MPU_entry) == 0);
+  assert(readMPUStartFromMPUEntryAddr(initial_block_MPU_entry) == initial_block_start);
+  assert(readMPUEndFromMPUEntryAddr(initial_block_MPU_entry) == cut_address1 - 1);
+  assert(readMPUAccessibleFromMPUEntryAddr(initial_block_MPU_entry) == true);
+  assert(readMPUPresentFromMPUEntryAddr(initial_block_MPU_entry) == true);
+
+  paddr cut1_block_MPU_entry = &ks_root->mpu[1];
   assert(readMPUIndexFromMPUEntryAddr(cut1_block_MPU_entry) == 1);
   assert(readMPUStartFromMPUEntryAddr(cut1_block_MPU_entry) == cut_address1);
   assert(readMPUEndFromMPUEntryAddr(cut1_block_MPU_entry) == initial_block_end);
@@ -591,64 +597,59 @@ void three_cuts_in_a_row(paddr cut_address1, paddr cut_address2, paddr cut_addre
 
   assert(readSCOriginFromMPUEntryAddr(initial_block_MPU_entry) == initial_block_start);
   // next is the next subblock's MPU location == not the id
-  assert(readSCNextFromMPUEntryAddr(initial_block_MPU_entry) == root_kernel_structure_start + readMPUIndexFromMPUEntryAddr(cut1_block_MPU_entry)*mpuentrylength);
+  assert(readSCNextFromMPUEntryAddr(initial_block_MPU_entry) == &ks_root->mpu[readMPUIndexFromMPUEntryAddr(cut1_block_MPU_entry)]);
 
   //paddr cut1_block_SC_entry = root_kernel_structure_start + readMPUIndexFromMPUEntryAddr(cut1_block_MPU_entry)*mpuentrylength;
   assert(readSCOriginFromMPUEntryAddr(cut1_block_MPU_entry) == initial_block_start);
   assert(readSCNextFromMPUEntryAddr(cut1_block_MPU_entry) == 0);
 
-  remaining_MPU_slots_form_a_linked_list(2, kernelstructureentriesnb - 1, root_kernel_structure_start);
+  remaining_MPU_slots_form_a_linked_list(2, KERNELSTRUCTUREENTRIESNB - 1, root_kernel_structure_start);
 
   Sh1_structure_is_default(root_kernel_structure_start);
 
-  remaining_SC_slots_are_default(2, kernelstructureentriesnb, root_kernel_structure_start);
+  remaining_SC_slots_are_default(2, KERNELSTRUCTUREENTRIESNB, root_kernel_structure_start);
 
   // ******2nd cut******
   // cut the created subblock
   cutMemoryBlock(cut_address1, cut_address2);
 
-  //paddr initial_block_MPU_entry = root_kernel_structure_start;
   assert(readMPUIndexFromMPUEntryAddr(initial_block_MPU_entry) == 0);
   assert(readMPUStartFromMPUEntryAddr(initial_block_MPU_entry) == initial_block_start);
   assert(readMPUEndFromMPUEntryAddr(initial_block_MPU_entry) == cut_address1 - 1);
   assert(readMPUAccessibleFromMPUEntryAddr(initial_block_MPU_entry) == true);
   assert(readMPUPresentFromMPUEntryAddr(initial_block_MPU_entry) == true);
 
-  //paddr cut1_block_MPU_entry = root_kernel_structure_start + mpuentrylength;
   assert(readMPUIndexFromMPUEntryAddr(cut1_block_MPU_entry) == 1);
   assert(readMPUStartFromMPUEntryAddr(cut1_block_MPU_entry) == cut_address1);
   assert(readMPUEndFromMPUEntryAddr(cut1_block_MPU_entry) == (cut_address2 - 1));
   assert(readMPUAccessibleFromMPUEntryAddr(cut1_block_MPU_entry) == true);
   assert(readMPUPresentFromMPUEntryAddr(cut1_block_MPU_entry) == true);
 
-  paddr cut2_block_MPU_entry = root_kernel_structure_start + 2*mpuentrylength;
+  paddr cut2_block_MPU_entry = &ks_root->mpu[2];
   assert(readMPUIndexFromMPUEntryAddr(cut2_block_MPU_entry) == 2);
   assert(readMPUStartFromMPUEntryAddr(cut2_block_MPU_entry) == cut_address2);
   assert(readMPUEndFromMPUEntryAddr(cut2_block_MPU_entry) == initial_block_end);
   assert(readMPUAccessibleFromMPUEntryAddr(cut2_block_MPU_entry) == true);
   assert(readMPUPresentFromMPUEntryAddr(cut2_block_MPU_entry) == true);
 
-  //paddr initial_block_Sh1_entry = root_kernel_structure_start;
   assert(readSh1PDChildFromMPUEntryAddr(initial_block_MPU_entry) == 0);
   assert(readSh1PDFlagFromMPUEntryAddr(initial_block_MPU_entry) == false);
   assert(readSh1InChildLocationFromMPUEntryAddr(initial_block_MPU_entry) == 0);
 
-  //paddr initial_block_SC_entry = root_kernel_structure_start;
   assert(readSCOriginFromMPUEntryAddr(initial_block_MPU_entry) == initial_block_start);
   // next is the next subblock's MPU location == not the id
-  assert(readSCNextFromMPUEntryAddr(initial_block_MPU_entry) == root_kernel_structure_start + readMPUIndexFromMPUEntryAddr(cut1_block_MPU_entry)*mpuentrylength);
+  assert(readSCNextFromMPUEntryAddr(initial_block_MPU_entry) == &ks_root->mpu[readMPUIndexFromMPUEntryAddr(cut1_block_MPU_entry)]);
 
   //paddr cut1_block_SC_entry = root_kernel_structure_start + readMPUIndexFromMPUEntryAddr(cut1_block_MPU_entry)*mpuentrylength);
   assert(readSCOriginFromMPUEntryAddr(cut1_block_MPU_entry) == initial_block_start);
-  assert(readSCNextFromMPUEntryAddr(cut1_block_MPU_entry) == root_kernel_structure_start + readMPUIndexFromMPUEntryAddr(cut2_block_MPU_entry)*mpuentrylength);
+  assert(readSCNextFromMPUEntryAddr(cut1_block_MPU_entry) == &ks_root->mpu[readMPUIndexFromMPUEntryAddr(cut2_block_MPU_entry)]);
 
-  //paddr cut2_block_SC_entry = root_kernel_structure_start + readMPUIndexFromMPUEntryAddr(cut2_block_MPU_entry)*mpuentrylength;
   assert(readSCOriginFromMPUEntryAddr(cut2_block_MPU_entry) == initial_block_start);
   assert(readSCNextFromMPUEntryAddr(cut2_block_MPU_entry) == 0);
 
-  remaining_MPU_slots_form_a_linked_list(3, kernelstructureentriesnb- 1, root_kernel_structure_start);
+  remaining_MPU_slots_form_a_linked_list(3, KERNELSTRUCTUREENTRIESNB- 1, root_kernel_structure_start);
   Sh1_structure_is_default(root_kernel_structure_start);
-  remaining_SC_slots_are_default(3, kernelstructureentriesnb, root_kernel_structure_start);
+  remaining_SC_slots_are_default(3, KERNELSTRUCTUREENTRIESNB, root_kernel_structure_start);
 
   // ******3rd cut******
   // cut the initial block again -> no other blocks exist so the newly created subblock will be at index 3
@@ -662,28 +663,26 @@ void three_cuts_in_a_row(paddr cut_address1, paddr cut_address2, paddr cut_addre
   assert(readMPUAccessibleFromMPUEntryAddr(initial_block_MPU_entry) == true);
   assert(readMPUPresentFromMPUEntryAddr(initial_block_MPU_entry) == true);
 
-  //paddr cut1_block_MPU_entry = root_kernel_structure_start + mpuentrylength;
   assert(readMPUIndexFromMPUEntryAddr(cut1_block_MPU_entry) == 1);
   assert(readMPUStartFromMPUEntryAddr(cut1_block_MPU_entry) == cut_address1);
   assert(readMPUEndFromMPUEntryAddr(cut1_block_MPU_entry) == (cut_address2 - 1));
   assert(readMPUAccessibleFromMPUEntryAddr(cut1_block_MPU_entry) == true);
   assert(readMPUPresentFromMPUEntryAddr(cut1_block_MPU_entry) == true);
 
-  //paddr cut2_block_MPU_entry = root_kernel_structure_start + 2 * mpuentrylength;
   assert(readMPUIndexFromMPUEntryAddr(cut2_block_MPU_entry) == 2);
   assert(readMPUStartFromMPUEntryAddr(cut2_block_MPU_entry) == cut_address2);
   assert(readMPUEndFromMPUEntryAddr(cut2_block_MPU_entry) == initial_block_end);
   assert(readMPUAccessibleFromMPUEntryAddr(cut2_block_MPU_entry) == true);
   assert(readMPUPresentFromMPUEntryAddr(cut2_block_MPU_entry) == true);
 
-  paddr cut3_block_MPU_entry = root_kernel_structure_start + 3 * mpuentrylength;
+  paddr cut3_block_MPU_entry =  &ks_root->mpu[3];;
   assert(readMPUIndexFromMPUEntryAddr(cut3_block_MPU_entry) == 3);
   assert(readMPUStartFromMPUEntryAddr(cut3_block_MPU_entry) == cut_address3);
   assert(readMPUEndFromMPUEntryAddr(cut3_block_MPU_entry) == (cut_address1 - 1));
   assert(readMPUAccessibleFromMPUEntryAddr(cut3_block_MPU_entry) == true);
   assert(readMPUPresentFromMPUEntryAddr(cut3_block_MPU_entry) == true);
 
-  remaining_MPU_slots_form_a_linked_list(4, kernelstructureentriesnb - 1, root_kernel_structure_start);
+  remaining_MPU_slots_form_a_linked_list(4, KERNELSTRUCTUREENTRIESNB - 1, root_kernel_structure_start);
 
   // Test cut_address3 Sh1 entries
   Sh1_structure_is_default(root_kernel_structure_start);
@@ -692,21 +691,18 @@ void three_cuts_in_a_row(paddr cut_address1, paddr cut_address2, paddr cut_addre
   //paddr initial_block_SC_entry = root_kernel_structure_start;
   assert(readSCOriginFromMPUEntryAddr(initial_block_MPU_entry) == initial_block_start);
   // next is the next subblock's MPU location, not the id
-  assert(readSCNextFromMPUEntryAddr(initial_block_MPU_entry) == root_kernel_structure_start + readMPUIndexFromMPUEntryAddr(cut3_block_MPU_entry) * mpuentrylength);
+  assert(readSCNextFromMPUEntryAddr(initial_block_MPU_entry) ==  &ks_root->mpu[readMPUIndexFromMPUEntryAddr(cut3_block_MPU_entry)]);
 
-  //paddr cut1_block_SC_entry = root_kernel_structure_start + readMPUIndexFromMPUEntryAddr(cut1_block_MPU_entry)*mpuentrylength;
   assert(readSCOriginFromMPUEntryAddr(cut1_block_MPU_entry) == initial_block_start);
-  assert(readSCNextFromMPUEntryAddr(cut1_block_MPU_entry) == root_kernel_structure_start + readMPUIndexFromMPUEntryAddr(cut2_block_MPU_entry) * mpuentrylength);
+  assert(readSCNextFromMPUEntryAddr(cut1_block_MPU_entry) == &ks_root->mpu[readMPUIndexFromMPUEntryAddr(cut2_block_MPU_entry)]);
 
-  //paddr cut2_block_SC_entry = root_kernel_structure_start + readMPUIndexFromMPUEntryAddr(cut2_block_MPU_entry)*mpuentrylength;
   assert(readSCOriginFromMPUEntryAddr(cut2_block_MPU_entry) == initial_block_start);
   assert(readSCNextFromMPUEntryAddr(cut2_block_MPU_entry) == 0);
 
-  //paddr cut3_block_SC_entry = root_kernel_structure_start + readMPUIndexFromMPUEntryAddr(cut3_block_MPU_entry)*mpuentrylength;
   assert(readSCOriginFromMPUEntryAddr(cut3_block_MPU_entry) == initial_block_start);
-  assert(readSCNextFromMPUEntryAddr(cut3_block_MPU_entry) == root_kernel_structure_start + readMPUIndexFromMPUEntryAddr(cut1_block_MPU_entry) * mpuentrylength);
+  assert(readSCNextFromMPUEntryAddr(cut3_block_MPU_entry) == &ks_root->mpu[readMPUIndexFromMPUEntryAddr(cut1_block_MPU_entry)]);
 
-  remaining_SC_slots_are_default(4, kernelstructureentriesnb, root_kernel_structure_start);
+  remaining_SC_slots_are_default(4, KERNELSTRUCTUREENTRIESNB, root_kernel_structure_start);
 
   dump_partition(root);
 }
@@ -726,6 +722,7 @@ void three_cuts_in_a_row(paddr cut_address1, paddr cut_address2, paddr cut_addre
  */
 void test_cut_max_free_slots_used()
 {
+  KStructure_t* ks_root = (KStructure_t*) root_kernel_structure_start;
   paddr block1 = initial_block_start + KERNELSTRUCTURETOTALLENGTH()*30;
   paddr block2 = initial_block_start + KERNELSTRUCTURETOTALLENGTH()*29;
   paddr block3 = initial_block_start + KERNELSTRUCTURETOTALLENGTH()*28;
@@ -750,56 +747,56 @@ void test_cut_max_free_slots_used()
   assert(readPDNbPrepare(root) == 1);
 
   // Test MPU
-  paddr initial_block_MPU_entry_address = root_kernel_structure_start;
+  paddr initial_block_MPU_entry_address = ks_root->mpu;
   assert(readMPUIndexFromMPUEntryAddr(initial_block_MPU_entry_address) == 0);
   assert(readMPUStartFromMPUEntryAddr(initial_block_MPU_entry_address) == initial_block_start);
   assert(readMPUEndFromMPUEntryAddr(initial_block_MPU_entry_address) == (block7 - 1));
   assert(readMPUAccessibleFromMPUEntryAddr(initial_block_MPU_entry_address) == true);
   assert(readMPUPresentFromMPUEntryAddr(initial_block_MPU_entry_address) == true);
 
-  paddr cut1_block_MPU_entry_address = root_kernel_structure_start + mpuentrylength;
+  paddr cut1_block_MPU_entry_address = &ks_root->mpu[1];
   assert(readMPUIndexFromMPUEntryAddr(cut1_block_MPU_entry_address) == 1);
   assert(readMPUStartFromMPUEntryAddr(cut1_block_MPU_entry_address) == block1);
   assert(readMPUEndFromMPUEntryAddr(cut1_block_MPU_entry_address) == initial_block_end);
   assert(readMPUAccessibleFromMPUEntryAddr(cut1_block_MPU_entry_address) == true);
   assert(readMPUPresentFromMPUEntryAddr(cut1_block_MPU_entry_address) == true);
 
-  paddr cut2_block_MPU_entry_address = root_kernel_structure_start + 2*mpuentrylength;
+  paddr cut2_block_MPU_entry_address = &ks_root->mpu[2];
   assert(readMPUIndexFromMPUEntryAddr(cut2_block_MPU_entry_address) == 2);
   assert(readMPUStartFromMPUEntryAddr(cut2_block_MPU_entry_address) == block2);
   assert(readMPUEndFromMPUEntryAddr(cut2_block_MPU_entry_address) == (block1 - 1));
   assert(readMPUAccessibleFromMPUEntryAddr(cut2_block_MPU_entry_address) == true);
   assert(readMPUPresentFromMPUEntryAddr(cut2_block_MPU_entry_address) == true);
 
-  paddr cut3_block_MPU_entry_address = root_kernel_structure_start + 3*mpuentrylength;
+  paddr cut3_block_MPU_entry_address = &ks_root->mpu[3];
   assert(readMPUIndexFromMPUEntryAddr(cut3_block_MPU_entry_address) == 3);
   assert(readMPUStartFromMPUEntryAddr(cut3_block_MPU_entry_address) == block3);
   assert(readMPUEndFromMPUEntryAddr(cut3_block_MPU_entry_address) == (block2 - 1));
   assert(readMPUAccessibleFromMPUEntryAddr(cut3_block_MPU_entry_address) == true);
   assert(readMPUPresentFromMPUEntryAddr(cut3_block_MPU_entry_address) == true);
 
-  paddr cut4_block_MPU_entry_address = root_kernel_structure_start + 4*mpuentrylength;
+  paddr cut4_block_MPU_entry_address = &ks_root->mpu[4];
   assert(readMPUIndexFromMPUEntryAddr(cut4_block_MPU_entry_address) == 4);
   assert(readMPUStartFromMPUEntryAddr(cut4_block_MPU_entry_address) == block4);
   assert(readMPUEndFromMPUEntryAddr(cut4_block_MPU_entry_address) == (block3 - 1));
   assert(readMPUAccessibleFromMPUEntryAddr(cut4_block_MPU_entry_address) == true);
   assert(readMPUPresentFromMPUEntryAddr(cut4_block_MPU_entry_address) == true);
 
-  paddr cut5_block_MPU_entry_address = root_kernel_structure_start + 5*mpuentrylength;
+  paddr cut5_block_MPU_entry_address = &ks_root->mpu[5];
   assert(readMPUIndexFromMPUEntryAddr(cut5_block_MPU_entry_address) == 5);
   assert(readMPUStartFromMPUEntryAddr(cut5_block_MPU_entry_address) == block5);
   assert(readMPUEndFromMPUEntryAddr(cut5_block_MPU_entry_address) == (block4 - 1));
   assert(readMPUAccessibleFromMPUEntryAddr(cut5_block_MPU_entry_address) == true);
   assert(readMPUPresentFromMPUEntryAddr(cut5_block_MPU_entry_address) == true);
 
-  paddr cut6_block_MPU_entry_address = root_kernel_structure_start + 6*mpuentrylength;
+  paddr cut6_block_MPU_entry_address = &ks_root->mpu[6];
   assert(readMPUIndexFromMPUEntryAddr(cut6_block_MPU_entry_address) == 6);
   assert(readMPUStartFromMPUEntryAddr(cut6_block_MPU_entry_address) == block6);
   assert(readMPUEndFromMPUEntryAddr(cut6_block_MPU_entry_address) == (block5 - 1));
   assert(readMPUAccessibleFromMPUEntryAddr(cut6_block_MPU_entry_address) == true);
   assert(readMPUPresentFromMPUEntryAddr(cut6_block_MPU_entry_address) == true);
 
-  paddr cut7_block_MPU_entry_address = root_kernel_structure_start + 7*mpuentrylength;
+  paddr cut7_block_MPU_entry_address = &ks_root->mpu[7];
   assert(readMPUIndexFromMPUEntryAddr(cut7_block_MPU_entry_address) == 7);
   assert(readMPUStartFromMPUEntryAddr(cut7_block_MPU_entry_address) == block7);
   assert(readMPUEndFromMPUEntryAddr(cut7_block_MPU_entry_address) == (block6 - 1));
@@ -883,7 +880,8 @@ void test_cut_6_cuts_in_a_row()
   dump_partition(root);
 
   // Check the only free slot left is as expected
-  paddr MPU_free_slot_entry = root_kernel_structure_start + 7*mpuentrylength;
+  KStructure_t* ks_root = (KStructure_t*) root_kernel_structure_start;
+  paddr MPU_free_slot_entry = &ks_root->mpu[7];
   assert(readMPUIndexFromMPUEntryAddr(MPU_free_slot_entry) == 7);
   assert(readMPUStartFromMPUEntryAddr(MPU_free_slot_entry) == NULL); // start = NULL (points to previous free slot)
   assert(readMPUEndFromMPUEntryAddr(MPU_free_slot_entry) == NULL); // end = NULL (points to next free slot)
@@ -959,7 +957,7 @@ void test_create_partition()
   assert(readMPUAccessibleFromMPUEntryAddr(root_kernel_structure_start) == true);
   assert(readMPUPresentFromMPUEntryAddr(root_kernel_structure_start) == true);
 
-  remaining_MPU_slots_form_a_linked_list(1, kernelstructureentriesnb - 1, root_kernel_structure_start);
+  remaining_MPU_slots_form_a_linked_list(1, KERNELSTRUCTUREENTRIESNB - 1, root_kernel_structure_start);
 
   assert(createPartition(initial_block_start) == true);
   dump_ancestors(initial_block_start);
@@ -977,18 +975,18 @@ void test_create_partition()
   assert(readMPUEndFromMPUEntryAddr(root_kernel_structure_start) == initial_block_end);
   assert(readMPUAccessibleFromMPUEntryAddr(root_kernel_structure_start) == false);
   assert(readMPUPresentFromMPUEntryAddr(root_kernel_structure_start) == true);
-  remaining_MPU_slots_form_a_linked_list(1, kernelstructureentriesnb - 1, root_kernel_structure_start);
+  remaining_MPU_slots_form_a_linked_list(1, KERNELSTRUCTUREENTRIESNB - 1, root_kernel_structure_start);
 
   // Sh1 structure: check the block's PDflag is set + remaining untouched
   assert(readSh1PDChildFromMPUEntryAddr(root_kernel_structure_start) == false);
   assert(readSh1PDFlagFromMPUEntryAddr(root_kernel_structure_start) == 1);
   assert(readSh1InChildLocationFromMPUEntryAddr(root_kernel_structure_start) == false);
-  remaining_Sh1_slots_are_default(1, kernelstructureentriesnb, root_kernel_structure_start);
+  remaining_Sh1_slots_are_default(1, KERNELSTRUCTUREENTRIESNB, root_kernel_structure_start);
 
   // SC structure: untouched
   assert(readSCOriginFromMPUEntryAddr(root_kernel_structure_start) == initial_block_start);
   assert(readSCNextFromMPUEntryAddr(root_kernel_structure_start) == false);
-  remaining_Sh1_slots_are_default(1, kernelstructureentriesnb, root_kernel_structure_start);
+  remaining_Sh1_slots_are_default(1, KERNELSTRUCTUREENTRIESNB, root_kernel_structure_start);
 }
 
 /*!
@@ -1003,10 +1001,11 @@ void test_create_partition()
  */
 void test_create_partitions_bad_arguments()
 {
+  KStructure_t* ks_root = (KStructure_t*) root_kernel_structure_start;
   paddr block1 = initial_block_start + 30*KERNELSTRUCTURETOTALLENGTH();
   assert(
       cutMemoryBlock(initial_block_start, block1) ==
-      root_kernel_structure_start + mpuentrylength);  // 2nd entry
+      &ks_root->mpu[1]);  // 2nd entry
 
   // block not existing
   assert(createPartition(initial_block_start + 1) == false);  // Fail
@@ -1020,11 +1019,11 @@ void test_create_partitions_bad_arguments()
   paddr block3 = initial_block_start + 25 * KERNELSTRUCTURETOTALLENGTH() + 12;  // too small block
   assert(
       cutMemoryBlock(initial_block_start, block2) ==
-      root_kernel_structure_start + 2*mpuentrylength
+      &ks_root->mpu[2]
   );  // 3rd entry
   assert(
       cutMemoryBlock(block2, block3) ==
-      root_kernel_structure_start + 3*mpuentrylength
+      &ks_root->mpu[3]
   );  // 4th entry
   assert(createPartition(block2) == false);  // Fail
 
@@ -1043,6 +1042,7 @@ void test_create_partitions_bad_arguments()
  */
 void test_create_sister_partitions()
 {
+  KStructure_t* ks_root = (KStructure_t*) root_kernel_structure_start;
   uint32_t cut_offset = PDSTRUCTURETOTALLENGTH() + 2;
   assert(cutMemoryBlock(initial_block_start, initial_block_start + cut_offset) != false);
   assert(cutMemoryBlock(initial_block_start + cut_offset, initial_block_start + 2*cut_offset) != false);
@@ -1065,37 +1065,37 @@ void test_create_sister_partitions()
   assert(readSh1PDFlagFromMPUEntryAddr(root_kernel_structure_start) == false); // untouched
   assert(readSh1InChildLocationFromMPUEntryAddr(root_kernel_structure_start) == NULL);
 
-  paddr cut1_offset_Sh1_entry = root_kernel_structure_start + 1*mpuentrylength;
+  paddr cut1_offset_Sh1_entry = &ks_root->mpu[1];
   assert(readSh1PDChildFromMPUEntryAddr(cut1_offset_Sh1_entry) == NULL);
   assert(readSh1PDFlagFromMPUEntryAddr(cut1_offset_Sh1_entry) == true);
   assert(readSh1InChildLocationFromMPUEntryAddr(cut1_offset_Sh1_entry) == NULL);
 
-  paddr cut2_offset_Sh1_entry = root_kernel_structure_start + 2*mpuentrylength;
+  paddr cut2_offset_Sh1_entry = &ks_root->mpu[2];
   assert(readSh1PDChildFromMPUEntryAddr(cut2_offset_Sh1_entry) == NULL);
   assert(readSh1PDFlagFromMPUEntryAddr(cut2_offset_Sh1_entry) == true);
   assert(readSh1InChildLocationFromMPUEntryAddr(cut2_offset_Sh1_entry) == NULL);
 
-  paddr cut3_offset_Sh1_entry = root_kernel_structure_start + 3*mpuentrylength;
+  paddr cut3_offset_Sh1_entry = &ks_root->mpu[3];
   assert(readSh1PDChildFromMPUEntryAddr(cut3_offset_Sh1_entry) == NULL);
   assert(readSh1PDFlagFromMPUEntryAddr(cut3_offset_Sh1_entry) == true);
   assert(readSh1InChildLocationFromMPUEntryAddr(cut3_offset_Sh1_entry) == NULL);
 
-  paddr cut4_offset_Sh1_entry = root_kernel_structure_start + 4*mpuentrylength;
+  paddr cut4_offset_Sh1_entry = &ks_root->mpu[4];
   assert(readSh1PDChildFromMPUEntryAddr(cut4_offset_Sh1_entry) == NULL);
   assert(readSh1PDFlagFromMPUEntryAddr(cut4_offset_Sh1_entry) == true);
   assert(readSh1InChildLocationFromMPUEntryAddr(cut4_offset_Sh1_entry) == NULL);
 
-  paddr cut5_offset_Sh1_entry = root_kernel_structure_start + 5*mpuentrylength;
+  paddr cut5_offset_Sh1_entry = &ks_root->mpu[5];
   assert(readSh1PDChildFromMPUEntryAddr(cut5_offset_Sh1_entry) == NULL);
   assert(readSh1PDFlagFromMPUEntryAddr(cut5_offset_Sh1_entry) == true);
   assert(readSh1InChildLocationFromMPUEntryAddr(cut5_offset_Sh1_entry) == NULL);
 
-  paddr cut6_offset_Sh1_entry = root_kernel_structure_start + 6*mpuentrylength;
+  paddr cut6_offset_Sh1_entry = &ks_root->mpu[6];
   assert(readSh1PDChildFromMPUEntryAddr(cut6_offset_Sh1_entry) == NULL);
   assert(readSh1PDFlagFromMPUEntryAddr(cut6_offset_Sh1_entry) == true);
   assert(readSh1InChildLocationFromMPUEntryAddr(cut6_offset_Sh1_entry) == NULL);
 
-  paddr free_slot_Sh1_entry = root_kernel_structure_start + 7*mpuentrylength;
+  paddr free_slot_Sh1_entry = &ks_root->mpu[7];
   assert(readSh1PDChildFromMPUEntryAddr(free_slot_Sh1_entry) == NULL);
   assert(readSh1PDFlagFromMPUEntryAddr(free_slot_Sh1_entry) == false); // untouched
   assert(readSh1InChildLocationFromMPUEntryAddr(free_slot_Sh1_entry) == NULL);
@@ -1132,8 +1132,11 @@ void prepare_test_generic(paddr idPD, paddr idBlockPrepare)
   uint32_t old_nb_free_slots = readPDNbFreeSlots(idPD);
   uint32_t old_nb_prepare = readPDNbPrepare(idPD);
   paddr old_parent = readPDParent(idPD);
+  KStructure_t* ks_old_first = (KStructure_t*) old_pointer_to_MPU_linked_list;
 
-  assert(prepare(idPD, kernelstructureentriesnb, idBlockPrepare) != false);
+  assert(prepare(idPD, KERNELSTRUCTUREENTRIESNB, idBlockPrepare) != false);
+
+  KStructure_t* ks_prepare = (KStructure_t*) idBlockPrepare;
 
   // Check correct PD changes
   assert(readPDStructurePointer(idPD) == idBlockPrepare);
@@ -1145,40 +1148,42 @@ void prepare_test_generic(paddr idPD, paddr idBlockPrepare)
   // Check correct MPU init of prepare block
   assert(readMPUIndexFromMPUEntryAddr(idBlockPrepare) == 0);
   assert(readMPUStartFromMPUEntryAddr(idBlockPrepare) == NULL);
-  assert(readMPUEndFromMPUEntryAddr(idBlockPrepare) == (idBlockPrepare + 1 * mpuentrylength));
+  assert(readMPUEndFromMPUEntryAddr(idBlockPrepare) == &ks_prepare->mpu[1]);
   assert(readMPUAccessibleFromMPUEntryAddr(idBlockPrepare) == false);
   assert(readMPUPresentFromMPUEntryAddr(idBlockPrepare) == false);
 
-  for(int i = 1 ; i < kernelstructureentriesnb - 1 ; i++)
+  for(int i = 1 ; i < KERNELSTRUCTUREENTRIESNB - 1 ; i++)
   {
-      paddr empty_block_MPU_entry = idBlockPrepare + i * mpuentrylength;
+      paddr empty_block_MPU_entry = &ks_prepare->mpu[i];
       // assert(empty_block_MPU_entry[1],
       //                  idBlockPrepare + (i - 1) * mpuentrylength);
       assert(readMPUIndexFromMPUEntryAddr(empty_block_MPU_entry) == i);
       assert(readMPUStartFromMPUEntryAddr(empty_block_MPU_entry) == NULL);
       assert(readMPUEndFromMPUEntryAddr(empty_block_MPU_entry) ==
-                                        (idBlockPrepare + (i + 1) * mpuentrylength));
+                                         &ks_prepare->mpu[i+1]);
       assert(readMPUAccessibleFromMPUEntryAddr(empty_block_MPU_entry) == false);
       assert(readMPUPresentFromMPUEntryAddr(empty_block_MPU_entry) == false);
   }
 
   // Check that last (free) entry points to previous first free slot
-  paddr last_entry_address = idBlockPrepare + (kernelstructureentriesnb - 1) * mpuentrylength;
-  assert(readMPUIndexFromMPUEntryAddr(last_entry_address) == (kernelstructureentriesnb - 1));
+  paddr last_entry_address =  &ks_prepare->mpu[KERNELSTRUCTUREENTRIESNB - 1];
+  assert(readMPUIndexFromMPUEntryAddr(last_entry_address) == (KERNELSTRUCTUREENTRIESNB - 1));
   assert(readMPUStartFromMPUEntryAddr(last_entry_address) == NULL);
   assert(readMPUEndFromMPUEntryAddr(last_entry_address) == old_first_free_slot_address);
   assert(readMPUAccessibleFromMPUEntryAddr(last_entry_address) == false);
   assert(readMPUPresentFromMPUEntryAddr(last_entry_address) == false);
 
-  // Check that the previous first free slot points back to the last entry of the new structure
+  // Check that the previous first kernel structure still holds
   if (old_first_free_slot_address !=0)
 {     // if there was still at least one free slot before
-      assert(readMPUIndexFromMPUEntryAddr(old_first_free_slot_address) == 1);
-      assert(readMPUStartFromMPUEntryAddr(old_first_free_slot_address) == NULL);
-      assert(readMPUEndFromMPUEntryAddr(old_first_free_slot_address) ==
-                                        (old_first_free_slot_address + mpuentrylength));
-      assert(readMPUAccessibleFromMPUEntryAddr(old_first_free_slot_address) == false);
-      assert(readMPUPresentFromMPUEntryAddr(old_first_free_slot_address) == false);
+      assert(readMPUIndexFromMPUEntryAddr(&ks_old_first->mpu[0]) == 0);
+      assert(readMPUStartFromMPUEntryAddr(&ks_old_first->mpu[0]) != NULL);
+      assert(readMPUEndFromMPUEntryAddr(&ks_old_first->mpu[0]) !=
+                                        NULL);
+      assert(readMPUAccessibleFromMPUEntryAddr(&ks_old_first->mpu[0]) == false);
+      assert(readMPUPresentFromMPUEntryAddr(&ks_old_first->mpu[0]) == true);
+      remaining_MPU_slots_form_a_linked_list(1, KERNELSTRUCTUREENTRIESNB-1, old_pointer_to_MPU_linked_list);
+
   }
   // Check that the new SC and Sh1 structures are default
   Sh1_structure_is_default(readPDStructurePointer(idPD));
@@ -1261,23 +1266,23 @@ void test_prepare_fails_when_reaching_max_nb_prepare()
   assert(cutMemoryBlock(initial_block, block7) != false);
   // prepare 7 times
   assert(
-      prepare(getCurPartition(), kernelstructureentriesnb, initial_block) !=
+      prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, initial_block) !=
       false);
   assert(
-      prepare(getCurPartition(), kernelstructureentriesnb, block1) != false);
+      prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, block1) != false);
   assert(
-      prepare(getCurPartition(), kernelstructureentriesnb, block2) != false);
+      prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, block2) != false);
   assert(
-      prepare(getCurPartition(), kernelstructureentriesnb, block3) != false);
+      prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, block3) != false);
   assert(
-      prepare(getCurPartition(), kernelstructureentriesnb, block4) != false);
+      prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, block4) != false);
   assert(
-      prepare(getCurPartition(), kernelstructureentriesnb, block5) != false);
+      prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, block5) != false);
   assert(
-      prepare(getCurPartition(), kernelstructureentriesnb, block6) != false);
+      prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, block6) != false);
 
   // Fail because max number of prepare reached
-  assert(prepare(getCurPartition(), kernelstructureentriesnb, block7) == false);
+  assert(prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, block7) == false);
 }
 
 /*!
@@ -1291,13 +1296,13 @@ void test_prepare_fails_when_reaching_max_nb_prepare()
 void test_prepare_bad_arguments()
 {
   // Fail because too many projected slots
-  assert(prepare(root, kernelstructureentriesnb + 1, initial_block_start) == false);
+  assert(prepare(root, KERNELSTRUCTUREENTRIESNB + 1, initial_block_start) == false);
 
   // Fail because PD is neither the current partition or a child
-  assert(prepare((paddr) 0x1, kernelstructureentriesnb, initial_block_start) == false);
+  assert(prepare((paddr) 0x1, KERNELSTRUCTUREENTRIESNB, initial_block_start) == false);
 
   // Fail because the block given to hold the prepared structure doesn't exist
-  assert(prepare(root, kernelstructureentriesnb, initial_block_start - 0x100) == false);
+  assert(prepare(root, KERNELSTRUCTUREENTRIESNB, initial_block_start - 0x100) == false);
 
   // cut initial block in a small block and a huge block + create child partition with huge block
   paddr small_block = initial_block_start;
@@ -1307,12 +1312,12 @@ void test_prepare_bad_arguments()
   // Fail because block used to prepare is inaccessible (PD of child partition);
   assert(
       prepare(getCurPartition(),
-                        kernelstructureentriesnb,
+                        KERNELSTRUCTUREENTRIESNB,
                         huge_block)
        == false
   );
   // Fail because block used to prepare is too small
-  assert(prepare(huge_block, kernelstructureentriesnb, small_block) == false);
+  assert(prepare(huge_block, KERNELSTRUCTUREENTRIESNB, small_block) == false);
 }
 
 /*!
@@ -1404,7 +1409,7 @@ void add_alone(int fast)
   }
 
   // Check the remaining slots are default in child
-  remaining_MPU_slots_form_a_linked_list(1, kernelstructureentriesnb - 1,
+  remaining_MPU_slots_form_a_linked_list(1, KERNELSTRUCTUREENTRIESNB - 1,
                                               readPDStructurePointer(child_partition_pd));
 
   // Check the Sh1 structure is default in child
@@ -1413,7 +1418,7 @@ void add_alone(int fast)
   // Check the SC structure: first entry not cut and initial block is hte block to share + remaining slots defaults
   assert(readSCOriginFromMPUEntryAddr(block_to_share_in_child_address) == block_to_share_id);
   assert(readSCNextFromMPUEntryAddr(block_to_share_in_child_address) == false);
-  remaining_SC_slots_are_default(1, kernelstructureentriesnb - 1,
+  remaining_SC_slots_are_default(1, KERNELSTRUCTUREENTRIESNB - 1,
                                       readPDStructurePointer(child_partition_pd));
 }
 
@@ -1531,7 +1536,7 @@ void add_bad_arguments(int fast)
   }
   // Check the block to be shared doesn't exist in two-numbered kernel structure list
   assert(prepare(getCurPartition(),
-                                        kernelstructureentriesnb,
+                                        KERNELSTRUCTUREENTRIESNB,
                                         block_to_share_id) != false);
   if (fast)
   {
@@ -1669,7 +1674,7 @@ void remove_alone(int fast)
   assert(readMPUEndFromMPUEntryAddr(child_kernel_structure_start) != NULL);
   assert(readMPUAccessibleFromMPUEntryAddr(child_kernel_structure_start) != false);
   assert(readMPUPresentFromMPUEntryAddr(child_kernel_structure_start) != false);
-  remaining_MPU_slots_form_a_linked_list(1, kernelstructureentriesnb - 1, child_kernel_structure_start);
+  remaining_MPU_slots_form_a_linked_list(1, KERNELSTRUCTUREENTRIESNB - 1, child_kernel_structure_start);
 
   // REMOVE block + checks PD is same as before + MPU/Sh1/SC are default
   if (fast)
@@ -1687,7 +1692,7 @@ void remove_alone(int fast)
   assert(old_nb_free_slots == readPDNbFreeSlots(child_partition_pd));
   assert(old_nb_prepare == readPDNbPrepare(child_partition_pd));
   assert(old_parent == readPDParent(child_partition_pd));
-  remaining_MPU_slots_form_a_linked_list(0, kernelstructureentriesnb - 1, child_kernel_structure_start);
+  remaining_MPU_slots_form_a_linked_list(0, KERNELSTRUCTUREENTRIESNB - 1, child_kernel_structure_start);
   Sh1_structure_is_default(child_kernel_structure_start);
   SC_structure_is_default(child_kernel_structure_start);
 }
@@ -1803,7 +1808,7 @@ void remove_in_grandchildren(int fast)
   assert(readMPUPresentFromMPUEntryAddr(block_to_share_MPU_grandchild_address) == false);
 
   // test grandchild is empty again
-  remaining_MPU_slots_form_a_linked_list(0, kernelstructureentriesnb - 1, block_prepare_grandchild_id);
+  remaining_MPU_slots_form_a_linked_list(0, KERNELSTRUCTUREENTRIESNB - 1, block_prepare_grandchild_id);
 }
 
 /*!
@@ -1876,7 +1881,7 @@ void remove_accessible_subblocks(int fast)
   assert(readMPUAccessibleFromMPUEntryAddr(MPU_kernel_structure_start) != false);
   assert(readMPUPresentFromMPUEntryAddr(MPU_kernel_structure_start) != false);
 
-  remaining_MPU_slots_form_a_linked_list(4, kernelstructureentriesnb - 1, MPU_kernel_structure_start);
+  remaining_MPU_slots_form_a_linked_list(4, KERNELSTRUCTUREENTRIESNB - 1, MPU_kernel_structure_start);
 
   // REMOVE switch back to parent -> remove block in child
   updateCurPartition(root);
@@ -1958,7 +1963,7 @@ void remove_fails_with_subblocks_inaccessible(int fast)
                       false);
   // PREPARE the child prepares itself to add a kernel structure with one of the subblocks
   assert(prepare(getCurPartition(),
-                                    kernelstructureentriesnb,
+                                    KERNELSTRUCTUREENTRIESNB,
                                     block_to_share_id + 3 * KERNELSTRUCTURETOTALLENGTH()) != false);
   // REMOVE fails
   updateCurPartition(root);
@@ -2019,7 +2024,7 @@ void remove_fails_with_block_in_child_not_accessible(int fast)
   // PREPARE the child prepares itself to add a kernel structure with one of the subblocks
   updateCurPartition(child_partition_pd);
   assert(prepare(getCurPartition(),
-                                        kernelstructureentriesnb,
+                                        KERNELSTRUCTUREENTRIESNB,
                                         block_to_share_id) !=
                       false);
   // REMOVE fails
@@ -2101,7 +2106,7 @@ void remove_bad_arguments(int fast)
 
   // PREPARE + Check the block to be shared doesn't exist in two-numbered kernel structure list
   assert(prepare(getCurPartition(),
-                                        kernelstructureentriesnb,
+                                        KERNELSTRUCTUREENTRIESNB,
                                         block_to_share_id) != false);
   if (fast)
   {
@@ -2356,6 +2361,7 @@ void test_delete_partition_with_block_shared_and_grandchild()
  */
 void test_delete_partition_grandchild_with_blocks_not_cut()
 {
+  KStructure_t* ks_root = (KStructure_t*) root_kernel_structure_start;
   // INIT
   paddr child_partition_pd = initial_block_start;
   paddr block_prepare_child_id = initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 2;
@@ -2394,17 +2400,17 @@ void test_delete_partition_grandchild_with_blocks_not_cut()
   paddr root_kernel_structure_start = readPDStructurePointer(root_partition);
   assert(
       readMPUAccessibleFromMPUEntryAddr(
-          root_kernel_structure_start + 2*mpuentrylength
+          &ks_root->mpu[2]
       ) == false
   );
   assert(
       readMPUAccessibleFromMPUEntryAddr(
-          root_kernel_structure_start + 3*mpuentrylength
+          &ks_root->mpu[3]
       ) == false
   );
   assert(
       readMPUAccessibleFromMPUEntryAddr(
-          root_kernel_structure_start + 4*mpuentrylength
+          &ks_root->mpu[4]
       ) == false
   );
   printf("*******Before******");
@@ -2420,17 +2426,17 @@ void test_delete_partition_grandchild_with_blocks_not_cut()
   root_kernel_structure_start = readPDStructurePointer(root_partition);
   assert(
       readMPUAccessibleFromMPUEntryAddr(
-          root_kernel_structure_start + 2*mpuentrylength
+          &ks_root->mpu[2]
       ) == true
   );
   assert(
       readMPUAccessibleFromMPUEntryAddr(
-          root_kernel_structure_start + 3 * mpuentrylength
+          &ks_root->mpu[3]
       ) == true
   );
   assert(
       readMPUAccessibleFromMPUEntryAddr(
-          root_kernel_structure_start + 4 * mpuentrylength
+          &ks_root->mpu[4]
       ) == true
   );
 }
@@ -2563,13 +2569,13 @@ void test_merge_full_MPU_structure()
 
   remaining_MPU_slots_form_a_linked_list(
       1,
-      kernelstructureentriesnb - 1,
+      KERNELSTRUCTUREENTRIESNB - 1,
       readPDStructurePointer(root)
   );
   Sh1_structure_is_default(readPDStructurePointer(root));
   remaining_SC_slots_are_default(
       1,
-      kernelstructureentriesnb -1,
+      KERNELSTRUCTUREENTRIESNB -1,
       readPDStructurePointer(root)
   );
 }
@@ -3051,9 +3057,9 @@ void test_mpu()
 int main_test (int argc, char* argv[])
 {
   mal_init(); // initializes the global vars
-    if (kernelstructureentriesnb != 8)
+    if (KERNELSTRUCTUREENTRIESNB != 8)
   {
-    printf("kernelstructureentriesnb must be 8 for the tests, test abort.\r\n");
+    printf("KERNELSTRUCTUREENTRIESNB %d must be 8 for the tests, test abort.\r\n", KERNELSTRUCTUREENTRIESNB);
     while(1);
   }
 
@@ -3092,4 +3098,4 @@ int main_test (int argc, char* argv[])
 
 }
 
-
+#endif //UNIT_TESTS

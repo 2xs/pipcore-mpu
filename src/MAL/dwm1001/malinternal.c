@@ -43,14 +43,6 @@
 #include <stddef.h>
 #include "mpu.h"
 
- uint32_t mpuoffset;
- uint32_t sh1offset;
- uint32_t scoffset;
- uint32_t nextoffset;
- uint32_t mpuentrylength;
- uint32_t sh1entrylength;
- uint32_t scentrylength;
- uint32_t kernelstructureentriesnb;
  uint32_t min_mpu_region;
 
 /*!
@@ -187,154 +179,23 @@ uint32_t mul(uint32_t a, uint32_t b)
 }
 
 /*!
- * \fn uint32_t KERNELSTRUCTUREENTRIESNB(void)
- * \brief Returns the maximum number of entries in a kernel structure.
- * \return The number of entries in a kernel structure.
+ * \fn uint32_t getKernelStructureEntriesNb(void)
+ * \brief Returns the kernel structure entries number.
+ * \return The kernel structure entries number.
  */
-uint32_t KERNELSTRUCTUREENTRIESNB(void)
+uint32_t getKernelStructureEntriesNb(void)
 {
-	return pow(2,KERNELSTRUCTUREENTRIESBITS);
+	return KERNELSTRUCTUREENTRIESNB;
 }
 
 /*!
- * \fn uint32_t MAXNBPREPARE(void)
- * \brief Returns the maximum number of times a partition can be prepared.
- * \return The maximum number of times a partition can be prepared.
+ * \fn uint32_t getMaxNbPrepare(void)
+ * \brief Returns the maximum number of allowed prepare.
+ * \return The maximum number of prepare.
  */
-uint32_t MAXNBPREPARE(void)
+uint32_t getMaxNbPrepare(void)
 {
-	return pow(2,NBPREPAREMAXBITS);
-}
-
-/*!
- * \fn uint32_t MPUENTRYLENGTH(void)
- * \brief Returns the size of an MPU entry.
- * \return The MPU entry size.
- */
-uint32_t MPUENTRYLENGTH(void)
-{
-	return sizeof(MPUEntry_t);
-}
-
-/*!
- * \fn uint32_t SH1ENTRYLENGTH(void)
- * \brief Returns the size of a shadow 1 entry.
- * \return The shadow 1 entry size.
- */
-uint32_t SH1ENTRYLENGTH(void)
-{
-	return sizeof(Sh1Entry_t);
-}
-
-/*!
- * \fn uint32_t SCENTRYLENGTH(void)
- * \brief Returns the size of a shadow cut entry.
- * \return The shadow cut entry size.
- */
-uint32_t SCENTRYLENGTH(void)
-{
-	return sizeof(SCEntry_t);
-}
-
-
-/*!
- * \fn uint32_t MPUOFFSET()
- * \brief Returns the MPU structure offset.
- * \return The MPU structure offset.
- */
-uint32_t MPUOFFSET(void)
-{
-	return 0;
-}
-
-/*!
- * \fn uint32_t SH1OFFSET()
- * \brief Returns the shadow 1 offset.
- * \return The shadow 1 offset.
- */
-uint32_t SH1OFFSET(void)
-{
-	return mpuoffset + (kernelstructureentriesnb*mpuentrylength);
-}
-
-/*!
- * \fn uint32_t SCOFFSET()
- * \brief Returns the shadow cut offset.
- * \return The shadow cut offset.
- */
-uint32_t SCOFFSET(void)
-{
-	return sh1offset + (kernelstructureentriesnb*sh1entrylength);
-}
-
-/*!
- * \fn uint32_t nextoffset(void)
- * \brief Returns the next structure pointer offset.
- * \return The next structure pointer offset.
- */
-uint32_t NEXTOFFSET(void)
-{
-	return scoffset + (kernelstructureentriesnb*scentrylength);
-}
-
-
-/*!
- * \fn paddr getKernelStructureStartAddr(paddr mpuentryaddr, uint32_t mpuentryindex)
- * \brief Gets the kernel structure start address from the MPU entry.
- * \param mpuentryaddr The address of the MPU entry
- * \param mpuentryindex The index of the MPU entry
- * \return The start of the kernel structure frame
- */
-paddr getKernelStructureStartAddr(paddr mpuentryaddr, uint32_t mpuentryindex)
-{
-	return (paddr) ((uint8_t*) mpuentryaddr-(mpuentryindex*mpuentrylength)); // TODO: Over/underflow ?
-}
-
-/*!
- * \fn paddr getMPUEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
- * \brief Gets the address where to find the MPU entry corresponding to the given index.
- * \param kernelstartaddr The address where the kernel structure starts
- * \param mpuentryindex The index of the MPU entry
- * \return The address of the MPU entry
- */
-paddr getMPUEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
-{
-	return (paddr) ((uint8_t*) kernelstartaddr + mpuoffset + (mpuentryindex*mpuentrylength)); // TODO: Over/underflow ?
-}
-
-/*!
- * \fn paddr getSh1EntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
- * \brief Gets the address where to find the Shadow 1 entry corresponding to the given index.
- * \param kernelstartaddr The address where the kernel structure starts
- * \param mpuentryindex The index of the MPU entry
- * \return The address of the shadow 1 entry
- */
-paddr getSh1EntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
-{
-	return (paddr) ((uint8_t*) kernelstartaddr + sh1offset + (mpuentryindex*sh1entrylength)); // TODO: Over/underflow ?
-}
-
-/*!
- * \fn paddr getSCEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
- * \brief Gets the address where to find the Shadow Cut entry corresponding to the given index.
- * \param kernelstartaddr The address where the kernel structure starts
- * \param mpuentryindex The index of the MPU entry
- * \return The address of the shadow cut entry
- */
-paddr getSCEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
-{
-	return (paddr) ((uint8_t*) kernelstartaddr + scoffset + (mpuentryindex*scentrylength)); // TODO: Over/underflow ?
-}
-
-/*!
- * \fn paddr* getNextAddrFromKernelStructureStart(paddr kernelstartaddr)
- * \brief Gets the address where to find the next structure pointer.
- * \param kernelstartaddr The address where the kernel structure starts
- * \return The address of the next structure pointer
- */
-paddr* getNextAddrFromKernelStructureStart(paddr kernelstartaddr)
-{
-	return (paddr*) (kernelstartaddr + nextoffset);
+	return MAXNBPREPARE;
 }
 
 /*!
@@ -401,7 +262,7 @@ uint32_t PDSTRUCTURETOTALLENGTH(void)
  */
 uint32_t KERNELSTRUCTURETOTALLENGTH(void)
 {
-	return fit_mpu_region(kernelstructureentriesnb*mpuentrylength + kernelstructureentriesnb*sh1entrylength + kernelstructureentriesnb*scentrylength + sizeof(uint32_t));
+	return fit_mpu_region(sizeof(KStructure_t));
 }
 
 

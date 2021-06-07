@@ -41,6 +41,13 @@ Require Import List Arith Omega.
 Open Scope mpu_state_scope.
 
 
+(** Specific variables for the Coq part, not used in the C program *)
+Definition mpuoffset := CIndex 0.
+Definition sh1offset := CIndex (mpuoffset + kernelStructureEntriesNb).  (* shadow1 *)
+Definition scoffset := CIndex (sh1offset + kernelStructureEntriesNb).  (* shadow cut *)
+Definition nextoffset := CIndex (scoffset + kernelStructureEntriesNb).
+
+
 Module Paddr.
 Definition leb (a b : paddr) : LLI bool := ret (a <=? b).
 Definition ltb (a b : paddr) : LLI bool := ret (a <? b).
@@ -63,6 +70,13 @@ let res := n+m in
 if (lt_dec res maxAddr )
 then
   ret (Build_paddr res _ )
+else  undefined 70.
+
+Program Definition subPaddrIdx (n : paddr) (m: index) : LLI paddr :=
+let res := n-m in
+if (lt_dec res maxAddr )
+then
+  ret (Build_paddr res _ )
 else  undefined 71.
 
 Program Definition subPaddr (n : paddr) (m: paddr) : LLI index :=
@@ -70,7 +84,7 @@ let res := n-m in
 if (lt_dec res maxIdx)
 then
   ret (Build_index res _ )
-else  undefined 71.
+else  undefined 72.
 End Paddr.
 
 
@@ -120,18 +134,8 @@ Module Constants.
     of the partition *)
 Definition kernelstructureidx := CIndex 0.
 
-Definition MPUEntryLength := CIndex 3.
-Definition SHEntryLength := CIndex 3.
-Definition SCEntryLength := CIndex 2.
-
-Definition mpuoffset := CIndex 0.
-Definition sh1offset := CIndex (mpuoffset + kernelStructureEntriesNb*MPUEntryLength).  (* shadow1 *)
-Definition scoffset := CIndex (sh1offset + kernelStructureEntriesNb*SHEntryLength).  (* shadow cut *)
-Definition nextoffset := CIndex (scoffset + kernelStructureEntriesNb*SCEntryLength).
-
 Definition rootPart := CPaddr 0.
 
-(*Definition minBlockSize := CPaddr 32.*)
 Definition minBlockSize := CIndex 32.
 
 (* TODO : power of 2*)
@@ -140,7 +144,7 @@ Definition PDStructureTotalLength := CIndex (5+8). (*5 fields + table of 8 MPU r
 End Constants.
 
 (*Definition getNextOffset : LLI paddr := ret Constants.nextoffset.*)
-Definition getNextOffset : LLI index := ret Constants.nextoffset.
+Definition getNextOffset : LLI index := ret nextoffset.
 Definition getKernelStructureEntriesNb : LLI index := ret (CIndex kernelStructureEntriesNb).
 Definition getMaxNbPrepare : LLI index := ret (CIndex maxNbPrepare).
 (*Definition getMinBlockSize : LLI paddr := ret Constants.minBlockSize.*)
@@ -157,36 +161,4 @@ Definition getBeqIdx (p1 : index)  (p2 : index) : LLI bool := ret (p1 =? p2).
 
 Definition getAddr (paddr : paddr) : LLI ADT.paddr := ret paddr.
 
-Definition getMPUEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (MPUEntryIndex : index) : LLI paddr :=
-(* return kernel_structure_address_begin + self.constants.MPU + MPU_entry_index*self.constants.MPU_entry_length*)
-	let mpuEntryAddr := CPaddr (kernelStartAddr + Constants.mpuoffset + MPUEntryIndex*Constants.MPUEntryLength) in
-	ret mpuEntryAddr.
 
-(*         """Get the location of the Sh1's entry given the <MPU_entry_index>
-        and the <kernel_structure_address_begin"""*)
-(*Definition getSh1EntryIndexFromKernelStructureStart (kernelStartIndex MPUEntryIndex : PipMPU.index) : PipMPU.LLI index :=
-(* return kernel_structure_address_begin + self.constants.indexSh1 + MPU_entry_index*self.constants.Sh1_entry_length*)
-	let sh1EntryIdx := Build_index (kernelStartIndex + sh1idx + MPUEntryIndex) in
-	PipMPU.ret sh1EntryIdx.*)
-Definition getSh1EntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (MPUEntryIndex : index) : LLI paddr :=
-(* return kernel_structure_address_begin + self.constants.indexSh1 + MPU_entry_index*self.constants.Sh1_entry_length*)
-	let sh1EntryAddr := CPaddr (kernelStartAddr + Constants.sh1offset + MPUEntryIndex*Constants.SHEntryLength) in
-	ret sh1EntryAddr.
-
-Definition getKernelStructureStartAddr (mpuentryaddr : paddr) (mpuindex : index) : LLI paddr :=
-	(* compute kernel start *)
-	(* MPU_entry_index = self.get_MPU_index(MPU_entry_address)
-  # we compute the start of the kernel structure knowing the MPU's entry address and index
-  kernel_structure_start = MPU_entry_address - MPU_entry_index * self.constants.MPU_entry_length*)
-(* TODO : check if paddr - MPUEntryIndexidx*Constants.MPUEntryLength > 0 ? *)
-	let kernelStartAddr := CPaddr (mpuentryaddr - mpuindex*Constants.MPUEntryLength) in
-	ret kernelStartAddr.
-
-Definition getSCEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (MPUEntryIndex : index) : LLI paddr :=
-(* return kernel_structure_address_begin + self.constants.indexSC + MPU_entry_index*self.constants.SC_entry_length*)
-	let scEntryAddr := CPaddr (kernelStartAddr + Constants.scoffset + MPUEntryIndex*Constants.SCEntryLength) in
-	ret scEntryAddr.
-
-Definition getNextAddrFromKernelStructureStart (kernelStartAddr : paddr) : LLI paddr :=
-	let nextAddr := CPaddr (kernelStartAddr + Constants.nextoffset) in
-	ret nextAddr.

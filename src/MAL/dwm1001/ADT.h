@@ -114,13 +114,26 @@ typedef struct SCEntry
  */
 typedef struct PDTable
 {
-    uint32_t* structure     ;   //!< Pointer to the first kernel structure of the structure linked list
-    uint32_t* firstfreeslot ;   //!< Pointer to the first free slot in one of the kernel structures (if any)
-    uint32_t nbfreeslots    ;   //!< Number of free slots left
-    uint32_t nbprepare      ;   //!< Number of Prepare done on this partition
-    uint32_t* parent        ;   //!< Pointer to the parent partition
-    MPUEntry_t* blocks[MPU_REGIONS_NB]   ;   //!< List of pointers to enabled blocks
-    uint32_t LUT[MPU_REGIONS_NB*2]    ;   //!< MPU registers' configuration sequence
+    uint32_t* structure                 ;   //!< Pointer to the first kernel structure of the structure linked list
+    uint32_t* firstfreeslot             ;   //!< Pointer to the first free slot in one of the kernel structures (if any)
+    uint32_t nbfreeslots                ;   //!< Number of free slots left
+    uint32_t nbprepare                  ;   //!< Number of Prepare done on this partition
+    uint32_t* parent                    ;   //!< Pointer to the parent partition
+    MPUEntry_t* blocks[MPU_REGIONS_NB]  ;   //!< List of pointers to enabled blocks
+    uint32_t LUT[MPU_REGIONS_NB*2]      ;   //!< MPU registers' configuration sequence
 }__attribute__((packed)) PDTable_t;
+
+/**
+ * \struct KStructure
+ * \brief A kernel structure
+ */
+typedef struct KStructure
+{
+    MPUEntry_t mpu[KERNELSTRUCTUREENTRIESNB]    ;   //!< MPU structure
+    Sh1Entry_t sh1[KERNELSTRUCTUREENTRIESNB]    ;   //!< Sh1 structure
+    SCEntry_t sc[KERNELSTRUCTUREENTRIESNB]      ;   //!< SC structure
+    uint32_t* next                              ;   //!< Pointer to the next kernel structure
+}__attribute__((packed)) KStructure_t;
+
 
 #endif /* ADT_H */

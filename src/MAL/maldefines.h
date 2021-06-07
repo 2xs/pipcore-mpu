@@ -44,13 +44,6 @@
 #include <stddef.h>
 
 /* Constants */
-#define Constants_coq_MPUEntryLength mpuentrylength
-#define Constants_coq_SHEntryLength sh1entrylength
-#define Constants_coq_SCEntryLength scentrylength
-#define Constants_mpuoffset MPUOFFSET
-#define Constants_sh1offset sh1offset
-#define Constants_scoffset scoffset
-#define Constants_nextoffset nextoffset
 #define Constants_rootPart root_partition
 
 /* ADT structure */
@@ -83,11 +76,11 @@
 #define nullAddr NULL
 
 #define maxNbPrepare MAXNBPREPARE
-#define getMaxNbPrepare MAXNBPREPARE
+#define getMaxNbPrepare getMaxNbPrepare
 #define getMinBlockSize MINBLOCKSIZE
 #define getKernelStructureTotalLength KERNELSTRUCTURETOTALLENGTH
 #define getPDStructureTotalLength PDSTRUCTURETOTALLENGTH
-#define getKernelStructureEntriesNb KERNELSTRUCTUREENTRIESNB
+#define getKernelStructureEntriesNb getKernelStructureEntriesNb
 #define kernelStructureEntriesNb KERNELSTRUCTUREENTRIESNB
 
 /* Astucious defines */

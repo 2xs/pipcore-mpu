@@ -38,24 +38,13 @@ void dump_PD_structure(paddr pd)
  */
 void dump_kernel_structure(paddr kernel_structure_start_addr)
 {
+    KStructure_t* ks = (KStructure_t*) kernel_structure_start_addr;
     printf("\r\n----------Kernel structure %x (size: %d)----\r\n", kernel_structure_start_addr,
                                                                 KERNELSTRUCTURETOTALLENGTH());
     printf("\r\n----------MPU---------------------------\r\n");
-    for (int i=0;i<kernelstructureentriesnb;i++)
+    for (int i=0;i<KERNELSTRUCTUREENTRIESNB;i++)
     {
-        /*MPUEntry_t* entry = (MPUEntry_t*)(kernel_structure_start_addr + i*mpuentrylength);
-        printf("%x:",    entry);
-        printf("%-1d:MPU\t",
-                                                (entry->mpuindex).MPUi);
-        printf("%-10x|",
-                                                (entry->mpublock).startAddr);
-        printf("%-10x|",
-                                                (entry->mpublock).endAddr);
-        printf("%-1u|",
-                                                entry->accessible);
-        printf("%-1u\r\n",
-                                                entry->present);*/
-        paddr mpuentryadddr = kernel_structure_start_addr + i*mpuentrylength;
+        paddr mpuentryadddr = &ks->mpu[i];
         printf("%x:%-1d:MPU\t%-10x|%-10x\t|%-1u|%-1u|%-1u%-1u%-1u\r\n",    mpuentryadddr,
                                                             readMPUIndexFromMPUEntryAddr(mpuentryadddr),
                                                             readMPUStartFromMPUEntryAddr(mpuentryadddr),
@@ -68,7 +57,7 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
                                                             );
     }
     printf("\r\n----------SH1---------------------------\r\n");
-    for (int i=0;i<kernelstructureentriesnb;i++)
+    for (int i=0;i<KERNELSTRUCTUREENTRIESNB;i++)
     {
         /*Sh1Entry_t* entry = (Sh1Entry_t*)(kernel_structure_start_addr + sh1offset + i*sh1entrylength);
         printf("%x:SH1\t",    entry);
@@ -79,15 +68,15 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
         printf("%-10x\r\n",
                                                 entry->inChildLocation);*/
 
-        paddr mpuentryadddr = kernel_structure_start_addr + i*mpuentrylength;
-        paddr sh1entryadddr = kernel_structure_start_addr + sh1offset + i*sh1entrylength;
+        paddr mpuentryadddr = &ks->mpu[i];
+        paddr sh1entryadddr = &ks->sh1[i];
         printf("%x:SH1\t%-10x|%-1u|%-10x\r\n",  sh1entryadddr,
                                                 readSh1PDChildFromMPUEntryAddr(mpuentryadddr),
                                                 readSh1PDFlagFromMPUEntryAddr(mpuentryadddr),
                                                 readSh1InChildLocationFromMPUEntryAddr(mpuentryadddr));
     }
     printf("\r\n----------SC---------------------------\r\n");
-    for (int i=0;i<kernelstructureentriesnb;i++)
+    for (int i=0;i<KERNELSTRUCTUREENTRIESNB;i++)
     {
         /*SCEntry_t* entry = (SCEntry_t*)(kernel_structure_start_addr + scoffset + i*scentrylength);
         printf("%x:SC\t",    entry);
@@ -96,14 +85,14 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
         printf("%-10x\r\n",
                                                 entry->next);*/
 
-        paddr mpuentryadddr = kernel_structure_start_addr + i*mpuentrylength;
-        paddr scentryadddr = kernel_structure_start_addr + scoffset + i*scentrylength;
+        paddr mpuentryadddr = &ks->mpu[i];
+        paddr scentryadddr = &ks->sc[i];
         printf("%x:SC\t%-10x|%-10x\r\n",  scentryadddr,
                                                 readSCOriginFromMPUEntryAddr(mpuentryadddr),
                                                 readSCNextFromMPUEntryAddr(mpuentryadddr));
     }
 
-    printf("\r\n----------next = %x----------------------\r\n", *((uint32_t*)(kernel_structure_start_addr + nextoffset)));
+    printf("\r\n----------next = %x----------------------\r\n", ks->next);
 
 }
 

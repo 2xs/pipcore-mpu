@@ -59,6 +59,58 @@ static const MPUEntry_t DEFAULT_MPU_ENTRY = {DEFAULT_BLOCK, DEFAULT_MPU_INDEX, f
 static const Sh1Entry_t DEFAULT_SH1_ENTRY = {NULL, false, NULL};
 static const SCEntry_t DEFAULT_SC_ENTRY = {NULL, NULL};
 
+
+/*!
+ * \fn paddr getKernelStructureStartAddr(paddr mpuentryaddr, uint32_t mpuentryindex)
+ * \brief Gets the kernel structure start address from the MPU entry.
+ * \param mpuentryaddr The address of the MPU entry
+ * \param mpuentryindex The index of the MPU entry
+ * \return The start of the kernel structure frame
+ */
+paddr getKernelStructureStartAddr(paddr mpuentryaddr, uint32_t mpuentryindex)
+{
+	return (paddr) ((MPUEntry_t*) mpuentryaddr- mpuentryindex); // TODO: Over/underflow ?
+}
+
+/*!
+ * \fn paddr getMPUEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
+ * \brief Gets the address where to find the MPU entry corresponding to the given index.
+ * \param kernelstartaddr The address where the kernel structure starts
+ * \param mpuentryindex The index of the MPU entry
+ * \return The address of the MPU entry
+ */
+paddr getMPUEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
+{
+	KStructure_t* structure = (KStructure_t*) kernelstartaddr;
+	return (paddr) &structure->mpu[mpuentryindex];
+}
+
+/*!
+ * \fn paddr getSh1EntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
+ * \brief Gets the address where to find the Shadow 1 entry corresponding to the given index.
+ * \param kernelstartaddr The address where the kernel structure starts
+ * \param mpuentryindex The index of the MPU entry
+ * \return The address of the shadow 1 entry
+ */
+paddr getSh1EntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
+{
+	KStructure_t* structure = (KStructure_t*) kernelstartaddr;
+	return (paddr) &structure->sh1[mpuentryindex];
+}
+
+/*!
+ * \fn paddr getSCEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
+ * \brief Gets the address where to find the Shadow Cut entry corresponding to the given index.
+ * \param kernelstartaddr The address where the kernel structure starts
+ * \param mpuentryindex The index of the MPU entry
+ * \return The address of the shadow cut entry
+ */
+paddr getSCEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
+{
+	KStructure_t* structure = (KStructure_t*) kernelstartaddr;
+	return (paddr) &structure->sc[mpuentryindex];
+}
+
 /*!
  * \fn PDTable_t readPDTable(paddr pdaddr)
  * \brief Gets the Partition Descriptor (PD).
@@ -792,39 +844,42 @@ void writeSCEntryFromMPUEntryAddr(paddr mpuentryaddr, SCEntry_t newscentry)
 }
 
 /*!
+ * \fn paddr getNextAddrFromKernelStructureStart(paddr structureaddr)
+ * \brief Gets pointer to the next pointer.
+ * \param structureaddr The address of the kernel structure
+ * \return the address of the structure's next pointer
+ */
+paddr getNextAddrFromKernelStructureStart(paddr structureaddr)
+{
+	KStructure_t* ks = (KStructure_t*) structureaddr;
+	return &ks->next;
+}
+
+/*!
  * \fn paddr readNextFromKernelStructureStart(paddr structureaddr)
- * \brief Gets the block's next subblock.
- * \param mpuentryaddr The address of the kernel structure
- * \return the pointer to the next structure, NULL otherwise
+ * \brief Gets the pointer to the next Kstructure of the current <structureaddr> structure.
+ * \param structureaddr The address of the kernel structure
+ * \return the pointer to the next KStructure, NULL otherwise
  */
 paddr readNextFromKernelStructureStart(paddr structureaddr)
 {
-	// Get the structure next entry address
-	paddr* nextstructureaddr = getNextAddrFromKernelStructureStart(structureaddr);
-
-	paddr nextstructure = (paddr) *nextstructureaddr;
-
-	//MALDBG("readNextFromKernelStructureStart(%d) -> %d\r\n", structureaddr, nextstructureaddr);
-	//printf("readNextFromKernelStructureStart(%x) -> %d\r\n", structureaddr, nextstructure);
-
-	// Return the pointer to the next structure
-	return nextstructure;
+	uint32_t* nextaddr = (uint32_t*) getNextAddrFromKernelStructureStart(structureaddr);
+	return (paddr) *nextaddr;
 }
 
 /*!
  * \fn void writeNextFromKernelStructureStart(paddr structureaddr, paddr newnextstructure)
- * \brief Sets the block's SC entry.
+ * \brief Sets the pointer to the next Kstructure of the current <structureaddr> structure.
  * \param structureaddr The address of the kernel structure
  * \param newnextstructure The new next structure pointer
  * \return void
  */
 void writeNextFromKernelStructureStart(paddr structureaddr, paddr newnextstructure)
 {
-	// Get the structure next entry address
-	paddr* nextstructureaddr = getNextAddrFromKernelStructureStart(structureaddr);
+	uint32_t* nextaddr = (uint32_t*) getNextAddrFromKernelStructureStart(structureaddr);
 
-	*nextstructureaddr = newnextstructure;
-
+	// modify the pointer to the next KStructure
+	*nextaddr = (uint32_t*) newnextstructure;
 	return;
 }
 

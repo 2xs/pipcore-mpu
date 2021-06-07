@@ -49,6 +49,36 @@ Definition N := 100.
 Definition getCurPartition : LLI paddr :=
 	perform s := get in ret s.(currentPartition).
 
+Definition getKernelStructureStartAddr (mpuentryaddr : paddr) (mpuindex : index) : LLI paddr :=
+	(* compute kernel start *)
+	(* MPU_entry_index = self.get_MPU_index(MPU_entry_address)
+  # we compute the start of the kernel structure knowing the MPU's entry address and index
+  kernel_structure_start = MPU_entry_address - MPU_entry_index * self.constants.MPU_entry_length*)
+(* TODO : check if paddr - MPUEntryIndexidx*Constants.MPUEntryLength > 0 ? *)
+	perform kernelStartAddr := Paddr.subPaddrIdx mpuentryaddr mpuindex in
+	ret kernelStartAddr.
+
+Definition getMPUEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (MPUEntryIndex : index) : LLI paddr :=
+(* return kernel_structure_address_begin + self.constants.MPU + MPU_entry_index*self.constants.MPU_entry_length*)
+	let mpuEntryAddr := CPaddr (kernelStartAddr + mpuoffset + MPUEntryIndex) in
+	ret mpuEntryAddr.
+
+(*         """Get the location of the Sh1's entry given the <MPU_entry_index>
+        and the <kernel_structure_address_begin"""*)
+(*Definition getSh1EntryIndexFromKernelStructureStart (kernelStartIndex MPUEntryIndex : PipMPU.index) : PipMPU.LLI index :=
+(* return kernel_structure_address_begin + self.constants.indexSh1 + MPU_entry_index*self.constants.Sh1_entry_length*)
+	let sh1EntryIdx := Build_index (kernelStartIndex + sh1idx + MPUEntryIndex) in
+	PipMPU.ret sh1EntryIdx.*)
+Definition getSh1EntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (MPUEntryIndex : index) : LLI paddr :=
+(* return kernel_structure_address_begin + self.constants.indexSh1 + MPU_entry_index*self.constants.Sh1_entry_length*)
+	let sh1EntryAddr := CPaddr (kernelStartAddr + sh1offset + MPUEntryIndex) in
+	ret sh1EntryAddr.
+
+Definition getSCEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (MPUEntryIndex : index) : LLI paddr :=
+(* return kernel_structure_address_begin + self.constants.indexSC + MPU_entry_index*self.constants.SC_entry_length*)
+	let scEntryAddr := CPaddr (kernelStartAddr + scoffset + MPUEntryIndex) in
+	ret scEntryAddr.
+
 
 Definition readPDTable (paddr : paddr)  : LLI PDTable :=
 	perform s := get in
@@ -635,6 +665,10 @@ Definition getEmptyPDTable : LLI PDTable :=
 										MPU := nil |} in 
 	ret emptyPDTable.
 
+Definition getNextAddrFromKernelStructureStart (kernelStartAddr : paddr) : LLI paddr :=
+	let nextAddr := CPaddr (kernelStartAddr + nextoffset) in
+	ret nextAddr.
+
 Definition readNextFromKernelStructureStart  (structurepaddr : paddr) : LLI paddr :=
 	perform nextaddr :=  getNextAddrFromKernelStructureStart structurepaddr in (** Our last index is table size - 1, as we're indexed on zero*)
   perform s := get in
@@ -752,6 +786,7 @@ Definition compatibleRight (originalright newright : bool) : bool :=
 	if newright then eqb originalright newright else true.
 
 
+(* TODO move to Internal *)
 (** The [checkRights] function checks that the rights <r, w, x> are compatible
 		with Pip's access control policy for unprivileged accesses given a base block.
 

@@ -132,7 +132,7 @@ void mal_init_root_part(paddr part)
 	// prepare the root partition with the intialized structure
 	writePDStructurePointer(part, kstructure);
 	writePDFirstFreeSlotPointer(part, kstructure);
-	writePDNbFreeSlots(part, kernelstructureentriesnb);
+	writePDNbFreeSlots(part, KERNELSTRUCTUREENTRIESNB);
 	writePDNbPrepare(part, 1);
 
 	// add user memory block(s)
@@ -177,14 +177,6 @@ void mal_init_root_part(paddr part)
 void mal_init_global_var(void)
 {
 	user_alloc_pos = &user_mem_start;
-	kernelstructureentriesnb = KERNELSTRUCTUREENTRIESNB();
-	mpuentrylength = MPUENTRYLENGTH();
-	sh1entrylength = SH1ENTRYLENGTH();
-	scentrylength = SCENTRYLENGTH();
-	mpuoffset = MPUOFFSET();
-	sh1offset = SH1OFFSET();
-	scoffset = SCOFFSET();
-	nextoffset = NEXTOFFSET();
 	min_mpu_region = MINBLOCKSIZE() << 2; // block is in words
 }
 

@@ -238,44 +238,55 @@ Fixpoint findBlockInMPUWithAddrAux (timeout : nat)
 																	(currentkernelstructure idblock : paddr)
 																	(blockMPUAddr: paddr) : LLI paddr :=
 	match timeout with
-		| 0 => getNullAddr (*Stop condition 1: reached end of structure list*)
+		| 0 => getNullAddr
 		| S timeout1 => (*Stop conditions 2 and 3: found block OR issue with the entry *)
 										perform isMPUAddrAboveStart := Paddr.leb currentkernelstructure blockMPUAddr in
-										perform maxMPUAddrInStructure :=  Paddr.addPaddrIdx
+										perform zero := Index.zero in
+										perform maxMPUAddrInStructure :=  getSh1EntryAddrFromKernelStructureStart
 																													currentkernelstructure
-																													Constants.sh1offset in
-										perform isMPUAddrBelowEnd := Paddr.leb maxMPUAddrInStructure blockMPUAddr in
+																													zero in
+										perform isMPUAddrBelowEnd := Paddr.leb blockMPUAddr maxMPUAddrInStructure in
 										if isMPUAddrAboveStart && isMPUAddrBelowEnd
 										then (* the provided address lies in this kernel structure*)
-											(** Check 0 <= index < max entries nb*)
 											perform index := readMPUIndexFromMPUEntryAddr blockMPUAddr in
-
 											perform maxEntriesNb := getKernelStructureEntriesNb in
-											perform zero := Index.zero in
 											perform lastindex := Index.pred maxEntriesNb in
 											perform isAbove0 := Index.leb zero index in
 											perform isLessMaxEntriesNb := Index.leb index maxEntriesNb in
 											if isAbove0 && isLessMaxEntriesNb
-											then (* 0 <= index <= lastidx is valid*)
+											then (* 0 <= index <= max entries nb*)
 												(** Check the MPU entry matches the submitted idblock
 														and is present*)
 												perform entryBlockStart := readMPUStartFromMPUEntryAddr blockMPUAddr in
 												perform isEntryValid := getBeqAddr entryBlockStart idblock in
+												perform mpuentryaddridx := getMPUEntryAddrFromKernelStructureStart
+																													currentkernelstructure
+																													index in
+												perform entryBlockStartFromIdx := readMPUStartFromMPUEntryAddr
+																																mpuentryaddridx in
+												perform isIndexValid := getBeqAddr 	entryBlockStartFromIdx
+																														idblock in
 												perform isPresent := readMPUPresentFromMPUEntryAddr blockMPUAddr in
-												if isEntryValid && isPresent
-												then (* Stop condition 2: the block has been found and is present (i.e. it's a real block)*)
+												if isEntryValid && isIndexValid && isPresent
+												then (** STOP CONDITION 2: the block has been found and is present (i.e. it's a real block)*)
 													ret blockMPUAddr
-												else (*Stop condition 3a: bad arguments OR block not present *)
+												else (** STOP CONDITION 3a: bad arguments OR block not present *)
 													ret nullAddr
-											else (*Stop condition 3b: block not found at the correct MPU location *)
+											else (** STOP CONDITION 3b: block not found at the correct MPU location *)
 														ret nullAddr
-										else (* RECURSIVE call: block not found in current structure,
+										else (** RECURSIVE call: block not found in current structure,
 														check next kernel structure*)
 											perform nextKernelStructure := readNextFromKernelStructureStart
 																											currentkernelstructure in
-											findBlockInMPUWithAddrAux timeout1 nextKernelStructure
-																												idblock
-																												blockMPUAddr
+											perform isnull :=  getBeqAddr nextKernelStructure nullAddr in
+											if isnull
+											then
+												(** STOP CONDITION 1: reached last structure, not found *)
+												ret nullAddr
+											else findBlockInMPUWithAddrAux timeout1
+																										nextKernelStructure
+																										idblock
+																										blockMPUAddr
 	end.
 
 (*
@@ -1089,23 +1100,17 @@ Fixpoint initMPUEntryRecAux 	(timeout : nat)
 									(** PROCESSING: set default values in current entry *)
 									perform idxsucc := Index.succ indexCurr in
 									(* current entry points to the next via the endAddr field*)
-									perform nextEntryOffset := Index.mulIdx
-																							idxsucc
-																							Constants.MPUEntryLength in
-									perform nextEntryPointer := Paddr.addPaddrIdx
+									perform nextEntryPointer := getMPUEntryAddrFromKernelStructureStart
 																								kernelStructureStartAddr
-																								nextEntryOffset in
+																								idxsucc in
 									perform mpuEntry := buildMPUEntry
 																				nullAddr
 																				nextEntryPointer
 																				false
 																				false in
-									perform currEntryOffset := Index.mulIdx
-																							indexCurr
-																							Constants.MPUEntryLength in
-									perform currEntryPointer := Paddr.addPaddrIdx
+									perform currEntryPointer := getMPUEntryAddrFromKernelStructureStart
 																								kernelStructureStartAddr
-																								currEntryOffset in
+																								indexCurr in
 									writeMPUEntryWithIndexFromMPUEntryAddr
 											currEntryPointer
 											indexCurr
@@ -1142,9 +1147,9 @@ Definition initMPUStructure (kernelStructureStartAddr : paddr) : LLI bool :=
 																				nullAddr
 																				false
 																				false in
-	perform lastEntryOffset := Index.mulIdx lastindex Constants.MPUEntryLength in
-	perform lastEntryPointer := Paddr.addPaddrIdx 	kernelStructureStartAddr
-																									lastEntryOffset in
+	perform lastEntryPointer := getMPUEntryAddrFromKernelStructureStart
+									 								kernelStructureStartAddr
+																	lastindex in
 	writeMPUEntryWithIndexFromMPUEntryAddr 	lastEntryPointer
 																					lastindex
 																					lastMPUEntry;;
@@ -1178,12 +1183,9 @@ Fixpoint initSh1EntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 		| 0 => 	ret false (* timeout reached *)
 		| S timeout1 => (** PROCESSING: set default values in current entry *)
 										perform defaultSh1Entry := getDefaultSh1Entry in
-										perform currEntryOffset := Index.mulIdx
-																								indexCurr
-																								Constants.MPUEntryLength in
-										perform currEntryPointer := Paddr.addPaddrIdx
+										perform currEntryPointer := getMPUEntryAddrFromKernelStructureStart
 																									kernelStructureStartAddr
-																									currEntryOffset in
+																									indexCurr in
 										writeSh1EntryFromMPUEntryAddr currEntryPointer
 																									defaultSh1Entry;;
 										perform zero := Index.zero in
@@ -1236,12 +1238,9 @@ Fixpoint initSCEntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 		| 0 => 	ret false (* timeout reached *)
 		| S timeout1 => (** PROCESSING: set default values in current entry *)
 										perform defaultSCEntry := getDefaultSCEntry in
-										perform currEntryOffset := Index.mulIdx
-																								indexCurr
-																								Constants.MPUEntryLength in
-										perform currEntryPointer := Paddr.addPaddrIdx
+										perform currEntryPointer := getMPUEntryAddrFromKernelStructureStart
 																									kernelStructureStartAddr
-																									currEntryOffset in
+																									indexCurr in
 										writeSCEntryFromMPUEntryAddr 	currEntryPointer
 																									defaultSCEntry;;
 										perform zero := Index.zero in
@@ -1336,10 +1335,9 @@ Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
 		| S timeout1 =>
 										(** PROCESSING: remove all blocks shared with the child to
 																		delete in the current structure *)
-										perform offset := Index.mulIdx currIndex Constants.MPUEntryLength in
-										perform currMPUEntryAddr :=	Paddr.addPaddrIdx
+										perform currMPUEntryAddr :=	getMPUEntryAddrFromKernelStructureStart
 																											kernelStructureStartAddr
-																											offset in
+																											currIndex in
 										perform blockID := readMPUStartFromMPUEntryAddr
 																					currMPUEntryAddr in
 										perform currPDChild := readSh1PDChildFromMPUEntryAddr
@@ -1539,10 +1537,9 @@ Fixpoint checkStructureEmptyRecAux 	(timeout : nat)
 	match timeout with
 		| 0 => 	ret false (* timeout reached *)
 		| S timeout1 =>	(** PROCESSING: check the current entry *)
-										perform offset := Index.mulIdx currIndex
-																									Constants.MPUEntryLength in
-										perform currMPUEntryAddr :=	Paddr.addPaddrIdx 	structureAddr
-																																		offset in
+										perform currMPUEntryAddr :=	getMPUEntryAddrFromKernelStructureStart
+																										structureAddr
+																										currIndex in
 										perform isPresent := readMPUPresentFromMPUEntryAddr
 																						currMPUEntryAddr in
 										if isPresent

@@ -75,17 +75,6 @@ uint32_t inc(uint32_t val); //!< Increment an integer
 uint32_t dec(uint32_t val); //!< Decrement an integer
 uint32_t zero(); //!< Zero. That's it.
 
-
-/*uint32_t indexPR(void); //!< Partiton descriptor index into itself
-uint32_t indexPD(void); //!< Page directory index within partition descriptor
-uint32_t indexSh1(void); //!< Shadow 1 index within partition descriptor
-uint32_t indexSh2(void); //!< Shadow 2 index within partition descriptor
-uint32_t indexSh3(void); //!< Configuration tables linked list index within partition descriptor
-uint32_t PPRidx(void); //!< Parent partition index within partition descriptor
-uint32_t kernelIndex(void); //!< Index of kernel's page directory entry
-void writePhysicalWithLotsOfFlags(uint32_t table, uint32_t index, uint32_t addr, uint32_t present, uint32_t user, uint32_t read, uint32_t write, uint32_t execute); //!< Write a physical entry with all the possible flags we might need
-void writeKPhysicalWithLotsOfFlags(uint32_t table, uint32_t index, uint32_t addr, uint32_t present, uint32_t user, uint32_t read, uint32_t write, uint32_t execute); //!< Write a physical entry with all the possible flags we might need
-uint32_t extractPreIndex(uint32_t vaddr, uint32_t index);*/
 void mal_init(void);
 
 /* ARM */
@@ -93,36 +82,18 @@ void mal_init(void);
 uint32_t mul(uint32_t a, uint32_t b); //!< Multiply two integers
 uint32_t sub(uint32_t a, uint32_t b); //!< Substract two integers
 uint32_t add(uint32_t a, uint32_t b); //!< Add two integers
-
-extern uint32_t kernelstructureentriesnb;
-uint32_t KERNELSTRUCTUREENTRIESNB(void); //!< The number of entries in a kernel structure
-uint32_t MAXNBPREPARE(void);//!< The maximum number of times a partition can be prepared.
+uint32_t getKernelStructureEntriesNb(); //!< The kernel structure entries number
+uint32_t getMaxNbPrepare(); //!<  The maximum number of prepare
 uint32_t KERNELSTRUCTURETOTALLENGTH(void);
 uint32_t PDSTRUCTURETOTALLENGTH(void);
 extern uint32_t min_mpu_region;
 uint32_t MINBLOCKSIZE(void);
 
-extern uint32_t mpuentrylength;
-extern uint32_t sh1entrylength;
-extern uint32_t scentrylength;
-uint32_t MPUENTRYLENGTH(void); //!< The MPU entry size.
-uint32_t SH1ENTRYLENGTH(void); //!< The shadow 1 entry size.
-uint32_t SCENTRYLENGTH(void); //!< The shadow cut entry size.
-
-extern uint32_t mpuoffset;
-extern uint32_t sh1offset;
-extern uint32_t scoffset;
-extern uint32_t nextoffset;
-uint32_t MPUOFFSET(void); //!< The MPU structure offset.
-uint32_t SH1OFFSET(void); //!< The Shadow 1 structure offset.
-uint32_t SCOFFSET(void); //!< The Shadow Cut structure offset.
-uint32_t NEXTOFFSET(void); //!< The next structure pointer offset.
-
 paddr getKernelStructureStartAddr(paddr mpuentryaddr, uint32_t mpuentryindex); //!< The start of the kernel structure frame
 paddr getMPUEntryAddrFromKernelStructureStart(paddr mpuentryaddr, uint32_t mpuentryindex); //!< The address of the MPU entry
 paddr getSh1EntryAddrFromKernelStructureStart(paddr mpuentryaddr, uint32_t mpuentryindex); //!< The address of the shadow 1 entry
 paddr getSCEntryAddrFromKernelStructureStart(paddr mpuentryaddr, uint32_t mpuentryindex); //!< The address of the shadow cut entry
-paddr* getNextAddrFromKernelStructureStart(paddr kernelstartaddr); //!< The address of the next structure pointer
+paddr getNextAddrFromKernelStructureStart(paddr structureaddr); //!< The address of the next pointer
 uint32_t fit_mpu_region(uint32_t block_size);
 uint32_t next_pow2(uint32_t v);
 uint32_t powlog2(uint32_t v);
