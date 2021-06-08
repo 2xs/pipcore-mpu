@@ -84,6 +84,7 @@ uint32_t sub(uint32_t a, uint32_t b); //!< Substract two integers
 uint32_t add(uint32_t a, uint32_t b); //!< Add two integers
 uint32_t getKernelStructureEntriesNb(); //!< The kernel structure entries number
 uint32_t getMaxNbPrepare(); //!<  The maximum number of prepare
+uint32_t getMPURegionsNb(void); //! The maximum number of physical MPU regions
 uint32_t KERNELSTRUCTURETOTALLENGTH(void);
 uint32_t PDSTRUCTURETOTALLENGTH(void);
 extern uint32_t min_mpu_region;
@@ -166,6 +167,7 @@ MPUEntry_t buildMPUEntry(paddr startaddr, paddr endaddr, bool accessiblebit, boo
 paddr getPDStructurePointerAddrFromPD(paddr pdaddr); //! Gets the structure pointer of the given PD
 
 void removeBlockFromPhysicalMPUIfNotAccessible (paddr pd, paddr idblock, bool accessiblebit); //! Removes a block from the physical MPU.
+void replaceBlockInMPU (paddr pd, paddr blockmpuentryaddr, uint32_t MPURegionNb); //! Replaces a block in the physical MPU.
 
 void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr); //! Configures the LUT entry at given index with the given MPU entry
 void clear_LUT_entry(uint32_t* LUT, uint32_t entryindex); //! Defaults the LUT entry at the given index

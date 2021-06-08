@@ -52,3 +52,22 @@ Fixpoint removeDup {A C: Type} (a : A) (assoc : list (A * C)) (eqA : A -> A -> b
 
 Definition add {A C: Type} (a : A) (v : C) (assoc : list (A * C)) (eqA : A -> A -> bool)  :=
   (a, v) :: removeDup a assoc eqA.
+
+(* 	Adds an element at the given index or replace it if there is an element already.
+		Notes :
+			- It inserts the default element until the target index is reached
+			- the list grows for an index not reached before
+*)
+Fixpoint addElementAt {A: Type} (remainingIdx: nat) (newelement: A) (assoc : list A) (default:A)    :=
+  match remainingIdx with
+    | 0 => (* reached target index *)
+						match assoc with
+						| nil => (*add *) newelement::nil
+						| p::post => (* replace *) newelement::post
+						end
+
+    | S n => match assoc with
+						| nil => (* adds default element in between*) default::(addElementAt n newelement nil default)
+						| p::post => p :: (addElementAt n newelement post default)
+						end
+		end.

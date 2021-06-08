@@ -804,3 +804,14 @@ Definition checkRights (originalmpuentryaddr : paddr) (r w x : bool) : LLI bool 
 	if negb (compatibleRight woriginal w && compatibleRight xoriginal x )
 	then (** incompatible rights *) ret false else
 	ret true.
+
+(** The [replaceBlockInMPU] function replaces the physical MPU's <MPURegionNb>
+region by the new block <blockmpuentryaddr> in the partition <pd>*)
+Definition replaceBlockInMPU (pd : paddr)
+														(blockmpuentryaddr : paddr)
+														(MPURegionNb : index)
+																																	: LLI unit :=
+	perform realMPU := readPDMPU pd in
+	writePDMPU pd (addElementAt MPURegionNb blockmpuentryaddr realMPU nullAddr) ;;
+	ret tt.
+

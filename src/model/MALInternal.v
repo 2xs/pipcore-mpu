@@ -151,6 +151,7 @@ Definition getMaxNbPrepare : LLI index := ret (CIndex maxNbPrepare).
 Definition getMinBlockSize : LLI index := ret Constants.minBlockSize.
 Definition getKernelStructureTotalLength : LLI index := ret Constants.kernelStructureTotalLength.
 Definition getPDStructureTotalLength : LLI index := ret Constants.PDStructureTotalLength.
+Definition getMPURegionsNb : LLI index := ret (CIndex MPURegionsNb).
 
 Definition beqIdx (a b : ADT.index) : bool := a =? b.
 Definition beqAddr (a b : ADT.paddr) : bool := a =? b.
@@ -160,5 +161,4 @@ Definition getBeqAddr (p1 : paddr)  (p2 : paddr) : LLI bool := ret (p1 =? p2).
 Definition getBeqIdx (p1 : index)  (p2 : index) : LLI bool := ret (p1 =? p2).
 
 Definition getAddr (paddr : paddr) : LLI ADT.paddr := ret paddr.
-
 

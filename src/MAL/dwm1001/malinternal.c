@@ -199,6 +199,17 @@ uint32_t getMaxNbPrepare(void)
 }
 
 /*!
+ * \fn uint32_t getMPURegionsNb(void)
+ * \brief Returns the maximum number of regions in the physical MPU.
+ * \return The maximum number of physical MPU regions.
+ */
+uint32_t getMPURegionsNb(void)
+{
+	return MPU_REGIONS_NB;
+}
+
+
+/*!
  * \fn uint32_t next_pow2(uint32_t v)
  * \brief  	Rounds up to the next highest power of 2 of 32-bit
  * 			https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2

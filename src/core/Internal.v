@@ -1877,3 +1877,29 @@ Definition collectStructureRec (currentPart
 																																	: LLI paddr :=
 	collectStructureRecAux N currentPart idPD predStructureAddr currStructureAddr.
 
+(** The [enableBlockInMPU] function enables the block <mpuentryaddr> in the physical
+		MPU of the partition <idPD> at the given region number <MPURegionNb>.
+		The block is not enabled if the <MPURegionNb> is not valid.
+
+		Returns True if the given <MPURegionNb> is valid for the physical MPU/False
+
+		<<idPD>>								the partition where to reconfigure the physical MPU
+    <<blockmpuentryaddr>>		the new block to enable
+    <<MPURegionNb>>					the physical MPU region to replace
+*)
+Definition enableBlockInMPU 	(idPD : paddr)
+														(blockmpuentryaddr : paddr)
+														(MPURegionNb : index)
+ 																																: LLI bool :=
+	perform zero := Index.zero in
+	perform isBelowZero := Index.leb MPURegionNb zero in
+	perform maxMPURegions := getMPURegionsNb in
+	perform isAboveMPURegionsNb := Index.leb maxMPURegions MPURegionNb in
+	if isBelowZero || isAboveMPURegionsNb
+	then (* MPURegionNb not valid, don't enable it*)
+			ret false
+	else
+			(* Enables the block in the physical MPU *)
+			replaceBlockInMPU idPD blockmpuentryaddr MPURegionNb ;;
+			ret true.
+

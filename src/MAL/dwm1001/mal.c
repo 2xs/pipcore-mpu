@@ -1124,6 +1124,22 @@ bool checkRights(paddr originalmpuentryaddr, bool read, bool write, bool exec)
 	else return true;
 }
 
+/*!
+ * \fn void replaceBlockInMPU (paddr pd, paddr blockmpuentryaddr, index MPURegionNb)
+ * \brief Replaces a block in the physical MPU of the given partition
+ * \param pd the PD where to reconfigure the physical MPU
+ * \param blockmpuentryaddr The new block's MPU entry
+ * \param MPURegionNb The physical MPU region where the block will be configured
+ * \return void
+ */
+void replaceBlockInMPU (paddr pd, paddr blockmpuentryaddr, uint32_t MPURegionNb)
+{
+	// replace the given LUT entry with the new block
+	PDTable_t* PDT = (PDTable_t*) pd;
+	PDT->blocks[MPURegionNb] == (MPUEntry_t*)blockmpuentryaddr;
+	configure_LUT_entry(PDT->LUT, (uint32_t) MPURegionNb, blockmpuentryaddr);
+}
+
 /* activate:
  * switch to given partition address space
  * the partition must already be validated */

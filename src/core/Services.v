@@ -192,14 +192,19 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
 
     The [cutMemoryBlock] system call cuts the memory block <idBlockToCut>
 		at <cutAddress> which creates a new subbblock at that address.
+		The new subblock is place in the physical MPU region of the current partition
+		if the <MPURegionNb> is a valid region number.
 		Returns the new created subblock's MPU address:OK/NULL:NOK
 
     <<idBlockToCut>>		the block to cut
 												(id = start field of an existing block)
 		<<cutAddress>>			the address where to cut the <idBlockToCut> block,
 												becomes the id of the created block
+    <<MPURegionNb>>			the region number of the physical MPU where to place the
+												created block
 *)
-Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
+Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) (MPURegionNb : index)
+																																: LLI paddr :=
 (*    def cutMemoryBlock(self, idBlockToCut, cutAddress):
     """Cuts the memory block <idBlockToCut> and creates a new block at <cutAddress>
     :param idBlockToCut: the block to cut
@@ -313,7 +318,6 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
 		(** Modify initial block: the end address becomes (cutAddress - 1)*)
 		perform predCutAddr := Paddr.pred cutAddr in
 		writeMPUEndFromMPUEntryAddr blockToCutMPUAddr predCutAddr ;;
-		removeBlockFromPhysicalMPUIfNotAccessible currentPart idBlockToCut false ;;
 
 (*
     #  // Indiquer coupe dans Shadow Cut : bloc pourrait déjà être coupé auquel cas on doit l’insérer correctement dans la liste chaînée SC
@@ -329,6 +333,9 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) : LLI paddr :=
 		perform originalNextSubblock := readSCNextFromMPUEntryAddr blockToCutMPUAddr in
 		writeSCNextFromMPUEntryAddr newSubblockMPUAddr originalNextSubblock ;;
 		writeSCNextFromMPUEntryAddr blockToCutMPUAddr newSubblockMPUAddr ;;
+
+		(** Enable the new subblock in the MPU if region nb is valid *)
+		enableBlockInMPU currentPart newSubblockMPUAddr MPURegionNb ;;
 (*
     #  RET @coupe
     return new_entry_MPU_address*)
