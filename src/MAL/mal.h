@@ -166,8 +166,9 @@ SCEntry_t getDefaultSCEntry(); //! Returns the default SC entry
 MPUEntry_t buildMPUEntry(paddr startaddr, paddr endaddr, bool accessiblebit, bool presentbit); //! Constructs an MPU entry given the attributes
 paddr getPDStructurePointerAddrFromPD(paddr pdaddr); //! Gets the structure pointer of the given PD
 
-void removeBlockFromPhysicalMPUIfNotAccessible (paddr pd, paddr idblock, bool accessiblebit); //! Removes a block from the physical MPU.
-void replaceBlockInMPU (paddr pd, paddr blockmpuentryaddr, uint32_t MPURegionNb); //! Replaces a block in the physical MPU.
+void removeBlockFromPhysicalMPU(paddr pd, paddr mpuentryaddr); //! Removes a block from the physical MPU.
+void removeBlockFromPhysicalMPUIfNotAccessible (paddr pd, paddr idblock, bool accessiblebit); //! Removes a block from the physical MPU if not accessible.
+void replaceBlockInPhysicalMPU(paddr pd, paddr blockmpuentryaddr, uint32_t MPURegionNb); //! Replaces a block in the physical MPU.
 
 void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr); //! Configures the LUT entry at given index with the given MPU entry
 void clear_LUT_entry(uint32_t* LUT, uint32_t entryindex); //! Defaults the LUT entry at the given index

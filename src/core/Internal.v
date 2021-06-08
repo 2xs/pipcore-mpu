@@ -1900,6 +1900,6 @@ Definition enableBlockInMPU 	(idPD : paddr)
 			ret false
 	else
 			(* Enables the block in the physical MPU *)
-			replaceBlockInMPU idPD blockmpuentryaddr MPURegionNb ;;
+			replaceBlockInPhysicalMPU idPD blockmpuentryaddr MPURegionNb ;;
 			ret true.
 

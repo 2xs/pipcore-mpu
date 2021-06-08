@@ -192,7 +192,7 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
 
     The [cutMemoryBlock] system call cuts the memory block <idBlockToCut>
 		at <cutAddress> which creates a new subbblock at that address.
-		The new subblock is place in the physical MPU region of the current partition
+		The new subblock is placed in the physical MPU region of the current partition
 		if the <MPURegionNb> is a valid region number.
 		Returns the new created subblock's MPU address:OK/NULL:NOK
 
@@ -347,6 +347,8 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) (MPURegionNb : index)
     The [mergeMemoryBlocks] system call merges <idBlockToMerge1> and
 		<idBlockToMerge2> together.
 		The two blocks have been cut before so idBlockToMerge1 < idBlockToMerge2.
+		The merged block is placed in the physical MPU region of the current partition
+		if the <MPURegionNb> is a valid region number.
 
 		Returns idBlockToMerge1:OK/NULL:NOK
 
@@ -354,8 +356,11 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) (MPURegionNb : index)
 												(id = start field of an existing block)
 		<<idBlockToMerge2>>	the block to be merged disappears from the lits of blocks
 												(id = start field of an existing block)
+    <<MPURegionNb>>			the region number of the physical MPU where to place the
+												merged block
 *)
-Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr) : LLI paddr :=
+Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr)
+														(MPURegionNb : index) : 							LLI paddr :=
 (*    def mergeMemoryBlocks(self, idBlockToMerge1, idBlockToMerge2):
     """Merge <idBlockToMerge1> and <idBlockToMerge2> together
     """*)
@@ -480,6 +485,12 @@ Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr) : LLI pad
 																					idBlockToMerge1
 																					block1InCurrPartAddr
 																					true ;;
+
+		(** Remove the blocks to merge from the physical MPU and add the merged one
+				instead *)
+		removeBlockFromPhysicalMPU currentPart block1InCurrPartAddr ;;
+		removeBlockFromPhysicalMPU currentPart block2InCurrPartAddr ;;
+		enableBlockInMPU currentPart block1InCurrPartAddr MPURegionNb ;;
 (*
     # RET @bloc 1
     return block_to_merge1_address

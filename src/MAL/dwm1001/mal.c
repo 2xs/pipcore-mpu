@@ -1022,7 +1022,29 @@ paddr getPDStructurePointerAddrFromPD(paddr pdaddr)
 }
 
 /*!
- * \fn void removeBlockFromPhysicalMPUIfNotAccessible (paddr pd, paddr mpuentryaddr, bool accessiblebit)
+ * \fn void removeBlockFromPhysicalMPU(paddr pd, paddr mpuentryaddr)
+ * \brief 	Removes the given block from the set to be configured in the MPU for the given pd.
+ * \param pd The PD where the block should be removed from
+ * \param mpuentryaddr The block to remove
+ * \return void
+ */
+void removeBlockFromPhysicalMPU(paddr pd, paddr mpuentryaddr)
+{
+	PDTable_t* PDT = (PDTable_t*) pd;
+	// Find and remove the block in the MPU
+	for (int i=0; i < MPU_REGIONS_NB ; i++)
+	{
+		if (PDT->blocks[i] == (MPUEntry_t*)mpuentryaddr)
+		{
+			// block is configured in the physical MPU and is removed
+			clear_LUT_entry(PDT->LUT, i);
+			PDT->blocks[i] = NULL;
+		}
+	}
+}
+
+/*!
+ * \fn void removeBlockFromPhysicalMPUIfNotAccessible(paddr pd, paddr mpuentryaddr, bool accessiblebit)
  * \brief 	Removes the given block from the set to be configured in the MPU for the given pd.
 			Should only be removed if the block becomes not accessible, otherwise doesn't break the MPU consistency.
  * \param pd The PD where the block should be removed from
@@ -1030,23 +1052,30 @@ paddr getPDStructurePointerAddrFromPD(paddr pdaddr)
  * \param accessiblebit The accessible bit of the block
  * \return void
  */
-void removeBlockFromPhysicalMPUIfNotAccessible (paddr pd, paddr mpuentryaddr, bool accessiblebit)
+void removeBlockFromPhysicalMPUIfNotAccessible(paddr pd, paddr mpuentryaddr, bool accessiblebit)
 {
 	if (!accessiblebit)
 	{
 		// the block is not accessible and should be removed from the physical MPU
-		PDTable_t* PDT = (PDTable_t*) pd;
-		for (int i=0; i < MPU_REGIONS_NB ; i++)
-		{
-			if (PDT->blocks[i] == (MPUEntry_t*)mpuentryaddr)
-			{
-				// block is configured in the physical MPU and is removed
-				clear_LUT_entry(PDT->LUT, i);
-				PDT->blocks[i] = NULL;
-			}
-		}
+		removeBlockFromPhysicalMPU(pd, mpuentryaddr);
 	}
 
+}
+
+/*!
+ * \fn void replaceBlockInMPU(paddr pd, paddr blockmpuentryaddr, index MPURegionNb)
+ * \brief Replaces a block in the physical MPU of the given partition
+ * \param pd the PD where to reconfigure the physical MPU
+ * \param blockmpuentryaddr The new block's MPU entry
+ * \param MPURegionNb The physical MPU region where the block will be configured
+ * \return void
+ */
+void replaceBlockInPhysicalMPU(paddr pd, paddr blockmpuentryaddr, uint32_t MPURegionNb)
+{
+	// replace the given LUT entry with the new block
+	PDTable_t* PDT = (PDTable_t*) pd;
+	PDT->blocks[MPURegionNb] == (MPUEntry_t*)blockmpuentryaddr;
+	configure_LUT_entry(PDT->LUT, (uint32_t) MPURegionNb, blockmpuentryaddr);
 }
 
 /*! \fn paddr getCurPartition()
@@ -1122,22 +1151,6 @@ bool checkRights(paddr originalmpuentryaddr, bool read, bool write, bool exec)
 	bool xoriginal = readMPUXFromMPUEntryAddr(originalmpuentryaddr);
 	if (!(compatibleRight(woriginal, write) && compatibleRight(xoriginal, exec))) return false;
 	else return true;
-}
-
-/*!
- * \fn void replaceBlockInMPU (paddr pd, paddr blockmpuentryaddr, index MPURegionNb)
- * \brief Replaces a block in the physical MPU of the given partition
- * \param pd the PD where to reconfigure the physical MPU
- * \param blockmpuentryaddr The new block's MPU entry
- * \param MPURegionNb The physical MPU region where the block will be configured
- * \return void
- */
-void replaceBlockInMPU (paddr pd, paddr blockmpuentryaddr, uint32_t MPURegionNb)
-{
-	// replace the given LUT entry with the new block
-	PDTable_t* PDT = (PDTable_t*) pd;
-	PDT->blocks[MPURegionNb] == (MPUEntry_t*)blockmpuentryaddr;
-	configure_LUT_entry(PDT->LUT, (uint32_t) MPURegionNb, blockmpuentryaddr);
 }
 
 /* activate:

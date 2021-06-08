@@ -2514,7 +2514,7 @@ void test_merge_two_blocks()
                     old_first_free_slot); // NOT
   dump_partition(root);
   // MERGE
-  assert(mergeMemoryBlocks(initial_block_start, block1) != NULL);
+  assert(mergeMemoryBlocks(initial_block_start, block1, -1) != NULL);
 
   // Test PD is back in the same state
   assert(readPDStructurePointer(getCurPartition()) ==
@@ -2559,13 +2559,13 @@ void test_merge_full_MPU_structure()
   assert(readPDNbFreeSlots(root) == 0);
 
   // MERGE
-  assert(mergeMemoryBlocks(block6, block7) != NULL);
-  assert(mergeMemoryBlocks(block5, block6) != NULL);
-  assert(mergeMemoryBlocks(block4, block5) != NULL);
-  assert(mergeMemoryBlocks(block3, block4) != NULL);
-  assert(mergeMemoryBlocks(block2, block3) != NULL);
-  assert(mergeMemoryBlocks(block1, block2) != NULL);
-  assert(mergeMemoryBlocks(initial_block_start, block1) != NULL);
+  assert(mergeMemoryBlocks(block6, block7, -1) != NULL);
+  assert(mergeMemoryBlocks(block5, block6, -1) != NULL);
+  assert(mergeMemoryBlocks(block4, block5, -1) != NULL);
+  assert(mergeMemoryBlocks(block3, block4, -1) != NULL);
+  assert(mergeMemoryBlocks(block2, block3, -1) != NULL);
+  assert(mergeMemoryBlocks(block1, block2, -1) != NULL);
+  assert(mergeMemoryBlocks(initial_block_start, block1, -1) != NULL);
 
   // Test structure is as initial state after merging all cut blocks -> only initial block in MPU and remainting
   // entries are free slots, Sh1 default, SC first entry is initial block
@@ -2616,7 +2616,7 @@ void test_merge_subblocks_child()
 
   // MERGE
   assert(
-      mergeMemoryBlocks(block_to_share_id, block_to_share_id + KERNELSTRUCTURETOTALLENGTH()) !=
+      mergeMemoryBlocks(block_to_share_id, block_to_share_id + KERNELSTRUCTURETOTALLENGTH(), -1) !=
       NULL
   );
 
@@ -2648,16 +2648,16 @@ void test_merge_bad_arguments()
 
   // Check do not exist
   updateCurPartition(root);
-  assert(mergeMemoryBlocks((paddr) 0x1, root_accessible_block_id) == NULL);
-  assert(mergeMemoryBlocks(root_accessible_block_id, (paddr) 0x2) == NULL);
+  assert(mergeMemoryBlocks((paddr) 0x1, root_accessible_block_id, -1) == NULL);
+  assert(mergeMemoryBlocks(root_accessible_block_id, (paddr) 0x2, -1) == NULL);
 
   // Check not shared
-  assert(mergeMemoryBlocks(root_accessible_block_id, block_to_share_id) == NULL);
-  assert(mergeMemoryBlocks(block_to_share_id, root_accessible_block_id) == NULL);
+  assert(mergeMemoryBlocks(root_accessible_block_id, block_to_share_id, -1) == NULL);
+  assert(mergeMemoryBlocks(block_to_share_id, root_accessible_block_id, -1) == NULL);
 
   // Check not accessible
-  assert(mergeMemoryBlocks(root_accessible_block_id, child_partition_pd) == NULL);
-  assert(mergeMemoryBlocks(child_partition_pd, root_accessible_block_id) == NULL);
+  assert(mergeMemoryBlocks(root_accessible_block_id, child_partition_pd, -1) == NULL);
+  assert(mergeMemoryBlocks(child_partition_pd, root_accessible_block_id, -1) == NULL);
 
   // Check block 2 follows block 1 -> cut accessible block and try to merge
   assert(
@@ -2665,11 +2665,11 @@ void test_merge_bad_arguments()
       false
   );
   assert(
-      mergeMemoryBlocks(root_accessible_block_id + KERNELSTRUCTURETOTALLENGTH(), root_accessible_block_id) ==
+      mergeMemoryBlocks(root_accessible_block_id + KERNELSTRUCTURETOTALLENGTH(), root_accessible_block_id, -1) ==
       NULL
   );  // Fail
   assert(
-      mergeMemoryBlocks(root_accessible_block_id, root_accessible_block_id + KERNELSTRUCTURETOTALLENGTH()) !=
+      mergeMemoryBlocks(root_accessible_block_id, root_accessible_block_id + KERNELSTRUCTURETOTALLENGTH(), -1) !=
       NULL
   );  // NOT Succeed
 }

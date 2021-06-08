@@ -735,7 +735,7 @@ Definition getPDStructurePointerAddrFromPD (pdAddr : paddr) : LLI paddr :=
 	let structurePointerAddr := CPaddr (pdAddr + Constants.kernelstructureidx) in
 	ret structurePointerAddr.
 
-Fixpoint removeBlockFromList (mpuentryaddr : paddr) (realMPU : list paddr)
+Fixpoint removeBlockFromPhysicalMPUAux (mpuentryaddr : paddr) (realMPU : list paddr)
 																															: list paddr :=
   match realMPU with
     | nil => realMPU
@@ -743,17 +743,35 @@ Fixpoint removeBlockFromList (mpuentryaddr : paddr) (realMPU : list paddr)
 													then (* the entry should be removed, stop *)
 														l'
 													else (* entry is in the rest of the list *)
-														realentryaddr::removeBlockFromList mpuentryaddr l'
+														realentryaddr::removeBlockFromPhysicalMPUAux mpuentryaddr l'
   end.
 
+Definition removeBlockFromPhysicalMPU (pd : paddr) (mpuentryaddr : paddr)
+																															: LLI unit :=
+	perform realMPU := readPDMPU pd in
+	writePDMPU pd (removeBlockFromPhysicalMPUAux mpuentryaddr realMPU) ;;
+	ret tt.
+
 Definition removeBlockFromPhysicalMPUIfNotAccessible (pd : paddr)
-																								(mpuentryaddr : paddr)
-																								(accessiblebit : bool) : LLI unit :=
+																										(mpuentryaddr : paddr)
+																										(accessiblebit : bool)
+																																	: LLI unit :=
 	if negb accessiblebit then
 	(* the block becomes inaccessible: remove from this pd's MPU configuration *)
-		perform realMPU := readPDMPU pd in
-		writePDMPU pd (removeBlockFromList mpuentryaddr realMPU)
+		removeBlockFromPhysicalMPU pd mpuentryaddr ;;
+		ret tt
 	else ret tt.
+
+(** The [replaceBlockInPhysicalMPU] function replaces the physical MPU's <MPURegionNb>
+region by the new block <blockmpuentryaddr> in the partition <pd>*)
+Definition replaceBlockInPhysicalMPU (pd : paddr)
+																		(blockmpuentryaddr : paddr)
+																		(MPURegionNb : index)
+																																	: LLI unit :=
+	perform realMPU := readPDMPU pd in
+	writePDMPU pd (addElementAt MPURegionNb blockmpuentryaddr realMPU nullAddr) ;;
+	ret tt.
+
 
 (** The [eraseBlockAux] function recursively zeroes all addresses until it reaches
 		the <startAddr>
@@ -804,14 +822,3 @@ Definition checkRights (originalmpuentryaddr : paddr) (r w x : bool) : LLI bool 
 	if negb (compatibleRight woriginal w && compatibleRight xoriginal x )
 	then (** incompatible rights *) ret false else
 	ret true.
-
-(** The [replaceBlockInMPU] function replaces the physical MPU's <MPURegionNb>
-region by the new block <blockmpuentryaddr> in the partition <pd>*)
-Definition replaceBlockInMPU (pd : paddr)
-														(blockmpuentryaddr : paddr)
-														(MPURegionNb : index)
-																																	: LLI unit :=
-	perform realMPU := readPDMPU pd in
-	writePDMPU pd (addElementAt MPURegionNb blockmpuentryaddr realMPU nullAddr) ;;
-	ret tt.
-
