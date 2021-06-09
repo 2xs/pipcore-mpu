@@ -2056,7 +2056,7 @@ void test_delete_partition()
       readMPUAccessibleFromMPUEntryAddr(block_create_child_MPU_root_address) ==
       false
   );
-  assert(deletePartition(child_partition_pd) != false);
+  assert(deletePartition(block_create_child_MPU_root_address) != false);
   // Check the PD is NOT referenced in the parent and block is accessible again
   assert(readSh1PDFlagFromMPUEntryAddr(block_create_child_MPU_root_address) ==
                     false);
@@ -2084,7 +2084,7 @@ void test_delete_partition_with_block_shared()
   init_test_with_create_prepare_share_child(true);
 
   // Delete the child partition
-  assert(deletePartition(child_partition_pd) != false);
+  assert(deletePartition(block_create_child_MPU_root_address) != false);
 
   // check that the (create + prepare) blocks are accessible again
   assert(readMPUAccessibleFromMPUEntryAddr(block_create_child_MPU_root_address)==
@@ -2145,7 +2145,7 @@ void test_delete_partition_with_block_shared_and_grandchild()
   dump_partition(grandchild_partition_pd);
   // Delete the child partition
   updateCurPartition(root);
-  assert(deletePartition(child_partition_pd) != false);
+  assert(deletePartition(block_create_child_MPU_root_address) != false);
 
   // check that the (create + prepare child) blocks in root are accessible again
   assert(
@@ -2262,7 +2262,7 @@ void test_delete_partition_grandchild_with_blocks_not_cut()
 
   // DELETE grandchild from child partition
   updateCurPartition(child_partition_pd);
-  assert(deletePartition(grandchild_partition_pd) != false);
+  assert(deletePartition(grandchild_pd_MPU_child_address) != false);
   printf("*******After******");
   dump_ancestors(child_partition_pd);
 
@@ -2296,10 +2296,10 @@ void test_delete_partition_grandchild_with_blocks_not_cut()
 void test_delete_partition_bad_arguments()
 {
   // Test fails because block doesn't exist
-  assert(deletePartition(initial_block_start + KERNELSTRUCTURETOTALLENGTH()) == false);
+  assert(deletePartition(initial_block_root_address + 50) == false);
 
   // Test fails because initial block is not a child
-  assert(deletePartition(initial_block_start) == false);
+  assert(deletePartition(initial_block_root_address) == false);
 }
 
 /*!

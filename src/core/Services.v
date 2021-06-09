@@ -842,9 +842,9 @@ def removeMemoryBlockFast(self, idPDchild, idBlockToRemove, CurrentMPUAddressBlo
 
 		Returns true:OK/false:NOK
 
-    <<idPDchildToDelete>>	the child partition to delete
+    <<MPUAddressPDchildToDelete>>	the child partition to delete
 *)
-Definition deletePartition (idPDchildToDelete: paddr) : LLI bool :=
+Definition deletePartition (MPUAddressPDchildToDelete: paddr) : LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 (*
@@ -863,8 +863,9 @@ def deletePartition(self, idPDchildToDelete):
         return 0  # TODO: return NULL
 *)
 		(* Find the block to delete in the current partition *)
-    perform blockToDeleteInCurrPartAddr := findBlockInMPU 	currentPart
-																													idPDchildToDelete in
+    perform blockToDeleteInCurrPartAddr := findBlockInMPUWithAddr
+																							currentPart
+																							MPUAddressPDchildToDelete in
 		perform addrIsNull := compareAddrToNull	blockToDeleteInCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret false else
 
@@ -897,6 +898,7 @@ def deletePartition(self, idPDchildToDelete):
 *)
 		(** Remove all shared blocks references in current partition, except PD child*)
 		perform currKernelStructureStart := readPDStructurePointer currentPart in
+		perform idPDchildToDelete := readMPUStartFromMPUEntryAddr MPUAddressPDchildToDelete in
 		deleteSharedBlocksRec currentPart currKernelStructureStart idPDchildToDelete ;;
 (*
     # // Ecraser l’entrée PD
