@@ -11,6 +11,9 @@ SEMI_DEBUG ?= yes
 # UNIT TESTS
 UNIT_TESTS ?= yes
 
+# DUMP OUTPUTS ALLOWED
+DUMP ?= no
+
 # LINKER VARIABLES
 TARGET = dwm1001
 BUILD_DIR=build
@@ -51,6 +54,10 @@ endif
 ifeq ($(UNIT_TESTS), yes)
 # check the unit tests
 CFLAGS += -DUNIT_TESTS
+endif
+ifeq ($(DUMP), yes)
+# dump outputs allowed
+CFLAGS += -DDUMP
 endif
 #CFLAGS += -fmessage-length=0
 #CFLAGS += -ffunction-sections

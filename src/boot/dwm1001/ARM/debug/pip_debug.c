@@ -9,6 +9,7 @@
  */
 void dump_PD_structure(paddr pd)
 {
+#if defined DUMP
     PDTable_t* pdt = (PDTable_t*) pd;
     printf("\r\n----------PD %x (size: %d/%d)------------\r\n", pdt, sizeof(PDTable_t), PDSTRUCTURETOTALLENGTH());
     printf("%x:PD\t%x\r\n", &(pdt->structure), pdt->structure);
@@ -28,16 +29,18 @@ void dump_PD_structure(paddr pd)
         printf(" %x ", (pdt->LUT[i*2+1]));
     }
     printf("\r\n");
+#endif // DUMP
 }
 
 /*!
- * \fn vvoid dump_kernel_structure(paddr kernel_structure_start_addr)
+ * \fn void dump_kernel_structure(paddr kernel_structure_start_addr)
  * \brief Displays the kernel structure at <kernel_structure_start_address>.
  * \param kernel_structure_start_addr The start address of the kernel structure to display
  * \return void
  */
 void dump_kernel_structure(paddr kernel_structure_start_addr)
 {
+#if defined DUMP
     KStructure_t* ks = (KStructure_t*) kernel_structure_start_addr;
     printf("\r\n----------Kernel structure %x (size: %d)----\r\n", kernel_structure_start_addr,
                                                                 KERNELSTRUCTURETOTALLENGTH());
@@ -93,7 +96,7 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
     }
 
     printf("\r\n----------next = %x----------------------\r\n", ks->next);
-
+#endif // DUMP
 }
 
 /*!
@@ -104,6 +107,7 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
  */
 void dump_partition(paddr part)
 {
+#if defined DUMP
     dump_PD_structure(part);
     PDTable_t* pdt = (PDTable_t*) part;
     paddr kernel_structure = pdt->structure;
@@ -112,6 +116,7 @@ void dump_partition(paddr part)
         dump_kernel_structure(kernel_structure);
         kernel_structure = readNextFromKernelStructureStart(kernel_structure);
     }
+#endif // DUMP
 }
 
 /*!
@@ -122,6 +127,7 @@ void dump_partition(paddr part)
  */
 void dump_ancestors(paddr base_child_PD)
 {
+#if defined DUMP
     paddr root_partition = getRootPartition();
     while(base_child_PD != root_partition){
         dump_partition(base_child_PD);
@@ -129,4 +135,5 @@ void dump_ancestors(paddr base_child_PD)
     }
     if(base_child_PD == root_partition)
         dump_partition(root_partition);
+#endif // DUMP
 }
