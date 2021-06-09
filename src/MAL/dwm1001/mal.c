@@ -1153,6 +1153,23 @@ bool checkRights(paddr originalmpuentryaddr, bool read, bool write, bool exec)
 	else return true;
 }
 
+/*!
+ * \fn bool checkEntry(uint32_t* kstructurestart, uint32_t* mpuentryaddr)
+ * \brief Checks the given address is a valid MPU structure entry
+ *			With a misalignment, the index won't match the real index
+ *	 		in the kernel structure
+ * \param kstructurestart the kernel structure holding the entry
+ * \param mpuentryaddr The entry to check
+ * \return True if entry is aligned with a kernel entry/False otherwise
+ */
+bool checkEntry(paddr kstructurestart, paddr mpuentryaddr)
+{
+	// mpuentryaddr checked before and lies within the kernel structure
+	KStructure_t* ks = (KStructure_t*) kstructurestart;
+	uint32_t index = (MPUEntry_t*) mpuentryaddr - ks->mpu;//mpuentryaddr - kstructurestart;
+	return (&ks->mpu[index] == mpuentryaddr) ? true : false;
+}
+
 /* activate:
  * switch to given partition address space
  * the partition must already be validated */

@@ -822,3 +822,14 @@ Definition checkRights (originalmpuentryaddr : paddr) (r w x : bool) : LLI bool 
 	if negb (compatibleRight woriginal w && compatibleRight xoriginal x )
 	then (** incompatible rights *) ret false else
 	ret true.
+
+(** The [checkEntry] function checks the entry passed in parameter exists *)
+Definition checkEntry (kernelstructurestart mpuentryaddr : paddr) : LLI bool :=
+	perform s := get in
+  let entry :=  lookup mpuentryaddr s.(memory) beqAddr in
+  match entry with
+  | Some (MPUE a) => ret true
+		| Some _ => ret false
+		| None => ret false
+  end.
+

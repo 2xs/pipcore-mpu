@@ -730,70 +730,17 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 
 (** ** The addMemoryBlock PIP MPU service
 
-    The [addMemoryBlock] system call adds a block to a child partition (slower
-		version).
+    The [addMemoryBlock] system call adds a block to a child partition.
 		The block is still accessible from the current partition (shared memory).
-    This variant finds the block to share by going through all entries of each
-		structure in search for the block.
-
-		Returns the child's MPU entry address used to store the shared block:OK/NULL:NOK
-
-    <<idPDchild>>				the child partition to share with
-		<<idBlockToShare>>	the block to share
-		<<r w e >>					the rights to apply in the child partition
-*)
-Definition addMemoryBlock (idPDchild idBlockToShare: paddr) (r w e : bool)
-																																	: LLI paddr :=
-
-		(** Get the current partition (Partition Descriptor) *)
-    perform currentPart := getCurPartition in
-
-(*def addMemoryBlock(self, idPDchild, idBlockToShare):
-    """Adds a block to a child partition (slow)
-    The block is still accessible from the current partition (shared memory)
-    This variant finds the block to share by going through all entries of each structure in search for the block
-    :param idPDchild: the child partition to share with
-    :param idBlockToShare: the block to share
-    :return:the child's MPU entry address where the block has been added
-    """*)
-(*
-    # entrée MPU courant <- ChercherBlocDansMPU(PD courant, idBlocADonner) (trouver le bloc en parcourant MPU en O(m))
-    # find and check idBlockToShare
-    block_to_share_in_current_partition_address = self.__find_block_in_MPU(self.current_partition, idBlockToShare)
-    if block_to_share_in_current_partition_address == -1:
-        # no block found, stop
-        return 0  # TODO: return NULL*)
-		(* Find the block to share in the current partition *)
-    perform blockInCurrPartAddr := findBlockInMPU 	currentPart
-																									idBlockToShare in
-		perform addrIsNull := compareAddrToNull	blockInCurrPartAddr in
-		if addrIsNull then(* no block found, stop *) ret nullAddr else
-		(** Check rights *)
-		 perform rcheck := checkRights blockInCurrPartAddr r w e in
-    if negb rcheck then (* new rights not OK, stop *) ret nullAddr else
-(*
-    return self.__add_memory_block(idPDchild, block_to_share_in_current_partition_address)*)
-		(** Call the internal addMemoryBlock function shared with the faster interface*)
-		addMemoryBlockCommon idPDchild blockInCurrPartAddr r w e.
-
-(** ** The addMemoryBlockFast PIP MPU service
-
-    The [addMemoryBlockFast] system call adds a block to a child partition (faster
-		version).
-		The block is still accessible from the current partition (shared memory).
-    This variant finds the block to share by directly checking the provided index,
-		thus faster than going through all entries of each structure
 
 		Returns the child's MPU entry address used to store the shared block:OK/NULL:NOK
 
     <<idPDchild>>							the child partition to share with
-		<<idBlockToShare>>				the block to share
 		<MPUAddressBlockToShare>>	the MPU address where the block <idBlocktoShare> lies
 		<<r w e >>								the rights to apply in the child partition
 *)
-Definition addMemoryBlockFast 	(idPDchild idBlockToShare MPUAddressBlockToShare: paddr)
-															(r w e : bool)
-																																	: LLI paddr :=
+Definition addMemoryBlock (idPDchild MPUAddressBlockToShare: paddr) (r w e : bool)
+																																: LLI paddr :=
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 
@@ -819,7 +766,6 @@ def addMemoryBlockFast(self, idPDchild, idBlockToShare, MPUAddressBlockToShare):
 *)
 		(* Find the block to share in the current partition (with MPU address) *)
     perform blockInCurrPartAddr := findBlockInMPUWithAddr 	currentPart
-																													idBlockToShare
 																													MPUAddressBlockToShare in
 		perform addrIsNull := compareAddrToNull	blockInCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret nullAddr else
@@ -830,65 +776,10 @@ def addMemoryBlockFast(self, idPDchild, idBlockToShare, MPUAddressBlockToShare):
 		(** Call the internal addMemoryBlock function shared with the faster interface*)
 		addMemoryBlockCommon idPDchild blockInCurrPartAddr r w e.
 
-(** ** The removeMemoryBlock PIP MPU service
+(** ** The removeMemoryBlock PIP MPU service TODO: return address ?
 
-    The [removeMemoryBlock] system call removes a block from a child partition
-		(slower version).
-		This variant finds the block to remove by going through all entries of each
-		structure in search for the block
-    The block could be cut in the child partition but with all subblocks still
-		accessible
-    This operation succeeds for any shared memory block previously added, but
-		fails if the purpose of the block is not shared memory anymore, in particular
-		in such cases:
-          - The block can't be removed if the child or its descendants used it
-						(or part of it) as a kernel structure
-          - The block can't be removed if the child's descendants cut the block
+    The [removeMemoryBlock] system call removes a block from a child partition.
 
-		Returns true:OK/false:NOK
-
-    <<idPDchild>>				the child partition to remove from
-		<<idBlockToRemove>>	the block to remove
-*)
-Definition removeMemoryBlock (idPDchild idBlockToRemove: paddr) : LLI bool :=
-		(** Get the current partition (Partition Descriptor) *)
-    perform currentPart := getCurPartition in
-(*
-    def removeMemoryBlock(self, idPDchild, idBlockToRemove):
-        """
-        Removes a block from a child partition
-        This variant finds the block to remove by going through all entries of each structure in search for the block
-        The block could be cut in the child partition but all subblocks still accessible
-        This operation succeeds for any shared memory block previously added, but fails if the purpose of the block is
-        not shared memory anymore, in particular in such cases:
-            - The block can't be removed if the child or its descendants used it (or part of it) as a kernel structure
-            - The block can't be removed if the child's descendants cut the block
-        :param idPDchild: the child partition to remove from
-        :param idBlockToRemove: the block to remove
-        :return: OK(1)/NOK(0)
-        """
-*)
-(*
-        # entrée MPU courant <- ChercherBlocDansMPU(PD courant, idBlocARetirer) (trouver le bloc en parcourant MPU COURANT en O(m))
-        block_to_remove_in_current_partition_address = self.__find_block_in_MPU(self.current_partition, idBlockToRemove)
-        if block_to_remove_in_current_partition_address == -1:
-            # no block found, stop
-            return 0  # TODO: return NULL*)
-		(* Find the block to remove in the current partition *)
-    perform blockToRemoveInCurrPartAddr := findBlockInMPU 	currentPart
-																									idBlockToRemove in
-		perform addrIsNull := compareAddrToNull	blockToRemoveInCurrPartAddr in
-		if addrIsNull then(* no block found, stop *) ret false else
-(*
-    return self.__remove_memory_block(idPDchild, block_to_remove_in_current_partition_address)*)
-		removeMemoryBlockCommon idPDchild idBlockToRemove blockToRemoveInCurrPartAddr.
-
-(** ** The removeMemoryBlockFast PIP MPU service TODO: return address ?
-
-    The [removeMemoryBlockFast] system call removes a block from a child partition
-		(faster version).
-		This variant finds the block to remove by directly checking the provided MPU
-		address, hence faster than going through all entries of each structure.
     The block could be cut in the child partition but all subblocks still accessible
     This operation succeeds for any shared memory block previously added, but
 		fails if the purpose of the block is not shared memory anymore,
@@ -900,10 +791,9 @@ Definition removeMemoryBlock (idPDchild idBlockToRemove: paddr) : LLI bool :=
 		Returns true:OK/false:NOK
 
     <<idPDchild>>				the child partition to remove from
-		<<idBlockToRemove>>	the block to remove
 		<<MPUAddressBlockToRemove>>	the MPU address where the block <idBlockToRemove> lies
 *)
-Definition removeMemoryBlockFast (idPDchild idBlockToRemove MPUAddressBlockToRemove: paddr)
+Definition removeMemoryBlock (idPDchild MPUAddressBlockToRemove: paddr)
 																																	: LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
@@ -934,13 +824,12 @@ def removeMemoryBlockFast(self, idPDchild, idBlockToRemove, CurrentMPUAddressBlo
 	    return 0  # TODO: return NULL*)
 		(* Find the block to remove in the current partition (with MPU address) *)
 	  perform blockInCurrPartAddr := findBlockInMPUWithAddr 	currentPart
-																													idBlockToRemove
 																													MPUAddressBlockToRemove in
 		perform addrIsNull := compareAddrToNull	blockInCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret false else
 (*
 		return self.__remove_memory_block(idPDchild, block_to_remove_in_current_partition_address)*)
-		removeMemoryBlockCommon idPDchild idBlockToRemove blockInCurrPartAddr.
+		removeMemoryBlockCommon idPDchild blockInCurrPartAddr.
 
 (** ** The deletePartition PIP MPU service
 

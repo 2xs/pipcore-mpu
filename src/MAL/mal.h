@@ -165,6 +165,7 @@ Sh1Entry_t getDefaultSh1Entry(); //! Returns the default Sh1 entry
 SCEntry_t getDefaultSCEntry(); //! Returns the default SC entry
 MPUEntry_t buildMPUEntry(paddr startaddr, paddr endaddr, bool accessiblebit, bool presentbit); //! Constructs an MPU entry given the attributes
 paddr getPDStructurePointerAddrFromPD(paddr pdaddr); //! Gets the structure pointer of the given PD
+bool checkEntry(paddr kstructurestart, paddr mpuentryaddr); //! Checks an MPU entry is valid in the kernel structure
 
 void removeBlockFromPhysicalMPU(paddr pd, paddr mpuentryaddr); //! Removes a block from the physical MPU.
 void removeBlockFromPhysicalMPUIfNotAccessible (paddr pd, paddr idblock, bool accessiblebit); //! Removes a block from the physical MPU if not accessible.

@@ -235,7 +235,7 @@ def __find_block_in_MPU_with_address_rec(self, next_kernel_structure, id_block_t
 		Returns the block's MPU address or NULL
 *)
 Fixpoint findBlockInMPUWithAddrAux (timeout : nat)
-																	(currentkernelstructure idblock : paddr)
+																	(currentkernelstructure : paddr)
 																	(blockMPUAddr: paddr) : LLI paddr :=
 	match timeout with
 		| 0 => getNullAddr
@@ -248,32 +248,15 @@ Fixpoint findBlockInMPUWithAddrAux (timeout : nat)
 										perform isMPUAddrBelowEnd := Paddr.leb blockMPUAddr maxMPUAddrInStructure in
 										if isMPUAddrAboveStart && isMPUAddrBelowEnd
 										then (* the provided address lies in this kernel structure*)
-											perform index := readMPUIndexFromMPUEntryAddr blockMPUAddr in
-											perform maxEntriesNb := getKernelStructureEntriesNb in
-											perform lastindex := Index.pred maxEntriesNb in
-											perform isAbove0 := Index.leb zero index in
-											perform isLessMaxEntriesNb := Index.leb index maxEntriesNb in
-											if isAbove0 && isLessMaxEntriesNb
-											then (* 0 <= index <= max entries nb*)
-												(** Check the MPU entry matches the submitted idblock
-														and is present*)
-												perform entryBlockStart := readMPUStartFromMPUEntryAddr blockMPUAddr in
-												perform isEntryValid := getBeqAddr entryBlockStart idblock in
-												perform mpuentryaddridx := getMPUEntryAddrFromKernelStructureStart
-																													currentkernelstructure
-																													index in
-												perform entryBlockStartFromIdx := readMPUStartFromMPUEntryAddr
-																																mpuentryaddridx in
-												perform isIndexValid := getBeqAddr 	entryBlockStartFromIdx
-																														idblock in
+												(** Check the MPU entry exists and is present*)
+												perform entryExists := checkEntry 	currentkernelstructure
+																														blockMPUAddr in
 												perform isPresent := readMPUPresentFromMPUEntryAddr blockMPUAddr in
-												if isEntryValid && isIndexValid && isPresent
+												if entryExists && isPresent
 												then (** STOP CONDITION 2: the block has been found and is present (i.e. it's a real block)*)
 													ret blockMPUAddr
-												else (** STOP CONDITION 3a: bad arguments OR block not present *)
+												else (** STOP CONDITION 3: bad arguments OR block not present *)
 													ret nullAddr
-											else (** STOP CONDITION 3b: block not found at the correct MPU location *)
-														ret nullAddr
 										else (** RECURSIVE call: block not found in current structure,
 														check next kernel structure*)
 											perform nextKernelStructure := readNextFromKernelStructureStart
@@ -285,7 +268,6 @@ Fixpoint findBlockInMPUWithAddrAux (timeout : nat)
 												ret nullAddr
 											else findBlockInMPUWithAddrAux timeout1
 																										nextKernelStructure
-																										idblock
 																										blockMPUAddr
 	end.
 
@@ -304,11 +286,11 @@ def __find_block_in_MPU_with_address(self, PD_to_find_in, id_block_to_find, MPU_
 (* TODO: return Some MPUentry or None *)
 (** The [findBlockInMPUWithAddr] function fixes the timeout value of
 		[findBlockInMPUWithAddrAux] *)
-Definition findBlockInMPUWithAddr (idPD idBlock blockMPUAddr: paddr) : LLI paddr :=
+Definition findBlockInMPUWithAddr (idPD blockMPUAddr: paddr) : LLI paddr :=
 	(** All checks done before*)
 	(** go through the MPU structure finding the block (== start address of MPU entry)*)
 	perform kernelstructurestart := readPDStructurePointer idPD in
-	findBlockInMPUWithAddrAux N kernelstructurestart idBlock blockMPUAddr.
+	findBlockInMPUWithAddrAux N kernelstructurestart blockMPUAddr.
 
 (** The [checkBlockCut] function checks if the block at <mpublockaddr> has been
 		cut or if it is a subblock of some other block*)
@@ -975,7 +957,6 @@ Definition removeBlockInChildAndDescendants (currentPart
 		<<blockToRemoveMPUAddr>>	the block to remove MPU address in the parent
 *)
 Definition removeMemoryBlockCommon (	idPDchild
-																		idBlockToRemove
 																		blockToRemoveInCurrPartAddr: paddr) : LLI bool :=
 (*
     def __remove_memory_block(self, idPDchild, block_to_remove_in_current_partition_address):
@@ -1022,6 +1003,7 @@ Definition removeMemoryBlockCommon (	idPDchild
             and self.helpers.get_SC_next_from_MPU_entry_address(block_to_remove_child_MPU_address) == 0:
 *)
 		(** Child (and grand-children): remove block *)
+		perform idBlockToRemove := readMPUStartFromMPUEntryAddr blockToRemoveInCurrPartAddr in
 		perform blockIsRemoved := removeBlockInChildAndDescendants
 																		currentPart
 																		idPDchild
