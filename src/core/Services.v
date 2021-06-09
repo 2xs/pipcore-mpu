@@ -57,10 +57,10 @@ Open Scope mpu_state_scope.
 		sets the current partition as the parent partition.
 		Returns true:OK/false:NOK
 
-    <<idBlock>>       	The block to become the child Partition Descriptor
-												(id = start field of an existing block)
+    <<MPUAddressBlock>>  The block to become the child Partition Descriptor
+												(id = MPU address of an existing block)
 *)
-Definition createPartition (idBlock: paddr) : LLI bool :=
+Definition createPartition (MPUAddressBlock: paddr) : LLI bool :=
     (** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 
@@ -68,7 +68,8 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
     block_in_current_partition_address = self.__find_block_in_MPU(self.current_partition, idBlock)
     *)
 		(** Find the block in the current partition *)
-    perform blockInCurrentPartitionAddr := findBlockInMPU currentPart idBlock in
+    perform blockInCurrentPartitionAddr := findBlockInMPUWithAddr 	currentPart
+																																	MPUAddressBlock in
 
 		(** Check the block exists and not shared and size > minimum MPU region size ELSE NOK*)
 (*
@@ -179,6 +180,7 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
 		perform blockNext := readSCNextFromMPUEntryAddr blockInCurrentPartitionAddr in
 		if beqAddr blockOrigin blockStart && beqAddr blockNext nullAddr then
 			(* Block hasn't been cut previously, need to be set unaccessible for the ancestors *)
+			perform idBlock := readMPUStartFromMPUEntryAddr blockInCurrentPartitionAddr in
 			writeAccessibleRec currentPart idBlock false ;;
 			ret true
 		else
