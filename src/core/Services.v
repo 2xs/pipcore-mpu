@@ -190,22 +190,23 @@ Definition createPartition (MPUAddressBlock: paddr) : LLI bool :=
     return 1*)
 		ret true.
 
+(* TODO: rename all MPUAdress... 'cause confusing *)
 (** ** The cutMemoryBlock PIP MPU service
 
-    The [cutMemoryBlock] system call cuts the memory block <idBlockToCut>
+    The [cutMemoryBlock] system call cuts the memory block <MPUAddressBlockToCut>
 		at <cutAddress> which creates a new subbblock at that address.
 		The new subblock is placed in the physical MPU region of the current partition
 		if the <MPURegionNb> is a valid region number.
 		Returns the new created subblock's MPU address:OK/NULL:NOK
 
-    <<idBlockToCut>>		the block to cut
-												(id = start field of an existing block)
+    <<MPUAddressBlockToCut>>		the block to cut
+												(id = MPU address of an existing block)
 		<<cutAddress>>			the address where to cut the <idBlockToCut> block,
 												becomes the id of the created block
     <<MPURegionNb>>			the region number of the physical MPU where to place the
 												created block
 *)
-Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) (MPURegionNb : index)
+Definition cutMemoryBlock (MPUAddressBlockToCut cutAddr : paddr) (MPURegionNb : index)
 																																: LLI paddr :=
 (*    def cutMemoryBlock(self, idBlockToCut, cutAddress):
     """Cuts the memory block <idBlockToCut> and creates a new block at <cutAddress>
@@ -231,8 +232,9 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) (MPURegionNb : index)
     if block_to_cut_MPU_address == -1:
         # no block found, stop
         return 0 # TODO: return NULL*)
-		(** Find the block in the current partition *)
-    perform blockToCutMPUAddr := findBlockInMPU currentPart idBlockToCut in
+		(* Find the block to share in the current partition (with MPU address) *)
+    perform blockToCutMPUAddr := findBlockInMPUWithAddr 	currentPart
+																													MPUAddressBlockToCut in
 		perform addrIsNull := compareAddrToNull	blockToCutMPUAddr in
 		if addrIsNull then(** no block found, stop *) ret nullAddr else
 
@@ -284,6 +286,7 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) (MPURegionNb : index)
             (block_origin == idBlockToCut):
         self.__write_accessible_to_ancestors_rec(self.current_partition, block_to_cut_MPU_entry[1], False)*)
 		(** Parent and ancestors: set the block unaccessible if this is the block's first cut*)
+		perform idBlockToCut := readMPUStartFromMPUEntryAddr MPUAddressBlockToCut in
 		writeAccessibleToAncestorsIfNotCutRec currentPart
 																					idBlockToCut
 																					blockToCutMPUAddr
