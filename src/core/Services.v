@@ -505,7 +505,7 @@ Definition mergeMemoryBlocks (MPUAddressBlockToMerge1 MPUAddressBlockToMerge2 : 
 *)
 		ret idBlockToMerge1.
 
-
+(* TODO: compute idBlock in writeAccessibleToAncestors instead*)
 (** ** The prepare PIP MPU service
 
     The [prepare] system call prepares the partition <idPD> (current partition
@@ -519,13 +519,13 @@ Definition mergeMemoryBlocks (MPUAddressBlockToMerge1 MPUAddressBlockToMerge2 : 
 				prepare anyways the block
 		Returns true:OK/false:NOK
 
-    <<idPD>>									the block to prepare (current partition or a child)
-															(id = start field of an existing block)
-		<<projectedSlotsNb>>			the number of requested slots
-		<<idRequisitionedBlock>>	the block used as the new kernel structure
+    <<idPD>>													the block to prepare (current partition or a child)
+																			(id = start field of an existing block)
+		<<projectedSlotsNb>>							the number of requested slots
+		<<MPUAddressRequisitionedBlock>>	the block used as the new kernel structure
 *)
 Definition prepare (idPD : paddr) (projectedSlotsNb : index)
-									(idRequisitionedBlock : paddr) : LLI bool :=
+									(MPUAddressRequisitionedBlock : paddr) : LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 
@@ -591,9 +591,10 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
         # no block found, stop
         return 0  # TODO: return NULL
     requisitioned_block_entry = self.helpers.get_MPU_entry(requisitioned_block_in_current_partition_address)*)
-		(* Find the requisitioned block in the current partition *)
-    perform requisitionedBlockInCurrPartAddr := findBlockInMPU currentPart
-																										idRequisitionedBlock in
+		(* Find the requisitioned block in the current partition (with MPU address) *)
+    perform requisitionedBlockInCurrPartAddr := findBlockInMPUWithAddr
+																									currentPart
+																									MPUAddressRequisitionedBlock in
 		perform addrIsNull := compareAddrToNull	requisitionedBlockInCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret false else
 
@@ -667,6 +668,8 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 		(** Set the requisitioned block inaccessible*)
 		writeMPUAccessibleFromMPUEntryAddr requisitionedBlockInCurrPartAddr false ;;
 		(** Parent and ancestors: set the block unaccessible if the block is not cut*)
+		perform idRequisitionedBlock := readMPUStartFromMPUEntryAddr
+																				requisitionedBlockInCurrPartAddr in
 		writeAccessibleToAncestorsIfNotCutRec currentPart
 																					idRequisitionedBlock
 																					requisitionedBlockInCurrPartAddr
