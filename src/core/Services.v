@@ -232,7 +232,7 @@ Definition cutMemoryBlock (MPUAddressBlockToCut cutAddr : paddr) (MPURegionNb : 
     if block_to_cut_MPU_address == -1:
         # no block found, stop
         return 0 # TODO: return NULL*)
-		(* Find the block to share in the current partition (with MPU address) *)
+		(* Find the block to cut in the current partition (with MPU address) *)
     perform blockToCutMPUAddr := findBlockInMPUWithAddr 	currentPart
 																													MPUAddressBlockToCut in
 		perform addrIsNull := compareAddrToNull	blockToCutMPUAddr in
@@ -349,22 +349,22 @@ Definition cutMemoryBlock (MPUAddressBlockToCut cutAddr : paddr) (MPURegionNb : 
 
 (** ** The mergeMemoryBlocks PIP MPU service
 
-    The [mergeMemoryBlocks] system call merges <idBlockToMerge1> and
-		<idBlockToMerge2> together.
-		The two blocks have been cut before so idBlockToMerge1 < idBlockToMerge2.
+    The [mergeMemoryBlocks] system call merges <BlockToMerge1> and
+		<BlockToMerge2> together.
+		The two blocks have been cut before so @BlockToMerge1Start < @BlockToMerge2Start.
 		The merged block is placed in the physical MPU region of the current partition
 		if the <MPURegionNb> is a valid region number.
 
-		Returns idBlockToMerge1:OK/NULL:NOK
+		Returns MPUAddressBlockToMerge1:OK/NULL:NOK
 
-    <<idBlockToMerge1>>	the block to merge in becomes the id of the merged blocks
-												(id = start field of an existing block)
-		<<idBlockToMerge2>>	the block to be merged disappears from the lits of blocks
-												(id = start field of an existing block)
-    <<MPURegionNb>>			the region number of the physical MPU where to place the
-												merged block
+    <<MPUAddressBlockToMerge1>>	the block to merge in becomes the start of the merged blocks
+																(id = MPU address of an existing block)
+		<<MPUAddressBlockToMerge2>>	the block to be merged disappears from the list of blocks
+																(id = MPU address of an existing block)
+	  <<MPURegionNb>>							the region number of the physical MPU where to
+																place the merged block
 *)
-Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr)
+Definition mergeMemoryBlocks (MPUAddressBlockToMerge1 MPUAddressBlockToMerge2 : paddr)
 														(MPURegionNb : index) : 							LLI paddr :=
 (*    def mergeMemoryBlocks(self, idBlockToMerge1, idBlockToMerge2):
     """Merge <idBlockToMerge1> and <idBlockToMerge2> together
@@ -379,8 +379,9 @@ Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr)
         # no block found, stop
         return 0  # TODO: return NULL
 *)
-		(* Find idBlockToMerge1 in the current partition *)
-    perform block1InCurrPartAddr := findBlockInMPU currentPart idBlockToMerge1 in
+		(* Find the block1 to merge in the current partition (with MPU address) *)
+    perform block1InCurrPartAddr := findBlockInMPUWithAddr 	currentPart
+																														MPUAddressBlockToMerge1 in
 		perform addrIsNull := compareAddrToNull	block1InCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret nullAddr else
 (*
@@ -390,8 +391,9 @@ Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr)
         # no block found, stop
         return 0  # TODO: return NULL
 *)
-		(* Find idBlockToMerge2 in the current partition *)
-    perform block2InCurrPartAddr := findBlockInMPU currentPart idBlockToMerge2 in
+		(* Find the block2 to merge in the current partition (with MPU address) *)
+    perform block2InCurrPartAddr := findBlockInMPUWithAddr 	currentPart
+																														MPUAddressBlockToMerge2 in
 		perform addrIsNull := compareAddrToNull	block2InCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret nullAddr else
 
@@ -486,6 +488,7 @@ Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr)
 *)
 		(** Parents and ancestors: set the block accessible again if there are no
 		subblocks anymore of block 1 *)
+		perform idBlockToMerge1 := readMPUStartFromMPUEntryAddr block1InCurrPartAddr in
 		writeAccessibleToAncestorsIfNotCutRec currentPart
 																					idBlockToMerge1
 																					block1InCurrPartAddr
