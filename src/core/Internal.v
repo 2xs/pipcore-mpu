@@ -51,44 +51,6 @@ Definition compareAddrToNull (p : paddr) : LLI bool :=
   perform nullAddr := getNullAddr in
   getBeqAddr nullAddr p.
 
-(*
-    def __find_block_in_MPU_rec(self, next_kernel_structure, id_block_to_find):
-        """Recursive search by going through the structure list and search for the <id_block_to_find>
-        Stop conditions:
-            1: reached end of structure list (maximum number of iterations)
-            2: found <id_block_to_find>
-        Recursive calls: until the end of the list
-        """
-        # Stop condition 1: reached end of structure list
-        if next_kernel_structure == 0:  # TODO: NULL
-            # end of structure list, stop
-            return -1
-
-        # Stop condition 2: found block
-        for i in range(self.constants.kernel_structure_entries_nb):
-            entry_i_address = i*self.constants.MPU_entry_length + next_kernel_structure
-            if self.helpers.get_MPU_present_from_MPU_entry_address(entry_i_address) == 0:
-                # empty slot, don't consider the value
-                continue
-            entry_i_start = self.helpers.get_MPU_start_from_MPU_entry_address(entry_i_address)
-            if entry_i_start == id_block_to_find:
-                # the block has been found
-                block_in_MPU = entry_i_address
-                return block_in_MPU
-
-        # RECURSIVE call: check next kernel structure
-        next_kernel_structure = self.helpers.get_kernel_structure_next_from_kernel_structure_start(next_kernel_structure)
-        return self.__find_block_in_MPU_rec(next_kernel_structure, id_block_to_find)
-
-    def __find_block_in_MPU(self, PD_to_find_in, id_block_to_find):
-        """Go through the kernel structure linked list searching in the MPU structure for the <id_block_to_find>
-        :return: block address / NOK (-1)"""
-        # Check that PD is OK done before
-
-        # go through the MPU structure finding the block (== start address of MPU entry)
-        next_kernel_structure = self.helpers.get_PD_pointer_to_MPU_linked_list(PD_to_find_in)
-        return self.__find_block_in_MPU_rec(next_kernel_structure, id_block_to_find)
-*)
 
 (** The [findBlockInMPUStructAux] function recursively search by going through
 		the current structure list and search for the <id_block_to_find>.
@@ -185,41 +147,7 @@ Definition findBlockInMPU (idPD : paddr) (idBlock: paddr) : LLI paddr :=
 	perform kernelstructurestart := readPDStructurePointer idPD in
 	findBlockInMPUAux N kernelstructurestart idBlock.
 
-(*
-def __find_block_in_MPU_with_address_rec(self, next_kernel_structure, id_block_to_find, MPU_address_block_to_find):
-    """Recursive search by going through the structure list and search for the <id_block_to_find> given the
-    <MPU_address_block_to_find> (only look the entries at this address, so faster than blind search going through
-    all the entries of a kernel structure)
-    Stop conditions:
-        1: reached end of structure list (maximum number of iterations)
-        2: found <id_block_to_find>
-        3: issue with the block, i.e. block not found, incorrect MPU address or block not present
-    Recursive calls: until the end of the list
-    """
-    # Stop condition 1: reached end of structure list
-    if next_kernel_structure == 0:  # TODO: NULL
-        # end of structure list, stop
-        return -1
 
-    # Stop conditions 2 and 3: found block OR issue with the entry
-    if next_kernel_structure <= MPU_address_block_to_find < (next_kernel_structure + self.constants.indexSh1):
-        # the provided address lies in this kernel structure
-        index = self.helpers.get_MPU_index(MPU_address_block_to_find)
-        if 0 <= index < self.constants.kernel_structure_entries_nb:
-            if self.helpers.get_MPU_start_from_MPU_entry_address(MPU_address_block_to_find) == id_block_to_find\
-                    and self.helpers.get_MPU_present_from_MPU_entry_address(MPU_address_block_to_find) != 0:
-                    # the block has been found and is present (i.e. it's a real block)
-                    block_in_MPU = MPU_address_block_to_find
-                    return block_in_MPU
-        # Stop condition 3: issue with the entry (i.e. block not found OR incorrect MPU address OR block not present)
-        return -1
-
-    # RECURSIVE call: block not found in current structure, check next kernel structure
-    next_kernel_structure = self.helpers.get_kernel_structure_next_from_kernel_structure_start(next_kernel_structure)
-    return self.__find_block_in_MPU_with_address_rec(next_kernel_structure,
-                                                     id_block_to_find,
-                                                     MPU_address_block_to_find)
-*)
 (** The [findBlockInMPUWithAddrAux] function recursively search by going through
 		the structure list and search for the <id_block_to_find> given the
     <MPU_address_block_to_find> (only look the entries at this address, so faster
@@ -271,18 +199,7 @@ Fixpoint findBlockInMPUWithAddrAux (timeout : nat)
 																										blockMPUAddr
 	end.
 
-(*
-def __find_block_in_MPU_with_address(self, PD_to_find_in, id_block_to_find, MPU_address_block_to_find):
-    """Go through the kernel structure linked list searching in the MPU structure for the <id_block_to_find>
-    located at <MPU_address_block_to_find>
-    :return block address / NOK (-1)"""
-    # all checks done before
-    # go through the MPU structure finding the block (== start address of MPU entry)
-    next_kernel_structure = self.helpers.get_PD_pointer_to_MPU_linked_list(PD_to_find_in)
-    return self.__find_block_in_MPU_with_address_rec(next_kernel_structure,
-                                                     id_block_to_find,
-                                                     MPU_address_block_to_find)
-*)
+
 (* TODO: return Some MPUentry or None *)
 (** The [findBlockInMPUWithAddr] function fixes the timeout value of
 		[findBlockInMPUWithAddrAux] *)
@@ -303,27 +220,6 @@ Definition checkBlockCut (mpublockaddr : paddr) : LLI bool :=
 		ret false
 	else (* Block has been cut previously *) ret true.
 
-(*
-    def __write_accessible_to_ancestors_rec(self, PD_base_partition, id_base_block, accessible_bit):
-        """Write the accessible bit of value <accessible_bit> to the block identified as
-            <id_base_block> to all ancestors of <PD_base_partition>"""
-        if PD_base_partition == self.root_partition:
-            # root partition, no ancestor, stop
-            return 1
-        else:
-            # get parent partition
-            PD_parent_partition = self.helpers.get_PD_parent(PD_base_partition)
-            # find block in MPU structure
-            block_in_parent_MPU_address = self.__find_block_in_MPU(PD_parent_partition, id_base_block)
-            if block_in_parent_MPU_address == -1:
-                # block not found, shouldn't happen TODO: write accessible could fail
-                return 0
-
-            self.helpers.set_MPU_accessible_from_MPU_entry_address(block_in_parent_MPU_address, accessible_bit)
-
-            # recursive call until we reached the root partition
-            return self.__write_accessible_to_ancestors_rec(PD_parent_partition, id_base_block, accessible_bit)
-*)
 
 (** The [writeAccessibleRecAux] function recursively write the accessible bit of
 		value <accessible_bit> to the block identified as <idblock> to all ancestors
@@ -393,35 +289,6 @@ Definition writeAccessibleToAncestorsIfNotCutRec (pdbasepartition : paddr)
 			ret true
 		else ret true.
 
-(*     def __insert_new_entry(self, PD_insertion, entry_to_insert, block_origin):
-        """Insert the entry <entry_to_insert> in the partition <PD_insertion> with block origin <block_origin>
-        Used in cutMemoryBlock and addMemoryBlock"""
-        # insérerEntrée(idPDinsertion, entrée à insérer, origine bloc) : insère l’entrée au 1er emplacement libre dans la MPU de idPDinsertion et précise l’origine du bloc, retourne l’emplacement MPU où l’entrée a été insérée (O(1))
-        # Checks have been done before: PD is correct, MPU_entry is correct, block_origin is correct, there is one or
-        # more free slots
-
-        # entrée MPU libre <- idPDinsertion[pointeur libre] (récupérer la 1ère entrée libre)
-        new_entry_address = self.helpers.get_PD_first_free_slot_address(PD_insertion)
-
-        # // Ajuster le pointeur libre
-        # Adjust the free slot pointer and count
-        # Ecrire idPDinsertion[pointeur libre]->end à idPDinsertion[pointeur libre] (changer le pointeur libre vers la prochaine entrée MPU libre)
-        new_first_free_slot_address = self.helpers.get_MPU_end_from_MPU_entry_address(new_entry_address)
-        self.helpers.set_PD_first_free_slot_address(PD_insertion, new_first_free_slot_address)
-
-        # Ecrire (idPDinsertion[compteur]–1) à idPDinsertion[compteur] (enlever 1 au compteur d’entrées libres)
-        self.helpers.set_PD_nb_free_slots(PD_insertion, self.helpers.get_PD_nb_free_slots(PD_insertion) - 1)
-
-        # // Insérer l’entrée au 1er emplacement libre
-        # Ecrire (entrée à insérer) à @(entrée MPU libre) (insérer l’entrée à l’emplacement libre)
-        self.helpers.write_MPU_entry(new_entry_address, entry_to_insert[1], entry_to_insert[2], entry_to_insert[3], entry_to_insert[4])
-
-        # Ecrire (origine bloc) à SC[entrée MPU libre]->origin (indiquer que le bloc est l’origine des coupes futures, soit le start du bloc qui a été donné)
-        self.helpers.set_SC_origin_from_MPU_entry_address(new_entry_address, block_origin)
-
-        # RET @(entrée MPU libre)
-        return new_entry_address
-*)
 (** The [insertNewEntry] function inserts the entry (<startaddr>, <endaddr>, true, true)
  	in the partition <pdinsertion> with block origin <origin>.
 	Used in cutMemoryBlock and addMemoryBlock.
@@ -437,7 +304,8 @@ Definition writeAccessibleToAncestorsIfNotCutRec (pdbasepartition : paddr)
 *)
 Definition insertNewEntry 	(pdinsertion startaddr endaddr origin: paddr)
 													(r w e : bool) 													: LLI paddr :=
-(** Checks have been done before: PD is correct, MPU_entry is correct, block_origin is correct, there is one or more free slots *)
+	(** Checks have been done before: PD is correct, slot start and end @ are correct,
+			block_origin is correct, there is one or more free slots *)
 	perform newEntryMPUAddr := readPDFirstFreeSlotPointer pdinsertion in
 	(** Adjust the free slot pointer to the next free slot*)
 	perform newFirstFreeSlotAddr := readMPUEndFromMPUEntryAddr newEntryMPUAddr in
@@ -459,35 +327,12 @@ Definition insertNewEntry 	(pdinsertion startaddr endaddr origin: paddr)
 
 	ret newEntryMPUAddr.
 
-
-(*
-    def __free_slot(self, idPD, entryToFreeMPUAddress):
-        """Free the slot by setting to default"""
-        # Checks have been done before: check idPD comes from Pip, check entryToFreeMPUAddress comes from Pip
-
-        # Ecrire default à (entrée MPU à libérer) (écraser l’entrée MPU -> le bloc n’existe plus)
-        self.helpers.set_MPU_entry_from_MPU_entry_address(entryToFreeMPUAddress, 0, 0, 0, 0)
-        # Ecrire default à Sh1[entrée MPU à libérer] (écraser l’entrée Sh1 associée à l’entrée MPU à libérer -> bloc enlevé de la descendance)
-        self.helpers.set_Sh1_entry_from_MPU_entry_address(entryToFreeMPUAddress, 0, 0, 0)
-        # Ecrire default à SC[entrée MPU à libérer] (écraser l’entrée SC associée à l’entrée MPU à libérer)
-        self.helpers.set_SC_entry_from_MPU_entry_address(entryToFreeMPUAddress, 0, 0)
-        # // Insérer l’emplacement dans la liste des emplacements libres
-        # Ecrire idPDlibération[pointeur libre] à (entrée MPU à libérer)->end (insérer l’entrée dans la chaîne des emplacements libres)
-        current_first_free_slot_address = self.helpers.get_PD_first_free_slot_address(idPD)
-        self.helpers.set_MPU_end_from_MPU_entry_address(entryToFreeMPUAddress, current_first_free_slot_address)
-        # Ecrire (entrée MPU à libérer) à idPDlibération[pointeur libre] (le pointeur libre devient l’emplacement libéré)
-        self.helpers.set_PD_first_free_slot_address(idPD, entryToFreeMPUAddress)
-        # Ecrire (idPDlibération[compteur]+1) à idPDlibération[compteur] (+1 au compteur des emplacements libres)
-        self.helpers.set_PD_nb_free_slots(idPD, self.helpers.get_PD_nb_free_slots(idPD) + 1)
-        # RET @entrée MPU à libérer
-        return entryToFreeMPUAddress
-*)
 (** The [freeSlot] function frees the entry at <entrytofreempuaddr> in the
 		partition <pdfree>.
 	Used in mergeMemoryBlock and removeMemoryBlock
 
 	Returns the freed slot's MPU address
-	 *)
+*)
 Definition freeSlot (pdfree entrytofreempuaddr: paddr) : LLI paddr :=
 (** Checks have been done before: check idPD comes from Pip,
 		check entryToFreeMPUAddress comes from Pip *)
@@ -510,26 +355,6 @@ Definition freeSlot (pdfree entrytofreempuaddr: paddr) : LLI paddr :=
 		ret entrytofreempuaddr.
 
 
-(*    def __checkChild(self, idPDparent, idPDchild):
-        """
-        Checks that <idPDchild> is a child of <idPD> by going through the kernel structure of the parent looking for
-        the child
-        :param idPDparent: the parent partition
-        :param idPDchild: the supposed child partition of <idPDparent>
-        :return: OK (1) /NOK (0)
-        """
-        block_in_parent_partition_address = self.__find_block_in_MPU(idPDparent, idPDchild)
-        if block_in_parent_partition_address == -1:
-            # no block found, stop
-            return 0  # TODO: return NULL
-
-        if self.helpers.get_Sh1_PDflag_from_MPU_entry_address(block_in_parent_partition_address) != True:
-            # idPDchild is not a child partition, stop
-            return 0  # TODO: return NULL
-
-        return 1*)
-
-
 (** The [checkChild] function checks that <idPDchild> is a child of <idPDparent>
 		by looking for the child in the supposed parent's kernel structure.
 		Returns true:OK/false:NOK
@@ -549,7 +374,7 @@ Definition checkChild (idPDparent idPDchild : paddr) : LLI bool :=
     The [addMemoryBlockCommon] system call adds a block to a child partition
 		The block is still accessible from the current partition (shared memory)
 
-		Returns the child's MPU entry address used to store the shared block:OK/NULL:NOK
+		Returns the shared block's slot address in the child:OK/NULL:NOK
 
     <<idPDchild>>						the child partition to share with
 		<<blockToShareMPUAddr>>	the block to share MPU address in the parent
@@ -557,73 +382,32 @@ Definition checkChild (idPDparent idPDchild : paddr) : LLI bool :=
 *)
 Definition addMemoryBlockCommon 	(idPDchild blockToShareMPUAddr: paddr)
 																(r w e : bool) : LLI paddr :=
-(*
-def __add_memory_block(self, idPDchild, block_to_share_in_current_partition_address):
-    """
-    Adds a block to a child partition
-    The block is still accessible from the current partition (shared memory)
-    :param idPDchild: the child partition to share with
-    :param block_to_share_in_current_partition_address: the block to share MPU address
-    :return:the child's MPU entry address where the block has been added
-    """
-    # check of block_to_share_in_current_partition_address done in previous internal function
-*)
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 
 		(** Checks (blockToShareMPUAddr checked before)*)
-(*
-    # Check idPDchild is a child of the current partition
-    if self.__checkChild(self.current_partition, idPDchild) == 0:
-        # idPD is not a child partition, stop
-        return 0  # TODO: return NULL
-*)
+
 		(* Check idPDchild is a child of the current partition*)
 		perform isChildCurrPart := checkChild currentPart idPDchild in
 		if negb isChildCurrPart
 		then (* idPDchild is not a child partition, stop*) ret nullAddr
 		else
 
-(*
-    # Vérifier idPDenfant[compteur libre] > 0 SINON RET NULL
-    # Check there are free slots in the the child to add the block to share
-    if self.helpers.get_PD_nb_free_slots(idPDchild) <= 0:
-        # no free slots left, stop
-        return 0  # TODO: return NULL
-*)
 		(* Check there are free slots in the the child to add the block to share*)
 		perform currentFreeSlotsNb := readPDNbFreeSlots idPDchild in
 		perform zero := Index.zero in
 		perform isFull := Index.leb currentFreeSlotsNb zero in
-		if isFull then (* no free slots left, stop*) ret nullAddr
-		else
+		if isFull then (* no free slots left, stop*) ret nullAddr else
 
-(*
-    block_to_share_entry = self.helpers.get_MPU_entry(block_to_share_in_current_partition_address)
-
-    # Check block is accessible and present
-    if block_to_share_entry[3] is False or block_to_share_entry[4] is False:
-        # block not accessible or present, stop
-        return 0  # TODO: return NULL
-*)
 		(* Check block is accessible and present*)
 		perform addrIsAccessible := readMPUAccessibleFromMPUEntryAddr
 																	blockToShareMPUAddr in
-		if negb addrIsAccessible then (* block is inaccessible *) ret nullAddr else
+		if negb addrIsAccessible then (* block not accessible *) ret nullAddr else
 		perform addrIsPresent := readMPUPresentFromMPUEntryAddr
 																	blockToShareMPUAddr in
 		if negb addrIsPresent then (** block is not present *) ret nullAddr else
 
-(*
-    # // Enfant : Placer le bloc du parent dans le 1er emplacement libre de l’enfant
-    # entrée MPU enfant <- insérerEntrée(idPDenfant, entrée MPU courant, entrée MPU courant->start)
-    # add the block to the child partition with itself as origin in the child
-    block_shared_child_MPU_address = self.__insert_new_entry(
-        idPDchild,
-        block_to_share_entry,
-        block_to_share_entry[1]  # origin
-    )
-*)
+
 		(** Child: set the block to share in the child's first free slot*)
 		(* the block start is set as origin in the child*)
 		perform blockstart := readMPUStartFromMPUEntryAddr blockToShareMPUAddr in
@@ -634,50 +418,12 @@ def __add_memory_block(self, idPDchild, block_to_share_in_current_partition_addr
 																												r w e
 																												in
 
-
-(*
-    # // Parent : Partage du bloc avec son enfant
-    # Ecrire idPDenfant à Sh1courant[entrée MPU courant ] (indiquer le partage du blocADonner dans le Shadow 1 de la partition courante)
-    self.helpers.set_Sh1_PDchild_from_MPU_entry_address(block_to_share_in_current_partition_address, idPDchild)
-    # Ecrire (entrée MPU enfant) à Sh1courant[entrée MPU courant]->inChildLocation (faire pointer inChildLocation à l’endroit où est stocké le bloc partagé dans la MPU enfant)
-    self.helpers.set_Sh1_inChildLocation_from_MPU_entry_address(block_to_share_in_current_partition_address, block_shared_child_MPU_address)
-*)
 		(** Parent: register the shared block in Sh1*)
 		writeSh1PDChildFromMPUEntryAddr blockToShareMPUAddr idPDchild;;
 		writeSh1InChildLocationFromMPUEntryAddr blockToShareMPUAddr
 																						blockToShareChildMPUAddr;;
-(*
-    # RET @entrée MPU enfant
-    return block_shared_child_MPU_address*)
+		(* RET shared block slot address in child *)
 		ret blockToShareChildMPUAddr.
-
-(*
-def __remove_block_in_descendants_rec(self, current_idPDchild, current_block_to_remove_child_MPU_address):
-    """
-    Recursive deletion by going through the descendants and remove the block on the way
-    Stop condition: reached last descendant (leaf) (maximum number of iterations)
-    Processing: remove the block at this level of descendants
-    Recursive calls: until the last descendant
-    """
-    # Remove the block in all grand-children (block not cut in any grand-children and accessible)
-    # Stop condition: reached last descendant (leaf)
-    if current_block_to_remove_child_MPU_address == 0:
-        return
-
-    # PROCESSING: remove the block at this level of descendants
-    # // Libérer l’entrée dans l’enfant courant
-    # Get descendant before block deletion
-    # PDenfantNext<-Sh1enfant[MPUenfant]->PDchild (récupérer le prochain petit-enfant)
-    next_idPDchild = self.helpers.get_Sh1_PDchild_from_MPU_entry_address(
-        current_block_to_remove_child_MPU_address)
-    # MPUenfantNext<-Sh1enfant[MPUenfant]->inChildLocation (récupérer l’emplacement du bloc partagé dans la MPU du petit-enfant)
-    next_block_to_remove_child_MPU_address = self.helpers.get_Sh1_inChildLocation_from_MPU_entry_address(
-        current_block_to_remove_child_MPU_address)
-    # libérerEmplacement(PDenfant, MPUenfant)
-    self.__free_slot(current_idPDchild, current_block_to_remove_child_MPU_address)
-
-    # RECURSIVE call: remove block in the remaining descendants
-    return self.__remove_block_in_descendants_rec(next_idPDchild, next_block_to_remove_child_MPU_address)*)
 
 (** The [removeBlockInDescendantsRecAux] function recursively removes the block
 		identified at MPU address <currLevelBlockToRemoveAddr> of the current
@@ -721,33 +467,6 @@ Definition removeBlockInDescendantsRec 	(currLevelIdPD : paddr)
 																																	: LLI bool :=
 	removeBlockInDescendantsRecAux N currLevelIdPD currLevelBlockToRemoveAddr.
 
-(*
-def __remove_check_subblocks_rec(self, subblock):
-    """
-    Recursive check by going through the subblocks starting from <subblock>
-    Check all cuts are not shared and accessible and present
-    Stop conditions:
-        1: reached last subblock (maximum number of iterations)
-        2: the block is not accessible, not present or shared
-    Recursive calls: until the last subblock
-    """
-    # Stop condition 1: reached last subblock
-    if subblock == 0:
-        return 1  # TODO: return NULL
-
-    # Stop condition 2: the block is not accessible, not present or shared
-    if (
-            self.helpers.get_MPU_accessible_from_MPU_entry_address(subblock) is True and
-            self.helpers.get_MPU_present_from_MPU_entry_address(subblock) is True and
-            self.helpers.get_Sh1_PDflag_from_MPU_entry_address(subblock) is False and
-            self.helpers.get_Sh1_PDchild_from_MPU_entry_address(subblock) == 0
-    ) is False:
-        # block is not accessible or not present, or shared, stop
-        return 0  # TODO: return NULL
-
-    # RECURSIVE call: check next subblock
-    return self.__remove_check_subblocks_rec(self.helpers.get_SC_next_from_MPU_entry_address(subblock))*)
-
 (** The [checkRemoveSubblocksRecAux] function recursively check by going through
 		the subblocks starting from <subblockAddr>
     Check all cuts are not shared and accessible and present
@@ -787,28 +506,6 @@ Fixpoint checkRemoveSubblocksRecAux (timeout : nat) (subblockAddr : paddr): LLI 
 Definition checkRemoveSubblocksRec (subblockAddr : paddr): LLI bool :=
 	checkRemoveSubblocksRecAux N subblockAddr.
 
-(*
-  def __remove_subblocks_rec(self, subblock, idPDchild):
-      """
-      Recursive removal by going through the subblocks and free them
-      Stop condition: reached last subblock (maximum number of iterations)
-      Processing: free the subblock's slot
-      Recursive calls: until last subblock
-      """
-      # Stop condition 1: reached last subblock
-      if subblock == 0:
-          return  # TODO: return NULL
-
-      # PROCESSING: free the subblock's slot
-      # // Libère l’entrée dans l’enfant : insère le sous-bloc à retirer comme 1er emplacement libre puis passe au prochain sous-bloc
-      # (sous-bloc next) <- SCenfant[sous-bloc]->suivant (récupèrer le sous-bloc suivant à traiter)
-      next_subblock = self.helpers.get_SC_next_from_MPU_entry_address(subblock)
-      # libérerEmplacement(PDenfant, sous-bloc)
-      self.__free_slot(idPDchild, subblock)
-
-      # RECURSIVE call: remove next subblock
-      return self.__remove_subblocks_rec(next_subblock, idPDchild)
-*)
 (** The [removeSubblocksRecAux] function recursively removes all subblocks
 		by going through the subblocks and free them
     Stop condition: reached last subblock (maximum number of iterations)
@@ -863,18 +560,9 @@ Definition removeBlockInChildAndDescendants (currentPart
 																						blockToRemoveInCurrPartAddr in
 		perform isBlockCut := checkBlockCut blockToRemoveInChildAddr in
 		if negb isBlockCut
-		then (** Case 1: the block is not cut in the child partition -> remove the
+		then (** Case 1: block not cut in the child partition -> remove the
 							block in the child and all grand-children *)
-(*
-        # block not cut
 
-        # SI MPUcourant[entrée MPU courant]->accessible == FALSE ALORS (bloc coupé dans les petits-enfants ou réquisitionné pour structure noyau) RET FALSE
-        # Check if block inaccessible because of grand-children partitions (used for prepare or create, or cut
-        # in grand-children)
-        if self.helpers.get_MPU_accessible_from_MPU_entry_address(block_to_remove_in_current_partition_address) is False:
-            # block inaccessible, stop
-            return 0  # TODO: return NULL
-*)
 				(* 	check block is accessible *)
 				perform addrIsAccessible := readMPUAccessibleFromMPUEntryAddr
 																			blockToRemoveInChildAddr in
@@ -885,58 +573,33 @@ Definition removeBlockInChildAndDescendants (currentPart
 						ret false
 				else
 						(* block is accessible and only used as shared memory in grand-children*)
-(*
-        # // Le bloc n’est pas coupé dans les petits-enfants : Enlever le bloc partagé dans tous les petits-enfants
-        # Tant que MPUenfant != NULL (parcourir l’enfant et tous les petits-enfants ayant le bloc partagé) (O(q))
-        # Remove the block in all grand-children (block not cut in any grand-children and accessible)
-        self.__remove_block_in_descendants_rec(idPDchild, block_to_remove_child_MPU_address)*)
-				(** Remove block from child and all grand-children *)
-				perform recRemoveInDescendantsEnded := removeBlockInDescendantsRec
-																									idPDchild
-																									blockToRemoveInChildAddr in
-				if negb recRemoveInDescendantsEnded then (* timeout reached *) ret false else
-				ret true
-(*
-    # SINON (l’enfant a coupé le bloc donc on récupère les sous-blocs sauf s’ils sont partagés et dans ce cas on avorte l’opération)
-    else:
-*)
-		else (** Case 2: the block has been cut in the child partition -> remove all
-							subblocks in the child*)
-(*        # block cut
 
-        # Vérifier que tous les sous-blocs sont non partagés et accessibles SINON RET false (O(1) si bloc non coupé -> O(s))
-        # Check all cuts are not shared and accessible and present
-        # first subblock is always the start of the cut linked list since it stems from the initial added block
-        if self.__remove_check_subblocks_rec(block_to_remove_child_MPU_address) == 0:
-            # if block is not accessible or not present, or if it is shared, stop
-            return 0  # TODO: return NULL*)
+						(** Remove shared block from child and all grand-children *)
+						perform recRemoveInDescendantsEnded := removeBlockInDescendantsRec
+																											idPDchild
+																											blockToRemoveInChildAddr in
+						if negb recRemoveInDescendantsEnded then (* timeout reached *) ret false else
+						ret true
+
+		else (** Case 2: block cut in the child partition -> remove all
+							subblocks in the child*)
+
 				(* Check all subblocks are not shared, accessible, and present *)
 				perform isRemovePossible := checkRemoveSubblocksRec
 																				blockToRemoveInChildAddr in
 				if negb isRemovePossible then (* remove impossible, stop *) ret false else
-(*
-        # Tant que sous-bloc != NULL : (O(s))
-        # Remove all subblocks from the child
-        self.__remove_subblocks_rec(block_to_remove_child_MPU_address, idPDchild)*)
-				(** Remove all subblocks *)
+
+				(** Remove all subblocks  from the child*)
 				perform recRemoveSubblocksEnded := removeSubblocksRec
 																											idPDchild
 																											blockToRemoveInChildAddr in
 				if negb recRemoveSubblocksEnded then (* timeout reached *) ret false else
-(*
-        # Ecrire TRUE à MPUcourant[entrée MPU courant].accessible (si le bloc a été coupé alors il faut rendre le bloc accessible de nouveau à la partition courante et aux ancêtres)
-        self.helpers.set_MPU_accessible_from_MPU_entry_address(block_to_remove_in_current_partition_address, True)*)
-				(** Qet back the block as accessible in the ancestors because it was cut *)
+
+				(** Set back the block as accessible in the ancestors because it was cut *)
 				writeMPUAccessibleFromMPUEntryAddr blockToRemoveInCurrPartAddr true ;;
-(*
-        # Ecrire TRUE à MPU[ancêtres].accessible (O(p) parait acceptable pour un remove avec un bloc coupé, sinon besoin de stocker l’adresse du bloc dans les ancêtres)
-        self.__write_accessible_to_ancestors_rec(self.current_partition,
-                                                 self.helpers.get_MPU_start_from_MPU_entry_address(
-                                                 block_to_remove_in_current_partition_address
-                                             ), True)*)
 				perform recWriteEnded := writeAccessibleRec currentPart
-																												idBlockToRemove
-																												true in
+																										idBlockToRemove
+																										true in
 				if negb recWriteEnded then (* timeout reached or error *) ret false else
 				ret true.
 
@@ -958,51 +621,20 @@ Definition removeBlockInChildAndDescendants (currentPart
 *)
 Definition removeMemoryBlockCommon (	idPDchild
 																		blockToRemoveInCurrPartAddr: paddr) : LLI bool :=
-(*
-    def __remove_memory_block(self, idPDchild, block_to_remove_in_current_partition_address):
-        """
-        Removes a block from a child partition
-        The block could be cut in the child partition but all subblocks still accessible
-        This operation succeeds for any shared memory block previously added, but fails if the purpose of the block is
-        not shared memory anymore, in particular in such cases:
-            - The block can't be removed if the child or its descendants used it (or part of it) as a kernel structure
-            - The block can't be removed if the child's descendants cut the block
-        :param idPDchild: the child partition to remove from
-        :param block_to_remove_in_current_partition_address: the block to remove MPU address
-        :return: OK(1)/NOK(0)
-        """
-*)
+
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 
-		(** Checks (blockToRemoveMPUAddr checked before from idBlockToRemove )*)
-(*
-    # check of block_to_remove_in_current_partition_address done in previous internal function
+		(** Checks (blockToRemoveMPUAddr checked before from idBlockToRemove)*)
 
-    # // Enfant : Retirer le bloc du parent
-    # Check the provided idPDchild corresponds to the child to whom the block has been given (if given)
-    if self.helpers.get_Sh1_PDchild_from_MPU_entry_address(block_to_remove_in_current_partition_address) != idPDchild:
-        # no correspondance, stop
-        return 0  # TODO: return NULL*)
-		(* check the provided idPDchild corresponds to the child to whom the block
+		(* Check the provided idPDchild corresponds to the child to whom the block
 				has been previously given (if given)*)
 		perform pdchildblock := readSh1PDChildFromMPUEntryAddr
 																blockToRemoveInCurrPartAddr in
 		perform hasChildBlock := getBeqAddr idPDchild pdchildblock in
 		if negb hasChildBlock then (* no correspondance, stop *) ret false else
 
-(*
-    # // Enfant : Libérer l’entrée en récupérant tous les sous-blocs coupés éventuels (O(1) -> O(q) || O(s||p))
-    # entrée MPU enfant <- Sh1courant[entrée MPU courant]->inChildLocation (récupérer l’emplacement du bloc dans la MPU de enfant)
-    block_to_remove_child_MPU_address = self.helpers.get_Sh1_inChildLocation_from_MPU_entry_address(
-        block_to_remove_in_current_partition_address)
-    # Si SCenfant[entrée MPU enfant]->origin == MPUenfant[entrée MPU enfant]->start ET SCenfant[entrée MPU enfant]->next == NULL ALORS (l’enfant n’a pas coupé le bloc donc on récupère le bloc dans l’enfant et tous les petits-enfants)
-    # Check if the block is cut in the child partition
-    if (self.helpers.get_SC_origin_from_MPU_entry_address(block_to_remove_child_MPU_address) ==
-        self.helpers.get_MPU_start_from_MPU_entry_address(block_to_remove_in_current_partition_address)) \
-            and self.helpers.get_SC_next_from_MPU_entry_address(block_to_remove_child_MPU_address) == 0:
-*)
-		(** Child (and grand-children): remove block *)
+		(** Child (and grand-children): remove block if possible *)
 		perform idBlockToRemove := readMPUStartFromMPUEntryAddr blockToRemoveInCurrPartAddr in
 		perform blockIsRemoved := removeBlockInChildAndDescendants
 																		currentPart
@@ -1010,16 +642,10 @@ Definition removeMemoryBlockCommon (	idPDchild
 																		idBlockToRemove
 																		blockToRemoveInCurrPartAddr in
 		if negb blockIsRemoved then (* block not removed, stop*) ret false else
-(*
-    # // Parent : rétablir l’entrée dans la partition courante
-    # Ecrire default dans Sh1courant[entrée MPU courant]
-    self.helpers.set_Sh1_entry_from_MPU_entry_address(block_to_remove_in_current_partition_address, 0, 0, 0)*)
+
 		(** Parent: remove block reference to the child *)
 		perform defaultSh1Entry := getDefaultSh1Entry in
 		writeSh1EntryFromMPUEntryAddr blockToRemoveInCurrPartAddr defaultSh1Entry ;;
-(*
-    # RET OK
-    return 1*)
 		ret true.
 
 
@@ -1039,32 +665,6 @@ Definition initPDTable (pdtablepaddr : paddr) : LLI unit :=
 	perform emptytable := getEmptyPDTable in
 	writePDTable pdtablepaddr emptytable.
 
-(*
-    def init_MPU(self, kernel_structure_start, index_start, index_end):
-        """
-        Initializes all entries of the MPU between <index_start> and <index_end>
-        The free slots list starts with the entry <index_start>, points to the next entry until reaching <index_end>
-        :param kernel_structure_address: kernel structure frame's start address
-        :param index_start: entry used as the free slots list's head
-        :param index_end: entry used as the free slots list's queue
-        :return: void
-        """
-        # middle entries are pointing their previous and following entries
-        for n in range(index_start, index_end - 1):
-            address = kernel_structure_start + n * self.constants.MPU_entry_length
-            start = 0
-            end = kernel_structure_start + (n + 1) * self.constants.MPU_entry_length
-            self.helpers.write_MPU_entry_with_index(address, n, start, end, False, False)
-        # last entry has no following entry
-        self.helpers.write_MPU_entry_with_index(
-            (index_end - 1) * self.constants.MPU_entry_length + kernel_structure_start,
-            index_end - 1,
-            0,
-            0,
-            False,
-            False
-        )
-*)
 (** The [initMPUEntryRec] function recursively initializes all MPU entries from
 		<indexCurr> to 0 of kernel structure located at <kernelStructureStartAddr>
 		by constructing a linked list of all entries representing the free slots.
@@ -1137,19 +737,6 @@ Definition initMPUStructure (kernelStructureStartAddr : paddr) : LLI bool :=
 																					lastMPUEntry;;
 	ret true.
 
-(*
-def init_Sh1(self, kernel_structure_start, index_start, index_end):
-      """
-      Initializes all entries of the Sh1 between <index_start> and <index_end> (excluded) to default -> 0 | 0 | 0
-      :param kernel_structure_address: kernel structure frame's start address
-      :param index_start: start entry
-      :param index_end: end entry
-      :return: void
-      """
-      for i in range(index_start, index_end):
-          self.helpers.set_Sh1_entry_from_MPU_entry_address(kernel_structure_start
-                                                            + i * self.constants.MPU_entry_length,
-                                                            0, 0, 0)*)
 
 (** The [initSh1EntryRec] function recursively initializes all Sh1 entries from
 		<indexCurr> to 0 of kernel structure located at <kernelStructureStartAddr>
@@ -1191,20 +778,7 @@ Definition initSh1Structure (kernelStructureStartAddr : paddr) : LLI bool :=
 	perform initEnded := initSh1EntryRecAux N kernelStructureStartAddr lastindex in
 	if negb initEnded then (* timeout reached *) ret false else
 	ret true.
-(*
-  def init_SC(self, kernel_structure_start, index_start, index_end):
-      """
-      Initializes all entries of the SC between <index_start> and <index_end> (excluded) to default -> 0 | 0
-      :param kernel_structure_address: kernel structure frame's start address
-      :param index_start: start entry
-      :param index_end: end entry
-      :return: void
-      """
-      for i in range(index_start, index_end):
-          self.helpers.set_SC_entry_from_MPU_entry_address(kernel_structure_start
-                                                           + i * self.constants.MPU_entry_length,
-                                                           0, 0)
-*)
+
 
 (** The [initSCEntryRec] function recursively initializes all SC entries from
 		<indexCurr> to 0 of kernel structure located at <kernelStructureStartAddr>
@@ -1262,40 +836,7 @@ Definition initStructure (kernelStructureStartAddr kernelStructureEndAddr: paddr
 	initSCStructure kernelStructureStartAddr ;;
 	writeNextFromKernelStructureStart kernelStructureStartAddr nullAddr ;;
 	ret true.
-(*
-def __delete_shared_blocks_rec(self, current_MPU_kernel_structure, idPDchildToDelete):
-    """Recursive deletion by going through the structure list and remove all blocks belonging to the child that is
-    deleted
-    Stop condition: reached end of structure list (maximum number of iterations)
-    Processing: remove all blocks shared with the child to delete in the current structure
-    Recursive calls: until the end of the structure
-    """
-    # Stop condition: reached end of structure list
-    if current_MPU_kernel_structure == 0:  # TODO NULL
-        return
 
-    # PROCESSING: remove all blocks shared with the child to delete in the current structure
-    for i in range(self.constants.kernel_structure_entries_nb):
-        # SI ptSh1courant[indexCourant]->PDChild == PDenfantASupprimer ALORS (le bloc à l’index courant appartient à la partition enfant à supprimer)
-        current_MPU_entry_address = current_MPU_kernel_structure + i*self.constants.MPU_entry_length
-        block_id = self.helpers.get_MPU_start_from_MPU_entry_address(current_MPU_entry_address)
-        if self.helpers.get_Sh1_PDchild_from_MPU_entry_address(current_MPU_entry_address) == idPDchildToDelete:
-            # the slot corresponds to memory shared or prepared  with the child to destruct, remove sharing
-            # Ecrire TRUE à MPU[ancêtres].accessible (O(m*p) car recherche dans p ancêtres, sinon besoin de stocker l’adresse du bloc dans l’ancêtre direct pour O(p))
-            if self.helpers.get_SC_next_from_MPU_entry_address(current_MPU_entry_address) == 0 \
-                    and self.helpers.get_SC_origin_from_MPU_entry_address(current_MPU_entry_address) \
-                    == block_id:
-                # if the block isn't cut in the current partition, set as accessible in the ancestors
-                self.__write_accessible_to_ancestors_rec(self.current_partition, block_id, True)
-            # Ecrire TRUE à MPUcourant[indexCourant].accessible (si le bloc a été coupé alors il faut rendre le bloc accessible de nouveau à la partition courante et aux ancêtres)
-            self.helpers.set_MPU_accessible_from_MPU_entry_address(current_MPU_entry_address, True)
-            # Ecrire default à ptSh1courant[indexCourant] (Mettre à default Sh1)
-            self.helpers.set_Sh1_entry_from_MPU_entry_address(current_MPU_entry_address, 0, 0, 0)
-    # RECURSIVE call to next structure
-    # ptMPUcourant <- ptMPUcourant[indexCourant] (passer au nœud MPU suivant)
-    current_MPU_kernel_structure = self.helpers.get_kernel_structure_next_from_kernel_structure_start(current_MPU_kernel_structure)
-    return self.__delete_shared_blocks_rec(current_MPU_kernel_structure, idPDchildToDelete)
-*)
 (** The [deleteSharedBlocksInStructRecAux] function recursively removes all blocks
 		belonging to the child <idPDchildToDelete> in the <currentPart> by going
 		through all entries of the structure <kernelStructureStartAddr> from the
@@ -1437,7 +978,7 @@ Definition deleteSharedBlocksRec (currentPart : paddr)
 	deleteSharedBlocksRecAux N currentPart kernelStructureStartAddr idPDchildToDelete.
 
 
-(** The [collectStructure] function pulls the structure to be collected out of
+(** The [removeStructure] function pulls the structure to be collected out of
 		the list of structures.
 		Returns unit
 
@@ -1446,57 +987,22 @@ Definition deleteSharedBlocksRec (currentPart : paddr)
 		<<collectStructureAddr>>	the structure to be collected
 
  *)
-Definition collectStructure (idPD predStructureAddr collectStructureAddr : paddr)
+Definition removeStructure (idPD predStructureAddr collectStructureAddr : paddr)
 																																: LLI unit :=
-(*
-  # // sortir le nœud vide collecté de la liste des structures
-  # all collected slots removed from free slot list
-  # Ecrire ptNoeudCourant->next à ptMPUsuivantPrécédent (relier le bloc MPU précédent au bloc MPU suivant de celui qu’on enlève)
-  next_structure_address = self.helpers.get_kernel_structure_next_from_kernel_structure_start(
-      current_structure_address)
-	if current_structure_address == self.helpers.get_PD_pointer_to_MPU_linked_list(idPD):*)
+	(* remove the structure to collect from the kernel structure linked list *)
 	perform nextStructureAddr := readNextFromKernelStructureStart collectStructureAddr in
 	perform firstStructure := readPDStructurePointer idPD in
 	perform isFirstStructure := getBeqAddr collectStructureAddr firstStructure in
 	if isFirstStructure
 	then (* Special case: structure to remove is the first structure -> adjust pointers *)
-(*
-        # Special case: structure to remove is the first structure -> adjust pointers
-        if next_structure_address == 0:
-            # no more structures in list
-            self.helpers.set_PD_pointer_to_MPU_linked_list(previous_structure_address,
-                                                           next_structure_address)
-        else:
-            # still structures in list, set correct pointers to PD's Sh1 and PD's SC
-            self.helpers.set_PD_pointer_to_MPU_linked_list(previous_structure_address,
-                                                           next_structure_address)*)
 				(* 	set the PD's structure pointer to the next structure (which could
 						be NULL if it was the last TODO compressed statements*)
 				writePDStructurePointer idPD nextStructureAddr ;;
 				ret tt
-(*
-    else:
-        # structure to remove is in the chained list of structures -> link previous to next structure
-        self.helpers.set_kernel_structure_next_from_kernel_structure_start(previous_structure_address,
-                                                                                   next_structure_address)*)
 	else (* the structure to remove is somewhere in the middle of the list of
 					structures, link previous structure to next structure *)
 				writeNextFromKernelStructureStart predStructureAddr nextStructureAddr ;;
 				ret tt.
-
-(*
-    # Stop condition 2: found a free structure to collect
-    # toCollect <- True
-    collect = True
-    # Pour indexCourant de 0 à MaxEntrées : (Parcourir les entrées du nœud : on vérifie qu’aucune entrée n’est présente dans le noeud)
-    for current_index in range(self.constants.kernel_structure_entries_nb):
-       # SI MPUcourant[indexCourant]->present == 1 ALORS (une entrée est présente, le nœud n’est pas collectable, on peut passer au noeud suivant) || start = NULL pour enlever dépendance à present
-        if self.helpers.get_MPU_present_from_MPU_entry_address(
-                current_structure_address + current_index*self.constants.MPU_entry_length):
-            # toCollect <- False ;
-            collect = False
-            # break
-            break*)
 
 (** The [checkStructureEmptyRecAux] function recursively checks the current
 		structure is empty from last entry until first entry.
@@ -1563,13 +1069,6 @@ Fixpoint collectFreeSlotsRecAux (timeout : nat)
 																(predFreeSlotAddr currFreeSlotAddr : paddr)
 																(idPD : paddr)
 																(structureCollectAddr : paddr) : LLI unit :=
-(*
-  def __collect_free_slots_rec(self, previous_free_slot_address, current_free_slot_address, idPD, current_structure_address):
-      """Recursive removal by going through the free slots list and remove the free slots belonging to the empty
-      structure that is collected
-      Stop condition: reached end of free slots list (maximum number of iterations)
-      Recursive calls: until the end of the list
-      """*)
 
 match timeout with
 		| 0 => 	ret tt (* timeout reached *)
@@ -1578,45 +1077,23 @@ match timeout with
 										if beqAddr currFreeSlotAddr nullAddr
 										then
 											(** STOP condition: reached end of free slots list *)
-(*
-      # Stop condition: reached end of free slots list
-      if current_free_slot_address == 0:
-          return*)
 											ret tt
 										else
 											(** PROCESSING: remove slots to collect from free slots list*)
-(*
-      # RECURSIVE call to next free slot inspection (slot to be removed if belongs to the empty structure collected)
-      # compute the current slot's kernel structure
-      slot_structure = current_free_slot_address \
-                       - self.helpers.get_MPU_index(current_free_slot_address) * self.constants.MPU_entry_length*)
+
 											(* compute the current slot's kernel structure *)
 											perform MPUEntryIndex := readMPUIndexFromMPUEntryAddr
 																										currFreeSlotAddr in
 											perform slotKStructureStart := getKernelStructureStartAddr
 																												currFreeSlotAddr
 																												MPUEntryIndex in
-(*
-      # get next free slot
-      next_free_slot_address = self.helpers.get_MPU_end_from_MPU_entry_address(current_free_slot_address)*)
+
 											(* get next free slot from MPU end field *)
 											perform nextFreeSlotAddr := readMPUEndFromMPUEntryAddr
 																											currFreeSlotAddr in
-(*
-      # SI slotLibreCourant appartient à ptMPUCourant (le slot est dans la page à collecter, on l’enlève)
-      if (slot_structure == current_structure_address):
-          # slot must be collected*)
 											if beqAddr slotKStructureStart structureCollectAddr
 											then
 												(* the slot is located in the structure to collect *)
-(*
-          # SI slotLibreCourant == PDcourant[pointeur emplacement libre] ALORS (l’emplacement à libérer est le 1er emplacement libre)
-          if current_free_slot_address == self.helpers.get_PD_first_free_slot_address(idPD):
-              # // Ajuster pointeur libre
-              # Special case if slot to remove is the first free slot
-              # Ecrire slotLibreCourant->end à idPD[pointeur libre] (décaler le 1er emplacement libre au prochain)
-              self.helpers.set_PD_first_free_slot_address(idPD, next_free_slot_address)*)
-
 												perform firstFreeSlotAddr := readPDFirstFreeSlotPointer idPD in
 												if beqAddr currFreeSlotAddr firstFreeSlotAddr
 												then
@@ -1630,13 +1107,6 @@ match timeout with
 																									nextFreeSlotAddr
 																									idPD
 																									structureCollectAddr
-(*
-          # SINON
-          else:
-              # // Supprimer le bloc libre de la chaîne libre : relier le bloc libre précédent au bloc libre suivant
-              # remove current slot from free slot list: chain previous to next free slot
-              # Ecrire slotLibreCourant ->end à slotLibrePrécédent->end (end contient l’emplacement libre suivant qu’on décale)
-              self.helpers.set_MPU_end_from_MPU_entry_address(previous_free_slot_address, next_free_slot_address)*)
 												else
 													(* remove current slot from free slot list: chain
 														previous to next free slot *)
@@ -1648,17 +1118,6 @@ match timeout with
 																										nextFreeSlotAddr
 																										idPD
 																										structureCollectAddr
-(*
-      # SINON slotLibrePrécédent <- slotLibreCourant (slot courant reste dans la liste des emplacements libres, traité donc devient précédent)
-      else:
-          # slot is not collected, adjust previous pointer
-          previous_free_slot_address = current_free_slot_address
-      # slotLibreCourant <- slotLibreCourant ->end
-      current_free_slot_address = next_free_slot_address
-      return self.__collect_free_slots_rec(previous_free_slot_address,
-                                           current_free_slot_address,
-                                           idPD,
-                                           current_structure_address)*)
 										else
 											(* the slot is not located in the structure to collect *)
 											(** RECURSIVE call: continue collect with rest of list *)
@@ -1696,27 +1155,12 @@ Fixpoint collectStructureRecAux (timeout : nat)
 																(idPD :paddr)
 																(predStructureAddr currStructureAddr :paddr)
 																																	: LLI paddr :=
-(*
-def __collect_structure_rec(self, idPD, previous_structure_address, current_structure_address):
-    """Recursive collect by going through the structure list
-    Stop conditions:
-        1: reached end of structure list (maximum number of iterations) OR
-        2: found a free structure
-    Recursive calls:
-        - the structure is not empty
-        - the structure is empty but has not been prepared by the current partition (e.g. the child tries to collect/
-            steal a structure from its parent's set of blocks
-    """*)
 match timeout with
 		| 0 => 	ret nullAddr (* timeout reached *)
 		| S timeout1 =>
 										if beqAddr currStructureAddr nullAddr
 										then
 											(** STOP condition 1: reached end of structure list *)
-											(*# Stop condition 1: reached end of structure list
-													if current_structure_address == 0:  # TODO: if NULL
-															# RET NULL
-															return 0  # TODO: return NULL*)
 											ret nullAddr
 										else
 											(* Check if structure is empty *)
@@ -1730,14 +1174,6 @@ match timeout with
 											then
 												(* not empty, can't collect *)
 												(** RECURSIVE call: check next structure TODO changed order*)
-(*
-    # RECURSIVE call to next structure inspection (structure not empty or can't be collected)
-    # SINON ptMPUsuivantPrécédent <- ptMPUcourant ; ptNoeudCourant <- ptNoeudCourant->next (passer au nœud MPU suivant)
-    previous_structure_address = current_structure_address
-    current_structure_address = self.helpers.get_kernel_structure_next_from_kernel_structure_start(
-        current_structure_address)
-    return self.__collect_structure_rec(idPD, previous_structure_address, current_structure_address)
-*)
 												perform nextStructureAddr := readNextFromKernelStructureStart
 																											currStructureAddr in
 												collectStructureRecAux 	timeout1
@@ -1747,19 +1183,6 @@ match timeout with
 																								nextStructureAddr
 											else
 												(* structure empty, MAY be collected, check first *)
-(*
-    # SI toCollect ==  True ALORS (on a atteint la fin du nœud courant, tous les emplacements de la page sont libres, on collecte la page courante)
-    if collect is True:
-        # collect structure
-
-        # check structure is a block in current partition
-        # otherwise means the current partition wants to collect a node given by its parent and this can't be
-        # collected so pass to next node
-        # noeudASupprimer <- ChercherBlocDansMPU(idPD, ptMPUcourant) (O(m) acceptable car collect, PDcourant peut être soit l’enfant lui-même soit le parent)
-        structure_to_collect_MPU_address = self.__find_block_in_MPU(self.current_partition, current_structure_address)
-        if structure_to_collect_MPU_address != -1:
-            # structure to collect comes from previous prepare of current partition, ok to collect
-*)
 											(** Checks *)
 											(* Check structure is a block in current partition,
 													otherwise means the current partition wants to collect
@@ -1782,14 +1205,6 @@ match timeout with
 																								nextStructureAddr
 											else
 												(** PROCESSING: collect structure *)
-(*
-            # find inner slots to remove from list of free slots
-            #slotLibreCourant <- PDcourant[pointeur emplacement libre] (on démarre du 1er emplacement libre, forcément non NULL car on peut retirer une page)
-            current_free_slot_address = self.helpers.get_PD_first_free_slot_address(idPD)
-            # slotLibrePrécédent <- NULL (pointeur vers le slot précédent qu’on va devoir relier au suivant si besoin d’enlever le slot courant)
-            previous_free_slot_address = 0
-            # Tant que slotLibrecourant != NULL : (Parcourir la liste des emplacements libres et libérer les slots dans la page à collecter)
-            self.__collect_free_slots_rec(previous_free_slot_address, current_free_slot_address, idPD, current_structure_address)*)
 												(* remove all slots to collect from list of free slots*)
 												perform firstFreeSlotAddr := readPDFirstFreeSlotPointer idPD in
 												collectFreeSlotsRecAux 	N
@@ -1797,56 +1212,31 @@ match timeout with
 																								firstFreeSlotAddr
 																								idPD
 																								currStructureAddr ;;
-												(* Pull out the structure from the list of structures
-														TODO created specific function*)
-												collectStructure idPD predStructureAddr currStructureAddr ;;
-(*
-						# Change PD structure accordingly
-            # Ecrire (idPD[nbPrepare]-1) à idPD[nbPrepare] (-1 à nbPrepare)
-            self.helpers.set_PD_nb_prepare(idPD, self.helpers.get_PD_nb_prepare(idPD) - 1)
-            # Ecrire (idPD[compteur]-MaxEntrees) à idPD[compteur] (enlever #MaxEntrees emplacements libres)
-            self.helpers.set_PD_nb_free_slots(idPD,
-                                              self.helpers.get_PD_nb_free_slots(idPD)
-                                              - self.constants.kernel_structure_entries_nb)
-*)
-											(* Change PD structure accordingly *)
-											perform nbPrepare := readPDNbPrepare idPD in
-											perform predNbPrepare := Index.pred nbPrepare in
-											writePDNbPrepare idPD predNbPrepare ;;
-											perform nbFreeSlots := readPDNbFreeSlots idPD in
-											perform entriesnb := getKernelStructureEntriesNb in
-											perform subNbFreeSlots := Index.subIdx nbFreeSlots entriesnb in
-											writePDNbFreeSlots idPD subNbFreeSlots ;;
-(*
-            # // remettre accessible le bloc où il est (parent ou enfant même traitement)
-            # Ecrire TRUE à @noeudASupprimer->accessible
-            self.helpers.set_MPU_accessible_from_MPU_entry_address(structure_to_collect_MPU_address, True)*)
-											(* Set block accessible where it is (current or child) *)
-											writeMPUAccessibleFromMPUEntryAddr 	blockToCollectMPUAddr
-																													true ;;
-(*
-            # //Si bloc pas coupé alors remettre accessible au parent et aux ancêtres (bloc coupé ->reste inaccessible aux ancêtres)
-            # SI SC[noeudASupprimer]->suivant == NULL ET SC[noeudASupprimer]->origin == noeudASupprimer ALORS (bloc pas coupé)
-            if (self.helpers.get_SC_next_from_MPU_entry_address(structure_to_collect_MPU_address) == 0 and
-                    self.helpers.get_SC_origin_from_MPU_entry_address(structure_to_collect_MPU_address)
-                    == self.helpers.get_MPU_start_from_MPU_entry_address(structure_to_collect_MPU_address)):
-                # block used to prepare is not cut ->set accesible in ancestors
-                # Ecrire TRUE dans MPU[ancêtres]->accessible (O(m*p) car recherche dans p ancêtres, sinon besoin de stocker l’adresse du bloc dans l’ancêtre direct pour O(p))
-                self.__write_accessible_to_ancestors_rec(idPD, current_structure_address, True)*)
-											(* Set block accessible in parent and ancestors if not cut *)
-											writeAccessibleToAncestorsIfNotCutRec idPD
-																														currStructureAddr
-																														blockToCollectMPUAddr
-																														true ;;
-(*
-            # Ecrire default à Sh1[noeudASupprimer] (écraser l’entrée Sh1 dans le cas où ce serait un collect sur un enfant)
-            self.helpers.set_Sh1_entry_from_MPU_entry_address(structure_to_collect_MPU_address, 0, 0, 0)*)
-											perform defaultSh1Entry := getDefaultSh1Entry in
-											writeSh1EntryFromMPUEntryAddr blockToCollectMPUAddr
-																										defaultSh1Entry ;;
+												(* Pull out the structure from the list of structures *)
+												removeStructure idPD predStructureAddr currStructureAddr ;;
 
-(*            # RET ptMPUCourant
-            return current_structure_address*)
+												(* Change PD structure accordingly *)
+												perform nbPrepare := readPDNbPrepare idPD in
+												perform predNbPrepare := Index.pred nbPrepare in
+												writePDNbPrepare idPD predNbPrepare ;;
+												perform nbFreeSlots := readPDNbFreeSlots idPD in
+												perform entriesnb := getKernelStructureEntriesNb in
+												perform subNbFreeSlots := Index.subIdx nbFreeSlots entriesnb in
+												writePDNbFreeSlots idPD subNbFreeSlots ;;
+
+												(* Set block accessible where it is (current or child) *)
+												writeMPUAccessibleFromMPUEntryAddr 	blockToCollectMPUAddr
+																														true ;;
+												(* Set block accessible in parent and ancestors if not cut *)
+												writeAccessibleToAncestorsIfNotCutRec idPD
+																															currStructureAddr
+																															blockToCollectMPUAddr
+																															true ;;
+												(* Erase sh1 reference *)
+												perform defaultSh1Entry := getDefaultSh1Entry in
+												writeSh1EntryFromMPUEntryAddr blockToCollectMPUAddr
+																											defaultSh1Entry ;;
+
 											(** STOP condition 2: found a structure to collect *)
 											ret currStructureAddr
 	end.

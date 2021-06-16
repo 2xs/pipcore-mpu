@@ -44,17 +44,12 @@ Open Scope mpu_state_scope.
 Definition N := 100.
 
   (** The 'getCurPartition' function returns the current Partition from the current state *)
-(*Definition getCurPartition : LLI index :=
-	perform s := PipMPU.get in PipMPU.ret s.(PipMPU.currentPartition).*)
 Definition getCurPartition : LLI paddr :=
 	perform s := get in ret s.(currentPartition).
 
 Definition getKernelStructureStartAddr (mpuentryaddr : paddr) (mpuindex : index) : LLI paddr :=
 	(* compute kernel start *)
-	(* MPU_entry_index = self.get_MPU_index(MPU_entry_address)
-  # we compute the start of the kernel structure knowing the MPU's entry address and index
-  kernel_structure_start = MPU_entry_address - MPU_entry_index * self.constants.MPU_entry_length*)
-(* TODO : check if paddr - MPUEntryIndexidx*Constants.MPUEntryLength > 0 ? *)
+(* TODO : check if > 0 ? *)
 	perform kernelStartAddr := Paddr.subPaddrIdx mpuentryaddr mpuindex in
 	ret kernelStartAddr.
 
@@ -63,12 +58,6 @@ Definition getMPUEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (MP
 	let mpuEntryAddr := CPaddr (kernelStartAddr + mpuoffset + MPUEntryIndex) in
 	ret mpuEntryAddr.
 
-(*         """Get the location of the Sh1's entry given the <MPU_entry_index>
-        and the <kernel_structure_address_begin"""*)
-(*Definition getSh1EntryIndexFromKernelStructureStart (kernelStartIndex MPUEntryIndex : PipMPU.index) : PipMPU.LLI index :=
-(* return kernel_structure_address_begin + self.constants.indexSh1 + MPU_entry_index*self.constants.Sh1_entry_length*)
-	let sh1EntryIdx := Build_index (kernelStartIndex + sh1idx + MPUEntryIndex) in
-	PipMPU.ret sh1EntryIdx.*)
 Definition getSh1EntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (MPUEntryIndex : index) : LLI paddr :=
 (* return kernel_structure_address_begin + self.constants.indexSh1 + MPU_entry_index*self.constants.Sh1_entry_length*)
 	let sh1EntryAddr := CPaddr (kernelStartAddr + sh1offset + MPUEntryIndex) in
@@ -78,7 +67,6 @@ Definition getSCEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (MPU
 (* return kernel_structure_address_begin + self.constants.indexSC + MPU_entry_index*self.constants.SC_entry_length*)
 	let scEntryAddr := CPaddr (kernelStartAddr + scoffset + MPUEntryIndex) in
 	ret scEntryAddr.
-
 
 Definition readPDTable (paddr : paddr)  : LLI PDTable :=
 	perform s := get in
@@ -467,14 +455,6 @@ Definition writeMPUXFromMPUEntryAddr (paddr : paddr) (newexec : bool) : LLI unit
 		| None => undefined 59
   end.
 
-(*def write_MPU_entry(self, MPU_entry_address, start, end, accessible, present):
-    """Writes at the MPU entry <MPU_entry_address> the values (<start>, <end>, <accessible bit>, <present bit>)"""
-    # index (0), start (1), end (2), accessible (3), present (4)
-    self.memory.write_int(MPU_entry_address + self.constants.kernel_structure_entries_bits, start)
-    self.memory.write_int(MPU_entry_address + self.constants.kernel_structure_entries_bits + self.memory.size_of_int, end)
-    self.memory.write_bit(MPU_entry_address + self.constants.kernel_structure_entries_bits + 2*self.memory.size_of_int, accessible)
-    self.memory.write_bit(MPU_entry_address + self.constants.kernel_structure_entries_bits + 2*self.memory.size_of_int + 1, present)*)
-
 Definition writeMPUEntryFromMPUEntryAddr (mpuentryaddr : paddr) (mpuentry : MPUEntry) : LLI unit :=
 	writeMPUStartFromMPUEntryAddr mpuentryaddr mpuentry.(mpublock).(startAddr);;
 	writeMPUEndFromMPUEntryAddr mpuentryaddr mpuentry.(mpublock).(endAddr);;
@@ -482,10 +462,6 @@ Definition writeMPUEntryFromMPUEntryAddr (mpuentryaddr : paddr) (mpuentry : MPUE
 	writeMPUPresentFromMPUEntryAddr mpuentryaddr mpuentry.(present);;
 	ret tt.
 
-(*def write_MPU_entry_with_index(self, MPU_entry_address, index, start, end, accessible, present):
-    """Writes at the MPU entry <MPU_entry_address> the values (<index>, <start>, <end>, <accessible bit>, <present bit>)"""
-    self.memory.write_bits(MPU_entry_address, index, self.constants.kernel_structure_entries_bits)
-    self.write_MPU_entry(MPU_entry_address, start, end, accessible, present)*)
 Definition writeMPUEntryWithIndexFromMPUEntryAddr 	(mpuentryaddr : paddr)
 																									(mpuindex : index)
 																									(mpuentry : MPUEntry) : LLI unit :=

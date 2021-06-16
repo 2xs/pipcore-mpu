@@ -39,8 +39,5 @@ Require Import Arith.
 (* User Constants *)
 (*******************************************************************************)
 (* To be set by the user *)
-(*  # To be set by the user
-  self.kernel_structure_entries_bits = 3 *)
 Definition kernelStructureEntriesBits := 3.
-(* self.nb_prepare_max_bits = 3*)
 Definition nbPrepareMaxBits := 3.
