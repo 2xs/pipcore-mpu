@@ -44,8 +44,8 @@ CFLAGS += -I$(TARGET_DIR)/pipcore
 CFLAGS += -g # debug symbols for GDB -DDEBUG
 CFLAGS += -Og # optimize debugging experience more than -O0
 ifeq ($(SEMI_DEBUG), yes)
-# debug through semihosting TODO: set as commandline var
-CFLAGS += -DTRACE -DOS_USE_TRACE_SEMIHOSTING_DEBUG -Isrc/boot/dwm1001/ARM/debug # debug on semihosting debug channel and trace API
+# debug through semihosting, default printf has bug, using trace_printf instead
+CFLAGS += -DTRACE -Dprintf=trace_printf -DOS_USE_TRACE_SEMIHOSTING_DEBUG -Isrc/boot/dwm1001/ARM/debug # debug on semihosting debug channel and trace API
 endif
 ifeq ($(UART_DEBUG), yes)
 # debug through UART

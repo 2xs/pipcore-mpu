@@ -147,6 +147,8 @@ void mal_init_root_part(paddr part)
 	PDT->blocks[1] = (MPUEntry_t*) mpuentryaddr_ram;
 	configure_LUT_entry(PDT->LUT, 0, mpuentryaddr_flash);
 	configure_LUT_entry(PDT->LUT, 1, mpuentryaddr_ram);
+	enableBlockInMPU(part, mpuentryaddr_flash, 0);
+	enableBlockInMPU(part, mpuentryaddr_ram, 1);
 #endif // UNIT_TESTS
 	//DEBUG(TRACE, "mal_init_root_part( part=%08x) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
 	printf("mal_init_root_part( part=%08x) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
@@ -182,8 +184,8 @@ void mal_init_global_var(void)
 
 void mal_init(void)
 {
-	// Check the MPU
-	if (checkMPU()<0)
+	// Check and clear the physical MPU
+	if (checkMPU()<0 || initMPU()<0)
 	{
 		// the check didnt pass, panic since Pip relies on the MPU
 		printf("DEBUG: (kernel) MPU ERROR");

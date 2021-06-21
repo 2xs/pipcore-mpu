@@ -24,6 +24,11 @@
 #include <string.h> // include memcpy
 #include <stdio.h> // include printf
 
+/*!
+ * \fn int mpu_disable(void)
+ * \brief Disable the physical MPU
+ * \return 0:Yes/-1:No
+ */
 int mpu_disable(void) {
 #if __MPU_PRESENT
     MPU->CTRL &= ~MPU_CTRL_ENABLE_Msk;
@@ -33,6 +38,11 @@ int mpu_disable(void) {
 #endif
 }
 
+/*!
+ * \fn int mpu_enable(void)
+ * \brief Enable the physical MPU with the PRIVDEFENA flag
+ * \return 0:Yes/-1:No
+ */
 int mpu_enable(void) {
 #if __MPU_PRESENT
     MPU->CTRL |= MPU_CTRL_PRIVDEFENA_Msk | MPU_CTRL_ENABLE_Msk;
@@ -53,11 +63,34 @@ int mpu_enable(void) {
 #endif
 }
 
+/*!
+ * \fn int mpu_enabled(void)
+ * \brief Check if MPU is enabled
+ * \return 1:Yes/0:No
+ */
 int mpu_enabled(void) {
 #if __MPU_PRESENT
     return (MPU->CTRL & MPU_CTRL_ENABLE_Msk) != 0;
 #else
     return 0;
+#endif
+}
+
+/*!
+ * \fn int mpu_init(void)
+ * \brief Disable the physical MPU
+ * \return 0:Yes/-1:No
+ */
+int mpu_init(void) {
+#if __MPU_PRESENT && !defined(__ARM_ARCH_8M_MAIN__) && !defined(__ARM_ARCH_8M_BASE__)
+    for (int i = 0; i < MPU_NUM_REGIONS ; i++){
+        MPU->RNR  = i; // no need if VALID bit with REGION bits are set in RBAR
+        MPU->RBAR = 0;
+        MPU->RASR = 0;
+    }
+    return 0;
+#else
+    return -1;
 #endif
 }
 
@@ -115,6 +148,81 @@ int mpu_configure_from_LUT(uint32_t* LUT)
 	__DSB();
     return 0;
 }
+
+/*!
+ * \fn uint32_t readPhysicalMPUSizeBits(uint32_t MPURegionNb)
+ * \brief Reads the given physical MPU region's size (in bits)
+ * \param MPURegionNb the physical MPU region to read from
+ * \return the physical MPU region's size in bits (region size = 2^(size in bits+1))
+ */
+uint32_t readPhysicalMPUSizeBits(uint32_t MPURegionNb)
+{
+    MPU->RNR  = MPURegionNb;
+    return (MPU->RASR & MPU_RASR_SIZE_Msk) >> MPU_RASR_SIZE_Pos;
+}
+
+/*!
+ * \fn uint32_t readPhysicalMPUSizeBytes(uint32_t MPURegionNb)
+ * \brief Reads the given physical MPU region's size (in bytes)
+ * \param MPURegionNb the physical MPU region to read from
+ * \return the physical MPU region's size in bytes (region size = 2^(size in bits+1))
+ */
+uint32_t readPhysicalMPUSizeBytes(uint32_t MPURegionNb)
+{
+    MPU->RNR  = MPURegionNb;
+    uint32_t size = (MPU->RASR & MPU_RASR_SIZE_Msk) >> MPU_RASR_SIZE_Pos;
+    return (size == 0) ? 0 : 1 << (size+1);
+}
+
+/*!
+ * \fn uint32_t* readPhysicalMPUStart(uint32_t MPURegionNb)
+ * \brief Reads the given physical MPU region's start address
+ * \param MPURegionNb the physical MPU region to read from
+ * \return the physical MPU region's start address
+ */
+uint32_t* readPhysicalMPUStart(uint32_t MPURegionNb)
+{
+    MPU->RNR  = MPURegionNb;
+    return (uint32_t*)((MPU->RBAR & MPU_RBAR_ADDR_Msk));
+}
+
+/*!
+ * \fn uint32_t readPhysicalMPUAP(uint32_t MPURegionNb)
+ * \brief Reads the given physical MPU region's RW permissions
+ * \param MPURegionNb the physical MPU region to read from
+ * \return the physical MPU region's RW permissions
+ */
+uint32_t readPhysicalMPUAP(uint32_t MPURegionNb)
+{
+    MPU->RNR  = MPURegionNb;
+    return (MPU->RASR & MPU_RASR_AP_Msk) >> MPU_RASR_AP_Pos;
+}
+
+
+/*!
+ * \fn uint32_t readPhysicalMPUXN(uint32_t MPURegionNb)
+ * \brief Reads the given physical MPU region's X permission
+ * \param MPURegionNb the physical MPU region to read from
+ * \return the physical MPU region's X permission (XN = 0 -> execute right)
+ */
+uint32_t readPhysicalMPUXN(uint32_t MPURegionNb)
+{
+    MPU->RNR  = MPURegionNb;
+    return (MPU->RASR & MPU_RASR_XN_Msk) >> MPU_RASR_XN_Pos;
+}
+
+/*!
+ * \fn uint32_t readPhysicalMPURegionEnable(uint32_t MPURegionNb)
+ * \brief Reads the given physical MPU region's enable bit
+ * \param MPURegionNb the physical MPU region to read from
+ * \return the physical MPU region's enable bit
+ */
+uint32_t readPhysicalMPURegionEnable(uint32_t MPURegionNb)
+{
+    MPU->RNR  = MPURegionNb;
+    return (MPU->RASR & MPU_RASR_ENABLE_Msk);
+}
+
 
 /*
 void __attribute__ ((section(".after_vectors"),weak))
@@ -275,7 +383,7 @@ uint32_t* sp = frame;
             printf("Stack was not 8-byte aligned\r\n");
         }
 #endif /* SCB_CCR_STKALIGN_Msk */
-        puts("\nContext before hardfault:");
+        puts("\nContext before memfault:");
 
         /* TODO: printf in ISR context might be a bad idea */
         printf("   r0 (sp): %x\n"

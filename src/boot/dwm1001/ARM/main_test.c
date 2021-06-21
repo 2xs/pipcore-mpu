@@ -27,6 +27,9 @@ paddr root_kernel_structure_start = NULL;
 paddr initial_block_start = NULL;
 paddr initial_block_end = NULL;
 paddr initial_block_root_address = NULL;
+paddr block_flash = NULL;
+paddr block_ram1 = NULL;
+paddr block_ram2 = NULL;
 
 /*!
  * \fn void init_tests_only_ram()
@@ -64,17 +67,17 @@ void init_tests_flash_ram_w_stack()
 
   // add user memory block(s)
   // One FLASH block and two RAM blocks (data + stack)
-	paddr mpuentryaddr_flash = insertNewEntry(root, 0,  (paddr) 0x1FFFFFFF, 0, true, true, true);
-	paddr mpuentryaddr_ram1 = insertNewEntry(root, &_sram, &user_stack_limit, &_sram, true, true, false);
-	paddr mpuentryaddr_ram2 = insertNewEntry(root, &user_stack_limit, &user_stack_top, &user_stack_limit, true, true, false);
+	block_flash = insertNewEntry(root, 0,  (paddr) 0x1FFFFFFF, 0, true, true, true);
+	block_ram1 = insertNewEntry(root, &_sram, &user_stack_limit-1, &_sram, true, true, false);
+	block_ram2 = insertNewEntry(root, &user_stack_limit, &user_stack_top, &user_stack_limit, true, true, false);
 	// Pre-configure the MPU LUT with inserted block(s)
-	PDTable_t* PDT = (PDTable_t*) root;
-	PDT->blocks[0] = (MPUEntry_t*) mpuentryaddr_flash;
-	PDT->blocks[1] = (MPUEntry_t*) mpuentryaddr_ram1;
-	PDT->blocks[1] = (MPUEntry_t*) mpuentryaddr_ram2;
-	configure_LUT_entry(PDT->LUT, 0, mpuentryaddr_flash);
-	configure_LUT_entry(PDT->LUT, 1, mpuentryaddr_ram1);
-  configure_LUT_entry(PDT->LUT, 1, mpuentryaddr_ram2);
+	/*PDTable_t* PDT = (PDTable_t*) root;
+	PDT->blocks[0] = (MPUEntry_t*) block_flash;
+	PDT->blocks[1] = (MPUEntry_t*) block_ram1;
+	PDT->blocks[2] = (MPUEntry_t*) block_ram2;
+	configure_LUT_entry(PDT->LUT, 0, block_flash);
+	configure_LUT_entry(PDT->LUT, 1, block_ram1);
+  configure_LUT_entry(PDT->LUT, 1, block_ram2);*/
 
   //dump_partition(root);
   activate(root);
@@ -2870,28 +2873,83 @@ void test_collect()
 // TEST MPU
 
 /*!
- * \fn void test_mpu()
+ * \fn void test_3_mpu_map()
+ * \brief  Test that mpu_map correctly configures 3 blocks in the physical MPU
+ */
+void test_3_mpu_map()
+{
+  // all physical MPU regions not filled at first, default values
+  for (int i=0 ; i < MPU_REGIONS_NB ; i++)
+  {
+    assert(readPhysicalMPUStart(i) == 0);
+    assert(readPhysicalMPUSizeBits(i) == 0);
+    assert(readPhysicalMPUSizeBytes(i) == 0);
+    assert(readPhysicalMPUAP(i) == 0);
+    assert(readPhysicalMPUXN(i) == 0);
+    assert(readPhysicalMPURegionEnable(i) == 0);
+  }
+
+  // Map 3 blocks
+
+  assert(mpu_map(root, block_flash, 0) == true);
+  assert(mpu_map(root, block_ram1, 1)== true);
+  assert(mpu_map(root, block_ram2, 2)== true);
+
+  dump_partition(root);
+
+  dump_mpu();
+
+  // Check MPU Settings: flash block RWX, ram blocks RW not X
+  assert(readPhysicalMPUStart(0) == readMPUStartFromMPUEntryAddr(block_flash));
+  assert((readPhysicalMPUStart(0) + readPhysicalMPUSizeBytes(0)) <= readMPUEndFromMPUEntryAddr(block_flash));
+  assert(readPhysicalMPUAP(0) == 3);
+  assert(!readPhysicalMPUXN(0) == readMPUXFromMPUEntryAddr(block_flash));
+  assert(readPhysicalMPURegionEnable(0) == 1);
+
+  assert(readPhysicalMPUStart(1) == readMPUStartFromMPUEntryAddr(block_ram1));
+  assert((readPhysicalMPUStart(1) + readPhysicalMPUSizeBytes(1)) <= readMPUEndFromMPUEntryAddr(block_ram1));
+  assert(readPhysicalMPUAP(1) == 3);
+  assert(!readPhysicalMPUXN(1) == readMPUXFromMPUEntryAddr(block_ram1));
+  assert(readPhysicalMPURegionEnable(1) == 1);
+
+  assert(readPhysicalMPUStart(2) == readMPUStartFromMPUEntryAddr(block_ram2));
+  assert((readPhysicalMPUStart(2) + readPhysicalMPUSizeBytes(2)) <= readMPUEndFromMPUEntryAddr(block_ram2));
+  assert(readPhysicalMPUAP(2) == 3);
+  assert(!readPhysicalMPUXN(2) == readMPUXFromMPUEntryAddr(block_ram2));
+  assert(readPhysicalMPURegionEnable(2) == 1);
+
+  // remaining MPU regions still not filled, default values
+  for (int i=3 ; i < MPU_REGIONS_NB ; i++)
+  {
+    assert(readPhysicalMPUStart(i) == 0);
+    assert(readPhysicalMPUSizeBits(i) == 0);
+    assert(readPhysicalMPUSizeBytes(i) == 0);
+    assert(readPhysicalMPUAP(i) == 0);
+    assert(readPhysicalMPUXN(i) == 0);
+    assert(readPhysicalMPURegionEnable(i) == 0);
+  }
+}
+
+/*!
+ * \fn void test_mpu(int try_illegal_access=False)
  * \brief Launches the tests of the MPU
  */
-void test_mpu()
+void test_mpu(int try_illegal_access)
 {
   init_tests_flash_ram_w_stack();
+  test_3_mpu_map();
 
   // must switch to unprivileged mode because priv has always access (MPU PRIVDEFENA set)
 
   // root has a correct dedicated stack block
   // set PSP to root stack and switch to unprivileged mode
   __set_PSP(&user_stack_top);
-  //__set_PSP(&user_mem_start);
-  __set_CONTROL(__get_CONTROL() |
-              CONTROL_SPSEL_Msk );
   __ISB();
   __set_CONTROL(__get_CONTROL() |
                 CONTROL_SPSEL_Msk | // use psp
                 CONTROL_nPRIV_Msk ); // switch to unprivileged Thread Mode
-  __ISB();
+  //__ISB();//not privileged anymore, can't use ISB
 
-  // the ram block is reable, writable, not executable
 
   // cut the ram block: blocks are still accessible (through MPU recovery reconfiguration)
   // tests : same operations as previously -> accessing these blocks trigger the MemManage handler that reconfigures the MPU
@@ -2901,10 +2959,23 @@ void test_mpu()
 
   // cut the child shared block: child has access but root partition looses the access
 
-  // can't access an address not part of the owned block
-  uint32_t* addr = (uint32_t*) initial_block_start - 1;
+
+  // can access an address part of the owned block
+  printf("tt=%x\n", (uint32_t*) 0x2000f598);
+  uint32_t* addr = (uint32_t*) &user_stack_top - 1;
   uint32_t v = *(addr);
-  printf("v=%d, x=%x\n", v, addr);
+  trace_printf("x=%x\n", &addr);
+  trace_printf("v=%d, x=%x\n", v, &addr);
+
+  if (try_illegal_access)
+  {
+    // Do handler and return
+
+    // can't access an address not part of the owned block
+    addr = (uint32_t*) (uint32_t*) &user_stack_top + 1; // stack overflow
+    v = *addr;
+    trace_printf("v=%d, x=%x\n", v, addr);
+  }
 }
 
 /**
@@ -2950,7 +3021,9 @@ int main_test (int argc, char* argv[])
   // Test collect system call
   test_collect();
   printf("main_test: COLLECT OK\r\n");
-  //test_mpu();
+  // Test mpu_map system call
+  test_mpu(false);
+  printf("main_test: MPU OK\r\n");
 
   printf("\r\nmain_test: All tests PASSED\r\n");
 

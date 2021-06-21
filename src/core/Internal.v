@@ -1264,7 +1264,7 @@ Definition enableBlockInMPU 	(idPD : paddr)
 														(MPURegionNb : index)
  																																: LLI bool :=
 	perform zero := Index.zero in
-	perform isBelowZero := Index.leb MPURegionNb zero in
+	perform isBelowZero := Index.ltb MPURegionNb zero in
 	perform maxMPURegions := getMPURegionsNb in
 	perform isAboveMPURegionsNb := Index.leb maxMPURegions MPURegionNb in
 	if isBelowZero || isAboveMPURegionsNb

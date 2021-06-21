@@ -434,3 +434,13 @@ int checkMPU()
 	if (MPU_NUM_REGIONS < 0 || MPU_NUM_REGIONS != MPU_REGIONS_NB) return -1;
 	else return 0;
 }
+
+/*!
+ * \fn int initMPU()
+ * \brief  	Default all MPU regions
+ * \return
+ */
+int initMPU()
+{
+	mpu_init();
+}

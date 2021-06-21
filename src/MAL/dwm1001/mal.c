@@ -1062,6 +1062,7 @@ void removeBlockFromPhysicalMPUIfNotAccessible(paddr pd, paddr mpuentryaddr, boo
 
 }
 
+/* TODO: don't call full mpu replacement for a single block */
 /*!
  * \fn void replaceBlockInMPU(paddr pd, paddr blockmpuentryaddr, index MPURegionNb)
  * \brief Replaces a block in the physical MPU of the given partition
@@ -1074,8 +1075,9 @@ void replaceBlockInPhysicalMPU(paddr pd, paddr blockmpuentryaddr, uint32_t MPURe
 {
 	// replace the given LUT entry with the new block
 	PDTable_t* PDT = (PDTable_t*) pd;
-	PDT->blocks[MPURegionNb] == (MPUEntry_t*)blockmpuentryaddr;
+	PDT->blocks[MPURegionNb] = (MPUEntry_t*)blockmpuentryaddr;
 	configure_LUT_entry(PDT->LUT, (uint32_t) MPURegionNb, blockmpuentryaddr);
+	mpu_configure_from_LUT(PDT->LUT);
 }
 
 /*! \fn paddr getCurPartition()

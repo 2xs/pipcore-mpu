@@ -1,5 +1,6 @@
 #include "mal.h"
 #include <stdio.h>
+#include "mpu.h"
 
 /*!
  * \fn void dump_PD_structure(paddr pd)
@@ -136,4 +137,43 @@ void dump_ancestors(paddr base_child_PD)
     if(base_child_PD == root_partition)
         dump_partition(root_partition);
 #endif // DUMP
+}
+
+/**
+ * @brief Print MPU settings
+ * @return 0 on success
+ * @return <0 on failure
+ */
+int dump_mpu()
+{
+#if defined DUMP
+	// Printf MPU settings
+    #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
+    printf("MPU settings:\r\n");
+	for (int i = 0; i < MPU_NUM_REGIONS ; i++){
+        MPU->RNR  = i;
+        uint32_t* start = readPhysicalMPUStart(i);
+        uint32_t AP = readPhysicalMPUAP(i);
+        uint32_t XNbit = !readPhysicalMPUXN(i);
+        uint32_t regionsize =  readPhysicalMPUSizeBytes(i);
+        uint32_t size = readPhysicalMPUSizeBits(i);
+        uint32_t enable = readPhysicalMPURegionEnable(i);
+
+        printf("%d:MPU->RBAR =%x, start=%x\n", i, MPU->RBAR, start);// size=%d, AP=%d, X=%d,
+        printf("%d:MPU->RASR =%x, regionsize=(2^(%d+1)=%d, AP=%d, XNbit=%d, enable=%d\n",
+                                                    i,
+                                                    MPU->RASR,
+                                                    size,
+                                                    regionsize,
+                                                    AP,
+                                                    XNbit,
+                                                    enable);
+    }
+    printf("\r\n");
+    #endif
+    #if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
+    return -1;
+    #endif
+#endif // DUMP
+    return 0;
 }

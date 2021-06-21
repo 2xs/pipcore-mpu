@@ -155,6 +155,13 @@ int mpu_enable(void);
  */
 int mpu_enabled(void);
 
+/*!
+ * \fn int mpu_init(void)
+ * \brief Disable the physical MPU
+ * \return 0:Yes/-1:No
+ */
+int mpu_init(void);
+
 /**
  * @brief configure the base address and attributes for an MPU region
  *
@@ -176,6 +183,14 @@ int mpu_configure(uint_fast8_t region, uintptr_t base, uint_fast32_t attr);
  * @return <0 on failure
  */
 int mpu_configure_from_LUT(uint32_t* LUT);
+
+uint32_t* readPhysicalMPUStart(uint32_t MPURegionNb); //!< the physical MPU region's start address
+uint32_t readPhysicalMPUAP(uint32_t MPURegionNb); //!< the physical MPU region's RW bit
+uint32_t readPhysicalMPUXN(uint32_t MPURegionNb); //!< the physical MPU region's X bit
+uint32_t readPhysicalMPUSizeBits(uint32_t MPURegionNb); //!< the physical MPU region's region bits (size in log2)
+uint32_t readPhysicalMPUSizeBytes(uint32_t MPURegionNb); //!< the physical MPU region's region size in bytes
+uint32_t readPhysicalMPURegionEnable(uint32_t MPURegionNb); //!< the physical MPU region's enable bit
+
 
 #ifdef __cplusplus
 }

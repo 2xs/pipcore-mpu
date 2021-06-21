@@ -584,3 +584,36 @@ Definition collect (idPD: paddr) : LLI paddr :=
 		perform predStructureAddr := getPDStructurePointerAddrFromPD idPD in
 																(* location of the pointer, not the content *)
 		collectStructureRec currentPart idPD predStructureAddr currStructureAddr.
+
+
+Definition mpu_map (idPD: paddr)
+									(MPUAddressBlockToEnable : paddr)
+									(MPURegionNb : index) : LLI bool :=
+		(** Get the current partition (Partition Descriptor) *)
+    perform currentPart := getCurPartition in
+
+		(** Checks the idPD is current or child partition, block exists, accessible
+				and present *)
+
+		(* Check idPD is the current partition or one of its child*)
+		perform isCurrentPart := getBeqAddr idPD currentPart in
+		perform isChildCurrPart := checkChild currentPart idPD in
+		if negb isCurrentPart && negb isChildCurrPart
+		then (* idPD is not itself or a child partition, stop*) ret false
+		else
+		(* Find the block to enable in the given partition (with MPU address) *)
+    perform blockToEnableAddr := findBlockInMPUWithAddr 	idPD MPUAddressBlockToEnable in
+		perform addrIsNull := compareAddrToNull	blockToEnableAddr in
+		if addrIsNull then(* no block found, stop *) ret false else
+
+		(* Check block is accessible and present*)
+		perform addrIsAccessible := readMPUAccessibleFromMPUEntryAddr
+																	blockToEnableAddr in
+		if negb addrIsAccessible then (* block is not accessible *) ret false else
+		perform addrIsPresent := readMPUPresentFromMPUEntryAddr
+																	blockToEnableAddr in
+		if negb addrIsPresent then (** block is not present *) ret false else
+
+		(** Enable block in MPU if region nb is valid *)
+		enableBlockInMPU idPD blockToEnableAddr MPURegionNb ;;
+		ret true.
