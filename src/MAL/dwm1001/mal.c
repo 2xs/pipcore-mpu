@@ -1037,7 +1037,8 @@ void removeBlockFromPhysicalMPU(paddr pd, paddr mpuentryaddr)
 		if (PDT->blocks[i] == (MPUEntry_t*)mpuentryaddr)
 		{
 			// block is configured in the physical MPU and is removed
-			clear_LUT_entry(PDT->LUT, i);
+			//clear_LUT_entry(PDT->LUT, i);
+			configure_LUT_entry(PDT->LUT, i, NULL);
 			PDT->blocks[i] = NULL;
 		}
 	}
@@ -1076,7 +1077,7 @@ void replaceBlockInPhysicalMPU(paddr pd, paddr blockmpuentryaddr, uint32_t MPURe
 	// replace the given LUT entry with the new block
 	PDTable_t* PDT = (PDTable_t*) pd;
 	PDT->blocks[MPURegionNb] = (MPUEntry_t*)blockmpuentryaddr;
-	configure_LUT_entry(PDT->LUT, (uint32_t) MPURegionNb, blockmpuentryaddr);
+	configure_LUT_entry(PDT->LUT, MPURegionNb, blockmpuentryaddr);
 	mpu_configure_from_LUT(PDT->LUT);
 }
 

@@ -372,42 +372,38 @@ paddr getAddr(paddr addr)
  */
 void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr)
 {
-	// the MPUEntry already respects the minimum MPU size
-	MPUEntry_t* mpuentry = (MPUEntry_t*) mpuentryaddr;
-	// MPU region size = 2^(regionsize +1) on 5 bits
-	uint32_t size =  (uint32_t) (mpuentry->mpublock).endAddr - (uint32_t)(mpuentry->mpublock).startAddr;
-	uint8_t regionsize = (uint8_t) powlog2(size) - 1;
-	uint32_t AP = 7U; // PRIV/UNPRIV RO, region always readbale checked before
-	if (mpuentry->write == 1)
-	{
-		AP = 3U; // PRIV/UNPRIV RW Full access
+	if (mpuentryaddr == NULL){
+		// clear entry
+		LUT[entryindex*2] = (entryindex & 0xF) | MPU_RBAR_VALID_Msk;
+		LUT[entryindex*2+1] = 0; // disable region
+		return;
 	}
-	uint32_t XNbit = !mpuentry->exec; // Execute Never 0 = executable, 1 = not executable
-	LUT[entryindex*2] = ((uint32_t)(mpuentry->mpublock).startAddr | MPU_RBAR_VALID_Msk | entryindex);
-	LUT[entryindex*2+1] = 	MPU_RASR_ENABLE_Msk |
-							(regionsize << MPU_RASR_SIZE_Pos) | //& MPU_RASR_SIZE_Msk) |
-							(AP << MPU_RASR_AP_Pos)  |  // R/W Priv/UnPriv
-							//(1U << MPU_RASR_SRD_Pos) | // subregion SRD disabled (=1)
-							(XNbit << MPU_RASR_XN_Pos) | // 0 = executable, 1 = not executable
-							// ARM_MPU_ACCESS_(0U, 1U, 1U, 1U)     TEX  = b000,  C =  1, B =  1 -> Write back, no write allocate
-							(0U << MPU_RASR_TEX_Pos) | //TypeExtField
-							(1U << MPU_RASR_S_Pos)| //IsShareable = 0 No data shared between seevral processors
-							(1U << MPU_RASR_C_Pos)| //IsCacheable
-							(1U << MPU_RASR_B_Pos) //| //IsBufferable
-						;
-}
-
-/*!
- * \fn void clear_LUT_entry(uint32_t* LUT, uint32_t entryindex)
- * \brief  Defaults the LUT entry at the given index
- * \param LUT The LUT where to erase the entry
- * \param entryindex The entry to erase
- * \return void
- */
-void clear_LUT_entry(uint32_t* LUT, uint32_t entryindex)
-{
-	LUT[entryindex*2] = (entryindex & 0xF) | MPU_RBAR_VALID_Msk;
-	LUT[entryindex*2+1] = 0; // disable region
+	else {
+		// Block should be mapped in the MPU
+		// the MPUEntry already respects the minimum MPU size
+		MPUEntry_t* mpuentry = (MPUEntry_t*) mpuentryaddr;
+		// MPU region size = 2^(regionsize +1) on 5 bits
+		uint32_t size =  (uint32_t) (mpuentry->mpublock).endAddr - (uint32_t)(mpuentry->mpublock).startAddr;
+		uint8_t regionsize = (uint8_t) powlog2(size) - 1;
+		uint32_t AP = 2U; // PRIV RW/UNPRIV RO, region always readable checked before
+		if (mpuentry->write == 1)
+		{
+			AP = 3U; // PRIV/UNPRIV RW Full access
+		}
+		uint32_t XNbit = !mpuentry->exec; // Execute Never 0 = executable, 1 = not executable
+		LUT[entryindex*2] = ((uint32_t)(mpuentry->mpublock).startAddr | MPU_RBAR_VALID_Msk | entryindex);
+		LUT[entryindex*2+1] = 	MPU_RASR_ENABLE_Msk |
+								(regionsize << MPU_RASR_SIZE_Pos) | //& MPU_RASR_SIZE_Msk) |
+								(AP << MPU_RASR_AP_Pos)  |  // R/W Priv/UnPriv
+								//(1U << MPU_RASR_SRD_Pos) | // subregion SRD disabled (=1)
+								(XNbit << MPU_RASR_XN_Pos) | // 0 = executable, 1 = not executable
+								// ARM_MPU_ACCESS_(0U, 1U, 1U, 1U)     TEX  = b000,  C =  1, B =  1 -> Write back, no write allocate
+								(0U << MPU_RASR_TEX_Pos) | //TypeExtField
+								(0U << MPU_RASR_S_Pos)| //IsShareable = 0 No data shared between seevral processors
+								(0U << MPU_RASR_C_Pos)| //IsCacheable
+								(0U << MPU_RASR_B_Pos) //| //IsBufferable
+							;
+	}
 }
 
 /*!
@@ -420,7 +416,7 @@ void clear_LUT(uint32_t* LUT)
 {
 	for (int i=0 ; i < MPU_REGIONS_NB ; i++)
 	{
-		clear_LUT_entry(LUT, i);
+		configure_LUT_entry(LUT, i, NULL);
 	}
 }
 
@@ -437,7 +433,7 @@ int checkMPU()
 
 /*!
  * \fn int initMPU()
- * \brief  	Default all MPU regions
+ * \brief  	Defaults all MPU regions
  * \return
  */
 int initMPU()

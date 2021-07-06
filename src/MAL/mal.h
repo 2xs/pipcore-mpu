@@ -172,7 +172,7 @@ void removeBlockFromPhysicalMPUIfNotAccessible (paddr pd, paddr idblock, bool ac
 void replaceBlockInPhysicalMPU(paddr pd, paddr blockmpuentryaddr, uint32_t MPURegionNb); //! Replaces a block in the physical MPU.
 
 void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr); //! Configures the LUT entry at given index with the given MPU entry
-void clear_LUT_entry(uint32_t* LUT, uint32_t entryindex); //! Defaults the LUT entry at the given index
 void clear_LUT(uint32_t* LUT); //! Defaults all LUT entries
 int checkMPU(); //! Checks the MPU
+int initMPU(); //! Inits the MPU
 #endif

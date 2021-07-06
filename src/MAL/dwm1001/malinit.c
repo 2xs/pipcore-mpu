@@ -187,7 +187,7 @@ void mal_init(void)
 	// Check and clear the physical MPU
 	if (checkMPU()<0 || initMPU()<0)
 	{
-		// the check didnt pass, panic since Pip relies on the MPU
+		// the check did not pass, panic since Pip relies on the MPU
 		printf("DEBUG: (kernel) MPU ERROR");
 		while(1);
 	}

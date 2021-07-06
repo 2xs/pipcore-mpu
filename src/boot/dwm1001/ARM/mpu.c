@@ -82,12 +82,17 @@ int mpu_enabled(void) {
  * \return 0:Yes/-1:No
  */
 int mpu_init(void) {
+	__DMB();
+    // Disable MPU
+	mpu_disable();
 #if __MPU_PRESENT && !defined(__ARM_ARCH_8M_MAIN__) && !defined(__ARM_ARCH_8M_BASE__)
     for (int i = 0; i < MPU_NUM_REGIONS ; i++){
         MPU->RNR  = i; // no need if VALID bit with REGION bits are set in RBAR
         MPU->RBAR = 0;
         MPU->RASR = 0;
     }
+    __ISB();
+	__DSB();
     return 0;
 #else
     return -1;
@@ -138,6 +143,8 @@ int mpu_configure_from_LUT(uint32_t* LUT)
         MPU->RBAR = LUT[i*2];
         MPU->RASR = LUT[i*2+1];
     }
+    // Enable MPU with PRIVDEFENA
+	mpu_enable();
 #endif
 #if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
     return -1;
@@ -332,8 +339,13 @@ before the entry occurred.
 0xFFFFFFFD : Return to Thread mode. Exception return gets state from the process stack. Execution uses PSP after return.
   */
 
-      static const uint32_t BFARVALID_MASK = (0x80 << SCB_CFSR_BUSFAULTSR_Pos);
-    static const uint32_t MMARVALID_MASK = (0x80 << SCB_CFSR_MEMFAULTSR_Pos);
+    static const uint32_t BFARVALID_MASK = (1UL << 15);//(0x80 << SCB_CFSR_BUSFAULTSR_Pos);
+    static const uint32_t IACCVIOL_MASK = (1UL);
+    static const uint32_t DACCVIOL_MASK = (1UL << 1);
+    static const uint32_t MUNSTKERR_MASK = (1UL << 3);
+    static const uint32_t MSTKERR_MASK = (1UL << 4);
+    static const uint32_t MMARVALID_MASK = (1UL << 7);//(0x80 << SCB_CFSR_MEMFAULTSR_Pos);
+
 
 
 /*
@@ -398,26 +410,56 @@ uint32_t* sp = frame;
                "  psr: %x\n\n",
                r12, lreg, pc, psr);
 
-
-    puts("FSR/FAR:");
-    printf(" CFSR: %x\n", cfsr);
-    if (cfsr & BFARVALID_MASK) {
-        /* BFAR valid flag set */
-        printf(" BFAR: %x\n", bfar);
-    }
-if (cfsr & MMARVALID_MASK) {
-        /* MMFAR valid flag set */
-        printf("MMFAR: %x\n", mmfar);
-    }
-
+        puts("FSR/FAR:");
+        printf(" CFSR: %x\n", cfsr);
+        if (cfsr & BFARVALID_MASK) {
+            /* BFAR valid flag set */
+            printf(" BFAR: %x\n", bfar);
+        }
+        if (cfsr & SCB_CFSR_MEMFAULTSR_Msk){
+            /* MMFAR valid flag set */
+            printf("MMFAR: %x\n", mmfar);
+        }
   printf ("\r\n[MemManageFault]\n");
   dumpExceptionStack ((ExceptionStackFrame*)frame, cfsr, mmfar, bfar, lr);
+
+    // MemFault flags
+    if (cfsr & DACCVIOL_MASK) {
+        printf("\r\nDACCVIOL");
+        if(cfsr & MMARVALID_MASK){
+            printf(" on address: %x", mmfar);
+            printf(" (possibly) at instruction: %x\n", pc);
+            SCB->CFSR &= MMARVALID_MASK; // Clear flag
+        }
+        SCB->CFSR &= DACCVIOL_MASK; // Clear flag
+    }
+    if (cfsr & IACCVIOL_MASK) {
+        printf("\r\nIACCVIOL");
+        printf(" (possibly) at instruction: %x\n", pc);
+        SCB->CFSR &= IACCVIOL_MASK; // Clear flag
+    }
+    if (cfsr & MSTKERR_MASK) {
+        printf("\r\nMSTKERR\r\n");
+        SCB->CFSR &= MSTKERR_MASK; // Clear flag
+    }
+    if (cfsr & MUNSTKERR_MASK) {
+        printf("\r\nMUNSTKERR\r\n");
+        SCB->CFSR &= MUNSTKERR_MASK; // Clear flag
+    }
 
 #if defined(DEBUG)
   __DEBUG_BKPT();
 #endif
-  while (1)
-    {
-    }
+
+// no need for DMB instructions in exception handler
+
+#if defined(UNIT_TESTS)
+    // Set canary to 0xDEADBEEF
+    uint32_t* canary = (uint32_t*) 0x20001000;
+    *canary = 0xDEADBEEF;
+    printf ("\r\nNew canary=%x\n", *canary);
+    sp[6] = pc + 2; // continue with next instruction
+    printf ("\r\nPC=%x\n", sp[6]);
+#endif
 
 }

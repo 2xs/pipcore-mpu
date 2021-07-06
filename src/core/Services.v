@@ -103,8 +103,9 @@ Definition createPartition (MPUAddressBlock: paddr) : LLI bool :=
 
 		(** Reflect the child Partition Description creation in the current partition *)
 
-		(** set the block as not available anymore*)
+		(** set the block as not available anymore and remove from physical MPU*)
 		writeMPUAccessibleFromMPUEntryAddr blockInCurrentPartitionAddr false ;;
+		removeBlockFromPhysicalMPU currentPart blockInCurrentPartitionAddr ;;
 		(** set the block as a PD block in shadow 1*)
 		writeSh1PDFlagFromMPUEntryAddr blockInCurrentPartitionAddr true ;;
 		(** set the block as not accessible anymore to the ancestors *)
@@ -390,8 +391,9 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 
 		perform newKStructurePointer := getAddr requisitionedBlockStart in
 
-		(** Set the requisitioned block inaccessible*)
+		(** Set the requisitioned block inaccessible and remove it from the physical MPU*)
 		writeMPUAccessibleFromMPUEntryAddr requisitionedBlockInCurrPartAddr false ;;
+		removeBlockFromPhysicalMPU currentPart requisitionedBlockInCurrPartAddr ;;
 		(** Parent and ancestors: set the block unaccessible if the block is not cut*)
 		perform idRequisitionedBlock := readMPUStartFromMPUEntryAddr
 																				requisitionedBlockInCurrPartAddr in
@@ -586,6 +588,19 @@ Definition collect (idPD: paddr) : LLI paddr :=
 		collectStructureRec currentPart idPD predStructureAddr currStructureAddr.
 
 
+(** ** The mpu_map PIP MPU service
+
+    The [mpu_map] system call maps the <MPUAddressBlockToEnable> block owned by
+		the partition <idPD> (current partition or a child) in the <MPURegionNb> MPU
+		region.
+		If the block is NULL, then the targeted MPU region is removed from the MPU.
+
+		Returns true:OK/false:NOK
+
+    <<idPD>>	the current partition or a child
+    <<MPUAddressBlockToEnable>>	the block to map
+    <<MPURegionNb>>	the physical MPU region number
+*)
 Definition mpu_map (idPD: paddr)
 									(MPUAddressBlockToEnable : paddr)
 									(MPURegionNb : index) : LLI bool :=
@@ -601,19 +616,27 @@ Definition mpu_map (idPD: paddr)
 		if negb isCurrentPart && negb isChildCurrPart
 		then (* idPD is not itself or a child partition, stop*) ret false
 		else
-		(* Find the block to enable in the given partition (with MPU address) *)
-    perform blockToEnableAddr := findBlockInMPUWithAddr 	idPD MPUAddressBlockToEnable in
-		perform addrIsNull := compareAddrToNull	blockToEnableAddr in
-		if addrIsNull then(* no block found, stop *) ret false else
 
-		(* Check block is accessible and present*)
-		perform addrIsAccessible := readMPUAccessibleFromMPUEntryAddr
-																	blockToEnableAddr in
-		if negb addrIsAccessible then (* block is not accessible *) ret false else
-		perform addrIsPresent := readMPUPresentFromMPUEntryAddr
-																	blockToEnableAddr in
-		if negb addrIsPresent then (** block is not present *) ret false else
+		(* Check block to map is NULL, in such case remove the block at given index *)
+		perform blockIsNull := compareAddrToNull	MPUAddressBlockToEnable in
+		if blockIsNull
+		then (** Remove the block from the physical MPU if region nb is valid *)
+				enableBlockInMPU idPD MPUAddressBlockToEnable MPURegionNb
+		else (** Replace the block from the physical MPU if region nb is valid *)
 
-		(** Enable block in MPU if region nb is valid *)
-		enableBlockInMPU idPD blockToEnableAddr MPURegionNb ;;
-		ret true.
+			(* Find the block to enable in the given partition (with MPU address) *)
+		  perform blockToEnableAddr := findBlockInMPUWithAddr 	idPD MPUAddressBlockToEnable in
+			perform addrIsNull := compareAddrToNull	blockToEnableAddr in
+			if addrIsNull then(* no block found, stop *) ret false else
+
+			(* Check block is accessible and present*)
+			perform addrIsAccessible := readMPUAccessibleFromMPUEntryAddr
+																		blockToEnableAddr in
+			if negb addrIsAccessible then (* block is not accessible *) ret false else
+			perform addrIsPresent := readMPUPresentFromMPUEntryAddr
+																		blockToEnableAddr in
+			if negb addrIsPresent then (** block is not present *) ret false else
+
+			(** Enable block in MPU if region nb is valid *)
+			enableBlockInMPU idPD blockToEnableAddr MPURegionNb ;;
+			ret true.

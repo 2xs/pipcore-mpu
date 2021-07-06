@@ -155,8 +155,6 @@ BusFault_Handler:
     nop
 UsageFault_Handler:
     nop
-SVC_Handler:
-    nop
 DebugMon_Handler:
     nop
 PendSV_Handler:

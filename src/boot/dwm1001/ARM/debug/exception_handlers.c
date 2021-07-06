@@ -632,12 +632,47 @@ UsageFault_Handler_C (ExceptionStackFrame* frame __attribute__((unused)),
 void __attribute__ ((section(".after_vectors"),weak))
 SVC_Handler (void)
 {
+  __asm(
+    ".global SVC_Handler_Main\n"
+    "TST lr, #4\n"
+    "ITE EQ\n"
+    "MRSEQ r0, MSP\n"
+    "MRSNE r0, PSP\n"
+    "B SVC_Handler_Main\n"
+  ) ;
+}
+
+void SVC_Handler_Main( unsigned int *svc_args )
+{
 #if defined(DEBUG)
   __DEBUG_BKPT();
 #endif
-  while (1)
-    {
-    }
+
+  unsigned int svc_number;
+
+  /*
+  * Stack contains:
+  * r0, r1, r2, r3, r12, r14, the return address and xPSR
+  * First argument (r0) is svc_args[0]
+  */
+  svc_number = ( ( char * )svc_args[ 6 ] )[ -2 ] ;
+  switch( svc_number )
+  {
+    case 0: // Enable Privileged mode !TODO!: to remove with system calls in SVC instead
+      __set_CONTROL( __get_CONTROL( ) & ~CONTROL_nPRIV_Msk ) ;
+      break;
+    case 1: // Disable Privileged mode !TODO!: to remove with system calls in SVC instead
+      __set_CONTROL(__get_CONTROL() |
+                    CONTROL_nPRIV_Msk ); // switch to unprivileged Thread Mode
+
+      __DMB();
+      __ISB();
+      __DSB();
+      break;
+    default:    // unknown SVC
+      break;
+  }
+
 }
 
 #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)

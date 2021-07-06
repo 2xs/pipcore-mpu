@@ -149,6 +149,9 @@ int dump_mpu()
 #if defined DUMP
 	// Printf MPU settings
     #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
+
+    mpu_enabled() ? printf("\r\n\r\nMPU is enabled\r\n") : printf("\r\nMPU is disabled\r\n");
+    ((MPU->CTRL & MPU_CTRL_PRIVDEFENA_Msk) != 0) ? printf("PRIVDEFENA set\r\n") : printf("PRIVDEFENA NOT set\r\n");
     printf("MPU settings:\r\n");
 	for (int i = 0; i < MPU_NUM_REGIONS ; i++){
         MPU->RNR  = i;

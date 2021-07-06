@@ -5,10 +5,12 @@
 #include "Services.h"
 #include "pip_debug.h"
 #include "nrf52.h"
-#include "core_cm4.h"
 #include "Internal.h"
 
 #include <assert.h>
+
+#define enablePrivilegedMode() __asm("SVC #0")
+#define disablePrivilegedMode() __asm("SVC #1")
 
 // End address for the user section; defined in linker script
 extern uint32_t user_mem_end;
@@ -67,17 +69,11 @@ void init_tests_flash_ram_w_stack()
 
   // add user memory block(s)
   // One FLASH block and two RAM blocks (data + stack)
-	block_flash = insertNewEntry(root, 0,  (paddr) 0x1FFFFFFF, 0, true, true, true);
-	block_ram1 = insertNewEntry(root, &_sram, &user_stack_limit-1, &_sram, true, true, false);
-	block_ram2 = insertNewEntry(root, &user_stack_limit, &user_stack_top, &user_stack_limit, true, true, false);
-	// Pre-configure the MPU LUT with inserted block(s)
-	/*PDTable_t* PDT = (PDTable_t*) root;
-	PDT->blocks[0] = (MPUEntry_t*) block_flash;
-	PDT->blocks[1] = (MPUEntry_t*) block_ram1;
-	PDT->blocks[2] = (MPUEntry_t*) block_ram2;
-	configure_LUT_entry(PDT->LUT, 0, block_flash);
-	configure_LUT_entry(PDT->LUT, 1, block_ram1);
-  configure_LUT_entry(PDT->LUT, 1, block_ram2);*/
+	block_flash = insertNewEntry(root, 0,  (paddr) 0x1FFFFFFF, 0, true, false, true);
+	//block_ram1 = insertNewEntry(root, &_sram, &user_stack_limit-0x200, &_sram, true, true, false);
+	//block_ram2 = insertNewEntry(root, &user_stack_limit, &user_stack_top, &user_stack_limit, true, true, false);
+  block_ram1 = insertNewEntry(root, 0x20000000, 0x20000FFF, 0x20000000, true, false, false);
+	block_ram2 = insertNewEntry(root, 0x20001000, 0x20002000, 0x20001000, true, true, false);
 
   //dump_partition(root);
   activate(root);
@@ -2873,8 +2869,178 @@ void test_collect()
 // TEST MPU
 
 /*!
+ * \fn void test_mpu_physical_MemFault_without_Pip()
+ * \brief  Test that the physical MPU correctly faults with PRIVDEFENA
+ *         When hitting MemFault, the canary value changes -> canary region must be in MPU
+ *          - Test NO MemFault whith no defined region in MPU (PRIVDEFENA set)
+ *          - Test MemFault when writing in RO region
+ *          - Test MemFault when writing in RO region with other defined regions around
+ *          - Test MemFault when writing in RO region from userland
+ */
+void __attribute__((optimize(0))) test_mpu_physical_MemFault_without_Pip()
+{
+    enablePrivilegedMode();
+  // Set MEMFAULTENA to enable MemFault Handler
+  volatile uint32_t *shcsr = (void *)0xE000ED24;
+  *shcsr |= (0x1 << 16);
+
+  volatile uint32_t *mpu_ctrl = (void *)0xE000ED94;
+  volatile uint32_t *mpu_rbar = (void *)0xE000ED9C;
+  volatile uint32_t *mpu_rasr = (void *)0xE000EDA0;
+  volatile uint32_t *mpu_rnr = (void *)0xE000ED98;
+
+  volatile uint32_t* canary = (uint32_t*) 0x20001000; // canary value to be changed in the MemManageFault handler
+  *canary = 0x0;
+
+  // MPU init : Clear all regions
+  __DMB();
+  // Disable MPU
+  *mpu_ctrl = 0x0;
+
+  for (int i = 0; i < 8 ; i++){
+    *mpu_rnr  = i;
+    *mpu_rbar = 0;
+    *mpu_rasr = 0;
+  }
+  __ISB();
+  __DSB();
+
+  printf("MPU config\n");
+
+  // Define Flash region and enable MPU with PRIVDEFENA
+  // REGION 0 : Flash
+  *mpu_rnr = 0;
+  *mpu_rbar = 0x0;
+  // MPU_RASR settings for flash write protection:
+  //  28 : XNbit = 0 -> Execute OK
+  //  24 : AP=0b110 -> Read Only
+  //  16 : TEXSCB=0b000010
+  //  1 : SIZE=19 because we want to cover 1MB
+  //  0 : ENABLE=1
+  *mpu_rasr = (0 << 28) | (0b110 << 24) | (0b000010 << 16) | (19 << 1) | 0x1; //PRIV ROX/USER ROX
+
+  *mpu_ctrl = 0x5; // Enable MPU with PRIVDEFENA
+  __ISB();
+  __DSB();
+
+  // TESTS
+
+  // TEST no MemFault because still PRIV and only flash is RO
+  volatile uint32_t *bad_pointer = (void*)0x20000050;
+  *bad_pointer = 0xdeadbeef; //-> No MemFault
+  assert(*canary == 0x0);
+
+  // TEST MemFault when adding a protected PRIV RO/USER RO region
+  // Region 1 : RAM RO : 0x20000040-0x20000080
+  //  24 : AP=0b110 -> Read Only
+  //  1 : SIZE=5 because we want to cover 64 bytes
+  //  0 : ENABLE=1
+  *mpu_rnr = 1;
+  *mpu_rbar = 0x20000040;
+  *mpu_rasr = (1 << 28) | (0b110 << 24) | (0b001000 << 16) | (5 << 1) | 0x1; //PRIV RO/USER RO
+  // Check MemFault
+  bad_pointer = (void*)0x20000050;
+  *bad_pointer = 0xdeadbeef; //-> MemFault, because protected RO even for PRIV
+  assert(*canary == 0xdeadbeef);
+
+  // TEST still MemFault when adding a RW region after (same address should still fault)
+  *canary = 0x0;
+  // Region 2 : RAM RW : 0x20001000-0x20002000
+  //  24 : AP=0b011 -> R/W
+  //  1 : SIZE=11 because we want to cover 0x1000 bytes
+  //  0 : ENABLE=1
+  *mpu_rnr = 2;
+  *mpu_rbar = 0x20001000;
+  *mpu_rasr = (1 << 28) | (0b011 << 24) | (0b001000 << 16) | (11 << 1) | 0x1; //PRIV RW/USER RW
+  // Check MemFault
+  bad_pointer = (void*)0x20000050;
+  *bad_pointer = 0xdeadbeef; //-> MemFault, because protected RO even for PRIV
+  assert(*canary == 0xdeadbeef);
+
+  // TEST MemFault for userland
+  *canary = 0x0;
+  __set_PSP(0x20002000); // place stack in region 2 (otherwise stack outside of defined regions faults)
+  __set_CONTROL(__get_CONTROL() |
+                      CONTROL_SPSEL_Msk);// | // use psp
+  __set_CONTROL(__get_CONTROL() |
+                 CONTROL_nPRIV_Msk ); // switch to unprivileged Thread Mode
+  // Check MemFault
+  bad_pointer = (void*)0x20000050;
+  *bad_pointer = 0xdeadbeef; //-> MemFault, because protected RO for user
+  assert(*canary == 0xdeadbeef);
+  enablePrivilegedMode();
+}
+
+
+/*!
+ * \fn void test_mpu_physical_MemFault_with_Pip()
+ * \brief   Test that the physical MPU correctly faults with Pip system calls
+ *          Init:
+ *            - cut the RO RAM block in 3
+ *            - Map the flash, one RO ram blco, and the RW (stack) block
+ *            - Switch to userland
+ *          Test:
+ *            - No MemFault for write in RW block
+ *            - MemFault for write in RO region
+ *            - MemFault for write in accessbile region not defined in MPU
+ */
+void __attribute__((optimize(0))) test_mpu_physical_MemFault_with_Pip()
+{
+  dump_mpu();
+
+  volatile uint32_t* canary = 0x20001000; // canary value to be changed in the MemManageFault handler
+  *canary = 0x0;
+
+  // Cut the first Read-Only RAM block in 3 : 0x2000000-0x20000040-0x20000080
+  uint32_t* block_ram1_2_addr = (uint32_t*) 0x20000040;//&sram + 0x40
+  paddr block_ram1_2 = cutMemoryBlock(block_ram1, block_ram1_2_addr, -1);
+  assert(block_ram1_2 != NULL);
+  paddr block_ram1_3 = cutMemoryBlock(block_ram1_2, 0x20000080, -1);
+  assert(block_ram1_3 != NULL);
+
+  // cut the second RW RAM block in 2 : 0x20001000-0x20001500-0x20002000
+  uint32_t* block_ram2_2_addr = (uint32_t*) 0x20001500;
+  paddr block_ram2_2 = cutMemoryBlock(block_ram2, block_ram2_2_addr, -1);
+  assert(block_ram2_2 != NULL);
+
+  // Map 3 blocks -> flash, 2 ram blocks
+  assert(mpu_map(root, block_flash, 0) == true); // Flash
+  assert(mpu_map(root, block_ram1_2, 2)== true); // RO region
+  assert(mpu_map(root, block_ram2, 3)== true); // Stack
+  dump_mpu();
+
+  // Switch to userland, set PSP at end of RW RAM block
+  __set_PSP(0x20001400);
+  __set_CONTROL(__get_CONTROL() |
+                CONTROL_SPSEL_Msk);// use psp
+  __set_CONTROL(__get_CONTROL() |
+                CONTROL_nPRIV_Msk ); // switch to unprivileged Thread Mode
+
+
+   // TEST NO MemFault for userland for a RW block defined in MPU
+  volatile uint32_t *bad_pointer = (void*)0x20001010;
+  *bad_pointer = 0xdeadbeef; //-> No MemFault, because in stack RW
+  assert(*canary == 0x0);
+
+  // TEST MemFault for write in a protected RO region defined in MPU
+  bad_pointer = (void*)0x20000050;
+  *bad_pointer = 0xdeadbeef; //-> MemFault, because protected RO
+  assert(*canary == 0xdeadbeef);
+
+  // TEST MemFault for write in a region not in MPU
+  enablePrivilegedMode();
+  *canary = 0x0; // defaults canary
+  disablePrivilegedMode();
+  bad_pointer = (void*)0x20001510;
+  *bad_pointer = 0xdeadbeef; //-> MemFault, because RAM block not in MPU
+  assert(*canary == 0xdeadbeef);
+
+  enablePrivilegedMode();
+}
+
+/*!
  * \fn void test_3_mpu_map()
- * \brief  Test that mpu_map correctly configures 3 blocks in the physical MPU
+ * \brief  Test that mpu_map correctly configures 3 blocks in the physical MPU settings
  */
 void test_3_mpu_map()
 {
@@ -2899,16 +3065,16 @@ void test_3_mpu_map()
 
   dump_mpu();
 
-  // Check MPU Settings: flash block RWX, ram blocks RW not X
+  // Check MPU Settings: flash block RX, ram block1 RO, ram block2 RW not X
   assert(readPhysicalMPUStart(0) == readMPUStartFromMPUEntryAddr(block_flash));
   assert((readPhysicalMPUStart(0) + readPhysicalMPUSizeBytes(0)) <= readMPUEndFromMPUEntryAddr(block_flash));
-  assert(readPhysicalMPUAP(0) == 3);
+  assert(readPhysicalMPUAP(0) == 2);
   assert(!readPhysicalMPUXN(0) == readMPUXFromMPUEntryAddr(block_flash));
   assert(readPhysicalMPURegionEnable(0) == 1);
 
   assert(readPhysicalMPUStart(1) == readMPUStartFromMPUEntryAddr(block_ram1));
   assert((readPhysicalMPUStart(1) + readPhysicalMPUSizeBytes(1)) <= readMPUEndFromMPUEntryAddr(block_ram1));
-  assert(readPhysicalMPUAP(1) == 3);
+  assert(readPhysicalMPUAP(1) == 2);
   assert(!readPhysicalMPUXN(1) == readMPUXFromMPUEntryAddr(block_ram1));
   assert(readPhysicalMPURegionEnable(1) == 1);
 
@@ -2931,51 +3097,192 @@ void test_3_mpu_map()
 }
 
 /*!
- * \fn void test_mpu(int try_illegal_access=False)
+ * \fn void test_mpu_follows_system_calls()
+ * \brief  Test that the physical MPU mirrors the system calls changes
+          createPartition: in current partition and ancestors -> the PD block in the MPU is removed
+          prepare: in current partition and ancestors -> the prepare block in the MPU is removed
+          add: block stays in the physical MPU
+          cut: - in current partition -> the new subblock is placed at the correct position in the MPU
+                - in the parent partition and ancestors -> the block is removed from the MPU
+ */
+void test_mpu_follows_system_calls()
+{
+  // build blocks and map in MPu
+  build_create_child_block_out_of_initial_block();
+  build_prepare_child_block_out_of_initial_block();
+  build_share_block_out_of_initial_block();
+
+  assert(mpu_map(root, initial_block_root_address, 0) == true);
+  assert(mpu_map(root, block_create_child_MPU_root_address, 1) == true);
+  assert(mpu_map(root, block_prepare_child_MPU_root_address, 2) == true);
+  assert(mpu_map(root, block_to_share_MPU_root_address, 3) == true);
+
+  // Check blocks are in MPU
+  PDTable_t* currPart = (PDTable_t*) getCurPartition();
+  assert(currPart->blocks[0] == initial_block_root_address);
+  assert(currPart->blocks[1] == block_create_child_MPU_root_address);
+  assert(currPart->blocks[2] == block_prepare_child_MPU_root_address);
+  assert(currPart->blocks[3] == block_to_share_MPU_root_address);
+  assert(currPart->blocks[4] == NULL);
+  assert(currPart->blocks[5] == NULL);
+  assert(currPart->blocks[6] == NULL);
+  assert(currPart->blocks[7] == NULL);
+
+  // CREATEPARTITION: block should disappear from physical mpu
+  assert(createPartition(block_create_child_MPU_root_address) == 1);
+  assert(currPart->blocks[1] == NULL);
+
+  // PREPARE: block should disappear from physical mpu
+  assert(prepare(child_partition_pd, 8, block_prepare_child_MPU_root_address) == 1);
+  assert(currPart->blocks[2] == NULL);
+
+  // ADD
+  // in root: block still in physical MPU
+  paddr shared_block_MPU_address = addMemoryBlock(child_partition_pd, block_to_share_MPU_root_address, 1, 0, 0);
+  assert(shared_block_MPU_address != NULL);
+  assert(currPart->blocks[3] == block_to_share_MPU_root_address);
+
+  // in child : set the block in the MPU, shoud not be writable
+  assert(mpu_map(child_partition_pd, shared_block_MPU_address, 0) == true);
+  updateCurPartition(child_partition_pd);
+  currPart = (PDTable_t*) getCurPartition();
+  assert(currPart->blocks[0] == shared_block_MPU_address);
+  assert(readPhysicalMPUAP(0) == 2);
+  dump_mpu();
+
+
+  // CUT in root: subblock placed correctly in MPU
+  updateCurPartition(root);
+  currPart = (PDTable_t*) getCurPartition();
+  initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 25;
+  paddr subblock1_MPU_address = cutMemoryBlock(initial_block_root_address,
+                                              initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 5,
+                                              6);
+  assert(subblock1_MPU_address != NULL);
+  assert(currPart->blocks[0] == initial_block_root_address);
+  assert(currPart->blocks[6] == subblock1_MPU_address);
+
+  // CUT in child: block cut in child MPU + subbblock in child not in MPU
+  // + block removed from the parent's physical MPU
+  assert(currPart->blocks[0] == initial_block_root_address);
+  assert(currPart->blocks[1] == NULL);
+  assert(currPart->blocks[2] == NULL);
+  assert(currPart->blocks[3] == block_to_share_MPU_root_address);
+  assert(currPart->blocks[4] == NULL);
+  assert(currPart->blocks[5] == NULL);
+  assert(currPart->blocks[6] == subblock1_MPU_address);
+  assert(currPart->blocks[7] == NULL);
+  updateCurPartition(child_partition_pd);
+  currPart = (PDTable_t*) getCurPartition();
+  assert(currPart->blocks[0] == shared_block_MPU_address);
+  assert(currPart->blocks[1] == NULL);
+  assert(currPart->blocks[2] == NULL);
+  assert(currPart->blocks[3] == NULL);
+  assert(currPart->blocks[4] == NULL);
+  assert(currPart->blocks[5] == NULL);
+  assert(currPart->blocks[6] == NULL);
+  assert(currPart->blocks[7] == NULL);
+
+  // block cut still in MPU, subblock not
+  assert(cutMemoryBlock(shared_block_MPU_address,
+                        block_to_share_id + KERNELSTRUCTURETOTALLENGTH(),
+                        -1) != NULL);
+  assert(currPart->blocks[0] == shared_block_MPU_address);
+  assert(currPart->blocks[1] == NULL);
+  assert(currPart->blocks[2] == NULL);
+  assert(currPart->blocks[3] == NULL);
+  assert(currPart->blocks[4] == NULL);
+  assert(currPart->blocks[5] == NULL);
+  assert(currPart->blocks[6] == NULL);
+  assert(currPart->blocks[7] == NULL);
+
+  // in root: shared block removed from physical MPU, remains the root's subblocks
+  updateCurPartition(root);
+  currPart = (PDTable_t*) getCurPartition();
+  assert(currPart->blocks[0] == initial_block_root_address);
+  assert(currPart->blocks[1] == NULL);
+  assert(currPart->blocks[2] == NULL);
+  assert(currPart->blocks[3] == NULL);
+  assert(currPart->blocks[4] == NULL);
+  assert(currPart->blocks[5] == NULL);
+  assert(currPart->blocks[6] == subblock1_MPU_address);
+  assert(currPart->blocks[7] == NULL);
+
+}
+
+/*!
+ * \fn void test_mpu_remove_blocks_from_physical_mpu()
+ * \brief  Tests that removing blocks from the MPU list
+*          removes them from the physical MPU
+ *
+ * Init:
+ * - build blocks to create a child
+ * Tests after MPU map:
+ * - all mapped blocks are configured in the physical MPU
+ * - after removal of the blocks
+ *    - all mapped blocks are not configured in the MPU anymore
+ */
+void test_mpu_remove_blocks_from_physical_mpu()
+{
+  // build blocks
+  build_create_child_block_out_of_initial_block();
+  build_prepare_child_block_out_of_initial_block();
+  build_share_block_out_of_initial_block();
+
+  assert(mpu_map(root, initial_block_root_address, 0) == true);
+  assert(mpu_map(root, block_create_child_MPU_root_address, 1) == true);
+  assert(mpu_map(root, block_prepare_child_MPU_root_address, 2) == true);
+  assert(mpu_map(root, block_to_share_MPU_root_address, 3) == true);
+
+  // Check blocks are in MPU
+  PDTable_t* currPart = (PDTable_t*) getCurPartition();
+  assert(currPart->blocks[0] == initial_block_root_address);
+  assert(currPart->blocks[1] == block_create_child_MPU_root_address);
+  assert(currPart->blocks[2] == block_prepare_child_MPU_root_address);
+  assert(currPart->blocks[3] == block_to_share_MPU_root_address);
+  assert(currPart->blocks[4] == NULL);
+  assert(currPart->blocks[5] == NULL);
+  assert(currPart->blocks[6] == NULL);
+  assert(currPart->blocks[7] == NULL);
+
+  // REMOVE blocks from physical MPU
+  assert(mpu_map(root, NULL, 0) == true);
+	assert(mpu_map(root, NULL, 1) == true);
+	assert(mpu_map(root, NULL, 2) == true);
+	assert(mpu_map(root, NULL, 3) == true);
+
+    // Check blocks are NOT in MPU anymore
+  assert(currPart->blocks[0] == NULL);
+  assert(currPart->blocks[1] == NULL);
+  assert(currPart->blocks[2] == NULL);
+  assert(currPart->blocks[3] == NULL);
+  assert(currPart->blocks[4] == NULL);
+  assert(currPart->blocks[5] == NULL);
+  assert(currPart->blocks[6] == NULL);
+  assert(currPart->blocks[7] == NULL);
+}
+
+
+/*!
+ * \fn void test_mpu()
  * \brief Launches the tests of the MPU
  */
-void test_mpu(int try_illegal_access)
+void test_mpu()
 {
+  init_tests_only_ram();
+  test_mpu_physical_MemFault_without_Pip();
+
+  init_tests_flash_ram_w_stack();
+  test_mpu_physical_MemFault_with_Pip();
+
   init_tests_flash_ram_w_stack();
   test_3_mpu_map();
 
-  // must switch to unprivileged mode because priv has always access (MPU PRIVDEFENA set)
+  init_tests_only_ram();
+  test_mpu_remove_blocks_from_physical_mpu();
 
-  // root has a correct dedicated stack block
-  // set PSP to root stack and switch to unprivileged mode
-  __set_PSP(&user_stack_top);
-  __ISB();
-  __set_CONTROL(__get_CONTROL() |
-                CONTROL_SPSEL_Msk | // use psp
-                CONTROL_nPRIV_Msk ); // switch to unprivileged Thread Mode
-  //__ISB();//not privileged anymore, can't use ISB
-
-
-  // cut the ram block: blocks are still accessible (through MPU recovery reconfiguration)
-  // tests : same operations as previously -> accessing these blocks trigger the MemManage handler that reconfigures the MPU
-
-  // create child, prepare, share without write permission
-  // child block is not writable
-
-  // cut the child shared block: child has access but root partition looses the access
-
-
-  // can access an address part of the owned block
-  printf("tt=%x\n", (uint32_t*) 0x2000f598);
-  uint32_t* addr = (uint32_t*) &user_stack_top - 1;
-  uint32_t v = *(addr);
-  trace_printf("x=%x\n", &addr);
-  trace_printf("v=%d, x=%x\n", v, &addr);
-
-  if (try_illegal_access)
-  {
-    // Do handler and return
-
-    // can't access an address not part of the owned block
-    addr = (uint32_t*) (uint32_t*) &user_stack_top + 1; // stack overflow
-    v = *addr;
-    trace_printf("v=%d, x=%x\n", v, addr);
-  }
+  init_tests_only_ram();
+  test_mpu_follows_system_calls();
 }
 
 /**
@@ -3022,7 +3329,7 @@ int main_test (int argc, char* argv[])
   test_collect();
   printf("main_test: COLLECT OK\r\n");
   // Test mpu_map system call
-  test_mpu(false);
+  test_mpu();
   printf("main_test: MPU OK\r\n");
 
   printf("\r\nmain_test: All tests PASSED\r\n");
