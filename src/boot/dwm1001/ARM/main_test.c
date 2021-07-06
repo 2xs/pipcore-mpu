@@ -3096,7 +3096,7 @@ void test_3_mpu_map()
 }
 
 /*!
- * \fn void test_mpu_follows_system_calls()
+ * \fn void test_mpu_in_sync_with_system_calls()
  * \brief  Test that the physical MPU mirrors the system calls changes
           createPartition: in current partition and ancestors -> the PD block in the MPU is removed
           prepare: in current partition and ancestors -> the prepare block in the MPU is removed
@@ -3104,7 +3104,7 @@ void test_3_mpu_map()
           cut: - in current partition -> the new subblock is placed at the correct position in the MPU
                 - in the parent partition and ancestors -> the block is removed from the MPU
  */
-void test_mpu_follows_system_calls()
+void test_mpu_in_sync_with_system_calls()
 {
   // build blocks and map in MPu
   build_create_child_block_out_of_initial_block();
@@ -3261,6 +3261,61 @@ void test_mpu_remove_blocks_from_physical_mpu()
   assert(currPart->blocks[7] == NULL);
 }
 
+/*!
+ * \fn void test_mpu_map_bad_arguments()
+ * \brief  Tests that providing bad arguments fail
+ * Bad arguments:
+ * - idPD: the provided PD is not the current partition or a child
+ * - MPUAddressBlockToEnable: the provided block is not owned by <idPD>
+ * - MPURegionNb: the provided number is outside the MPU region number range
+ */
+void test_mpu_map_in_child()
+{
+  init_test_with_create_prepare_share_child(true);
+
+  // map shared block in child MPU
+  assert(mpu_map(child_partition_pd, block_to_share_MPU_child_address, 0) == true);
+
+  // Check block is mapped in child's MPU
+  updateCurPartition(child_partition_pd);
+  PDTable_t* currPart = (PDTable_t*) getCurPartition();
+  assert(currPart->blocks[0] == block_to_share_MPU_child_address);
+  assert(currPart->blocks[1] == NULL);
+  assert(currPart->blocks[2] == NULL);
+  assert(currPart->blocks[3] == NULL);
+  assert(currPart->blocks[4] == NULL);
+  assert(currPart->blocks[5] == NULL);
+  assert(currPart->blocks[6] == NULL);
+  assert(currPart->blocks[7] == NULL);
+}
+
+
+/*!
+ * \fn void test_mpu_map_bad_arguments()
+ * \brief  Tests that providing bad arguments fail
+ * Bad arguments:
+ * - idPD: the provided PD is not the current partition or a child
+ * - MPUAddressBlockToEnable: the provided block is not owned by <idPD>
+ * - MPURegionNb: the provided number is outside the MPU region number range
+ */
+void test_mpu_map_bad_arguments()
+{
+  // build blocks and map in MPU
+  build_create_child_block_out_of_initial_block();
+  build_prepare_child_block_out_of_initial_block();
+  build_share_block_out_of_initial_block();
+
+   // Check fails when mapping in non existing child
+  assert(mpu_map(0x20000500, initial_block_root_address, 0) == false);
+
+  // Check fails when mapping a non existing block
+  assert(mpu_map(root, 0x10000080, 0) == false);
+
+  // Check fails when mapping in incorrect MPU region number
+  assert(mpu_map(root, initial_block_root_address, -1) == false);
+  assert(mpu_map(root, initial_block_root_address, 8) == false);
+}
+
 
 /*!
  * \fn void test_mpu_map()
@@ -3281,7 +3336,13 @@ void test_mpu_map()
   test_mpu_remove_blocks_from_physical_mpu();
 
   init_tests_only_ram();
-  test_mpu_follows_system_calls();
+  test_mpu_in_sync_with_system_calls();
+
+  init_tests_only_ram();
+  test_mpu_map_in_child();
+
+  init_tests_only_ram();
+  test_mpu_map_bad_arguments();
 }
 
 

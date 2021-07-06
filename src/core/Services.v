@@ -638,8 +638,10 @@ Definition mpu_map (idPD: paddr)
 			if negb addrIsPresent then (** block is not present *) ret false else
 
 			(** Enable block in MPU if region nb is valid *)
-			enableBlockInMPU idPD blockToEnableAddr MPURegionNb ;;
-			ret true.
+			perform blockMPUEnabled := enableBlockInMPU idPD
+																									blockToEnableAddr
+																									MPURegionNb in
+			ret blockMPUEnabled.
 
 
 (** ** The mpu_read PIP MPU service
