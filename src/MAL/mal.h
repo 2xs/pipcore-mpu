@@ -167,6 +167,7 @@ MPUEntry_t buildMPUEntry(paddr startaddr, paddr endaddr, bool accessiblebit, boo
 paddr getPDStructurePointerAddrFromPD(paddr pdaddr); //! Gets the structure pointer of the given PD
 bool checkEntry(paddr kstructurestart, paddr mpuentryaddr); //! Checks an MPU entry is valid in the kernel structure
 
+paddr readBlockFromPhysicalMPU(paddr pd, uint32_t MPURegionNb);  //! Reads the block configured at the given region of the physical MPU.
 void removeBlockFromPhysicalMPU(paddr pd, paddr mpuentryaddr); //! Removes a block from the physical MPU.
 void removeBlockFromPhysicalMPUIfNotAccessible (paddr pd, paddr idblock, bool accessiblebit); //! Removes a block from the physical MPU if not accessible.
 void replaceBlockInPhysicalMPU(paddr pd, paddr blockmpuentryaddr, uint32_t MPURegionNb); //! Replaces a block in the physical MPU.

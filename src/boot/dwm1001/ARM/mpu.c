@@ -78,8 +78,8 @@ int mpu_enabled(void) {
 
 /*!
  * \fn int mpu_init(void)
- * \brief Disable the physical MPU
- * \return 0:Yes/-1:No
+ * \brief Resets the physical MPU
+ * \return 0:Success/-1:Error
  */
 int mpu_init(void) {
 	__DMB();
@@ -91,6 +91,8 @@ int mpu_init(void) {
         MPU->RBAR = 0;
         MPU->RASR = 0;
     }
+    // Enable MPU
+    mpu_enable();
     __ISB();
 	__DSB();
     return 0;

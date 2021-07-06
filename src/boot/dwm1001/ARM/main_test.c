@@ -340,8 +340,7 @@ paddr block_to_share_MPU_grandchild_address;
 
 /*!
  * \fn void build_create_child_block_out_of_initial_block()
- * \brief
-  Build a block which shall be used as a child partition PD
+ * \brief  Build a block which shall be used as a child partition PD
  */
 void build_create_child_block_out_of_initial_block()
 { // build block create -> block create = first block already existing
@@ -2866,7 +2865,7 @@ void test_collect()
   test_collect_bad_arguments();
 }
 
-// TEST MPU
+// TEST MPU MAP SYSTEM CALL
 
 /*!
  * \fn void test_mpu_physical_MemFault_without_Pip()
@@ -3251,7 +3250,7 @@ void test_mpu_remove_blocks_from_physical_mpu()
 	assert(mpu_map(root, NULL, 2) == true);
 	assert(mpu_map(root, NULL, 3) == true);
 
-    // Check blocks are NOT in MPU anymore
+  // Check blocks are NOT in MPU anymore
   assert(currPart->blocks[0] == NULL);
   assert(currPart->blocks[1] == NULL);
   assert(currPart->blocks[2] == NULL);
@@ -3264,10 +3263,10 @@ void test_mpu_remove_blocks_from_physical_mpu()
 
 
 /*!
- * \fn void test_mpu()
- * \brief Launches the tests of the MPU
+ * \fn void test_mpu_map()
+ * \brief Launches the tests of the mpu_map system call
  */
-void test_mpu()
+void test_mpu_map()
 {
   init_tests_only_ram();
   test_mpu_physical_MemFault_without_Pip();
@@ -3283,6 +3282,141 @@ void test_mpu()
 
   init_tests_only_ram();
   test_mpu_follows_system_calls();
+}
+
+
+// TEST MPU READ SYSTEM CALL
+
+/*!
+ * \fn void test_mpu_read_curr_part()
+ * \brief Test read in the MPU of the current partition
+ *        Init:
+ *          - build blocks in current partition
+ *          - map the blocks in the current partition
+ *        Test: read MPU in current partition
+ */
+void test_mpu_read_curr_part()
+{
+  PDTable_t* currPart = (PDTable_t*) getCurPartition();
+
+  // Check blocks are NOT in MPU
+  assert(currPart->blocks[0] == initial_block_root_address);
+  assert(currPart->blocks[1] == NULL);
+  assert(currPart->blocks[2] == NULL);
+  assert(currPart->blocks[3] == NULL);
+  assert(currPart->blocks[4] == NULL);
+  assert(currPart->blocks[5] == NULL);
+  assert(currPart->blocks[6] == NULL);
+  assert(currPart->blocks[7] == NULL);
+
+  // Test mpu read NULL as well
+  assert(mpu_read(root, 0) == initial_block_root_address);
+  assert(mpu_read(root, 1) == NULL);
+  assert(mpu_read(root, 2) == NULL);
+  assert(mpu_read(root, 3) == NULL);
+  assert(mpu_read(root, 4) == NULL);
+  assert(mpu_read(root, 5) == NULL);
+  assert(mpu_read(root, 6) == NULL);
+  assert(mpu_read(root, 7) == NULL);
+
+  // build blocks and map in MPU
+  build_create_child_block_out_of_initial_block();
+  build_prepare_child_block_out_of_initial_block();
+  build_share_block_out_of_initial_block();
+
+  assert(mpu_map(root, initial_block_root_address, 0) == true);
+  assert(mpu_map(root, block_create_child_MPU_root_address, 1) == true);
+  assert(mpu_map(root, block_prepare_child_MPU_root_address, 2) == true);
+  assert(mpu_map(root, block_to_share_MPU_root_address, 3) == true);
+
+  // Check blocks are in MPU
+  assert(currPart->blocks[0] == initial_block_root_address);
+  assert(currPart->blocks[1] == block_create_child_MPU_root_address);
+  assert(currPart->blocks[2] == block_prepare_child_MPU_root_address);
+  assert(currPart->blocks[3] == block_to_share_MPU_root_address);
+  assert(currPart->blocks[4] == NULL);
+  assert(currPart->blocks[5] == NULL);
+  assert(currPart->blocks[6] == NULL);
+  assert(currPart->blocks[7] == NULL);
+
+  // Check mpu read the same values
+  assert(mpu_read(root, 0) == initial_block_root_address);
+  assert(mpu_read(root, 1) == block_create_child_MPU_root_address);
+  assert(mpu_read(root, 2) == block_prepare_child_MPU_root_address);
+  assert(mpu_read(root, 3) == block_to_share_MPU_root_address);
+  assert(mpu_read(root, 4) == NULL);
+  assert(mpu_read(root, 5) == NULL);
+  assert(mpu_read(root, 6) == NULL);
+  assert(mpu_read(root, 7) == NULL);
+}
+
+/*!
+ * \fn void test_mpu_read_child_part()
+ * \brief Test read in the MPU of a child of the current partition
+ *        Init:
+ *          - create child and share block
+ *          - map the shared block in the child
+ *        Test: read MPU in child
+ */
+void test_mpu_read_child_part()
+{
+  init_test_with_create_prepare_share_child(true);
+
+  // map shared block in child MPU
+  assert(mpu_map(child_partition_pd, block_to_share_MPU_child_address, 0) == true);
+
+  // Test read the shared block in the child's MPU
+  assert(mpu_read(child_partition_pd, 0) == block_to_share_MPU_child_address);
+  assert(mpu_read(child_partition_pd, 1) == NULL);
+  assert(mpu_read(child_partition_pd, 2) == NULL);
+  assert(mpu_read(child_partition_pd, 3) == NULL);
+  assert(mpu_read(child_partition_pd, 4) == NULL);
+  assert(mpu_read(child_partition_pd, 5) == NULL);
+  assert(mpu_read(child_partition_pd, 6) == NULL);
+  assert(mpu_read(child_partition_pd, 7) == NULL);
+}
+
+/*!
+ * \fn void test_mpu_read_bad_arguments()
+ * \brief  Tests that providing bad arguments fail
+ * Bad arguments:
+ * - idPD: the provided PD is not the current partition or a child
+ * - MPURegionNb: the provided number is outside the MPU region number range
+ */
+void test_mpu_read_bad_arguments()
+{
+  // build blocks and map in MPU
+  build_create_child_block_out_of_initial_block();
+  build_prepare_child_block_out_of_initial_block();
+  build_share_block_out_of_initial_block();
+
+  assert(mpu_map(root, initial_block_root_address, 0) == true);
+  assert(mpu_map(root, block_create_child_MPU_root_address, 1) == true);
+  assert(mpu_map(root, block_prepare_child_MPU_root_address, 2) == true);
+  assert(mpu_map(root, block_to_share_MPU_root_address, 3) == true);
+
+  // Check fails when reading in non existing child
+  assert(mpu_read(0x20000500, 3) == NULL);
+
+  // Check fails when reading from incorrect MPU region
+  assert(mpu_read(root, -1) == NULL);
+  assert(mpu_read(root, 8) == NULL);
+}
+
+/*!
+ * \fn void test_mpu_read()
+ * \brief Launches the tests of the mpu_read system call
+ */
+void test_mpu_read()
+{
+  init_tests_only_ram();
+  test_mpu_read_curr_part();
+
+  init_tests_only_ram();
+  test_mpu_read_child_part();
+
+  init_tests_only_ram();
+  test_mpu_read_bad_arguments();
 }
 
 /**
@@ -3329,8 +3463,11 @@ int main_test (int argc, char* argv[])
   test_collect();
   printf("main_test: COLLECT OK\r\n");
   // Test mpu_map system call
-  test_mpu();
-  printf("main_test: MPU OK\r\n");
+  test_mpu_map();
+  printf("main_test: MPU MAP OK\r\n");
+  // Test mpu_read system call
+  test_mpu_read();
+  printf("main_test: MPU READ OK\r\n");
 
   printf("\r\nmain_test: All tests PASSED\r\n");
 

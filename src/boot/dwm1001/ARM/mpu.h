@@ -157,8 +157,8 @@ int mpu_enabled(void);
 
 /*!
  * \fn int mpu_init(void)
- * \brief Disable the physical MPU
- * \return 0:Yes/-1:No
+ * \brief Resets the physical MPU
+ * \return 0:Success/-1:Error
  */
 int mpu_init(void);
 

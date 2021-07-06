@@ -71,3 +71,18 @@ Fixpoint addElementAt {A: Type} (remainingIdx: nat) (newelement: A) (assoc : lis
 						| p::post => p :: (addElementAt n newelement post default)
 						end
 		end.
+
+Fixpoint readElementAt {A: Type} (remainingIdx: nat) (assoc : list A) (default:A)   :=
+  match remainingIdx with
+    | 0 => (* reached target index *)
+						match assoc with
+						| nil => (*no element at this index *) default
+						| p::post => (* found element *) p
+						end
+
+    | S n => match assoc with
+						| nil => (* not enough elements in list *) default
+						| p::post => (* continue search in remaining elements *) readElementAt n post default
+						end
+		end.
+

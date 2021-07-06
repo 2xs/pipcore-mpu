@@ -711,6 +711,10 @@ Definition getPDStructurePointerAddrFromPD (pdAddr : paddr) : LLI paddr :=
 	let structurePointerAddr := CPaddr (pdAddr + Constants.kernelstructureidx) in
 	ret structurePointerAddr.
 
+Definition readBlockFromPhysicalMPU (pd : paddr) (index : index) : LLI paddr :=
+	perform realMPU := readPDMPU pd in
+	ret (readElementAt index realMPU nullAddr).
+
 Fixpoint removeBlockFromPhysicalMPUAux (mpuentryaddr : paddr) (realMPU : list paddr)
 																															: list paddr :=
   match realMPU with

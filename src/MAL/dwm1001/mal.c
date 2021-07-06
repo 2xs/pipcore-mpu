@@ -1022,6 +1022,19 @@ paddr getPDStructurePointerAddrFromPD(paddr pdaddr)
 }
 
 /*!
+ * \fn void readBlockFromPhysicalMPU(paddr pd, uint32_t MPURegionNb)
+ * \brief 	Reads the block configured at the given region of the physical MPU.
+ * \param pd The PD to read from
+ * \param MPURegionNb The physical MPU region to read
+ * \return the block's MPU address
+ */
+paddr readBlockFromPhysicalMPU(paddr pd, uint32_t MPURegionNb)
+{
+	PDTable_t* PDT = (PDTable_t*) pd;
+	return PDT->blocks[MPURegionNb];
+}
+
+/*!
  * \fn void removeBlockFromPhysicalMPU(paddr pd, paddr mpuentryaddr)
  * \brief 	Removes the given block from the set to be configured in the MPU for the given pd.
  * \param pd The PD where the block should be removed from

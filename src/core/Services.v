@@ -640,3 +640,39 @@ Definition mpu_map (idPD: paddr)
 			(** Enable block in MPU if region nb is valid *)
 			enableBlockInMPU idPD blockToEnableAddr MPURegionNb ;;
 			ret true.
+
+
+(** ** The mpu_read PIP MPU service
+
+    The [mpu_read] system call reads the content of the physical MPU owned by
+		the partition <idPD> (current partition or a child) at the <MPURegionNb> MPU
+		region.
+
+		Returns block's MPU address if exists, NULL or error otherwise
+
+    <<idPD>>	the current partition or a child
+    <<MPURegionNb>>	the physical MPU region number
+*)
+Definition mpu_read (idPD: paddr) (MPURegionNb : index) : LLI paddr :=
+		(** Get the current partition (Partition Descriptor) *)
+    perform currentPart := getCurPartition in
+
+		(** Checks the idPD is current or child partition *)
+
+		(* Check idPD is the current partition or one of its child*)
+		perform isCurrentPart := getBeqAddr idPD currentPart in
+		perform isChildCurrPart := checkChild currentPart idPD in
+		if negb isCurrentPart && negb isChildCurrPart
+		then (* idPD is not itself or a child partition, stop*) ret nullAddr
+		else
+
+		(* Check index *)
+		perform zero := Index.zero in
+		perform isBelowZero := Index.ltb MPURegionNb zero in
+		perform maxMPURegions := getMPURegionsNb in
+		perform isAboveMPURegionsNb := Index.leb maxMPURegions MPURegionNb in
+		if isBelowZero || isAboveMPURegionsNb
+		then (* MPURegionNb not valid, stop*) ret nullAddr (* TODO: ret error ?*)
+		else
+		(* Read physical MPU *)
+		readBlockFromPhysicalMPU idPD MPURegionNb.
