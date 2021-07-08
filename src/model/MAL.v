@@ -455,6 +455,16 @@ Definition writeMPUXFromMPUEntryAddr (paddr : paddr) (newexec : bool) : LLI unit
 		| None => undefined 59
   end.
 
+Definition readMPUEntryFromMPUEntryAddr  (paddr : paddr) : LLI MPUEntry :=
+  perform s := get in
+  let entry :=  lookup paddr s.(memory) beqAddr in
+  match entry with
+  | Some (MPUE a) => ret a
+  | Some _ => undefined 12
+  | None => undefined 11
+  end.
+
+
 Definition writeMPUEntryFromMPUEntryAddr (mpuentryaddr : paddr) (mpuentry : MPUEntry) : LLI unit :=
 	writeMPUStartFromMPUEntryAddr mpuentryaddr mpuentry.(mpublock).(startAddr);;
 	writeMPUEndFromMPUEntryAddr mpuentryaddr mpuentry.(mpublock).(endAddr);;

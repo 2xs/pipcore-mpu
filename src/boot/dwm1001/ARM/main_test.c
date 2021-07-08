@@ -3480,6 +3480,101 @@ void test_mpu_read()
   test_mpu_read_bad_arguments();
 }
 
+// FINDBLOCK SYSTEM CALL
+/*!
+ * \fn void test_find_initial_block()
+ * \brief Test that the initial block is found
+ */
+void test_find_initial_block()
+{
+  dump_partition(root);
+  blockOrError b = findBlock(root, initial_block_start);
+  assert(b.error != -1);
+  printf("Block found: addr=%x, s=%x, e=%x, RWX=%d%d%d, A=%d\n", b.blockAttr.mpuentryaddr,
+                                                    b.blockAttr.mpublock, // displays start and end
+                                                    b.blockAttr.read,
+                                                    b.blockAttr.write,
+                                                    b.blockAttr.exec,
+                                                    b.blockAttr.accessible);
+  assert(b.blockAttr.mpuentryaddr == initial_block_root_address);
+  assert(b.blockAttr.mpublock.startAddr == readMPUStartFromMPUEntryAddr(initial_block_root_address));
+  assert(b.blockAttr.mpublock.endAddr == readMPUEndFromMPUEntryAddr(initial_block_root_address));
+  assert(b.blockAttr.read == readMPURFromMPUEntryAddr(initial_block_root_address));
+  assert(b.blockAttr.write == readMPUWFromMPUEntryAddr(initial_block_root_address));
+  assert(b.blockAttr.exec == readMPUXFromMPUEntryAddr(initial_block_root_address));
+  assert(b.blockAttr.accessible == readMPUAccessibleFromMPUEntryAddr(initial_block_root_address));
+}
+
+/*!
+ * \fn void test_find_initial_block_in_max_prepared()
+ * \brief Test that the initial block is found in partition that has been prepared several times
+ *        Init: prepare the root partition a maximum of times
+ *        Test: check the initial block is found (test stack does not overflow)
+ */
+void test_find_initial_block_in_max_prepared()
+{
+  // Init
+  paddr initial_block = initial_block_start;
+
+  // reach max prepare
+  for(int i = 30; i > 0; i=i-2)
+  {
+    // cut the initial block
+    paddr blockaddr = cutMemoryBlock(initial_block_root_address,
+                                  initial_block_start + i * KERNELSTRUCTURETOTALLENGTH(),
+                                  -1);
+    assert(blockaddr != false);
+    int isPrepared = prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, blockaddr);
+    if(!isPrepared) break;
+  }
+  blockOrError b = findBlock(root, initial_block_start);
+  assert(b.error != -1);
+  assert(b.blockAttr.mpuentryaddr == initial_block_root_address);
+  assert(b.blockAttr.mpublock.startAddr == readMPUStartFromMPUEntryAddr(initial_block_root_address));
+  assert(b.blockAttr.mpublock.endAddr == readMPUEndFromMPUEntryAddr(initial_block_root_address));
+  assert(b.blockAttr.read == readMPURFromMPUEntryAddr(initial_block_root_address));
+  assert(b.blockAttr.write == readMPUWFromMPUEntryAddr(initial_block_root_address));
+  assert(b.blockAttr.exec == readMPUXFromMPUEntryAddr(initial_block_root_address));
+  assert(b.blockAttr.accessible == readMPUAccessibleFromMPUEntryAddr(initial_block_root_address));
+
+}
+
+/*!
+ * \fn void test_find_bad_arguments()
+ * \brief  Tests that providing bad arguments fail
+ * Bad arguments:
+ * - idPD: the provided PD is not the current partition or a child
+ * - addrInBlock: the provided address is not part of any block
+ */
+void test_find_bad_arguments()
+{
+  // Check fails with non existing child
+  blockOrError b = findBlock(0x10000000, initial_block_start);
+  printf("Block NOT found: b.null=%d, b.blockAttr=%d\n", b.error, b.blockAttr);
+  assert(b.error == -1);
+
+  // Check fails with non existing block
+  blockOrError b2 = findBlock(root, 0x0);
+  assert(b2.error == -1);
+  printf("Block NOT found: b2.null=%d, b2.blockAttr=%d\n", b2.error, b2.blockAttr);
+}
+
+/*!
+ * \fn void test_findBlock()
+ * \brief Launches the tests of the findBlock system call
+ */
+void test_find()
+{
+  init_tests_only_ram();
+  test_find_initial_block();
+
+  init_tests_only_ram();
+  test_find_initial_block_in_max_prepared();
+
+  init_tests_only_ram();
+  test_find_bad_arguments();
+}
+
 /**
  * Unit tests main entry point.
  * If -DDEBUG_UART flag is set, sends printf messages on UART
@@ -3529,6 +3624,9 @@ int main_test (int argc, char* argv[])
   // Test mpu_read system call
   test_mpu_read();
   printf("main_test: MPU READ OK\r\n");
+  // Test findBlock system call
+  test_find();
+  printf("main_test: FINDBLOCK OK\r\n");
 
   printf("\r\nmain_test: All tests PASSED\r\n");
 

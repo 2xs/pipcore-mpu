@@ -51,8 +51,31 @@ Definition compareAddrToNull (p : paddr) : LLI bool :=
   perform nullAddr := getNullAddr in
   getBeqAddr nullAddr p.
 
+(** The [findBlockComp] function decides if the given block <entryaddr> matches
+		the given <referenceaddr> according to the selected comparator <option>.
 
-(** The [findBlockInMPUStructAux] function recursively search by going through
+		Returns if the block suits the address according to the comparator
+*)
+Definition findBlockComp 	(entryaddr : paddr)
+												(referenceaddr : paddr)
+												(comparator : index)
+																																	: LLI bool :=
+	perform mpustart := readMPUStartFromMPUEntryAddr entryaddr in
+	perform zero := Index.zero in
+	if beqIdx comparator zero
+	then (* Comparator 0: block's start addr == referenceaddr *)
+		if beqAddr mpustart referenceaddr
+		then (* block found *) ret true
+		else (* block not found *) ret false
+	else (* Comparator 2: block's start addr < referenceaddr < block's end addr *)
+		perform mpuend := readMPUEndFromMPUEntryAddr entryaddr in
+		perform aboveStart := Paddr.leb mpustart referenceaddr in
+		perform belowEnd := Paddr.leb referenceaddr mpuend in
+		if aboveStart && belowEnd
+		then (* block found *) ret true
+		else (* block not found *)ret false.
+
+(** The [findBlockInMPUStructAux] function recursively searches by going through
 		the current structure list and search for the <id_block_to_find>.
     Stop conditions:
         1: 	reached end of structure (maximum number of iterations)
@@ -65,7 +88,8 @@ Definition compareAddrToNull (p : paddr) : LLI bool :=
 		Returns the block's MPU address or NULL
 *)
 Fixpoint findBlockInMPUInStructAux (timeout : nat) (currentidx : index)
-													(currentkernelstructure idblock: paddr) : LLI paddr :=
+													(currentkernelstructure referenceaddr : paddr)
+													(compoption : index) : LLI paddr :=
 	match timeout with
 		| 0 => getNullAddr
 		| S timeout1 =>
@@ -74,8 +98,10 @@ Fixpoint findBlockInMPUInStructAux (timeout : nat) (currentidx : index)
 																						currentkernelstructure
 																						currentidx in
 										perform ispresent := readMPUPresentFromMPUEntryAddr entryaddr in
-										perform mpustart := readMPUStartFromMPUEntryAddr entryaddr in
-										if ispresent && beqAddr mpustart idblock then
+										perform matchcomp := findBlockComp entryaddr
+																											referenceaddr
+																											compoption in
+										if ispresent &&  matchcomp then
 											(** STOP CONDITION 2: block found *)
 											ret entryaddr
 										else
@@ -95,7 +121,8 @@ Fixpoint findBlockInMPUInStructAux (timeout : nat) (currentidx : index)
 												findBlockInMPUInStructAux 	timeout1
 																								nextidx
 																								currentkernelstructure
-																								idblock
+																								referenceaddr
+																								compoption
 	end.
 
 (** The [findBlockInMPUAux] function recursively search by going through
@@ -111,7 +138,8 @@ Fixpoint findBlockInMPUInStructAux (timeout : nat) (currentidx : index)
 		Returns the found block's MPU address or NULL
 *)
 Fixpoint findBlockInMPUAux (timeout : nat)
-													(currentkernelstructure idblock: paddr) : LLI paddr :=
+													(currentkernelstructure idblock: paddr)
+													(compoption : index)									: LLI paddr :=
 	match timeout with
 		| 0 => getNullAddr
 		| S timeout1 =>	(** PROCESSING: seach for the block in the current structure *)
@@ -119,7 +147,8 @@ Fixpoint findBlockInMPUAux (timeout : nat)
 										perform foundblock := findBlockInMPUInStructAux 	N
 																																		zero
 																																		currentkernelstructure
-																																		idblock in
+																																		idblock
+																																		compoption in
 										perform isnull := getBeqAddr foundblock nullAddr in
 										if negb isnull
 										then
@@ -136,16 +165,28 @@ Fixpoint findBlockInMPUAux (timeout : nat)
 												ret nullAddr
 											else
 												(** RECURSIVE call on the next structure *)
-												findBlockInMPUAux timeout1 nextkernelstructure idblock
+												findBlockInMPUAux timeout1 nextkernelstructure idblock compoption
 	end.
 
 
 
 (* TODO: return Some MPUentry or None *)
-(** The [findBlockInMPU] function fixes the timeout value of [findBlockInMPUAux] *)
+(** The [findBlockInMPU] function fixes the timeout value of [findBlockInMPUAux] 
+		and lauches the block seach for the address being the start address.
+		Same function as in findBlockInMPU but with a different comparator. *)
 Definition findBlockInMPU (idPD : paddr) (idBlock: paddr) : LLI paddr :=
+	perform zero := Index.zero in (* Comparator 1 *)
 	perform kernelstructurestart := readPDStructurePointer idPD in
-	findBlockInMPUAux N kernelstructurestart idBlock.
+	findBlockInMPUAux N kernelstructurestart idBlock zero.
+
+(* TODO: return Some MPUentry or None *)
+(** The [findBelongingBlockInMPU] function fixes the timeout value of [findBlockInMPUAux]
+		and lauches the search for a block encapsulating the address.
+		Same function as in findBlockInMPU but with a different comparator. *)
+Definition findBelongingBlockInMPU (idPD : paddr) (referenceaddr: paddr) : LLI paddr :=
+	perform one := Index.one in (* Comparator 1 *)
+	perform kernelstructurestart := readPDStructurePointer idPD in
+	findBlockInMPUAux N kernelstructurestart referenceaddr one.
 
 
 (** The [findBlockInMPUWithAddrAux] function recursively search by going through

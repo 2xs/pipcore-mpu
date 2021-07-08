@@ -74,6 +74,7 @@ uint32_t mul3(uint32_t v); //!< Multiply an integer with 3
 uint32_t inc(uint32_t val); //!< Increment an integer
 uint32_t dec(uint32_t val); //!< Decrement an integer
 uint32_t zero(); //!< Zero. That's it.
+uint32_t one(); //!< One.
 
 void mal_init(void);
 
@@ -137,6 +138,7 @@ bool readMPUWFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the write flag
 void writeMPUWFromMPUEntryAddr(paddr mpuentryaddr, bool value); //!< Sets the write flag
 bool readMPUXFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the exec flag
 void writeMPUXFromMPUEntryAddr(paddr mpuentryaddr, bool value); //!< Sets the exec flag
+MPUEntry_t readMPUEntryFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the MPU entry
 void writeMPUEntryFromMPUEntryAddr(paddr mpuentryaddr, MPUEntry_t value); //!< Sets the MPU entry
 void writeMPUEntryWithIndexFromMPUEntryAddr(paddr mpuentryaddr, uint32_t index, MPUEntry_t value); //!< Sets the MPU entry with given index
 paddr getSh1EntryAddrFromMPUEntryAddr(paddr mpuentryaddr); //!< Gets the Sh1 entry from the MPU entry
@@ -166,6 +168,7 @@ SCEntry_t getDefaultSCEntry(); //! Returns the default SC entry
 MPUEntry_t buildMPUEntry(paddr startaddr, paddr endaddr, bool accessiblebit, bool presentbit); //! Constructs an MPU entry given the attributes
 paddr getPDStructurePointerAddrFromPD(paddr pdaddr); //! Gets the structure pointer of the given PD
 bool checkEntry(paddr kstructurestart, paddr mpuentryaddr); //! Checks an MPU entry is valid in the kernel structure
+blockOrError blockAttr(paddr mpuentryaddr, MPUEntry_t mpuentry); //! Wrapper to create a block and its attributes
 
 paddr readBlockFromPhysicalMPU(paddr pd, uint32_t MPURegionNb);  //! Reads the block configured at the given region of the physical MPU.
 void removeBlockFromPhysicalMPU(paddr pd, paddr mpuentryaddr); //! Removes a block from the physical MPU.

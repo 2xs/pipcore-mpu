@@ -159,6 +159,7 @@ DIGGERFLAGS += -m MALInternal -d :MALInternal.json
 DIGGERFLAGS += -m MAL -d :MAL.json
 DIGGERFLAGS += -m ADT -m Nat
 DIGGERFLAGS += -q maldefines.h
+DIGGERFLAGS += -c true -c false -c tt -c Coq_error
 
 $(TARGET_DIR)/pipcore/Internal.c: Internal.json $(DIGGER)
 	$(DIGGER) $(DIGGERFLAGS) --ignore coq_N $< -o $@

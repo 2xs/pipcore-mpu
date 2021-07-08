@@ -678,3 +678,37 @@ Definition mpu_read (idPD: paddr) (MPURegionNb : index) : LLI paddr :=
 		else
 		(* Read physical MPU *)
 		readBlockFromPhysicalMPU idPD MPURegionNb.
+
+(** ** The findBlock PIP MPU service
+
+    The [findBlock] system call finds the block of the provided <addrInBlock> by
+		searching in the blocks list of the partition <idPD>.
+
+		Returns the block and its attributes if exists, error otherwise
+
+    <<idPD>>	the current partition or a child
+    <<addrInBlock>>	the address stemming from the block to find
+*)
+Definition findBlock (idPD: paddr) (addrInBlock : paddr) : LLI blockOrError :=
+		(** Get the current partition (Partition Descriptor) *)
+    perform currentPart := getCurPartition in
+
+		(** Checks the idPD is current or child partition *)
+
+		(* Check idPD is the current partition or one of its child*)
+		perform isCurrentPart := getBeqAddr idPD currentPart in
+		perform isChildCurrPart := checkChild currentPart idPD in
+		if negb isCurrentPart && negb isChildCurrPart
+		then (* idPD is not itself or a child partition, stop *) ret error
+		else
+
+		(** Find the block *)
+    perform blockAddr := findBelongingBlockInMPU idPD addrInBlock in
+		perform addrIsNull := compareAddrToNull	blockAddr in
+		if addrIsNull then(* no block found, stop *) ret error else
+		(* Return the block's attributes *)
+		perform blockmpuentry := readMPUEntryFromMPUEntryAddr blockAddr in
+		ret (blockAttr blockAddr blockmpuentry).
+
+
+

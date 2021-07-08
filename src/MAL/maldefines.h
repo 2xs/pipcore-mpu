@@ -51,6 +51,7 @@
 #define coq_MPUEntry MPUEntry_t
 #define coq_Sh1Entry Sh1Entry_t
 #define coq_SCEntry SCEntry_t
+#define Coq_error   (blockOrError){ .error = -1 }
 
 /* MALInternals */
 #define Paddr_leb lebPaddr
@@ -63,6 +64,7 @@
 #define Index_pred      dec
 #define Index_eqb       eqb
 #define Index_zero      zero
+#define Index_one       one
 #define Index_geb       geb
 #define Index_gtb       gtb
 #define Index_leb       leb

@@ -66,6 +66,17 @@ uint32_t zero(void)
 }
 
 /*!
+ * \fn uint32_t one(void)
+ * \brief Returns one.
+ * \return one.
+ */
+uint32_t one(void)
+{
+	return 1;
+}
+
+
+/*!
  * \fn uint32_t addressEquals(uint32_t addr, uint32_t addr2)
  * \param addr Address to check
  * \param addr2 Address to compare to

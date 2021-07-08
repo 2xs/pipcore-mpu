@@ -108,7 +108,7 @@ if (lt_dec startAddr endAddr) then Build_block startAddr endAddr _ else  block_d
 
 Record MPUEntry : Type:=
 {
- read :bool;
+ read : bool;
  write : bool ;
  exec : bool;
  present : bool;
@@ -143,3 +143,10 @@ Record PDTable :=
 (*;
  Hp : pd < nbPage *)
 }.
+
+Inductive blockOrError :=
+| error
+| blockAttr' (addr : paddr) (mpuentry : MPUEntry)
+.
+
+Definition blockAttr := blockAttr'.

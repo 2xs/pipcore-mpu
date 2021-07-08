@@ -552,6 +552,21 @@ void writeMPUXFromMPUEntryAddr(paddr mpuentryaddr, bool value)
 }
 
 /*!
+ * \fn MPUentry_t readMPUEntryFromMPUEntryAddr(paddr mpuentryaddr)
+ * \brief Gets the MPU entry at the given entry.
+ * \param mpuentryaddr The address of the MPU entry to read from
+ * \return the MPU entry
+ */
+MPUEntry_t readMPUEntryFromMPUEntryAddr(paddr mpuentryaddr)
+{
+	// Cast it into a MPUEntry_t structure
+	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+
+	// Return the MPU entry
+	return *mpuentry;
+}
+
+/*!
  * \fn void writeMPUEntryFromMPUEntryAddr(paddr mpuentryaddr, MPUEntry_t value)
  * \brief Sets the MPU entry.
  * \param mpuentryaddr The address of the MPU entry to write in
@@ -1184,6 +1199,20 @@ bool checkEntry(paddr kstructurestart, paddr mpuentryaddr)
 	KStructure_t* ks = (KStructure_t*) kstructurestart;
 	uint32_t index = (MPUEntry_t*) mpuentryaddr - ks->mpu;//mpuentryaddr - kstructurestart;
 	return (&ks->mpu[index] == mpuentryaddr) ? true : false;
+}
+
+/*!
+ * \fn blockOrError blockAttr(paddr mpuentryaddr, MPUEntry_t mpuentry)
+ * \brief Wrapper to create a blockAttr inside the blockOrError union
+ * \param mpuentryaddr The block's MPU address
+ * \param mpuentry the block's attributes to set
+ * \return the given block's public attributes
+ */
+blockOrError blockAttr(paddr mpuentryaddr, MPUEntry_t mpuentry)
+{
+	blockAttr_t block = {mpuentryaddr, mpuentry.mpublock, mpuentry.read, mpuentry.write,
+						mpuentry.exec, mpuentry.accessible};
+	return (blockOrError){ .blockAttr = block };
 }
 
 /* activate:

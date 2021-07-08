@@ -136,4 +136,31 @@ typedef struct KStructure
 }__attribute__((packed)) KStructure_t;
 
 
+/**
+ * \struct blockAttr
+ * \brief blockAttr structure
+ */
+typedef struct blockAttr
+{
+    uint32_t* mpuentryaddr  ;   //!< Pointer to the block's MPU address
+    block_t mpublock        ;   //!< Block present in memory
+    bool read               ;   //!< Read permission
+    bool write              ;   //!< Write permission
+    bool exec               ;   //!< Exec permission
+    bool accessible         ;   //!< block accessible
+}__attribute__((packed)) blockAttr_t;
+
+
+/**
+ * \struct blockOrError
+ * \brief blockOrError union structure
+ *          When the block is empty, the error flag is set to -1,
+ *          otherwise contains a block's public attributes
+ */
+typedef union blockOrError_t
+{
+    int32_t error              ;   //!< Error -1 for an empty block
+    blockAttr_t blockAttr       ;   //!< A block's publicly exposed attributes
+}__attribute__((packed)) blockOrError;
+
 #endif /* ADT_H */
