@@ -377,6 +377,8 @@ Definition insertNewEntry 	(pdinsertion startaddr endaddr origin: paddr)
 Definition freeSlot (pdfree entrytofreempuaddr: paddr) : LLI paddr :=
 (** Checks have been done before: check idPD comes from Pip,
 		check entryToFreeMPUAddress comes from Pip *)
+		(* Remove block from physical MPU if it is there *)
+		removeBlockFromPhysicalMPU 	pdfree entrytofreempuaddr ;;
 		(* set default values in slot to free *)
 		perform defaultMPUEntry := getDefaultMPUEntry in
 		writeMPUEntryFromMPUEntryAddr entrytofreempuaddr defaultMPUEntry;;

@@ -179,7 +179,7 @@ Definition cutMemoryBlock (MPUAddressBlockToCut cutAddr : paddr) (MPURegionNb : 
 		if isBlockTooSmall then (* block is smaller than the minimum  *) ret nullAddr
 		else
 
-		(** Parent and ancestors: set the block unaccessible if this is the block's first cut*)
+		(** Parent and ancestors: set the block inaccessible if this is the block's first cut*)
 		perform idBlockToCut := readMPUStartFromMPUEntryAddr MPUAddressBlockToCut in
 		writeAccessibleToAncestorsIfNotCutRec currentPart
 																					idBlockToCut
@@ -203,6 +203,13 @@ Definition cutMemoryBlock (MPUAddressBlockToCut cutAddr : paddr) (MPURegionNb : 
 		(** Modify initial block: the end address becomes (cutAddress - 1)*)
 		perform predCutAddr := Paddr.pred cutAddr in
 		writeMPUEndFromMPUEntryAddr blockToCutMPUAddr predCutAddr ;;
+		(** Reload the MPU region with the update *)
+		perform kernelentriesnb := getKernelStructureEntriesNb in
+		perform defaultidx := Index.succ kernelentriesnb in
+		perform blockMPURegionNb := findBlockIdxInPhysicalMPU 	currentPart
+																													blockToCutMPUAddr
+																													defaultidx in
+		enableBlockInMPU currentPart blockToCutMPUAddr blockMPURegionNb ;;
 
 		(** Register the cut in the Shadow Cut: insert in middle if needed*)
 		perform originalNextSubblock := readSCNextFromMPUEntryAddr blockToCutMPUAddr in
