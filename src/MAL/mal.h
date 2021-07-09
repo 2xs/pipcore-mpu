@@ -174,6 +174,7 @@ paddr readBlockFromPhysicalMPU(paddr pd, uint32_t MPURegionNb);  //! Reads the b
 void removeBlockFromPhysicalMPU(paddr pd, paddr mpuentryaddr); //! Removes a block from the physical MPU.
 void removeBlockFromPhysicalMPUIfNotAccessible (paddr pd, paddr idblock, bool accessiblebit); //! Removes a block from the physical MPU if not accessible.
 void replaceBlockInPhysicalMPU(paddr pd, paddr blockmpuentryaddr, uint32_t MPURegionNb); //! Replaces a block in the physical MPU.
+uint32_t findBlockIdxInPhysicalMPU(paddr pd, paddr blockToFind, uint32_t defaultnb); //! Returns the MPU region number where the block is configured
 
 void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr); //! Configures the LUT entry at given index with the given MPU entry
 void clear_LUT(uint32_t* LUT); //! Defaults all LUT entries

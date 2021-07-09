@@ -1316,3 +1316,26 @@ Definition enableBlockInMPU 	(idPD : paddr)
 			replaceBlockInPhysicalMPU idPD blockmpuentryaddr MPURegionNb ;;
 			ret true.
 
+(** The [removeBlockFromPhysicalMPUIfAlreadyMapped] function removes the block
+		<blockmpuentryaddr> from the physical MPU of the partition <idPD> if the block
+		is already mapped in the MPU.
+
+		Returns unit
+
+		<<idPD>>								the partition where to look for the physical MPU
+    <<blockmpuentryaddr>>		the block to find
+*)
+Definition removeBlockFromPhysicalMPUIfAlreadyMapped (idPD : paddr)
+																										(blockmpuentryaddr : paddr)
+																										: LLI unit :=
+
+	perform kernelentriesnb := getKernelStructureEntriesNb in
+	perform defaultidx := Index.succ kernelentriesnb in
+	perform oldMPURegionNb := findBlockIdxInPhysicalMPU 	idPD
+																											blockmpuentryaddr
+																											defaultidx in
+	if beqIdx oldMPURegionNb defaultidx
+	then (* block was already mapped, remove it*)
+		enableBlockInMPU idPD nullAddr oldMPURegionNb ;;
+		ret tt
+	else ret tt.

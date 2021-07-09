@@ -1109,6 +1109,33 @@ void replaceBlockInPhysicalMPU(paddr pd, paddr blockmpuentryaddr, uint32_t MPURe
 	mpu_configure_from_LUT(PDT->LUT);
 }
 
+
+/*!
+ * \fn uint32_t findBlockIdxInPhysicalMPU(paddr pd, paddr blockToFound, uint32_t defaultnb)
+ * \brief Finds a block's MPU region number in the physical MPU of the given partition
+ * \param pd the PD where to search the physical MPU
+ * \param blockToFind The block to find
+ * \param defaultnb The default region number to return in case of fail
+ * \return the MPU region where the block is configured, defaultnb if not found
+ */
+uint32_t findBlockIdxInPhysicalMPU(paddr pd, paddr blockToFind, uint32_t defaultnb)
+{
+	// Find the block in the blocks' list
+	PDTable_t* PDT = (PDTable_t*) pd;
+	for(uint32_t i=0 ; i < MPU_REGIONS_NB ; i++)
+	{
+		if(PDT->blocks[i] == blockToFind)
+		{
+			// Block found, return the MPU region number
+			return i;
+		}
+	}
+	// else return the default number
+	return defaultnb;
+
+}
+
+
 /*! \fn paddr getCurPartition()
  	\brief get the current page directory
 	\return the current page directory

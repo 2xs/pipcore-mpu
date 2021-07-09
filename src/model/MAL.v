@@ -763,6 +763,18 @@ Definition replaceBlockInPhysicalMPU (pd : paddr)
 	ret tt.
 
 
+(** The [findBlockIdxInPhysicalMPU] function finds the MPU region number of the
+		<blockToFound> within the physical MPU of <idPD>, else returns <defaultidx>.
+*)
+Definition findBlockIdxInPhysicalMPU 	(idPD : paddr)
+																		(blockToFind : paddr)
+																		(defaultidx : index) : LLI index :=
+	perform realMPU := readPDMPU idPD in
+	perform zero := Index.zero in
+  let foundidx := indexOf blockToFind zero realMPU beqAddr defaultidx in
+	ret (CIndex foundidx).
+
+
 (** The [eraseBlockAux] function recursively zeroes all addresses until it reaches
 		the <startAddr>
 		Stop condition: reached base address
@@ -822,4 +834,3 @@ Definition checkEntry (kernelstructurestart mpuentryaddr : paddr) : LLI bool :=
 		| Some _ => ret false
 		| None => ret false
   end.
-

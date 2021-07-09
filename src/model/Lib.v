@@ -86,3 +86,12 @@ Fixpoint readElementAt {A: Type} (remainingIdx: nat) (assoc : list A) (default:A
 						end
 		end.
 
+Fixpoint indexOf {A: Type} 	(a : A) (idx : nat)  (assoc : list A)
+														(eqA : A -> A -> bool) (default: nat) :=
+	match assoc with
+    | nil => default
+    | x :: assoc' => 	if eqA x a
+											then (* found element, return index *) idx
+											else (* continue search *) indexOf a (S idx) assoc' eqA default
+  end.
+

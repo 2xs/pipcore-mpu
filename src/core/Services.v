@@ -598,6 +598,7 @@ Definition collect (idPD: paddr) : LLI paddr :=
 		the partition <idPD> (current partition or a child) in the <MPURegionNb> MPU
 		region.
 		If the block is NULL, then the targeted MPU region is removed from the MPU.
+		If the block was already mapped, moves the block to the given MPU region.
 
 		Returns true:OK/false:NOK
 
@@ -625,7 +626,7 @@ Definition mpu_map (idPD: paddr)
 		perform blockIsNull := compareAddrToNull	MPUAddressBlockToEnable in
 		if blockIsNull
 		then (** Remove the block from the physical MPU if region nb is valid *)
-				enableBlockInMPU idPD MPUAddressBlockToEnable MPURegionNb
+				enableBlockInMPU idPD nullAddr MPURegionNb
 		else (** Replace the block from the physical MPU if region nb is valid *)
 
 			(* Find the block to enable in the given partition (with MPU address) *)
@@ -641,11 +642,11 @@ Definition mpu_map (idPD: paddr)
 																		blockToEnableAddr in
 			if negb addrIsPresent then (** block is not present *) ret false else
 
+			(** Remove the block from the MPU if it was already mapped *)
+			removeBlockFromPhysicalMPUIfAlreadyMapped idPD blockToEnableAddr ;;
+
 			(** Enable block in MPU if region nb is valid *)
-			perform blockMPUEnabled := enableBlockInMPU idPD
-																									blockToEnableAddr
-																									MPURegionNb in
-			ret blockMPUEnabled.
+			enableBlockInMPU idPD blockToEnableAddr MPURegionNb.
 
 
 (** ** The mpu_read PIP MPU service
