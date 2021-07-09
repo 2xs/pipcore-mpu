@@ -314,13 +314,13 @@ Definition mergeMemoryBlocks (MPUAddressBlockToMerge1 MPUAddressBlockToMerge2 : 
 		list of the partition <idPD>
         - if enough free slots to receive <projectedSlotsNb> then won't do anything
 				- if not enough free slots then prepare the block
-        - if <projectedSlotsNb> == nb of kernel structure entries then will
-				prepare anyways the block
+        - if <projectedSlotsNb> == -1 then prepare the block whatever the nb of
+					free slots
 		Returns true:OK/false:NOK
 
     <<idPD>>													the block to prepare (current partition or a child)
 																			(id = start field of an existing block)
-		<<projectedSlotsNb>>							the number of requested slots
+		<<projectedSlotsNb>>							the number of requested slots, -1 if forced prepare
 		<<MPUAddressRequisitionedBlock>>	the block used as the new kernel structure
 *)
 Definition prepare (idPD : paddr) (projectedSlotsNb : index)
@@ -343,19 +343,23 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 		perform isMaxPrepare := Index.leb maxnbprepare nbPrepare in
 		if isMaxPrepare then (* reached max prepare, stop*) ret false else
 
-		(* Check that there is a need for a prepare (nb of free slots not enough to hold the projected slots) *)
-		(* Check that no more than the max entries of a new kernel structure is planned*)
+		(* Check that there is a need for a prepare: nb of free slots not enough
+				to hold the projected slots or forced prepare) *)
 		perform currentFreeSlotsNb := readPDNbFreeSlots idPD in
 		perform isEnoughFreeSlots := Index.leb projectedSlotsNb currentFreeSlotsNb in
-		perform kernelentriesnb := getKernelStructureEntriesNb in
-		perform isForcedPrepare :=  getBeqIdx projectedSlotsNb kernelentriesnb in
+		perform zero := Index.zero in
+		perform isForcedPrepare := Index.ltb projectedSlotsNb zero in
 		if isEnoughFreeSlots && negb isForcedPrepare
 		then (* no need for a prepare, stop*) ret false
 		else
 
-		(* Check that the nb of projected slots aren't superior to the max entries that a prepare can offer (max kernel entries)*)
+		(* Check that the nb of projected slots aren't superior to the max entries
+				that a prepare can offer (max kernel entries) in case not forced prepare*)
+		perform kernelentriesnb := getKernelStructureEntriesNb in
 		perform isOutsideBound := Index.ltb kernelentriesnb projectedSlotsNb in
-		if isOutsideBound then (* bad arguments, stop*) ret false else
+		if negb isForcedPrepare && isOutsideBound
+		then (* bad arguments, stop*) ret false
+		else
 
 		(** The requisioned block becomes a kernel structure*)
 

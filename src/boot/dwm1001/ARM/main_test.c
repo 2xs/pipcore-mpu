@@ -1129,7 +1129,7 @@ void prepare_test_generic(paddr idPD, paddr MPUAddressBlockPrepare)
   paddr old_parent = readPDParent(idPD);
   KStructure_t* ks_old_first = (KStructure_t*) old_pointer_to_MPU_linked_list;
 
-  assert(prepare(idPD, KERNELSTRUCTUREENTRIESNB, MPUAddressBlockPrepare) != false);
+  assert(prepare(idPD, -1, MPUAddressBlockPrepare) != false);
 
   paddr idBlockPrepare = readMPUStartFromMPUEntryAddr(MPUAddressBlockPrepare);
   KStructure_t* ks_prepare = (KStructure_t*) idBlockPrepare;
@@ -1268,24 +1268,16 @@ void test_prepare_fails_when_reaching_max_nb_prepare()
   paddr block7 = cutMemoryBlock(initial_block_root_address, block7_addr, -1);
   assert(block7 != false);
   // prepare 7 times
-  assert(
-      prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, initial_block_root_address) !=
-      false);
-  assert(
-      prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, block1) != false);
-  assert(
-      prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, block2) != false);
-  assert(
-      prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, block3) != false);
-  assert(
-      prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, block4) != false);
-  assert(
-      prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, block5) != false);
-  assert(
-      prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, block6) != false);
+  assert(prepare(getCurPartition(), -1, initial_block_root_address) != false);
+  assert(prepare(getCurPartition(), -1, block1) != false);
+  assert(prepare(getCurPartition(), -1, block2) != false);
+  assert(prepare(getCurPartition(), -1, block3) != false);
+  assert(prepare(getCurPartition(), -1, block4) != false);
+  assert(prepare(getCurPartition(), -1, block5) != false);
+  assert(prepare(getCurPartition(), -1, block6) != false);
 
   // Fail because max number of prepare reached
-  assert(prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, block7) == false);
+  assert(prepare(getCurPartition(), -1, block7) == false);
 }
 
 /*!
@@ -1302,10 +1294,10 @@ void test_prepare_bad_arguments()
   assert(prepare(root, KERNELSTRUCTUREENTRIESNB + 1, initial_block_root_address) == false);
 
   // Fail because PD is neither the current partition or a child
-  assert(prepare((paddr) 0x1, KERNELSTRUCTUREENTRIESNB, initial_block_root_address) == false);
+  assert(prepare((paddr) 0x1, -1, initial_block_root_address) == false);
 
   // Fail because the block given to hold the prepared structure doesn't exist
-  assert(prepare(root, KERNELSTRUCTUREENTRIESNB, initial_block_root_address - 0x100) == false);
+  assert(prepare(root, -1, initial_block_root_address - 0x100) == false);
 
   // cut initial block in a small block and a huge block + create child partition with huge block
   paddr huge_block = initial_block_start + KERNELSTRUCTURETOTALLENGTH() - 0x100;
@@ -1313,14 +1305,9 @@ void test_prepare_bad_arguments()
   assert(huge_block_MPU_address != false);
   assert(createPartition(huge_block_MPU_address) != false);
   // Fail because block used to prepare is inaccessible (PD of child partition);
-  assert(
-      prepare(getCurPartition(),
-                        KERNELSTRUCTUREENTRIESNB,
-                        huge_block_MPU_address)
-       == false
-  );
+  assert(prepare(getCurPartition(), -1, huge_block_MPU_address) == false);
   // Fail because block used to prepare is too small
-  assert(prepare(huge_block, KERNELSTRUCTUREENTRIESNB, initial_block_root_address) == false);
+  assert(prepare(huge_block, -1, initial_block_root_address) == false);
 }
 
 /*!
@@ -1485,7 +1472,7 @@ void add_bad_arguments()
                         root_kernel_structure_start - 50,
                         true, true, false) == false);
   // Prepare current partition with block to be shared -> becomes inacessible
-  assert(prepare(getCurPartition(),KERNELSTRUCTUREENTRIESNB, block_to_share_MPU_root_address) != false);
+  assert(prepare(getCurPartition(),-1, block_to_share_MPU_root_address) != false);
 
   // Check fail because block to be shared doesn't exist, invalid MPU address (with structure list length = 2)
   assert(addMemoryBlock(child_partition_pd,
@@ -1865,9 +1852,7 @@ void remove_fails_with_subblocks_inaccessible()
                                                   -1);
   assert(block3_MPU_child_address != false);
   // PREPARE the child prepares itself to add a kernel structure with one of the subblocks
-  assert(prepare(getCurPartition(),
-                KERNELSTRUCTUREENTRIESNB,
-                block3_MPU_child_address) != false);
+  assert(prepare(getCurPartition(), -1, block3_MPU_child_address) != false);
   // REMOVE fails
   updateCurPartition(root);
   assert(removeMemoryBlock(child_partition_pd,
@@ -1919,10 +1904,7 @@ void remove_fails_with_block_in_child_not_accessible()
 
   // PREPARE the child prepares itself to add a kernel structure with one of the subblocks
   updateCurPartition(child_partition_pd);
-  assert(prepare(getCurPartition(),
-                KERNELSTRUCTUREENTRIESNB,
-                block_to_share_MPU_child_address)
-                != false);
+  assert(prepare(getCurPartition(), -1, block_to_share_MPU_child_address) != false);
   // REMOVE fails
   updateCurPartition(root);
       assert(removeMemoryBlock(child_partition_pd,
@@ -1971,7 +1953,7 @@ void remove_bad_arguments()
                           root_kernel_structure_start - 50) == false);
 
   // PREPARE + Check the block to be shared doesn't exist with invalid MPU address (with kernel structure list length = 2)
-  assert(prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, block_to_share_MPU_root_address) != false);
+  assert(prepare(getCurPartition(), -1, block_to_share_MPU_root_address) != false);
   assert(removeMemoryBlock(initial_block_start,
                           root_kernel_structure_start - 50) == false);
 
@@ -2748,7 +2730,7 @@ void test_collect_with_several_structures()
   assert(block3_MPU_address != false);
 
   // prepare the child again (2nd prepare) without adding a block -> 1st prepare is empty and can be collected
-  assert(prepare(child_partition_pd, 8, block2_MPU_address) != false);
+  assert(prepare(child_partition_pd, -1, block2_MPU_address) != false);
 
   // add another block to child (2nd prepare not empty anymore);
   assert(addMemoryBlock(child_partition_pd,
@@ -3524,7 +3506,7 @@ void test_find_initial_block_in_max_prepared()
                                   initial_block_start + i * KERNELSTRUCTURETOTALLENGTH(),
                                   -1);
     assert(blockaddr != false);
-    int isPrepared = prepare(getCurPartition(), KERNELSTRUCTUREENTRIESNB, blockaddr);
+    int isPrepared = prepare(getCurPartition(), -1, blockaddr);
     if(!isPrepared) break;
   }
   blockOrError b = findBlock(root, initial_block_start);

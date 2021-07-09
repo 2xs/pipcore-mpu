@@ -65,11 +65,11 @@ bool checkRights(paddr originalmpuentryaddr, bool read, bool write, bool exec); 
 uint32_t toAddr(uint32_t input); //!< Converts a given uint32_t to an address (only for Haskell FFI purposes)
 
 /* Coq related stuff */
-int geb(const uint32_t a, const uint32_t b); //!< Greater or equal
-int gtb(const uint32_t a, const uint32_t b); //!< Greater than
-int leb(const uint32_t a, const uint32_t b); //!< Lower or equal
-int ltb(const uint32_t a, const uint32_t b); //!< Lower than
-int eqb(const uint32_t a, const uint32_t b); //!< Equals
+int geb(const int32_t a, const int32_t b); //!< Greater or equal
+int gtb(const int32_t a, const int32_t b); //!< Greater than
+int leb(const int32_t a, const int32_t b); //!< Lower or equal
+int ltb(const int32_t a, const int32_t b); //!< Lower than
+int eqb(const int32_t a, const int32_t b); //!< Equals
 uint32_t mul3(uint32_t v); //!< Multiply an integer with 3
 uint32_t inc(uint32_t val); //!< Increment an integer
 uint32_t dec(uint32_t val); //!< Decrement an integer

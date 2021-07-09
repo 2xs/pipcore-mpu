@@ -89,51 +89,51 @@ uint32_t addressEquals(uint32_t addr, uint32_t addr2)
 }
 
 /*!
- * \fn uint32_t geb()
+ * \fn int32_t geb()
  * \brief the first parameter is greater than or equal to the second one.
  * \return the comparison.
  */
-int geb(const uint32_t a, const uint32_t b)
+int geb(const int32_t a, const int32_t b)
 {
 	return a >= b;
 }
 
 /*!
- * \fn uint32_t gtb()
+ * \fn int32_t gtb()
  * \brief the first parameter is greater than the second one.
  * \return the comparison.
  */
-int gtb(const uint32_t a, const uint32_t b)
+int gtb(const int32_t a, const int32_t b)
 {
 	return a > b;
 }
 
 /*!
- * \fn uint32_t leb()
+ * \fn int32_t leb()
  * \brief the first parameter is less than or equal to the second one.
  * \return the comparison.
  */
-int leb(const uint32_t a, const uint32_t b)
+int leb(const int32_t a, const int32_t b)
 {
 	return a <= b;
 }
 
 /*!
- * \fn uint32_t ltb()
+ * \fn int32_t ltb()
  * \brief the first parameter is less than the second one.
  * \return the comparison.
  */
-int ltb(const uint32_t a, const uint32_t b)
+int ltb(const int32_t a, const int32_t b)
 {
 	return a < b;
 }
 
 /*!
- * \fn uint32_t eqb()
+ * \fn int32_t eqb()
  * \brief the first parameter is equal to the second one.
  * \return the comparison.
  */
-int eqb(const uint32_t a, const uint32_t b)
+int eqb(const int32_t a, const int32_t b)
 {
 	return a == b;
 }
