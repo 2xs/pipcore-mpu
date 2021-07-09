@@ -592,9 +592,9 @@ Definition collect (idPD: paddr) : LLI paddr :=
 		collectStructureRec currentPart idPD predStructureAddr currStructureAddr.
 
 
-(** ** The mpu_map PIP MPU service
+(** ** The mapMPU PIP MPU service
 
-    The [mpu_map] system call maps the <MPUAddressBlockToEnable> block owned by
+    The [mapMPU] system call maps the <MPUAddressBlockToEnable> block owned by
 		the partition <idPD> (current partition or a child) in the <MPURegionNb> MPU
 		region.
 		If the block is NULL, then the targeted MPU region is removed from the MPU.
@@ -606,7 +606,7 @@ Definition collect (idPD: paddr) : LLI paddr :=
     <<MPUAddressBlockToEnable>>	the block to map
     <<MPURegionNb>>	the physical MPU region number
 *)
-Definition mpu_map (idPD: paddr)
+Definition mapMPU (idPD: paddr)
 									(MPUAddressBlockToEnable : paddr)
 									(MPURegionNb : index) : LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
@@ -649,9 +649,9 @@ Definition mpu_map (idPD: paddr)
 			enableBlockInMPU idPD blockToEnableAddr MPURegionNb.
 
 
-(** ** The mpu_read PIP MPU service
+(** ** The readMPU PIP MPU service
 
-    The [mpu_read] system call reads the content of the physical MPU owned by
+    The [readMPU] system call reads the content of the physical MPU owned by
 		the partition <idPD> (current partition or a child) at the <MPURegionNb> MPU
 		region.
 
@@ -660,7 +660,7 @@ Definition mpu_map (idPD: paddr)
     <<idPD>>	the current partition or a child
     <<MPURegionNb>>	the physical MPU region number
 *)
-Definition mpu_read (idPD: paddr) (MPURegionNb : index) : LLI paddr :=
+Definition readMPU (idPD: paddr) (MPURegionNb : index) : LLI paddr :=
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 
