@@ -184,15 +184,29 @@ uint32_t readPhysicalMPUSizeBytes(uint32_t MPURegionNb)
 }
 
 /*!
- * \fn uint32_t* readPhysicalMPUStart(uint32_t MPURegionNb)
+ * \fn uint32_t* readPhysicalMPUStartAddr(uint32_t MPURegionNb)
  * \brief Reads the given physical MPU region's start address
  * \param MPURegionNb the physical MPU region to read from
  * \return the physical MPU region's start address
  */
-uint32_t* readPhysicalMPUStart(uint32_t MPURegionNb)
+uint32_t* readPhysicalMPUStartAddr(uint32_t MPURegionNb)
 {
     MPU->RNR  = MPURegionNb;
     return (uint32_t*)((MPU->RBAR & MPU_RBAR_ADDR_Msk));
+}
+
+/*!
+ * \fn uint32_t* readPhysicalMPUEndAddr(uint32_t MPURegionNb)
+ * \brief Reads the given physical MPU region's end address
+ * \param MPURegionNb the physical MPU region to read from
+ * \return the physical MPU region's end address
+ */
+uint32_t* readPhysicalMPUEndAddr(uint32_t MPURegionNb)
+{
+    // Cast in order to offset the start address in bytes not in addresses
+    uint32_t start = (uint32_t) readPhysicalMPUStartAddr(MPURegionNb);
+    uint32_t size = readPhysicalMPUSizeBytes(MPURegionNb);
+    return (uint32_t*) (start + size - 1);
 }
 
 /*!
@@ -233,66 +247,6 @@ uint32_t readPhysicalMPURegionEnable(uint32_t MPURegionNb)
 }
 
 
-/*
-void __attribute__ ((section(".after_vectors"),weak))
-MemManage_Handler (void)
-{
-#if defined(DEBUG)
-  __DEBUG_BKPT();
-#endif
-  while (1)
-    {
-    }
-}*/
-
-
-/*
-void __attribute__ ((section(".after_vectors"),weak,naked))
-MemoryManagement_Handler (void)
-{
-    __asm volatile
-    (
-        " tst lr, #4                                                \n"
-        " ite eq                                                    \n"
-        " mrseq r0, msp                                             \n"
-        " mrsne r0, psp                                             \n"
-        " ldr r1, [r0, #24]                                         \n"
-        " ldr r2, handler2_address_const                            \n"
-        " bx r2                                                     \n"
-        " handler2_address_const: .word prvGetRegistersFromStack    \n"
-    );
-}
-
-void prvGetRegistersFromStack( uint32_t *pulFaultStackAddress )
-{
-// These are volatile to try and prevent the compiler/linker optimising them
-//away as the variables never actually get used.  If the debugger won't show the
-//values of the variables, make them global my moving their declaration outside
-//of this function.
-volatile uint32_t r0;
-volatile uint32_t r1;
-volatile uint32_t r2;
-volatile uint32_t r3;
-volatile uint32_t r12;
-volatile uint32_t lr; // Link register.
-volatile uint32_t pc; // Program counter.
-volatile uint32_t psr;// Program status register.
-
-    r0 = pulFaultStackAddress[ 0 ];
-    r1 = pulFaultStackAddress[ 1 ];
-    r2 = pulFaultStackAddress[ 2 ];
-    r3 = pulFaultStackAddress[ 3 ];
-
-    r12 = pulFaultStackAddress[ 4 ];
-    lr = pulFaultStackAddress[ 5 ];
-    pc = pulFaultStackAddress[ 6 ];
-    psr = pulFaultStackAddress[ 7 ];
-
-    // When the following line is hit, the variables contain the register values.
-    for( ;; );
-}*/
-
-
 void __attribute__ ((section(".after_vectors"),weak,naked))
 MemoryManagement_Handler (void)
 {
@@ -311,9 +265,7 @@ MemoryManagement_Handler (void)
   );
 }
 
-//void __attribute__ ((section(".after_vectors"),weak,used))
-//MemoryManagement_Handler_C (ExceptionStackFrame* frame __attribute__((unused)),
-//                     uint32_t lr __attribute__((unused)))
+
 void __attribute__ ((section(".after_vectors"),weak,used))
 MemoryManagement_Handler_C (uint32_t* frame __attribute__((unused)),
                      uint32_t lr __attribute__((unused)))
@@ -338,7 +290,7 @@ before the entry occurred.
   /*
   0xFFFFFFF1 : Return to Handler mode. Exception return gets state from the main stack. Execution uses MSP after return
   0xFFFFFFF9 : Return to Thread mode. Exception Return get state from the main stack. Execution uses MSP after return.
-0xFFFFFFFD : Return to Thread mode. Exception return gets state from the process stack. Execution uses PSP after return.
+  0xFFFFFFFD : Return to Thread mode. Exception return gets state from the process stack. Execution uses PSP after return.
   */
 
     static const uint32_t BFARVALID_MASK = (1UL << 15);//(0x80 << SCB_CFSR_BUSFAULTSR_Pos);
@@ -350,9 +302,7 @@ before the entry occurred.
 
 
 
-/*
-SCB->CFSR:  Configurable Fault Status register
-SCB->MMAR:  MemManage Fault Address register
+/* TODO: rewrite this part
 
 if(DACCVIOL == 1 -> MMARVALID=1 || IACCVIOL = MPU or XN in default mem map) from MFSR
 -> offending code at stacked PC =  [SP + 24] (PSP or MSP)  -> get back to this once handled
@@ -425,29 +375,77 @@ uint32_t* sp = frame;
   printf ("\r\n[MemManageFault]\n");
   dumpExceptionStack ((ExceptionStackFrame*)frame, cfsr, mmfar, bfar, lr);
 
+#if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
+  int reconfigure_mpu = -1; // indicates if the fault can be recovered in case of a partially configured block
+#endif
+
     // MemFault flags
     if (cfsr & DACCVIOL_MASK) {
         printf("\r\nDACCVIOL");
         if(cfsr & MMARVALID_MASK){
             printf(" on address: %x", mmfar);
-            printf(" (possibly) at instruction: %x\n", pc);
+            printf(" at (possibly) instruction: %x\n", pc);
+#if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
+            reconfigure_mpu = 1;
+#endif
             SCB->CFSR &= MMARVALID_MASK; // Clear flag
         }
         SCB->CFSR &= DACCVIOL_MASK; // Clear flag
     }
     if (cfsr & IACCVIOL_MASK) {
         printf("\r\nIACCVIOL");
-        printf(" (possibly) at instruction: %x\n", pc);
+        printf(" at (possibly) instruction: %x\n", pc);
         SCB->CFSR &= IACCVIOL_MASK; // Clear flag
     }
     if (cfsr & MSTKERR_MASK) {
+        // The stack is probably not configured in the MPU
         printf("\r\nMSTKERR\r\n");
         SCB->CFSR &= MSTKERR_MASK; // Clear flag
     }
     if (cfsr & MUNSTKERR_MASK) {
+        // The stack is probably not configured in the MPU
         printf("\r\nMUNSTKERR\r\n");
         SCB->CFSR &= MUNSTKERR_MASK; // Clear flag
     }
+
+  // ARMv7 MPU RECONFIGURATION BECAUSE OF THE ALIGNMENT CONSTRAINTS
+  // Code snippet only to respect the alignment constraints in ARMv7.
+  // In Pip-MPU, this is handled by partially configuring a partition's block in the MPU to fit the constraints,
+  // which leaves the remaining part of the block out of the MPU.
+  // When a partition accesses the part of the block out of the MPU, this raises a MemFault, caught here.
+  // The behavior is to reconfigure the block in the MPU with the part of the block that has faulted.
+  // The reconfiguration mechanism is completely invisible by the user.
+#if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
+    if(reconfigure_mpu > 0){
+        int block_in_MPU = 0;
+        // Otherwise search for corresponding block in the MPU
+        for (int i = 0; i < MPU_NUM_REGIONS ; i++){
+            PDTable_t* currPart = (PDTable_t*) getCurPartition();
+            if((currPart->blocks[i])->present && (uint32_t)(currPart->blocks[i])->mpublock.startAddr < mmfar
+                && mmfar < (uint32_t)(currPart->blocks[i])->mpublock.endAddr)
+            {
+                // Found a block covering the faulted address
+                block_in_MPU = 1;
+                // Check in the MPU if this is a real MPU fault (not because the block has been partially configured)
+                    if(readPhysicalMPUStartAddr(i) <= mmfar && mmfar <= readPhysicalMPUEndAddr(i)){
+                    // Operation not permitted: raise fault
+                    printf("Block mapped in MPU, real fault on address: %x\r\n", mmfar);
+                    break;
+                }
+
+                else{
+                    // Operation permitted: reconfigure MPU and redo faulted legitimate operation
+                    printf("Block mapped in MPU, reconfiguring MPU with legitimate faulted block %x for address %x\r\n", currPart->blocks[i], mmfar);
+                    configure_LUT_entry(currPart->LUT, i, currPart->blocks[i], (uint32_t*) mmfar);
+                    mpu_configure_from_LUT(currPart->LUT);
+                    // return to faulted operation without notifying the fault ot the user
+                    return;
+                }
+            }
+        }
+        if(!block_in_MPU) printf("No block matches in MPU, real fault on address: %x\r\n", mmfar);
+    }
+#endif
 
 #if defined(DEBUG)
   __DEBUG_BKPT();
@@ -461,7 +459,7 @@ uint32_t* sp = frame;
     *canary = 0xDEADBEEF;
     printf ("\r\nNew canary=%x\n", *canary);
     sp[6] = pc + 2; // continue with next instruction
-    printf ("\r\nPC=%x\n", sp[6]);
+    printf ("\r\nBranch to PC=%x\r\n", sp[6]);
 #endif
 
 }

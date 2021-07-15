@@ -258,6 +258,25 @@ uint32_t powlog2(uint32_t v)
 }
 
 /*!
+ * \fn uint32_t max_powlog2_alignment(uint32_t v)
+ * \brief Computes the highest pow2 alignment of an address (min is 2^(5)=32-bytes alignment).
+ * \return The highest pow2 alignment.
+ */
+uint32_t max_powlog2_alignment(uint32_t v)
+{
+	uint32_t v2 = v;
+	if(v==0) return 31;
+	// Counts the number of trailing zeroes after the minimum 32 bytes so 2⁽5)
+	unsigned r = 4;
+	v = v >> r;
+	do{
+		r++;
+	}
+	while (((v >>= 1) & 0x1) != 1); // shifts to the right until the first bit appears
+	return r;
+}
+
+/*!
  * \fn uint32_t getMinBlockSize(void)
  * \brief Returns the minimum size of a block in bytes (MPU region constraint).
  * \return The minimum size in bytes of an MPU region.
@@ -374,17 +393,90 @@ paddr getAddr(paddr addr)
 }
 
 /*!
+ * \fn block_t largest_covering_MPU_region(paddr mpuentryaddr, paddr addrtocover)
+ * \brief 	Computes the largest MPU region possible within the block <mpuentryaddr>'s bounds
+ *			and covering the <addrtocover>.
+ *			The algorithm starts with the smallest 32-bytes MPU region around the address to cover
+ *			(within the bounds because the start or end addresses of a block are 32-bytes aligned).
+ *			It then finds the largest covering MPU region by looking for the best aligned address
+ *			out of the initial small MPU region, and then compute the MPU region with this alignment.
+ *			If the new MPU region is within the bounds, it continues like this until the MPU region grows too large.
+ *			The largest covering MPU region is the one just before beeing too large.
+ * \return the largest MPU region covering the address and within the block
+ */
+block_t largest_covering_MPU_region(paddr mpuentryaddr, paddr addrtocover)
+{
+	MPUEntry_t* mpuentry = (MPUEntry_t*) mpuentryaddr;
+	uint32_t startAddr = (uint32_t) mpuentry->mpublock.startAddr;
+	uint32_t endAddr = (uint32_t) mpuentry->mpublock.endAddr + 1;
+
+	// Find the largest region containing the address and within the bounds of the block
+	uint32_t bottom = (uint32_t) addrtocover & 0xFFFFFFE0; // align to previous 32 bytes
+	uint32_t top = bottom + 32*sizeof(char); // align to next 32 bytes
+
+	// the largest region ever is 2^(32) bytes large
+	for(int i=0; i<32; i++){
+		// compute the pow2 alignment of the top and bottom MPU region
+		uint32_t top_maxpow2 = max_powlog2_alignment(top);
+		uint32_t bottom_maxpow2 = max_powlog2_alignment(bottom);
+
+		// find the best alignment
+		if(top_maxpow2 > bottom_maxpow2){
+			// Top has a better alignment: compute the bottom address with this alignment
+			bottom = top - (1 << top_maxpow2);
+			// Settle top and find alignment suiting bottom as well
+			if(bottom < startAddr){
+				// Bottom became too large, settle top and adjust bottom by decreasing pow2
+				// until tucking the block's bounds
+				uint32_t tmp_maxpow2 = top_maxpow2;
+				do{
+					tmp_maxpow2 = tmp_maxpow2 - 1; // previous pow2
+					bottom = top - (1 << tmp_maxpow2);
+				}
+				while(bottom < startAddr);
+				// block is largest possible, stop
+				break;
+			}
+			else{// else block can still grow with better aligment, continue search
+				continue;
+			}
+		}
+		else{
+			// Bottom has better alignment: compute the top address with this alignment
+			top = bottom + (1 << bottom_maxpow2);
+			if(top > endAddr){
+				// Top became too large, settle bottom and adjust top by decreasing pow2
+				// until tucking the block's bounds
+				uint32_t tmp_maxpow2 = bottom_maxpow2;
+				do{
+					tmp_maxpow2 = tmp_maxpow2 - 1; // previous pow2
+					top = bottom + (1 << tmp_maxpow2);
+				}
+				while(top>endAddr);
+				// block is largest possible, stop
+				break;
+			}
+			else{// else block can still grow with better aligment, continue search
+				continue;
+			}
+		}
+	}
+	return (block_t){bottom , top};
+}
+
+/*!
  * \fn void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr)
  * \brief  	Configures the LUT entry at given index with the given MPU entry
  * \param LUT The LUT to configure at the given index
  * \param entryindex The index where to configure
  * \param mpuentryaddr The block to configure
+ * \param addrtocover ARMv7: An address that should be covered by the active MPU region
  * \return void
  */
-void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr)
+void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr, paddr addrtocover)
 {
 	if (mpuentryaddr == NULL){
-		// clear entry
+		// clear MPU entry
 		LUT[entryindex*2] = (entryindex & 0xF) | MPU_RBAR_VALID_Msk;
 		LUT[entryindex*2+1] = 0; // disable region
 		return;
@@ -393,8 +485,17 @@ void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr)
 		// Block should be mapped in the MPU
 		// the MPUEntry already respects the minimum MPU size
 		MPUEntry_t* mpuentry = (MPUEntry_t*) mpuentryaddr;
+
+		#if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
+		// if ARMv7, find the largest MPU region matching the MPU aligment constraints
+		block_t covering_block = largest_covering_MPU_region(mpuentryaddr, addrtocover);
+		#else
+		// else configure the whole block
+		block_t covering_block = mpuentry->mpublock;
+		#endif
+
 		// MPU region size = 2^(regionsize +1) on 5 bits
-		uint32_t size =  (uint32_t) (mpuentry->mpublock).endAddr - (uint32_t)(mpuentry->mpublock).startAddr;
+		uint32_t size =  (uint32_t) covering_block.endAddr - (uint32_t)covering_block.startAddr;
 		uint8_t regionsize = (uint8_t) powlog2(size) - 1;
 		uint32_t AP = 2U; // PRIV RW/UNPRIV RO, region always readable checked before
 		if (mpuentry->write == 1)
@@ -402,11 +503,10 @@ void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr)
 			AP = 3U; // PRIV/UNPRIV RW Full access
 		}
 		uint32_t XNbit = !mpuentry->exec; // Execute Never 0 = executable, 1 = not executable
-		LUT[entryindex*2] = ((uint32_t)(mpuentry->mpublock).startAddr | MPU_RBAR_VALID_Msk | entryindex);
+		LUT[entryindex*2] = (uint32_t) covering_block.startAddr | MPU_RBAR_VALID_Msk | entryindex;
 		LUT[entryindex*2+1] = 	MPU_RASR_ENABLE_Msk |
 								(regionsize << MPU_RASR_SIZE_Pos) | //& MPU_RASR_SIZE_Msk) |
 								(AP << MPU_RASR_AP_Pos)  |  // R/W Priv/UnPriv
-								//(1U << MPU_RASR_SRD_Pos) | // subregion SRD disabled (=1)
 								(XNbit << MPU_RASR_XN_Pos) | // 0 = executable, 1 = not executable
 								// ARM_MPU_ACCESS_(0U, 1U, 1U, 1U)     TEX  = b000,  C =  1, B =  1 -> Write back, no write allocate
 								(0U << MPU_RASR_TEX_Pos) | //TypeExtField
@@ -427,7 +527,7 @@ void clear_LUT(uint32_t* LUT)
 {
 	for (int i=0 ; i < MPU_REGIONS_NB ; i++)
 	{
-		configure_LUT_entry(LUT, i, NULL);
+		configure_LUT_entry(LUT, i, NULL, NULL);
 	}
 }
 

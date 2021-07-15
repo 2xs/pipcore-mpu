@@ -99,6 +99,8 @@ paddr getNextAddrFromKernelStructureStart(paddr structureaddr); //!< The address
 uint32_t fit_mpu_region(uint32_t block_size);
 uint32_t next_pow2(uint32_t v);
 uint32_t powlog2(uint32_t v);
+uint32_t max_powlog2_alignment(uint32_t v);
+block_t largest_covering_MPU_region(paddr mpuentryaddr, paddr addrtocover); //!< Computes the largest MPU region mathing the ARMv7 MPU alignment constraints while covering the target address
 
 paddr getNullAddr(void); //!< Returns the default null address.
 bool beqAddr(paddr a, paddr b); //!< Compare two addresses
@@ -176,7 +178,7 @@ void removeBlockFromPhysicalMPUIfNotAccessible (paddr pd, paddr idblock, bool ac
 void replaceBlockInPhysicalMPU(paddr pd, paddr blockmpuentryaddr, uint32_t MPURegionNb); //! Replaces a block in the physical MPU.
 uint32_t findBlockIdxInPhysicalMPU(paddr pd, paddr blockToFind, uint32_t defaultnb); //! Returns the MPU region number where the block is configured
 
-void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr); //! Configures the LUT entry at given index with the given MPU entry
+void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr, paddr addrtocover); //! Configures the LUT entry at given index with the given MPU entry
 void clear_LUT(uint32_t* LUT); //! Defaults all LUT entries
 int checkMPU(); //! Checks the MPU
 int initMPU(); //! Inits the MPU

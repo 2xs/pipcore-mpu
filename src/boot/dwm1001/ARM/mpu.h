@@ -21,11 +21,11 @@
 #ifndef MPU_H
 #define MPU_H
 
-#include <stdint.h>
 #include "nrf52.h"
 #include "core_cm4.h"
 #include "ExceptionHandlers.h"
 #include "Trace.h"
+#include "mal.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -137,7 +137,7 @@ static inline uint32_t MPU_ATTR(
  * @return 0 on success
  * @return <0 on failure or no MPU present
  */
-//int mpu_disable(void);
+int mpu_disable(void);
 
 /**
  * @brief enable the MPU
@@ -184,7 +184,8 @@ int mpu_configure(uint_fast8_t region, uintptr_t base, uint_fast32_t attr);
  */
 int mpu_configure_from_LUT(uint32_t* LUT);
 
-uint32_t* readPhysicalMPUStart(uint32_t MPURegionNb); //!< the physical MPU region's start address
+uint32_t* readPhysicalMPUStartAddr(uint32_t MPURegionNb); //!< the physical MPU region's start address
+uint32_t* readPhysicalMPUEndAddr(uint32_t MPURegionNb); //!< the physical MPU region's end address
 uint32_t readPhysicalMPUAP(uint32_t MPURegionNb); //!< the physical MPU region's RW bit
 uint32_t readPhysicalMPUXN(uint32_t MPURegionNb); //!< the physical MPU region's X bit
 uint32_t readPhysicalMPUSizeBits(uint32_t MPURegionNb); //!< the physical MPU region's region bits (size in log2)

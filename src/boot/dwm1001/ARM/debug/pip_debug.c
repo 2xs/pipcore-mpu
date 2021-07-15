@@ -155,7 +155,8 @@ int dump_mpu()
     printf("MPU settings:\r\n");
 	for (int i = 0; i < MPU_NUM_REGIONS ; i++){
         MPU->RNR  = i;
-        uint32_t* start = readPhysicalMPUStart(i);
+        uint32_t* start = readPhysicalMPUStartAddr(i);
+        uint32_t* end = readPhysicalMPUEndAddr(i);
         uint32_t AP = readPhysicalMPUAP(i);
         uint32_t XNbit = !readPhysicalMPUXN(i);
         uint32_t regionsize =  readPhysicalMPUSizeBytes(i);
@@ -163,9 +164,10 @@ int dump_mpu()
         uint32_t enable = readPhysicalMPURegionEnable(i);
 
         printf("%d:MPU->RBAR =%x, start=%x\n", i, MPU->RBAR, start);// size=%d, AP=%d, X=%d,
-        printf("%d:MPU->RASR =%x, regionsize=(2^(%d+1)=%d, AP=%d, XNbit=%d, enable=%d\n",
+        printf("%d:MPU->RASR =%x, end=%x, regionsize=(2^(%d+1)=%d, AP=%d, XNbit=%d, enable=%d\n",
                                                     i,
                                                     MPU->RASR,
+                                                    end,
                                                     size,
                                                     regionsize,
                                                     AP,

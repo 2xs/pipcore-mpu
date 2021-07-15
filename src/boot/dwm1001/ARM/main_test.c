@@ -50,7 +50,7 @@ void init_tests_only_ram()
 	// Pre-configure the MPU LUT with inserted block(s)
 	PDTable_t* PDT = (PDTable_t*) root;
 	PDT->blocks[0] = (MPUEntry_t*) initial_block_root_address;
-	configure_LUT_entry(PDT->LUT, 0, initial_block_root_address);
+	configure_LUT_entry(PDT->LUT, 0, initial_block_root_address, initial_block_start);
 
 
   //dump_partition(root);
@@ -69,11 +69,11 @@ void init_tests_flash_ram_w_stack()
 
   // add user memory block(s)
   // One FLASH block and two RAM blocks (data + stack)
-	block_flash = insertNewEntry(root, 0,  (paddr) 0x1FFFFFFF, 0, true, false, true);
+	block_flash = insertNewEntry(root, 0,  (paddr) 0x00080000, 0, true, false, true);
 	//block_ram1 = insertNewEntry(root, &_sram, &user_stack_limit-0x200, &_sram, true, true, false);
 	//block_ram2 = insertNewEntry(root, &user_stack_limit, &user_stack_top, &user_stack_limit, true, true, false);
   block_ram1 = insertNewEntry(root, 0x20000000, 0x20000FFF, 0x20000000, true, false, false);
-	block_ram2 = insertNewEntry(root, 0x20001000, 0x20002000, 0x20001000, true, true, false);
+	block_ram2 = insertNewEntry(root, 0x20001000, &user_stack_top, 0x20001000, true, true, false);
 
   //dump_partition(root);
   activate(root);
@@ -2958,12 +2958,27 @@ void __attribute__((optimize(0))) test_mpu_physical_MemFault_without_Pip()
  * \brief   Test that the physical MPU correctly faults with Pip system calls
  *          Init:
  *            - cut the RO RAM block in 3
- *            - Map the flash, one RO ram blco, and the RW (stack) block
+ *                - ram1 = system variables
+ *                - ram1_2 = 64kB region
+ *                - ram1_3 = remaining
+ *            - cut the RW RAM block in 3
+ *                - ram2 = function variables like the bad_pointer lies here
+ *                - ram2_2 = unaligned block -> partially configured if mapped
+ *                - ram2_3 = stack -> aligned, should always be mapped completely
+ *                          and never touched otherwise MSTKERR or MUNSTKERR
+ *            - Map the flash, the 64-kB RO ram block, the region containing function
+                variables and the RW stack block
  *            - Switch to userland
  *          Test:
- *            - No MemFault for write in RW block
+ *            - No MemFault for write in RW stack block
  *            - MemFault for write in RO region
  *            - MemFault for write in accessbile region not defined in MPU
+ *            - map the unaligned RW region:
+ *                - No MemFault when accessing the start of the block(partially configured)
+ *                - MemFault catched when accessing the end of the block (block reconfigured
+                    to match the legitimate faulted address)
+                  - MemFault catched when accessing the start of the block again (because reconfigured
+                    previously, and reconfigured now)
  */
 void __attribute__((optimize(0))) test_mpu_physical_MemFault_with_Pip()
 {
@@ -2972,51 +2987,83 @@ void __attribute__((optimize(0))) test_mpu_physical_MemFault_with_Pip()
   volatile uint32_t* canary = 0x20001000; // canary value to be changed in the MemManageFault handler
   *canary = 0x0;
 
-  // Cut the first Read-Only RAM block in 3 : 0x2000000-0x20000040-0x20000080
+  // Cut the first Read-Only RAM block in 3 : 0x2000000-0x20000040-0x20000080-0x20001000
   uint32_t* block_ram1_2_addr = (uint32_t*) 0x20000040;//&sram + 0x40
   paddr block_ram1_2 = cutMemoryBlock(block_ram1, block_ram1_2_addr, -1);
   assert(block_ram1_2 != NULL);
   paddr block_ram1_3 = cutMemoryBlock(block_ram1_2, 0x20000080, -1);
   assert(block_ram1_3 != NULL);
 
-  // cut the second RW RAM block in 2 : 0x20001000-0x20001500-0x20002000
-  uint32_t* block_ram2_2_addr = (uint32_t*) 0x20001500;
+  // cut the second RW RAM block in 3: 0x20001000-0x20005000-0x20008000-0x20010000
+  uint32_t* block_ram2_2_addr = (uint32_t*) 0x20005000;
   paddr block_ram2_2 = cutMemoryBlock(block_ram2, block_ram2_2_addr, -1);
   assert(block_ram2_2 != NULL);
+  uint32_t* block_ram2_3_addr = (uint32_t*) 0x20008000;
+  paddr block_ram2_3 = cutMemoryBlock(block_ram2_2, block_ram2_3_addr, -1);
+  assert(block_ram2_3 != NULL);
 
-  // Map 3 blocks -> flash, 2 ram blocks
+  // Map 34blocks -> flash, 4 ram blocks
   assert(mapMPU(root, block_flash, 0) == true); // Flash
-  assert(mapMPU(root, block_ram1_2, 2)== true); // RO region
-  assert(mapMPU(root, block_ram2, 3)== true); // Stack
+  assert(mapMPU(root, block_ram1_2, 1)== true); // RO region
+  assert(mapMPU(root, block_ram2, 2)== true); // RW region containing the bad_pointer address
+  assert(mapMPU(root, block_ram2_3, 3)== true); // Stack: never touch, should always be enabled in MPU
   dump_mpu();
 
   // Switch to userland, set PSP at end of RW RAM block
-  __set_PSP(0x20001400);
+  __set_PSP(&user_stack_top);
   __set_CONTROL(__get_CONTROL() |
                 CONTROL_SPSEL_Msk);// use psp
-  __set_CONTROL(__get_CONTROL() |
-                CONTROL_nPRIV_Msk ); // switch to unprivileged Thread Mode
-
 
    // TEST NO MemFault for userland for a RW block defined in MPU
-  volatile uint32_t *bad_pointer = (void*)0x20001010;
+  *canary = 0x0; // defaults canary
+  volatile uint32_t *bad_pointer = (void*)0x20008010;
+  disablePrivilegedMode();
   *bad_pointer = 0xdeadbeef; //-> No MemFault, because in stack RW
+  enablePrivilegedMode();
   assert(*canary == 0x0);
 
+
   // TEST MemFault for write in a protected RO region defined in MPU
+  *canary = 0x0;
+  disablePrivilegedMode();
   bad_pointer = (void*)0x20000050;
   *bad_pointer = 0xdeadbeef; //-> MemFault, because protected RO
+  enablePrivilegedMode();
   assert(*canary == 0xdeadbeef);
 
   // TEST MemFault for write in a region not in MPU
-  enablePrivilegedMode();
-  *canary = 0x0; // defaults canary
+  *canary = 0x0;
   disablePrivilegedMode();
-  bad_pointer = (void*)0x20001510;
-  *bad_pointer = 0xdeadbeef; //-> MemFault, because RAM block not in MPU
+  bad_pointer = (void*)0x20005010;
+  *bad_pointer = 0xdeadbeef; //-> MemFault, because RAM RW block not in MPU
+  enablePrivilegedMode();
   assert(*canary == 0xdeadbeef);
 
+  // TEST NO MemFault for partially configured region
+  *canary = 0x0;
+  assert(mapMPU(root, block_ram2_2, 4) == true); // Map RW region partially configured (not aligned to cover whole region)
+  dump_mpu();
+  dump_partition(root);
+  disablePrivilegedMode();
+
+  bad_pointer = (void*)0x20005010;//TODO detect imprecise 0x25
+  *bad_pointer = 0xdeadbeef; //-> NO MemFault anymore because MPU region should be configured
   enablePrivilegedMode();
+  assert(*canary == 0x0);
+  disablePrivilegedMode();
+
+  bad_pointer = (void*)0x20007800;
+  *bad_pointer = 0xdeadbeef; //-> MemFault caught because MPU region REconfigure itself
+  enablePrivilegedMode();
+  assert(*canary == 0x0); // MemFault does not hit the canary
+  dump_mpu();
+  disablePrivilegedMode();
+
+  bad_pointer = (void*)0x20005010;
+  *bad_pointer = 0xdeadbeef; //-> MemFault caught this time because MPU region REconfigure itself
+  enablePrivilegedMode();
+  assert(*canary == 0x0); // MemFault does not hit the canary
+  dump_mpu();
 }
 
 /*!
@@ -3028,7 +3075,7 @@ void test_3_mapMPU()
   // all physical MPU regions not filled at first, default values
   for (int i=0 ; i < MPU_REGIONS_NB ; i++)
   {
-    assert(readPhysicalMPUStart(i) == 0);
+    assert(readPhysicalMPUStartAddr(i) == 0);
     assert(readPhysicalMPUSizeBits(i) == 0);
     assert(readPhysicalMPUSizeBytes(i) == 0);
     assert(readPhysicalMPUAP(i) == 0);
@@ -3047,20 +3094,20 @@ void test_3_mapMPU()
   dump_mpu();
 
   // Check MPU Settings: flash block RX, ram block1 RO, ram block2 RW not X
-  assert(readPhysicalMPUStart(0) == readMPUStartFromMPUEntryAddr(block_flash));
-  assert((readPhysicalMPUStart(0) + readPhysicalMPUSizeBytes(0)) <= readMPUEndFromMPUEntryAddr(block_flash));
+  assert(readPhysicalMPUStartAddr(0) == readMPUStartFromMPUEntryAddr(block_flash));
+  assert(readPhysicalMPUEndAddr(0) <= readMPUEndFromMPUEntryAddr(block_flash));
   assert(readPhysicalMPUAP(0) == 2);
   assert(!readPhysicalMPUXN(0) == readMPUXFromMPUEntryAddr(block_flash));
   assert(readPhysicalMPURegionEnable(0) == 1);
 
-  assert(readPhysicalMPUStart(1) == readMPUStartFromMPUEntryAddr(block_ram1));
-  assert((readPhysicalMPUStart(1) + readPhysicalMPUSizeBytes(1)) <= readMPUEndFromMPUEntryAddr(block_ram1));
+  assert(readPhysicalMPUStartAddr(1) == readMPUStartFromMPUEntryAddr(block_ram1));
+  assert(readPhysicalMPUEndAddr(1) <= readMPUEndFromMPUEntryAddr(block_ram1));
   assert(readPhysicalMPUAP(1) == 2);
   assert(!readPhysicalMPUXN(1) == readMPUXFromMPUEntryAddr(block_ram1));
   assert(readPhysicalMPURegionEnable(1) == 1);
 
-  assert(readPhysicalMPUStart(2) == readMPUStartFromMPUEntryAddr(block_ram2));
-  assert((readPhysicalMPUStart(2) + readPhysicalMPUSizeBytes(2)) <= readMPUEndFromMPUEntryAddr(block_ram2));
+  assert(readPhysicalMPUStartAddr(2) == readMPUStartFromMPUEntryAddr(block_ram2));
+  assert(readPhysicalMPUEndAddr(2) <= readMPUEndFromMPUEntryAddr(block_ram2));
   assert(readPhysicalMPUAP(2) == 3);
   assert(!readPhysicalMPUXN(2) == readMPUXFromMPUEntryAddr(block_ram2));
   assert(readPhysicalMPURegionEnable(2) == 1);
@@ -3068,7 +3115,7 @@ void test_3_mapMPU()
   // remaining MPU regions still not filled, default values
   for (int i=3 ; i < MPU_REGIONS_NB ; i++)
   {
-    assert(readPhysicalMPUStart(i) == 0);
+    assert(readPhysicalMPUStartAddr(i) == 0);
     assert(readPhysicalMPUSizeBits(i) == 0);
     assert(readPhysicalMPUSizeBytes(i) == 0);
     assert(readPhysicalMPUAP(i) == 0);
