@@ -1,12 +1,11 @@
 #include <stdio.h>
 #include "maldefines.h"
 #include "nrf52.h"
-#include "core_cm4.h"
 #include "pip_debug.h"
 
-#if defined(DEBUG_UART)
+#if defined(UART_DEBUG)
 #include "uart_debug_init.h"
-#endif // DEBUG_UART
+#endif // UART_DEBUG
 
 #if defined(TRACE)
 #include "Trace.h"
@@ -23,24 +22,12 @@ extern uint32_t user_mem_end;
 
 /**
  * Main entry point.
- * If -DDEBUG_UART flag is set, sends printf messages on UART
+ * If UART_DEBUG, sends printf messages on UART
  * If -DTRACE -DOS_USE_TRACE_SEMIHOSTING_DEBUG flags are set, send printf messages on the semihosting debug channel
  */
 int main (int argc, char* argv[])
 {
-	/* Initialize the root partition */
-	mal_init();
 
-  paddr root = getRootPartition();
-  dump_partition(root);
-  activate(root);
-
-  // set PSP to root stack and switch to unprivileged mode
-  __set_PSP(&user_mem_end);
-  __set_CONTROL(__get_CONTROL() |
-                CONTROL_SPSEL_Msk | // use psp
-                CONTROL_nPRIV_Msk ); // switch to unprivileged Thread Mode
-  __ISB();
 
 	/*
 	// At this point, mmu is still not enabled.
@@ -51,14 +38,28 @@ int main (int argc, char* argv[])
 	// cpu_switch_context_exit(); -> Yield, switch to root partition
 
   // yield partition 0
-  #if defined(DEBUG_UART)
+#if defined(UART_DEBUG)
   init_uart();
-  #endif // DEBUG_UART
+#endif // UART_DEBUG
 
-  #if defined(TRACE)
+#if defined(TRACE)
   const char* trace_msg = "Trace is on\r\n";
   trace_printf((uint8_t const *)trace_msg);
-  #endif // TRACE
+#endif // TRACE
+
+  /* Initialize the root partition */
+  mal_init();
+
+  paddr root = getRootPartition();
+  dump_partition(root);
+  activate(root);
+
+    // set PSP to root stack and switch to unprivileged mode
+  __set_PSP(&user_mem_end);
+  __set_CONTROL(__get_CONTROL() |
+                CONTROL_SPSEL_Msk | // use psp
+                CONTROL_nPRIV_Msk ); // switch to unprivileged Thread Mode
+  __ISB();
 
   printf(MSG_INIT);
 
@@ -69,8 +70,6 @@ int main (int argc, char* argv[])
   for (i = 0; i < 20; i++) {
     printf("Hello World %d!\n", i);
   }
-  do {
-    i++;
-  } while (1);
+  while (1);
 }
 

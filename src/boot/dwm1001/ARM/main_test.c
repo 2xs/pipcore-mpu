@@ -48,10 +48,7 @@ void init_tests_only_ram()
 	initial_block_root_address = insertNewEntry(root, initial_block_start, &user_mem_end - 1, initial_block_start, true, true, false);// idpartition, start, end, origin, RW = true, X = false
 
 	// Pre-configure the MPU LUT with inserted block(s)
-	PDTable_t* PDT = (PDTable_t*) root;
-	PDT->blocks[0] = (MPUEntry_t*) initial_block_root_address;
-	configure_LUT_entry(PDT->LUT, 0, initial_block_root_address, initial_block_start);
-
+  enableBlockInMPU(root, initial_block_root_address, 0);
 
   //dump_partition(root);
   activate(root);
@@ -3606,7 +3603,7 @@ void test_find()
 
 /**
  * Unit tests main entry point.
- * If -DDEBUG_UART flag is set, sends printf messages on UART
+ * If UART_DEBUG, sends printf messages over UART
  * If -DTRACE -DOS_USE_TRACE_SEMIHOSTING_DEBUG flags are set, send printf messages on the semihosting debug channel
  */
 int main_test (int argc, char* argv[])

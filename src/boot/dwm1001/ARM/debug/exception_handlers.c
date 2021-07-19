@@ -93,8 +93,6 @@ NMI_Handler (void)
 
 // ----------------------------------------------------------------------------
 
-#if defined(TRACE)
-
 #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
 
 // The values of BFAR and MMFAR stay unchanged if the BFARVALID or
@@ -113,6 +111,7 @@ dumpExceptionStack (ExceptionStackFrame* frame,
                 uint32_t cfsr, uint32_t mmfar, uint32_t bfar,
                                         uint32_t lr)
 {
+#if defined(TRACE)
   trace_printf ("Stack frame:\n");
   trace_printf (" R0 =  %08X\n", frame->r0);
   trace_printf (" R1 =  %08X\n", frame->r1);
@@ -138,6 +137,7 @@ dumpExceptionStack (ExceptionStackFrame* frame,
     }
   trace_printf ("Misc\n");
   trace_printf (" LR/EXC_RETURN= %08X\n", lr);
+#endif
 }
 
 #endif // defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
@@ -147,6 +147,7 @@ dumpExceptionStack (ExceptionStackFrame* frame,
 void
 dumpExceptionStack (ExceptionStackFrame* frame, uint32_t lr)
 {
+#if defined(TRACE)
   trace_printf ("Stack frame:\n");
   trace_printf (" R0 =  %08X\n", frame->r0);
   trace_printf (" R1 =  %08X\n", frame->r1);
@@ -158,11 +159,10 @@ dumpExceptionStack (ExceptionStackFrame* frame, uint32_t lr)
   trace_printf (" PSR = %08X\n", frame->psr);
   trace_printf ("Misc\n");
   trace_printf (" LR/EXC_RETURN= %08X\n", lr);
+#endif
 }
 
 #endif // defined(__ARM_ARCH_6M__)
-
-#endif // defined(TRACE)
 
 // ----------------------------------------------------------------------------
 

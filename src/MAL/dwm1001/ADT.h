@@ -52,6 +52,9 @@ typedef uint32_t boolean;
 /* Paddr */
 typedef void* paddr;
 
+/* index */
+typedef int32_t Coq_index;
+
 /**
  * \struct block
  * \brief Block structure

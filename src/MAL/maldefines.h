@@ -59,7 +59,6 @@
 #define Paddr_pred predPaddr
 #define Paddr_addPaddrIdx addPaddrIdxBytes
 
-#define index int32_t
 #define Index_succ      inc
 #define Index_pred      dec
 #define Index_eqb       eqb

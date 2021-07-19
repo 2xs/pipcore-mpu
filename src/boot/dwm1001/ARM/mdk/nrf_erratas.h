@@ -40,10 +40,10 @@ NRF_MDK_VERSION_ASSERT_AT_LEAST(8,34,0);
 
 /*lint ++flb "Enter library region */
 
-#include "nrf51_erratas.h"
+//#include "nrf51_erratas.h"
 #include "nrf52_erratas.h"
-#include "nrf53_erratas.h"
-#include "nrf91_erratas.h"
+//#include "nrf53_erratas.h"
+//#include "nrf91_erratas.h"
 
 /*lint --flb "Leave library region" */
 

@@ -8,7 +8,7 @@
  */
 #include <stdio.h>
 
-#if defined(DEBUG_UART)
+#if defined(UART_DEBUG)
 #include "uart_debug_init.h"
 
 #define APP_ERR(err_code)	\
@@ -54,7 +54,7 @@ void init_uart()
     // Initial message: printf is now sending through UART (message doubled if Trace is on)
     //printf("\r\nHello World!\r\n");
 }
-#endif // DEBUG_UART
+#endif // UART_DEBUG
 
 
 

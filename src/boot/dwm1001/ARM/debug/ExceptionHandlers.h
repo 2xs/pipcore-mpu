@@ -83,7 +83,6 @@ extern "C"
 #endif
   } ExceptionStackFrame;
 
-#if defined(TRACE)
 #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
   void
   dumpExceptionStack (ExceptionStackFrame* frame, uint32_t cfsr, uint32_t mmfar,
@@ -93,7 +92,7 @@ extern "C"
   void
   dumpExceptionStack (ExceptionStackFrame* frame, uint32_t lr);
 #endif // defined(__ARM_ARCH_6M__)
-#endif // defined(TRACE)
+
 
   void
   HardFault_Handler_C (ExceptionStackFrame* frame, uint32_t lr);

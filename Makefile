@@ -3,13 +3,13 @@ AS = arm-none-eabi-as
 #LD = arm-none-eabi-ld
 BI = arm-none-eabi-objcopy
 
-# UART DEBUG
+# UART DEBUG (to disable for unit testing)
 UART_DEBUG ?= no
-# Semihosting DEBUG
+# Semihosting DEBUG (to enable for unit testing)
 SEMI_DEBUG ?= yes
 
 # UNIT TESTS
-UNIT_TESTS ?= yes
+UNIT_TESTS ?= no
 
 # DUMP OUTPUTS ALLOWED
 DUMP ?= no
@@ -35,7 +35,6 @@ COQDOC=coqdoc -toc -interpolate -utf8 -html
 CFLAGS = -mthumb -mcpu=cortex-m4  #
 CFLAGS += -Isrc/boot/dwm1001/ARM/cmsis/include -Isrc/boot/dwm1001/ARM #-Isrc/boot/dwm1001/ARM/newlib #-lc #-I/usr/arm-none-eabi/include #-nostdinc --specs=nano.specs --specs=nosys.specs
 CFLAGS += -Isrc/boot/dwm1001/ARM/mdk -Isrc/boot/dwm1001/ARM/mdk/headers
-CFLAGS += -Isrc/boot/dwm1001/ARM/mdk/util -Isrc/boot/dwm1001/ARM/mdk/common
 CFLAGS += -Isrc/boot/dwm1001/ARM/mdk/hal
 CFLAGS += -I$(SRC_DIR)/MAL
 CFLAGS += -I$(SRC_DIR)/MAL/$(TARGET)
@@ -43,17 +42,18 @@ CFLAGS += -I$(TARGET_DIR)/pipcore
 # include debug symbols
 CFLAGS += -g # debug symbols for GDB -DDEBUG
 CFLAGS += -Og # optimize debugging experience more than -O0
+ifeq ($(UNIT_TESTS), yes)
+# check the unit tests
+CFLAGS += -DUNIT_TESTS
+endif
 ifeq ($(SEMI_DEBUG), yes)
 # debug through semihosting, default printf has bug, using trace_printf instead
 CFLAGS += -DTRACE -Dprintf=trace_printf -DOS_USE_TRACE_SEMIHOSTING_DEBUG -Isrc/boot/dwm1001/ARM/debug # debug on semihosting debug channel and trace API
 endif
 ifeq ($(UART_DEBUG), yes)
 # debug through UART
-CFLAGS += -DDEBUG_UART -Isrc/boot/dwm1001/ARM/uart # debug through UART
-endif
-ifeq ($(UNIT_TESTS), yes)
-# check the unit tests
-CFLAGS += -DUNIT_TESTS
+CFLAGS += -Isrc/boot/dwm1001/ARM/debug
+CFLAGS += -DUART_DEBUG -Isrc/boot/dwm1001/ARM/uart -Isrc/boot/dwm1001/ARM/uart/util # debug through UART
 endif
 ifeq ($(DUMP), yes)
 # dump outputs allowed
@@ -90,8 +90,8 @@ EXTRACTEDCSOURCES=$(addprefix $(TARGET_DIR)/pipcore/, $(JSONS:.json=.c))
 C_FILES = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/*.c)
 C_FILES_MAL = $(wildcard $(SRC_DIR)/MAL/$(TARGET)/*.c)
 C_FILES_UART = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/uart/*.c)
+C_FILES_UART_UTIL = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/uart/util/*.c)
 C_FILES_MDK = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/mdk/*.c)
-C_FILES_MDK_COM = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/mdk/common/*.c)
 C_FILES_DEBUG = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/debug/*.c)
 C_FILES_NEWLIB = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/newlib/*.c)
 C_FILES_PIPCORE = $(wildcard $(TARGET_DIR)/pipcore/*.c)
@@ -111,10 +111,12 @@ OBJS += $(OBJS_NEWLIB)
 OBJS += $(patsubst %.S, $(TARGET_DIR)/%.o, $(notdir $(S_FILES)))
 
 ifeq ($(UART_DEBUG), yes)
+OBJS_DEBUG = $(patsubst %.c, $(TARGET_DIR)/debug/%.o, $(notdir $(C_FILES_DEBUG)))
+OBJS += $(OBJS_DEBUG)
 OBJS_UART = $(patsubst %.c, $(TARGET_DIR)/uart/%.o, $(notdir $(C_FILES_UART)))
 OBJS += $(OBJS_UART)
-OBJS_MDK_COM = $(patsubst %.c, $(TARGET_DIR)/mdk/common/%.o, $(notdir $(C_FILES_MDK_COM)))
-OBJS += $(OBJS_MDK_COM)
+OBJS_UART_UTIL = $(patsubst %.c, $(TARGET_DIR)/uart/util/%.o, $(notdir $(C_FILES_UART_UTIL)))
+OBJS += $(OBJS_UART_UTIL)
 endif
 
 ifeq ($(SEMI_DEBUG), yes)
@@ -124,7 +126,17 @@ endif
 
 
 # RULES
+ifeq ($(UNIT_TESTS), yes)
+ifeq ($(UART_DEBUG), yes)
+$(info [Error] unit tests only run in semihosting not UART, try with: make all UNIT_TESTS=yes SEMI_DEBUG=yes UART_DEBUG=no )
+all:
+else
 all: app.bin
+endif
+else
+all: app.bin
+endif
+
 
 $(DIGGER):
 	make -C $(DIGGER_DIR)
@@ -154,7 +166,7 @@ src/model/Extraction.vo $(JSONS): src/model/Extraction.v
 extract: $(TARGET_DIR) $(EXTRACTEDCSOURCES)
 
 DIGGERFLAGS := -m Monad -M coq_LLI
-DIGGERFLAGS += -m Datatypes -r Coq_true:true -r Coq_false:false -r Coq_tt:tt
+DIGGERFLAGS += -m Datatypes -r Coq_true:true -r Coq_false:false -r Coq_tt:tt -r index:Coq_index
 DIGGERFLAGS += -m MALInternal -d :MALInternal.json
 DIGGERFLAGS += -m MAL -d :MAL.json
 DIGGERFLAGS += -m ADT -m Nat
@@ -184,10 +196,10 @@ $(TARGET_DIR)/newlib/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/newlib/%.c
 $(TARGET_DIR)/uart/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/uart/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
-$(TARGET_DIR)/mdk/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/mdk/%.c
+$(TARGET_DIR)/uart/util/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/uart/util/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
-$(TARGET_DIR)/mdk/common/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/mdk/common/%.c
+$(TARGET_DIR)/mdk/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/mdk/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
 $(TARGET_DIR)/debug/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/debug/%.c
@@ -224,7 +236,7 @@ $(TARGET_DIR):
 	mkdir -p $@/pipcore
 	mkdir -p $@/newlib
 	mkdir -p $@/uart
+	mkdir -p $@/uart/util
 	mkdir -p $@/mdk
-	mkdir -p $@/mdk/common
 	mkdir -p $@/debug
 	mkdir -p $@/MAL

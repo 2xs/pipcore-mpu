@@ -18,7 +18,6 @@
  * @}
  */
 
-//#include "cpu.h"
 
 #include "mpu.h"
 #include <string.h> // include memcpy
@@ -117,6 +116,21 @@ int mpu_configure_region(uint_fast8_t region, uintptr_t base, uint_fast32_t attr
 #endif
 }
 
+/** Memcopy with strictly ordered memory access, e.g. for register targets.
+*   Replaces memcpy of string.h
+* \param dst Destination data is copied to.
+* \param src Source data is copied from.
+* \param len Amount of data words to be copied.
+*/
+__STATIC_INLINE void orderedCpy(volatile uint32_t* dst, const uint32_t* src, uint32_t len)
+{
+  uint32_t i;
+  for (i = 0U; i < len; ++i)
+  {
+    dst[i] = src[i];
+  }
+}
+
 /**
  * @brief configure the MPU based on a lookup table (LUT)
  *
@@ -137,7 +151,7 @@ int mpu_configure_from_LUT(uint32_t* LUT)
 	/*for (int i = 0; i < MPU_NUM_REGIONS ; i = i+MPU_ALIAS_REG_NB)
 	{
 		// Copy a subset of the LUT into the alias registers -> MPU_ALIAS_REG_NB regions configuration
-		memcpy((void*)&( MPU->RBAR), LUT+i*2*sizeof(uint32_t), MPU_ALIAS_REG_NB*2*sizeof(uint32_t));
+		orderedCpy((void*)&( MPU->RBAR), LUT+i*2*sizeof(uint32_t), MPU_ALIAS_REG_NB*2*sizeof(uint32_t));
 
 	}*/
     for (int i = 0; i < MPU_NUM_REGIONS ; i++){

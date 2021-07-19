@@ -38,7 +38,6 @@
 #ifndef USERCONSTANTS_H
 #define USERCONSTANTS_H
 
-#include <stdint.h>
 /*********************************/
 // CONSTANTS TO BE SET BY THE USER
 /*********************************/
