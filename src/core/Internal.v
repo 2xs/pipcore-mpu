@@ -171,7 +171,7 @@ Fixpoint findBlockInKSAux (timeout : nat)
 
 
 (* TODO: return Some blockentry or None *)
-(** The [findBlockInKS] function fixes the timeout value of [findBlockInKSAux] 
+(** The [findBlockInKS] function fixes the timeout value of [findBlockInKSAux]
 		and lauches the block seach for the address being the start address.
 		Same function as in findBlockInKS but with a different comparator. *)
 Definition findBlockInKS (idPD : paddr) (idBlock: paddr) : LLI paddr :=
@@ -930,7 +930,7 @@ Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
 																perform zero := Index.zero in
 																if beqIdx currIndex zero
 																then
-																	(** STOP condition: parsed all entries of the 
+																	(** STOP condition: parsed all entries of the
 																											current structure *)
 																	ret true
 																else
@@ -946,7 +946,7 @@ Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
 																perform zero := Index.zero in
 																if beqIdx currIndex zero
 																then
-																	(** STOP condition: parsed all entries of the 
+																	(** STOP condition: parsed all entries of the
 																											current structure *)
 																	ret true
 																else
