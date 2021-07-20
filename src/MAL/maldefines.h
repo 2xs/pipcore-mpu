@@ -48,7 +48,7 @@
 
 /* ADT structure */
 #define coq_PDTable PDTable_t
-#define coq_MPUEntry MPUEntry_t
+#define coq_BlockEntry BlockEntry_t
 #define coq_Sh1Entry Sh1Entry_t
 #define coq_SCEntry SCEntry_t
 #define Coq_error   (blockOrError){ .error = -1 }

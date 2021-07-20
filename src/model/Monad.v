@@ -210,7 +210,7 @@ Qed.
 Declare Scope mpu_state_scope.
 
 Inductive value : Type:= 
-|MPUE : MPUEntry -> value
+|BE : BlockEntry -> value
 |SHE : Sh1Entry -> value
 |SCE : SCEntry -> value
 |PDT : PDTable -> value

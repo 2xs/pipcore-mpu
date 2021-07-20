@@ -393,8 +393,8 @@ paddr getAddr(paddr addr)
 }
 
 /*!
- * \fn block_t largest_covering_MPU_region(paddr mpuentryaddr, paddr addrtocover)
- * \brief 	Computes the largest MPU region possible within the block <mpuentryaddr>'s bounds
+ * \fn block_t largest_covering_MPU_region(paddr blockentryaddr, paddr addrtocover)
+ * \brief 	Computes the largest MPU region possible within the block <blockentryaddr>'s bounds
  *			and covering the <addrtocover>.
  *			The algorithm starts with the smallest 32-bytes MPU region around the address to cover
  *			(within the bounds because the start or end addresses of a block are 32-bytes aligned).
@@ -404,11 +404,11 @@ paddr getAddr(paddr addr)
  *			The largest covering MPU region is the one just before beeing too large.
  * \return the largest MPU region covering the address and within the block
  */
-block_t largest_covering_MPU_region(paddr mpuentryaddr, paddr addrtocover)
+block_t largest_covering_MPU_region(paddr blockentryaddr, paddr addrtocover)
 {
-	MPUEntry_t* mpuentry = (MPUEntry_t*) mpuentryaddr;
-	uint32_t startAddr = (uint32_t) mpuentry->mpublock.startAddr;
-	uint32_t endAddr = (uint32_t) mpuentry->mpublock.endAddr + 1;
+	BlockEntry_t* blockentry = (BlockEntry_t*) blockentryaddr;
+	uint32_t startAddr = (uint32_t) blockentry->blockrange.startAddr;
+	uint32_t endAddr = (uint32_t) blockentry->blockrange.endAddr + 1;
 
 	// Find the largest region containing the address and within the bounds of the block
 	uint32_t bottom = (uint32_t) addrtocover & 0xFFFFFFE0; // align to previous 32 bytes
@@ -465,17 +465,17 @@ block_t largest_covering_MPU_region(paddr mpuentryaddr, paddr addrtocover)
 }
 
 /*!
- * \fn void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr)
+ * \fn void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr blockentryaddr)
  * \brief  	Configures the LUT entry at given index with the given MPU entry
  * \param LUT The LUT to configure at the given index
  * \param entryindex The index where to configure
- * \param mpuentryaddr The block to configure
+ * \param blockentryaddr The block to configure
  * \param addrtocover ARMv7: An address that should be covered by the active MPU region
  * \return void
  */
-void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr, paddr addrtocover)
+void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr blockentryaddr, paddr addrtocover)
 {
-	if (mpuentryaddr == NULL){
+	if (blockentryaddr == NULL){
 		// clear MPU entry
 		LUT[entryindex*2] = (entryindex & 0xF) | MPU_RBAR_VALID_Msk;
 		LUT[entryindex*2+1] = 0; // disable region
@@ -483,26 +483,26 @@ void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr mpuentryaddr,
 	}
 	else {
 		// Block should be mapped in the MPU
-		// the MPUEntry already respects the minimum MPU size
-		MPUEntry_t* mpuentry = (MPUEntry_t*) mpuentryaddr;
+		// the BlockEntry already respects the minimum MPU size
+		BlockEntry_t* blockentry = (BlockEntry_t*) blockentryaddr;
 
 		#if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
 		// if ARMv7, find the largest MPU region matching the MPU aligment constraints
-		block_t covering_block = largest_covering_MPU_region(mpuentryaddr, addrtocover);
+		block_t covering_block = largest_covering_MPU_region(blockentryaddr, addrtocover);
 		#else
 		// else configure the whole block
-		block_t covering_block = mpuentry->mpublock;
+		block_t covering_block = blockentry->blockrange;
 		#endif
 
 		// MPU region size = 2^(regionsize +1) on 5 bits
 		uint32_t size =  (uint32_t) covering_block.endAddr - (uint32_t)covering_block.startAddr;
 		uint8_t regionsize = (uint8_t) powlog2(size) - 1;
 		uint32_t AP = 2U; // PRIV RW/UNPRIV RO, region always readable checked before
-		if (mpuentry->write == 1)
+		if (blockentry->write == 1)
 		{
 			AP = 3U; // PRIV/UNPRIV RW Full access
 		}
-		uint32_t XNbit = !mpuentry->exec; // Execute Never 0 = executable, 1 = not executable
+		uint32_t XNbit = !blockentry->exec; // Execute Never 0 = executable, 1 = not executable
 		LUT[entryindex*2] = (uint32_t) covering_block.startAddr | MPU_RBAR_VALID_Msk | entryindex;
 		LUT[entryindex*2+1] = 	MPU_RASR_ENABLE_Msk |
 								(regionsize << MPU_RASR_SIZE_Pos) | //& MPU_RASR_SIZE_Msk) |

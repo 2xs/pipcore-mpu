@@ -60,44 +60,44 @@ Definition findBlockComp 	(entryaddr : paddr)
 												(referenceaddr : paddr)
 												(comparator : index)
 																																	: LLI bool :=
-	perform mpustart := readMPUStartFromMPUEntryAddr entryaddr in
+	perform blockstart := readBlockStartFromBlockEntryAddr entryaddr in
 	perform zero := Index.zero in
 	if beqIdx comparator zero
 	then (* Comparator 0: block's start addr == referenceaddr *)
-		if beqAddr mpustart referenceaddr
+		if beqAddr blockstart referenceaddr
 		then (* block found *) ret true
 		else (* block not found *) ret false
 	else (* Comparator 2: block's start addr < referenceaddr < block's end addr *)
-		perform mpuend := readMPUEndFromMPUEntryAddr entryaddr in
-		perform aboveStart := Paddr.leb mpustart referenceaddr in
-		perform belowEnd := Paddr.leb referenceaddr mpuend in
+		perform blockend := readBlockEndFromBlockEntryAddr entryaddr in
+		perform aboveStart := Paddr.leb blockstart referenceaddr in
+		perform belowEnd := Paddr.leb referenceaddr blockend in
 		if aboveStart && belowEnd
 		then (* block found *) ret true
 		else (* block not found *)ret false.
 
-(** The [findBlockInMPUStructAux] function recursively searches by going through
+(** The [findBlockInKSInStructAux] function recursively searches by going through
 		the current structure list and search for the <id_block_to_find>.
     Stop conditions:
         1: 	reached end of structure (maximum number of iterations)
         2: 	found <id_block_to_find>
-        3: 	issue with the block, i.e. block not found, incorrect MPU address or
+        3: 	issue with the block, i.e. block not found, incorrect entry address or
 						block not present
     Recursive calls: until the current's structure last index
 		Max recursion depth: number of kernel structure entries
 
-		Returns the block's MPU address or NULL
+		Returns the block's entry address or NULL
 *)
-Fixpoint findBlockInMPUInStructAux (timeout : nat) (currentidx : index)
+Fixpoint findBlockInKSInStructAux (timeout : nat) (currentidx : index)
 													(currentkernelstructure referenceaddr : paddr)
 													(compoption : index) : LLI paddr :=
 	match timeout with
 		| 0 => getNullAddr
 		| S timeout1 =>
 										(** PROCESSING: check if the entry is the searched one *)
-										perform entryaddr := getMPUEntryAddrFromKernelStructureStart
+										perform entryaddr := getBlockEntryAddrFromKernelStructureStart
 																						currentkernelstructure
 																						currentidx in
-										perform ispresent := readMPUPresentFromMPUEntryAddr entryaddr in
+										perform ispresent := readBlockPresentFromBlockEntryAddr entryaddr in
 										perform matchcomp := findBlockComp entryaddr
 																											referenceaddr
 																											compoption in
@@ -118,33 +118,33 @@ Fixpoint findBlockInMPUInStructAux (timeout : nat) (currentidx : index)
 											else
 												(** RECURSIVE call to the next index**)
 												perform nextidx := Index.succ currentidx in
-												findBlockInMPUInStructAux 	timeout1
+												findBlockInKSInStructAux 	timeout1
 																								nextidx
 																								currentkernelstructure
 																								referenceaddr
 																								compoption
 	end.
 
-(** The [findBlockInMPUAux] function recursively search by going through
+(** The [findBlockInKSAux] function recursively search by going through
 		the structure list and search for the <id_block_to_find>.
     Stop conditions:
         1: 	reached end of structure list (maximum number of iterations)
         2: 	found <id_block_to_find>
-        3: 	issue with the block, i.e. block not found, incorrect MPU address or
+        3: 	issue with the block, i.e. block not found, incorrect block address or
 						block not present
     Recursive calls: until the end of the linked list
-		Max recursion depth: length of the linked list + findBlockInMPUInStructAux
+		Max recursion depth: length of the linked list + findBlockInKSInStructAux
 
-		Returns the found block's MPU address or NULL
+		Returns the found block's entry address or NULL
 *)
-Fixpoint findBlockInMPUAux (timeout : nat)
+Fixpoint findBlockInKSAux (timeout : nat)
 													(currentkernelstructure idblock: paddr)
 													(compoption : index)									: LLI paddr :=
 	match timeout with
 		| 0 => getNullAddr
 		| S timeout1 =>	(** PROCESSING: seach for the block in the current structure *)
 										perform zero := Index.zero in
-										perform foundblock := findBlockInMPUInStructAux 	N
+										perform foundblock := findBlockInKSInStructAux 	N
 																																		zero
 																																		currentkernelstructure
 																																		idblock
@@ -165,33 +165,33 @@ Fixpoint findBlockInMPUAux (timeout : nat)
 												ret nullAddr
 											else
 												(** RECURSIVE call on the next structure *)
-												findBlockInMPUAux timeout1 nextkernelstructure idblock compoption
+												findBlockInKSAux timeout1 nextkernelstructure idblock compoption
 	end.
 
 
 
-(* TODO: return Some MPUentry or None *)
-(** The [findBlockInMPU] function fixes the timeout value of [findBlockInMPUAux] 
+(* TODO: return Some blockentry or None *)
+(** The [findBlockInKS] function fixes the timeout value of [findBlockInKSAux] 
 		and lauches the block seach for the address being the start address.
-		Same function as in findBlockInMPU but with a different comparator. *)
-Definition findBlockInMPU (idPD : paddr) (idBlock: paddr) : LLI paddr :=
+		Same function as in findBlockInKS but with a different comparator. *)
+Definition findBlockInKS (idPD : paddr) (idBlock: paddr) : LLI paddr :=
 	perform zero := Index.zero in (* Comparator 1 *)
 	perform kernelstructurestart := readPDStructurePointer idPD in
-	findBlockInMPUAux N kernelstructurestart idBlock zero.
+	findBlockInKSAux N kernelstructurestart idBlock zero.
 
-(* TODO: return Some MPUentry or None *)
-(** The [findBelongingBlockInMPU] function fixes the timeout value of [findBlockInMPUAux]
+(* TODO: return Some blockentry or None *)
+(** The [findBelongingBlock] function fixes the timeout value of [findBlockInKSAux]
 		and lauches the search for a block encapsulating the address.
-		Same function as in findBlockInMPU but with a different comparator. *)
-Definition findBelongingBlockInMPU (idPD : paddr) (referenceaddr: paddr) : LLI paddr :=
+		Same function as in findBlockInKS but with a different comparator. *)
+Definition findBelongingBlock (idPD : paddr) (referenceaddr: paddr) : LLI paddr :=
 	perform one := Index.one in (* Comparator 1 *)
 	perform kernelstructurestart := readPDStructurePointer idPD in
-	findBlockInMPUAux N kernelstructurestart referenceaddr one.
+	findBlockInKSAux N kernelstructurestart referenceaddr one.
 
 
-(** The [findBlockInMPUWithAddrAux] function recursively search by going through
+(** The [findBlockInKSWithAddrAux] function recursively search by going through
 		the structure list and search for the <id_block_to_find> given the
-    <MPU_address_block_to_find> (only look the entries at this address, so faster
+    <blockEntryAddr> (only look the entries at this address, so faster
 		than blind search going through all the entries of a kernel structure)
     Stop conditions:
         1: 	reached end of structure list (maximum number of iterations)
@@ -203,27 +203,28 @@ Definition findBelongingBlockInMPU (idPD : paddr) (referenceaddr: paddr) : LLI p
 
 		Returns the block's MPU address or NULL
 *)
-Fixpoint findBlockInMPUWithAddrAux (timeout : nat)
+Fixpoint findBlockInKSWithAddrAux 	(timeout : nat)
 																	(currentkernelstructure : paddr)
-																	(blockMPUAddr: paddr) : LLI paddr :=
+																	(blockEntryAddr: paddr) : LLI paddr :=
 	match timeout with
 		| 0 => getNullAddr
 		| S timeout1 => (*Stop conditions 2 and 3: found block OR issue with the entry *)
-										perform isMPUAddrAboveStart := Paddr.leb currentkernelstructure blockMPUAddr in
+										perform isEntryAddrAboveStart := Paddr.leb 	currentkernelstructure
+																																blockEntryAddr in
 										perform zero := Index.zero in
-										perform maxMPUAddrInStructure :=  getSh1EntryAddrFromKernelStructureStart
+										perform maxEntryAddrInStructure :=  getSh1EntryAddrFromKernelStructureStart
 																													currentkernelstructure
 																													zero in
-										perform isMPUAddrBelowEnd := Paddr.leb blockMPUAddr maxMPUAddrInStructure in
-										if isMPUAddrAboveStart && isMPUAddrBelowEnd
+										perform isEntryAddrBelowEnd := Paddr.leb blockEntryAddr maxEntryAddrInStructure in
+										if isEntryAddrAboveStart && isEntryAddrBelowEnd
 										then (* the provided address lies in this kernel structure*)
-												(** Check the MPU entry exists and is present*)
+												(** Check the block entry exists and is present*)
 												perform entryExists := checkEntry 	currentkernelstructure
-																														blockMPUAddr in
-												perform isPresent := readMPUPresentFromMPUEntryAddr blockMPUAddr in
+																														blockEntryAddr in
+												perform isPresent := readBlockPresentFromBlockEntryAddr blockEntryAddr in
 												if entryExists && isPresent
 												then (** STOP CONDITION 2: the block has been found and is present (i.e. it's a real block)*)
-													ret blockMPUAddr
+													ret blockEntryAddr
 												else (** STOP CONDITION 3: bad arguments OR block not present *)
 													ret nullAddr
 										else (** RECURSIVE call: block not found in current structure,
@@ -235,27 +236,27 @@ Fixpoint findBlockInMPUWithAddrAux (timeout : nat)
 											then
 												(** STOP CONDITION 1: reached last structure, not found *)
 												ret nullAddr
-											else findBlockInMPUWithAddrAux timeout1
+											else findBlockInKSWithAddrAux timeout1
 																										nextKernelStructure
-																										blockMPUAddr
+																										blockEntryAddr
 	end.
 
 
-(* TODO: return Some MPUentry or None *)
-(** The [findBlockInMPUWithAddr] function fixes the timeout value of
-		[findBlockInMPUWithAddrAux] *)
-Definition findBlockInMPUWithAddr (idPD blockMPUAddr: paddr) : LLI paddr :=
+(* TODO: return Some blockentry or None *)
+(** The [findBlockInKSWithAddr] function fixes the timeout value of
+		[findBlockInKSWithAddrAux] *)
+Definition findBlockInKSWithAddr (idPD blockEntryAddr: paddr) : LLI paddr :=
 	(** All checks done before*)
-	(** go through the MPU structure finding the block (== start address of MPU entry)*)
+	(** go through the Blocks structure finding the block (== start address of block entry)*)
 	perform kernelstructurestart := readPDStructurePointer idPD in
-	findBlockInMPUWithAddrAux N kernelstructurestart blockMPUAddr.
+	findBlockInKSWithAddrAux N kernelstructurestart blockEntryAddr.
 
-(** The [checkBlockCut] function checks if the block at <mpublockaddr> has been
+(** The [checkBlockCut] function checks if the block at <blockentryaddr> has been
 		cut or if it is a subblock of some other block*)
-Definition checkBlockCut (mpublockaddr : paddr) : LLI bool :=
-	perform blockOrigin := readSCOriginFromMPUEntryAddr mpublockaddr in
-	perform blockStart := readMPUStartFromMPUEntryAddr mpublockaddr in
-	perform blockNext := readSCNextFromMPUEntryAddr mpublockaddr in
+Definition checkBlockCut (blockentryaddr : paddr) : LLI bool :=
+	perform blockOrigin := readSCOriginFromBlockEntryAddr blockentryaddr in
+	perform blockStart := readBlockStartFromBlockEntryAddr blockentryaddr in
+	perform blockNext := readSCNextFromBlockEntryAddr blockentryaddr in
 	if beqAddr blockStart blockOrigin  && beqAddr blockNext nullAddr then
 		(* Block hasn't been cut previously and not a subblock *)
 		ret false
@@ -269,7 +270,7 @@ Definition checkBlockCut (mpublockaddr : paddr) : LLI bool :=
     Processing: remove the block at this level of descendants
     Recursive calls: until the last ancestor
 		Max recursion depth: number of ancestors
-												+ max(findBlockInMPU, removeBlockFromPhysicalMPUIfNotAccessible)
+												+ max(findBlockInKS, removeBlockFromPhysicalMPUIfNotAccessible)
 
 		Returns true:OK/false:NOK*)
 Fixpoint writeAccessibleRecAux 	timeout
@@ -285,13 +286,13 @@ Fixpoint writeAccessibleRecAux 	timeout
 																				and if inaccessible also remove the
 																				block from the real MPU *)
 												perform pdparent := readPDParent pdbasepartition in
-												perform blockInParentPartitionAddr := findBlockInMPU
+												perform blockInParentPartitionAddr := findBlockInKS
 																																	pdparent
 																																	idblock in
 												perform addrIsNull := compareAddrToNull
 																									blockInParentPartitionAddr in
 												if addrIsNull then ret false (*Shouldn't happen *) else
-												writeMPUAccessibleFromMPUEntryAddr
+												writeBlockAccessibleFromBlockEntryAddr
 														blockInParentPartitionAddr
 														accessiblebit ;;
 												removeBlockFromPhysicalMPUIfNotAccessible
@@ -316,11 +317,11 @@ Definition writeAccessibleRec 	(pdbasepartition : paddr)
 		accessible or inaccessible depending on the	<accessiblebit>. *)
 Definition writeAccessibleToAncestorsIfNotCutRec (pdbasepartition : paddr)
 																								(idblock : paddr)
-																								(mpublockaddr : paddr)
+																								(blockentryaddr : paddr)
 																								(accessiblebit : bool) : LLI bool :=
-		perform blockOrigin := readSCOriginFromMPUEntryAddr mpublockaddr in
-		perform blockStart := readMPUStartFromMPUEntryAddr mpublockaddr in
-		perform blockNext := readSCNextFromMPUEntryAddr mpublockaddr in
+		perform blockOrigin := readSCOriginFromBlockEntryAddr blockentryaddr in
+		perform blockStart := readBlockStartFromBlockEntryAddr blockentryaddr in
+		perform blockNext := readSCNextFromBlockEntryAddr blockentryaddr in
 		if beqAddr blockStart blockOrigin  && beqAddr blockNext nullAddr then
 			(* Block hasn't been cut previously, adjust accessible bit *)
 			perform recWriteEnded := writeAccessibleRec pdbasepartition
@@ -335,7 +336,7 @@ Definition writeAccessibleToAncestorsIfNotCutRec (pdbasepartition : paddr)
 	Used in cutMemoryBlock and addMemoryBlock.
 	The rights have been checked before.
 
-	Returns the inserted entry's MPU address
+	Returns the inserted entry's address
 
 	<<pdinsertion>> the PD where to insert the new entry
 	<<startaddr>>		the new entry's start address
@@ -347,55 +348,55 @@ Definition insertNewEntry 	(pdinsertion startaddr endaddr origin: paddr)
 													(r w e : bool) 													: LLI paddr :=
 	(** Checks have been done before: PD is correct, slot start and end @ are correct,
 			block_origin is correct, there is one or more free slots *)
-	perform newEntryMPUAddr := readPDFirstFreeSlotPointer pdinsertion in
+	perform newBlockEntryAddr := readPDFirstFreeSlotPointer pdinsertion in
 	(** Adjust the free slot pointer to the next free slot*)
-	perform newFirstFreeSlotAddr := readMPUEndFromMPUEntryAddr newEntryMPUAddr in
+	perform newFirstFreeSlotAddr := readBlockEndFromBlockEntryAddr newBlockEntryAddr in
 	writePDFirstFreeSlotPointer pdinsertion newFirstFreeSlotAddr ;;
 	(** Adjust the free slots count to count - 1*)
 	perform currentNbFreeSlots := readPDNbFreeSlots pdinsertion in
 	perform predCurrentNbFreeSlots := Index.pred currentNbFreeSlots in
 	writePDNbFreeSlots pdinsertion predCurrentNbFreeSlots ;;
 
-	(** Insert the new MPU entry in the free slot*)
-	writeMPUStartFromMPUEntryAddr newEntryMPUAddr startaddr ;;
-	writeMPUEndFromMPUEntryAddr newEntryMPUAddr endaddr ;;
-	writeMPUAccessibleFromMPUEntryAddr newEntryMPUAddr true ;;(** TODO accessible by default else no cut no add*)
-	writeMPUPresentFromMPUEntryAddr newEntryMPUAddr true ;;(** TODO present by default*)
-	writeMPURFromMPUEntryAddr newEntryMPUAddr r ;;
-	writeMPUWFromMPUEntryAddr newEntryMPUAddr w ;;
-	writeMPUXFromMPUEntryAddr newEntryMPUAddr e ;;
-	writeSCOriginFromMPUEntryAddr newEntryMPUAddr origin ;;
+	(** Insert the new block entry in the free slot*)
+	writeBlockStartFromBlockEntryAddr newBlockEntryAddr startaddr ;;
+	writeBlockEndFromBlockEntryAddr newBlockEntryAddr endaddr ;;
+	writeBlockAccessibleFromBlockEntryAddr newBlockEntryAddr true ;;(** TODO accessible by default else no cut no add*)
+	writeBlockPresentFromBlockEntryAddr newBlockEntryAddr true ;;(** TODO present by default*)
+	writeBlockRFromBlockEntryAddr newBlockEntryAddr r ;;
+	writeBlockWFromBlockEntryAddr newBlockEntryAddr w ;;
+	writeBlockXFromBlockEntryAddr newBlockEntryAddr e ;;
+	writeSCOriginFromBlockEntryAddr newBlockEntryAddr origin ;;
 
-	ret newEntryMPUAddr.
+	ret newBlockEntryAddr.
 
-(** The [freeSlot] function frees the entry at <entrytofreempuaddr> in the
+(** The [freeSlot] function frees the entry at <entrytofreeaddr> in the
 		partition <pdfree>.
 	Used in mergeMemoryBlock and removeMemoryBlock
 
-	Returns the freed slot's MPU address
+	Returns the freed slot's address
 *)
-Definition freeSlot (pdfree entrytofreempuaddr: paddr) : LLI paddr :=
+Definition freeSlot (pdfree entrytofreeaddr: paddr) : LLI paddr :=
 (** Checks have been done before: check idPD comes from Pip,
-		check entryToFreeMPUAddress comes from Pip *)
+		check entrytofreeaddress comes from Pip *)
 		(* Remove block from physical MPU if it is there *)
-		removeBlockFromPhysicalMPU 	pdfree entrytofreempuaddr ;;
+		removeBlockFromPhysicalMPU 	pdfree entrytofreeaddr ;;
 		(* set default values in slot to free *)
-		perform defaultMPUEntry := getDefaultMPUEntry in
-		writeMPUEntryFromMPUEntryAddr entrytofreempuaddr defaultMPUEntry;;
+		perform defaultBlockEntry := getDefaultBlockEntry in
+		writeBlockEntryFromBlockEntryAddr entrytofreeaddr defaultBlockEntry;;
 		perform defaultSh1Entry := getDefaultSh1Entry in
-		writeSh1EntryFromMPUEntryAddr entrytofreempuaddr defaultSh1Entry;;
+		writeSh1EntryFromBlockEntryAddr entrytofreeaddr defaultSh1Entry;;
 		perform defaultSCEntry := getDefaultSCEntry in
-		writeSCEntryFromMPUEntryAddr entrytofreempuaddr defaultSCEntry;;
+		writeSCEntryFromBlockEntryAddr entrytofreeaddr defaultSCEntry;;
 		(* insert free slot in the free slot list *)
 		perform currFirstFreeSlot := readPDFirstFreeSlotPointer pdfree in
-		writeMPUEndFromMPUEntryAddr entrytofreempuaddr currFirstFreeSlot ;;
-		writePDFirstFreeSlotPointer pdfree entrytofreempuaddr ;;
+		writeBlockEndFromBlockEntryAddr entrytofreeaddr currFirstFreeSlot ;;
+		writePDFirstFreeSlotPointer pdfree entrytofreeaddr ;;
 		(* add 1 to the number of free slots*)
 		perform nbfreeslots := readPDNbFreeSlots pdfree in
 		perform nbfreeslotssucc := Index.succ nbfreeslots in
 		writePDNbFreeSlots pdfree nbfreeslotssucc ;;
-		(* return the freed slot's MPU address *)
-		ret entrytofreempuaddr.
+		(* return the freed slot's address *)
+		ret entrytofreeaddr.
 
 
 (** The [checkChild] function checks that <idPDchild> is a child of <idPDparent>
@@ -404,11 +405,11 @@ Definition freeSlot (pdfree entrytofreempuaddr: paddr) : LLI paddr :=
 *)
 Definition checkChild (idPDparent idPDchild : paddr) : LLI bool :=
 	(* TODO : check idPDparent is valid*)
-	perform blockInParentPartAddr := findBlockInMPU idPDparent idPDchild in
+	perform blockInParentPartAddr := findBlockInKS idPDparent idPDchild in
 	perform addrIsNull := compareAddrToNull	blockInParentPartAddr in
 	if addrIsNull then(** child block not found, stop *) ret false else
 
-	perform isChild := readSh1PDFlagFromMPUEntryAddr blockInParentPartAddr in
+	perform isChild := readSh1PDFlagFromBlockEntryAddr blockInParentPartAddr in
 	if negb isChild then (* idPDchild is not a child partition, stop*) ret false else
 	ret true.
 
@@ -419,16 +420,16 @@ Definition checkChild (idPDparent idPDchild : paddr) : LLI bool :=
 
 		Returns the shared block's slot address in the child:OK/NULL:NOK
 
-    <<idPDchild>>						the child partition to share with
-		<<blockToShareMPUAddr>>	the block to share MPU address in the parent
-		<<r w e >>							the rights to apply in the child partition
+    <<idPDchild>>							the child partition to share with
+		<<blockToShareEntryAddr>>	the block to share id in the parent
+		<<r w e >>								the rights to apply in the child partition
 *)
-Definition addMemoryBlockCommon 	(idPDchild blockToShareMPUAddr: paddr)
+Definition addMemoryBlockCommon 	(idPDchild blockToShareEntryAddr: paddr)
 																(r w e : bool) : LLI paddr :=
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 
-		(** Checks (blockToShareMPUAddr checked before)*)
+		(** Checks (blockToShareEntryAddr checked before)*)
 
 		(* Check idPDchild is a child of the current partition*)
 		perform isChildCurrPart := checkChild currentPart idPDchild in
@@ -443,33 +444,33 @@ Definition addMemoryBlockCommon 	(idPDchild blockToShareMPUAddr: paddr)
 		if isFull then (* no free slots left, stop*) ret nullAddr else
 
 		(* Check block is accessible and present*)
-		perform addrIsAccessible := readMPUAccessibleFromMPUEntryAddr
-																	blockToShareMPUAddr in
+		perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr
+																	blockToShareEntryAddr in
 		if negb addrIsAccessible then (* block not accessible *) ret nullAddr else
-		perform addrIsPresent := readMPUPresentFromMPUEntryAddr
-																	blockToShareMPUAddr in
+		perform addrIsPresent := readBlockPresentFromBlockEntryAddr
+																	blockToShareEntryAddr in
 		if negb addrIsPresent then (** block is not present *) ret nullAddr else
 
 
 		(** Child: set the block to share in the child's first free slot*)
 		(* the block start is set as origin in the child*)
-		perform blockstart := readMPUStartFromMPUEntryAddr blockToShareMPUAddr in
-		perform blockend := readMPUEndFromMPUEntryAddr blockToShareMPUAddr in
-		perform blockToShareChildMPUAddr := insertNewEntry 	idPDchild
+		perform blockstart := readBlockStartFromBlockEntryAddr blockToShareEntryAddr in
+		perform blockend := readBlockEndFromBlockEntryAddr blockToShareEntryAddr in
+		perform blockToShareChildEntryAddr := insertNewEntry 	idPDchild
 																												blockstart blockend
 																												blockstart
 																												r w e
 																												in
 
 		(** Parent: register the shared block in Sh1*)
-		writeSh1PDChildFromMPUEntryAddr blockToShareMPUAddr idPDchild;;
-		writeSh1InChildLocationFromMPUEntryAddr blockToShareMPUAddr
-																						blockToShareChildMPUAddr;;
+		writeSh1PDChildFromBlockEntryAddr blockToShareEntryAddr idPDchild;;
+		writeSh1InChildLocationFromBlockEntryAddr blockToShareEntryAddr
+																						blockToShareChildEntryAddr;;
 		(* RET shared block slot address in child *)
-		ret blockToShareChildMPUAddr.
+		ret blockToShareChildEntryAddr.
 
 (** The [removeBlockInDescendantsRecAux] function recursively removes the block
-		identified at MPU address <currLevelBlockToRemoveAddr> of the current
+		identified at block entry address <currLevelBlockToRemoveAddr> of the current
 		descendant by going through the descendants and remove the block on the way
     Stop condition: reached last descendant (leaf) (maximum number of iterations)
     Processing: remove the block at this level of descendants
@@ -489,10 +490,10 @@ Fixpoint removeBlockInDescendantsRecAux (timeout : nat)
 											ret true
 										else
 											(* get the descendant's references before block deletion *)
-											perform nextdescendant := readSh1PDChildFromMPUEntryAddr
+											perform nextdescendant := readSh1PDChildFromBlockEntryAddr
 																									currLevelBlockToRemoveAddr in
 											perform blockToRemoveInDescendantAddr :=
-															readSh1InChildLocationFromMPUEntryAddr
+															readSh1InChildLocationFromBlockEntryAddr
 																currLevelBlockToRemoveAddr in
 											(** PROCESSING: remove the block for this descendant *)
 											freeSlot currLevelIdPD currLevelBlockToRemoveAddr ;;
@@ -528,18 +529,18 @@ Fixpoint checkRemoveSubblocksRecAux (timeout : nat) (subblockAddr : paddr): LLI 
 										then (** STOP condition 1: reached last subblock*) ret true
 										else
 												(** PROCESSING: checks *)
-												perform isAccessible := readMPUAccessibleFromMPUEntryAddr
+												perform isAccessible := readBlockAccessibleFromBlockEntryAddr
 																										subblockAddr in
-												perform isPresent := readMPUPresentFromMPUEntryAddr
+												perform isPresent := readBlockPresentFromBlockEntryAddr
 																										subblockAddr in
 												(* if accessible, then PDflag can't be set, we just need to check PDchild *)
-												perform PDChildAddr := readSh1PDChildFromMPUEntryAddr	subblockAddr in
+												perform PDChildAddr := readSh1PDChildFromBlockEntryAddr	subblockAddr in
 												perform PDChildAddrIsNull := compareAddrToNull PDChildAddr in
 												if negb (isAccessible && isPresent && PDChildAddrIsNull)
 												then (** STOP condition 2: the subblock is not accessible,
 															not present or is shared *) ret false
 												else (** RECURSIVE call: check the next subblock*)
-														perform nextsubblock := readSCNextFromMPUEntryAddr
+														perform nextsubblock := readSCNextFromBlockEntryAddr
 																												subblockAddr in
 														checkRemoveSubblocksRecAux timeout1 nextsubblock
 	end.
@@ -566,7 +567,7 @@ Fixpoint removeSubblocksRecAux (timeout : nat) (idPDchild subblockAddr : paddr)
 										then (** STOP condition: reached last subblock*) ret true
 										else
 												(** PROCESSING: free the subblock *)
-												perform nextsubblock := readSCNextFromMPUEntryAddr
+												perform nextsubblock := readSCNextFromBlockEntryAddr
 																										subblockAddr in
 												freeSlot idPDchild subblockAddr ;;
 												(** RECURSIVE call: check the next subblock*)
@@ -592,14 +593,14 @@ Definition removeSubblocksRec (idPDchild subblockAddr : paddr): LLI bool :=
     <<currentPart>>					the current/parent partition
 		<<idPDchild>>						the child partition to remove from
 		<<idBlockToRemove>>			the block to remove
-		<<blockToRemoveInCurrPartAddr>>	the block to remove MPU address in the parent
+		<<blockToRemoveInCurrPartAddr>>	the block to remove id in the parent
 *)
 Definition removeBlockInChildAndDescendants (currentPart
 																						idPDchild
 																						idBlockToRemove
 																						blockToRemoveInCurrPartAddr : paddr)
 																																	: LLI bool :=
-		perform blockToRemoveInChildAddr := readSh1InChildLocationFromMPUEntryAddr
+		perform blockToRemoveInChildAddr := readSh1InChildLocationFromBlockEntryAddr
 																						blockToRemoveInCurrPartAddr in
 		perform isBlockCut := checkBlockCut blockToRemoveInChildAddr in
 		if negb isBlockCut
@@ -607,7 +608,7 @@ Definition removeBlockInChildAndDescendants (currentPart
 							block in the child and all grand-children *)
 
 				(* 	check block is accessible *)
-				perform addrIsAccessible := readMPUAccessibleFromMPUEntryAddr
+				perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr
 																			blockToRemoveInChildAddr in
 				if negb addrIsAccessible
 				then
@@ -639,7 +640,7 @@ Definition removeBlockInChildAndDescendants (currentPart
 				if negb recRemoveSubblocksEnded then (* timeout reached *) ret false else
 
 				(** Set back the block as accessible in the ancestors because it was cut *)
-				writeMPUAccessibleFromMPUEntryAddr blockToRemoveInCurrPartAddr true ;;
+				writeBlockAccessibleFromBlockEntryAddr blockToRemoveInCurrPartAddr true ;;
 				perform recWriteEnded := writeAccessibleRec currentPart
 																										idBlockToRemove
 																										true in
@@ -659,8 +660,8 @@ Definition removeBlockInChildAndDescendants (currentPart
 
 		Returns true:OK/false:NOK
 
-    <<idPDchild>>						the child partition to remove from
-		<<blockToRemoveMPUAddr>>	the block to remove MPU address in the parent
+    <<idPDchild>>										the child partition to remove from
+		<<blockToRemoveInCurrPartAddr>>	the block to remove id in the parent
 *)
 Definition removeMemoryBlockCommon (	idPDchild
 																		blockToRemoveInCurrPartAddr: paddr) : LLI bool :=
@@ -668,17 +669,17 @@ Definition removeMemoryBlockCommon (	idPDchild
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 
-		(** Checks (blockToRemoveMPUAddr checked before from idBlockToRemove)*)
+		(** Checks (blockToRemoveInCurrPartAddr checked before from idBlockToRemove)*)
 
 		(* Check the provided idPDchild corresponds to the child to whom the block
 				has been previously given (if given)*)
-		perform pdchildblock := readSh1PDChildFromMPUEntryAddr
+		perform pdchildblock := readSh1PDChildFromBlockEntryAddr
 																blockToRemoveInCurrPartAddr in
 		perform hasChildBlock := getBeqAddr idPDchild pdchildblock in
 		if negb hasChildBlock then (* no correspondance, stop *) ret false else
 
 		(** Child (and grand-children): remove block if possible *)
-		perform idBlockToRemove := readMPUStartFromMPUEntryAddr blockToRemoveInCurrPartAddr in
+		perform idBlockToRemove := readBlockStartFromBlockEntryAddr blockToRemoveInCurrPartAddr in
 		perform blockIsRemoved := removeBlockInChildAndDescendants
 																		currentPart
 																		idPDchild
@@ -688,16 +689,16 @@ Definition removeMemoryBlockCommon (	idPDchild
 
 		(** Parent: remove block reference to the child *)
 		perform defaultSh1Entry := getDefaultSh1Entry in
-		writeSh1EntryFromMPUEntryAddr blockToRemoveInCurrPartAddr defaultSh1Entry ;;
+		writeSh1EntryFromBlockEntryAddr blockToRemoveInCurrPartAddr defaultSh1Entry ;;
 		ret true.
 
 
-(** The [sizeOfBlock] function computes the size of block referenced in an MPU entry
+(** The [sizeOfBlock] function computes the size of block referenced in a block entry
 	Returns the difference between the block's end and start addresses
 *)
-Definition sizeOfBlock (mpuentryaddr : paddr) : LLI index :=
-	perform startAddr := readMPUStartFromMPUEntryAddr mpuentryaddr in
-	perform endAddr := readMPUEndFromMPUEntryAddr mpuentryaddr in
+Definition sizeOfBlock (blockentryaddr : paddr) : LLI index :=
+	perform startAddr := readBlockStartFromBlockEntryAddr blockentryaddr in
+	perform endAddr := readBlockEndFromBlockEntryAddr blockentryaddr in
 	Paddr.subPaddr endAddr startAddr.
 
 (** The [initPDTable] function initializes the PD table pointed by <pdtableaddr>
@@ -708,7 +709,7 @@ Definition initPDTable (pdtablepaddr : paddr) : LLI unit :=
 	perform emptytable := getEmptyPDTable in
 	writePDTable pdtablepaddr emptytable.
 
-(** The [initMPUEntryRec] function recursively initializes all MPU entries from
+(** The [initBlockEntryRec] function recursively initializes all block entries from
 		<indexCurr> to 0 of kernel structure located at <kernelStructureStartAddr>
 		by constructing a linked list of all entries representing the free slots.
 		The indexes are 0-indexed.
@@ -716,7 +717,7 @@ Definition initPDTable (pdtablepaddr : paddr) : LLI unit :=
 
 	Returns true:OK/false:NOK
 *)
-Fixpoint initMPUEntryRecAux 	(timeout : nat)
+Fixpoint initBlockEntryRecAux 	(timeout : nat)
 															(kernelStructureStartAddr : paddr)
 															(indexCurr : index): LLI bool :=
 	match timeout with
@@ -725,21 +726,21 @@ Fixpoint initMPUEntryRecAux 	(timeout : nat)
 									(** PROCESSING: set default values in current entry *)
 									perform idxsucc := Index.succ indexCurr in
 									(* current entry points to the next via the endAddr field*)
-									perform nextEntryPointer := getMPUEntryAddrFromKernelStructureStart
+									perform nextEntryPointer := getBlockEntryAddrFromKernelStructureStart
 																								kernelStructureStartAddr
 																								idxsucc in
-									perform mpuEntry := buildMPUEntry
+									perform blockEntry := buildBlockEntry
 																				nullAddr
 																				nextEntryPointer
 																				false
 																				false in
-									perform currEntryPointer := getMPUEntryAddrFromKernelStructureStart
+									perform currEntryPointer := getBlockEntryAddrFromKernelStructureStart
 																								kernelStructureStartAddr
 																								indexCurr in
-									writeMPUEntryWithIndexFromMPUEntryAddr
+									writeBlockEntryWithIndexFromBlockEntryAddr
 											currEntryPointer
 											indexCurr
-											mpuEntry;;
+											blockEntry;;
 
 									perform zero := Index.zero in
 									if beqIdx indexCurr zero
@@ -748,36 +749,36 @@ Fixpoint initMPUEntryRecAux 	(timeout : nat)
 									else
 										(** RECURSIVE call: write default values in precedent index *)
 										perform idxpred := Index.pred indexCurr in
-										initMPUEntryRecAux timeout1 kernelStructureStartAddr idxpred
+										initBlockEntryRecAux timeout1 kernelStructureStartAddr idxpred
 	end.
 
-(** The [initMPUStructure] function initializes the MPU part of the kernel
+(** The [initBlocksStructure] function initializes the blocks part of the kernel
 		structure located at <kernelStructureStartAddr>. It creates the linked list
-		of the free slots. The MPU indexes are 0-indexed. The last index is special,
+		of the free slots. The block indexes are 0-indexed. The last index is special,
 		it should point to NULL.
 	Returns true:OK/false:NOK
 *)
-Definition initMPUStructure (kernelStructureStartAddr : paddr) : LLI bool :=
+Definition initBlocksStructure (kernelStructureStartAddr : paddr) : LLI bool :=
 	perform entriesnb := getKernelStructureEntriesNb in
 	perform lastindex := Index.pred entriesnb in (* 0-indexed*)
-	(** Initialize the MPU entries until the penultimate entry, the last entry is
+	(** Initialize the block entries until the penultimate entry, the last entry is
 			is not identical*)
 	perform secondlastindex := Index.pred lastindex in
-	perform initEnded := initMPUEntryRecAux N
+	perform initEnded := initBlockEntryRecAux N
 																					kernelStructureStartAddr
 																					secondlastindex in
 	if negb initEnded then (* timeout reached *) ret false else
 	(** Last entry has no following entry: make it point to NULL*)
-	perform lastMPUEntry := buildMPUEntry nullAddr
+	perform lastBlockEntry := buildBlockEntry nullAddr
 																				nullAddr
 																				false
 																				false in
-	perform lastEntryPointer := getMPUEntryAddrFromKernelStructureStart
+	perform lastEntryPointer := getBlockEntryAddrFromKernelStructureStart
 									 								kernelStructureStartAddr
 																	lastindex in
-	writeMPUEntryWithIndexFromMPUEntryAddr 	lastEntryPointer
+	writeBlockEntryWithIndexFromBlockEntryAddr 	lastEntryPointer
 																					lastindex
-																					lastMPUEntry;;
+																					lastBlockEntry;;
 	ret true.
 
 
@@ -795,10 +796,10 @@ Fixpoint initSh1EntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 		| 0 => 	ret false (* timeout reached *)
 		| S timeout1 => (** PROCESSING: set default values in current entry *)
 										perform defaultSh1Entry := getDefaultSh1Entry in
-										perform currEntryPointer := getMPUEntryAddrFromKernelStructureStart
+										perform currEntryPointer := getBlockEntryAddrFromKernelStructureStart
 																									kernelStructureStartAddr
 																									indexCurr in
-										writeSh1EntryFromMPUEntryAddr currEntryPointer
+										writeSh1EntryFromBlockEntryAddr currEntryPointer
 																									defaultSh1Entry;;
 										perform zero := Index.zero in
 										if beqIdx indexCurr zero
@@ -837,10 +838,10 @@ Fixpoint initSCEntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 		| 0 => 	ret false (* timeout reached *)
 		| S timeout1 => (** PROCESSING: set default values in current entry *)
 										perform defaultSCEntry := getDefaultSCEntry in
-										perform currEntryPointer := getMPUEntryAddrFromKernelStructureStart
+										perform currEntryPointer := getBlockEntryAddrFromKernelStructureStart
 																									kernelStructureStartAddr
 																									indexCurr in
-										writeSCEntryFromMPUEntryAddr 	currEntryPointer
+										writeSCEntryFromBlockEntryAddr 	currEntryPointer
 																									defaultSCEntry;;
 										perform zero := Index.zero in
 										if beqIdx indexCurr zero
@@ -874,7 +875,7 @@ Definition initStructure (kernelStructureStartAddr kernelStructureEndAddr: paddr
 	perform isBlockErased := 	eraseBlock 	kernelStructureStartAddr
 																				kernelStructureEndAddr in
 	if negb isBlockErased then (** error in block erasure *) ret false else
-	initMPUStructure kernelStructureStartAddr ;;
+	initBlocksStructure kernelStructureStartAddr ;;
 	initSh1Structure kernelStructureStartAddr ;;
 	initSCStructure kernelStructureStartAddr ;;
 	writeNextFromKernelStructureStart kernelStructureStartAddr nullAddr ;;
@@ -901,26 +902,26 @@ Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
 		| S timeout1 =>
 										(** PROCESSING: remove all blocks shared with the child to
 																		delete in the current structure *)
-										perform currMPUEntryAddr :=	getMPUEntryAddrFromKernelStructureStart
+										perform currBlockEntryAddr :=	getBlockEntryAddrFromKernelStructureStart
 																											kernelStructureStartAddr
 																											currIndex in
-										perform blockID := readMPUStartFromMPUEntryAddr
-																					currMPUEntryAddr in
-										perform currPDChild := readSh1PDChildFromMPUEntryAddr
-																							currMPUEntryAddr in
+										perform blockID := readBlockStartFromBlockEntryAddr
+																					currBlockEntryAddr in
+										perform currPDChild := readSh1PDChildFromBlockEntryAddr
+																							currBlockEntryAddr in
 										if beqAddr currPDChild idPDchildToDelete
 										then (* the slot corresponds to memory shared or prepared
 													with the child to destruct, remove sharing *)
 														(* Set block accessible in current partition *)
-														writeMPUAccessibleFromMPUEntryAddr 	currMPUEntryAddr
+														writeBlockAccessibleFromBlockEntryAddr 	currBlockEntryAddr
 																																true ;;
 														perform defaultSh1Entry := getDefaultSh1Entry in
-														writeSh1EntryFromMPUEntryAddr currMPUEntryAddr
+														writeSh1EntryFromBlockEntryAddr currBlockEntryAddr
 																													defaultSh1Entry ;;
 													(* 	whatever the accessibility of the block that could
 															not be accessible because of the child's operations,
 															set the block accessible again*)
-													perform isCut := checkBlockCut currMPUEntryAddr in
+													perform isCut := checkBlockCut currBlockEntryAddr in
 													if negb isCut
 													then (* if the block isn't cut in the current
 																partition, set as accessible in the ancestors *)
@@ -1068,11 +1069,11 @@ Fixpoint checkStructureEmptyRecAux 	(timeout : nat)
 	match timeout with
 		| 0 => 	ret false (* timeout reached *)
 		| S timeout1 =>	(** PROCESSING: check the current entry *)
-										perform currMPUEntryAddr :=	getMPUEntryAddrFromKernelStructureStart
+										perform currBlockEntryAddr :=	getBlockEntryAddrFromKernelStructureStart
 																										structureAddr
 																										currIndex in
-										perform isPresent := readMPUPresentFromMPUEntryAddr
-																						currMPUEntryAddr in
+										perform isPresent := readBlockPresentFromBlockEntryAddr
+																						currBlockEntryAddr in
 										if isPresent
 										then
 												(** STOP condition 1: found a used entry *)
@@ -1125,14 +1126,14 @@ match timeout with
 											(** PROCESSING: remove slots to collect from free slots list*)
 
 											(* compute the current slot's kernel structure *)
-											perform MPUEntryIndex := readMPUIndexFromMPUEntryAddr
+											perform blockEntryIndex := readBlockIndexFromBlockEntryAddr
 																										currFreeSlotAddr in
 											perform slotKStructureStart := getKernelStructureStartAddr
 																												currFreeSlotAddr
-																												MPUEntryIndex in
+																												blockEntryIndex in
 
-											(* get next free slot from MPU end field *)
-											perform nextFreeSlotAddr := readMPUEndFromMPUEntryAddr
+											(* get next free slot from Block's end field *)
+											perform nextFreeSlotAddr := readBlockEndFromBlockEntryAddr
 																											currFreeSlotAddr in
 											if beqAddr slotKStructureStart structureCollectAddr
 											then
@@ -1153,7 +1154,7 @@ match timeout with
 												else
 													(* remove current slot from free slot list: chain
 														previous to next free slot *)
-														writeMPUEndFromMPUEntryAddr predFreeSlotAddr
+														writeBlockEndFromBlockEntryAddr predFreeSlotAddr
 																												nextFreeSlotAddr ;;
 														(** RECURSIVE call: continue collect with rest of list *)
 														collectFreeSlotsRecAux 	timeout1
@@ -1232,10 +1233,10 @@ match timeout with
 													a node given by its parent and this can't be collected
 													so pass to next node*)
 											(* Find the block in the current partition *)
-											perform blockToCollectMPUAddr := findBlockInMPU
+											perform blockToCollectAddr := findBlockInKS
 																													currentPart
 																													currStructureAddr in
-											perform addrIsNull := compareAddrToNull	blockToCollectMPUAddr in
+											perform addrIsNull := compareAddrToNull	blockToCollectAddr in
 											if addrIsNull
 											then(* can't remove a block prepared by parent, can't collect *)
 												(** RECURSIVE call: check next structure *)
@@ -1268,16 +1269,16 @@ match timeout with
 												writePDNbFreeSlots idPD subNbFreeSlots ;;
 
 												(* Set block accessible where it is (current or child) *)
-												writeMPUAccessibleFromMPUEntryAddr 	blockToCollectMPUAddr
+												writeBlockAccessibleFromBlockEntryAddr 	blockToCollectAddr
 																														true ;;
 												(* Set block accessible in parent and ancestors if not cut *)
 												writeAccessibleToAncestorsIfNotCutRec idPD
 																															currStructureAddr
-																															blockToCollectMPUAddr
+																															blockToCollectAddr
 																															true ;;
 												(* Erase sh1 reference *)
 												perform defaultSh1Entry := getDefaultSh1Entry in
-												writeSh1EntryFromMPUEntryAddr blockToCollectMPUAddr
+												writeSh1EntryFromBlockEntryAddr blockToCollectAddr
 																											defaultSh1Entry ;;
 
 											(** STOP condition 2: found a structure to collect *)
@@ -1292,18 +1293,18 @@ Definition collectStructureRec (currentPart
 																																	: LLI paddr :=
 	collectStructureRecAux N currentPart idPD predStructureAddr currStructureAddr.
 
-(** The [enableBlockInMPU] function enables the block <mpuentryaddr> in the physical
+(** The [enableBlockInMPU] function enables the block <blockentryaddr> in the physical
 		MPU of the partition <idPD> at the given region number <MPURegionNb>.
 		The block is not enabled if the <MPURegionNb> is not valid.
 
 		Returns True if the given <MPURegionNb> is valid for the physical MPU/False
 
 		<<idPD>>								the partition where to reconfigure the physical MPU
-    <<blockmpuentryaddr>>		the new block to enable
+    <<blockentryaddr>>		the new block to enable
     <<MPURegionNb>>					the physical MPU region to replace
 *)
 Definition enableBlockInMPU 	(idPD : paddr)
-														(blockmpuentryaddr : paddr)
+														(blockentryaddr : paddr)
 														(MPURegionNb : index)
  																																: LLI bool :=
 	perform zero := Index.zero in
@@ -1315,26 +1316,26 @@ Definition enableBlockInMPU 	(idPD : paddr)
 			ret false
 	else
 			(* Enables the block in the physical MPU *)
-			replaceBlockInPhysicalMPU idPD blockmpuentryaddr MPURegionNb ;;
+			replaceBlockInPhysicalMPU idPD blockentryaddr MPURegionNb ;;
 			ret true.
 
 (** The [removeBlockFromPhysicalMPUIfAlreadyMapped] function removes the block
-		<blockmpuentryaddr> from the physical MPU of the partition <idPD> if the block
+		<blockentryaddr> from the physical MPU of the partition <idPD> if the block
 		is already mapped in the MPU.
 
 		Returns unit
 
 		<<idPD>>								the partition where to look for the physical MPU
-    <<blockmpuentryaddr>>		the block to find
+    <<blockentryaddr>>		the block to find
 *)
 Definition removeBlockFromPhysicalMPUIfAlreadyMapped (idPD : paddr)
-																										(blockmpuentryaddr : paddr)
+																										(blockentryaddr : paddr)
 																										: LLI unit :=
 
 	perform kernelentriesnb := getKernelStructureEntriesNb in
 	perform defaultidx := Index.succ kernelentriesnb in
 	perform oldMPURegionNb := findBlockIdxInPhysicalMPU 	idPD
-																											blockmpuentryaddr
+																											blockentryaddr
 																											defaultidx in
 	if beqIdx oldMPURegionNb defaultidx
 	then (* block was already mapped, remove it*)

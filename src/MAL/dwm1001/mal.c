@@ -54,61 +54,61 @@ paddr root_partition = NULL; /* Multiplexer's partition descriptor, default 0*/
 
 static const PDTable_t DEFAULT_PD_TABLE = {NULL, NULL, 0, 0, NULL}; // BEWARE : LUT not initialized
 static const block_t DEFAULT_BLOCK = {0, 0};
-static const MPUIndex_t DEFAULT_MPU_INDEX = {-1};
-static const MPUEntry_t DEFAULT_MPU_ENTRY = {DEFAULT_BLOCK, DEFAULT_MPU_INDEX, false, false, false, false, false};
+static const BlockIndex_t DEFAULT_BLOCK_INDEX = {-1};
+static const BlockEntry_t DEFAULT_BLOCK_ENTRY = {DEFAULT_BLOCK, DEFAULT_BLOCK_INDEX, false, false, false, false, false};
 static const Sh1Entry_t DEFAULT_SH1_ENTRY = {NULL, false, NULL};
 static const SCEntry_t DEFAULT_SC_ENTRY = {NULL, NULL};
 
 
 /*!
- * \fn paddr getKernelStructureStartAddr(paddr mpuentryaddr, uint32_t mpuentryindex)
- * \brief Gets the kernel structure start address from the MPU entry.
- * \param mpuentryaddr The address of the MPU entry
- * \param mpuentryindex The index of the MPU entry
+ * \fn paddr getKernelStructureStartAddr(paddr blockentryaddr, uint32_t blockentryindex)
+ * \brief Gets the kernel structure start address from the block entry.
+ * \param blockentryaddr The address of the block entry
+ * \param blockentryindex The index of the block entry
  * \return The start of the kernel structure frame
  */
-paddr getKernelStructureStartAddr(paddr mpuentryaddr, uint32_t mpuentryindex)
+paddr getKernelStructureStartAddr(paddr blockentryaddr, uint32_t blockentryindex)
 {
-	return (paddr) ((MPUEntry_t*) mpuentryaddr- mpuentryindex); // TODO: Over/underflow ?
+	return (paddr) ((BlockEntry_t*) blockentryaddr- blockentryindex); // TODO: Over/underflow ?
 }
 
 /*!
- * \fn paddr getMPUEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
- * \brief Gets the address where to find the MPU entry corresponding to the given index.
+ * \fn paddr getBlockEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t blockentryindex)
+ * \brief Gets the address where to find the block entry corresponding to the given index.
  * \param kernelstartaddr The address where the kernel structure starts
- * \param mpuentryindex The index of the MPU entry
- * \return The address of the MPU entry
+ * \param blockentryindex The index of the block entry
+ * \return The address of the block entry
  */
-paddr getMPUEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
+paddr getBlockEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t blockentryindex)
 {
 	KStructure_t* structure = (KStructure_t*) kernelstartaddr;
-	return (paddr) &structure->mpu[mpuentryindex];
+	return (paddr) &structure->blocks[blockentryindex];
 }
 
 /*!
- * \fn paddr getSh1EntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
+ * \fn paddr getSh1EntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t blockentryindex)
  * \brief Gets the address where to find the Shadow 1 entry corresponding to the given index.
  * \param kernelstartaddr The address where the kernel structure starts
- * \param mpuentryindex The index of the MPU entry
+ * \param blockentryindex The index of the block entry
  * \return The address of the shadow 1 entry
  */
-paddr getSh1EntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
+paddr getSh1EntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t blockentryindex)
 {
 	KStructure_t* structure = (KStructure_t*) kernelstartaddr;
-	return (paddr) &structure->sh1[mpuentryindex];
+	return (paddr) &structure->sh1[blockentryindex];
 }
 
 /*!
- * \fn paddr getSCEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
+ * \fn paddr getSCEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t blockentryindex)
  * \brief Gets the address where to find the Shadow Cut entry corresponding to the given index.
  * \param kernelstartaddr The address where the kernel structure starts
- * \param mpuentryindex The index of the MPU entry
+ * \param blockentryindex The index of the block entry
  * \return The address of the shadow cut entry
  */
-paddr getSCEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t mpuentryindex)
+paddr getSCEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t blockentryindex)
 {
 	KStructure_t* structure = (KStructure_t*) kernelstartaddr;
-	return (paddr) &structure->sc[mpuentryindex];
+	return (paddr) &structure->sc[blockentryindex];
 }
 
 /*!
@@ -290,344 +290,344 @@ void writePDParent(paddr pdaddr, paddr value)
 }
 
 /*!
- * \fn paddr readMPUStartFromMPUEntryAddr(paddr mpuentryaddr)
+ * \fn paddr readBlockStartFromBlockEntryAddr(paddr blockentryaddr)
  * \brief Gets the block's start address from the given entry.
- * \param mpuentryaddr The address of the MPU entry to read from
+ * \param blockentryaddr The address of the block entry to read from
  * \return the block's start address
  */
-paddr readMPUStartFromMPUEntryAddr(paddr mpuentryaddr)
+paddr readBlockStartFromBlockEntryAddr(paddr blockentryaddr)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
 	// Return the start address
-	return (mpuentry->mpublock).startAddr;
+	return (blockentry->blockrange).startAddr;
 }
 
 /*!
- * \fn void writeMPUStartFromMPUEntryAddr(paddr mpuentryaddr, paddr value)
+ * \fn void writeBlockStartFromBlockEntryAddr(paddr blockentryaddr, paddr value)
  * \brief Sets the block's start address.
- * \param mpuentryaddr The address of the MPU entry to write in
+ * \param blockentryaddr The address of the block entry to write in
  * \param value The new value
  * \return void
  */
-void writeMPUStartFromMPUEntryAddr(paddr mpuentryaddr, paddr value)
+void writeBlockStartFromBlockEntryAddr(paddr blockentryaddr, paddr value)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
 	// write the block's start address
-	(mpuentry->mpublock).startAddr = value;
+	(blockentry->blockrange).startAddr = value;
 	return;
 }
 
 /*!
- * \fn paddr readMPUEndFromMPUEntryAddr(paddr mpuentryaddr)
+ * \fn paddr readBlockEndFromBlockEntryAddr(paddr blockentryaddr)
  * \brief Gets the block's end address from the given entry.
- * \param mpuentryaddr The address of the MPU entry to read from
+ * \param blockentryaddr The address of the block entry to read from
  * \return the block's end address
  */
-paddr readMPUEndFromMPUEntryAddr(paddr mpuentryaddr)
+paddr readBlockEndFromBlockEntryAddr(paddr blockentryaddr)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
 	// Return the end address
-	return (mpuentry->mpublock).endAddr;
+	return (blockentry->blockrange).endAddr;
 }
 
 /*!
- * \fn void writeMPUEndFromMPUEntryAddr(paddr mpuentryaddr, paddr value)
+ * \fn void writeBlockEndFromBlockEntryAddr(paddr blockentryaddr, paddr value)
  * \brief Sets the block's end address.
- * \param mpuentryaddr The address of the MPU entry to write in
+ * \param blockentryaddr The address of the block entry to write in
  * \param value The new value
  * \return void
  */
-void writeMPUEndFromMPUEntryAddr(paddr mpuentryaddr, paddr value)
+void writeBlockEndFromBlockEntryAddr(paddr blockentryaddr, paddr value)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
 	// write the block's end address
-	(mpuentry->mpublock).endAddr = value;
+	(blockentry->blockrange).endAddr = value;
 	return;
 }
 
 /*!
- * \fn bool readMPUAccessibleFromMPUEntryAddr(paddr mpuentryaddr)
+ * \fn bool readBlockAccessibleFromBlockEntryAddr(paddr blockentryaddr)
  * \brief Gets the Accessible flag from the given entry.
- * \param mpuentryaddr The address of the MPU entry to read from
+ * \param blockentryaddr The address of the block entry to read from
  * \return 1 if the page is user-mode accessible, 0 else
  */
-bool readMPUAccessibleFromMPUEntryAddr(paddr mpuentryaddr)
+bool readBlockAccessibleFromBlockEntryAddr(paddr blockentryaddr)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
-	//MALDBG("readMPUAccessibleFromMPUEntryAddr(%d) -> %d\r\n", mpuentryaddr, mpuentry->accessible);
-	//printf("readMPUAccessibleFromMPUEntryAddr(%x) -> %d\r\n", mpuentryaddr, mpuentry->accessible);
+	//MALDBG("readBlockAccessibleFromBlockEntryAddr(%d) -> %d\r\n", blockentryaddr, blockentry->accessible);
+	//printf("readBlockAccessibleFromBlockEntryAddr(%x) -> %d\r\n", blockentryaddr, blockentry->accessible);
 
 	// Return the accessible flag
-	return mpuentry->accessible;
+	return blockentry->accessible;
 }
 
 /*!
- * \fn void writeMPUAccessibleFromMPUEntryAddr(paddr mpuentryaddr)
+ * \fn void writeBlockAccessibleFromBlockEntryAddr(paddr blockentryaddr)
  * \brief Sets a memory block as accessible or not.
- * \param mpuentryaddr The address of the MPU entry to write in
+ * \param blockentryaddr The address of the block entry to write in
  * \param value The new value
  * \return void
  */
-void writeMPUAccessibleFromMPUEntryAddr(paddr mpuentryaddr, bool value)
+void writeBlockAccessibleFromBlockEntryAddr(paddr blockentryaddr, bool value)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
 	// write the flag
-	mpuentry->accessible = value;
+	blockentry->accessible = value;
 	return;
 }
 
 /*!
- * \fn bool readMPUPresentFromMPUEntryAddr(paddr mpuentryaddr)
+ * \fn bool readBlockPresentFromBlockEntryAddr(paddr blockentryaddr)
  * \brief Gets the Present flag from the given entry.
- * \param mpuentryaddr The address of the MPU entry to read from
+ * \param blockentryaddr The address of the block entry to read from
  * \return 1 if the block is present, 0 else
  */
-bool readMPUPresentFromMPUEntryAddr(paddr mpuentryaddr)
+bool readBlockPresentFromBlockEntryAddr(paddr blockentryaddr)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
-	//MALDBG("readMPUPresentFromMPUEntryAddr(%d) -> %d\r\n", mpuentryaddr, mpuentry->present);
-	//printf("readMPUPresentFromMPUEntryAddr(%x) -> %d\r\n", mpuentryaddr, mpuentry->present);
+	//MALDBG("readBlockPresentFromBlockEntryAddr(%d) -> %d\r\n", blockentryaddr, blockentry->present);
+	//printf("readBlockPresentFromBlockEntryAddr(%x) -> %d\r\n", blockentryaddr, blockentry->present);
 
 	// Return the present flag
-	return mpuentry->present;
+	return blockentry->present;
 }
 
 /*!
- * \fn void writeMPUPresentFromMPUEntryAddr(paddr mpuentryaddr, bool value)
+ * \fn void writeBlockPresentFromBlockEntryAddr(paddr blockentryaddr, bool value)
  * \brief Sets a memory block as present or not.
- * \param mpuentryaddr The address of the MPU entry to write in
+ * \param blockentryaddr The address of the block entry to write in
  * \param value The new value
  * \return void
  */
-void writeMPUPresentFromMPUEntryAddr(paddr mpuentryaddr, bool value)
+void writeBlockPresentFromBlockEntryAddr(paddr blockentryaddr, bool value)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
 	// write the flag
-	mpuentry->present = value;
+	blockentry->present = value;
 	return;
 }
 
 /*!
- * \fn uint32_t readMPUIndexFromMPUEntryAddr(paddr mpuentryaddr)
- * \brief Gets the MPU index from the given entry.
- * \param mpuentryaddr The address of the MPU entry to read from
- * \return the MPU index
+ * \fn uint32_t readBlockIndexFromBlockEntryAddr(paddr blockentryaddr)
+ * \brief Gets the Block index from the given entry.
+ * \param blockentryaddr The address of the block entry to read from
+ * \return the Block index
  */
-uint32_t readMPUIndexFromMPUEntryAddr(paddr mpuentryaddr)
+uint32_t readBlockIndexFromBlockEntryAddr(paddr blockentryaddr)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
-	// Return the MPU index
-	return (uint32_t) (mpuentry->mpuindex).MPUi;
+	// Return the Block index
+	return (uint32_t) (blockentry->blockindex).i;
 }
 
 /*!
- * \fn void writeMPUIndexFromMPUEntryAddr(paddr mpuentryaddr, uint32_t value)
- * \brief Sets the MPU index.
- * \param mpuentryaddr The address of the MPU entry to write in
+ * \fn void writeBlockIndexFromBlockEntryAddr(paddr blockentryaddr, uint32_t value)
+ * \brief Sets the Block index.
+ * \param blockentryaddr The address of the block entry to write in
  * \param value The new value
  * \return void
  */
-void writeMPUIndexFromMPUEntryAddr(paddr mpuentryaddr, uint32_t value)
+void writeBlockIndexFromBlockEntryAddr(paddr blockentryaddr, uint32_t value)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
-	// write the MPU index
-	(mpuentry->mpuindex).MPUi = value;
+	// write the block index
+	(blockentry->blockindex).i = value;
 	return;
 }
 
 /*!
- * \fn bool readMPURFromMPUEntryAddr(paddr mpuentryaddr)
+ * \fn bool readBlockRFromBlockEntryAddr(paddr blockentryaddr)
  * \brief Gets the Present flag from the given entry.
- * \param mpuentryaddr The address of the MPU entry to read from
+ * \param blockentryaddr The address of the block entry to read from
  * \return 1 if the read flag is set, 0 else
  */
-bool readMPURFromMPUEntryAddr(paddr mpuentryaddr)
+bool readBlockRFromBlockEntryAddr(paddr blockentryaddr)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
 	// Return the read flag
-	return mpuentry->read;
+	return blockentry->read;
 }
 
 /*!
- * \fn void writeMPURFromMPUEntryAddr(paddr mpuentryaddr, bool value)
+ * \fn void writeBlockRFromBlockEntryAddr(paddr blockentryaddr, bool value)
  * \brief Sets a memory block as readable or not.
- * \param mpuentryaddr The address of the MPU entry to write in
+ * \param blockentryaddr The address of the block entry to write in
  * \param value The new value
  * \return void
  */
-void writeMPURFromMPUEntryAddr(paddr mpuentryaddr, bool value)
+void writeBlockRFromBlockEntryAddr(paddr blockentryaddr, bool value)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
 	// write the read flag
-	mpuentry->read = value;
+	blockentry->read = value;
 	return;
 }
 
 /*!
- * \fn bool readMPUWFromMPUEntryAddr(paddr mpuentryaddr)
+ * \fn bool readBlockWFromBlockEntryAddr(paddr blockentryaddr)
  * \brief Gets the write flag from the given entry.
- * \param mpuentryaddr The address of the MPU entry to read from
+ * \param blockentryaddr The address of the block entry to read from
  * \return 1 if the write flag is set, 0 else
  */
-bool readMPUWFromMPUEntryAddr(paddr mpuentryaddr)
+bool readBlockWFromBlockEntryAddr(paddr blockentryaddr)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
 	// Return the write flag
-	return mpuentry->write;
+	return blockentry->write;
 }
 
 /*!
- * \fn void writeMPUWFromMPUEntryAddr(paddr mpuentryaddr, bool value)
+ * \fn void writeBlockWFromBlockEntryAddr(paddr blockentryaddr, bool value)
  * \brief Sets a memory block as writable or not.
- * \param mpuentryaddr The address of the MPU entry to write in
+ * \param blockentryaddr The address of the block entry to write in
  * \param value The new value
  * \return void
  */
-void writeMPUWFromMPUEntryAddr(paddr mpuentryaddr, bool value)
+void writeBlockWFromBlockEntryAddr(paddr blockentryaddr, bool value)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
 	// write the flag
-	mpuentry->write = value;
+	blockentry->write = value;
 	return;
 }
 
 /*!
- * \fn bool readMPUXFromMPUEntryAddr(paddr mpuentryaddr)
+ * \fn bool readBlockXFromBlockEntryAddr(paddr blockentryaddr)
  * \brief Gets the exec flag from the given entry.
- * \param mpuentryaddr The address of the MPU entry to read from
+ * \param blockentryaddr The address of the block entry to read from
  * \return 1 if the exec flag is set, 0 else
  */
-bool readMPUXFromMPUEntryAddr(paddr mpuentryaddr)
+bool readBlockXFromBlockEntryAddr(paddr blockentryaddr)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
 	// Return the exec flag
-	return mpuentry->exec;
+	return blockentry->exec;
 }
 
 /*!
- * \fn void writeMPUXFromMPUEntryAddr(paddr mpuentryaddr, bool value)
+ * \fn void writeBlockXFromBlockEntryAddr(paddr blockentryaddr, bool value)
  * \brief Sets a memory block as executable or not.
- * \param mpuentryaddr The address of the MPU entry to write in
+ * \param blockentryaddr The address of the block entry to write in
  * \param value The new value
  * \return void
  */
-void writeMPUXFromMPUEntryAddr(paddr mpuentryaddr, bool value)
+void writeBlockXFromBlockEntryAddr(paddr blockentryaddr, bool value)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
 	// write the flag
-	mpuentry->exec = value;
+	blockentry->exec = value;
 	return;
 }
 
 /*!
- * \fn MPUentry_t readMPUEntryFromMPUEntryAddr(paddr mpuentryaddr)
- * \brief Gets the MPU entry at the given entry.
- * \param mpuentryaddr The address of the MPU entry to read from
- * \return the MPU entry
+ * \fn BlockEntry_t readBlockEntryFromBlockEntryAddr(paddr blockentryaddr)
+ * \brief Gets the block entry at the given entry.
+ * \param blockentryaddr The address of the block entry to read from
+ * \return the block entry
  */
-MPUEntry_t readMPUEntryFromMPUEntryAddr(paddr mpuentryaddr)
+BlockEntry_t readBlockEntryFromBlockEntryAddr(paddr blockentryaddr)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
-	// Return the MPU entry
-	return *mpuentry;
+	// Return the block entry
+	return *blockentry;
 }
 
 /*!
- * \fn void writeMPUEntryFromMPUEntryAddr(paddr mpuentryaddr, MPUEntry_t value)
- * \brief Sets the MPU entry.
- * \param mpuentryaddr The address of the MPU entry to write in
+ * \fn void writeBlockEntryFromBlockEntryAddr(paddr blockentryaddr, BlockEntry_t value)
+ * \brief Sets the block entry.
+ * \param blockentryaddr The address of the block entry to write in
  * \param value The new value
  * \return void
  */
-void writeMPUEntryFromMPUEntryAddr(paddr mpuentryaddr, MPUEntry_t value)
+void writeBlockEntryFromBlockEntryAddr(paddr blockentryaddr, BlockEntry_t value)
 {
-	// write the MPU entry without the index
-	writeMPUStartFromMPUEntryAddr(mpuentryaddr, value.mpublock.startAddr);
-	writeMPUEndFromMPUEntryAddr(mpuentryaddr, value.mpublock.endAddr);
-	writeMPUAccessibleFromMPUEntryAddr(mpuentryaddr, value.accessible);
-	writeMPUPresentFromMPUEntryAddr(mpuentryaddr, value.present);
+	// write the block entry without the index
+	writeBlockStartFromBlockEntryAddr(blockentryaddr, value.blockrange.startAddr);
+	writeBlockEndFromBlockEntryAddr(blockentryaddr, value.blockrange.endAddr);
+	writeBlockAccessibleFromBlockEntryAddr(blockentryaddr, value.accessible);
+	writeBlockPresentFromBlockEntryAddr(blockentryaddr, value.present);
 	return;
 }
 
 /*!
- * \fn void writeMPUEntryWithIndexFromMPUEntryAddr(paddr mpuentryaddr, uint32_t index, MPUEntry_t value)
- * \brief Sets the MPU entry with given index.
- * \param mpuentryaddr The address of the MPU entry to write in
+ * \fn void writeBlockEntryWithIndexFromBlockEntryAddr(paddr blockentryaddr, uint32_t index, BlockEntry_t value)
+ * \brief Sets the block entry with given index.
+ * \param blockentryaddr The address of the block entry to write in
  * \param value The new value
  * \param index The index to set
  * \return void
  */
-void writeMPUEntryWithIndexFromMPUEntryAddr(paddr mpuentryaddr, uint32_t index, MPUEntry_t value)
+void writeBlockEntryWithIndexFromBlockEntryAddr(paddr blockentryaddr, uint32_t index, BlockEntry_t value)
 {
-	// write the MPU entry with the index
-	writeMPUEntryFromMPUEntryAddr(mpuentryaddr, value);
-	writeMPUIndexFromMPUEntryAddr(mpuentryaddr, index);
+	// write the block entry with the index
+	writeBlockEntryFromBlockEntryAddr(blockentryaddr, value);
+	writeBlockIndexFromBlockEntryAddr(blockentryaddr, index);
 	return;
 }
 
 /*!
- * \fn paddr getSh1EntryAddrFromMPUEntryAddr(paddr mpuentryaddr)
- * \brief Gets the Sh1 entry from the MPU entry.
- * \param mpuentryaddr The address of the reference MPU entry
- * \return the corresponding SH1 entry address to the given MPU entry
+ * \fn paddr getSh1EntryAddrFromBlockEntryAddr(paddr blockentryaddr)
+ * \brief Gets the Sh1 entry from the block entry.
+ * \param blockentryaddr The address of the reference block entry
+ * \return the corresponding SH1 entry address to the given block entry
  */
-paddr getSh1EntryAddrFromMPUEntryAddr(paddr mpuentryaddr)
+paddr getSh1EntryAddrFromBlockEntryAddr(paddr blockentryaddr)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
-	uint32_t entryindex = (mpuentry->mpuindex).MPUi;// TODO protect from NULL access ?
+	uint32_t entryindex = (blockentry->blockindex).i;// TODO protect from NULL access ?
 
-	paddr kernelStartAddr = getKernelStructureStartAddr(mpuentryaddr, entryindex);
+	paddr kernelStartAddr = getKernelStructureStartAddr(blockentryaddr, entryindex);
 
 	// Return the SH1 entry address
 	return getSh1EntryAddrFromKernelStructureStart(kernelStartAddr, entryindex);
 }
 
 /*!
- * \fn paddr readSh1PDChildFromMPUEntryAddr(paddr mpuentryaddr)
+ * \fn paddr readSh1PDChildFromBlockEntryAddr(paddr blockentryaddr)
  * \brief Gets the child's PD from the given entry.
- * \param mpuentryaddr The address of the reference MPU entry
+ * \param blockentryaddr The address of the reference block entry
  * \return the child PD if shared, NULL otherwise
  */
-paddr readSh1PDChildFromMPUEntryAddr(paddr mpuentryaddr)
+paddr readSh1PDChildFromBlockEntryAddr(paddr blockentryaddr)
 {
 	// Get the corresponding Sh1 entry addres
-	paddr sh1entryaddr = getSh1EntryAddrFromMPUEntryAddr(mpuentryaddr);
+	paddr sh1entryaddr = getSh1EntryAddrFromBlockEntryAddr(blockentryaddr);
 
 	// Cast it into a Sh1Entry_t structure
 	Sh1Entry_t* sh1entry = (Sh1Entry_t*)sh1entryaddr;
@@ -637,16 +637,16 @@ paddr readSh1PDChildFromMPUEntryAddr(paddr mpuentryaddr)
 }
 
 /*!
- * \fn void writeSh1PDChildFromMPUEntryAddr(paddr mpuentryaddr, paddr value)
+ * \fn void writeSh1PDChildFromBlockEntryAddr(paddr blockentryaddr, paddr value)
  * \brief Sets the entry's child PD.
- * \param mpuentryaddr The address of the reference MPU entry
+ * \param blockentryaddr The address of the reference block entry
  * \param value The new value
  * \return void
  */
-void writeSh1PDChildFromMPUEntryAddr(paddr mpuentryaddr, paddr value)
+void writeSh1PDChildFromBlockEntryAddr(paddr blockentryaddr, paddr value)
 {
 	// Get the corresponding Sh1 entry addres
-	paddr sh1entryaddr = getSh1EntryAddrFromMPUEntryAddr(mpuentryaddr);
+	paddr sh1entryaddr = getSh1EntryAddrFromBlockEntryAddr(blockentryaddr);
 
 	// Cast it into a Sh1Entry_t structure
 	Sh1Entry_t* sh1entry = (Sh1Entry_t*)sh1entryaddr;
@@ -657,15 +657,15 @@ void writeSh1PDChildFromMPUEntryAddr(paddr mpuentryaddr, paddr value)
 }
 
 /*!
- * \fn bool readSh1PDFlagFromMPUEntryAddr(paddr mpuentryaddr)
+ * \fn bool readSh1PDFlagFromBlockEntryAddr(paddr blockentryaddr)
  * \brief Gets the child's PD from the given entry.
- * \param mpuentryaddr The address of the reference MPU entry
+ * \param blockentryaddr The address of the reference block entry
  * \return 1 if child is PD, NULL otherwise
  */
-bool readSh1PDFlagFromMPUEntryAddr(paddr mpuentryaddr)
+bool readSh1PDFlagFromBlockEntryAddr(paddr blockentryaddr)
 {
 	// Get the corresponding Sh1 entry addres
-	paddr sh1entryaddr = getSh1EntryAddrFromMPUEntryAddr(mpuentryaddr);
+	paddr sh1entryaddr = getSh1EntryAddrFromBlockEntryAddr(blockentryaddr);
 
 	// Cast it into a Sh1Entry_t structure
 	Sh1Entry_t* sh1entry = (Sh1Entry_t*)sh1entryaddr;
@@ -675,16 +675,16 @@ bool readSh1PDFlagFromMPUEntryAddr(paddr mpuentryaddr)
 }
 
 /*!
- * \fn void writeSh1PDFlagFromMPUEntryAddr(paddr mpuentryaddr, bool value)
+ * \fn void writeSh1PDFlagFromBlockEntryAddr(paddr blockentryaddr, bool value)
  * \brief Sets the entry's PD flag.
- * \param mpuentryaddr The address of the reference MPU entry
+ * \param blockentryaddr The address of the reference block entry
  * \param value The new value
  * \return void
  */
-void writeSh1PDFlagFromMPUEntryAddr(paddr mpuentryaddr, bool value)
+void writeSh1PDFlagFromBlockEntryAddr(paddr blockentryaddr, bool value)
 {
 	// Get the corresponding Sh1 entry addres
-	paddr sh1entryaddr = getSh1EntryAddrFromMPUEntryAddr(mpuentryaddr);
+	paddr sh1entryaddr = getSh1EntryAddrFromBlockEntryAddr(blockentryaddr);
 
 	// Cast it into a Sh1Entry_t structure
 	Sh1Entry_t* sh1entry = (Sh1Entry_t*)sh1entryaddr;
@@ -695,15 +695,15 @@ void writeSh1PDFlagFromMPUEntryAddr(paddr mpuentryaddr, bool value)
 }
 
 /*!
- * \fn paddr readSh1InChildLocationFromMPUEntryAddr(paddr mpuentryaddr)
+ * \fn paddr readSh1InChildLocationFromBlockEntryAddr(paddr blockentryaddr)
  * \brief Gets the location of the block in the child.
- * \param mpuentryaddr The address of the reference MPU entry
+ * \param blockentryaddr The address of the reference block entry
  * \return the location of the block in the child if shared, NULL otherwise
  */
-paddr readSh1InChildLocationFromMPUEntryAddr(paddr mpuentryaddr)
+paddr readSh1InChildLocationFromBlockEntryAddr(paddr blockentryaddr)
 {
 	// Get the corresponding Sh1 entry addres
-	paddr sh1entryaddr = getSh1EntryAddrFromMPUEntryAddr(mpuentryaddr);
+	paddr sh1entryaddr = getSh1EntryAddrFromBlockEntryAddr(blockentryaddr);
 
 	// Cast it into a Sh1Entry_t structure
 	Sh1Entry_t* sh1entry = (Sh1Entry_t*)sh1entryaddr;
@@ -713,16 +713,16 @@ paddr readSh1InChildLocationFromMPUEntryAddr(paddr mpuentryaddr)
 }
 
 /*!
- * \fn void writeSh1InChildLocationFromMPUEntryAddr(paddr mpuentryaddr, paddr value)
+ * \fn void writeSh1InChildLocationFromBlockEntryAddr(paddr blockentryaddr, paddr value)
  * \brief Sets the block's location in the child.
- * \param mpuentryaddr The address of the reference MPU entry
+ * \param blockentryaddr The address of the reference block entry
  * \param value The new value
  * \return void
  */
-void writeSh1InChildLocationFromMPUEntryAddr(paddr mpuentryaddr, paddr value)
+void writeSh1InChildLocationFromBlockEntryAddr(paddr blockentryaddr, paddr value)
 {
 	// Get the corresponding Sh1 entry addres
-	paddr sh1entryaddr = getSh1EntryAddrFromMPUEntryAddr(mpuentryaddr);
+	paddr sh1entryaddr = getSh1EntryAddrFromBlockEntryAddr(blockentryaddr);
 
 	// Cast it into a Sh1Entry_t structure
 	Sh1Entry_t* sh1entry = (Sh1Entry_t*)sh1entryaddr;
@@ -733,50 +733,50 @@ void writeSh1InChildLocationFromMPUEntryAddr(paddr mpuentryaddr, paddr value)
 }
 
 /*!
- * \fn void writeSh1EntryFromMPUEntryAddr(paddr mpuentryaddr, Sh1Entry_t newsh1entry)
+ * \fn void writeSh1EntryFromBlockEntryAddr(paddr blockentryaddr, Sh1Entry_t newsh1entry)
  * \brief Sets the block's SH1 entry.
- * \param mpuentryaddr The address of the reference MPU entry
+ * \param blockentryaddr The address of the reference block entry
  * \param newsh1entry The new Sh1 entry
  * \return void
  */
-void writeSh1EntryFromMPUEntryAddr(paddr mpuentryaddr, Sh1Entry_t newsh1entry)
+void writeSh1EntryFromBlockEntryAddr(paddr blockentryaddr, Sh1Entry_t newsh1entry)
 {
-	writeSh1PDChildFromMPUEntryAddr(mpuentryaddr, newsh1entry.PDchild);
-	writeSh1PDFlagFromMPUEntryAddr(mpuentryaddr, newsh1entry.PDflag);
-	writeSh1InChildLocationFromMPUEntryAddr(mpuentryaddr, newsh1entry.inChildLocation);
+	writeSh1PDChildFromBlockEntryAddr(blockentryaddr, newsh1entry.PDchild);
+	writeSh1PDFlagFromBlockEntryAddr(blockentryaddr, newsh1entry.PDflag);
+	writeSh1InChildLocationFromBlockEntryAddr(blockentryaddr, newsh1entry.inChildLocation);
 
 	return;
 }
 
 /*!
- * \fn paddr getSCEntryAddrFromMPUEntryAddr(paddr mpuentryaddr)
- * \brief Gets the SC entry from the MPU entry.
- * \param mpuentryaddr The address of the reference MPU entry
- * \return the corresponding SC entry address to the given MPU entry
+ * \fn paddr getSCEntryAddrFromBlockEntryAddr(paddr blockentryaddr)
+ * \brief Gets the SC entry from the block entry.
+ * \param blockentryaddr The address of the reference block entry
+ * \return the corresponding SC entry address to the given block entry
  */
-paddr getSCEntryAddrFromMPUEntryAddr(paddr mpuentryaddr)
+paddr getSCEntryAddrFromBlockEntryAddr(paddr blockentryaddr)
 {
-	// Cast it into a MPUEntry_t structure
-	MPUEntry_t* mpuentry = (MPUEntry_t*)mpuentryaddr;
+	// Cast it into a BlockEntry_t structure
+	BlockEntry_t* blockentry = (BlockEntry_t*)blockentryaddr;
 
-	uint32_t entryindex = (mpuentry->mpuindex).MPUi;// TODO protect from NULL access ?
+	uint32_t entryindex = (blockentry->blockindex).i;// TODO protect from NULL access ?
 
-	paddr kernelStartAddr = getKernelStructureStartAddr(mpuentryaddr, entryindex);
+	paddr kernelStartAddr = getKernelStructureStartAddr(blockentryaddr, entryindex);
 
 	// Return the SC entry address
 	return getSCEntryAddrFromKernelStructureStart(kernelStartAddr, entryindex);
 }
 
 /*!
- * \fn paddr readSCOriginFromMPUEntryAddr(paddr mpuentryaddr)
+ * \fn paddr readSCOriginFromBlockEntryAddr(paddr blockentryaddr)
  * \brief Gets the block's origin.
- * \param mpuentryaddr The address of the reference MPU entry
+ * \param blockentryaddr The address of the reference block entry
  * \return the block origin if block is present, NULL otherwise
  */
-paddr readSCOriginFromMPUEntryAddr(paddr mpuentryaddr)
+paddr readSCOriginFromBlockEntryAddr(paddr blockentryaddr)
 {
 	// Get the corresponding SC entry addres
-	paddr scentryaddr = getSCEntryAddrFromMPUEntryAddr(mpuentryaddr);
+	paddr scentryaddr = getSCEntryAddrFromBlockEntryAddr(blockentryaddr);
 
 	// Cast it into a SCEntry_t structure
 	SCEntry_t* scentry = (SCEntry_t*)scentryaddr;
@@ -786,16 +786,16 @@ paddr readSCOriginFromMPUEntryAddr(paddr mpuentryaddr)
 }
 
 /*!
- * \fn void writeSCOriginFromMPUEntryAddr(paddr mpuentryaddr, paddr value)
+ * \fn void writeSCOriginFromBlockEntryAddr(paddr blockentryaddr, paddr value)
  * \brief Sets the block's origin.
- * \param mpuentryaddr The address of the reference MPU entry
+ * \param blockentryaddr The address of the reference block entry
  * \param value The new value
  * \return void
  */
-void writeSCOriginFromMPUEntryAddr(paddr mpuentryaddr, paddr value)
+void writeSCOriginFromBlockEntryAddr(paddr blockentryaddr, paddr value)
 {
 	// Get the corresponding SC entry addres
-	paddr scentryaddr = getSCEntryAddrFromMPUEntryAddr(mpuentryaddr);
+	paddr scentryaddr = getSCEntryAddrFromBlockEntryAddr(blockentryaddr);
 
 	// Cast it into a SCEntry_t structure
 	SCEntry_t* scentry = (SCEntry_t*)scentryaddr;
@@ -806,15 +806,15 @@ void writeSCOriginFromMPUEntryAddr(paddr mpuentryaddr, paddr value)
 }
 
 /*!
- * \fn paddr readSCNextFromMPUEntryAddr(paddr mpuentryaddr)
+ * \fn paddr readSCNextFromBlockEntryAddr(paddr blockentryaddr)
  * \brief Gets the block's next subblock.
- * \param mpuentryaddr The address of the reference MPU entry
+ * \param blockentryaddr The address of the reference block entry
  * \return the block origin if block is present, NULL otherwise
  */
-paddr readSCNextFromMPUEntryAddr(paddr mpuentryaddr)
+paddr readSCNextFromBlockEntryAddr(paddr blockentryaddr)
 {
 	// Get the corresponding SC entry addres
-	paddr scentryaddr = getSCEntryAddrFromMPUEntryAddr(mpuentryaddr);
+	paddr scentryaddr = getSCEntryAddrFromBlockEntryAddr(blockentryaddr);
 
 	// Cast it into a SCEntry_t structure
 	SCEntry_t* scentry = (SCEntry_t*)scentryaddr;
@@ -824,16 +824,16 @@ paddr readSCNextFromMPUEntryAddr(paddr mpuentryaddr)
 }
 
 /*!
- * \fn void writeSCNextFromMPUEntryAddr(paddr mpuentryaddr, paddr value)
+ * \fn void writeSCNextFromBlockEntryAddr(paddr blockentryaddr, paddr value)
  * \brief Sets the block's next subblock.
- * \param mpuentryaddr The address of the reference MPU entry
+ * \param blockentryaddr The address of the reference block entry
  * \param value The new value
  * \return void
  */
-void writeSCNextFromMPUEntryAddr(paddr mpuentryaddr, paddr value)
+void writeSCNextFromBlockEntryAddr(paddr blockentryaddr, paddr value)
 {
 	// Get the corresponding SC entry addres
-	paddr scentryaddr = getSCEntryAddrFromMPUEntryAddr(mpuentryaddr);
+	paddr scentryaddr = getSCEntryAddrFromBlockEntryAddr(blockentryaddr);
 
 	// Cast it into a SCEntry_t structure
 	SCEntry_t* scentry = (SCEntry_t*)scentryaddr;
@@ -844,16 +844,16 @@ void writeSCNextFromMPUEntryAddr(paddr mpuentryaddr, paddr value)
 }
 
 /*!
- * \fn void writeSCEntryFromMPUEntryAddr(paddr mpuentryaddr, SCEntry_t newscentry)
+ * \fn void writeSCEntryFromBlockEntryAddr(paddr blockentryaddr, SCEntry_t newscentry)
  * \brief Sets the block's SC entry.
- * \param mpuentryaddr The address of the reference MPU entry
+ * \param blockentryaddr The address of the reference block entry
  * \param newscentry The new SC entry
  * \return void
  */
-void writeSCEntryFromMPUEntryAddr(paddr mpuentryaddr, SCEntry_t newscentry)
+void writeSCEntryFromBlockEntryAddr(paddr blockentryaddr, SCEntry_t newscentry)
 {
-	writeSCOriginFromMPUEntryAddr(mpuentryaddr, newscentry.origin);
-	writeSCNextFromMPUEntryAddr(mpuentryaddr, newscentry.next);
+	writeSCOriginFromBlockEntryAddr(blockentryaddr, newscentry.origin);
+	writeSCNextFromBlockEntryAddr(blockentryaddr, newscentry.next);
 
 	return;
 }
@@ -901,7 +901,7 @@ void writeNextFromKernelStructureStart(paddr structureaddr, paddr newnextstructu
 /*!
  * \fn void eraseAddr(paddr addr) // TODO: remove from coq as well
  * \brief Sets the address to NULL.
- * \param addr The address of the reference MPU entry
+ * \param addr The address of the reference block entry
  * \return void
  */
 void eraseAddr(uint8_t* addr)
@@ -967,15 +967,15 @@ PDTable_t getEmptyPDTable()
 }
 
 /*!
- * \fn MPUEntry_t getDefaultMPUEntry()
- * \brief Returns the default MPU entry.
- * \return default MPU entry
+ * \fn BlockEntry_t getDefaultBlockEntry()
+ * \brief Returns the default block entry.
+ * \return default block entry
  */
-MPUEntry_t getDefaultMPUEntry()
+BlockEntry_t getDefaultBlockEntry()
 {
-	//DEFAULT_MPU_ENTRY(emptyMPUE);
-	//return emptyMPUE;
-	return DEFAULT_MPU_ENTRY;
+	//DEFAULT_BLOCK_ENTRY(emptyBE);
+	//return emptyBE;
+	return DEFAULT_BLOCK_ENTRY;
 }
 
 /*!
@@ -1003,8 +1003,8 @@ SCEntry_t getDefaultSCEntry()
 }
 
 /*!
- * \fn MPUEntry_t buildMPUEntry(startaddr, endaddr, accessiblebit, presentbit)
- * \brief Constructs an MPU entry given the attributes.
+ * \fn BlockEntry_t buildBlockEntry(startaddr, endaddr, accessiblebit, presentbit)
+ * \brief Constructs an Block entry given the attributes.
  * \param startaddr The block's start address
  * \param endaddr The block's end address
  * \param endaddr The block's end address
@@ -1012,15 +1012,15 @@ SCEntry_t getDefaultSCEntry()
  * \param presentbit The block's present bit
  * \return default SC entry
  */
-MPUEntry_t buildMPUEntry(paddr startaddr, paddr endaddr, bool accessiblebit, bool presentbit)
+BlockEntry_t buildBlockEntry(paddr startaddr, paddr endaddr, bool accessiblebit, bool presentbit)
 {
-	//DEFAULT_MPU_ENTRY(MPUE);
-	MPUEntry_t MPUE = DEFAULT_MPU_ENTRY;
+	//DEFAULT_BLOCK_ENTRY(BE);
+	BlockEntry_t BE = DEFAULT_BLOCK_ENTRY;
 	block_t block = {startaddr, endaddr};
-	MPUE.mpublock = block;
-	MPUE.accessible = accessiblebit;
-	MPUE.present = presentbit;
-	return MPUE;
+	BE.blockrange = block;
+	BE.accessible = accessiblebit;
+	BE.present = presentbit;
+	return BE;
 }
 
 /*!
@@ -1041,71 +1041,71 @@ paddr getPDStructurePointerAddrFromPD(paddr pdaddr)
  * \brief 	Reads the block configured at the given region of the physical MPU.
  * \param pd The PD to read from
  * \param MPURegionNb The physical MPU region to read
- * \return the block's MPU address
+ * \return the block's address in BLK
  */
 paddr readBlockFromPhysicalMPU(paddr pd, uint32_t MPURegionNb)
 {
 	PDTable_t* PDT = (PDTable_t*) pd;
-	return PDT->blocks[MPURegionNb];
+	return PDT->mpu[MPURegionNb];
 }
 
 /*!
- * \fn void removeBlockFromPhysicalMPU(paddr pd, paddr mpuentryaddr)
+ * \fn void removeBlockFromPhysicalMPU(paddr pd, paddr blockentryaddr)
  * \brief 	Removes the given block from the set to be configured in the MPU for the given pd.
  * \param pd The PD where the block should be removed from
- * \param mpuentryaddr The block to remove
+ * \param blockentryaddr The block to remove
  * \return void
  */
-void removeBlockFromPhysicalMPU(paddr pd, paddr mpuentryaddr)
+void removeBlockFromPhysicalMPU(paddr pd, paddr blockentryaddr)
 {
 	PDTable_t* PDT = (PDTable_t*) pd;
 	// Find and remove the block in the MPU
 	for (int i=0; i < MPU_REGIONS_NB ; i++)
 	{
-		if (PDT->blocks[i] == (MPUEntry_t*)mpuentryaddr)
+		if (PDT->mpu[i] == (BlockEntry_t*)blockentryaddr)
 		{
 			// block is configured in the physical MPU and is removed
 			//clear_LUT_entry(PDT->LUT, i);
 			configure_LUT_entry(PDT->LUT, i, NULL, NULL);
-			PDT->blocks[i] = NULL;
+			PDT->mpu[i] = NULL;
 		}
 	}
 }
 
 /*!
- * \fn void removeBlockFromPhysicalMPUIfNotAccessible(paddr pd, paddr mpuentryaddr, bool accessiblebit)
+ * \fn void removeBlockFromPhysicalMPUIfNotAccessible(paddr pd, paddr blockentryaddr, bool accessiblebit)
  * \brief 	Removes the given block from the set to be configured in the MPU for the given pd.
-			Should only be removed if the block becomes not accessible, otherwise doesn't break the MPU consistency.
+ *			Should only be removed if the block becomes not accessible, otherwise doesn't break the MPU consistency.
  * \param pd The PD where the block should be removed from
- * \param mpuentryaddr The block to remove
+ * \param blockentryaddr The block to remove
  * \param accessiblebit The accessible bit of the block
  * \return void
  */
-void removeBlockFromPhysicalMPUIfNotAccessible(paddr pd, paddr mpuentryaddr, bool accessiblebit)
+void removeBlockFromPhysicalMPUIfNotAccessible(paddr pd, paddr blockentryaddr, bool accessiblebit)
 {
 	if (!accessiblebit)
 	{
 		// the block is not accessible and should be removed from the physical MPU
-		removeBlockFromPhysicalMPU(pd, mpuentryaddr);
+		removeBlockFromPhysicalMPU(pd, blockentryaddr);
 	}
 
 }
 
 /* TODO: don't call full mpu replacement for a single block */
 /*!
- * \fn void replaceBlockInMPU(paddr pd, paddr blockmpuentryaddr, index MPURegionNb)
+ * \fn void replaceBlockInMPU(paddr pd, paddr blockblockentryaddr, index MPURegionNb)
  * \brief Replaces a block in the physical MPU of the given partition
  * \param pd the PD where to reconfigure the physical MPU
- * \param blockmpuentryaddr The new block's MPU entry
+ * \param blockblockentryaddr The new block's entry
  * \param MPURegionNb The physical MPU region where the block will be configured
  * \return void
  */
-void replaceBlockInPhysicalMPU(paddr pd, paddr blockmpuentryaddr, uint32_t MPURegionNb)
+void replaceBlockInPhysicalMPU(paddr pd, paddr blockblockentryaddr, uint32_t MPURegionNb)
 {
 	// replace the given LUT entry with the new block
 	PDTable_t* PDT = (PDTable_t*) pd;
-	PDT->blocks[MPURegionNb] = (MPUEntry_t*)blockmpuentryaddr;
-	configure_LUT_entry(PDT->LUT, MPURegionNb, blockmpuentryaddr, PDT->blocks[MPURegionNb]->mpublock.startAddr);
+	PDT->mpu[MPURegionNb] = (BlockEntry_t*)blockblockentryaddr;
+	configure_LUT_entry(PDT->LUT, MPURegionNb, blockblockentryaddr, PDT->mpu[MPURegionNb]->blockrange.startAddr);
 	mpu_configure_from_LUT(PDT->LUT);
 }
 
@@ -1124,7 +1124,7 @@ uint32_t findBlockIdxInPhysicalMPU(paddr pd, paddr blockToFind, uint32_t default
 	PDTable_t* PDT = (PDTable_t*) pd;
 	for(uint32_t i=0 ; i < MPU_REGIONS_NB ; i++)
 	{
-		if(PDT->blocks[i] == blockToFind)
+		if(PDT->mpu[i] == blockToFind)
 		{
 			// Block found, return the MPU region number
 			return i;
@@ -1176,7 +1176,7 @@ updateRootPartition(paddr partition)
 	root_partition = partition;
 }
 /*!
- * \fn bool checkRights(paddr originalmpuentryaddr, bool read, bool write, bool execute)
+ * \fn bool checkRights(paddr originalblockentryaddr, bool read, bool write, bool execute)
  * \brief Checks that the <newright> is compatible with the <originalright>
  * \param newright 		the new right to set
  * \param originalright	the original right
@@ -1187,58 +1187,58 @@ bool compatibleRight(bool originalright, bool newright)
 }
 
 /*!
- * \fn bool checkRights(paddr originalmpuentryaddr, bool read, bool write, bool execute)
+ * \fn bool checkRights(paddr originalblockentryaddr, bool read, bool write, bool execute)
  * \brief Checks that the rights <r, w, x> are compatible with Pip's access control policy
  * 			for unprivileged accesses given a base block.
 		Policy:
 			- always readable (only enabled regions are present in the kernel structure)
 			- can't give more rights than the original block
 		Returns OK/NOK
- * \param originalmpuentryaddr the original block to copy from
+ * \param originalblockentryaddr the original block to copy from
  * \param read The read right
  * \param write The write right
  * \param exec The exec right
  * \return True/false
  */
-bool checkRights(paddr originalmpuentryaddr, bool read, bool write, bool exec)
+bool checkRights(paddr originalblockentryaddr, bool read, bool write, bool exec)
 {
 	// Read has to be true
 	if(read == false) return false;
 	// Check the rights are not increased
-	bool woriginal = readMPUWFromMPUEntryAddr(originalmpuentryaddr);
-	bool xoriginal = readMPUXFromMPUEntryAddr(originalmpuentryaddr);
+	bool woriginal = readBlockWFromBlockEntryAddr(originalblockentryaddr);
+	bool xoriginal = readBlockXFromBlockEntryAddr(originalblockentryaddr);
 	if (!(compatibleRight(woriginal, write) && compatibleRight(xoriginal, exec))) return false;
 	else return true;
 }
 
 /*!
- * \fn bool checkEntry(uint32_t* kstructurestart, uint32_t* mpuentryaddr)
- * \brief Checks the given address is a valid MPU structure entry
+ * \fn bool checkEntry(uint32_t* kstructurestart, uint32_t* blockentryaddr)
+ * \brief Checks the given address is a valid BLK structure entry
  *			With a misalignment, the index won't match the real index
  *	 		in the kernel structure
  * \param kstructurestart the kernel structure holding the entry
- * \param mpuentryaddr The entry to check
+ * \param blockentryaddr The entry to check
  * \return True if entry is aligned with a kernel entry/False otherwise
  */
-bool checkEntry(paddr kstructurestart, paddr mpuentryaddr)
+bool checkEntry(paddr kstructurestart, paddr blockentryaddr)
 {
-	// mpuentryaddr checked before and lies within the kernel structure
+	// blockentryaddr checked before and lies within the kernel structure
 	KStructure_t* ks = (KStructure_t*) kstructurestart;
-	uint32_t index = (MPUEntry_t*) mpuentryaddr - ks->mpu;//mpuentryaddr - kstructurestart;
-	return (&ks->mpu[index] == mpuentryaddr) ? true : false;
+	uint32_t index = (BlockEntry_t*) blockentryaddr - ks->blocks;//blockentryaddr - kstructurestart;
+	return (&ks->blocks[index] == blockentryaddr) ? true : false;
 }
 
 /*!
- * \fn blockOrError blockAttr(paddr mpuentryaddr, MPUEntry_t mpuentry)
+ * \fn blockOrError blockAttr(paddr blockentryaddr, BlockEntry_t blockentry)
  * \brief Wrapper to create a blockAttr inside the blockOrError union
- * \param mpuentryaddr The block's MPU address
- * \param mpuentry the block's attributes to set
+ * \param blockentryaddr The block's address
+ * \param blockentry the block's attributes to set
  * \return the given block's public attributes
  */
-blockOrError blockAttr(paddr mpuentryaddr, MPUEntry_t mpuentry)
+blockOrError blockAttr(paddr blockentryaddr, BlockEntry_t blockentry)
 {
-	blockAttr_t block = {mpuentryaddr, mpuentry.mpublock, mpuentry.read, mpuentry.write,
-						mpuentry.exec, mpuentry.accessible};
+	blockAttr_t block = {blockentryaddr, blockentry.blockrange, blockentry.read, blockentry.write,
+						blockentry.exec, blockentry.accessible};
 	return (blockOrError){ .blockAttr = block };
 }
 

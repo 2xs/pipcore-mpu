@@ -138,14 +138,14 @@ void mal_init_root_part(paddr part)
 	// add user memory block(s)
 #if !defined UNIT_TESTS // unit tests are prepared differently
 	// One FLASH block and one RAM block
-	//paddr mpuentryaddr = insertNewEntry(part, user_alloc_pos, &user_mem_end, user_alloc_pos, true, false, true);// idpartition, start, end, origin, RWX
-	paddr mpuentryaddr_flash = insertNewEntry(part, 0,  0x00080000, 0, true, false, true);
-	paddr mpuentryaddr_ram = insertNewEntry(part, &_sram, &user_mem_end, &_sram, true, true, false);
-	paddr mpuentryaddr_periph = insertNewEntry(part, 0x40000000, 0x5FFFFFFF, 0x40000000, true, true, false);
+	//paddr blockentryaddr = insertNewEntry(part, user_alloc_pos, &user_mem_end, user_alloc_pos, true, false, true);// idpartition, start, end, origin, RWX
+	paddr blockentryaddr_flash = insertNewEntry(part, 0,  0x00080000, 0, true, false, true);
+	paddr blockentryaddr_ram = insertNewEntry(part, &_sram, &user_mem_end, &_sram, true, true, false);
+	paddr blockentryaddr_periph = insertNewEntry(part, 0x40000000, 0x5FFFFFFF, 0x40000000, true, true, false);
 	// Pre-configure the MPU LUT with inserted block(s)
-	enableBlockInMPU(part, mpuentryaddr_flash, 0);
-	enableBlockInMPU(part, mpuentryaddr_ram, 1);
-	enableBlockInMPU(part, mpuentryaddr_periph, 2);
+	enableBlockInMPU(part, blockentryaddr_flash, 0);
+	enableBlockInMPU(part, blockentryaddr_ram, 1);
+	enableBlockInMPU(part, blockentryaddr_periph, 2);
 #endif // UNIT_TESTS
 	//DEBUG(TRACE, "mal_init_root_part( part=%08x) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
 	printf("mal_init_root_part( part=%08x) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);

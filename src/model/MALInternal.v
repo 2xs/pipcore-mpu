@@ -42,8 +42,8 @@ Open Scope mpu_state_scope.
 
 
 (** Specific variables for the Coq part, not used in the C program *)
-Definition mpuoffset := CIndex 0.
-Definition sh1offset := CIndex (mpuoffset + kernelStructureEntriesNb).  (* shadow1 *)
+Definition blkoffset := CIndex 0.
+Definition sh1offset := CIndex (blkoffset + kernelStructureEntriesNb).  (* shadow1 *)
 Definition scoffset := CIndex (sh1offset + kernelStructureEntriesNb).  (* shadow cut *)
 Definition nextoffset := CIndex (scoffset + kernelStructureEntriesNb).
 

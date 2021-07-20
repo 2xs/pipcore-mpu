@@ -435,8 +435,8 @@ uint32_t* sp = frame;
         // Otherwise search for corresponding block in the MPU
         for (int i = 0; i < MPU_NUM_REGIONS ; i++){
             PDTable_t* currPart = (PDTable_t*) getCurPartition();
-            if((currPart->blocks[i])->present && (uint32_t)(currPart->blocks[i])->mpublock.startAddr < mmfar
-                && mmfar < (uint32_t)(currPart->blocks[i])->mpublock.endAddr)
+            if((currPart->mpu[i])->present && (uint32_t)(currPart->mpu[i])->blockrange.startAddr < mmfar
+                && mmfar < (uint32_t)(currPart->mpu[i])->blockrange.endAddr)
             {
                 // Found a block covering the faulted address
                 block_in_MPU = 1;
@@ -449,8 +449,8 @@ uint32_t* sp = frame;
 
                 else{
                     // Operation permitted: reconfigure MPU and redo faulted legitimate operation
-                    printf("Block mapped in MPU, reconfiguring MPU with legitimate faulted block %x for address %x\r\n", currPart->blocks[i], mmfar);
-                    configure_LUT_entry(currPart->LUT, i, currPart->blocks[i], (uint32_t*) mmfar);
+                    printf("Block mapped in MPU, reconfiguring MPU with legitimate faulted block %x for address %x\r\n", currPart->mpu[i], mmfar);
+                    configure_LUT_entry(currPart->LUT, i, currPart->mpu[i], (uint32_t*) mmfar);
                     mpu_configure_from_LUT(currPart->LUT);
                     // return to faulted operation without notifying the fault ot the user
                     return;

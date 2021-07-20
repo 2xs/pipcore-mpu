@@ -18,10 +18,10 @@ void dump_PD_structure(paddr pd)
     printf("%x:PD\t%u\r\n", &(pdt->nbfreeslots), pdt->nbfreeslots);
     printf("%x:PD\t%u\r\n", &(pdt->nbprepare), pdt->nbprepare);
     printf("%x:PD\t%x\r\n", &(pdt->parent), pdt->parent);
-    printf("%x:PD\t", &(pdt->blocks));
+    printf("%x:PD\t", &(pdt->mpu));
     for(int i = 0 ; i < MPU_REGIONS_NB ; i++)
     {
-        printf(" %x ", (pdt->blocks[i]));
+        printf(" %x ", (pdt->mpu[i]));
     }
     printf("\r\n%x:PD\t", &(pdt->LUT));
     for(int i = 0 ; i < MPU_REGIONS_NB ; i++)
@@ -45,19 +45,19 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
     KStructure_t* ks = (KStructure_t*) kernel_structure_start_addr;
     printf("\r\n----------Kernel structure %x (size: %d)----\r\n", kernel_structure_start_addr,
                                                                 KERNELSTRUCTURETOTALLENGTH());
-    printf("\r\n----------MPU---------------------------\r\n");
+    printf("\r\n----------BLOCKS---------------------------\r\n");
     for (int i=0;i<KERNELSTRUCTUREENTRIESNB;i++)
     {
-        paddr mpuentryadddr = &ks->mpu[i];
-        printf("%x:%-1d:MPU\t%-10x|%-10x\t|%-1u|%-1u|%-1u%-1u%-1u\r\n",    mpuentryadddr,
-                                                            readMPUIndexFromMPUEntryAddr(mpuentryadddr),
-                                                            readMPUStartFromMPUEntryAddr(mpuentryadddr),
-                                                            readMPUEndFromMPUEntryAddr(mpuentryadddr),
-                                                            readMPUAccessibleFromMPUEntryAddr(mpuentryadddr),
-                                                            readMPUPresentFromMPUEntryAddr(mpuentryadddr),
-                                                            readMPURFromMPUEntryAddr(mpuentryadddr),
-                                                            readMPUWFromMPUEntryAddr(mpuentryadddr),
-                                                            readMPUXFromMPUEntryAddr(mpuentryadddr)
+        paddr blockentryadddr = &ks->blocks[i];
+        printf("%x:%-1d:BLK\t%-10x|%-10x\t|%-1u|%-1u|%-1u%-1u%-1u\r\n",    blockentryadddr,
+                                                            readBlockIndexFromBlockEntryAddr(blockentryadddr),
+                                                            readBlockStartFromBlockEntryAddr(blockentryadddr),
+                                                            readBlockEndFromBlockEntryAddr(blockentryadddr),
+                                                            readBlockAccessibleFromBlockEntryAddr(blockentryadddr),
+                                                            readBlockPresentFromBlockEntryAddr(blockentryadddr),
+                                                            readBlockRFromBlockEntryAddr(blockentryadddr),
+                                                            readBlockWFromBlockEntryAddr(blockentryadddr),
+                                                            readBlockXFromBlockEntryAddr(blockentryadddr)
                                                             );
     }
     printf("\r\n----------SH1---------------------------\r\n");
@@ -72,12 +72,12 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
         printf("%-10x\r\n",
                                                 entry->inChildLocation);*/
 
-        paddr mpuentryadddr = &ks->mpu[i];
+        paddr blockentryadddr = &ks->blocks[i];
         paddr sh1entryadddr = &ks->sh1[i];
         printf("%x:SH1\t%-10x|%-1u|%-10x\r\n",  sh1entryadddr,
-                                                readSh1PDChildFromMPUEntryAddr(mpuentryadddr),
-                                                readSh1PDFlagFromMPUEntryAddr(mpuentryadddr),
-                                                readSh1InChildLocationFromMPUEntryAddr(mpuentryadddr));
+                                                readSh1PDChildFromBlockEntryAddr(blockentryadddr),
+                                                readSh1PDFlagFromBlockEntryAddr(blockentryadddr),
+                                                readSh1InChildLocationFromBlockEntryAddr(blockentryadddr));
     }
     printf("\r\n----------SC---------------------------\r\n");
     for (int i=0;i<KERNELSTRUCTUREENTRIESNB;i++)
@@ -89,11 +89,11 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
         printf("%-10x\r\n",
                                                 entry->next);*/
 
-        paddr mpuentryadddr = &ks->mpu[i];
+        paddr blockentryadddr = &ks->blocks[i];
         paddr scentryadddr = &ks->sc[i];
         printf("%x:SC\t%-10x|%-10x\r\n",  scentryadddr,
-                                                readSCOriginFromMPUEntryAddr(mpuentryadddr),
-                                                readSCNextFromMPUEntryAddr(mpuentryadddr));
+                                                readSCOriginFromBlockEntryAddr(blockentryadddr),
+                                                readSCNextFromBlockEntryAddr(blockentryadddr));
     }
 
     printf("\r\n----------next = %x----------------------\r\n", ks->next);

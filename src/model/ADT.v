@@ -106,15 +106,15 @@ Parameter block_d : block.
 Program Definition CBlock (startAddr endAddr : paddr) : block :=
 if (lt_dec startAddr endAddr) then Build_block startAddr endAddr _ else  block_d.
 
-Record MPUEntry : Type:=
+Record BlockEntry : Type:=
 {
  read : bool;
  write : bool ;
  exec : bool;
  present : bool;
  accessible : bool;
- mpuindex : index;
- mpublock : block
+ blockindex : index;
+ blockrange : block
 }.
 
 Record Sh1Entry : Type:=
@@ -146,7 +146,7 @@ Record PDTable :=
 
 Inductive blockOrError :=
 | error
-| blockAttr' (addr : paddr) (mpuentry : MPUEntry)
+| blockAttr' (addr : paddr) (blockentry : BlockEntry)
 .
 
 Definition blockAttr := blockAttr'.

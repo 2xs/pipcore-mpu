@@ -57,23 +57,23 @@ Open Scope mpu_state_scope.
 		sets the current partition as the parent partition.
 		Returns true:OK/false:NOK
 
-    <<MPUAddressBlock>>  The block to become the child Partition Descriptor
-												(id = MPU address of an existing block)
+    <<idBlock>>  The block to become the child Partition Descriptor
+								(id = entry address of an existing block in the current part)
 *)
-Definition createPartition (MPUAddressBlock: paddr) : LLI bool :=
+Definition createPartition (idBlock: paddr) : LLI bool :=
     (** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 
 		(** Find the block in the current partition *)
-    perform blockInCurrentPartitionAddr := findBlockInMPUWithAddr 	currentPart
-																																	MPUAddressBlock in
+    perform blockInCurrentPartitionAddr := findBlockInKSWithAddr 	currentPart
+																																	idBlock in
 		(** Check the block exists, accessible and not shared and
 				size > minimum MPU region size ELSE NOK*)
 		(* TODO check present ?*)
 		perform addrIsNull := compareAddrToNull	blockInCurrentPartitionAddr in
 		if addrIsNull then(* no block found, stop *) ret false else
 
-		perform addrIsAccessible := readMPUAccessibleFromMPUEntryAddr	blockInCurrentPartitionAddr in
+		perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr	blockInCurrentPartitionAddr in
 		if negb addrIsAccessible then (* block is inaccessible *) ret false else
 
 		perform blockSize := sizeOfBlock blockInCurrentPartitionAddr in
@@ -86,14 +86,14 @@ Definition createPartition (MPUAddressBlock: paddr) : LLI bool :=
 		if isBlockTooSmall2 then (* too small to become a PD *) ret false else
 
 		(* if accessible, then PDflag can't be set, we just need to check PDchild *)
-		perform PDChildAddr := readSh1PDChildFromMPUEntryAddr	blockInCurrentPartitionAddr in
+		perform PDChildAddr := readSh1PDChildFromBlockEntryAddr	blockInCurrentPartitionAddr in
 		perform PDChildAddrIsNull := compareAddrToNull PDChildAddr in
 		if negb PDChildAddrIsNull (*shouldn't be null*) then (* shared *) ret false else
 
 		(** Initialize child Partition Descriptor *)
 
-		perform newPDBlockStartAddr := readMPUStartFromMPUEntryAddr blockInCurrentPartitionAddr in
-		perform newPDBlockEndAddr := readMPUEndFromMPUEntryAddr blockInCurrentPartitionAddr in
+		perform newPDBlockStartAddr := readBlockStartFromBlockEntryAddr blockInCurrentPartitionAddr in
+		perform newPDBlockEndAddr := readBlockEndFromBlockEntryAddr blockInCurrentPartitionAddr in
 		(** Erase the future Partition Descriptor content*)
 		eraseBlock newPDBlockStartAddr newPDBlockEndAddr;;
 		(* create PD Table by setting the structure to the default values *)
@@ -104,39 +104,38 @@ Definition createPartition (MPUAddressBlock: paddr) : LLI bool :=
 		(** Reflect the child Partition Description creation in the current partition *)
 
 		(** set the block as not available anymore and remove from physical MPU*)
-		writeMPUAccessibleFromMPUEntryAddr blockInCurrentPartitionAddr false ;;
+		writeBlockAccessibleFromBlockEntryAddr blockInCurrentPartitionAddr false ;;
 		removeBlockFromPhysicalMPU currentPart blockInCurrentPartitionAddr ;;
 		(** set the block as a PD block in shadow 1*)
-		writeSh1PDFlagFromMPUEntryAddr blockInCurrentPartitionAddr true ;;
+		writeSh1PDFlagFromBlockEntryAddr blockInCurrentPartitionAddr true ;;
 		(** set the block as not accessible anymore to the ancestors *)
-		perform blockOrigin := readSCOriginFromMPUEntryAddr blockInCurrentPartitionAddr in
-		perform blockStart := readMPUStartFromMPUEntryAddr blockInCurrentPartitionAddr in
-		perform blockNext := readSCNextFromMPUEntryAddr blockInCurrentPartitionAddr in
+		perform blockOrigin := readSCOriginFromBlockEntryAddr blockInCurrentPartitionAddr in
+		perform blockStart := readBlockStartFromBlockEntryAddr blockInCurrentPartitionAddr in
+		perform blockNext := readSCNextFromBlockEntryAddr blockInCurrentPartitionAddr in
 		if beqAddr blockOrigin blockStart && beqAddr blockNext nullAddr then
 			(* Block hasn't been cut previously, need to be set unaccessible for the ancestors *)
-			perform idBlock := readMPUStartFromMPUEntryAddr blockInCurrentPartitionAddr in
+			perform idBlock := readBlockStartFromBlockEntryAddr blockInCurrentPartitionAddr in
 			writeAccessibleRec currentPart idBlock false ;;
 			ret true
 		else (* block has been cut and is already not accessible in the ancestors *)
 			ret true.
 
-(* TODO: rename all MPUAdress... 'cause confusing *)
 (** ** The cutMemoryBlock PIP MPU service
 
-    The [cutMemoryBlock] system call cuts the memory block <MPUAddressBlockToCut>
+    The [cutMemoryBlock] system call cuts the memory block <idBlockToCut>
 		at <cutAddress> which creates a new subbblock at that address.
 		The new subblock is placed in the physical MPU region of the current partition
 		if the <MPURegionNb> is a valid region number.
-		Returns the new created subblock's MPU address:OK/NULL:NOK
+		Returns the new created subblock's id:OK/NULL:NOK
 
-    <<MPUAddressBlockToCut>>		the block to cut
-												(id = MPU address of an existing block)
+    <<idBlockToCut>>		the block to cut
+												(id = entry address of an existing block in the current part)
 		<<cutAddress>>			the address where to cut the <idBlockToCut> block,
 												becomes the id of the created block
     <<MPURegionNb>>			the region number of the physical MPU where to place the
 												created block
 *)
-Definition cutMemoryBlock (MPUAddressBlockToCut cutAddr : paddr) (MPURegionNb : index)
+Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) (MPURegionNb : index)
 																																: LLI paddr :=
     (** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
@@ -147,53 +146,53 @@ Definition cutMemoryBlock (MPUAddressBlockToCut cutAddr : paddr) (MPURegionNb : 
 		perform isFull := Index.leb nbFreeSlots zero in
 		if isFull then ret nullAddr else
 
-		(** Find the block to cut in the current partition (with MPU address) *)
-    perform blockToCutMPUAddr := findBlockInMPUWithAddr 	currentPart
-																													MPUAddressBlockToCut in
-		perform addrIsNull := compareAddrToNull	blockToCutMPUAddr in
+		(** Find the block to cut in the current partition (with block entry address) *)
+    perform blockToCutEntryAddr := findBlockInKSWithAddr 	currentPart
+																													idBlockToCut in
+		perform addrIsNull := compareAddrToNull	blockToCutEntryAddr in
 		if addrIsNull then(** no block found, stop *) ret nullAddr else
 
 		(** Check the block to cut is accessible *)
-		perform blockIsAccessible := readMPUAccessibleFromMPUEntryAddr blockToCutMPUAddr in
+		perform blockIsAccessible := readBlockAccessibleFromBlockEntryAddr blockToCutEntryAddr in
 		if negb blockIsAccessible then (** block is inaccessible *) ret nullAddr else
 
 		(** Check the block is not shared *)
 		(* if accessible, then PDflag can't be set, we just need to check PDchild is null*)
-		perform PDChildAddr := readSh1PDChildFromMPUEntryAddr	blockToCutMPUAddr in
+		perform PDChildAddr := readSh1PDChildFromBlockEntryAddr	blockToCutEntryAddr in
 		perform PDChildAddrIsNull := compareAddrToNull PDChildAddr in
 		if negb PDChildAddrIsNull (*shouldn't be null*) then (*shared*) ret nullAddr else
 
 		(** Check the cut address lies between the start and the end address *)
-		perform blockToCutStartAddr := readMPUStartFromMPUEntryAddr blockToCutMPUAddr in
+		perform blockToCutStartAddr := readBlockStartFromBlockEntryAddr blockToCutEntryAddr in
 		perform isCutAddrBelowStart := Paddr.leb cutAddr blockToCutStartAddr in
 		if isCutAddrBelowStart then (* cutAddress outside bounds *) ret nullAddr else
 
-		perform blockToCutEndAddr := readMPUEndFromMPUEntryAddr blockToCutMPUAddr in
+		perform blockToCutEndAddr := readBlockEndFromBlockEntryAddr blockToCutEntryAddr in
 		perform isCutAddrAboveEnd := Paddr.leb blockToCutEndAddr cutAddr in
 		if isCutAddrAboveEnd then (* cutAddress outside bounds *) ret nullAddr else
 
 		(** Check that the block is greater than the minimum MPU region size*)
-		perform blockSize := sizeOfBlock blockToCutMPUAddr in
+		perform blockSize := sizeOfBlock blockToCutEntryAddr in
 		perform minBlockSize := getMinBlockSize in
 		perform isBlockTooSmall := Index.leb blockSize minBlockSize in
 		if isBlockTooSmall then (* block is smaller than the minimum  *) ret nullAddr
 		else
 
 		(** Parent and ancestors: set the block inaccessible if this is the block's first cut*)
-		perform idBlockToCut := readMPUStartFromMPUEntryAddr MPUAddressBlockToCut in
+		perform idBlockToCut := readBlockStartFromBlockEntryAddr idBlockToCut in
 		writeAccessibleToAncestorsIfNotCutRec currentPart
 																					idBlockToCut
-																					blockToCutMPUAddr
+																					blockToCutEntryAddr
 																					false ;;
 
 		(** Current partition: create the new subblock at cutAddr and insert it in
 				the kernel structure, keep the original rights *)
-		perform blockEndAddr := readMPUEndFromMPUEntryAddr blockToCutMPUAddr in
-		perform blockOrigin := readSCOriginFromMPUEntryAddr blockToCutMPUAddr in
-		perform blockR := readMPURFromMPUEntryAddr blockToCutMPUAddr in
-		perform blockW := readMPUWFromMPUEntryAddr blockToCutMPUAddr in
-		perform blockX := readMPUXFromMPUEntryAddr blockToCutMPUAddr in
-		perform newSubblockMPUAddr := insertNewEntry 	currentPart
+		perform blockEndAddr := readBlockEndFromBlockEntryAddr blockToCutEntryAddr in
+		perform blockOrigin := readSCOriginFromBlockEntryAddr blockToCutEntryAddr in
+		perform blockR := readBlockRFromBlockEntryAddr blockToCutEntryAddr in
+		perform blockW := readBlockWFromBlockEntryAddr blockToCutEntryAddr in
+		perform blockX := readBlockXFromBlockEntryAddr blockToCutEntryAddr in
+		perform idNewSubblock := insertNewEntry 	currentPart
 																									cutAddr
 																									blockEndAddr
 																									blockOrigin
@@ -202,25 +201,25 @@ Definition cutMemoryBlock (MPUAddressBlockToCut cutAddr : paddr) (MPURegionNb : 
 
 		(** Modify initial block: the end address becomes (cutAddress - 1)*)
 		perform predCutAddr := Paddr.pred cutAddr in
-		writeMPUEndFromMPUEntryAddr blockToCutMPUAddr predCutAddr ;;
+		writeBlockEndFromBlockEntryAddr blockToCutEntryAddr predCutAddr ;;
 		(** Reload the MPU region with the update *)
 		perform kernelentriesnb := getKernelStructureEntriesNb in
 		perform defaultidx := Index.succ kernelentriesnb in
 		perform blockMPURegionNb := findBlockIdxInPhysicalMPU 	currentPart
-																													blockToCutMPUAddr
+																													blockToCutEntryAddr
 																													defaultidx in
-		enableBlockInMPU currentPart blockToCutMPUAddr blockMPURegionNb ;;
+		enableBlockInMPU currentPart blockToCutEntryAddr blockMPURegionNb ;;
 
 		(** Register the cut in the Shadow Cut: insert in middle if needed*)
-		perform originalNextSubblock := readSCNextFromMPUEntryAddr blockToCutMPUAddr in
-		writeSCNextFromMPUEntryAddr newSubblockMPUAddr originalNextSubblock ;;
-		writeSCNextFromMPUEntryAddr blockToCutMPUAddr newSubblockMPUAddr ;;
+		perform originalNextSubblock := readSCNextFromBlockEntryAddr blockToCutEntryAddr in
+		writeSCNextFromBlockEntryAddr idNewSubblock originalNextSubblock ;;
+		writeSCNextFromBlockEntryAddr blockToCutEntryAddr idNewSubblock ;;
 
 		(** Enable the new subblock in the MPU if region nb is valid *)
-		enableBlockInMPU currentPart newSubblockMPUAddr MPURegionNb ;;
+		enableBlockInMPU currentPart idNewSubblock MPURegionNb ;;
 
 		(** RET new subblock's slot address*)
-		ret newSubblockMPUAddr.
+		ret idNewSubblock.
 
 
 (** ** The mergeMemoryBlocks PIP MPU service
@@ -231,72 +230,72 @@ Definition cutMemoryBlock (MPUAddressBlockToCut cutAddr : paddr) (MPURegionNb : 
 		The merged block is placed in the physical MPU region of the current partition
 		if the <MPURegionNb> is a valid region number.
 
-		Returns MPUAddressBlockToMerge1:OK/NULL:NOK
+		Returns idBlockToMerge1:OK/NULL:NOK
 
-    <<MPUAddressBlockToMerge1>>	the block to merge in becomes the start of the merged blocks
-																(id = MPU address of an existing block)
-		<<MPUAddressBlockToMerge2>>	the block to be merged disappears from the list of blocks
-																(id = MPU address of an existing block)
+    <<idBlockToMerge1>>	the block to merge in becomes the start of the merged blocks
+												(id = entry address of an existing block in the current part)
+		<<idBlockToMerge2>>	the block to be merged disappears from the list of blocks
+												(id = entry address of an existing block in the current part)
 	  <<MPURegionNb>>							the region number of the physical MPU where to
 																place the merged block
 *)
-Definition mergeMemoryBlocks (MPUAddressBlockToMerge1 MPUAddressBlockToMerge2 : paddr)
+Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr)
 														(MPURegionNb : index) : 							LLI paddr :=
     (** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 
-		(* Find the block1 to merge in the current partition (with MPU address) *)
-    perform block1InCurrPartAddr := findBlockInMPUWithAddr 	currentPart
-																														MPUAddressBlockToMerge1 in
+		(* Find the block1 to merge in the current partition (with block entry address) *)
+    perform block1InCurrPartAddr := findBlockInKSWithAddr 	currentPart
+																														idBlockToMerge1 in
 		perform addrIsNull := compareAddrToNull	block1InCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret nullAddr else
 
-		(* Find the block2 to merge in the current partition (with MPU address) *)
-    perform block2InCurrPartAddr := findBlockInMPUWithAddr 	currentPart
-																														MPUAddressBlockToMerge2 in
+		(* Find the block2 to merge in the current partition (with block entry address) *)
+    perform block2InCurrPartAddr := findBlockInKSWithAddr 	currentPart
+																														idBlockToMerge2 in
 		perform addrIsNull := compareAddrToNull	block2InCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret nullAddr else
 
 		(** Check blocks accessible, not shared, and follow each other**)
 
 		(* Check blocks are accessible *)
-		perform isBlock1Accessible := readMPUAccessibleFromMPUEntryAddr block1InCurrPartAddr in
-		perform isBlock2Accessible := readMPUAccessibleFromMPUEntryAddr block2InCurrPartAddr in
+		perform isBlock1Accessible := readBlockAccessibleFromBlockEntryAddr block1InCurrPartAddr in
+		perform isBlock2Accessible := readBlockAccessibleFromBlockEntryAddr block2InCurrPartAddr in
 		if negb (isBlock1Accessible && isBlock2Accessible)
 		then (* one/both blocks not accessible, stop *) ret nullAddr
 		else
 
 		(* Check blocks are not shared *)
 		(* if accessible, then PDflag can't be set, we just need to check PDchild *)
-		perform block1PDChildAddr := readSh1PDChildFromMPUEntryAddr	block1InCurrPartAddr in
+		perform block1PDChildAddr := readSh1PDChildFromBlockEntryAddr	block1InCurrPartAddr in
 		perform block1PDChildAddrIsNull := compareAddrToNull block1PDChildAddr in
-		perform block2PDChildAddr := readSh1PDChildFromMPUEntryAddr	block2InCurrPartAddr in
+		perform block2PDChildAddr := readSh1PDChildFromBlockEntryAddr	block2InCurrPartAddr in
 		perform block2PDChildAddrIsNull := compareAddrToNull block2PDChildAddr in
 		if negb block1PDChildAddrIsNull || negb block2PDChildAddrIsNull
 		then (* one/both blocks shared, stop *) ret nullAddr
 		else
 
 		(* Check block 2 follows block 1 TODO changed check order with following instruction*)
-		perform block1Next := readSCNextFromMPUEntryAddr block1InCurrPartAddr in
+		perform block1Next := readSCNextFromBlockEntryAddr block1InCurrPartAddr in
 		perform isBlock2Next := getBeqAddr block2InCurrPartAddr block1Next in
 		if negb isBlock2Next then (* no merge possible, stop*) ret nullAddr else
 
 		(** Merge block 2 in block 1 *)
 
 		(* replace block 1's next subblock with block 2's next subblock *)
-		perform block2Next := readSCNextFromMPUEntryAddr block2InCurrPartAddr in
-		writeSCNextFromMPUEntryAddr block1InCurrPartAddr block2Next ;;
+		perform block2Next := readSCNextFromBlockEntryAddr block2InCurrPartAddr in
+		writeSCNextFromBlockEntryAddr block1InCurrPartAddr block2Next ;;
 
 		(* replace block 1's end address with block 2's end address *)
-		perform block2MPUEnd := readMPUEndFromMPUEntryAddr block2InCurrPartAddr in
-		writeMPUEndFromMPUEntryAddr block1InCurrPartAddr block2MPUEnd ;;
+		perform block2End := readBlockEndFromBlockEntryAddr block2InCurrPartAddr in
+		writeBlockEndFromBlockEntryAddr block1InCurrPartAddr block2End ;;
 
 		(* remove block 2 entry *)
 		freeSlot currentPart block2InCurrPartAddr ;;
 
 		(** Parents and ancestors: set the block accessible again if there are no
 		subblocks anymore of block 1 *)
-		perform idBlockToMerge1 := readMPUStartFromMPUEntryAddr block1InCurrPartAddr in
+		perform idBlockToMerge1 := readBlockStartFromBlockEntryAddr block1InCurrPartAddr in
 		writeAccessibleToAncestorsIfNotCutRec currentPart
 																					idBlockToMerge1
 																					block1InCurrPartAddr
@@ -328,10 +327,11 @@ Definition mergeMemoryBlocks (MPUAddressBlockToMerge1 MPUAddressBlockToMerge2 : 
     <<idPD>>													the block to prepare (current partition or a child)
 																			(id = start field of an existing block)
 		<<projectedSlotsNb>>							the number of requested slots, -1 if forced prepare
-		<<MPUAddressRequisitionedBlock>>	the block used as the new kernel structure
+		<<idRequisitionedBlock>>	the block used as the new kernel structure
 *)
-Definition prepare (idPD : paddr) (projectedSlotsNb : index)
-									(MPUAddressRequisitionedBlock : paddr) : LLI bool :=
+Definition prepare (idPD : paddr)
+									(projectedSlotsNb : index)
+									(idRequisitionedBlock : paddr) : LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 
@@ -370,10 +370,10 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 
 		(** The requisioned block becomes a kernel structure*)
 
-		(* Find the requisitioned block in the current partition (with MPU address) *)
-    perform requisitionedBlockInCurrPartAddr := findBlockInMPUWithAddr
+		(* Find the requisitioned block in the current partition (with entry address) *)
+    perform requisitionedBlockInCurrPartAddr := findBlockInKSWithAddr
 																									currentPart
-																									MPUAddressRequisitionedBlock in
+																									idRequisitionedBlock in
 		perform addrIsNull := compareAddrToNull	requisitionedBlockInCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret false else
 
@@ -384,17 +384,17 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 		if isBlockTooSmall then (* block is smaller than minimum  *) ret false else
 
 		(* Check block is accessible and present*)
-		perform addrIsAccessible := readMPUAccessibleFromMPUEntryAddr
+		perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr
 																	requisitionedBlockInCurrPartAddr in
 		if negb addrIsAccessible then (* block is inaccessible *) ret false else
-		perform addrIsPresent := readMPUPresentFromMPUEntryAddr
+		perform addrIsPresent := readBlockPresentFromBlockEntryAddr
 																	requisitionedBlockInCurrPartAddr in
 		if negb addrIsPresent then (** block is not present *) ret false else
 
 		(* Init kernel structure (erase first) *)
-		perform requisitionedBlockStart := readMPUStartFromMPUEntryAddr
+		perform requisitionedBlockStart := readBlockStartFromBlockEntryAddr
 																						requisitionedBlockInCurrPartAddr in
-		perform requisitionedBlockEnd := readMPUEndFromMPUEntryAddr
+		perform requisitionedBlockEnd := readBlockEndFromBlockEntryAddr
 																						requisitionedBlockInCurrPartAddr in
 		perform isStructureInitialised := initStructure requisitionedBlockStart
 																										requisitionedBlockEnd in
@@ -403,10 +403,10 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 		perform newKStructurePointer := getAddr requisitionedBlockStart in
 
 		(** Set the requisitioned block inaccessible and remove it from the physical MPU*)
-		writeMPUAccessibleFromMPUEntryAddr requisitionedBlockInCurrPartAddr false ;;
+		writeBlockAccessibleFromBlockEntryAddr requisitionedBlockInCurrPartAddr false ;;
 		removeBlockFromPhysicalMPU currentPart requisitionedBlockInCurrPartAddr ;;
 		(** Parent and ancestors: set the block unaccessible if the block is not cut*)
-		perform idRequisitionedBlock := readMPUStartFromMPUEntryAddr
+		perform idRequisitionedBlock := readBlockStartFromBlockEntryAddr
 																				requisitionedBlockInCurrPartAddr in
 		writeAccessibleToAncestorsIfNotCutRec currentPart
 																					idRequisitionedBlock
@@ -425,11 +425,11 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 
 		(* set the new free slots at the head of the previous free slots list *)
 		perform lastidx := Index.pred kernelentriesnb in
-		perform lastMPUEntryAddr := getMPUEntryAddrFromKernelStructureStart
+		perform lastBlockEntryAddr := getBlockEntryAddrFromKernelStructureStart
 																		newKStructurePointer
 																		lastidx in
 		perform currFirstFreeSlot := readPDFirstFreeSlotPointer idPD in
-		writeMPUEndFromMPUEntryAddr lastMPUEntryAddr currFirstFreeSlot ;;
+		writeBlockEndFromBlockEntryAddr lastBlockEntryAddr currFirstFreeSlot ;;
 		(* set the PD's first free slot pointer to the first entry of the new kernel structure*)
 		writePDFirstFreeSlotPointer idPD newKStructurePointer ;;
 		(* new count = (count + number of new entries)*)
@@ -445,7 +445,7 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
 				the parent*)
 		if isChildCurrPart
 		then (*prepare is done for another partition than itself*)
-			writeSh1PDChildFromMPUEntryAddr requisitionedBlockInCurrPartAddr idPD ;;
+			writeSh1PDChildFromBlockEntryAddr requisitionedBlockInCurrPartAddr idPD ;;
 			ret true
 		else
 			ret true.
@@ -455,20 +455,20 @@ Definition prepare (idPD : paddr) (projectedSlotsNb : index)
     The [addMemoryBlock] system call adds a block to a child partition.
 		The block is still accessible from the current partition (shared memory).
 
-		Returns the shared block's slot address in the child:OK/NULL:NOK
+		Returns the shared block's id in the child:OK/NULL:NOK
 
-    <<idPDchild>>							the child partition to share with
-		<MPUAddressBlockToShare>>	the MPU address where the block <idBlocktoShare> lies
-		<<r w e >>								the rights to apply in the child partition
+    <<idPDchild>>			the child partition to share with
+		<idBlockToShare>>	the block entry address where the block <idBlocktoShare> lies
+		<<r w e >>				the rights to apply in the child partition
 *)
-Definition addMemoryBlock (idPDchild MPUAddressBlockToShare: paddr) (r w e : bool)
+Definition addMemoryBlock (idPDchild idBlockToShare: paddr) (r w e : bool)
 																																: LLI paddr :=
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 
-		(* Find the block to share in the current partition (with MPU address) *)
-    perform blockInCurrPartAddr := findBlockInMPUWithAddr 	currentPart
-																													MPUAddressBlockToShare in
+		(* Find the block to share in the current partition (with block entry address) *)
+    perform blockInCurrPartAddr := findBlockInKSWithAddr 	currentPart
+																													idBlockToShare in
 		perform addrIsNull := compareAddrToNull	blockInCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret nullAddr else
 		perform rcheck := checkRights blockInCurrPartAddr r w e in
@@ -491,16 +491,16 @@ Definition addMemoryBlock (idPDchild MPUAddressBlockToShare: paddr) (r w e : boo
 		Returns true:OK/false:NOK
 
     <<idPDchild>>				the child partition to remove from
-		<<MPUAddressBlockToRemove>>	the MPU address where the block <idBlockToRemove> lies
+		<<idBlockToRemove>>	the block entry address where the block <idBlockToRemove> lies
 *)
-Definition removeMemoryBlock (idPDchild MPUAddressBlockToRemove: paddr)
+Definition removeMemoryBlock (idPDchild idBlockToRemove: paddr)
 																																	: LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 
-		(* Find the block to remove in the current partition (with MPU address) *)
-	  perform blockInCurrPartAddr := findBlockInMPUWithAddr 	currentPart
-																													MPUAddressBlockToRemove in
+		(* Find the block to remove in the current partition (with block entry address) *)
+	  perform blockInCurrPartAddr := findBlockInKSWithAddr 	currentPart
+																													idBlockToRemove in
 		perform addrIsNull := compareAddrToNull	blockInCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret false else
 
@@ -515,40 +515,40 @@ Definition removeMemoryBlock (idPDchild MPUAddressBlockToRemove: paddr)
 
 		Returns true:OK/false:NOK
 
-    <<MPUAddressPDchildToDelete>>	the child partition to delete
+    <<idPDchildToDelete>>	the child partition to delete
 *)
-Definition deletePartition (MPUAddressPDchildToDelete: paddr) : LLI bool :=
+Definition deletePartition (idPDchildToDelete: paddr) : LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 
 		(* Find the block to delete in the current partition *)
-    perform blockToDeleteInCurrPartAddr := findBlockInMPUWithAddr
+    perform blockToDeleteInCurrPartAddr := findBlockInKSWithAddr
 																							currentPart
-																							MPUAddressPDchildToDelete in
+																							idPDchildToDelete in
 		perform addrIsNull := compareAddrToNull	blockToDeleteInCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret false else
 
 		(** Checks *)
 		(* Check idPDchild is a child of the current partition TODO use checkchild*)
-		perform isChild := readSh1PDFlagFromMPUEntryAddr blockToDeleteInCurrPartAddr in
+		perform isChild := readSh1PDFlagFromBlockEntryAddr blockToDeleteInCurrPartAddr in
 		if negb isChild then (* idPDchild is not a child partition, stop*) ret false else
 
 		(** Reset PD block TODO reset also kernel structures ?*)
-		perform blockStartAddr := readMPUStartFromMPUEntryAddr
+		perform blockStartAddr := readBlockStartFromBlockEntryAddr
 																	blockToDeleteInCurrPartAddr in
-		perform blockEndAddr := readMPUEndFromMPUEntryAddr
+		perform blockEndAddr := readBlockEndFromBlockEntryAddr
 																	blockToDeleteInCurrPartAddr in
 		eraseBlock blockStartAddr blockEndAddr ;;
 
 		(** Remove all shared blocks references in current partition (except PD child)*)
 		perform currKernelStructureStart := readPDStructurePointer currentPart in
-		perform idPDchildToDelete := readMPUStartFromMPUEntryAddr MPUAddressPDchildToDelete in
+		perform idPDchildToDelete := readBlockStartFromBlockEntryAddr idPDchildToDelete in
 		deleteSharedBlocksRec currentPart currKernelStructureStart idPDchildToDelete ;;
 
 		(** Erase PD child entry: remove sharing and set accessible for current partition *)
-		writeMPUAccessibleFromMPUEntryAddr blockToDeleteInCurrPartAddr true ;;
+		writeBlockAccessibleFromBlockEntryAddr blockToDeleteInCurrPartAddr true ;;
 		perform defaultSh1Entry := getDefaultSh1Entry in
-		writeSh1EntryFromMPUEntryAddr blockToDeleteInCurrPartAddr defaultSh1Entry ;;
+		writeSh1EntryFromBlockEntryAddr blockToDeleteInCurrPartAddr defaultSh1Entry ;;
 		perform isCut := checkBlockCut blockToDeleteInCurrPartAddr in
 		if isCut
 		then	(* if the PD child block to remove is cut, remains not accessible in
@@ -601,7 +601,7 @@ Definition collect (idPD: paddr) : LLI paddr :=
 
 (** ** The mapMPU PIP MPU service
 
-    The [mapMPU] system call maps the <MPUAddressBlockToEnable> block owned by
+    The [mapMPU] system call maps the <idBlockToEnable> block owned by
 		the partition <idPD> (current partition or a child) in the <MPURegionNb> MPU
 		region.
 		If the block is NULL, then the targeted MPU region is removed from the MPU.
@@ -610,11 +610,11 @@ Definition collect (idPD: paddr) : LLI paddr :=
 		Returns true:OK/false:NOK
 
     <<idPD>>	the current partition or a child
-    <<MPUAddressBlockToEnable>>	the block to map
+    <<idBlockToEnable>>	the block to map
     <<MPURegionNb>>	the physical MPU region number
 *)
-Definition mapMPU (idPD: paddr)
-									(MPUAddressBlockToEnable : paddr)
+Definition mapMPU 	(idPD: paddr)
+									(idBlockToEnable : paddr)
 									(MPURegionNb : index) : LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
@@ -630,22 +630,22 @@ Definition mapMPU (idPD: paddr)
 		else
 
 		(* Check block to map is NULL, in such case remove the block at given index *)
-		perform blockIsNull := compareAddrToNull	MPUAddressBlockToEnable in
+		perform blockIsNull := compareAddrToNull	idBlockToEnable in
 		if blockIsNull
 		then (** Remove the block from the physical MPU if region nb is valid *)
 				enableBlockInMPU idPD nullAddr MPURegionNb
 		else (** Replace the block from the physical MPU if region nb is valid *)
 
-			(* Find the block to enable in the given partition (with MPU address) *)
-		  perform blockToEnableAddr := findBlockInMPUWithAddr 	idPD MPUAddressBlockToEnable in
+			(* Find the block to enable in the given partition (with block entry address) *)
+		  perform blockToEnableAddr := findBlockInKSWithAddr 	idPD idBlockToEnable in
 			perform addrIsNull := compareAddrToNull	blockToEnableAddr in
 			if addrIsNull then(* no block found, stop *) ret false else
 
 			(* Check block is accessible and present*)
-			perform addrIsAccessible := readMPUAccessibleFromMPUEntryAddr
+			perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr
 																		blockToEnableAddr in
 			if negb addrIsAccessible then (* block is not accessible *) ret false else
-			perform addrIsPresent := readMPUPresentFromMPUEntryAddr
+			perform addrIsPresent := readBlockPresentFromBlockEntryAddr
 																		blockToEnableAddr in
 			if negb addrIsPresent then (** block is not present *) ret false else
 
@@ -662,7 +662,7 @@ Definition mapMPU (idPD: paddr)
 		the partition <idPD> (current partition or a child) at the <MPURegionNb> MPU
 		region.
 
-		Returns block's MPU address if exists, NULL or error otherwise
+		Returns block's id if exists, NULL or error otherwise
 
     <<idPD>>	the current partition or a child
     <<MPURegionNb>>	the physical MPU region number
@@ -715,12 +715,12 @@ Definition findBlock (idPD: paddr) (addrInBlock : paddr) : LLI blockOrError :=
 		else
 
 		(** Find the block *)
-    perform blockAddr := findBelongingBlockInMPU idPD addrInBlock in
+    perform blockAddr := findBelongingBlock idPD addrInBlock in
 		perform addrIsNull := compareAddrToNull	blockAddr in
 		if addrIsNull then(* no block found, stop *) ret error else
 		(* Return the block's attributes *)
-		perform blockmpuentry := readMPUEntryFromMPUEntryAddr blockAddr in
-		ret (blockAttr blockAddr blockmpuentry).
+		perform blockentry := readBlockEntryFromBlockEntryAddr blockAddr in
+		ret (blockAttr blockAddr blockentry).
 
 
 

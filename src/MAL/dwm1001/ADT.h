@@ -67,28 +67,28 @@ typedef struct block
 
 
 /**
- * \struct MPUIndex
+ * \struct BlockIndex
  * \brief MPU index structure
  */
-typedef struct MPUIndex
+typedef struct BlockIndex
 {
-	uint32_t MPUi; //!< Index of the slot in the kernel structure containing it // TODO : compute index size
-}__attribute__((packed)) MPUIndex_t;
+	uint32_t i; //!< Index of the slot in the kernel structure containing it // TODO : compute index size
+}__attribute__((packed)) BlockIndex_t;
 
 /**
- * \struct MPUEntry
+ * \struct BlockEntry
  * \brief MPU entry structure
  */
-typedef struct MPUEntry
+typedef struct BlockEntry
 {
-    block_t mpublock        ;   //!< Block present in memory
-    MPUIndex_t mpuindex     ;   //!< Slot index in its kernel structure
+    block_t blockrange        ;   //!< Block present in memory
+    BlockIndex_t blockindex     ;   //!< Slot index in its kernel structure
     bool read               ;   //!< Read permission
     bool write              ;   //!< Write permission
     bool exec               ;   //!< Exec permission
     bool present            ;   //!< Block present
     bool accessible         ;   //!< block accessible
-}__attribute__((packed)) MPUEntry_t;
+}__attribute__((packed)) BlockEntry_t;
 
 /**
  * \struct Sh1Entry
@@ -107,8 +107,8 @@ typedef struct Sh1Entry
  */
 typedef struct SCEntry
 {
-    uint32_t* origin  ;   //!< Pointer to the original (sub)block // TODO: MPUEntry_t
-    uint32_t* next    ;   //!< Pointer to the next subblock // TODO: MPUEntry_t
+    uint32_t* origin  ;   //!< Pointer to the original (sub)block // TODO: BlockEntry_t
+    uint32_t* next    ;   //!< Pointer to the next subblock // TODO: BlockEntry_t
 }__attribute__((packed)) SCEntry_t;
 
 /**
@@ -122,7 +122,7 @@ typedef struct PDTable
     uint32_t nbfreeslots                ;   //!< Number of free slots left
     uint32_t nbprepare                  ;   //!< Number of Prepare done on this partition
     uint32_t* parent                    ;   //!< Pointer to the parent partition
-    MPUEntry_t* blocks[MPU_REGIONS_NB]  ;   //!< List of pointers to enabled blocks
+    BlockEntry_t* mpu[MPU_REGIONS_NB]  ;   //!< List of pointers to enabled blocks
     uint32_t LUT[MPU_REGIONS_NB*2]      ;   //!< MPU registers' configuration sequence
 }__attribute__((packed)) PDTable_t;
 
@@ -132,10 +132,10 @@ typedef struct PDTable
  */
 typedef struct KStructure
 {
-    MPUEntry_t mpu[KERNELSTRUCTUREENTRIESNB]    ;   //!< MPU structure
-    Sh1Entry_t sh1[KERNELSTRUCTUREENTRIESNB]    ;   //!< Sh1 structure
-    SCEntry_t sc[KERNELSTRUCTUREENTRIESNB]      ;   //!< SC structure
-    uint32_t* next                              ;   //!< Pointer to the next kernel structure
+    BlockEntry_t blocks[KERNELSTRUCTUREENTRIESNB]   ;  //!< BLK structure
+    Sh1Entry_t sh1[KERNELSTRUCTUREENTRIESNB]        ;  //!< Sh1 structure
+    SCEntry_t sc[KERNELSTRUCTUREENTRIESNB]          ;  //!< SC structure
+    uint32_t* next                                  ;  //!< Pointer to the next kernel structure
 }__attribute__((packed)) KStructure_t;
 
 
@@ -145,12 +145,12 @@ typedef struct KStructure
  */
 typedef struct blockAttr
 {
-    uint32_t* mpuentryaddr  ;   //!< Pointer to the block's MPU address
-    block_t mpublock        ;   //!< Block present in memory
-    bool read               ;   //!< Read permission
-    bool write              ;   //!< Write permission
-    bool exec               ;   //!< Exec permission
-    bool accessible         ;   //!< block accessible
+    uint32_t* blockentryaddr    ;   //!< Pointer to the block's address
+    block_t blockrange          ;   //!< Block present in memory
+    bool read                   ;   //!< Read permission
+    bool write                  ;   //!< Write permission
+    bool exec                   ;   //!< Exec permission
+    bool accessible             ;   //!< block accessible
 }__attribute__((packed)) blockAttr_t;
 
 
