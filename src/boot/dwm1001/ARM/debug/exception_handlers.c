@@ -27,17 +27,12 @@
 
 // ----------------------------------------------------------------------------
 
-/*#include "cortexm/ExceptionHandlers.h"
-#include "cmsis_device.h"
-#include "arm/semihosting.h"
-#include "diag/Trace.h"*/
 #include <string.h>
 
 #include "ExceptionHandlers.h"
 #include "semihosting.h"
 #include "Trace.h"
 #include "nrf52.h"
-#include "core_cm4.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -112,6 +107,7 @@ dumpExceptionStack (ExceptionStackFrame* frame,
                                         uint32_t lr)
 {
 #if defined(TRACE)
+#if defined(DUMP)
   trace_printf ("Stack frame:\n");
   trace_printf (" R0 =  %08X\n", frame->r0);
   trace_printf (" R1 =  %08X\n", frame->r1);
@@ -138,6 +134,7 @@ dumpExceptionStack (ExceptionStackFrame* frame,
   trace_printf ("Misc\n");
   trace_printf (" LR/EXC_RETURN= %08X\n", lr);
 #endif
+#endif
 }
 
 #endif // defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
@@ -148,6 +145,7 @@ void
 dumpExceptionStack (ExceptionStackFrame* frame, uint32_t lr)
 {
 #if defined(TRACE)
+#if defined(DUMP)
   trace_printf ("Stack frame:\n");
   trace_printf (" R0 =  %08X\n", frame->r0);
   trace_printf (" R1 =  %08X\n", frame->r1);
@@ -159,6 +157,7 @@ dumpExceptionStack (ExceptionStackFrame* frame, uint32_t lr)
   trace_printf (" PSR = %08X\n", frame->psr);
   trace_printf ("Misc\n");
   trace_printf (" LR/EXC_RETURN= %08X\n", lr);
+#endif
 #endif
 }
 
@@ -628,52 +627,6 @@ UsageFault_Handler_C (ExceptionStackFrame* frame __attribute__((unused)),
 }
 
 #endif
-
-void __attribute__ ((section(".after_vectors"),weak))
-SVC_Handler (void)
-{
-  __asm(
-    ".global SVC_Handler_Main\n"
-    "TST lr, #4\n"
-    "ITE EQ\n"
-    "MRSEQ r0, MSP\n"
-    "MRSNE r0, PSP\n"
-    "B SVC_Handler_Main\n"
-  ) ;
-}
-
-void SVC_Handler_Main( unsigned int *svc_args )
-{
-#if defined(DEBUG)
-  __DEBUG_BKPT();
-#endif
-
-  unsigned int svc_number;
-
-  /*
-  * Stack contains:
-  * r0, r1, r2, r3, r12, r14, the return address and xPSR
-  * First argument (r0) is svc_args[0]
-  */
-  svc_number = ( ( char * )svc_args[ 6 ] )[ -2 ] ;
-  switch( svc_number )
-  {
-    case 0: // Enable Privileged mode !TODO!: to remove with system calls in SVC instead
-      __set_CONTROL( __get_CONTROL( ) & ~CONTROL_nPRIV_Msk ) ;
-      break;
-    case 1: // Disable Privileged mode !TODO!: to remove with system calls in SVC instead
-      __set_CONTROL(__get_CONTROL() |
-                    CONTROL_nPRIV_Msk ); // switch to unprivileged Thread Mode
-
-      __DMB();
-      __ISB();
-      __DSB();
-      break;
-    default:    // unknown SVC
-      break;
-  }
-
-}
 
 #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
 

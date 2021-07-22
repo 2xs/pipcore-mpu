@@ -79,10 +79,18 @@
 extern uint32_t user_mem_start;
 // End address for the user section; defined in linker script
 extern uint32_t user_mem_end;
+// Stack end address for the user section; defined in linker script
+extern uint32_t user_stack_top;
 
 extern uint32_t _sram;
 
 static void* user_alloc_pos = NULL;
+
+paddr blockentryaddr_flash = NULL;
+paddr blockentryaddr_ram0 = NULL;
+paddr blockentryaddr_ram1 = NULL;
+paddr blockentryaddr_ram2 = NULL;
+paddr blockentryaddr_periph = NULL;
 
 /* Root partition initialisation.
  * All this code will run at startup.
@@ -137,15 +145,31 @@ void mal_init_root_part(paddr part)
 
 	// add user memory block(s)
 #if !defined UNIT_TESTS // unit tests are prepared differently
-	// One FLASH block and one RAM block
-	//paddr blockentryaddr = insertNewEntry(part, user_alloc_pos, &user_mem_end, user_alloc_pos, true, false, true);// idpartition, start, end, origin, RWX
-	paddr blockentryaddr_flash = insertNewEntry(part, 0,  0x00080000, 0, true, false, true);
-	paddr blockentryaddr_ram = insertNewEntry(part, &_sram, &user_mem_end, &_sram, true, true, false);
+	// One FLASH block + one RAM block + one peripheral block -> seperated compilation
+	/*paddr blockentryaddr_flash = insertNewEntry(part, 0,  0x00080000, 0, true, false, true); // idpartition, start, end, origin, RWX
+	paddr blockentryaddr_ram = insertNewEntry(part, user_alloc_pos, &user_mem_end, user_alloc_pos, true, true, false);
 	paddr blockentryaddr_periph = insertNewEntry(part, 0x40000000, 0x5FFFFFFF, 0x40000000, true, true, false);
 	// Pre-configure the MPU LUT with inserted block(s)
 	enableBlockInMPU(part, blockentryaddr_flash, 0);
 	enableBlockInMPU(part, blockentryaddr_ram, 1);
-	enableBlockInMPU(part, blockentryaddr_periph, 2);
+	enableBlockInMPU(part, blockentryaddr_periph, 2);*/
+
+  	// One FLASH block + three RAM block (RW data + available memory + stack) + peripheral block -> no separated compilation
+	blockentryaddr_flash = insertNewEntry(part, 0,  (paddr) 0x00080000, 0, true, false, true);
+	blockentryaddr_ram0 = insertNewEntry(part, 0x20000000, user_alloc_pos-1, 0x20000000, true, true, false);
+	blockentryaddr_ram1 = insertNewEntry(part, user_alloc_pos, 0x20007FFF, 0x20000000, true, true, false);
+	blockentryaddr_ram2 = insertNewEntry(part, 0x20008000, &user_stack_top, 0x20008000, true, true, false);
+	blockentryaddr_periph = insertNewEntry(part, 0x40000000, 0x5FFFFFFF, 0x40000000, true, true, false);
+
+	// Map 4 blocks -> flash, 2 ram blocks + peripherals
+  	enableBlockInMPU(part, blockentryaddr_flash, 0); // Entire Flash
+  	enableBlockInMPU(part, blockentryaddr_ram0, 1); // RW region containing the data+bss
+  	enableBlockInMPU(part, blockentryaddr_ram2, 2); // Stack: !never touch!, should always be enabled in MPU
+	enableBlockInMPU(part, blockentryaddr_periph, 3); // Peripherals
+
+	dump_mpu();
+
+
 #endif // UNIT_TESTS
 	//DEBUG(TRACE, "mal_init_root_part( part=%08x) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
 	printf("mal_init_root_part( part=%08x) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
@@ -167,7 +191,7 @@ void mal_init_root_part(paddr part)
 	*/
 
  	// Invalidate user page allocator (FIXME: debug purpose only)
-	user_alloc_pos = &user_mem_end;
+	//user_alloc_pos = &user_mem_end;
 
 	// Register created root partition to Pip
 	updateRootPartition(part);

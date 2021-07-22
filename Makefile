@@ -221,14 +221,14 @@ app.bin: $(TARGET_DIR) app.elf
 	$(BI) -O binary $(TARGET_DIR)/app.elf $(TARGET_DIR)/app.bin
 
 clean: clean-c clean-coq
+	rm -rf $(TARGET_DIR)/
 
 clean-coq:
 	rm -f $(TARGET_DIR)/pipcore/* *.json
 	rm -f $(VOBJECTS) $(VSOURCES:.v=.v.d) $(VSOURCES:.v=.glob)
 
 clean-c:
-	rm -rf $(TARGET_DIR)/
-
+	find $(TARGET_DIR) ! \( -name "*.c" -o -name "*.h" \) -type f -exec rm -f {} +
 
 # Generate build directory
 $(TARGET_DIR):

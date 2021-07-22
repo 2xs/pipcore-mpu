@@ -9,8 +9,8 @@
 
 #include <assert.h>
 
-#define enablePrivilegedMode() __asm("SVC #0")
-#define disablePrivilegedMode() __asm("SVC #1")
+#define enablePrivilegedMode() __asm("SVC #127")
+#define disablePrivilegedMode() __asm("SVC #128")
 
 // End address for the user section; defined in linker script
 extern uint32_t user_mem_end;
@@ -65,7 +65,7 @@ void init_tests_flash_ram_w_stack()
   root = getRootPartition();
 
   // add user memory block(s)
-  // One FLASH block and two RAM blocks (data + stack)
+  // One FLASH block and two RAM blocks (RO data + stack)
 	block_flash = insertNewEntry(root, 0,  (paddr) 0x00080000, 0, true, false, true);
 	//block_ram1 = insertNewEntry(root, &_sram, &user_stack_limit-0x200, &_sram, true, true, false);
 	//block_ram2 = insertNewEntry(root, &user_stack_limit, &user_stack_top, &user_stack_limit, true, true, false);
@@ -2852,7 +2852,6 @@ void test_collect()
  */
 void __attribute__((optimize(0))) test_mpu_physical_MemFault_without_Pip()
 {
-    enablePrivilegedMode();
   // Set MEMFAULTENA to enable MemFault Handler
   volatile uint32_t *shcsr = (void *)0xE000ED24;
   *shcsr |= (0x1 << 16);
@@ -2862,7 +2861,7 @@ void __attribute__((optimize(0))) test_mpu_physical_MemFault_without_Pip()
   volatile uint32_t *mpu_rasr = (void *)0xE000EDA0;
   volatile uint32_t *mpu_rnr = (void *)0xE000ED98;
 
-  volatile uint32_t* canary = (uint32_t*) 0x20001000; // canary value to be changed in the MemManageFault handler
+  volatile uint32_t* canary = (uint32_t*) 0x20001500; // canary value to be changed in the MemManageFault handler
   *canary = 0x0;
 
   // MPU init : Clear all regions
@@ -2976,7 +2975,7 @@ void __attribute__((optimize(0))) test_mpu_physical_MemFault_with_Pip()
 {
   dump_mpu();
 
-  volatile uint32_t* canary = 0x20001000; // canary value to be changed in the MemManageFault handler
+  volatile uint32_t* canary = 0x20001500; // canary value to be changed in the MemManageFault handler
   *canary = 0x0;
 
   // Cut the first Read-Only RAM block in 3 : 0x2000000-0x20000040-0x20000080-0x20001000
@@ -3651,6 +3650,7 @@ int main_test (int argc, char* argv[])
 
   printf("\r\nmain_test: All tests PASSED\r\n");
 
+  while(1);
 }
 
 #endif //UNIT_TESTS

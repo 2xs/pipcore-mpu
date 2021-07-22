@@ -2,6 +2,7 @@
 #include "maldefines.h"
 #include "nrf52.h"
 #include "pip_debug.h"
+#include "main_user_app.h"
 
 #if defined(UART_DEBUG)
 #include "uart_debug_init.h"
@@ -11,14 +12,14 @@
 #include "Trace.h"
 #endif // TRACE
 
-#define MSG_INIT	\
-	"\r\n\n"	\
-	"App   :  Pip-MPU\n\r"	\
-	"Built :  " __DATE__ " " __TIME__ "\n"	\
-	"\r\n"
+// Stack end address for the user section; defined in linker script
+extern uint32_t user_stack_top;
 
-// End address for the user section; defined in linker script
-extern uint32_t user_mem_end;
+extern paddr blockentryaddr_flash;
+extern paddr blockentryaddr_ram0;
+extern paddr blockentryaddr_ram1;
+extern paddr blockentryaddr_ram2;
+extern paddr blockentryaddr_periph;
 
 /**
  * Main entry point.
@@ -47,29 +48,41 @@ int main (int argc, char* argv[])
   trace_printf((uint8_t const *)trace_msg);
 #endif // TRACE
 
-  /* Initialize the root partition */
+  // Initialize the root partition
   mal_init();
 
   paddr root = getRootPartition();
   dump_partition(root);
   activate(root);
 
-    // set PSP to root stack and switch to unprivileged mode
-  __set_PSP(&user_mem_end);
+  // set PSP to root stack and switch to unprivileged mode
+  uint32_t psp = &user_stack_top-4; // stack starts one address down to match the stack MPU region
+  __set_PSP(psp);
+
   __set_CONTROL(__get_CONTROL() |
-                CONTROL_SPSEL_Msk | // use psp
-                CONTROL_nPRIV_Msk ); // switch to unprivileged Thread Mode
-  __ISB();
+                CONTROL_SPSEL_Msk);// use psp
 
-  printf(MSG_INIT);
+  uint32_t* initial_blocks[6] = { root,
+                                  blockentryaddr_flash,
+                                  blockentryaddr_ram0,
+                                  blockentryaddr_ram1,
+                                  blockentryaddr_ram2,
+                                  blockentryaddr_periph};
 
-  puts("Hello World");
+  main_user_app_trampoline(6, initial_blocks);
 
-  int i;
-
-  for (i = 0; i < 20; i++) {
-    printf("Hello World %d!\n", i);
-  }
-  while (1);
+  while(1);
 }
 
+void main_user_app_trampoline(int argc, char* argv[])
+{
+  __set_CONTROL(__get_CONTROL() |
+                CONTROL_nPRIV_Msk ); // switch to unprivileged Thread Mode
+  __DMB();
+  __ISB();
+  __DSB();
+
+  /********************** Start of user application ************************/
+  main_user_app(argc, argv);
+  printf("App ended\n\r");
+}

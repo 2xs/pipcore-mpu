@@ -22,6 +22,7 @@
 #include "mpu.h"
 #include <string.h> // include memcpy
 #include <stdio.h> // include printf
+#include "pip_debug.h"
 
 /*!
  * \fn int mpu_disable(void)
@@ -342,51 +343,51 @@ Clear BFARVALID/MMARVALID.*/
     uint32_t pc = 0;
     uint32_t* orig_sp = NULL;
 
-uint32_t* sp = frame;
-        uint32_t  r0 = sp[0];
-        uint32_t  r1 = sp[1];
-        uint32_t  r2 = sp[2];
-        uint32_t  r3 = sp[3];
-        uint32_t r12 = sp[4];
-        uint32_t  lreg = sp[5];  /* Link register. */
-                  pc = sp[6];  /* Program counter. */
-        uint32_t psr = sp[7];  /* Program status register. */
+    uint32_t* sp = frame;
+    uint32_t  r0 = sp[0];
+    uint32_t  r1 = sp[1];
+    uint32_t  r2 = sp[2];
+    uint32_t  r3 = sp[3];
+    uint32_t r12 = sp[4];
+    uint32_t  lreg = sp[5];  /* Link register. */
+                pc = sp[6];  /* Program counter. */
+    uint32_t psr = sp[7];  /* Program status register. */
 
-        /* Reconstruct original stack pointer before fault occurred */
-        orig_sp = sp + 8;
+    /* Reconstruct original stack pointer before fault occurred */
+    orig_sp = sp + 8;
 #ifdef SCB_CCR_STKALIGN_Msk
-        if (psr & SCB_CCR_STKALIGN_Msk) {
-            /* Stack was not 8-byte aligned */
-            orig_sp += 1;
-            printf("Stack was not 8-byte aligned\r\n");
-        }
+    if (psr & SCB_CCR_STKALIGN_Msk) {
+        /* Stack was not 8-byte aligned */
+        orig_sp += 1;
+        debug_puts("Stack was not 8-byte aligned\r\n");
+    }
 #endif /* SCB_CCR_STKALIGN_Msk */
-        puts("\nContext before memfault:");
+    debug_puts("\nContext before memfault:");
 
-        /* TODO: printf in ISR context might be a bad idea */
-        printf("   r0 (sp): %x\n"
-                "   orig_sp: %x\n"
-               "   r1: %x\n"
-               "   r2: %x\n"
-               "   r3: %x\n",
-               r0, orig_sp, r1, r2, r3);
-        printf("  r12: %x\n"
-               "   lr: %x\n"
-               "   pc: %x\n"
-               "  psr: %x\n\n",
-               r12, lreg, pc, psr);
+    /* TODO: printf in ISR context might be a bad idea */
+    debug_printf("   r0 (sp): %x\n"
+            "   orig_sp: %x\n"
+            "   r1: %x\n"
+            "   r2: %x\n"
+            "   r3: %x\n",
+            r0, orig_sp, r1, r2, r3);
+    debug_printf("  r12: %x\n"
+            "   lr: %x\n"
+            "   pc: %x\n"
+            "  psr: %x\n\n",
+            r12, lreg, pc, psr);
 
-        puts("FSR/FAR:");
-        printf(" CFSR: %x\n", cfsr);
-        if (cfsr & BFARVALID_MASK) {
-            /* BFAR valid flag set */
-            printf(" BFAR: %x\n", bfar);
-        }
-        if (cfsr & SCB_CFSR_MEMFAULTSR_Msk){
-            /* MMFAR valid flag set */
-            printf("MMFAR: %x\n", mmfar);
-        }
-  printf ("\r\n[MemManageFault]\n");
+    debug_puts("FSR/FAR:");
+    debug_printf(" CFSR: %x\n", cfsr);
+    if (cfsr & BFARVALID_MASK) {
+        /* BFAR valid flag set */
+        debug_printf(" BFAR: %x\n", bfar);
+    }
+    if (cfsr & SCB_CFSR_MEMFAULTSR_Msk){
+        /* MMFAR valid flag set */
+        debug_printf("MMFAR: %x\n", mmfar);
+    }
+  debug_puts ("\r\n[MemManageFault]\n");
   dumpExceptionStack ((ExceptionStackFrame*)frame, cfsr, mmfar, bfar, lr);
 
 #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
@@ -395,10 +396,10 @@ uint32_t* sp = frame;
 
     // MemFault flags
     if (cfsr & DACCVIOL_MASK) {
-        printf("\r\nDACCVIOL");
+        debug_puts("\r\nDACCVIOL");
         if(cfsr & MMARVALID_MASK){
-            printf(" on address: %x", mmfar);
-            printf(" at (possibly) instruction: %x\n", pc);
+            debug_printf(" on address: %x", mmfar);
+            debug_printf(" at (possibly) instruction: %x\n", pc);
 #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
             reconfigure_mpu = 1;
 #endif
@@ -407,18 +408,18 @@ uint32_t* sp = frame;
         SCB->CFSR &= DACCVIOL_MASK; // Clear flag
     }
     if (cfsr & IACCVIOL_MASK) {
-        printf("\r\nIACCVIOL");
-        printf(" at (possibly) instruction: %x\n", pc);
+        debug_puts("\r\nIACCVIOL");
+        debug_printf(" at (possibly) instruction: %x\n", pc);
         SCB->CFSR &= IACCVIOL_MASK; // Clear flag
     }
     if (cfsr & MSTKERR_MASK) {
         // The stack is probably not configured in the MPU
-        printf("\r\nMSTKERR\r\n");
+        debug_puts("\r\nMSTKERR\r\n");
         SCB->CFSR &= MSTKERR_MASK; // Clear flag
     }
     if (cfsr & MUNSTKERR_MASK) {
         // The stack is probably not configured in the MPU
-        printf("\r\nMUNSTKERR\r\n");
+        debug_puts("\r\nMUNSTKERR\r\n");
         SCB->CFSR &= MUNSTKERR_MASK; // Clear flag
     }
 
@@ -443,13 +444,13 @@ uint32_t* sp = frame;
                 // Check in the MPU if this is a real MPU fault (not because the block has been partially configured)
                     if(readPhysicalMPUStartAddr(i) <= mmfar && mmfar <= readPhysicalMPUEndAddr(i)){
                     // Operation not permitted: raise fault
-                    printf("Block mapped in MPU, real fault on address: %x\r\n", mmfar);
+                    debug_printf("Block mapped in MPU, real fault on address: %x\r\n", mmfar);
                     break;
                 }
 
                 else{
                     // Operation permitted: reconfigure MPU and redo faulted legitimate operation
-                    printf("Block mapped in MPU, reconfiguring MPU with legitimate faulted block %x for address %x\r\n", currPart->mpu[i], mmfar);
+                    debug_printf("Block mapped in MPU, reconfiguring MPU with legitimate faulted block %x for address %x\r\n", currPart->mpu[i], mmfar);
                     configure_LUT_entry(currPart->LUT, i, currPart->mpu[i], (uint32_t*) mmfar);
                     mpu_configure_from_LUT(currPart->LUT);
                     // return to faulted operation without notifying the fault ot the user
@@ -457,7 +458,9 @@ uint32_t* sp = frame;
                 }
             }
         }
-        if(!block_in_MPU) printf("No block matches in MPU, real fault on address: %x\r\n", mmfar);
+        if(!block_in_MPU) {
+            debug_printf("No block matches in MPU, real fault on address: %x\r\n", mmfar);
+        }
     }
 #endif
 
@@ -469,7 +472,7 @@ uint32_t* sp = frame;
 
 #if defined(UNIT_TESTS)
     // Set canary to 0xDEADBEEF
-    uint32_t* canary = (uint32_t*) 0x20001000;
+    uint32_t* canary = (uint32_t*) 0x20001500;
     *canary = 0xDEADBEEF;
     printf ("\r\nNew canary=%x\n", *canary);
     sp[6] = pc + 2; // continue with next instruction

@@ -6,12 +6,9 @@ MEMORY
 }
 
 
-
-
 OUTPUT_FORMAT("elf32-littlearm")
 OUTPUT_ARCH(arm)
 
-/*ENTRY(Reset_Handler) /*int_vector*/
 ENTRY(_start)
 /*
  * Default stack sizes.
@@ -70,10 +67,10 @@ SECTIONS
     .text : ALIGN(4)
     {
         _stext = .;
-        *(.text .text.*)			/* all remaining code */
+        *(.text .text.*)	/* all remaining code */
 
- 		    /* read-only data (constants) */
-        *(.rodata .rodata.* .constdata .constdata.*)
+ 		/* read-only data (constants) */
+        *(.rodata .rodata.*)
 
         . = ALIGN(4);
         _etext = .;
@@ -98,11 +95,8 @@ SECTIONS
         FILL(0xFF)
         /* This is used by the startup code to initialise the .data section */
         _sdata = . ;        	/* STM specific definition */
-        *(.data_begin .data_begin.*)
 
         *(.data .data.*)
-
-        *(.data_end .data_end.*)
 
         . = ALIGN(4);
 
@@ -136,13 +130,6 @@ SECTIONS
         _Heap_Limit = __HeapLimit ;
     } > RAM
 
-
-
-    /*.data :
-    {
-        *(.data*);
-    } > RAM AT >FLASH*/
-
     /* stack section */
 
     .stack (NOLOAD):
@@ -165,7 +152,7 @@ SECTIONS
     /* Set the user stack at end of RAM with MPU alignment constraints */
     ASSERT(32 <= __User_Stack_Size, "stack size too small")
 
-    _user_stack_size_aligned = (2 << (LOG2CEIL(__User_Stack_Size)-1)); /* 2^(log2(stack size not aligned)-1) */
+    _user_stack_size_aligned = (1 << (LOG2CEIL(__User_Stack_Size)-1)); /* 2^(log2(stack size not aligned)-1) */
     user_stack_limit = ALIGN(_eram - 2*_user_stack_size_aligned + 1, _user_stack_size_aligned); /* be sure to align at end of RAM */
     user_stack_top = user_stack_limit + _user_stack_size_aligned;
 
@@ -174,22 +161,6 @@ SECTIONS
     ASSERT(user_stack_top <= _eram , "stack top higher than end of RAM")
 
     /*_end = . ;*/
-
-    /*.noinit (NOLOAD) : ALIGN(4)
-    {
-        _noinit = .;
-
-        *(.noinit .noinit.*)
-
-         . = ALIGN(4) ;
-        _end_noinit = .;
-    } > RAM*/
-
-    /* Mandatory to be word aligned, _sbrk assumes this */
-    /*PROVIDE ( end = _end_noinit );
-    PROVIDE ( _end = _end_noinit );
-    PROVIDE ( __end = _end_noinit );
-    PROVIDE ( __end__ = _end_noinit );*/
 
     /* Set stack top to end of RAM, and stack limit move down by
 	 * size of stack_dummy section */
