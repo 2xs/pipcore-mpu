@@ -467,6 +467,9 @@ Definition writeBlockEntryFromBlockEntryAddr (blockentryaddr : paddr) (blockentr
 	writeBlockEndFromBlockEntryAddr blockentryaddr blockentry.(blockrange).(endAddr);;
 	writeBlockAccessibleFromBlockEntryAddr blockentryaddr blockentry.(accessible);;
 	writeBlockPresentFromBlockEntryAddr blockentryaddr blockentry.(present);;
+	writeBlockRFromBlockEntryAddr blockentryaddr blockentry.(read);;
+	writeBlockWFromBlockEntryAddr blockentryaddr blockentry.(write);;
+	writeBlockXFromBlockEntryAddr blockentryaddr blockentry.(exec);;
 	ret tt.
 
 Definition writeBlockEntryWithIndexFromBlockEntryAddr 	(blockentryaddr : paddr)

@@ -580,6 +580,9 @@ void writeBlockEntryFromBlockEntryAddr(paddr blockentryaddr, BlockEntry_t value)
 	writeBlockEndFromBlockEntryAddr(blockentryaddr, value.blockrange.endAddr);
 	writeBlockAccessibleFromBlockEntryAddr(blockentryaddr, value.accessible);
 	writeBlockPresentFromBlockEntryAddr(blockentryaddr, value.present);
+	writeBlockRFromBlockEntryAddr(blockentryaddr, value.read);
+	writeBlockWFromBlockEntryAddr(blockentryaddr, value.write);
+	writeBlockXFromBlockEntryAddr(blockentryaddr, value.exec);
 	return;
 }
 

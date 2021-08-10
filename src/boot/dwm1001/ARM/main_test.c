@@ -1560,25 +1560,34 @@ void remove_alone(int fast)
   paddr old_parent = readPDParent(child_partition_pd);
 
   // add + remove = same as before
-  assert(addMemoryBlock(child_partition_pd,
+  paddr child_block_id = addMemoryBlock(child_partition_pd,
                         block_to_share_root_address,
-                        true, true, false) != false);
+                        true, true, false);
+  assert(child_block_id != false);
+
   // check first entry is not default after add
   paddr child_kernel_structure_start = readPDStructurePointer(child_partition_pd);
   assert(readBlockStartFromBlockEntryAddr(child_kernel_structure_start) != NULL);
   assert(readBlockEndFromBlockEntryAddr(child_kernel_structure_start) != NULL);
   assert(readBlockAccessibleFromBlockEntryAddr(child_kernel_structure_start) != false);
   assert(readBlockPresentFromBlockEntryAddr(child_kernel_structure_start) != false);
+  assert(readBlockRFromBlockEntryAddr(child_block_id) == true);
+  assert(readBlockWFromBlockEntryAddr(child_block_id) == true);
+  assert(readBlockXFromBlockEntryAddr(child_block_id) == false);
   remaining_blocks_slots_form_a_linked_list(1, KERNELSTRUCTUREENTRIESNB - 1, child_kernel_structure_start);
 
   // REMOVE block + checks PD is same as before + BLK/Sh1/SC are default
   assert(removeMemoryBlock( child_partition_pd,
                             block_to_share_root_address) != false);
+  dump_partition(child_partition_pd);
   assert(old_pointer_to_BLK_linked_list == readPDStructurePointer(child_partition_pd));
   assert(old_first_free_slot_address == readPDFirstFreeSlotPointer(child_partition_pd));
   assert(old_nb_free_slots == readPDNbFreeSlots(child_partition_pd));
   assert(old_nb_prepare == readPDNbPrepare(child_partition_pd));
   assert(old_parent == readPDParent(child_partition_pd));
+  assert(readBlockRFromBlockEntryAddr(child_block_id) == false);
+  assert(readBlockWFromBlockEntryAddr(child_block_id) == false);
+  assert(readBlockXFromBlockEntryAddr(child_block_id) == false);
   remaining_blocks_slots_form_a_linked_list(0, KERNELSTRUCTUREENTRIESNB - 1, child_kernel_structure_start);
   Sh1_structure_is_default(child_kernel_structure_start);
   SC_structure_is_default(child_kernel_structure_start);
@@ -2978,7 +2987,7 @@ void __attribute__((optimize(0))) test_mpu_physical_MemFault_with_Pip()
   volatile uint32_t* canary = 0x20001500; // canary value to be changed in the MemManageFault handler
   *canary = 0x0;
 
-  // Cut the first Read-Only RAM block in 3 : 0x2000000-0x20000040-0x20000080-0x20001000
+  // Cut the first Read- Only RAM block in 3 : 0x2000000-0x20000040-0x20000080-0x20001000
   uint32_t* block_ram1_2_addr = (uint32_t*) 0x20000040;//&sram + 0x40
   paddr block_ram1_2 = cutMemoryBlock(block_ram1, block_ram1_2_addr, -1);
   assert(block_ram1_2 != NULL);

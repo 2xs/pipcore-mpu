@@ -263,7 +263,7 @@ Definition checkBlockCut (blockentryaddr : paddr) : LLI bool :=
 	else (* Block has been cut previously *) ret true.
 
 
-(** The [writeAccessibleRecAux] function recursively write the accessible bit of
+(** The [writeAccessibleRecAux] function recursively writes the accessible bit of
 		value <accessible_bit> to the block identified as <idblock> to all ancestors
 		of <pdbasepartition>
     Stop condition: reached root partiton (last ancestor)
@@ -412,62 +412,6 @@ Definition checkChild (idPDparent idPDchild : paddr) : LLI bool :=
 	perform isChild := readSh1PDFlagFromBlockEntryAddr blockInParentPartAddr in
 	if negb isChild then (* idPDchild is not a child partition, stop*) ret false else
 	ret true.
-
-(** ** The addMemoryBlockCommon Internal function
-
-    The [addMemoryBlockCommon] system call adds a block to a child partition
-		The block is still accessible from the current partition (shared memory)
-
-		Returns the shared block's slot address in the child:OK/NULL:NOK
-
-    <<idPDchild>>							the child partition to share with
-		<<blockToShareEntryAddr>>	the block to share id in the parent
-		<<r w e >>								the rights to apply in the child partition
-*)
-Definition addMemoryBlockCommon 	(idPDchild blockToShareEntryAddr: paddr)
-																(r w e : bool) : LLI paddr :=
-		(** Get the current partition (Partition Descriptor) *)
-    perform currentPart := getCurPartition in
-
-		(** Checks (blockToShareEntryAddr checked before)*)
-
-		(* Check idPDchild is a child of the current partition*)
-		perform isChildCurrPart := checkChild currentPart idPDchild in
-		if negb isChildCurrPart
-		then (* idPDchild is not a child partition, stop*) ret nullAddr
-		else
-
-		(* Check there are free slots in the the child to add the block to share*)
-		perform currentFreeSlotsNb := readPDNbFreeSlots idPDchild in
-		perform zero := Index.zero in
-		perform isFull := Index.leb currentFreeSlotsNb zero in
-		if isFull then (* no free slots left, stop*) ret nullAddr else
-
-		(* Check block is accessible and present*)
-		perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr
-																	blockToShareEntryAddr in
-		if negb addrIsAccessible then (* block not accessible *) ret nullAddr else
-		perform addrIsPresent := readBlockPresentFromBlockEntryAddr
-																	blockToShareEntryAddr in
-		if negb addrIsPresent then (** block is not present *) ret nullAddr else
-
-
-		(** Child: set the block to share in the child's first free slot*)
-		(* the block start is set as origin in the child*)
-		perform blockstart := readBlockStartFromBlockEntryAddr blockToShareEntryAddr in
-		perform blockend := readBlockEndFromBlockEntryAddr blockToShareEntryAddr in
-		perform blockToShareChildEntryAddr := insertNewEntry 	idPDchild
-																												blockstart blockend
-																												blockstart
-																												r w e
-																												in
-
-		(** Parent: register the shared block in Sh1*)
-		writeSh1PDChildFromBlockEntryAddr blockToShareEntryAddr idPDchild;;
-		writeSh1InChildLocationFromBlockEntryAddr blockToShareEntryAddr
-																						blockToShareChildEntryAddr;;
-		(* RET shared block slot address in child *)
-		ret blockToShareChildEntryAddr.
 
 (** The [removeBlockInDescendantsRecAux] function recursively removes the block
 		identified at block entry address <currLevelBlockToRemoveAddr> of the current
@@ -646,51 +590,6 @@ Definition removeBlockInChildAndDescendants (currentPart
 																										true in
 				if negb recWriteEnded then (* timeout reached or error *) ret false else
 				ret true.
-
-(** ** The removeMemoryBlockCommon Internal function
-
-    The [removeMemoryBlockCommon] system call removes a block from a child partition
-		The block could be cut in the child partition but all subblocks still accessible
-    This operation succeeds for any shared memory block previously added, but
-		fails if the purpose of the block is not shared memory anymore,
-		in particular in such cases:
-        - The block can't be removed if the child or its descendants used it
-				(or part of it) as a kernel structure
-        - The block can't be removed if the child's descendants cut the block
-
-		Returns true:OK/false:NOK
-
-    <<idPDchild>>										the child partition to remove from
-		<<blockToRemoveInCurrPartAddr>>	the block to remove id in the parent
-*)
-Definition removeMemoryBlockCommon (	idPDchild
-																		blockToRemoveInCurrPartAddr: paddr) : LLI bool :=
-
-		(** Get the current partition (Partition Descriptor) *)
-    perform currentPart := getCurPartition in
-
-		(** Checks (blockToRemoveInCurrPartAddr checked before from idBlockToRemove)*)
-
-		(* Check the provided idPDchild corresponds to the child to whom the block
-				has been previously given (if given)*)
-		perform pdchildblock := readSh1PDChildFromBlockEntryAddr
-																blockToRemoveInCurrPartAddr in
-		perform hasChildBlock := getBeqAddr idPDchild pdchildblock in
-		if negb hasChildBlock then (* no correspondance, stop *) ret false else
-
-		(** Child (and grand-children): remove block if possible *)
-		perform idBlockToRemove := readBlockStartFromBlockEntryAddr blockToRemoveInCurrPartAddr in
-		perform blockIsRemoved := removeBlockInChildAndDescendants
-																		currentPart
-																		idPDchild
-																		idBlockToRemove
-																		blockToRemoveInCurrPartAddr in
-		if negb blockIsRemoved then (* block not removed, stop*) ret false else
-
-		(** Parent: remove block reference to the child *)
-		perform defaultSh1Entry := getDefaultSh1Entry in
-		writeSh1EntryFromBlockEntryAddr blockToRemoveInCurrPartAddr defaultSh1Entry ;;
-		ret true.
 
 
 (** The [sizeOfBlock] function computes the size of block referenced in a block entry

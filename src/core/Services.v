@@ -275,7 +275,7 @@ Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr)
 		then (* one/both blocks shared, stop *) ret nullAddr
 		else
 
-		(* Check block 2 follows block 1 TODO changed check order with following instruction*)
+		(* Check block 2 follows block 1 *)
 		perform block1Next := readSCNextFromBlockEntryAddr block1InCurrPartAddr in
 		perform isBlock2Next := getBeqAddr block2InCurrPartAddr block1Next in
 		if negb isBlock2Next then (* no merge possible, stop*) ret nullAddr else
@@ -467,14 +467,52 @@ Definition addMemoryBlock (idPDchild idBlockToShare: paddr) (r w e : bool)
     perform currentPart := getCurPartition in
 
 		(* Find the block to share in the current partition (with block entry address) *)
-    perform blockInCurrPartAddr := findBlockInKSWithAddr 	currentPart
+    perform blockToShareInCurrPartAddr := findBlockInKSWithAddr 	currentPart
 																													idBlockToShare in
-		perform addrIsNull := compareAddrToNull	blockInCurrPartAddr in
+		perform addrIsNull := compareAddrToNull	blockToShareInCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret nullAddr else
-		perform rcheck := checkRights blockInCurrPartAddr r w e in
+		perform rcheck := checkRights blockToShareInCurrPartAddr r w e in
     if negb rcheck then (* new rights not OK, stop *) ret nullAddr else
 
-		addMemoryBlockCommon idPDchild blockInCurrPartAddr r w e.
+		(** Checks (blockToShareInCurrPartAddr checked before)*)
+
+		(* Check idPDchild is a child of the current partition*)
+		perform isChildCurrPart := checkChild currentPart idPDchild in
+		if negb isChildCurrPart
+		then (* idPDchild is not a child partition, stop*) ret nullAddr
+		else
+
+		(* Check there are free slots in the the child to add the block to share*)
+		perform currentFreeSlotsNb := readPDNbFreeSlots idPDchild in
+		perform zero := Index.zero in
+		perform isFull := Index.leb currentFreeSlotsNb zero in
+		if isFull then (* no free slots left, stop*) ret nullAddr else
+
+		(* Check block is accessible and present*)
+		perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr
+																	blockToShareInCurrPartAddr in
+		if negb addrIsAccessible then (* block not accessible *) ret nullAddr else
+		perform addrIsPresent := readBlockPresentFromBlockEntryAddr
+																	blockToShareInCurrPartAddr in
+		if negb addrIsPresent then (** block is not present *) ret nullAddr else
+
+
+		(** Child: set the block to share in the child's first free slot*)
+		(* the block start is set as origin in the child*)
+		perform blockstart := readBlockStartFromBlockEntryAddr blockToShareInCurrPartAddr in
+		perform blockend := readBlockEndFromBlockEntryAddr blockToShareInCurrPartAddr in
+		perform blockToShareChildEntryAddr := insertNewEntry 	idPDchild
+																												blockstart blockend
+																												blockstart
+																												r w e
+																												in
+
+		(** Parent: register the shared block in Sh1*)
+		writeSh1PDChildFromBlockEntryAddr blockToShareInCurrPartAddr idPDchild;;
+		writeSh1InChildLocationFromBlockEntryAddr blockToShareInCurrPartAddr
+																						blockToShareChildEntryAddr;;
+		(* RET shared block slot address in child *)
+		ret blockToShareChildEntryAddr.
 
 (** ** The removeMemoryBlock PIP MPU service TODO: return address ?
 
@@ -493,18 +531,38 @@ Definition addMemoryBlock (idPDchild idBlockToShare: paddr) (r w e : bool)
     <<idPDchild>>				the child partition to remove from
 		<<idBlockToRemove>>	the block entry address where the block <idBlockToRemove> lies
 *)
-Definition removeMemoryBlock (idPDchild idBlockToRemove: paddr)
-																																	: LLI bool :=
+Definition removeMemoryBlock (idPDchild idBlockToRemove: paddr)		: LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 
 		(* Find the block to remove in the current partition (with block entry address) *)
-	  perform blockInCurrPartAddr := findBlockInKSWithAddr 	currentPart
+	  perform blockToRemoveInCurrPartAddr := findBlockInKSWithAddr 	currentPart
 																													idBlockToRemove in
-		perform addrIsNull := compareAddrToNull	blockInCurrPartAddr in
+		perform addrIsNull := compareAddrToNull	blockToRemoveInCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret false else
 
-		removeMemoryBlockCommon idPDchild blockInCurrPartAddr.
+		(** Checks (blockToRemoveInCurrPartAddr checked before from idBlockToRemove)*)
+
+		(* Check the provided idPDchild corresponds to the child to whom the block
+				has been previously given (if given)*)
+		perform pdchildblock := readSh1PDChildFromBlockEntryAddr
+																blockToRemoveInCurrPartAddr in
+		perform hasChildBlock := getBeqAddr idPDchild pdchildblock in
+		if negb hasChildBlock then (* no correspondance, stop *) ret false else
+
+		(** Child (and grand-children): remove block if possible *)
+		perform idBlockToRemove := readBlockStartFromBlockEntryAddr blockToRemoveInCurrPartAddr in
+		perform blockIsRemoved := removeBlockInChildAndDescendants
+																		currentPart
+																		idPDchild
+																		idBlockToRemove
+																		blockToRemoveInCurrPartAddr in
+		if negb blockIsRemoved then (* block not removed, stop*) ret false else
+
+		(** Parent: remove block reference to the child *)
+		perform defaultSh1Entry := getDefaultSh1Entry in
+		writeSh1EntryFromBlockEntryAddr blockToRemoveInCurrPartAddr defaultSh1Entry ;;
+		ret true.
 
 (** ** The deletePartition PIP MPU service
 
