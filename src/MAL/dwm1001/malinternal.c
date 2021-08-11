@@ -461,7 +461,7 @@ block_t largest_covering_MPU_region(paddr blockentryaddr, paddr addrtocover)
 			}
 		}
 	}
-	return (block_t){bottom , top};
+	return (block_t){(paddr) bottom , (paddr) top};
 }
 
 /*!

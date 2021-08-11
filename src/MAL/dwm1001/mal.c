@@ -56,7 +56,7 @@ static const PDTable_t DEFAULT_PD_TABLE = {NULL, NULL, 0, 0, NULL}; // BEWARE : 
 static const block_t DEFAULT_BLOCK = {0, 0};
 static const BlockIndex_t DEFAULT_BLOCK_INDEX = {-1};
 static const BlockEntry_t DEFAULT_BLOCK_ENTRY = {DEFAULT_BLOCK, DEFAULT_BLOCK_INDEX, false, false, false, false, false};
-static const Sh1Entry_t DEFAULT_SH1_ENTRY = {NULL, false, NULL};
+static const Sh1Entry_t DEFAULT_SH1_ENTRY = {NULL, NULL, false};
 static const SCEntry_t DEFAULT_SC_ENTRY = {NULL, NULL};
 
 
@@ -894,23 +894,10 @@ paddr readNextFromKernelStructureStart(paddr structureaddr)
  */
 void writeNextFromKernelStructureStart(paddr structureaddr, paddr newnextstructure)
 {
-	uint32_t* nextaddr = (uint32_t*) getNextAddrFromKernelStructureStart(structureaddr);
+	uint32_t** nextaddr = (uint32_t**) getNextAddrFromKernelStructureStart(structureaddr);
 
 	// modify the pointer to the next KStructure
-	*nextaddr = (uint32_t*) newnextstructure;
-	return;
-}
-
-/*!
- * \fn void eraseAddr(paddr addr) // TODO: remove from coq as well
- * \brief Sets the address to NULL.
- * \param addr The address of the reference block entry
- * \return void
- */
-void eraseAddr(uint8_t* addr)
-{
-	*addr = NULL;
-
+	*nextaddr = newnextstructure;
 	return;
 }
 
@@ -926,7 +913,7 @@ bool eraseBlock (paddr startAddr, paddr endAddr)
 	if (endAddr < startAddr) return false;
 	for (paddr curraddr = endAddr ; startAddr <= curraddr ; curraddr--)
 	{
-		eraseAddr((uint8_t*)curraddr);
+		*(uint8_t*)curraddr = 0;
 	}
 	return true;
 }
@@ -976,8 +963,6 @@ PDTable_t getEmptyPDTable()
  */
 BlockEntry_t getDefaultBlockEntry()
 {
-	//DEFAULT_BLOCK_ENTRY(emptyBE);
-	//return emptyBE;
 	return DEFAULT_BLOCK_ENTRY;
 }
 
@@ -988,8 +973,6 @@ BlockEntry_t getDefaultBlockEntry()
  */
 Sh1Entry_t getDefaultSh1Entry()
 {
-	//DEFAULT_SH1_ENTRY(emptySH1E);
-	//return emptySH1E;
 	return DEFAULT_SH1_ENTRY;
 }
 
@@ -1000,8 +983,6 @@ Sh1Entry_t getDefaultSh1Entry()
  */
 SCEntry_t getDefaultSCEntry()
 {
-	//DEFAULT_SC_ENTRY(emptySCE);
-	//return emptySCE;
 	return DEFAULT_SC_ENTRY;
 }
 

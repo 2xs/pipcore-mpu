@@ -154,12 +154,12 @@ void mal_init_root_part(paddr part)
 	enableBlockInMPU(part, blockentryaddr_ram, 1);
 	enableBlockInMPU(part, blockentryaddr_periph, 2);*/
 
-  	// One FLASH block + three RAM block (RW data + available memory + stack) + peripheral block -> no separated compilation
-	blockentryaddr_flash = insertNewEntry(part, 0,  (paddr) 0x00080000, 0, true, false, true);
-	blockentryaddr_ram0 = insertNewEntry(part, 0x20000000, user_alloc_pos-1, 0x20000000, true, true, false);
-	blockentryaddr_ram1 = insertNewEntry(part, user_alloc_pos, 0x20007FFF, 0x20000000, true, true, false);
-	blockentryaddr_ram2 = insertNewEntry(part, 0x20008000, &user_stack_top, 0x20008000, true, true, false);
-	blockentryaddr_periph = insertNewEntry(part, 0x40000000, 0x5FFFFFFF, 0x40000000, true, true, false);
+	// One FLASH block + three RAM block (RW data + available memory + stack) + peripheral block -> not separated compilation
+	blockentryaddr_flash = insertNewEntry(part, (paddr) 0,  (paddr) 0x00080000, (paddr) 0, true, false, true);
+	blockentryaddr_ram0 = insertNewEntry(part, (paddr) 0x20000000, user_alloc_pos-1, (paddr) 0x20000000, true, true, false);
+	blockentryaddr_ram1 = insertNewEntry(part, user_alloc_pos, (paddr) 0x20007FFF, (paddr) 0x20000000, true, true, false);
+	blockentryaddr_ram2 = insertNewEntry(part, (paddr) 0x20008000, &user_stack_top, (paddr) 0x20008000, true, true, false);
+	blockentryaddr_periph = insertNewEntry(part, (paddr) 0x40000000, (paddr) 0x5FFFFFFF, (paddr) 0x40000000, true, true, false);
 
 	// Map 4 blocks -> flash, 2 ram blocks + peripherals
   	enableBlockInMPU(part, blockentryaddr_flash, 0); // Entire Flash

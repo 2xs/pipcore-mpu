@@ -88,7 +88,7 @@ typedef struct BlockEntry
     bool exec               ;   //!< Exec permission
     bool present            ;   //!< Block present
     bool accessible         ;   //!< block accessible
-}__attribute__((packed)) BlockEntry_t;
+} BlockEntry_t;
 
 /**
  * \struct Sh1Entry
@@ -97,8 +97,8 @@ typedef struct BlockEntry
 typedef struct Sh1Entry
 {
     uint32_t* PDchild          ;   //!< Pointer to the child the block is shared with // TODO: PDTable_t ?
-    bool PDflag                ;   //!< Block content is a PD
     uint32_t* inChildLocation  ;   //!< Pointer to the slot where the block lies in the child partition
+    bool PDflag                ;   //!< Block content is a PD
 }__attribute__((packed)) Sh1Entry_t;
 
 /**
@@ -124,7 +124,7 @@ typedef struct PDTable
     uint32_t* parent                    ;   //!< Pointer to the parent partition
     BlockEntry_t* mpu[MPU_REGIONS_NB]  ;   //!< List of pointers to enabled blocks
     uint32_t LUT[MPU_REGIONS_NB*2]      ;   //!< MPU registers' configuration sequence
-}__attribute__((packed)) PDTable_t;
+} PDTable_t;
 
 /**
  * \struct KStructure
@@ -136,7 +136,7 @@ typedef struct KStructure
     Sh1Entry_t sh1[KERNELSTRUCTUREENTRIESNB]        ;  //!< Sh1 structure
     SCEntry_t sc[KERNELSTRUCTUREENTRIESNB]          ;  //!< SC structure
     uint32_t* next                                  ;  //!< Pointer to the next kernel structure
-}__attribute__((packed)) KStructure_t;
+} KStructure_t;
 
 
 /**

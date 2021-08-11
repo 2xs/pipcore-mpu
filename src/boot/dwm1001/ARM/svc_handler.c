@@ -2,6 +2,8 @@
 #include "Services.h"
 #include "nrf52.h"
 #include "core_cm4.h"
+#include <stdio.h>
+#include "pip_debug.h"
 
 extern void
   SVC_Handler (void);
@@ -35,7 +37,7 @@ void SVC_Handler_Main( unsigned int *svc_args )
   * First argument (r0) is svc_args[0]
   */
   svc_number = ( ( char * )svc_args[ 6 ] )[ -2 ] ;
-  uint32_t * sp = svc_args;
+  uint32_t * sp = (uint32_t*) svc_args;
   uint32_t * orig_sp = NULL;
   uint32_t psr = sp[7];  /* Program status register. */
   /* Reconstruct original stack pointer before fault occurred */
@@ -44,39 +46,39 @@ void SVC_Handler_Main( unsigned int *svc_args )
   if (psr & SCB_CCR_STKALIGN_Msk) {
       /* Stack was not 8-byte aligned */
       orig_sp += 1;
-      printf("Stack was not 8-byte aligned\r\n");
+      debug_puts("SVC: Stack was not 8-byte aligned\r\n");
   }
 #endif /* SCB_CCR_STKALIGN_Msk */
   switch( svc_number )
   {
     case 0:
-      sp[0] = createPartition((uint32_t *)svc_args[0]); //paddr idBlock
+      sp[0] = (uint32_t) createPartition((uint32_t *)svc_args[0]); //paddr idBlock
       break;
     case 1:
-      sp[0] = cutMemoryBlock((uint32_t *)svc_args[0], //paddr idBlockToCut,
+      sp[0] = (uint32_t) cutMemoryBlock((uint32_t *)svc_args[0], //paddr idBlockToCut,
                                 (uint32_t *)svc_args[1], //paddr cutAddr,
                                 svc_args[2] //index mPURegionNb)
                                 );
       break;
     case 2:
-      sp[0] = mergeMemoryBlocks((uint32_t *)svc_args[0], //paddr idBlockToMerge1,
+      sp[0] = (uint32_t) mergeMemoryBlocks((uint32_t *)svc_args[0], //paddr idBlockToMerge1,
                                 (uint32_t *)svc_args[1], //paddr idBlockToMerge2,
                                 svc_args[2] //index mPURegionNb)
                                 );
       break;
     case 3:
-      sp[0] = prepare((uint32_t *)svc_args[0], //paddr idPD,
+      sp[0] = (uint32_t) prepare((uint32_t *)svc_args[0], //paddr idPD,
                       svc_args[1], //index projectedSlotsNb,
                       (uint32_t *)svc_args[2] //paddr idRequisitionedBlock
                       );
     break;
 
     case 4:
-        sp[0] = addMemoryBlock((uint32_t *)svc_args[0], //paddr idPDchild,
+        sp[0] = (uint32_t) addMemoryBlock((uint32_t *)svc_args[0], //paddr idPDchild,
                               (uint32_t *)svc_args[1], //paddr idBlockToShare,
-                              (uint32_t *)svc_args[2], //bool r,
-                              (uint32_t *)svc_args[3], //bool w,
-                              (uint32_t *)orig_sp[0] //bool e)
+                              (uint32_t)svc_args[2], //bool r,
+                              (uint32_t)svc_args[3], //bool w,
+                              (uint32_t)orig_sp[0] //bool e)
                               );
       break;
     case 5:
@@ -90,7 +92,7 @@ void SVC_Handler_Main( unsigned int *svc_args )
       break;
 
     case 7:
-        sp[0] = collect((uint32_t *)svc_args[0]); //paddr idPD
+        sp[0] = (uint32_t) collect((uint32_t *)svc_args[0]); //paddr idPD
       break;
     case 8:
         sp[0] = mapMPU( (uint32_t *)svc_args[0], //paddr idPD
@@ -99,7 +101,7 @@ void SVC_Handler_Main( unsigned int *svc_args )
                         );
       break;
     case 9:
-        sp[0] = readMPU((uint32_t *)svc_args[0], //paddr idPD
+        sp[0] = (uint32_t) readMPU((uint32_t *)svc_args[0], //paddr idPD
                         svc_args[1] // index mPURegionNb
                         );
       break;

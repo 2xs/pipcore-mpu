@@ -21,6 +21,8 @@ extern paddr blockentryaddr_ram1;
 extern paddr blockentryaddr_ram2;
 extern paddr blockentryaddr_periph;
 
+void main_user_app_trampoline(int argc, char* argv[]);
+
 /**
  * Main entry point.
  * If UART_DEBUG, sends printf messages on UART
@@ -56,7 +58,7 @@ int main (int argc, char* argv[])
   activate(root);
 
   // set PSP to root stack and switch to unprivileged mode
-  uint32_t psp = &user_stack_top-4; // stack starts one address down to match the stack MPU region
+  uint32_t psp = (uint32_t) &user_stack_top; // stack starts one address down to match the stack MPU region
   __set_PSP(psp);
 
   __set_CONTROL(__get_CONTROL() |
@@ -69,7 +71,7 @@ int main (int argc, char* argv[])
                                   blockentryaddr_ram2,
                                   blockentryaddr_periph};
 
-  main_user_app_trampoline(6, initial_blocks);
+  main_user_app_trampoline(6, (char**)initial_blocks);
 
   while(1);
 }

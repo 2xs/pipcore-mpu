@@ -159,7 +159,6 @@ void writeSCNextFromBlockEntryAddr(paddr blockentryaddr, paddr value); //! Sets 
 void writeSCEntryFromBlockEntryAddr(paddr blockentryaddr, SCEntry_t newscentry); //! Sets the block's SC entry
 paddr readNextFromKernelStructureStart(paddr structureaddr); //! Gets the block's next subblock
 void writeNextFromKernelStructureStart(paddr structureaddr, paddr newnextstructure); //! Sets the block's SC entry
-void eraseAddr(uint8_t* addr); //! Sets the address to NULL
 bool eraseBlock (paddr startAddr, paddr endAddr); //! Erases the memory block defined by (startAddr, endAddr).
 void writePDTable(paddr addr, PDTable_t newpdtable); //! Sets a new PD Table at the given address
 PDTable_t getDefaultPDTable(); //! Returns the default PD Table without initialisation

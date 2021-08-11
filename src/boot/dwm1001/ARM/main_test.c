@@ -6,6 +6,7 @@
 #include "pip_debug.h"
 #include "nrf52.h"
 #include "Internal.h"
+#include "mpu.h"
 
 #include <assert.h>
 
@@ -69,8 +70,8 @@ void init_tests_flash_ram_w_stack()
 	block_flash = insertNewEntry(root, 0,  (paddr) 0x00080000, 0, true, false, true);
 	//block_ram1 = insertNewEntry(root, &_sram, &user_stack_limit-0x200, &_sram, true, true, false);
 	//block_ram2 = insertNewEntry(root, &user_stack_limit, &user_stack_top, &user_stack_limit, true, true, false);
-  block_ram1 = insertNewEntry(root, 0x20000000, 0x20000FFF, 0x20000000, true, false, false);
-	block_ram2 = insertNewEntry(root, 0x20001000, &user_stack_top, 0x20001000, true, true, false);
+  block_ram1 = insertNewEntry(root, (paddr) 0x20000000, (paddr) 0x20000FFF, (paddr) 0x20000000, true, false, false);
+	block_ram2 = insertNewEntry(root, (paddr) 0x20001000, &user_stack_top, (paddr) 0x20001000, true, true, false);
 
   //dump_partition(root);
   activate(root);
@@ -831,7 +832,7 @@ void test_cut_bad_arguments()
   assert(cutMemoryBlock(initial_block_root_address + 0x3000, initial_block_start + 0x4000, -1) == 0);
 
   // Tests don't accept a cut address outside the block
-  assert(cutMemoryBlock(initial_block_root_address, 0x0, -1) == 0);
+  assert(cutMemoryBlock(initial_block_root_address, (paddr) 0x0, -1) == 0);
   assert(cutMemoryBlock(initial_block_root_address, initial_block_start - 32, -1) == 0);
   assert(cutMemoryBlock(initial_block_root_address, initial_block_end + 32, -1) == 0);
 
@@ -2984,14 +2985,14 @@ void __attribute__((optimize(0))) test_mpu_physical_MemFault_with_Pip()
 {
   dump_mpu();
 
-  volatile uint32_t* canary = 0x20001500; // canary value to be changed in the MemManageFault handler
+  volatile uint32_t* canary = (uint32_t*) 0x20001500; // canary value to be changed in the MemManageFault handler
   *canary = 0x0;
 
   // Cut the first Read- Only RAM block in 3 : 0x2000000-0x20000040-0x20000080-0x20001000
   uint32_t* block_ram1_2_addr = (uint32_t*) 0x20000040;//&sram + 0x40
   paddr block_ram1_2 = cutMemoryBlock(block_ram1, block_ram1_2_addr, -1);
   assert(block_ram1_2 != NULL);
-  paddr block_ram1_3 = cutMemoryBlock(block_ram1_2, 0x20000080, -1);
+  paddr block_ram1_3 = cutMemoryBlock(block_ram1_2, (paddr) 0x20000080, -1);
   assert(block_ram1_3 != NULL);
 
   // cut the second RW RAM block in 3: 0x20001000-0x20005000-0x20008000-0x20010000
@@ -3010,7 +3011,7 @@ void __attribute__((optimize(0))) test_mpu_physical_MemFault_with_Pip()
   dump_mpu();
 
   // Switch to userland, set PSP at end of RW RAM block
-  __set_PSP(&user_stack_top);
+  __set_PSP((uint32_t) &user_stack_top);
   __set_CONTROL(__get_CONTROL() |
                 CONTROL_SPSEL_Msk);// use psp
 
@@ -3075,7 +3076,7 @@ void test_3_mapMPU()
   // all physical MPU regions not filled at first, default values
   for (int i=0 ; i < MPU_REGIONS_NB ; i++)
   {
-    assert(readPhysicalMPUStartAddr(i) == 0);
+    assert((paddr)readPhysicalMPUStartAddr(i) == 0);
     assert(readPhysicalMPUSizeBits(i) == 0);
     assert(readPhysicalMPUSizeBytes(i) == 0);
     assert(readPhysicalMPUAP(i) == 0);
@@ -3094,20 +3095,20 @@ void test_3_mapMPU()
   dump_mpu();
 
   // Check MPU Settings: flash block RX, ram block1 RO, ram block2 RW not X
-  assert(readPhysicalMPUStartAddr(0) == readBlockStartFromBlockEntryAddr(block_flash));
-  assert(readPhysicalMPUEndAddr(0) <= readBlockEndFromBlockEntryAddr(block_flash));
+  assert((paddr)readPhysicalMPUStartAddr(0) == readBlockStartFromBlockEntryAddr(block_flash));
+  assert((paddr)readPhysicalMPUEndAddr(0) <= readBlockEndFromBlockEntryAddr(block_flash));
   assert(readPhysicalMPUAP(0) == 2);
   assert(!readPhysicalMPUXN(0) == readBlockXFromBlockEntryAddr(block_flash));
   assert(readPhysicalMPURegionEnable(0) == 1);
 
-  assert(readPhysicalMPUStartAddr(1) == readBlockStartFromBlockEntryAddr(block_ram1));
-  assert(readPhysicalMPUEndAddr(1) <= readBlockEndFromBlockEntryAddr(block_ram1));
+  assert((paddr)readPhysicalMPUStartAddr(1) == readBlockStartFromBlockEntryAddr(block_ram1));
+  assert((paddr)readPhysicalMPUEndAddr(1) <= readBlockEndFromBlockEntryAddr(block_ram1));
   assert(readPhysicalMPUAP(1) == 2);
   assert(!readPhysicalMPUXN(1) == readBlockXFromBlockEntryAddr(block_ram1));
   assert(readPhysicalMPURegionEnable(1) == 1);
 
-  assert(readPhysicalMPUStartAddr(2) == readBlockStartFromBlockEntryAddr(block_ram2));
-  assert(readPhysicalMPUEndAddr(2) <= readBlockEndFromBlockEntryAddr(block_ram2));
+  assert((paddr)readPhysicalMPUStartAddr(2) == readBlockStartFromBlockEntryAddr(block_ram2));
+  assert((paddr)readPhysicalMPUEndAddr(2) <= readBlockEndFromBlockEntryAddr(block_ram2));
   assert(readPhysicalMPUAP(2) == 3);
   assert(!readPhysicalMPUXN(2) == readBlockXFromBlockEntryAddr(block_ram2));
   assert(readPhysicalMPURegionEnable(2) == 1);
@@ -3335,10 +3336,10 @@ void test_mapMPU_bad_arguments()
   build_share_block_out_of_initial_block();
 
    // Check fails when mapping in non existing child
-  assert(mapMPU(0x20000500, initial_block_root_address, 0) == false);
+  assert(mapMPU((paddr) 0x20000500, initial_block_root_address, 0) == false);
 
   // Check fails when mapping a non existing block
-  assert(mapMPU(root, 0x10000080, 0) == false);
+  assert(mapMPU(root, (paddr) 0x10000080, 0) == false);
 
   // Check fails when mapping in incorrect MPU region number
   assert(mapMPU(root, initial_block_root_address, -1) == false);
@@ -3486,7 +3487,7 @@ void test_readMPU_bad_arguments()
   assert(mapMPU(root, block_to_share_root_address, 3) == true);
 
   // Check fails when reading in non existing child
-  assert(readMPU(0x20000500, 3) == NULL);
+  assert(readMPU((paddr)0x20000500, 3) == NULL);
 
   // Check fails when reading from incorrect MPU region
   assert(readMPU(root, -1) == NULL);
@@ -3578,12 +3579,12 @@ void test_find_initial_block_in_max_prepared()
 void test_find_bad_arguments()
 {
   // Check fails with non existing child
-  blockOrError b = findBlock(0x10000000, initial_block_start);
+  blockOrError b = findBlock((paddr)0x10000000, initial_block_start);
   printf("Block NOT found: b.null=%d, b.blockAttr=%d\n", b.error, b.blockAttr);
   assert(b.error == -1);
 
   // Check fails with non existing block
-  blockOrError b2 = findBlock(root, 0x0);
+  blockOrError b2 = findBlock(root, (paddr) 0x0);
   assert(b2.error == -1);
   printf("Block NOT found: b2.null=%d, b2.blockAttr=%d\n", b2.error, b2.blockAttr);
 }

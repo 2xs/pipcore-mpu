@@ -631,10 +631,6 @@ Definition writeSCEntryFromBlockEntryAddr 	(blockentryaddr : paddr)
 	writeSCNextFromBlockEntryAddr blockentryaddr scentry.(next);;
 	ret tt.
 
-Definition eraseAddr (paddr : paddr): LLI unit :=
-modify (fun s => {| currentPartition := s.(currentPartition);
-	memory := removeDup paddr s.(memory) beqAddr|} ).
-
 Definition writePDTable (pdtablepaddr : paddr) (newEntry : PDTable)  : LLI unit:=
   modify (fun s => {| 
 			currentPartition := s.(currentPartition);
@@ -784,7 +780,12 @@ Definition findBlockIdxInPhysicalMPU 	(idPD : paddr)
 Fixpoint eraseBlockAux 	(timeout : nat) (startAddr currentAddr : paddr): LLI unit :=
 	match timeout with
 		| 0 => ret tt (*Stop condition 1: reached end of structure list*)
-		| S timeout1 =>	eraseAddr currentAddr ;; (*erase the current address*)
+		| S timeout1 =>	(*erase the current address*)
+										modify (fun s =>
+														{| currentPartition := s.(currentPartition);
+															memory := removeDup currentAddr s.(memory) beqAddr
+														|}
+										) ;;
 										if beqAddr currentAddr startAddr then
 											(*Reached start address, no more addresses to erase*)
 											ret tt

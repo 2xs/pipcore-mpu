@@ -442,7 +442,7 @@ Clear BFARVALID/MMARVALID.*/
                 // Found a block covering the faulted address
                 block_in_MPU = 1;
                 // Check in the MPU if this is a real MPU fault (not because the block has been partially configured)
-                    if(readPhysicalMPUStartAddr(i) <= mmfar && mmfar <= readPhysicalMPUEndAddr(i)){
+                    if((uint32_t) readPhysicalMPUStartAddr(i) <= mmfar && mmfar <= (uint32_t) readPhysicalMPUEndAddr(i)){
                     // Operation not permitted: raise fault
                     debug_printf("Block mapped in MPU, real fault on address: %x\r\n", mmfar);
                     break;
