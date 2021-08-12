@@ -51,23 +51,23 @@ int main_user_app(int argc, char* argv[])
     printf("Create done\n");
   }
 
-  int isPreparedChild = Pip_prepare(ram1_2_addr, 1, blockentryaddr_ram1_4);
+  int isPreparedChild = Pip_prepare(blockentryaddr_ram1_2, 1, blockentryaddr_ram1_4);
   if(isPreparedChild == true){
     printf("Prepare done\n");
   }
 
-  paddr blockentryaddr_flash_in_child = Pip_addMemoryBlock(ram1_2_addr, blockentryaddr_flash, true, false, true);
+  paddr blockentryaddr_flash_in_child = Pip_addMemoryBlock(blockentryaddr_ram1_2, blockentryaddr_flash, true, false, true);
   if(blockentryaddr_flash_in_child != NULL){
     printf("Add done\n");
   }
 
-  int isRemoved = Pip_removeMemoryBlock(ram1_2_addr, blockentryaddr_flash);
+  int isRemoved = Pip_removeMemoryBlock(blockentryaddr_ram1_2, blockentryaddr_flash);
   if(isRemoved == true){
     printf("Remove done\n");
   }
 
-  paddr blockentryaddr_collected = Pip_collect(ram1_2_addr);
-  if(blockentryaddr_collected != NULL){ // TODO: blockentryaddr_ram1_4 == blockentryaddr_collected
+  paddr blockentryaddr_collected = Pip_collect(blockentryaddr_ram1_2);
+  if(blockentryaddr_collected != NULL){
     printf("Collect done\n");
   }
   int isDeleted = Pip_deletePartition(blockentryaddr_ram1_2);
@@ -86,7 +86,7 @@ int main_user_app(int argc, char* argv[])
   }
 
   paddr blockentryaddr_merge = Pip_mergeMemoryBlocks(blockentryaddr_ram1_3, blockentryaddr_ram1_5, -1);
-  if(blockentryaddr_merge != NULL){ // TODO: blockentryaddr_merge == blockentryaddr_ram1_3
+  if(blockentryaddr_merge != NULL){
     printf("Merge done\n");
   }
 

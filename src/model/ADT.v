@@ -91,7 +91,8 @@ Record paddr := {
 Parameter paddr_d : paddr. (* default paddr : NULL *)
 Program Definition CPaddr (p : nat) : paddr := 
 if (lt_dec p maxAddr) then Build_paddr p _ else  paddr_d.
-
+Axiom RAMStartAddr: paddr.
+Axiom RAMEndAddr: paddr.
 
 (*******************************************************************************)
 (* Enriched datatypes *)

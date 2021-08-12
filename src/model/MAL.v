@@ -802,31 +802,7 @@ Definition eraseBlock (startAddr endAddr : paddr) : LLI bool :=
 	eraseBlockAux N startAddr endAddr ;;
 	ret true.
 
-(** A new right is compatible to another if it is less or equal to it *)
-Definition compatibleRight (originalright newright : bool) : bool :=
-	if newright then eqb originalright newright else true.
-
-
-(* TODO move to Internal *)
-(** The [checkRights] function checks that the rights <r, w, x> are compatible
-		with Pip's access control policy for unprivileged accesses given a base block.
-
-		Policy:
-			- always readable (only enabled regions are present)
-			- can't give more rights than the original block
-
-		Returns OK/NOK
-*)
-Definition checkRights (originalblockentryaddr : paddr) (r w x : bool) : LLI bool :=
-	if negb r then ret false else
-	perform woriginal := readBlockWFromBlockEntryAddr originalblockentryaddr in
-	perform xoriginal := readBlockXFromBlockEntryAddr originalblockentryaddr in
-
-	if negb (compatibleRight woriginal w && compatibleRight xoriginal x )
-	then (** incompatible rights *) ret false else
-	ret true.
-
-(** The [checkEntry] function checks the entry passed in parameter exists *)
+(** The [checkEntry] function checks whether the entry passed in parameter exists *)
 Definition checkEntry (kernelstructurestart blockentryaddr : paddr) : LLI bool :=
 	perform s := get in
   let entry :=  lookup blockentryaddr s.(memory) beqAddr in
@@ -835,3 +811,17 @@ Definition checkEntry (kernelstructurestart blockentryaddr : paddr) : LLI bool :
 		| Some _ => ret false
 		| None => ret false
   end.
+
+(** The [checkBlockInRAM] function checks whether the provided block lies in RAM *)
+Definition checkBlockInRAM (blockentryaddr : paddr) : LLI bool :=
+	perform s := get in
+  let entry :=  lookup blockentryaddr s.(memory) beqAddr in
+  match entry with
+  | Some (BE a) => 	perform startInRAM := Paddr.leb RAMStartAddr
+																										a.(blockrange).(startAddr) in
+										perform endInRAM := Paddr.leb a.(blockrange).(endAddr)
+																									RAMEndAddr in
+										ret (startInRAM && endInRAM)
+	| Some _ => ret false
+	| None => ret false
+  end. 

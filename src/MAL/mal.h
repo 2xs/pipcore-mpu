@@ -58,10 +58,6 @@ uint32_t getTableSize(void); //!< Table size
 uint32_t getMaxIndex(void); //!< Table size
 uint32_t addressEquals(uint32_t addr, uint32_t addr2); //!< Checks whether an address is equal to another.
 void cleanPage(uint32_t paddr); //!< Cleans a given page, filling it with zero
-
-bool compatibleRight(bool originalright, bool newright); //!< Checks the compatibility of a right to another
-bool checkRights(paddr originalblockentryaddr, bool read, bool write, bool exec); //!< Checks whether the asked rights are compatible with the original block
-
 uint32_t toAddr(uint32_t input); //!< Converts a given uint32_t to an address (only for Haskell FFI purposes)
 
 /* Coq related stuff */
@@ -169,6 +165,7 @@ SCEntry_t getDefaultSCEntry(); //! Returns the default SC entry
 BlockEntry_t buildBlockEntry(paddr startaddr, paddr endaddr, bool accessiblebit, bool presentbit); //! Constructs a block entry given the attributes
 paddr getPDStructurePointerAddrFromPD(paddr pdaddr); //! Gets the structure pointer of the given PD
 bool checkEntry(paddr kstructurestart, paddr blockentryaddr); //! Checks a block entry is valid in the kernel structure
+bool checkBlockInRAM(paddr blockentryaddr); //! Checks whether the block is entirely in RAM
 blockOrError blockAttr(paddr blockentryaddr, BlockEntry_t blockentry); //! Wrapper to create a block and its attributes
 
 paddr readBlockFromPhysicalMPU(paddr pd, uint32_t MPURegionNb);  //! Reads the block configured at the given region of the physical MPU.

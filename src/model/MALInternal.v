@@ -105,7 +105,6 @@ then
 else  undefined 71.
 
 Program Definition zero : LLI index:= ret (CIndex 0).
-Program Definition one : LLI index:= ret (CIndex 1).
 
 Program Definition subIdx (n : index) (m: index) : LLI index :=
 let res := n-m in

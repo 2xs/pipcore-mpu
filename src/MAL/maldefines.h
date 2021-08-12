@@ -72,6 +72,8 @@
 #define Index_addIdx    add
 #define Index_mulIdx    mul
 
+#define Bool_eqb eqb
+
 #define getBeqAddr beqAddr
 #define getBeqIdx beqIdx
 #define nullAddr NULL

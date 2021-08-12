@@ -184,7 +184,8 @@ Definition findBlockInKS (idPD : paddr) (idBlock: paddr) : LLI paddr :=
 		and lauches the search for a block encapsulating the address.
 		Same function as in findBlockInKS but with a different comparator. *)
 Definition findBelongingBlock (idPD : paddr) (referenceaddr: paddr) : LLI paddr :=
-	perform one := Index.one in (* Comparator 1 *)
+	perform zero := Index.zero in
+	perform one := Index.succ zero in (* Comparator 1 *)
 	perform kernelstructurestart := readPDStructurePointer idPD in
 	findBlockInKSAux N kernelstructurestart referenceaddr one.
 
@@ -316,16 +317,17 @@ Definition writeAccessibleRec 	(pdbasepartition : paddr)
 	 	in all ancestors (including the parent) of <pdbasepartition> to
 		accessible or inaccessible depending on the	<accessiblebit>. *)
 Definition writeAccessibleToAncestorsIfNotCutRec (pdbasepartition : paddr)
-																								(idblock : paddr)
 																								(blockentryaddr : paddr)
 																								(accessiblebit : bool) : LLI bool :=
 		perform blockOrigin := readSCOriginFromBlockEntryAddr blockentryaddr in
 		perform blockStart := readBlockStartFromBlockEntryAddr blockentryaddr in
 		perform blockNext := readSCNextFromBlockEntryAddr blockentryaddr in
+		perform globalIdBlock := readBlockStartFromBlockEntryAddr
+																				blockentryaddr in
 		if beqAddr blockStart blockOrigin  && beqAddr blockNext nullAddr then
 			(* Block hasn't been cut previously, adjust accessible bit *)
 			perform recWriteEnded := writeAccessibleRec pdbasepartition
-																									idblock
+																									globalIdBlock
 																									accessiblebit in
 			if negb recWriteEnded then (* timeout reached or error *) ret false else
 			ret true
@@ -360,8 +362,8 @@ Definition insertNewEntry 	(pdinsertion startaddr endaddr origin: paddr)
 	(** Insert the new block entry in the free slot*)
 	writeBlockStartFromBlockEntryAddr newBlockEntryAddr startaddr ;;
 	writeBlockEndFromBlockEntryAddr newBlockEntryAddr endaddr ;;
-	writeBlockAccessibleFromBlockEntryAddr newBlockEntryAddr true ;;(** TODO accessible by default else no cut no add*)
-	writeBlockPresentFromBlockEntryAddr newBlockEntryAddr true ;;(** TODO present by default*)
+	writeBlockAccessibleFromBlockEntryAddr newBlockEntryAddr true ;;
+	writeBlockPresentFromBlockEntryAddr newBlockEntryAddr true ;;
 	writeBlockRFromBlockEntryAddr newBlockEntryAddr r ;;
 	writeBlockWFromBlockEntryAddr newBlockEntryAddr w ;;
 	writeBlockXFromBlockEntryAddr newBlockEntryAddr e ;;
@@ -399,13 +401,13 @@ Definition freeSlot (pdfree entrytofreeaddr: paddr) : LLI paddr :=
 		ret entrytofreeaddr.
 
 
-(** The [checkChild] function checks that <idPDchild> is a child of <idPDparent>
-		by looking for the child in the supposed parent's kernel structure.
+(** The [checkChildOfCurrPart] function checks that <idPDchild> is a child of
+		the current	partition by looking for the child in the current partition's
+		kernel structure.
 		Returns true:OK/false:NOK
 *)
-Definition checkChild (idPDparent idPDchild : paddr) : LLI bool :=
-	(* TODO : check idPDparent is valid*)
-	perform blockInParentPartAddr := findBlockInKS idPDparent idPDchild in
+Definition checkChildOfCurrPart (currentPartition idPDchild : paddr) : LLI bool :=
+	perform blockInParentPartAddr := findBlockInKSWithAddr currentPartition idPDchild in
 	perform addrIsNull := compareAddrToNull	blockInParentPartAddr in
 	if addrIsNull then(** child block not found, stop *) ret false else
 
@@ -1116,7 +1118,7 @@ match timeout with
 											if negb isEmpty
 											then
 												(* not empty, can't collect *)
-												(** RECURSIVE call: check next structure TODO changed order*)
+												(** RECURSIVE call: check next structure *)
 												perform nextStructureAddr := readNextFromKernelStructureStart
 																											currStructureAddr in
 												collectStructureRecAux 	timeout1
@@ -1172,7 +1174,6 @@ match timeout with
 																														true ;;
 												(* Set block accessible in parent and ancestors if not cut *)
 												writeAccessibleToAncestorsIfNotCutRec idPD
-																															currStructureAddr
 																															blockToCollectAddr
 																															true ;;
 												(* Erase sh1 reference *)
@@ -1181,7 +1182,7 @@ match timeout with
 																											defaultSh1Entry ;;
 
 											(** STOP condition 2: found a structure to collect *)
-											ret currStructureAddr
+											ret blockToCollectAddr
 	end.
 
 (** The [collectStructureRec] function fixes the timeout value of
@@ -1241,3 +1242,58 @@ Definition removeBlockFromPhysicalMPUIfAlreadyMapped (idPD : paddr)
 		enableBlockInMPU idPD nullAddr oldMPURegionNb ;;
 		ret tt
 	else ret tt.
+
+(** The [getGlobalIdPDCurrentOrChild] function returns the <idPDToCheck>'s global id.
+
+		Returns the global id of <idPDToCheck> if current partition or a child/NULL
+
+		<<currentPartition>>	the current partition's PD
+    <<idPDToCheck>>				the block to check
+*)
+Definition getGlobalIdPDCurrentOrChild (currentPartition idPDToCheck : paddr)
+																																: LLI paddr :=
+
+		perform isCurrentPart := getBeqAddr idPDToCheck currentPartition in
+		if isCurrentPart
+		then (* idPDToCheck is the current partition *) ret currentPartition
+		else
+		perform isChildCurrPart := checkChildOfCurrPart currentPartition idPDToCheck in
+		if isChildCurrPart
+		then (* idPDToCheck is a child *)
+			perform idPDChild := readBlockStartFromBlockEntryAddr idPDToCheck in
+			ret idPDChild
+		else (* idPDToCheck is neither itself or a child partition *) ret nullAddr.
+
+(** The [compatibleRight] function checks that the <newright> is compatible with
+		the <originalright> (less or equal than original)*)
+Definition compatibleRight (originalright newright : bool) : LLI bool :=
+	if newright
+	then	ret (eqb originalright newright) else	ret true.
+
+(** The [checkRights] function checks that the rights <r, w, x> are compatible
+		with Pip's access control policy for unprivileged accesses given a base block.
+
+		Policy:
+			- always readable (only enabled regions are present in the kernel structure)
+			- can't give more rights than the original block
+
+		Returns OK/NOK
+
+		<<originalblockentryaddr>>  the original block to copy from
+		<<r>> 											the read right
+		<<w>> 											the write right
+		<<x>> 											the exec right
+*)
+Definition checkRights (originalblockentryaddr : paddr) (r w x : bool) : LLI bool :=
+	(* read has to be true *)
+	if negb r then ret false else
+	(* check the rights are not increased *)
+	perform xoriginal := readBlockXFromBlockEntryAddr originalblockentryaddr in
+	perform woriginal := readBlockWFromBlockEntryAddr originalblockentryaddr in
+
+	perform isCompatibleWithX := compatibleRight xoriginal x in
+	perform isCompatibleWithW := compatibleRight woriginal w in
+	if negb (isCompatibleWithX && isCompatibleWithW)
+	then (** incompatible rights *) ret false else
+	ret true.
+

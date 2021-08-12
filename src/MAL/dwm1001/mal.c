@@ -49,6 +49,9 @@
 #endif*/
 #include <stdio.h>
 
+extern uint32_t _sram; // RAM start address; defined in linker script
+extern uint32_t _eram; // RAM end address; defined in linker script
+
 paddr current_partition = NULL; /* Current partition, default root */
 paddr root_partition = NULL; /* Multiplexer's partition descriptor, default 0*/
 
@@ -1159,41 +1162,6 @@ updateRootPartition(paddr partition)
 {
 	root_partition = partition;
 }
-/*!
- * \fn bool checkRights(paddr originalblockentryaddr, bool read, bool write, bool execute)
- * \brief Checks that the <newright> is compatible with the <originalright>
- * \param newright 		the new right to set
- * \param originalright	the original right
- */
-bool compatibleRight(bool originalright, bool newright)
-{
-	return (newright <= originalright);
-}
-
-/*!
- * \fn bool checkRights(paddr originalblockentryaddr, bool read, bool write, bool execute)
- * \brief Checks that the rights <r, w, x> are compatible with Pip's access control policy
- * 			for unprivileged accesses given a base block.
-		Policy:
-			- always readable (only enabled regions are present in the kernel structure)
-			- can't give more rights than the original block
-		Returns OK/NOK
- * \param originalblockentryaddr the original block to copy from
- * \param read The read right
- * \param write The write right
- * \param exec The exec right
- * \return True/false
- */
-bool checkRights(paddr originalblockentryaddr, bool read, bool write, bool exec)
-{
-	// Read has to be true
-	if(read == false) return false;
-	// Check the rights are not increased
-	bool woriginal = readBlockWFromBlockEntryAddr(originalblockentryaddr);
-	bool xoriginal = readBlockXFromBlockEntryAddr(originalblockentryaddr);
-	if (!(compatibleRight(woriginal, write) && compatibleRight(xoriginal, exec))) return false;
-	else return true;
-}
 
 /*!
  * \fn bool checkEntry(uint32_t* kstructurestart, uint32_t* blockentryaddr)
@@ -1210,6 +1178,21 @@ bool checkEntry(paddr kstructurestart, paddr blockentryaddr)
 	KStructure_t* ks = (KStructure_t*) kstructurestart;
 	uint32_t index = (BlockEntry_t*) blockentryaddr - ks->blocks;//blockentryaddr - kstructurestart;
 	return (&ks->blocks[index] == blockentryaddr) ? true : false;
+}
+
+/*!
+ * \fn bool checkBlockInRAM(paddr blockentryaddr)
+ * \brief Checks whether the block lies in RAM or not
+ * \param blockentryaddr The block entry to check
+ * \return True if the block is entirely defined in the RAM/False otherwise
+ */
+bool checkBlockInRAM(paddr blockentryaddr)
+{
+	// blockentryaddr checked before and lies within the kernel structure
+	BlockEntry_t* block = (BlockEntry_t*) blockentryaddr;
+	int startInRAM = &_sram <= block->blockrange.startAddr;
+	int endInRAM = block->blockrange.endAddr <=  &_eram;
+	return (startInRAM && endInRAM);
 }
 
 /*!
