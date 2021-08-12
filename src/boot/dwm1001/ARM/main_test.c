@@ -836,6 +836,10 @@ void test_cut_bad_arguments()
   assert(cutMemoryBlock(initial_block_root_address, initial_block_start - 32, -1) == 0);
   assert(cutMemoryBlock(initial_block_root_address, initial_block_end + 32, -1) == 0);
 
+  // Test can't perform cut if subblocks too small
+  assert(cutMemoryBlock(initial_block_root_address, initial_block_start + 12, -1) == 0); // Fail, subblock1 too small
+  assert(cutMemoryBlock(initial_block_root_address, readBlockEndFromBlockEntryAddr(initial_block_root_address) - 12, -1) == 0); // Fail, subblock2 too small
+
   // Tests can't perform cut if no free slots left
   test_cut_max_free_slots_used();
   assert(cutMemoryBlock(initial_block_root_address + 32*7, initial_block_start + 32*8, -1) == 0);

@@ -174,11 +174,15 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) (MPURegionNb : index)
 		perform isCutAddrAboveEnd := Paddr.leb blockToCutEndAddr cutAddr in
 		if isCutAddrAboveEnd then (* cutAddress outside bounds *) ret nullAddr else
 
-		(** Check that the block is greater than the minimum MPU region size*)
-		perform blockSize := sizeOfBlock blockToCutEntryAddr in
+		(** Check that the subblocks to be created are greater than the minimum MPU
+				region size*)
+		perform subblock1Size := Paddr.subPaddr cutAddr blockToCutStartAddr in
+		perform subblock2Size := Paddr.subPaddr blockToCutEndAddr cutAddr in
 		perform minBlockSize := getMinBlockSize in
-		perform isBlockTooSmall := Index.leb blockSize minBlockSize in
-		if isBlockTooSmall then (* block is smaller than the minimum  *) ret nullAddr
+		perform isBlock1TooSmall := Index.leb subblock1Size minBlockSize in
+		perform isBlock2TooSmall := Index.leb subblock2Size minBlockSize in
+		if isBlock1TooSmall || isBlock2TooSmall
+		then (* block is smaller than the minimum  *) ret nullAddr
 		else
 
 		(** Parent and ancestors: set the block inaccessible if this is the block's first cut*)
