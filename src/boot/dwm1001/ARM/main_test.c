@@ -840,6 +840,9 @@ void test_cut_bad_arguments()
   assert(cutMemoryBlock(initial_block_root_address, initial_block_start + 12, -1) == 0); // Fail, subblock1 too small
   assert(cutMemoryBlock(initial_block_root_address, readBlockEndFromBlockEntryAddr(initial_block_root_address) - 12, -1) == 0); // Fail, subblock2 too small
 
+  // Test cut address is not 32-bytes aligned
+  assert(cutMemoryBlock(initial_block_root_address, initial_block_start + 36, -1) == 0); // Fail, not 32-bytes aligned
+
   // Tests can't perform cut if no free slots left
   test_cut_max_free_slots_used();
   assert(cutMemoryBlock(initial_block_root_address + 32*7, initial_block_start + 32*8, -1) == 0);
@@ -1008,7 +1011,7 @@ void test_create_partitions_bad_arguments()
   assert(createPartition(block_ram3) == false);  // Fail, block not available anymore
 
   // block too small: block of size < minimum for a create
-  paddr block_ram5_addr = block_ram4_addr + 40; // min 32 bytes for a cut
+  paddr block_ram5_addr = block_ram4_addr + 64; // min 32 bytes for a cut
   paddr block_ram5 = cutMemoryBlock(block_ram4, block_ram5_addr, -1);
   assert(block_ram5 != NULL);
   assert(createPartition(block_ram4) == false);  // Fail, min KERNELSTRUCTURETOTALLENGTH
@@ -1039,7 +1042,7 @@ void test_create_partitions_bad_arguments()
 void test_create_sister_partitions()
 {
   KStructure_t* ks_root = (KStructure_t*) root_kernel_structure_start;
-  uint32_t cut_offset = PDSTRUCTURETOTALLENGTH() + 2;
+  uint32_t cut_offset = PDSTRUCTURETOTALLENGTH();
   paddr block1_address = cutMemoryBlock(initial_block_root_address, initial_block_start + cut_offset, -1);
   assert(block1_address != false);
   paddr block2_address = cutMemoryBlock(block1_address, initial_block_start + 2*cut_offset, -1) ;
@@ -1221,7 +1224,7 @@ void test_prepare_child()
 {
   // Cut initial block and create a child partition with the created block
   paddr prepare_block_address = readPDStructurePointer(getCurPartition());
-  paddr id_child_pd = initial_block_start + 0x4096;
+  paddr id_child_pd = initial_block_start + 4096;
   paddr child_pd_address = cutMemoryBlock(initial_block_root_address, id_child_pd, -1);
   assert(child_pd_address != false);
   assert(createPartition(child_pd_address) != false);

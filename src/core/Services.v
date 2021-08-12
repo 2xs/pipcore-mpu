@@ -81,11 +81,11 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
 
 		perform blockSize := sizeOfBlock blockInCurrentPartitionAddr in
 		perform minBlockSize := getMinBlockSize in
-		perform isBlockTooSmall1 := Index.leb blockSize minBlockSize in
+		perform isBlockTooSmall1 := Index.ltb blockSize minBlockSize in
 		if isBlockTooSmall1 then (* smaller than minimum MPU size *) ret false else
 
 		perform PDStructureTotalLength := getPDStructureTotalLength in
-		perform isBlockTooSmall2 := Index.leb blockSize PDStructureTotalLength in
+		perform isBlockTooSmall2 := Index.ltb blockSize PDStructureTotalLength in
 		if isBlockTooSmall2 then (* too small to become a PD *) ret false else
 
 		(* if accessible, then PDflag can't be set, we just need to check PDchild *)
@@ -179,11 +179,15 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) (MPURegionNb : index)
 		perform subblock1Size := Paddr.subPaddr cutAddr blockToCutStartAddr in
 		perform subblock2Size := Paddr.subPaddr blockToCutEndAddr cutAddr in
 		perform minBlockSize := getMinBlockSize in
-		perform isBlock1TooSmall := Index.leb subblock1Size minBlockSize in
-		perform isBlock2TooSmall := Index.leb subblock2Size minBlockSize in
+		perform isBlock1TooSmall := Index.ltb subblock1Size minBlockSize in
+		perform isBlock2TooSmall := Index.ltb subblock2Size minBlockSize in
 		if isBlock1TooSmall || isBlock2TooSmall
-		then (* block is smaller than the minimum  *) ret nullAddr
+		then (* subblock would be smaller than the minimum *) ret nullAddr
 		else
+
+		(** Check the cut address is valid = 32 bytes aligned *)
+		perform isCutAddrValid := check32Aligned cutAddr in
+		if negb isCutAddrValid then (* cutAddr not vlid, stop *) ret nullAddr else
 
 		(** Parent and ancestors: set the block inaccessible if this is the block's first cut*)
 		writeAccessibleToAncestorsIfNotCutRec currentPart
@@ -385,7 +389,7 @@ Definition prepare (idPD : paddr)
 		(* Check the block is big enough to hold a kernel structure*)
 		perform blockSize := sizeOfBlock requisitionedBlockInCurrPartAddr in
 		perform kStructureTotalLength := getKernelStructureTotalLength in
-		perform isBlockTooSmall := Index.leb blockSize kStructureTotalLength in
+		perform isBlockTooSmall := Index.ltb blockSize kStructureTotalLength in
 		if isBlockTooSmall then (* block is smaller than minimum  *) ret false else
 
 		(* Check block is accessible and present*)

@@ -1196,6 +1196,17 @@ bool checkBlockInRAM(paddr blockentryaddr)
 }
 
 /*!
+ * \fn bool check32Aligned(paddr addrToCheck)
+ * \brief Checks whether the address is 32-bytes aligned or not
+ * \param addrToCheck The address to check
+ * \return True if the address is 32-bytes aligned/False otherwise
+ */
+bool check32Aligned(paddr addrToCheck)
+{
+	return ((uint32_t) addrToCheck & 0x1F) == 0;
+}
+
+/*!
  * \fn blockOrError blockAttr(paddr blockentryaddr, BlockEntry_t blockentry)
  * \brief Wrapper to create a blockAttr inside the blockOrError union
  * \param blockentryaddr The block's address

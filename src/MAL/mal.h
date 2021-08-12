@@ -166,6 +166,7 @@ BlockEntry_t buildBlockEntry(paddr startaddr, paddr endaddr, bool accessiblebit,
 paddr getPDStructurePointerAddrFromPD(paddr pdaddr); //! Gets the structure pointer of the given PD
 bool checkEntry(paddr kstructurestart, paddr blockentryaddr); //! Checks a block entry is valid in the kernel structure
 bool checkBlockInRAM(paddr blockentryaddr); //! Checks whether the block is entirely in RAM
+bool check32Aligned(paddr addrToCheck); //! Checks whether the address is 32-bytes aligned
 blockOrError blockAttr(paddr blockentryaddr, BlockEntry_t blockentry); //! Wrapper to create a block and its attributes
 
 paddr readBlockFromPhysicalMPU(paddr pd, uint32_t MPURegionNb);  //! Reads the block configured at the given region of the physical MPU.

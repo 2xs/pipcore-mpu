@@ -600,7 +600,9 @@ Definition removeBlockInChildAndDescendants (currentPart
 Definition sizeOfBlock (blockentryaddr : paddr) : LLI index :=
 	perform startAddr := readBlockStartFromBlockEntryAddr blockentryaddr in
 	perform endAddr := readBlockEndFromBlockEntryAddr blockentryaddr in
-	Paddr.subPaddr endAddr startAddr.
+	perform size := Paddr.subPaddr endAddr startAddr in
+	(* last address must be counted *)
+	Index.succ size.
 
 (** The [initPDTable] function initializes the PD table pointed by <pdtableaddr>
 		with the default PD table

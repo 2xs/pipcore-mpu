@@ -824,4 +824,10 @@ Definition checkBlockInRAM (blockentryaddr : paddr) : LLI bool :=
 										ret (startInRAM && endInRAM)
 	| Some _ => ret false
 	| None => ret false
-  end. 
+  end.
+
+(** The [check32Aligned] function checks if the cutAddr is 32-bytes aligned *)
+Definition check32Aligned (addrToCheck : paddr) : LLI bool :=
+	let modulo := addrToCheck/32 in
+	ret (modulo =? 0).
+
