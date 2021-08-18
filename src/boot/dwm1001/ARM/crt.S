@@ -157,8 +157,6 @@ UsageFault_Handler:
     nop
 DebugMon_Handler:
     nop
-PendSV_Handler:
-    nop
 SysTick_Handler:
     nop
 
