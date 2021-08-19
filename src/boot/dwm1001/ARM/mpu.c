@@ -391,7 +391,7 @@ Clear BFARVALID/MMARVALID.*/
   dumpExceptionStack ((ExceptionStackFrame*)frame, cfsr, mmfar, bfar, lr);
 
 #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
-  int reconfigure_mpu = -1; // indicates if the fault can be recovered in case of a partially configured block
+  uint32_t faulted_address = 0xFFFFFFFF; // unreachable address, indicates if the fault can be recovered in case of a partially configured block
 #endif
 
     // MemFault flags
@@ -401,7 +401,7 @@ Clear BFARVALID/MMARVALID.*/
             debug_printf(" on address: %x", mmfar);
             debug_printf(" at (possibly) instruction: %x\n", pc);
 #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
-            reconfigure_mpu = 1;
+        faulted_address = mmfar;
 #endif
             SCB->CFSR &= MMARVALID_MASK; // Clear flag
         }
@@ -410,6 +410,9 @@ Clear BFARVALID/MMARVALID.*/
     if (cfsr & IACCVIOL_MASK) {
         debug_puts("\r\nIACCVIOL");
         debug_printf(" at (possibly) instruction: %x\n", pc);
+#if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
+        faulted_address = pc;
+#endif
         SCB->CFSR &= IACCVIOL_MASK; // Clear flag
     }
     if (cfsr & MSTKERR_MASK) {
@@ -431,35 +434,38 @@ Clear BFARVALID/MMARVALID.*/
   // The behavior is to reconfigure the block in the MPU with the part of the block that has faulted.
   // The reconfiguration mechanism is completely invisible by the user.
 #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
-    if(reconfigure_mpu > 0){
+    if(faulted_address != 0xFFFFFFFF){
+        // Reconfigure MPU because of DACCVIOL or IACCVIOL
         int block_in_MPU = 0;
         // Otherwise search for corresponding block in the MPU
         for (int i = 0; i < MPU_NUM_REGIONS ; i++){
             PDTable_t* currPart = (PDTable_t*) getCurPartition();
-            if((currPart->mpu[i])->present && (uint32_t)(currPart->mpu[i])->blockrange.startAddr < mmfar
-                && mmfar < (uint32_t)(currPart->mpu[i])->blockrange.endAddr)
+            if((currPart->mpu[i])->present && (uint32_t)(currPart->mpu[i])->blockrange.startAddr <= faulted_address
+                && faulted_address <= (uint32_t)(currPart->mpu[i])->blockrange.endAddr)
             {
                 // Found a block covering the faulted address
                 block_in_MPU = 1;
-                // Check in the MPU if this is a real MPU fault (not because the block has been partially configured)
-                    if((uint32_t) readPhysicalMPUStartAddr(i) <= mmfar && mmfar <= (uint32_t) readPhysicalMPUEndAddr(i)){
+                // Check in the MPU configuration if this is a real MPU fault (not because the block has been partially configured)
+                if((uint32_t) readPhysicalMPUStartAddr(i) <= faulted_address && faulted_address <= (uint32_t) readPhysicalMPUEndAddr(i)){
                     // Operation not permitted: raise fault
-                    debug_printf("Block mapped in MPU, real fault on address: %x\r\n", mmfar);
+                    debug_printf("Block mapped in MPU, real fault on address: %x\r\n", faulted_address);
                     break;
                 }
-
                 else{
                     // Operation permitted: reconfigure MPU and redo faulted legitimate operation
-                    debug_printf("Block mapped in MPU, reconfiguring MPU with legitimate faulted block %x for address %x\r\n", currPart->mpu[i], mmfar);
-                    configure_LUT_entry(currPart->LUT, i, currPart->mpu[i], (uint32_t*) mmfar);
+                    debug_printf("Block mapped in MPU, reconfiguring MPU with legitimate faulted block %x for address %x\r\n", currPart->mpu[i], faulted_address);
+                    configure_LUT_entry(currPart->LUT, i, currPart->mpu[i], (uint32_t*) faulted_address);
                     mpu_configure_from_LUT(currPart->LUT);
-                    // return to faulted operation without notifying the fault ot the user
+                    // return to faulted operation without notifying the fault to the user
                     return;
                 }
             }
         }
         if(!block_in_MPU) {
-            debug_printf("No block matches in MPU, real fault on address: %x\r\n", mmfar);
+            debug_printf("No block matches in MPU, real fault on address: %x\r\n", faulted_address);
+#if !defined(UNIT_TESTS)
+            while(1);
+#endif
         }
     }
 #endif

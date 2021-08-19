@@ -2991,7 +2991,6 @@ void __attribute__((optimize(0))) test_mpu_physical_MemFault_without_Pip()
   enablePrivilegedMode();
 }
 
-
 /*!
  * \fn void test_mpu_physical_MemFault_with_Pip()
  * \brief   Test that the physical MPU correctly faults with Pip system calls
@@ -3041,7 +3040,7 @@ void __attribute__((optimize(0))) test_mpu_physical_MemFault_with_Pip()
   paddr block_ram2_3 = cutMemoryBlock(block_ram2_2, block_ram2_3_addr, -1);
   assert(block_ram2_3 != NULL);
 
-  // Map 34blocks -> flash, 4 ram blocks
+  // Map 4 blocks -> flash, 3 ram blocks
   assert(mapMPU(getCurPartition(), block_flash, 0) == true); // Flash
   assert(mapMPU(getCurPartition(), block_ram1_2, 1)== true); // RO region
   assert(mapMPU(getCurPartition(), block_ram2, 2)== true); // RW region containing the bad_pointer address
@@ -3061,7 +3060,6 @@ void __attribute__((optimize(0))) test_mpu_physical_MemFault_with_Pip()
   enablePrivilegedMode();
   assert(*canary == 0x0);
 
-
   // TEST MemFault for write in a protected RO region defined in MPU
   *canary = 0x0;
   disablePrivilegedMode();
@@ -3078,6 +3076,8 @@ void __attribute__((optimize(0))) test_mpu_physical_MemFault_with_Pip()
   enablePrivilegedMode();
   assert(*canary == 0xdeadbeef);
 
+  // Tests for ARMv7: partially configured regions
+#if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
   // TEST NO MemFault for partially configured region
   *canary = 0x0;
   assert(mapMPU(getCurPartition(), block_ram2_2, 4) == true); // Map RW region partially configured (not aligned to cover whole region)
@@ -3094,15 +3094,48 @@ void __attribute__((optimize(0))) test_mpu_physical_MemFault_with_Pip()
   bad_pointer = (void*)0x20007800;
   *bad_pointer = 0xdeadbeef; //-> MemFault caught because MPU region REconfigure itself
   enablePrivilegedMode();
-  assert(*canary == 0x0); // MemFault does not hit the canary
+  assert(*canary == 0x0); // MemFault did not hit the canary
   dump_mpu();
   disablePrivilegedMode();
 
   bad_pointer = (void*)0x20005010;
   *bad_pointer = 0xdeadbeef; //-> MemFault caught this time because MPU region REconfigure itself
   enablePrivilegedMode();
-  assert(*canary == 0x0); // MemFault does not hit the canary
+  assert(*canary == 0x0); // MemFault did not hit the canary
   dump_mpu();
+
+  *canary = 0x0;
+  // Manually configure the MPU to not cover the current executing code area
+  uint32_t curr_pc;
+  __ASM volatile ("MOV %0, pc" : "=r" (curr_pc) );
+  assert(curr_pc < 0x50000);
+  volatile uint32_t *mpu_ctrl = (void *)0xE000ED94;
+  volatile uint32_t *mpu_rbar = (void *)0xE000ED9C;
+  volatile uint32_t *mpu_rasr = (void *)0xE000EDA0;
+  volatile uint32_t *mpu_rnr = (void *)0xE000ED98;
+
+  *mpu_ctrl = 0x0; // Disable MPU
+  // REGION 0 : Redefine Flash region to cover only 50000 and +
+  *mpu_rnr = 0;
+  *mpu_rbar = 0x50000;
+  //  28 : XNbit = 0 -> Execute OK
+  //  24 : AP=0b110 -> Read Only
+  //  16 : TEXSCB=0b000010
+  //  1 : SIZE=8 to have a small region
+  //  0 : ENABLE=1
+  *mpu_rasr = (0 << 28) | (0b110 << 24) | (0b000010 << 16) | (8 << 1) | 0x1; //PRIV ROX/USER ROX
+
+  *mpu_ctrl = 0x5; // Enable MPU with PRIVDEFENA
+  __ISB();
+  __DSB();
+  dump_mpu();
+
+  disablePrivilegedMode();
+  // any operation will directly fault because the new flash region deosn't cover this area
+  enablePrivilegedMode(); // -> MemFault cause flash only defined IN MPU on 0x50000 and +
+  assert(*canary == 0x0); // MemFault did not hit the canary because REconfigured with whole flash
+
+#endif
 }
 
 /*!
