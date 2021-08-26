@@ -83,8 +83,8 @@ void SVC_Handler_Main( unsigned int *svc_args )
       break;
     case 5:
         sp[0] = removeMemoryBlock((uint32_t *)svc_args[0], //paddr idPDchild,
-                                      (uint32_t *)svc_args[1] //paddr idBlockToRemove
-                                      );
+                                  (uint32_t *)svc_args[1] //paddr idBlockToRemove
+                                  );
       break;
 
      case 6:
@@ -102,14 +102,32 @@ void SVC_Handler_Main( unsigned int *svc_args )
       break;
     case 9:
         sp[0] = (uint32_t) readMPU((uint32_t *)svc_args[0], //paddr idPD
-                        svc_args[1] // index mPURegionNb
-                        );
+                                    svc_args[1] // index mPURegionNb
+                                    );
       break;
-/*    case 10:
-        sp[0] = findBlock((uint32_t *)svc_args[0], //paddr idPD
-                          (uint32_t *)svc_args[1] // paddr addrInBlock)
-                          );
-      break;*/
+    case 10:
+    {
+        // Note as the result is in memory, the parameters are passed with R1 and R2, not RO
+        blockOrError block_found = findBlock( (uint32_t *)svc_args[1], //paddr idPD
+                                              (uint32_t *)svc_args[2] // paddr addrInBlock)
+                                              );
+        // Fill R0-R3: the access permissions and accessible bit are squeezed into R3
+        sp[0] = (uint32_t) block_found.blockAttr.blockentryaddr;
+        sp[1] = (uint32_t) block_found.blockAttr.blockrange.startAddr; // displays start and end
+        sp[2] = (uint32_t) block_found.blockAttr.blockrange.endAddr;
+        sp[3] = (uint32_t) block_found.blockAttr.read |
+                (uint32_t) block_found.blockAttr.write << 1 |
+                (uint32_t) block_found.blockAttr.exec << 2 |
+                (uint32_t) block_found.blockAttr.accessible << 3;
+#ifdef DEBUG
+        if(block_found.error ==1){
+          debug_printf("error: %d\n", block_found.error);
+        }
+        else debug_printf("block found: %d\n", block_found.blockAttr.blockentryaddr);
+
+#endif
+      break;
+    }
 #ifdef UNIT_TESTS
     case 127: // Enable Privileged mode !TODO!: to remove with system calls in SVC instead
       __set_CONTROL( __get_CONTROL( ) & ~CONTROL_nPRIV_Msk ) ;
