@@ -510,6 +510,9 @@ void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr blockentryadd
 								(XNbit << MPU_RASR_XN_Pos) | // 0 = executable, 1 = not executable
 								// ARM_MPU_ACCESS_(0U, 1U, 1U, 1U)     TEX  = b000,  C =  1, B =  1 -> Write back, no write allocate
 								(0U << MPU_RASR_TEX_Pos) | //TypeExtField
+								// TODO Do not use an instruction that generates a sequence of accesses to access Strongly-ordered memory
+								// if the instruction might restart after an exception and repeat any write accesses, see Exceptions in Load
+								// Multiple and Store Multiple operations on page B1-599 for more information
 								(0U << MPU_RASR_S_Pos)| //IsShareable = 0 No data shared between seevral processors
 								(0U << MPU_RASR_C_Pos)| //IsCacheable
 								(0U << MPU_RASR_B_Pos) //| //IsBufferable
