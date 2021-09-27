@@ -20,7 +20,6 @@
       * function : verbNoun || verbNounAux 
       * variable : nounAdj 
       * parameter : noun || nounNumber
-      * indentation : use the script pepindent.hs 
       * lemma : use the same pattern used for function and use module for lemma of a specific function  
       * proof : use only one level of bullet and only one dot per line,  
      
