@@ -18,11 +18,16 @@ DUMP ?= no
 TARGET = dwm1001
 BUILD_DIR=build
 SRC_DIR=src
+
+TARGET_SRC_DIR=$(SRC_DIR)/arch/$(TARGET)
+TARGET_SRC_BOOT_DIR=$(TARGET_SRC_DIR)/boot
+TARGET_SRC_MAL_DIR=$(TARGET_SRC_DIR)/MAL
+
 TARGET_DIR=$(BUILD_DIR)/$(TARGET)
 KERNEL_BASENAME=pip
 #KERNEL_ELF=$(KERNEL_BASENAME).elf
 #KERNEL_BIN=$(KERNEL_BASENAME).bin
-LINKSCRIPT := $(SRC_DIR)/boot/$(TARGET)/ARM/link.ld
+LINKSCRIPT := $(TARGET_SRC_DIR)/link.ld
 
 DIGGER_DIR=tools/digger
 DIGGER=$(DIGGER_DIR)/digger
@@ -32,33 +37,52 @@ COQC=coqc -q
 COQDOC=coqdoc -toc -interpolate -utf8 -html
 
 ## COMPILER FLAGS
-CFLAGS = -mthumb -mcpu=cortex-m4  #
-CFLAGS += -Isrc/boot/dwm1001/ARM/cmsis/include -Isrc/boot/dwm1001/ARM #-Isrc/boot/dwm1001/ARM/newlib #-lc #-I/usr/arm-none-eabi/include #-nostdinc --specs=nano.specs --specs=nosys.specs
-CFLAGS += -Isrc/boot/dwm1001/ARM/mdk -Isrc/boot/dwm1001/ARM/mdk/headers
-CFLAGS += -Isrc/boot/dwm1001/ARM/mdk/hal
-CFLAGS += -I$(SRC_DIR)/MAL
-CFLAGS += -I$(SRC_DIR)/MAL/$(TARGET)
+CFLAGS  = -mthumb
+CFLAGS += -mcpu=cortex-m4
+CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/cmsis/include
+CFLAGS += -I$(TARGET_SRC_BOOT_DIR)
+#CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/newlib
+#CFLAGS += -lc
+#CFLAGS += -I/usr/arm-none-eabi/include
+#CFLAGS += -nostdinc
+#CFLAGS += --specs=nano.specs
+#CFLAGS += --specs=nosys.specs
+CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/mdk
+CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/mdk/headers
+CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/mdk/hal
+CFLAGS += -I$(SRC_DIR)/interface
+CFLAGS += -I$(TARGET_SRC_MAL_DIR)/include
 CFLAGS += -I$(TARGET_DIR)/pipcore
 # include debug symbols
 CFLAGS += -g # debug symbols for GDB -DDEBUG
 CFLAGS += -Og # optimize debugging experience more than -O0
+
 ifeq ($(UNIT_TESTS), yes)
-# check the unit tests
-CFLAGS += -DUNIT_TESTS
+  # check the unit tests
+  CFLAGS += -DUNIT_TESTS
 endif
+
 ifeq ($(SEMI_DEBUG), yes)
-# debug through semihosting, default printf has bug, using trace_printf instead
-CFLAGS += -DTRACE -Dprintf=trace_printf -DOS_USE_TRACE_SEMIHOSTING_DEBUG -Isrc/boot/dwm1001/ARM/debug # debug on semihosting debug channel and trace API
+  # debug through semihosting, default printf has bug, using trace_printf instead
+  CFLAGS += -DTRACE
+  CFLAGS += -Dprintf=trace_printf
+  CFLAGS += -DOS_USE_TRACE_SEMIHOSTING_DEBUG
+  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/debug # debug on semihosting debug channel and trace API
 endif
+
 ifeq ($(UART_DEBUG), yes)
-# debug through UART
-CFLAGS += -Isrc/boot/dwm1001/ARM/debug
-CFLAGS += -DUART_DEBUG -Isrc/boot/dwm1001/ARM/uart -Isrc/boot/dwm1001/ARM/uart/util # debug through UART
+  # debug through UART
+  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/debug
+  CFLAGS += -DUART_DEBUG
+  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/uart
+  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/uart/util # debug through UART
 endif
+
 ifeq ($(DUMP), yes)
-# dump outputs allowed
-CFLAGS += -DDUMP
+  # dump outputs allowed
+  CFLAGS += -DDUMP
 endif
+
 #CFLAGS += -fmessage-length=0
 #CFLAGS += -ffunction-sections
 #CFLAGS += -fdata-sections
@@ -67,15 +91,35 @@ CFLAGS += -DNRF52832_XXAA
 
 # LINKER FLAGS
 LDFLAGS += -nostartfiles  # do not include start files but keep default libs: -nostdlib = -nostartfiles + -nodefaultlibs
-LDFLAGS += -lc -lgcc -lm -std=gnu11
+LDFLAGS += -lc
+LDFLAGS += -lgcc
+LDFLAGS += -lm
+LDFLAGS += -std=gnu11
 LDFLAGS += -Wall # recommended compiler warnings
 LDFLAGS += -ffreestanding # remove printf to puts optimizations
-LDFLAGS += -mthumb -mcpu=cortex-m4
-#LDFLAGS = -lgcc -lc -lm -lrdimon -std=gnu11 -Og -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -ffreestanding -fno-move-loop-invariants -Wall -Wextra
-#LDFLAGS += --specs=nosys.specs --specs=rdimon.specs -lrdimon
+LDFLAGS += -mthumb
+LDFLAGS += -mcpu=cortex-m4
+
+#LDFLAGS  = -lgcc
+#LDFLAGS += -lc
+#LDFLAGS += -lm
+#LDFLAGS += -lrdimon
+#LDFLAGS += -std=gnu11
+#LDFLAGS += -Og
+#LDFLAGS += -fmessage-length=0
+#LDFLAGS += -fsigned-char
+#LDFLAGS += -ffunction-sections
+#LDFLAGS += -fdata-sections
+#LDFLAGS += -ffreestanding
+#LDFLAGS += -fno-move-loop-invariants
+#LDFLAGS += -Wall
+#LDFLAGS += -Wextra
+#LDFLAGS += --specs=nosys.specs
+#LDFLAGS += --specs=rdimon.specs
+#LDFLAGS += -lrdimon
 
 # Coq Sources
-COQCODEDIRS=$(SRC_DIR)/core $(SRC_DIR)/model
+COQCODEDIRS=$(SRC_DIR)/extraction $(SRC_DIR)/core $(SRC_DIR)/model
 COQPROOFDIRS=$(PROOF_DIR) $(PROOF_DIR)/invariants
 VCODESOURCES=$(foreach dir, ${COQCODEDIRS}, $(wildcard $(dir)/*.v))
 VPROOFSOURCES=$(foreach dir, ${COQPROOFDIRS}, $(wildcard $(dir)/*.v))
@@ -87,15 +131,15 @@ JSONS=Internal.json Services.json
 EXTRACTEDCSOURCES=$(addprefix $(TARGET_DIR)/pipcore/, $(JSONS:.json=.c))
 
 # .c & .S FILES
-C_FILES = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/*.c)
-C_FILES_MAL = $(wildcard $(SRC_DIR)/MAL/$(TARGET)/*.c)
-C_FILES_UART = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/uart/*.c)
-C_FILES_UART_UTIL = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/uart/util/*.c)
-C_FILES_MDK = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/mdk/*.c)
-C_FILES_DEBUG = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/debug/*.c)
-C_FILES_NEWLIB = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/newlib/*.c)
-C_FILES_PIPCORE = $(wildcard $(TARGET_DIR)/pipcore/*.c)
-S_FILES = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/*.S)
+C_FILES           = $(wildcard $(TARGET_SRC_BOOT_DIR)/*.c)
+C_FILES_MAL       = $(wildcard $(TARGET_SRC_MAL_DIR)/*.c)
+C_FILES_UART      = $(wildcard $(TARGET_SRC_BOOT_DIR)/uart/*.c)
+C_FILES_UART_UTIL = $(wildcard $(TARGET_SRC_BOOT_DIR)/uart/util/*.c)
+C_FILES_MDK       = $(wildcard $(TARGET_SRC_BOOT_DIR)/mdk/*.c)
+C_FILES_DEBUG     = $(wildcard $(TARGET_SRC_BOOT_DIR)/debug/*.c)
+C_FILES_NEWLIB    = $(wildcard $(TARGET_SRC_BOOT_DIR)/newlib/*.c)
+C_FILES_PIPCORE   = $(wildcard $(TARGET_DIR)/pipcore/*.c)
+S_FILES           = $(wildcard $(TARGET_SRC_BOOT_DIR)/*.S)
 
 # OBJECT FILES
 # String substitution for every C/C++ file.
@@ -145,10 +189,10 @@ $(DIGGER):
 COQOPTS=$(shell cat _CoqProject)
 
 # Implicit rules for Coq source files
-$(addsuffix .d,$(filter-out src/model/Extraction.v,$(VSOURCES))): %.v.d: %.v
+$(addsuffix .d,$(filter-out $(SRC_DIR)/extraction/Extraction.v,$(VSOURCES))): %.v.d: %.v
 	$(COQDEP) $(COQOPTS) "$<" > "$@"
 
-src/model/Extraction.v.d: src/model/Extraction.v
+$(SRC_DIR)/extraction/Extraction.v.d: $(SRC_DIR)/extraction/Extraction.v
 	$(COQDEP) $(COQOPTS) "$<" | $(SED) 's/Extraction.vo/Extraction.vo Internal.json Services.json/' > "$@"
 
 %.vo: %.v
@@ -157,9 +201,9 @@ src/model/Extraction.v.d: src/model/Extraction.v
 $(VSOURCES:.v=.glob): %.glob: %.vo
 
 # Extract C code from Coq source
-src/model/Extraction.vo $(JSONS): src/model/Extraction.v
+$(SRC_DIR)/extraction/Extraction.vo $(JSONS): $(SRC_DIR)/extraction/Extraction.v
 	#coq_makefile -f _CoqProject src/model/*.v src/core/*.v -o MakefileCoq # if MakefileCoq doesn't exist yet
-	make -f MakefileCoq src/model/Extraction.vo
+	make -f MakefileCoq $(SRC_DIR)/extraction/Extraction.vo
 	# compile all .v into .vo
 	#$(COQC) $(COQOPTS) -w all $<
 
@@ -186,29 +230,29 @@ $(TARGET_DIR)/pipcore/Services.h: Services.json $(DIGGER)
 	$(DIGGER) $(DIGGERFLAGS) --ignore coq_N --header $< -o $@
 
 #%.o: %.S
-$(TARGET_DIR)/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/%.S
+$(TARGET_DIR)/%.o: $(TARGET_SRC_BOOT_DIR)/%.S
 	$(AS) -o $@ $^ $(ASFLAGS)
 
 #%.o: %.c
-$(TARGET_DIR)/newlib/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/newlib/%.c
+$(TARGET_DIR)/newlib/%.o: $(TARGET_SRC_BOOT_DIR)/newlib/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
-$(TARGET_DIR)/uart/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/uart/%.c
+$(TARGET_DIR)/uart/%.o: $(TARGET_SRC_BOOT_DIR)/uart/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
-$(TARGET_DIR)/uart/util/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/uart/util/%.c
+$(TARGET_DIR)/uart/util/%.o: $(TARGET_SRC_BOOT_DIR)/uart/util/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
-$(TARGET_DIR)/mdk/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/mdk/%.c
+$(TARGET_DIR)/mdk/%.o: $(TARGET_SRC_BOOT_DIR)/mdk/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
-$(TARGET_DIR)/debug/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/debug/%.c
+$(TARGET_DIR)/debug/%.o: $(TARGET_SRC_BOOT_DIR)/debug/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
-$(TARGET_DIR)/MAL/%.o: $(SRC_DIR)/MAL/$(TARGET)/%.c
+$(TARGET_DIR)/MAL/%.o: $(TARGET_SRC_MAL_DIR)/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
-$(TARGET_DIR)/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/%.c
+$(TARGET_DIR)/%.o: $(TARGET_SRC_BOOT_DIR)/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
 $(TARGET_DIR)/pipcore/%.o: $(TARGET_DIR)/pipcore/%.c

@@ -1,9 +1,9 @@
 src/model/ADT.vo src/model/ADT.glob src/model/ADT.v.beautified src/model/ADT.required_vo: src/model/ADT.v src/model/UserConstants.vo
 src/model/ADT.vio: src/model/ADT.v src/model/UserConstants.vio
 src/model/ADT.vos src/model/ADT.vok src/model/ADT.required_vos: src/model/ADT.v src/model/UserConstants.vos
-src/model/Extraction.vo src/model/Extraction.glob src/model/Extraction.v.beautified src/model/Extraction.required_vo: src/model/Extraction.v src/model/MAL.vo src/model/Monad.vo src/model/ADT.vo src/core/Services.vo src/core/Internal.vo
-src/model/Extraction.vio: src/model/Extraction.v src/model/MAL.vio src/model/Monad.vio src/model/ADT.vio src/core/Services.vio src/core/Internal.vio
-src/model/Extraction.vos src/model/Extraction.vok src/model/Extraction.required_vos: src/model/Extraction.v src/model/MAL.vos src/model/Monad.vos src/model/ADT.vos src/core/Services.vos src/core/Internal.vos
+src/extraction/Extraction.vo src/extraction/Extraction.glob src/extraction/Extraction.v.beautified src/extraction/Extraction.required_vo: src/extraction/Extraction.v src/model/MAL.vo src/model/Monad.vo src/model/ADT.vo src/core/Services.vo src/core/Internal.vo
+src/extraction/Extraction.vio: src/extraction/Extraction.v src/model/MAL.vio src/model/Monad.vio src/model/ADT.vio src/core/Services.vio src/core/Internal.vio
+src/extraction/Extraction.vos src/extraction/Extraction.vok src/extraction/Extraction.required_vos: src/extraction/Extraction.v src/model/MAL.vos src/model/Monad.vos src/model/ADT.vos src/core/Services.vos src/core/Internal.vos
 src/model/Lib.vo src/model/Lib.glob src/model/Lib.v.beautified src/model/Lib.required_vo: src/model/Lib.v 
 src/model/Lib.vio: src/model/Lib.v 
 src/model/Lib.vos src/model/Lib.vok src/model/Lib.required_vos: src/model/Lib.v 
