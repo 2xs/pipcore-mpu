@@ -39,17 +39,17 @@ COQDOC=coqdoc -toc -interpolate -utf8 -html
 ## COMPILER FLAGS
 CFLAGS  = -mthumb
 CFLAGS += -mcpu=cortex-m4
-CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/cmsis/include
+CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/cmsis/include
 CFLAGS += -I$(TARGET_SRC_BOOT_DIR)
-#CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/newlib
+#CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/newlib
 #CFLAGS += -lc
 #CFLAGS += -I/usr/arm-none-eabi/include
 #CFLAGS += -nostdinc
 #CFLAGS += --specs=nano.specs
 #CFLAGS += --specs=nosys.specs
-CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/mdk
-CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/mdk/headers
-CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/mdk/hal
+CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/mdk
+CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/mdk/headers
+CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/mdk/hal
 CFLAGS += -I$(SRC_DIR)/interface
 CFLAGS += -I$(TARGET_SRC_MAL_DIR)/include
 CFLAGS += -I$(TARGET_DIR)/pipcore
@@ -67,15 +67,15 @@ ifeq ($(SEMI_DEBUG), yes)
   CFLAGS += -DTRACE
   CFLAGS += -Dprintf=trace_printf
   CFLAGS += -DOS_USE_TRACE_SEMIHOSTING_DEBUG
-  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/debug # debug on semihosting debug channel and trace API
+  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/debug # debug on semihosting debug channel and trace API
 endif
 
 ifeq ($(UART_DEBUG), yes)
   # debug through UART
-  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/debug
+  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/debug
   CFLAGS += -DUART_DEBUG
-  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/uart
-  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/uart/util # debug through UART
+  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/uart
+  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/uart/util # debug through UART
 endif
 
 ifeq ($(DUMP), yes)
@@ -133,11 +133,11 @@ EXTRACTEDCSOURCES=$(addprefix $(TARGET_DIR)/pipcore/, $(JSONS:.json=.c))
 # .c & .S FILES
 C_FILES           = $(wildcard $(TARGET_SRC_BOOT_DIR)/*.c)
 C_FILES_MAL       = $(wildcard $(TARGET_SRC_MAL_DIR)/*.c)
-C_FILES_UART      = $(wildcard $(TARGET_SRC_BOOT_DIR)/uart/*.c)
-C_FILES_UART_UTIL = $(wildcard $(TARGET_SRC_BOOT_DIR)/uart/util/*.c)
-C_FILES_MDK       = $(wildcard $(TARGET_SRC_BOOT_DIR)/mdk/*.c)
-C_FILES_DEBUG     = $(wildcard $(TARGET_SRC_BOOT_DIR)/debug/*.c)
-C_FILES_NEWLIB    = $(wildcard $(TARGET_SRC_BOOT_DIR)/newlib/*.c)
+C_FILES_UART      = $(wildcard $(TARGET_SRC_BOOT_DIR)/thirdparty/uart/*.c)
+C_FILES_UART_UTIL = $(wildcard $(TARGET_SRC_BOOT_DIR)/thirdparty/uart/util/*.c)
+C_FILES_MDK       = $(wildcard $(TARGET_SRC_BOOT_DIR)/thirdparty/mdk/*.c)
+C_FILES_DEBUG     = $(wildcard $(TARGET_SRC_BOOT_DIR)/thirdparty/debug/*.c)
+C_FILES_NEWLIB    = $(wildcard $(TARGET_SRC_BOOT_DIR)/thirdparty/newlib/*.c)
 C_FILES_PIPCORE   = $(wildcard $(TARGET_DIR)/pipcore/*.c)
 S_FILES           = $(wildcard $(TARGET_SRC_BOOT_DIR)/*.S)
 
@@ -234,19 +234,19 @@ $(TARGET_DIR)/%.o: $(TARGET_SRC_BOOT_DIR)/%.S
 	$(AS) -o $@ $^ $(ASFLAGS)
 
 #%.o: %.c
-$(TARGET_DIR)/newlib/%.o: $(TARGET_SRC_BOOT_DIR)/newlib/%.c
+$(TARGET_DIR)/newlib/%.o: $(TARGET_SRC_BOOT_DIR)/thirdparty/newlib/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
-$(TARGET_DIR)/uart/%.o: $(TARGET_SRC_BOOT_DIR)/uart/%.c
+$(TARGET_DIR)/uart/%.o: $(TARGET_SRC_BOOT_DIR)/thirdparty/uart/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
-$(TARGET_DIR)/uart/util/%.o: $(TARGET_SRC_BOOT_DIR)/uart/util/%.c
+$(TARGET_DIR)/uart/util/%.o: $(TARGET_SRC_BOOT_DIR)/thirdparty/uart/util/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
-$(TARGET_DIR)/mdk/%.o: $(TARGET_SRC_BOOT_DIR)/mdk/%.c
+$(TARGET_DIR)/mdk/%.o: $(TARGET_SRC_BOOT_DIR)/thirdparty/mdk/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
-$(TARGET_DIR)/debug/%.o: $(TARGET_SRC_BOOT_DIR)/debug/%.c
+$(TARGET_DIR)/debug/%.o: $(TARGET_SRC_BOOT_DIR)/thirdparty/debug/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
 $(TARGET_DIR)/MAL/%.o: $(TARGET_SRC_MAL_DIR)/%.c
