@@ -48,8 +48,6 @@ CFLAGS += -I$(TARGET_SRC_BOOT_DIR)
 #CFLAGS += --specs=nano.specs
 #CFLAGS += --specs=nosys.specs
 CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/mdk
-CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/mdk/headers
-CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/mdk/hal
 CFLAGS += -I$(SRC_DIR)/interface
 CFLAGS += -I$(TARGET_SRC_MAL_DIR)/include
 CFLAGS += -I$(TARGET_DIR)/pipcore
@@ -75,7 +73,6 @@ ifeq ($(UART_DEBUG), yes)
   CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/debug
   CFLAGS += -DUART_DEBUG
   CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/uart
-  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/uart/util # debug through UART
 endif
 
 ifeq ($(DUMP), yes)
