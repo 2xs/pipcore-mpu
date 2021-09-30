@@ -6,9 +6,11 @@
  * Copyright (c) 2016-2019, LEAPS. All rights reserved.
  *
  */
+
 #include <stdio.h>
 
 #if defined(UART_DEBUG)
+
 #include "uart_debug_init.h"
 
 #define APP_ERR(err_code)	\
@@ -54,7 +56,5 @@ void init_uart()
     // Initial message: printf is now sending through UART (message doubled if Trace is on)
     //printf("\r\nHello World!\r\n");
 }
+
 #endif // UART_DEBUG
-
-
-

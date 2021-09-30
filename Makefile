@@ -4,15 +4,15 @@ AS = arm-none-eabi-as
 BI = arm-none-eabi-objcopy
 
 # UART DEBUG (to disable for unit testing)
-UART_DEBUG ?= no
+UART_DEBUG ?= yes
 # Semihosting DEBUG (to enable for unit testing)
-SEMI_DEBUG ?= yes
+SEMI_DEBUG ?= no
 
 # UNIT TESTS
 UNIT_TESTS ?= no
 
 # DUMP OUTPUTS ALLOWED
-DUMP ?= no
+DUMP ?= yes
 
 # LINKER VARIABLES
 TARGET = dwm1001
@@ -48,6 +48,8 @@ CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/include
 #CFLAGS += --specs=nano.specs
 #CFLAGS += --specs=nosys.specs
 CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/mdk/include
+CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/debug/include # debug on semihosting debug channel and trace API
+CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/uart/include
 CFLAGS += -I$(SRC_DIR)/interface
 CFLAGS += -I$(TARGET_SRC_MAL_DIR)/include
 CFLAGS += -I$(TARGET_DIR)/pipcore
@@ -65,14 +67,11 @@ ifeq ($(SEMI_DEBUG), yes)
   CFLAGS += -DTRACE
   CFLAGS += -Dprintf=trace_printf
   CFLAGS += -DOS_USE_TRACE_SEMIHOSTING_DEBUG
-  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/debug/include # debug on semihosting debug channel and trace API
 endif
 
 ifeq ($(UART_DEBUG), yes)
   # debug through UART
-  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/debug/include
   CFLAGS += -DUART_DEBUG
-  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/uart/include
 endif
 
 ifeq ($(DUMP), yes)
@@ -150,21 +149,10 @@ OBJS += $(OBJS_MDK)
 OBJS_NEWLIB = $(patsubst %.c, $(TARGET_DIR)/newlib/%.o, $(notdir $(C_FILES_NEWLIB)))
 OBJS += $(OBJS_NEWLIB)
 OBJS += $(patsubst %.S, $(TARGET_DIR)/%.o, $(notdir $(S_FILES)))
-
-ifeq ($(UART_DEBUG), yes)
 OBJS_DEBUG = $(patsubst %.c, $(TARGET_DIR)/debug/%.o, $(notdir $(C_FILES_DEBUG)))
 OBJS += $(OBJS_DEBUG)
 OBJS_UART = $(patsubst %.c, $(TARGET_DIR)/uart/%.o, $(notdir $(C_FILES_UART)))
 OBJS += $(OBJS_UART)
-OBJS_UART_UTIL = $(patsubst %.c, $(TARGET_DIR)/uart/util/%.o, $(notdir $(C_FILES_UART_UTIL)))
-OBJS += $(OBJS_UART_UTIL)
-endif
-
-ifeq ($(SEMI_DEBUG), yes)
-OBJS_DEBUG = $(patsubst %.c, $(TARGET_DIR)/debug/%.o, $(notdir $(C_FILES_DEBUG)))
-OBJS += $(OBJS_DEBUG)
-endif
-
 
 # RULES
 ifeq ($(UNIT_TESTS), yes)
@@ -235,9 +223,6 @@ $(TARGET_DIR)/newlib/%.o: $(TARGET_SRC_BOOT_DIR)/thirdparty/newlib/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
 $(TARGET_DIR)/uart/%.o: $(TARGET_SRC_BOOT_DIR)/thirdparty/uart/%.c
-	$(CC) -o $@ $^ -c $(CFLAGS)
-
-$(TARGET_DIR)/uart/util/%.o: $(TARGET_SRC_BOOT_DIR)/thirdparty/uart/util/%.c
 	$(CC) -o $@ $^ -c $(CFLAGS)
 
 $(TARGET_DIR)/mdk/%.o: $(TARGET_SRC_BOOT_DIR)/thirdparty/mdk/%.c

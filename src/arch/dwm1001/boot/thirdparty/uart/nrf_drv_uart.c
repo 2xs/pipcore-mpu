@@ -9,6 +9,9 @@
  * the file.
  *
  */
+
+#if defined(UART_DEBUG)
+
 #include "sdk_config.h"
 #if UART_ENABLED
 #include "nrf_drv_uart.h"
@@ -853,4 +856,7 @@ void UART0_IRQHandler(void)
         uart_irq_handler(NRF_UART0, &m_cb[UART0_INSTANCE_INDEX]);
     )
 }
+
 #endif //UART_ENABLED
+
+#endif // UART_DEBUG

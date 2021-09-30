@@ -10,6 +10,8 @@
  *
  */
 
+#if defined(UART_DEBUG)
+
 #include <stddef.h>
 #include "nrf_drv_common.h"
 #include "nrf_assert.h"
@@ -206,3 +208,5 @@ void nrf_drv_common_irq_enable(IRQn_Type IRQn, uint8_t priority)
     NVIC_ClearPendingIRQ(IRQn);
     NVIC_EnableIRQ(IRQn);
 }
+
+#endif // UART_DEBUG
