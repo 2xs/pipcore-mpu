@@ -40,14 +40,14 @@ COQDOC=coqdoc -toc -interpolate -utf8 -html
 CFLAGS  = -mthumb
 CFLAGS += -mcpu=cortex-m4
 CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/cmsis/include
-CFLAGS += -I$(TARGET_SRC_BOOT_DIR)
+CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/include
 #CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/newlib
 #CFLAGS += -lc
 #CFLAGS += -I/usr/arm-none-eabi/include
 #CFLAGS += -nostdinc
 #CFLAGS += --specs=nano.specs
 #CFLAGS += --specs=nosys.specs
-CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/mdk
+CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/mdk/include
 CFLAGS += -I$(SRC_DIR)/interface
 CFLAGS += -I$(TARGET_SRC_MAL_DIR)/include
 CFLAGS += -I$(TARGET_DIR)/pipcore
@@ -65,14 +65,14 @@ ifeq ($(SEMI_DEBUG), yes)
   CFLAGS += -DTRACE
   CFLAGS += -Dprintf=trace_printf
   CFLAGS += -DOS_USE_TRACE_SEMIHOSTING_DEBUG
-  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/debug # debug on semihosting debug channel and trace API
+  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/debug/include # debug on semihosting debug channel and trace API
 endif
 
 ifeq ($(UART_DEBUG), yes)
   # debug through UART
-  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/debug
+  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/debug/include
   CFLAGS += -DUART_DEBUG
-  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/uart
+  CFLAGS += -I$(TARGET_SRC_BOOT_DIR)/thirdparty/uart/include
 endif
 
 ifeq ($(DUMP), yes)
