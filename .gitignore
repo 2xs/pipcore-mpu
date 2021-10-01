@@ -40,6 +40,7 @@ doc/c-doc/
 
 # Toolchain configuration
 src/partitions/*/toolchain.mk
+toolchain.mk
 
 # Internal.h is regenerated with each compilation
 Internal.h
