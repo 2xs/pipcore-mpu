@@ -191,9 +191,9 @@ DIGGER_DIR   = tools/digger
 DIGGER     := \$(DIGGER_DIR)/digger
 
 # Coq Proof Assistant
-COQC   := $coqc -q
-COQDEP := $coqdep -c
-COQDOC := $coqdoc -toc -interpolate -utf8 -html
+COQC   := $coqc
+COQDEP := $coqdep
+COQDOC := $coqdoc
 
 # GNU C Compiler
 CC := $cc
@@ -547,7 +547,7 @@ configure_global_variables() {
 
 			cc=${cc:='arm-none-eabi-gcc'}
 			as=${as:='arm-none-eabi-as'}
-			ld=${ld:='arm-none-eabi-ld'}
+			ld=${ld:='arm-none-eabi-gcc'}
 			objcopy=${objcopy:='arm-none-eabi-objcopy'}
 			coqc=${coqc:='coqc'}
 			pdflatex=${pdflatex:='pdflatex'}
@@ -565,7 +565,7 @@ configure_global_variables() {
 
 			cc_regex='^.*gcc ([^)]\+) \([^ \n]\+\).*$'
 			as_regex='^GNU .\+ \([^ \n]\+\).*$'
-			ld_regex='^GNU .\+ \([^ \n]\+\).*$'
+			ld_regex='^.*gcc ([^)]\+) \([^ \n]\+\).*$'
 			coqc_regex='^The Coq Proof Assistant, version \([^ \n]\+\).*$'
 
 			### Minimum versions of the toolchain for the selected
@@ -573,22 +573,13 @@ configure_global_variables() {
 
 			as_minimum_version='2.35.2'
 			cc_minimum_version='8.3.1'
-			ld_minimum_version='2.35.2'
+			ld_minimum_version='8.3.1'
 			coqc_minimum_version='8.13.1'
 
 			### CFLAGS for the selected architecture
 
 			arch_cflags='-mthumb'
 			arch_cflags="$arch_cflags"' -mcpu=cortex-m4'
-			arch_cflags="$arch_cflags"' -Isrc/arch/'"$target"'/boot/thirdparty/cmsis/include'
-			arch_cflags="$arch_cflags"' -Isrc/arch/'"$target"'/boot/include'
-			arch_cflags="$arch_cflags"' -Isrc/arch/'"$target"'/boot/thirdparty/mdk/include'
-			arch_cflags="$arch_cflags"' -Isrc/arch/'"$target"'/boot/thirdparty/debug/include'
-			arch_cflags="$arch_cflags"' -Isrc/arch/'"$target"'/boot/thirdparty/uart/include'
-			arch_cflags="$arch_cflags"' -Isrc/interface'
-			arch_cflags="$arch_cflags"' -Isrc/arch/'"$target"'/MAL/include'
-			arch_cflags="$arch_cflags"' -Ibuild/'"$target"'/pipcore'
-
 			case $debugging_mode in
 				semihosting)
 					arch_cflags="$arch_cflags"' -DTRACE'
@@ -599,13 +590,11 @@ configure_global_variables() {
 					arch_cflags="$arch_cflags"' -DUART_DEBUG'
 					;;
 			esac
-
 			case $boot_sequence in
 				test)
 					arch_cflags="$arch_cflags"' -DUNIT_TESTS'
 					;;
 			esac
-
 			arch_cflags="$arch_cflags"' -DDUMP'
 			arch_cflags="$arch_cflags"' -DNRF52832_XXAA'
 
