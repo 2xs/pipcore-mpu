@@ -1,6 +1,6 @@
 # Readme
 
-You can find more about the Pip protokernel at its [website](http://pip.univ-lille.fr).
+You can find more about the Pip protokernel at its [website](http://pip.univ-lille1.fr/).
 
 The source code is covered by CeCILL-A licence.
 
