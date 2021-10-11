@@ -31,6 +31,10 @@
 #  knowledge of the CeCILL license and that you accept its terms.             #
 ###############################################################################
 
+ifeq ("$(wildcard toolchain.mk)","")
+    $(error Run the configuration script first: ./configure.sh)
+endif
+
 include toolchain.mk
 
 # Default tools
