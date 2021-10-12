@@ -29,9 +29,9 @@
 
 #include <string.h>
 
-#include "ExceptionHandlers.h"
+#include "exception_handlers.h"
 #include "semihosting.h"
-#include "Trace.h"
+#include "trace.h"
 #include "nrf52.h"
 #include <stdio.h>
 #include <stdlib.h>

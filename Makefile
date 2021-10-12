@@ -485,9 +485,9 @@ doc-coq: $(COQ_VFILES) $(COQ_GLOBFILES) | $(COQ_DOC_DIR)
 		$(COQ_VFILES)
 
 gettingstarted:
-	cd doc/GettingStarted/ &&\
-        pdflatex GettingStarted.tex &&\
-        pdflatex GettingStarted.tex
+	cd doc/getting-started/ &&\
+        pdflatex getting-started.tex &&\
+        pdflatex getting-started.tex
 
 ####################################################################
 
@@ -496,11 +496,11 @@ $(GENERATED_FILES_DIR) $(C_DOC_DIR) $(COQ_DOC_DIR):
 
 realclean: clean
 	rm -rf $(COQ_DOC_DIR) $(C_DOC_DIR)
-	rm -f $(DOC_DIR)/GettingStarted/GettingStarted.aux\
-              $(DOC_DIR)/GettingStarted/GettingStarted.out\
-              $(DOC_DIR)/GettingStarted/GettingStarted.toc\
-              $(DOC_DIR)/GettingStarted/GettingStarted.log\
-              $(DOC_DIR)/GettingStarted/GettingStarted.pdf
+	rm -f $(DOC_DIR)/getting-started/getting-started.aux\
+              $(DOC_DIR)/getting-started/getting-started.out\
+              $(DOC_DIR)/getting-started/getting-started.toc\
+              $(DOC_DIR)/getting-started/getting-started.log\
+              $(DOC_DIR)/getting-started/getting-started.pdf
 
 clean:
 	rm -f .lia.cache $(COQ_DEPENDENCY_FILES)

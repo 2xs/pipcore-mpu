@@ -5,7 +5,7 @@
 #endif // UART_DEBUG
 
 #if defined(TRACE)
-#include "Trace.h"
+#include "trace.h"
 #endif // TRACE
 
 // Override the 'write' clib method to implement 'printf' over UART.

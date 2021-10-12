@@ -42,7 +42,7 @@
 #endif // UART_DEBUG
 
 #if defined(TRACE)
-#include "Trace.h"
+#include "trace.h"
 #endif // TRACE
 
 // Stack end address for the user section; defined in linker script

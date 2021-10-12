@@ -31,7 +31,7 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
-#include "ExceptionHandlers.h"
+#include "exception_handlers.h"
 #include "Services.h"
 #include "nrf52.h"
 #include "core_cm4.h"
