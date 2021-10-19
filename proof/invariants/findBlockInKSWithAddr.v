@@ -31,74 +31,72 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary 
-    This file contains the formalization of interesting properties that we need 
-    to prove *)
-Require Import Model.ADT Model.MALInternal.
-Require Import Proof.StateLib Proof.Lib.
-Require Import List.
-Import List.ListNotations.
+(**  * Summary 
+    In this file we formalize and prove all invariants of the MAL and MALInternal functions *)
+Require Import Model.ADT (*Pip.Model.Hardware Pip.Model.IAL*) Model.Monad Model.Lib
+               Model.MAL.
+Require Import Core.Internal Core.Services.
+Require Import Proof.Consistency (*Pip.Proof.DependentTypeLemmas*) Proof.Hoare
+               Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants.
+Require Import Coq.Logic.ProofIrrelevance Lia Setoid Compare_dec (*EqNat*) List Bool.
 
-(** THE VERTICAL SHARING PROPERTY:
-    All child used blocks (PD + kernel structures + mapped blocks) are mapped into 
-    the parent partition  *)
-Definition verticalSharing s : Prop := 
+Module WP := WeakestPreconditions.
 
-forall parent child : paddr (*page*) , 
+Lemma findBlockInKSWithAddrAux n (kernelstructurestart blockEntryAddr : paddr) (P : state -> Prop) :
+{{  fun s : state => P s /\ consistency s
+										/\ exists pdaddr, pdentryPDStructurePointer pdaddr kernelstructurestart s}}
+Internal.findBlockInKSWithAddrAux n kernelstructurestart blockEntryAddr
+{{ fun (BF : paddr) (s : state) => P s /\ consistency s /\ isBE BF s }}.
+Proof.
+(*unfold findBlockInKSWithAddrAux.*)
+(*revert n kernelstructurestart blockEntryAddr.*)
+induction n.
+- (* n = 0 *)
+	intros;simpl.
+	eapply weaken.
+	eapply WP.ret. simpl. intuition.
+	unfold consistency in *. unfold nullAddrExists in*. intuition.
+- (* n = S n*)
+	unfold findBlockInKSWithAddrAux.
+	eapply bindRev.
+	{ (* leb *)
+		eapply weaken. apply Paddr.leb.
+		intros. simpl. apply H.
+	}
+		intro isEntryAddrAboveStart.
+		eapply bindRev.
+	{ (* zero *)
+		eapply weaken. apply Index.zero.
+		intros. simpl. apply H.
+	}
+		intro zero.
+		eapply bindRev.
+	{ (* getSh1EntryAddrFromKernelStructureStart *)
+		eapply weaken. apply getSh1EntryAddrFromKernelStructureStart.
+		intros. simpl. split. apply H. unfold consistency in *. intuition.
+		unfold pdentryPDStructurePointer in *. destruct H4.
+		destruct H4.
+		unfold StructurePointerIsBE in *.
+		
+		unfold isBE.
 
-  In parent (getPartitions multiplexer s) -> 
+	}
+		intro maxEntryAddrInStructure.
 
-  In child (getChildren parent s) -> 
+Qed.
 
-  (*incl (getUsedPages child s) (getMappedPages parent s).*)
-  incl (getUsedBlocks child s) (getMappedBlocks parent s).
 
-(** THE ISOLATION PROPERTY BETWEEN PARTITIONS, 
-    If we take two different children of a given parent, 
-    then all their used blocks are different  *)
-Definition partitionsIsolation  s : Prop :=  
 
-forall parent child1 child2 : paddr , 
-
-  In parent (getPartitions multiplexer s)-> 
-
-  In child1 (getChildren parent s) -> 
-
-  In child2 (getChildren parent s) -> 
-
-  child1 <> child2 ->
-
-  (*disjoint (getUsedPages child1 s)(getUsedPages child2 s).*)
-  disjoint (getUsedBlocks child1 s)(getUsedBlocks child2 s).
-
-(** THE ISOLATION PROPERTY BETWEEN THE KERNEL DATA AND PARTITIONS
-    kernel data is the configuration pages of partitions.
-    All configuration tables of a given partition are inaccessible by all
-    partitions *)
-
-(* TODO : include range not raw element -> the base address doesn't say anything on subblocks *)
-(*Definition kernelDataIsolation s : Prop :=
-
-forall partition1 partition2 : paddr, 
-
-  In partition1 (getPartitions multiplexer s) ->
-
-  In partition2 (getPartitions multiplexer s) -> 
-
-  (*disjoint (getAccessibleMappedPages partition1 s) (getConfigPages partition2 s).*)
- 	(partition1 <> partition2) /\
-	disjoint (getAccessibleMappedBlocks partition1 s) (getConfigBlocks partition2 s)
-	\/
- 	(partition1 = partition2) /\
-	disjoint (getAccessibleBlocks partition1 s) (getConfigBlocks partition2 s).*)
-
-Definition kernelDataIsolation s : Prop :=
-	forall partition1 partition2 : paddr,
-
-	In partition1 (getPartitions multiplexer s) ->
-
-  In partition2 (getPartitions multiplexer s) -> 
-	~exists Asubblock Csubblock : paddr,
-	In Asubblock (getAccessibleMappedBlocks partition1 s) -> 
-	In Csubblock (getConfigBlocks partition2 s) -> 
-	checkissubblock Asubblock Csubblock s \/ checkissubblock Csubblock Asubblock s.
+Lemma findBlockInKSWithAddr (idPD blockEntryAddr: paddr) (P : state -> Prop) :
+{{ fun s => P s /\ isPDT idPD s}} Internal.findBlockInKSWithAddr idPD blockEntryAddr 
+{{fun (BF : paddr) (s : state) => P s /\ exists entry, lookup BF s.(memory) beqAddr = Some (BE entry)
+																			/\ BF = blockEntryAddr }}.
+(* What happend is not block found ? no entry found *)
+Proof.
+unfold Internal.findBlockInKSWithAddr.
+eapply bindRev.
+{ (** readPDStructurePointer *)
+	eapply weaken. apply readPDStructurePointer.
+	intros. simpl. split. apply H. intuition.
+}
+	intro kernelstructurestart.
