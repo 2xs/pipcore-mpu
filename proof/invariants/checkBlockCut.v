@@ -31,74 +31,58 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary 
-    This file contains the formalization of interesting properties that we need 
-    to prove *)
-Require Import Model.ADT Model.MALInternal.
-Require Import Proof.StateLib Proof.Lib.
-Require Import List.
-Import List.ListNotations.
+(**  * Summary 
+    In this file we formalize and prove all invariants of the MAL and MALInternal functions *)
+Require Import (*Model.ADT*) Model.Monad Model.Lib
+               Model.MAL.
+Require Import Core.Internal.
+Require Import Proof.Consistency (*Pip.Proof.DependentTypeLemmas*) Proof.Hoare
+               Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants
+								Proof.invariants.findBlockInKSWithAddr.
+Require Import Coq.Logic.ProofIrrelevance Lia Setoid Compare_dec (*EqNat*) List Bool.
 
-(** THE VERTICAL SHARING PROPERTY:
-    All child used blocks (PD + kernel structures + mapped blocks) are mapped into 
-    the parent partition  *)
-Definition verticalSharing s : Prop := 
+Module WP := WeakestPreconditions.
 
-forall parent child : paddr (*page*) , 
-
-  In parent (getPartitions multiplexer s) -> 
-
-  In child (getChildren parent s) -> 
-
-  (*incl (getUsedPages child s) (getMappedPages parent s).*)
-  incl (getUsedBlocks child s) (getMappedBlocks parent s).
-
-(** THE ISOLATION PROPERTY BETWEEN PARTITIONS, 
-    If we take two different children of a given parent, 
-    then all their used blocks are different  *)
-Definition partitionsIsolation  s : Prop :=  
-
-forall parent child1 child2 : paddr , 
-
-  In parent (getPartitions multiplexer s)-> 
-
-  In child1 (getChildren parent s) -> 
-
-  In child2 (getChildren parent s) -> 
-
-  child1 <> child2 ->
-
-  (*disjoint (getUsedPages child1 s)(getUsedPages child2 s).*)
-  disjoint (getUsedBlocks child1 s)(getUsedBlocks child2 s).
-
-(** THE ISOLATION PROPERTY BETWEEN THE KERNEL DATA AND PARTITIONS
-    kernel data is the configuration pages of partitions.
-    All configuration tables of a given partition are inaccessible by all
-    partitions *)
-
-(* TODO : include range not raw element -> the base address doesn't say anything on subblocks *)
-(*Definition kernelDataIsolation s : Prop :=
-
-forall partition1 partition2 : paddr, 
-
-  In partition1 (getPartitions multiplexer s) ->
-
-  In partition2 (getPartitions multiplexer s) -> 
-
-  (*disjoint (getAccessibleMappedPages partition1 s) (getConfigPages partition2 s).*)
- 	(partition1 <> partition2) /\
-	disjoint (getAccessibleMappedBlocks partition1 s) (getConfigBlocks partition2 s)
-	\/
- 	(partition1 = partition2) /\
-	disjoint (getAccessibleBlocks partition1 s) (getConfigBlocks partition2 s).*)
-
-Definition kernelDataIsolation s : Prop :=
-	forall partition1 partition2 : paddr,
-
-	In partition1 (getPartitions multiplexer s) ->
-
-  In partition2 (getPartitions multiplexer s) -> 
-	~exists Asubblock Csubblock : paddr,
-	In Asubblock (getAccessibleMappedBlocks partition1 s) -> 
-	In Csubblock (getConfigBlocks partition2 s) -> 
-	checkissubblock Asubblock Csubblock s \/ checkissubblock Csubblock Asubblock s.
+(* Couper le code de preuve -> ici que faire une propagation des propriétés initiale
++ propager nouvelles propriétés *) 
+Lemma checkBlockCut (blockentryaddr : paddr) P :
+{{ fun s => P s /\ consistency s
+						/\ isBE blockentryaddr s }}
+Internal.checkBlockCut blockentryaddr
+{{fun isBlockCut s => P s /\ consistency s
+(*/\ exists sh1entryaddr, isChild = StateLib.checkChild idPDchild s sh1entryaddr
+/\ if isChild then (exists entry, lookup idPDchild s.(memory) beqAddr = Some (BE entry)
+										/\ exists sh1entry, lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry))
+		else isChild = false*)
+}}.
+Proof.
+unfold Internal.checkBlockCut.
+eapply WP.bindRev.
+{ (** readSCOriginFromBlockEntryAddr *)
+	eapply weaken. apply readSCOriginFromBlockEntryAddr.
+	intros. simpl. split. apply H. intuition. apply isBELookupEq. intuition.
+}
+	intro blockOrigin.
+	eapply WP.bindRev.
+{ (** readBlockStartFromBlockEntryAddr *)
+	eapply weaken. apply readBlockStartFromBlockEntryAddr.
+	intros. simpl. split. apply H. intuition.
+}
+	intro blockStart.
+	eapply WP.bindRev.
+{ (** readSCNextFromBlockEntryAddr *)
+	eapply weaken. apply readSCNextFromBlockEntryAddr.
+	intros. simpl. split. apply H. intuition. apply isBELookupEq. intuition.
+	
+}
+	intro blockNext. simpl.
+	case_eq (beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr).
+{ (** case_eq beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr = true *)
+	intros. eapply weaken. apply ret.
+	intros. simpl. intuition.
+}
+{ (** case_eq beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr = false *)
+	intros. eapply weaken. apply ret.
+	intros. simpl. intuition.
+}
+Qed.
