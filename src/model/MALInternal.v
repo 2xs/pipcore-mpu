@@ -143,6 +143,8 @@ Definition kernelStructureTotalLength := CIndex (nextoffset + 1).
 Definition PDStructureTotalLength := CIndex (5+8). (*5 fields + table of 8 MPU regions *)
 End Constants.
 
+Definition multiplexer := Constants.rootPart.
+
 (*Definition getNextOffset : LLI paddr := ret Constants.nextoffset.*)
 Definition getNextOffset : LLI index := ret nextoffset.
 Definition getKernelStructureEntriesNb : LLI index := ret (CIndex kernelStructureEntriesNb).
@@ -154,7 +156,7 @@ Definition getPDStructureTotalLength : LLI index := ret Constants.PDStructureTot
 Definition getMPURegionsNb : LLI index := ret (CIndex MPURegionsNb).
 
 Definition beqIdx (a b : ADT.index) : bool := a =? b.
-Definition beqAddr (a b : ADT.paddr) : bool := a =? b.
+Definition beqAddr (a b : paddr) : bool := a =? b.
 Definition nullAddr : paddr := CPaddr 0.
 Definition getNullAddr := ret nullAddr.
 Definition getBeqAddr (p1 : paddr)  (p2 : paddr) : LLI bool := ret (p1 =? p2).

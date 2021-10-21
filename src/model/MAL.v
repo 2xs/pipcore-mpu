@@ -31,7 +31,7 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary 
+(** * Summary
      Memory Abstraction Layer : is the interface exposed to services to read and
     write data into physical memory  *)
 Require Export Model.MALInternal Model.ADT.
@@ -245,14 +245,21 @@ Definition writeBlockStartFromBlockEntryAddr  (paddr : paddr) (newstartaddr : AD
   match entry with
   | Some (BE a) => 	let endaddr := a.(blockrange).(endAddr) in
 											let newblock := CBlock newstartaddr endaddr in
-											let newEntry := {|	read := a.(read);
+											(*let newEntry := {|	read := a.(read);
 																			 	write := a.(write);
 																			 	exec := a.(exec);
 																			 	present := a.(present);
 																			 	accessible := a.(accessible);
 																			 	blockindex := a.(blockindex);
 																			 	blockrange := newblock
-																			|} in
+																			|} in*)
+											let newEntry := CBlockEntry a.(read)
+																									a.(write)
+																									a.(exec)
+																			 						a.(present)
+																									a.(accessible)
+																			 						a.(blockindex)
+																									newblock in
 											modify (fun s => {| currentPartition := s.(currentPartition);
 																								memory := add paddr (BE newEntry) s.(memory) beqAddr|} )
 		| Some _ => undefined 60
@@ -274,14 +281,21 @@ Definition writeBlockEndFromBlockEntryAddr  (paddr : paddr) (newendaddr : ADT.pa
   match entry with
   | Some (BE a) => 	let startaddr := a.(blockrange).(startAddr) in
 											let newblock := CBlock startaddr newendaddr in
-											let newEntry := {|	read := a.(read);
+											(*let newEntry := {|	read := a.(read);
 																			 	write := a.(write);
 																			 	exec := a.(exec);
 																			 	present := a.(present);
 																			 	accessible := a.(accessible);
 																			 	blockindex := a.(blockindex);
 																			 	blockrange := newblock
-																			|} in
+																			|} in*)
+											let newEntry := CBlockEntry a.(read)
+																									a.(write)
+																									a.(exec)
+																			 						a.(present)
+																									a.(accessible)
+																			 						a.(blockindex)
+																									newblock in
 											modify (fun s => {| currentPartition := s.(currentPartition);
 																								memory := add paddr (BE newEntry) s.(memory) beqAddr|} )
 		| Some _ => undefined 60
@@ -301,14 +315,21 @@ Definition writeBlockAccessibleFromBlockEntryAddr  (paddr : paddr) (accessiblebi
   perform s := get in
   let entry :=  lookup paddr s.(memory) beqAddr in
   match entry with
-  | Some (BE a) => let newEntry := {|	read := a.(read);
+  | Some (BE a) => (*let newEntry := {|	read := a.(read);
 																			 	write := a.(write);
 																			 	exec := a.(exec);
 																			 	present := a.(present);
 																			 	accessible := accessiblebit;
 																			 	blockindex := a.(blockindex);
 																			 	blockrange := a.(blockrange)
-																			|} in
+																			|} in*)
+										let newEntry := CBlockEntry a.(read)
+																								a.(write)
+																								a.(exec)
+																		 						a.(present)
+																								accessiblebit
+																		 						a.(blockindex)
+																								a.(blockrange) in
 											modify (fun s => {| currentPartition := s.(currentPartition);
 																								memory := add paddr (BE newEntry) s.(memory) beqAddr|} )
 		| Some _ => undefined 60
@@ -328,14 +349,21 @@ Definition writeBlockPresentFromBlockEntryAddr  (paddr : paddr) (presentbit  : b
   perform s := get in
   let entry :=  lookup paddr s.(memory) beqAddr in
   match entry with
-  | Some (BE a) => let newEntry := {|	read := a.(read);
+  | Some (BE a) => (*let newEntry := {|	read := a.(read);
 																			 	write := a.(write);
 																			 	exec := a.(exec);
 																			 	present := presentbit;
 																			 	accessible := a.(accessible);
 																			 	blockindex := a.(blockindex);
 																			 	blockrange := a.(blockrange)
-																			|} in
+																			|} in*)
+										let newEntry := CBlockEntry a.(read)
+																								a.(write)
+																								a.(exec)
+																		 						presentbit
+																								a.(accessible)
+																		 						a.(blockindex)
+																								a.(blockrange) in
 											modify (fun s => {| currentPartition := s.(currentPartition);
 																								memory := add paddr (BE newEntry) s.(memory) beqAddr|} )
 		| Some _ => undefined 60
@@ -357,14 +385,21 @@ Definition writeBlockIndexFromBlockEntryAddr  	(paddr : paddr) (newindex : index
   perform s := get in
   let entry :=  lookup paddr s.(memory) beqAddr in
   match entry with
-  | Some (BE a) => let newEntry := {|	read := a.(read);
+  | Some (BE a) => (*let newEntry := {|	read := a.(read);
 																			 	write := a.(write);
 																			 	exec := a.(exec);
 																			 	present := a.(present);
 																			 	accessible := a.(accessible);
 																			 	blockindex := newindex;
 																			 	blockrange := a.(blockrange)
-																			|} in
+																			|} in*)
+										let newEntry := CBlockEntry a.(read)
+																								a.(write)
+																								a.(exec)
+																		 						a.(present)
+																								a.(accessible)
+																		 						newindex
+																								a.(blockrange) in
 											modify (fun s => {| currentPartition := s.(currentPartition);
 																								memory := add paddr (BE newEntry) s.(memory) beqAddr|} )
 		| Some _ => undefined 60
@@ -384,14 +419,21 @@ Definition writeBlockRFromBlockEntryAddr (paddr : paddr) (newread : bool) : LLI 
   perform s := get in
   let entry :=  lookup paddr s.(memory) beqAddr in
   match entry with
-  | Some (BE a) => let newEntry := {|	read := newread;
+  | Some (BE a) => (*let newEntry := {|	read := newread;
 																			 	write := a.(write);
 																			 	exec := a.(exec);
 																			 	present := a.(present);
 																			 	accessible := a.(accessible);
 																			 	blockindex := a.(blockindex);
 																			 	blockrange := a.(blockrange)
-																			|} in
+																			|} in*)
+										let newEntry := CBlockEntry newread
+																								a.(write)
+																								a.(exec)
+																	 							a.(present)
+																								a.(accessible)
+																	 							a.(blockindex)
+																								a.(blockrange) in
 											modify (fun s => {| currentPartition := s.(currentPartition);
 																								memory := add paddr (BE newEntry) s.(memory) beqAddr|} )
 		| Some _ => undefined 60
@@ -411,14 +453,21 @@ Definition writeBlockWFromBlockEntryAddr (paddr : paddr) (newwrite : bool) : LLI
   perform s := get in
   let entry :=  lookup paddr s.(memory) beqAddr in
   match entry with
-  | Some (BE a) => let newEntry := {|	read := a.(read);
+  | Some (BE a) => (*let newEntry := {|	read := a.(read);
 																			 	write := newwrite;
 																			 	exec := a.(exec);
 																			 	present := a.(present);
 																			 	accessible := a.(accessible);
 																			 	blockindex := a.(blockindex);
 																			 	blockrange := a.(blockrange)
-																			|} in
+																			|} in*)
+										let newEntry := CBlockEntry a.(read)
+																								newwrite
+																								a.(exec)
+																	 							a.(present)
+																								a.(accessible)
+																	 							a.(blockindex)
+																								a.(blockrange) in
 											modify (fun s => {| currentPartition := s.(currentPartition);
 																								memory := add paddr (BE newEntry) s.(memory) beqAddr|} )
 		| Some _ => undefined 60
@@ -438,14 +487,21 @@ Definition writeBlockXFromBlockEntryAddr (paddr : paddr) (newexec : bool) : LLI 
   perform s := get in
   let entry :=  lookup paddr s.(memory) beqAddr in
   match entry with
-  | Some (BE a) => let newEntry := {|	read := a.(read);
+  | Some (BE a) => (*let newEntry := {|	read := a.(read);
 																			 	write := a.(write);
 																			 	exec := newexec;
 																			 	present := a.(present);
 																			 	accessible := a.(accessible);
 																			 	blockindex := a.(blockindex);
 																			 	blockrange := a.(blockrange)
-																			|} in
+																			|} in*)
+										let newEntry := CBlockEntry a.(read)
+																								a.(write)
+																								newexec
+																	 							a.(present)
+																								a.(accessible)
+																	 							a.(blockindex)
+																								a.(blockrange) in
 											modify (fun s => {| currentPartition := s.(currentPartition);
 																								memory := add paddr (BE newEntry) s.(memory) beqAddr|} )
 		| Some _ => undefined 60
@@ -481,13 +537,11 @@ Definition writeBlockEntryWithIndexFromBlockEntryAddr 	(blockentryaddr : paddr)
 
 Definition getSh1EntryAddrFromBlockEntryAddr (blockentryaddr : paddr) : LLI paddr :=
 	perform BlockEntryIndex := readBlockIndexFromBlockEntryAddr blockentryaddr in
-	let blockentryidx := CIndex BlockEntryIndex in
-	perform kernelStartAddr := getKernelStructureStartAddr blockentryaddr blockentryidx in
-	perform SHEAddr := getSh1EntryAddrFromKernelStructureStart kernelStartAddr blockentryidx in
+	perform kernelStartAddr := getKernelStructureStartAddr blockentryaddr BlockEntryIndex in
+	perform SHEAddr := getSh1EntryAddrFromKernelStructureStart kernelStartAddr BlockEntryIndex in
 	ret SHEAddr.
 
-Definition readSh1PDChildFromBlockEntryAddr (paddr : paddr) : LLI ADT.paddr :=
-	perform Sh1EAddr := getSh1EntryAddrFromBlockEntryAddr paddr in
+Definition readSh1PDChildFromBlockEntryAddr2 (Sh1EAddr : paddr) : LLI paddr :=
 	perform s := get in
   let entry :=  lookup Sh1EAddr s.(memory) beqAddr in
   match entry with
@@ -496,8 +550,12 @@ Definition readSh1PDChildFromBlockEntryAddr (paddr : paddr) : LLI ADT.paddr :=
   | None => undefined 11
   end.
 
-Definition writeSh1PDChildFromBlockEntryAddr (paddr : paddr) (pdchild : ADT.paddr) : LLI unit :=
-	perform Sh1EAddr := getSh1EntryAddrFromBlockEntryAddr paddr in
+Definition readSh1PDChildFromBlockEntryAddr (blockentryaddr : paddr) : LLI paddr :=
+	perform Sh1EAddr := getSh1EntryAddrFromBlockEntryAddr blockentryaddr in
+	perform pdchild := readSh1PDChildFromBlockEntryAddr2 Sh1EAddr in
+	ret pdchild.
+
+Definition writeSh1PDChildFromBlockEntryAddr2 (Sh1EAddr pdchild : paddr) : LLI unit :=
   perform s := get in
   let entry :=  lookup Sh1EAddr s.(memory) beqAddr in
   match entry with
@@ -506,13 +564,16 @@ Definition writeSh1PDChildFromBlockEntryAddr (paddr : paddr) (pdchild : ADT.padd
 																			 	inChildLocation := a.(inChildLocation)
 																			|} in
 											modify (fun s => {| currentPartition := s.(currentPartition);
-																								memory := add paddr (SHE newEntry) s.(memory) beqAddr|} )
+																								memory := add Sh1EAddr (SHE newEntry) s.(memory) beqAddr|} )
   | Some _ => undefined 12
   | None => undefined 11
   end.
 
-Definition readSh1PDFlagFromBlockEntryAddr (paddr : paddr) : LLI bool :=
-	perform Sh1EAddr := getSh1EntryAddrFromBlockEntryAddr paddr in
+Definition writeSh1PDChildFromBlockEntryAddr (blockentryaddr pdchild : paddr) : LLI unit :=
+	perform Sh1EAddr := getSh1EntryAddrFromBlockEntryAddr blockentryaddr in
+  writeSh1PDChildFromBlockEntryAddr2 Sh1EAddr pdchild.
+
+Definition readSh1PDFlagFromBlockEntryAddr2 (Sh1EAddr : paddr) : LLI bool :=
 	perform s := get in
   let entry :=  lookup Sh1EAddr s.(memory) beqAddr in
   match entry with
@@ -520,6 +581,11 @@ Definition readSh1PDFlagFromBlockEntryAddr (paddr : paddr) : LLI bool :=
   | Some _ => undefined 12
   | None => undefined 11
   end.
+
+Definition readSh1PDFlagFromBlockEntryAddr (paddr : paddr) : LLI bool :=
+	perform Sh1EAddr := getSh1EntryAddrFromBlockEntryAddr paddr in
+	perform pdflag := readSh1PDFlagFromBlockEntryAddr2 Sh1EAddr in
+	ret pdflag.
 
 Definition writeSh1PDFlagFromBlockEntryAddr (paddr : paddr) (pdflag : bool) : LLI unit :=
 	perform Sh1EAddr := getSh1EntryAddrFromBlockEntryAddr paddr in
@@ -536,8 +602,7 @@ Definition writeSh1PDFlagFromBlockEntryAddr (paddr : paddr) (pdflag : bool) : LL
   | None => undefined 11
   end.
 
-Definition readSh1InChildLocationFromBlockEntryAddr (paddr : paddr) : LLI ADT.paddr :=
-	perform Sh1EAddr := getSh1EntryAddrFromBlockEntryAddr paddr in
+Definition readSh1InChildLocationFromBlockEntryAddr2 (Sh1EAddr : paddr) : LLI ADT.paddr :=
 	perform s := get in
   let entry :=  lookup Sh1EAddr s.(memory) beqAddr in
   match entry with
@@ -546,10 +611,14 @@ Definition readSh1InChildLocationFromBlockEntryAddr (paddr : paddr) : LLI ADT.pa
   | None => undefined 11
   end.
 
-Definition writeSh1InChildLocationFromBlockEntryAddr (paddr : paddr)
-																									(newinchildlocation : ADT.paddr)
-																										 : LLI unit :=
+Definition readSh1InChildLocationFromBlockEntryAddr (paddr : paddr) : LLI ADT.paddr :=
 	perform Sh1EAddr := getSh1EntryAddrFromBlockEntryAddr paddr in
+	perform inchildlocation := readSh1InChildLocationFromBlockEntryAddr2 Sh1EAddr in
+	ret inchildlocation.
+
+Definition writeSh1InChildLocationFromBlockEntryAddr2 	(Sh1EAddr : paddr)
+																											(newinchildlocation : paddr)
+																										 : LLI unit :=
   perform s := get in
   let entry :=  lookup Sh1EAddr s.(memory) beqAddr in
   match entry with
@@ -558,10 +627,16 @@ Definition writeSh1InChildLocationFromBlockEntryAddr (paddr : paddr)
 																			 	inChildLocation := newinchildlocation
 																			|} in
 											modify (fun s => {| currentPartition := s.(currentPartition);
-																								memory := add paddr (SHE newEntry) s.(memory) beqAddr|} )
+																								memory := add Sh1EAddr (SHE newEntry) s.(memory) beqAddr|} )
   | Some _ => undefined 12
   | None => undefined 11
   end.
+
+Definition writeSh1InChildLocationFromBlockEntryAddr (blockentryaddr : paddr)
+																										(newinchildlocation : ADT.paddr)
+																										 : LLI unit :=
+	perform Sh1EAddr := getSh1EntryAddrFromBlockEntryAddr blockentryaddr in
+	writeSh1InChildLocationFromBlockEntryAddr2 Sh1EAddr newinchildlocation.
 
 Definition writeSh1EntryFromBlockEntryAddr (blockentryaddr : paddr)
 																				(sh1entry : Sh1Entry) : LLI unit :=
@@ -572,13 +647,11 @@ Definition writeSh1EntryFromBlockEntryAddr (blockentryaddr : paddr)
 
 Definition getSCEntryAddrFromBlockEntryAddr (blockentryaddr : paddr) : LLI paddr :=
 	perform BlockEntryIndex := readBlockIndexFromBlockEntryAddr blockentryaddr in
-	let blockentryidx := CIndex BlockEntryIndex in
-	perform kernelStartAddr := getKernelStructureStartAddr blockentryaddr blockentryidx in
-	perform SCEAddr := getSCEntryAddrFromKernelStructureStart kernelStartAddr blockentryidx in
+	perform kernelStartAddr := getKernelStructureStartAddr blockentryaddr BlockEntryIndex in
+	perform SCEAddr := getSCEntryAddrFromKernelStructureStart kernelStartAddr BlockEntryIndex in
 	ret SCEAddr.
 
-Definition readSCOriginFromBlockEntryAddr  (paddr : paddr) : LLI ADT.paddr :=
-	perform SCEAddr := getSCEntryAddrFromBlockEntryAddr paddr in
+Definition readSCOriginFromBlockEntryAddr2  (SCEAddr : paddr) : LLI paddr :=
   perform s := get in
   let entry :=  lookup SCEAddr s.(memory) beqAddr in
   match entry with
@@ -587,8 +660,12 @@ Definition readSCOriginFromBlockEntryAddr  (paddr : paddr) : LLI ADT.paddr :=
   | None => undefined 11
   end.
 
-Definition writeSCOriginFromBlockEntryAddr (paddr : paddr) (neworigin : ADT.paddr) : LLI unit :=
-	perform SCEAddr := getSCEntryAddrFromBlockEntryAddr paddr in
+Definition readSCOriginFromBlockEntryAddr  (blockentryaddr : paddr) : LLI paddr :=
+	perform SCEAddr := getSCEntryAddrFromBlockEntryAddr blockentryaddr in
+  perform origin := readSCOriginFromBlockEntryAddr2 SCEAddr in
+	ret origin.
+
+Definition writeSCOriginFromBlockEntryAddr2 (neworigin SCEAddr : paddr) : LLI unit :=
   perform s := get in
   let entry :=  lookup SCEAddr s.(memory) beqAddr in
   match entry with
@@ -596,13 +673,16 @@ Definition writeSCOriginFromBlockEntryAddr (paddr : paddr) (neworigin : ADT.padd
 																			 	next := a.(next)
 																			|} in
 											modify (fun s => {| currentPartition := s.(currentPartition);
-																								memory := add paddr (SCE newEntry) s.(memory) beqAddr|} )
+																								memory := add SCEAddr (SCE newEntry) s.(memory) beqAddr|} )
   | Some _ => undefined 12
   | None => undefined 11
   end.
 
-Definition readSCNextFromBlockEntryAddr  (paddr : paddr) : LLI ADT.paddr :=
-	perform SCEAddr := getSCEntryAddrFromBlockEntryAddr paddr in
+Definition writeSCOriginFromBlockEntryAddr (blockentryaddr neworigin : paddr) : LLI unit :=
+	perform SCEAddr := getSCEntryAddrFromBlockEntryAddr blockentryaddr in
+	writeSCOriginFromBlockEntryAddr2 neworigin SCEAddr.
+
+Definition readSCNextFromBlockEntryAddr2  (SCEAddr : paddr) : LLI paddr :=
   perform s := get in
   let entry :=  lookup SCEAddr s.(memory) beqAddr in
   match entry with
@@ -610,6 +690,11 @@ Definition readSCNextFromBlockEntryAddr  (paddr : paddr) : LLI ADT.paddr :=
   | Some _ => undefined 12
   | None => undefined 11
   end.
+
+Definition readSCNextFromBlockEntryAddr  (blockentryaddr : paddr) : LLI paddr :=
+	perform SCEAddr := getSCEntryAddrFromBlockEntryAddr blockentryaddr in
+  perform next := readSCNextFromBlockEntryAddr2 SCEAddr in
+	ret next.
 
 Definition writeSCNextFromBlockEntryAddr (paddr : paddr) (newnext : ADT.paddr) : LLI unit :=
 	perform SCEAddr := getSCEntryAddrFromBlockEntryAddr paddr in
@@ -632,7 +717,7 @@ Definition writeSCEntryFromBlockEntryAddr 	(blockentryaddr : paddr)
 	ret tt.
 
 Definition writePDTable (pdtablepaddr : paddr) (newEntry : PDTable)  : LLI unit:=
-  modify (fun s => {| 
+  modify (fun s => {|
 			currentPartition := s.(currentPartition);
 			memory := add pdtablepaddr (PDT newEntry) s.(memory) beqAddr|} ).
 
@@ -644,22 +729,26 @@ Definition getEmptyPDTable : LLI PDTable :=
 										nbfreeslots := zero;
 										nbprepare := zero;
 										parent := nullAddr;
-										MPU := nil |} in 
+										MPU := nil |} in
 	ret emptyPDTable.
 
 Definition getNextAddrFromKernelStructureStart (kernelStartAddr : paddr) : LLI paddr :=
 	let nextAddr := CPaddr (kernelStartAddr + nextoffset) in
 	ret nextAddr.
 
-Definition readNextFromKernelStructureStart  (structurepaddr : paddr) : LLI paddr :=
-	perform nextaddr :=  getNextAddrFromKernelStructureStart structurepaddr in (** Our last index is table size - 1, as we're indexed on zero*)
-  perform s := get in
+Definition readNextFromKernelStructureStart2  (nextaddr : paddr) : LLI paddr :=
+	perform s := get in
   let entry :=  lookup nextaddr s.(memory) beqAddr in
   match entry with
   | Some (PADDR a) => ret a
   | Some _ => undefined 12
   | None => undefined 11
   end.
+
+Definition readNextFromKernelStructureStart  (structurepaddr : paddr) : LLI paddr :=
+	perform nextaddr :=  getNextAddrFromKernelStructureStart structurepaddr in (** Our last index is table size - 1, as we're indexed on zero*)
+  perform nextkernelstructure := readNextFromKernelStructureStart2 nextaddr in
+	ret nextkernelstructure.
 
 Definition writeNextFromKernelStructureStart (structurepaddr : paddr) (newnext : ADT.paddr) : LLI unit :=
 	perform nextaddr := getNextAddrFromKernelStructureStart structurepaddr in
@@ -675,7 +764,7 @@ Definition writeNextFromKernelStructureStart (structurepaddr : paddr) (newnext :
 Definition getDefaultBlockEntry : LLI BlockEntry :=
 	let emptyblock := CBlock nullAddr nullAddr in
 	perform entriesnb := getKernelStructureEntriesNb in
-	let emptyentry := {|	read := false;
+	(*let emptyentry := {|	read := false;
 										 	write := false;
 										 	exec := false;
 										 	present := false;
@@ -683,34 +772,49 @@ Definition getDefaultBlockEntry : LLI BlockEntry :=
 											(* default index is outside possible values*)
 											blockindex := entriesnb;
 										 	blockrange := emptyblock
-									|} in
+									|} in*)
+	let emptyentry := CBlockEntry false
+															false
+															false
+								 							false
+															false
+															(* default index is outside possible values*)
+								 							entriesnb
+															emptyblock in
 	ret emptyentry.
 
 Definition getDefaultSh1Entry : LLI Sh1Entry :=
 	let emptyentry := {| PDchild := nullAddr;
 											 PDflag := false;
 											 inChildLocation := nullAddr
-										|} in 
+										|} in
 	ret emptyentry.
 
 Definition getDefaultSCEntry : LLI SCEntry :=
 	let emptyentry := {| origin := nullAddr;
-											next := nullAddr 
-										|} in 
+											next := nullAddr
+										|} in
 	ret emptyentry.
 
-Definition buildBlockEntry (startaddr endaddr : paddr) 
+Definition buildBlockEntry (startaddr endaddr : paddr)
 													(accessiblebit presentbit : bool): LLI BlockEntry :=
 	perform defaultentry := getDefaultBlockEntry in
 	let newblock := CBlock startaddr endaddr in
-	let entry := {|	read := defaultentry.(read);
+	(*let entry := {|	read := defaultentry.(read);
 								 	write := defaultentry.(write);
 								 	exec := defaultentry.(exec);
 								 	present := presentbit;
 								 	accessible := accessiblebit;
 								 	blockindex := defaultentry.(blockindex);
 								 	blockrange := newblock
-								|} in
+								|} in*)
+	let entry := CBlockEntry 	defaultentry.(read)
+														defaultentry.(write)
+														defaultentry.(exec)
+						 								presentbit
+														accessiblebit
+						 								defaultentry.(blockindex)
+														newblock in
 	ret entry.
 
 Definition getPDStructurePointerAddrFromPD (pdAddr : paddr) : LLI paddr :=
@@ -808,8 +912,7 @@ Definition checkEntry (kernelstructurestart blockentryaddr : paddr) : LLI bool :
   let entry :=  lookup blockentryaddr s.(memory) beqAddr in
   match entry with
   | Some (BE a) => ret true
-		| Some _ => ret false
-		| None => ret false
+	| _ => ret false
   end.
 
 (** The [checkBlockInRAM] function checks whether the provided block lies in RAM *)
@@ -822,8 +925,7 @@ Definition checkBlockInRAM (blockentryaddr : paddr) : LLI bool :=
 										perform endInRAM := Paddr.leb a.(blockrange).(endAddr)
 																									RAMEndAddr in
 										ret (startInRAM && endInRAM)
-	| Some _ => ret false
-	| None => ret false
+	| _ => ret false
   end.
 
 (** The [check32Aligned] function checks if the cutAddr is 32-bytes aligned *)

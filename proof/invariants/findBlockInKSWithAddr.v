@@ -33,65 +33,132 @@
 
 (**  * Summary 
     In this file we formalize and prove all invariants of the MAL and MALInternal functions *)
-Require Import Model.ADT (*Pip.Model.Hardware Pip.Model.IAL*) Model.Monad Model.Lib
-               Model.MAL.
-Require Import Core.Internal Core.Services.
-Require Import Proof.Consistency (*Pip.Proof.DependentTypeLemmas*) Proof.Hoare
+Require Import Model.Monad Model.Lib Model.MAL.
+Require Import Core.Internal.
+Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
                Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants.
-Require Import Coq.Logic.ProofIrrelevance Lia Setoid Compare_dec (*EqNat*) List Bool.
-
-Module WP := WeakestPreconditions.
+Require Import Compare_dec Bool.
 
 Lemma findBlockInKSWithAddrAux n (kernelstructurestart blockEntryAddr : paddr) (P : state -> Prop) :
 {{  fun s : state => P s /\ consistency s
-										/\ exists pdaddr, pdentryPDStructurePointer pdaddr kernelstructurestart s}}
+										/\ isKS kernelstructurestart s}}
 Internal.findBlockInKSWithAddrAux n kernelstructurestart blockEntryAddr
-{{ fun (BF : paddr) (s : state) => P s /\ consistency s /\ isBE BF s }}.
+{{fun (blockaddr : paddr) (s : state) => P s /\ consistency s /\
+																				(blockaddr = nullAddr \/
+																	(exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)
+																			/\ blockaddr = blockEntryAddr)) }}.
 Proof.
-(*unfold findBlockInKSWithAddrAux.*)
-(*revert n kernelstructurestart blockEntryAddr.*)
-induction n.
+(* revert mandatory to generalize the induction hypothesis *)
+revert kernelstructurestart blockEntryAddr.
+	induction n.
 - (* n = 0 *)
 	intros;simpl.
-	eapply weaken.
-	eapply WP.ret. simpl. intuition.
-	unfold consistency in *. unfold nullAddrExists in*. intuition.
+	(* MALInternal.getNullAddr *)
+	eapply weaken. unfold MALInternal.getNullAddr.
+	eapply WP.ret. intros. simpl. intuition.
 - (* n = S n*)
-	unfold findBlockInKSWithAddrAux.
+	intros. simpl.
 	eapply bindRev.
-	{ (* leb *)
+	{ (** leb *)
 		eapply weaken. apply Paddr.leb.
 		intros. simpl. apply H.
 	}
-		intro isEntryAddrAboveStart.
-		eapply bindRev.
-	{ (* zero *)
+	intro isEntryAddrAboveStart.
+	eapply bindRev.
+	{ (** zero *)
 		eapply weaken. apply Index.zero.
 		intros. simpl. apply H.
 	}
-		intro zero.
-		eapply bindRev.
-	{ (* getSh1EntryAddrFromKernelStructureStart *)
+	intro zero.
+	eapply bindRev.
+	{ (** getSh1EntryAddrFromKernelStructureStart *)
 		eapply weaken. apply getSh1EntryAddrFromKernelStructureStart.
 		intros. simpl. split. apply H. unfold consistency in *. intuition.
-		unfold pdentryPDStructurePointer in *. destruct H4.
-		destruct H4.
-		unfold StructurePointerIsBE in *.
-		
-		unfold isBE.
-
+		unfold pdentryPDStructurePointer in *.
+		unfold isPDT in *.
+		cbn. subst. unfold CIndex. destruct (lt_dec 0 maxIdx) ; intuition.
+		simpl in *. contradict n0. apply maxIdxNotZero.
 	}
-		intro maxEntryAddrInStructure.
-
+	intro maxEntryAddrInStructure.
+	eapply bindRev.
+	{ (** leb *)
+		eapply weaken. apply Paddr.leb.
+		intros. simpl. apply H.
+	}
+	intro isEntryAddrBelowEnd.
+	case_eq (isEntryAddrAboveStart && isEntryAddrBelowEnd).
+		+ (* case_eq isEntryAddrAboveStart && isEntryAddrBelowEnd = true *)
+			intros.
+			eapply bindRev.
+			{ (** checkEntry *)
+				eapply weaken. apply checkEntry.
+				intros. simpl. apply H0.
+			}
+			intro entryExists.
+			case_eq entryExists.
+				* (* case_eq entryExists = true *)
+					intros. simpl.
+					eapply bindRev.
+					{ (** MAL.readBlockPresentFromBlockEntryAddr *)
+						eapply weaken. apply readBlockPresentFromBlockEntryAddr.
+						intros. simpl. split. apply H1. intuition.
+					}
+					intro isPresent.
+					case_eq isPresent.
+						-- (* case_eq isPresent = true *)
+							intros. simpl. eapply weaken. apply ret.
+							intros. simpl. intuition.
+							right. apply isBELookupEq in H10. destruct H10. exists x. intuition.
+						-- (* case_eq isPresent = false *)
+							intros. eapply weaken. apply ret.
+							intros. simpl. intuition.
+				* (* case_eq entryExists = false *)
+					intros. simpl. eapply weaken. apply ret.
+					intros. simpl. intuition.
+		+	(* case_eq isEntryAddrAboveStart && isEntryAddrBelowEnd = false *)
+			intros.
+			eapply bindRev.
+			{ (** readNextFromKernelStructureStart *)
+				eapply weaken. apply readNextFromKernelStructureStart.
+				intros. simpl. split. apply H0. intuition.
+				unfold consistency in *. intuition.
+			}
+			intro nextKernelStructure.
+			eapply bindRev.
+			{ (** Internal.compareAddrToNull *)
+				eapply weaken. apply compareAddrToNull.
+				intros. simpl. apply H0.
+			}
+			intro isnull.
+			case_eq isnull.
+				* (* case_eq isnull = true *)
+					intros.
+					{ (** ret *)
+						eapply weaken. apply ret.
+						intros. simpl. intuition.
+					}
+				* (* case_eq isnull = false *)
+					{ (** induction hypothesis *)
+						intros. eapply weaken. apply IHn.
+						intros. simpl. intuition.
+						unfold consistency in *. intuition.
+						unfold KSIsBE in *. apply H24.
+						unfold NextKSIsKS in *. 
+						destruct H4.
+						apply H21 with kernelstructurestart x ; intuition.
+						(* Prove nextKernelStructure <> nullAddr *)
+						apply beqAddrFalse in H3. intuition.
+					}
 Qed.
 
 
 
 Lemma findBlockInKSWithAddr (idPD blockEntryAddr: paddr) (P : state -> Prop) :
-{{ fun s => P s /\ isPDT idPD s}} Internal.findBlockInKSWithAddr idPD blockEntryAddr 
-{{fun (BF : paddr) (s : state) => P s /\ exists entry, lookup BF s.(memory) beqAddr = Some (BE entry)
-																			/\ BF = blockEntryAddr }}.
-(* What happend is not block found ? no entry found *)
+{{ fun s => P s /\ consistency s /\ isPDT idPD s}} Internal.findBlockInKSWithAddr idPD blockEntryAddr 
+{{fun (blockaddr : paddr) (s : state) => P s /\ consistency s /\
+																				(blockaddr = nullAddr \/
+																	(exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)
+																			/\ blockaddr = blockEntryAddr)) }}.
 Proof.
 unfold Internal.findBlockInKSWithAddr.
 eapply bindRev.
@@ -100,3 +167,18 @@ eapply bindRev.
 	intros. simpl. split. apply H. intuition.
 }
 	intro kernelstructurestart.
+	(** findBlockInKSWithAddrAux *)
+	eapply weaken. apply findBlockInKSWithAddrAux.
+	intros. simpl. intuition.
+	unfold consistency in *. unfold StructurePointerIsKS in *. intuition.
+	unfold isPDT in *.
+	destruct (lookup idPD (memory s) beqAddr) eqn:Hlookup ; try (exfalso; congruence).
+	destruct v eqn:Hv ; try (exfalso; congruence).
+	unfold pdentryPDStructurePointer in *.
+	rewrite Hlookup in H1.
+	subst.
+	apply H13 with idPD.
+	assumption.
+Qed.
+
+

@@ -61,7 +61,7 @@ true = StateLib.checkChild idPDchild s sh1entryaddr ->
 Definition nullAddrExists s :=
 (*forall n,
 getNullAddr s = Some n.*)
-isBE nullAddr s.
+isPADDR nullAddr s.
 
 Definition FirstFreeSlotPointerIsBE s :=
 forall entryaddr entry,
@@ -72,6 +72,32 @@ Definition StructurePointerIsBE s :=
 forall entryaddr entry,
 lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
 isBE entry.(structure) s.
+
+Definition StructurePointerIsKS s :=
+forall entryaddr entry,
+lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
+isKS entry.(structure) s.
+
+
+Definition NextKSOffsetIsPADDR s :=
+forall addr nextksaddr : paddr,
+isKS addr s ->
+nextksaddr = CPaddr (addr + nextoffset) /\
+isPADDR nextksaddr s.
+
+Definition NextKSIsKS s :=
+forall addr nextksaddr nextKS : paddr,
+isKS addr s ->
+nextksaddr = CPaddr (addr + nextoffset) /\
+nextKSAddr nextksaddr nextKS s ->
+nextKS <> nullAddr ->
+isKS nextKS s.
+
+Definition KSIsBE s :=
+forall addr : paddr,
+isKS addr s ->
+isBE addr s.
+
 
 Definition CurrentPartIsPDT s :=
 forall pdaddr,
@@ -111,6 +137,7 @@ sh1entry.(inChildLocation) <> nullAddr ->
 isBE sh1entry.(inChildLocation) s.
 
 
+
 (** ** Conjunction of all consistency properties *)
 Definition consistency s := 
 wellFormedFstShadowIfBlockEntry s /\
@@ -124,4 +151,8 @@ wellFormedShadowCutIfBlockEntry s /\
 KernelStructureStartFromBlockEntryAddrIsBE s /\
 PDchildIsBE s /\
 sh1InChildLocationIsBE s /\
-StructurePointerIsBE s.
+StructurePointerIsBE s /\
+StructurePointerIsKS s /\
+NextKSIsKS s /\
+NextKSOffsetIsPADDR s /\
+KSIsBE s.
