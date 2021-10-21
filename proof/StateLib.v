@@ -115,6 +115,12 @@ End Paddr.
 
 Definition is32Aligned (a : paddr) : bool := a/32=?0.
 
+Definition entryExists (blockentryaddr : paddr) memory : bool := 
+let entry :=  lookup blockentryaddr memory beqAddr  in 
+  match entry with
+  | Some (BE a) => true
+  | _ => false
+ end.
 Definition monadToValue {A : Type} (p : LLI A) s : option A :=
 match p s with
 	| val (n,s') => Some n
@@ -1020,6 +1026,26 @@ match lookup paddr s.(memory) beqAddr with
              |_ => False
 end. 
 
+(*DUP*)
+(** The [isSHE] proposition reutrns True if the entry at position [idx]
+    into the given page [table] is type of [PE] *)
+Definition isPADDR paddr s: Prop := 
+match lookup paddr s.(memory) beqAddr with 
+             |Some (PADDR _) => True
+             |_ => False
+end.
+
+(*DUP*)
+(** The [isSHE] proposition reutrns True if the entry at position [idx]
+    into the given page [table] is type of [PE] *)
+(* isKS is not distinguishable by the match but onmly constructed after some specific instructions
+		like readNextFromKernelStructureStart *)
+Definition isKS paddr s: Prop := 
+match lookup paddr s.(memory) beqAddr with 
+             |Some (BE _) => True
+             |_ => False
+end.
+
 (** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
     into the given physical page [table] is type of [VE] and the user flag stored into 
     this entry is equal to a given flag [flag] *)
@@ -1088,7 +1114,7 @@ end.
     this entry is equal to a given flag [flag] *)
 Definition pdentryPDStructurePointer entryaddr structurepointer s:= 
 match lookup entryaddr s.(memory) beqAddr with 
-| Some (PDT entry) => structurepointer =  entry.(structure) /\ isBE structurepointer s
+| Some (PDT entry) => structurepointer =  entry.(structure) (*/\ isBE structurepointer s*)
 | _ => False
 end.
 
@@ -1293,6 +1319,17 @@ match lookup paddr s.(memory) beqAddr with
 | Some (BE entry) => scentryaddr =  CPaddr (paddr + scoffset)
 | _ => False
 end.
+
+(* DUP *)
+(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
+    into the given physical page [table] is type of [VE] and the user flag stored into 
+    this entry is equal to a given flag [flag] *)
+Definition nextKSAddr paddr nextKSaddr s:= 
+match lookup paddr s.(memory) beqAddr with 
+| Some (PADDR entry) => nextKSaddr =  entry
+| _ => False
+end.
+
 
 
 (*

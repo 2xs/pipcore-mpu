@@ -68,7 +68,8 @@ Axiom nbPageNotZero: nbPage > 0.*)
 Axiom maxAddr: nat. (* Size of memory *)
 Axiom maxAddrNotZero: maxAddr > 0.
 Axiom maxIdx: nat. (* max prepare * kernel entries nb *)
-Axiom maxIdxNotZero: maxAddr > 0.
+Axiom maxIdxNotZero: maxIdx > 0.
+Axiom maxIdxEqualMaxAddr: maxIdx = maxAddr.
 
 Axiom MPURegionsNb: nat.
 Axiom MPURegionsNbNotZero: MPURegionsNb > 0.
@@ -115,8 +116,14 @@ Record BlockEntry : Type:=
  present : bool;
  accessible : bool;
  blockindex : index;
- blockrange : block
+ blockrange : block ;
+ Hidx : blockindex < kernelStructureEntriesNb
 }.
+Parameter blockentry_d : BlockEntry.
+
+Program Definition CBlockEntry (R W X P A: bool) (blockindex : index) (blockrange : block) := 
+if lt_dec blockindex kernelStructureEntriesNb then Build_BlockEntry R W X P A blockindex blockrange _ 
+else blockentry_d .
 
 Record Sh1Entry : Type:=
 {
