@@ -1368,6 +1368,75 @@ eapply bind .
    eapply get . intuition.
 Qed.
 
+(* DUP *)
+Lemma readNextFromKernelStructureStart2  (nextaddr : paddr) (P : paddr -> state -> Prop) : 
+{{fun s  =>  exists addrentry : paddr, lookup nextaddr s.(memory) beqAddr = Some (PADDR addrentry)
+             /\ P addrentry s }}
+MAL.readNextFromKernelStructureStart2 nextaddr
+{{P}}.
+Proof.
+unfold MAL.readNextFromKernelStructureStart2.
+eapply bind .
+  - intro s.
+    case_eq (lookup nextaddr (memory s) beqAddr).
+     + intros v Hpage.
+       instantiate (1:= fun s s0 => s=s0 /\ exists p1 ,
+                   lookup nextaddr s.(memory) beqAddr = 
+                   Some (PADDR p1) /\ P p1 s).
+
+			simpl.
+      case_eq v; intros; eapply weaken; try eapply undefined ;simpl;
+			intros s1 H0; try destruct H0 as (Hs & p1 & Hpage' & Hret);
+			try rewrite Hpage in Hpage';
+			subst; try inversion Hpage';
+			try eassumption.
+			unfold Monad.ret.
+       eassumption.
+     + intros Hpage; eapply weaken; try eapply undefined ;simpl.
+       intros s0 H0.  destruct H0 as (Hs & p1 & Hpage' & Hret) .
+       rewrite Hpage in Hpage'.
+       subst. inversion Hpage'.
+  - eapply weaken.
+   eapply get . intuition.
+Qed.
+
+Lemma checkEntry  (kernelstructurestart blockentryaddr : paddr) (P : bool -> state -> Prop) :
+{{fun s => P (entryExists blockentryaddr s.(memory)) s
+
+(*/\ exists bentry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE bentry)*) }}
+MAL.checkEntry kernelstructurestart blockentryaddr
+{{P}}.
+(*{{fun isValidentry s => P s /\ (isValidentry = true -> isBE blockentryaddr s)}}.*)
+Proof.
+(*eapply weaken. apply WeakestPreconditions.checkEntry.
+intros.  simpl. intuition. destruct H1. exists x. split. assumption.
+intuition. unfold isBE. rewrite H. trivial.*)
+
+
+unfold MAL.checkEntry.
+eapply bind. intro s.
+case_eq (lookup blockentryaddr (memory s) beqAddr).
+- intros. instantiate (1:= fun s s0 => s=s0 (*/\ exists p1 ,
+                   lookup blockentryaddr s.(memory) beqAddr = 
+                   Some (BE p1) *) /\ P (entryExists blockentryaddr s0.(memory)) s0).
+	destruct v eqn:Hv. eapply weaken. apply ret.
+	intros. simpl. intuition. unfold entryExists in *. subst. rewrite H in H2. assumption.
+	eapply weaken. apply ret.
+	intros. simpl. intuition. unfold entryExists in *. subst. rewrite H in H2. assumption.
+eapply weaken. apply ret.
+	intros. simpl. intuition. unfold entryExists in *. subst. rewrite H in H2. assumption.
+eapply weaken. apply ret.
+	intros. simpl. intuition. unfold entryExists in *. subst. rewrite H in H2. assumption.
+eapply weaken. apply ret.
+	intros. simpl. intuition. unfold entryExists in *. subst. rewrite H in H2. assumption.
+- intros.
+eapply weaken. apply ret.
+	intros. simpl. intuition. unfold entryExists in *. subst. rewrite H in H2. assumption.
+- eapply weaken. apply get.
+	intros. simpl. intuition.
+Qed.
+
+
 Lemma check32Aligned  (addrToCheck : paddr) (P : bool -> state -> Prop) :
 {{fun  s => P (StateLib.is32Aligned addrToCheck) s }}
 MAL.check32Aligned addrToCheck  {{P}}.
