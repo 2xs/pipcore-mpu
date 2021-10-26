@@ -7904,6 +7904,7 @@ assert(va = va0).
          apply H;lia. }
          subst;f_equal;apply proof_irrelevance.
 Qed.
+<<<<<<< HEAD
 
 Lemma getPDFlagGetPdsVAddr' sh1Childphy vaChild phyDescChild level s:
  nextEntryIsPP phyDescChild sh1idx sh1Childphy s -> 
