@@ -1,6 +1,3 @@
 [submodule "tools/digger"]
 	path = tools/digger
 	url = https://github.com/2xs/digger
-[submodule "tools/dec"]
-	path = tools/dec
-	url = https://github.com/2xs/dec

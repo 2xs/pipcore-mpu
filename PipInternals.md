@@ -1,5 +1,7 @@
 # PipInternals
 
+**WARNING**: This document is for PIP MMU and needs to be rewritten.
+
 Pip enables the user to create a collection of memory partitions, with a
 hierarchical organisation where a parent partition can manage the memory
 of its child partitions.
