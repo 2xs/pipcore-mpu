@@ -206,6 +206,7 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) (MPURegionNb : index)
 																						blockEndAddr
 																						blockOrigin
 																						blockR blockW blockX
+																						nbFreeSlots
 																						in
 
 		(** Modify initial block: the end address becomes (cutAddress - 1)*)
@@ -516,6 +517,7 @@ Definition addMemoryBlock (idPDchild idBlockToShare: paddr) (r w e : bool)
 																													blockstart blockend
 																													blockstart
 																													r w e
+																													currentFreeSlotsNb
 																													in
 
 		(** Parent: register the shared block in Sh1*)
@@ -539,37 +541,36 @@ Definition addMemoryBlock (idPDchild idBlockToShare: paddr) (r w e : bool)
 
 		Returns true:OK/false:NOK
 
-    <<idPDchild>>				the child partition to remove from
-												(id = local id)
 		<<idBlockToRemove>>	the block entry address where the block <idBlockToRemove> lies
 *)
-Definition removeMemoryBlock (idPDchild idBlockToRemove: paddr)		: LLI bool :=
+Definition removeMemoryBlock (idBlockToRemove: paddr) : LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 
+		(** Checks *)
 		(* Find the block to remove in the current partition (with block entry address) *)
 	  perform blockToRemoveInCurrPartAddr := findBlockInKSWithAddr 	currentPart
 																																	idBlockToRemove in
 		perform addrIsNull := compareAddrToNull	blockToRemoveInCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret false else
 
-		(** Checks (blockToRemoveInCurrPartAddr checked before from idBlockToRemove)*)
+		(* Check the block is shared with valid addresses (not NULL)*)
+		perform idPDchild := readSh1PDChildFromBlockEntryAddr
+															blockToRemoveInCurrPartAddr in
+		perform pdchildIsNull := compareAddrToNull idPDchild in
+		if pdchildIsNull then(* block not shared or PD, stop *) ret false else
 
-		(* Check the provided idPDchild corresponds to the child to whom the block
-				has been previously given (if given), thus no need to check idPDChild*)
-		perform globalIdPDChild := readBlockStartFromBlockEntryAddr idPDchild in
-		perform pdchildblock := readSh1PDChildFromBlockEntryAddr
-																blockToRemoveInCurrPartAddr in
-		perform hasChildBlock := getBeqAddr globalIdPDChild pdchildblock in
-		if negb hasChildBlock then (* no correspondance, stop *) ret false else
+		perform blockToRemoveInChildAddr := readSh1InChildLocationFromBlockEntryAddr
+																						blockToRemoveInCurrPartAddr in
+		perform blockInChildIsNull := compareAddrToNull blockToRemoveInChildAddr in
+		if blockInChildIsNull then(* block not shared or PD, stop *) ret false else
 
 		(** Child (and grand-children): remove block if possible *)
-		perform idBlockToRemove := readBlockStartFromBlockEntryAddr blockToRemoveInCurrPartAddr in
 		perform blockIsRemoved := removeBlockInChildAndDescendants
 																		currentPart
-																		globalIdPDChild
-																		idBlockToRemove
-																		blockToRemoveInCurrPartAddr in
+																		blockToRemoveInCurrPartAddr
+																		idPDchild
+																		blockToRemoveInChildAddr in
 		if negb blockIsRemoved then (* block not removed, stop*) ret false else
 
 		(** Parent: remove block reference to the child *)
