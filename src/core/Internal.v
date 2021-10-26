@@ -222,17 +222,21 @@ Fixpoint findBlockInKSWithAddrAux 	(timeout : nat)
 												(** Check the block entry exists and is present*)
 												perform entryExists := checkEntry 	currentkernelstructure
 																														blockEntryAddr in
-												perform isPresent := readBlockPresentFromBlockEntryAddr blockEntryAddr in
-												if entryExists && isPresent
-												then (** STOP CONDITION 2: the block has been found and is present (i.e. it's a real block)*)
-													ret blockEntryAddr
-												else (** STOP CONDITION 3: bad arguments OR block not present *)
+												if (negb entryExists)
+												then (** STOP CONDITION 3: bad arguments *)
 													ret nullAddr
+												else (* entry addr is valid *)
+													perform isPresent := readBlockPresentFromBlockEntryAddr blockEntryAddr in
+													if isPresent
+													then (** STOP CONDITION 2: the block has been found and is present (i.e. it's a real block)*)
+														ret blockEntryAddr
+													else (** STOP CONDITION 3: block not present *)
+														ret nullAddr
 										else (** RECURSIVE call: block not found in current structure,
 														check next kernel structure*)
 											perform nextKernelStructure := readNextFromKernelStructureStart
 																											currentkernelstructure in
-											perform isnull :=  getBeqAddr nextKernelStructure nullAddr in
+											perform isnull :=  compareAddrToNull nextKernelStructure in
 											if isnull
 											then
 												(** STOP CONDITION 1: reached last structure, not found *)
