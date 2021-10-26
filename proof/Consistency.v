@@ -32,21 +32,23 @@
 (*******************************************************************************)
 
 
-(** * Summary 
-    This file contains the formalization of the consistency properties : 
+(** * Summary
+    This file contains the formalization of the consistency properties :
 for each one we summarize the description of its definition *)
-Require Import Model.ADT Model.Monad Model.MAL Model.Lib Lib (*Isolation*) 
-StateLib.
+Require Import Model.ADT Model.Monad Model.MAL Model.Lib Lib (*Isolation*) StateLib.
 Require Import  Omega List Coq.Logic.ProofIrrelevance.
 Import List.ListNotations.
 
+
+(* TODO : add property : realMPU is a subset of Blocks *)
+
 Definition wellFormedFstShadowIfBlockEntry s :=
-forall pa, 
+forall pa,
 isBE pa s ->
 isSHE (CPaddr (pa + sh1offset)) s.
 
 Definition wellFormedShadowCutIfBlockEntry s :=
-forall pa, 
+forall pa,
 isBE pa s ->
 exists scentryaddr : paddr, isSCE scentryaddr s
 /\ scentryaddr = CPaddr (pa + scoffset).
@@ -136,10 +138,14 @@ lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
 sh1entry.(inChildLocation) <> nullAddr ->
 isBE sh1entry.(inChildLocation) s.
 
-
+Definition scNextIsBE s :=
+forall scentryaddr scentry,
+lookup scentryaddr (memory s) beqAddr = Some (SCE scentry) ->
+scentry.(next) <> nullAddr ->
+isBE scentry.(next) s.
 
 (** ** Conjunction of all consistency properties *)
-Definition consistency s := 
+Definition consistency s :=
 wellFormedFstShadowIfBlockEntry s /\
 PDTIfPDFlag s /\
 nullAddrExists s /\
@@ -155,4 +161,5 @@ StructurePointerIsBE s /\
 StructurePointerIsKS s /\
 NextKSIsKS s /\
 NextKSOffsetIsPADDR s /\
-KSIsBE s.
+KSIsBE s /\
+scNextIsBE s.
