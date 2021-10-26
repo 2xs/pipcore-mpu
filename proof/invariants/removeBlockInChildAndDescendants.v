@@ -41,10 +41,163 @@ Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
 Require Import Proof.invariants.findBlockInKSWithAddr Proof.invariants.checkBlockCut.
 Require Import Coq.Logic.ProofIrrelevance Lia Setoid Compare_dec (*EqNat*) List Bool.
 
-Module WP := WeakestPreconditions.
 
-(* Couper le code de preuve -> ici que faire une propagation des propriétés initiale
-+ propager nouvelles propriétés *) 
+Lemma checkRemoveSubblocksRecAux n (subblockAddr : paddr) (P : state -> Prop) :
+{{  fun s : state => P s /\ consistency s
+										/\ isBE subblockAddr s}}
+Internal.checkRemoveSubblocksRecAux n subblockAddr
+{{fun (isRemovePossible : bool) (s : state) => P s /\ consistency s }}.
+Proof.
+(* revert mandatory to generalize the induction hypothesis *)
+revert subblockAddr.
+	induction n.
+- (* n = 0 *)
+	intros;simpl.
+	(** ret *)
+	eapply weaken. apply ret.
+	intros. simpl. intuition.
+- (* n = S n*)
+	intros. simpl.
+	eapply bindRev.
+	{ (** MAL.readBlockAccessibleFromBlockEntryAddr*)
+		eapply weaken. apply readBlockAccessibleFromBlockEntryAddr.
+		intros. simpl. split. apply H. intuition.
+	}
+	intro isAccessible.
+	eapply bindRev.
+	{ (** MAL.readBlockPresentFromBlockEntryAddr*)
+		eapply weaken. apply readBlockPresentFromBlockEntryAddr.
+		intros. simpl. split. apply H. intuition.
+	}
+	intro isPresent.
+	eapply bindRev.
+	{ (** MAL.readSh1PDChildFromBlockEntryAddr*)
+		eapply weaken. apply readSh1PDChildFromBlockEntryAddr.
+		intros. simpl. split. apply H. intuition.
+		apply isBELookupEq. assumption.
+	}
+	intro PDChildAddr.
+	eapply bindRev.
+	{ (** Internal.compareAddrToNull*)
+		eapply weaken. apply compareAddrToNull.
+		intros. simpl. apply H.
+	}
+	intro PDChildAddrIsNull.
+	case_eq (isAccessible && isPresent && PDChildAddrIsNull).
+	* (* case_eq isAccessible && isPresent && PDChildAddrIsNull = true *)
+		intros. simpl.
+		eapply bindRev.
+		{ (** MAL.readSCNextFromBlockEntryAddr*)
+			eapply weaken. apply readSCNextFromBlockEntryAddr.
+			intros. simpl. split. apply H0. intuition.
+			apply isBELookupEq. assumption.
+		}
+		intro nextsubblock.
+		eapply bindRev.
+		{ (** Internal.compareAddrToNull*)
+			eapply weaken. apply compareAddrToNull.
+			intros. simpl. apply H0.
+		}
+		intro isNull.
+		case_eq isNull.
+		+ (* case_eq isNull = true *)
+			intros.
+			{ (** ret *)
+				eapply weaken. apply ret.
+				intros. simpl. intuition.
+			}
+		+ (* case_eq isNull = false *)
+			{ (** induction hypothesis *)
+				intros. eapply weaken. apply IHn.
+				intros. simpl. intuition. Search (nextsubblock).
+				unfold consistency in *. intuition.
+				destruct H4. destruct H4. intuition.
+				unfold scentryNext in *. rewrite H24 in *. subst.
+				unfold scNextIsBE in *. apply H25 with x0.
+				assumption.
+				(* Prove next x <> nullAddr *)
+				apply beqAddrFalse in H3. intuition.
+			}
+	* (*case_eq isAccessible && isPresent && PDChildAddrIsNull = false *)
+		intros. simpl.
+		{ (** ret *)
+			eapply weaken. apply ret.
+			intros. simpl. intuition.
+		}
+Qed.
+
+Lemma checkRemoveSubblocksRec (subblockAddr : paddr) P :
+{{ fun s => P s /\ consistency s
+						/\ isBE subblockAddr s }}
+checkRemoveSubblocksRec subblockAddr
+{{fun isRemovePossible s => P s /\ consistency s}}.
+Proof.
+unfold checkRemoveSubblocksRec.
+eapply weaken. apply checkRemoveSubblocksRecAux.
+intros. simpl. intuition.
+Qed.
+
+Lemma removeSubblocksRecAux n (idPDchild subblockAddr : paddr) (P : state -> Prop) :
+{{  fun s : state => P s /\ consistency s
+										/\ isBE subblockAddr s}}
+Internal.removeSubblocksRecAux n idPDchild subblockAddr
+{{fun (recRemoveSubblocksEnded : bool) (s : state) => P s /\ consistency s }}.
+Proof.
+(* revert mandatory to generalize the induction hypothesis *)
+revert idPDchild subblockAddr.
+induction n.
+- (* n = 0 *)
+	intros;simpl.
+	(** ret *)
+	eapply weaken. apply ret.
+	intros. simpl. intuition.
+- (* n = S n*)
+	intros. simpl.
+	eapply bindRev.
+	{ (** Internal.compareAddrToNull*)
+		eapply weaken. apply compareAddrToNull.
+		intros. simpl. apply H.
+	}
+	intro isNull.
+	case_eq isNull.
+	+ (* case_eq isNull = true *)
+		intros.
+		{ (** ret *)
+			eapply weaken. apply ret.
+			intros. simpl. intuition.
+		}
+	+ (* case_eq isNull = false *)
+		intros.
+		eapply bindRev.
+		{ (** MAL.readSCNextFromBlockEntryAddr *)
+			eapply weaken. apply readSCNextFromBlockEntryAddr.
+			intros. simpl. split. apply H0. intuition.
+			apply isBELookupEq. assumption.
+		}
+		intro nextsubblock.
+		eapply bindRev.
+		{ (** freeSlot *)
+			admit.
+		}
+		intros.
+		{ (** removeSubblocksRecAux *)
+		admit. (*eapply weaken. apply removeSubblocksRecAux.*)
+		}
+Admitted.
+
+Lemma removeSubblocksRec (idPDchild subblockAddr: paddr) P :
+{{ fun s => P s /\ consistency s
+						/\ isBE subblockAddr s (* to be removed *)}}
+Internal.removeSubblocksRec idPDchild subblockAddr
+{{fun recRemoveSubblocksEnded s => P s /\ consistency s}}.
+Proof.
+unfold removeSubblocksRec.
+eapply weaken. apply removeSubblocksRecAux.
+intros. simpl. intuition.
+Qed.
+
+
+
 Lemma removeBlockInChildAndDescendants (currentPart
 																				blockToRemoveInCurrPartAddr
 																				idPDchild
@@ -53,9 +206,10 @@ Lemma removeBlockInChildAndDescendants (currentPart
 						/\ isBE blockToRemoveInCurrPartAddr s
 						/\ beqAddr nullAddr blockToRemoveInChildAddr = false
 						/\ beqAddr nullAddr idPDchild = false
-						/\  (exists (sh1entryaddr : paddr),
+						(*/\  (exists (sh1entryaddr : paddr),
        isSHE sh1entryaddr s /\
-       sh1entryInChildLocation sh1entryaddr blockToRemoveInChildAddr s) }}
+       sh1entryInChildLocation sh1entryaddr blockToRemoveInChildAddr s)*)
+						/\ isBE blockToRemoveInChildAddr s }}
 Internal.removeBlockInChildAndDescendants currentPart blockToRemoveInCurrPartAddr
 																					idPDchild blockToRemoveInChildAddr
 {{fun isBlockRemoved s => P s /\ consistency s
@@ -76,14 +230,92 @@ eapply bindRev.
 { (** checkBlockCut *)
 	eapply weaken. apply checkBlockCut.
 	intros. simpl. split. apply H. intuition.
-	unfold sh1entryInChildLocation in *.
+	(*TODO : set in RemoveMemoryBlock *)
+	(*unfold sh1entryInChildLocation in *.
 	destruct H6. destruct H5.
 	destruct (lookup x (memory s) beqAddr) eqn:Hlookup.
 	destruct v eqn:Hv. exfalso ; congruence.
 	destruct H6.
 	apply H7. unfold not. intros. apply beqAddrFalse in H3. intuition.
 	exfalso ; congruence. exfalso ; congruence. exfalso ; congruence.
-	exfalso ; congruence.
+	exfalso ; congruence.*)
 }
-	intro isBlockCut.
-	
+intro isBlockCut.
+case_eq isBlockCut.
+- (* case_eq isBlockCut = true *)
+	intros. simpl.
+	eapply bindRev.
+	{ (** Internal.checkRemoveSubblocksRec *)
+		eapply weaken. apply checkRemoveSubblocksRec.
+		intros. simpl. split. apply H0. intuition.
+	}
+	intro isRemovePossible.
+	case_eq isRemovePossible.
+		+ (* case_eq isRemovePossible = true *)
+			intros. simpl.
+			eapply bindRev.
+			{ (** removeSubblocksRec *)
+				eapply weaken. apply removeSubblocksRec.
+				intros. simpl. split. apply H1. intuition.
+			}
+			intro recRemoveSubblocksEnded.
+			case_eq recRemoveSubblocksEnded.
+			* (* case_eq recRemoveSubblocksEnded = true *)
+				intros. simpl.
+				eapply bindRev.
+				{ (** MAL.writeBlockAccessibleFromBlockEntryAddr *)
+						eapply weaken. apply writeBlockAccessibleFromBlockEntryAddr.
+						intros. simpl. admit.
+				}
+				intros.
+				eapply bindRev. admit.
+			(*{ (** writeAccessibleRec *)
+				eapply weaken. apply writeAccessibleRec.
+				intros. simpl. split. apply H1. intuition.
+			}*)
+			intro recWriteEnded.
+			case_eq recWriteEnded.
+			-- (* case_eq recWriteEnded = true *)
+				intros. simpl.
+				{	(** ret *)
+					eapply weaken. apply ret.
+					intros. simpl. admit.
+				}
+			-- (* case_eq recWriteEnded = false *)
+				intros. simpl.
+				{ (** ret *)
+					eapply weaken. apply ret.
+					intros. simpl. admit.
+				}
+		* (* case_eq recRemoveSubblocksEnded = false *)
+			intros. simpl.
+			{ (** ret *)
+				eapply weaken. apply ret.
+				intros. simpl. intuition.
+			}
+	+ (* case_eq isRemovePossible = false *)
+		intros.  simpl.
+		{ (** ret *)
+			eapply weaken. apply ret.
+			intros. simpl. intuition.
+		}
+- (* case_eq isBlockCut = false *)
+	intros. simpl.
+	eapply bindRev.
+	{ (** MAL.readBlockAccessibleFromBlockEntryAddr *)
+		eapply weaken. apply readBlockAccessibleFromBlockEntryAddr.
+		intros. simpl. split. apply H0. intuition.
+	}
+	intro addrIsAccessible.
+	case_eq addrIsAccessible.
+	+ (* case_eq addrIsAccessible = true *)
+		intros. simpl. admit.
+	+ (* case_eq addrIsAccessible = false *)
+		intros. simpl.
+		eapply weaken. apply ret.
+		intros. simpl. intuition.
+Qed.
+
+
+
+
