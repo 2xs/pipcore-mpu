@@ -142,7 +142,7 @@ revert kernelstructurestart blockEntryAddr.
 						intros. eapply weaken. apply IHn.
 						intros. simpl. intuition.
 						unfold consistency in *. intuition.
-						unfold KSIsBE in *. apply H24.
+						unfold KSIsBE in *. eauto.
 						unfold NextKSIsKS in *. 
 						destruct H4.
 						apply H21 with kernelstructurestart x ; intuition.
