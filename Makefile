@@ -1,242 +1,513 @@
-CC = arm-none-eabi-gcc
-AS = arm-none-eabi-as
-#LD = arm-none-eabi-ld
-BI = arm-none-eabi-objcopy
+###############################################################################
+#  © Université de Lille, The Pip Development Team (2015-2021)                #
+#                                                                             #
+#  This software is a computer program whose purpose is to run a minimal,     #
+#  hypervisor relying on proven properties such as memory isolation.          #
+#                                                                             #
+#  This software is governed by the CeCILL license under French law and       #
+#  abiding by the rules of distribution of free software.  You can  use,      #
+#  modify and/ or redistribute the software under the terms of the CeCILL     #
+#  license as circulated by CEA, CNRS and INRIA at the following URL          #
+#  "http://www.cecill.info".                                                  #
+#                                                                             #
+#  As a counterpart to the access to the source code and  rights to copy,     #
+#  modify and redistribute granted by the license, users are provided only    #
+#  with a limited warranty  and the software's author,  the holder of the     #
+#  economic rights,  and the successive licensors  have only  limited         #
+#  liability.                                                                 #
+#                                                                             #
+#  In this respect, the user's attention is drawn to the risks associated     #
+#  with loading,  using,  modifying and/or developing or reproducing the      #
+#  software by the user in light of its specific status of free software,     #
+#  that may mean  that it is complicated to manipulate,  and  that  also      #
+#  therefore means  that it is reserved for developers  and  experienced      #
+#  professionals having in-depth computer knowledge. Users are therefore      #
+#  encouraged to load and test the software's suitability as regards their    #
+#  requirements in conditions enabling the security of their systems and/or   #
+#  data to be ensured and,  more generally, to use and operate it in the      #
+#  same conditions as regards security.                                       #
+#                                                                             #
+#  The fact that you are presently reading this means that you have had       #
+#  knowledge of the CeCILL license and that you accept its terms.             #
+###############################################################################
 
-# UART DEBUG (to disable for unit testing)
-UART_DEBUG ?= no
-# Semihosting DEBUG (to enable for unit testing)
-SEMI_DEBUG ?= yes
+ifeq ("$(wildcard toolchain.mk)","")
+    $(error Run the configuration script first: ./configure.sh)
+endif
 
-# UNIT TESTS
-UNIT_TESTS ?= no
+include toolchain.mk
 
-# DUMP OUTPUTS ALLOWED
-DUMP ?= no
+# Default tools
+CAT := cat
+SED := sed
 
-# LINKER VARIABLES
-TARGET = dwm1001
-BUILD_DIR=build
+CFLAGS=-Wall -Wextra
+CFLAGS+=-std=gnu99
+
+CFLAGS+=$(ARCH_CFLAGS)
+ASFLAGS=$(ARCH_ASFLAGS)
+LDFLAGS=$(ARCH_LDFLAGS)
+
+# Enable debug symbols and logs
+CFLAGS+=$(if $(DEBUG), $(DEBUG_CFLAGS))
+
+COQFLAGS := $(shell $(CAT) _CoqProject)
+COQCFLAGS := $(COQFLAGS) -w all,-nonprimitive-projection-syntax
+COQCEXTRFLAGS := $(shell $(SED) 's/-[RQ]  */&..\//g' _CoqProject) -w all,-extraction
+
+#####################################################################
+##                      Directory variables                        ##
+#####################################################################
+
 SRC_DIR=src
-TARGET_DIR=$(BUILD_DIR)/$(TARGET)
-KERNEL_BASENAME=pip
-#KERNEL_ELF=$(KERNEL_BASENAME).elf
-#KERNEL_BIN=$(KERNEL_BASENAME).bin
-LINKSCRIPT := $(SRC_DIR)/boot/$(TARGET)/ARM/link.ld
+GENERATED_FILES_DIR=generated
+DOC_DIR=doc
+C_DOC_DIR=$(DOC_DIR)/c
+COQ_DOC_DIR=$(DOC_DIR)/coq
 
-DIGGER_DIR=tools/digger
-DIGGER=$(DIGGER_DIR)/digger
+########################## Coq related dirs #########################
 
-COQDEP=coqdep -c
-COQC=coqc -q
-COQDOC=coqdoc -toc -interpolate -utf8 -html
+COQ_CORE_DIR=$(SRC_DIR)/core
+COQ_MODEL_DIR=$(SRC_DIR)/model
+COQ_EXTRACTION_DIR=$(SRC_DIR)/extraction
 
-## COMPILER FLAGS
-CFLAGS = -mthumb -mcpu=cortex-m4  #
-CFLAGS += -Isrc/boot/dwm1001/ARM/cmsis/include -Isrc/boot/dwm1001/ARM #-Isrc/boot/dwm1001/ARM/newlib #-lc #-I/usr/arm-none-eabi/include #-nostdinc --specs=nano.specs --specs=nosys.specs
-CFLAGS += -Isrc/boot/dwm1001/ARM/mdk -Isrc/boot/dwm1001/ARM/mdk/headers
-CFLAGS += -Isrc/boot/dwm1001/ARM/mdk/hal
-CFLAGS += -I$(SRC_DIR)/MAL
-CFLAGS += -I$(SRC_DIR)/MAL/$(TARGET)
-CFLAGS += -I$(TARGET_DIR)/pipcore
-# include debug symbols
-CFLAGS += -g # debug symbols for GDB -DDEBUG
-CFLAGS += -Og # optimize debugging experience more than -O0
-ifeq ($(UNIT_TESTS), yes)
-# check the unit tests
-CFLAGS += -DUNIT_TESTS
-endif
-ifeq ($(SEMI_DEBUG), yes)
-# debug through semihosting, default printf has bug, using trace_printf instead
-CFLAGS += -DTRACE -Dprintf=trace_printf -DOS_USE_TRACE_SEMIHOSTING_DEBUG -Isrc/boot/dwm1001/ARM/debug # debug on semihosting debug channel and trace API
-endif
-ifeq ($(UART_DEBUG), yes)
-# debug through UART
-CFLAGS += -Isrc/boot/dwm1001/ARM/debug
-CFLAGS += -DUART_DEBUG -Isrc/boot/dwm1001/ARM/uart -Isrc/boot/dwm1001/ARM/uart/util # debug through UART
-endif
-ifeq ($(DUMP), yes)
-# dump outputs allowed
-CFLAGS += -DDUMP
-endif
-#CFLAGS += -fmessage-length=0
-#CFLAGS += -ffunction-sections
-#CFLAGS += -fdata-sections
-#CFLAGS += --specs=nosys.specs
-CFLAGS += -DNRF52832_XXAA
+COQ_PROOF_DIR=proof
+COQ_INVARIANTS_DIR=$(COQ_PROOF_DIR)/invariants
 
-# LINKER FLAGS
-LDFLAGS += -nostartfiles  # do not include start files but keep default libs: -nostdlib = -nostartfiles + -nodefaultlibs
-LDFLAGS += -lc -lgcc -lm -std=gnu11
-LDFLAGS += -Wall # recommended compiler warnings
-LDFLAGS += -ffreestanding # remove printf to puts optimizations
-LDFLAGS += -mthumb -mcpu=cortex-m4
-#LDFLAGS = -lgcc -lc -lm -lrdimon -std=gnu11 -Og -fmessage-length=0 -fsigned-char -ffunction-sections -fdata-sections -ffreestanding -fno-move-loop-invariants -Wall -Wextra
-#LDFLAGS += --specs=nosys.specs --specs=rdimon.specs -lrdimon
+########################### C related dirs ##########################
 
-# Coq Sources
-COQCODEDIRS=$(SRC_DIR)/core $(SRC_DIR)/model
-COQPROOFDIRS=$(PROOF_DIR) $(PROOF_DIR)/invariants
-VCODESOURCES=$(foreach dir, ${COQCODEDIRS}, $(wildcard $(dir)/*.v))
-VPROOFSOURCES=$(foreach dir, ${COQPROOFDIRS}, $(wildcard $(dir)/*.v))
-VSOURCES=$(VCODESOURCES) $(VPROOFSOURCES)
-VOBJECTS=$(VSOURCES:.v=.vo)
+# Architecture agnostic C dirs
+C_MODEL_INTERFACE_INCLUDE_DIR=$(SRC_DIR)/interface
 
-# JSON files extracted from Coq
-JSONS=Internal.json Services.json
-EXTRACTEDCSOURCES=$(addprefix $(TARGET_DIR)/pipcore/, $(JSONS:.json=.c))
+# Architecture dependent C dirs
+ARCH_DEPENDENT_DIR=$(SRC_DIR)/arch
+C_SRC_TARGET_DIR=$(ARCH_DEPENDENT_DIR)/$(TARGET)
 
-# .c & .S FILES
-C_FILES = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/*.c)
-C_FILES_MAL = $(wildcard $(SRC_DIR)/MAL/$(TARGET)/*.c)
-C_FILES_UART = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/uart/*.c)
-C_FILES_UART_UTIL = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/uart/util/*.c)
-C_FILES_MDK = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/mdk/*.c)
-C_FILES_DEBUG = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/debug/*.c)
-C_FILES_NEWLIB = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/newlib/*.c)
-C_FILES_PIPCORE = $(wildcard $(TARGET_DIR)/pipcore/*.c)
-S_FILES = $(wildcard $(SRC_DIR)/boot/$(TARGET)/ARM/*.S)
+C_TARGET_MAL_DIR=$(C_SRC_TARGET_DIR)/MAL
+C_TARGET_MAL_INCLUDE_DIR=$(C_TARGET_MAL_DIR)/include
 
-# OBJECT FILES
-# String substitution for every C/C++ file.
-OBJS = $(patsubst %.c, $(TARGET_DIR)/%.o, $(notdir $(C_FILES))) # .c -> .o but do not include the name of the directory
-OBJS_MAL = $(patsubst %.c, $(TARGET_DIR)/MAL/%.o, $(notdir $(C_FILES_MAL)))
-OBJS += $(OBJS_MAL)
-OBJS_PIPCORE = $(patsubst %.c, $(TARGET_DIR)/pipcore/%.o, $(notdir $(C_FILES_PIPCORE)))
-OBJS += $(OBJS_PIPCORE)
-OBJS_MDK = $(patsubst %.c, $(TARGET_DIR)/mdk/%.o, $(notdir $(C_FILES_MDK)))
-OBJS += $(OBJS_MDK)
-OBJS_NEWLIB = $(patsubst %.c, $(TARGET_DIR)/newlib/%.o, $(notdir $(C_FILES_NEWLIB)))
-OBJS += $(OBJS_NEWLIB)
-OBJS += $(patsubst %.S, $(TARGET_DIR)/%.o, $(notdir $(S_FILES)))
+C_TARGET_BOOT_DIR=$(C_SRC_TARGET_DIR)/boot
+C_TARGET_BOOT_INCLUDE_DIR=$(C_TARGET_BOOT_DIR)/include
 
-ifeq ($(UART_DEBUG), yes)
-OBJS_DEBUG = $(patsubst %.c, $(TARGET_DIR)/debug/%.o, $(notdir $(C_FILES_DEBUG)))
-OBJS += $(OBJS_DEBUG)
-OBJS_UART = $(patsubst %.c, $(TARGET_DIR)/uart/%.o, $(notdir $(C_FILES_UART)))
-OBJS += $(OBJS_UART)
-OBJS_UART_UTIL = $(patsubst %.c, $(TARGET_DIR)/uart/util/%.o, $(notdir $(C_FILES_UART_UTIL)))
-OBJS += $(OBJS_UART_UTIL)
-endif
+C_TARGET_THIRDPARTY_DIR=$(C_TARGET_BOOT_DIR)/thirdparty
 
-ifeq ($(SEMI_DEBUG), yes)
-OBJS_DEBUG = $(patsubst %.c, $(TARGET_DIR)/debug/%.o, $(notdir $(C_FILES_DEBUG)))
-OBJS += $(OBJS_DEBUG)
-endif
+C_TARGET_CMSIS_DIR=$(C_TARGET_THIRDPARTY_DIR)/cmsis
+C_TARGET_CMSIS_INCLUDE_DIR=$(C_TARGET_CMSIS_DIR)/include
 
+C_TARGET_DEBUG_DIR=$(C_TARGET_THIRDPARTY_DIR)/debug
+C_TARGET_DEBUG_INCLUDE_DIR=$(C_TARGET_DEBUG_DIR)/include
 
-# RULES
-ifeq ($(UNIT_TESTS), yes)
-ifeq ($(UART_DEBUG), yes)
-$(info [Error] unit tests only run in semihosting not UART, try with: make all UNIT_TESTS=yes SEMI_DEBUG=yes UART_DEBUG=no )
-all:
-else
-all: app.bin
-endif
-else
-all: app.bin
-endif
+C_TARGET_MDK_DIR=$(C_TARGET_THIRDPARTY_DIR)/mdk
+C_TARGET_MDK_INCLUDE_DIR=$(C_TARGET_MDK_DIR)/include
 
+C_TARGET_NEWLIB_DIR=$(C_TARGET_THIRDPARTY_DIR)/newlib
+C_TARGET_NEWLIB_INCLUDE_DIR=$(C_TARGET_NEWLIB_DIR)/include
 
-$(DIGGER):
-	make -C $(DIGGER_DIR)
+C_TARGET_UART_DIR=$(C_TARGET_THIRDPARTY_DIR)/uart
+C_TARGET_UART_INCLUDE_DIR=$(C_TARGET_UART_DIR)/include
 
-# Coq options
-COQOPTS=$(shell cat _CoqProject)
+C_GENERATED_SRC_DIR=$(GENERATED_FILES_DIR)
+C_GENERATED_HEADERS_DIR=$(GENERATED_FILES_DIR)
 
-# Implicit rules for Coq source files
-$(addsuffix .d,$(filter-out src/model/Extraction.v,$(VSOURCES))): %.v.d: %.v
-	$(COQDEP) $(COQOPTS) "$<" > "$@"
+#####################################################################
+##                        Files variables                          ##
+#####################################################################
 
-src/model/Extraction.v.d: src/model/Extraction.v
-	$(COQDEP) $(COQOPTS) "$<" | $(SED) 's/Extraction.vo/Extraction.vo Internal.json Services.json/' > "$@"
+############################ C files ################################
 
-%.vo: %.v
-	$(COQC) $(COQOPTS) $<
+C_GENERATED_SRC=$(C_GENERATED_SRC_DIR)/Services.c $(C_GENERATED_SRC_DIR)/Internal.c
+C_TARGET_BOOT_SRC=$(wildcard $(C_TARGET_BOOT_DIR)/*.c)
+C_TARGET_CMSIS_SRC=$(wildcard $(C_TARGET_CMSIS_DIR)/*.c)
+C_TARGET_DEBUG_SRC=$(wildcard $(C_TARGET_DEBUG_DIR)/*.c)
+C_TARGET_MDK_SRC=$(wildcard $(C_TARGET_MDK_DIR)/*.c)
+C_TARGET_NEWLIB_SRC=$(wildcard $(C_TARGET_NEWLIB_DIR)/*.c)
+C_TARGET_UART_SRC=$(wildcard $(C_TARGET_UART_DIR)/*.c)
+C_TARGET_MAL_SRC=$(wildcard $(C_TARGET_MAL_DIR)/*.c)
+AS_TARGET_BOOT_SRC=$(wildcard $(C_TARGET_BOOT_DIR)/*.s)
+GAS_TARGET_BOOT_SRC=$(wildcard $(C_TARGET_BOOT_DIR)/*.S)
 
-$(VSOURCES:.v=.glob): %.glob: %.vo
+C_GENERATED_HEADERS=$(C_GENERATED_HEADERS_DIR)/Internal.h $(C_GENERATED_HEADERS_DIR)/Services.h
+C_MODEL_INTERFACE_HEADERS=$(wildcard $(C_MODEL_INTERFACE_INCLUDE_DIR)/*.h)
+C_TARGET_MAL_HEADERS=$(wildcard $(C_TARGET_MAL_INCLUDE_DIR)/*.h)
+C_TARGET_BOOT_HEADERS=$(wildcard $(C_TARGET_BOOT_INCLUDE_DIR)/*.h)
+C_TARGET_CMSIS_HEADERS=$(wildcard $(C_TARGET_CMSIS_INCLUDE_DIR)/*.h)
+C_TARGET_DEBUG_HEADERS=$(wildcard $(C_TARGET_DEBUG_INCLUDE_DIR)/*.h)
+C_TARGET_MDK_HEADERS=$(wildcard $(C_TARGET_MDK_INCLUDE_DIR)/*.h)
+C_TARGET_NEWLIB_HEADERS=$(wildcard $(C_TARGET_NEWLIB_INCLUDE_DIR)/*.h)
+C_TARGET_UART_HEADERS=$(wildcard $(C_TARGET_UART_INCLUDE_DIR)/*.h)
 
-# Extract C code from Coq source
-src/model/Extraction.vo $(JSONS): src/model/Extraction.v
-	#coq_makefile -f _CoqProject src/model/*.v src/core/*.v -o MakefileCoq # if MakefileCoq doesn't exist yet
-	make -f MakefileCoq src/model/Extraction.vo
-	# compile all .v into .vo
-	#$(COQC) $(COQOPTS) -w all $<
+C_GENERATED_OBJ=$(C_GENERATED_SRC:.c=.o)
+C_TARGET_BOOT_OBJ=$(C_TARGET_BOOT_SRC:.c=.o)
+C_TARGET_MAL_OBJ=$(C_TARGET_MAL_SRC:.c=.o)
+AS_TARGET_BOOT_OBJ=$(AS_TARGET_BOOT_SRC:.s=.o)
+GAS_TARGET_BOOT_OBJ=$(GAS_TARGET_BOOT_SRC:.S=.o)
+C_TARGET_CMSIS_OBJ=$(C_TARGET_CMSIS_SRC:.c=.o)
+C_TARGET_DEBUG_OBJ=$(C_TARGET_DEBUG_SRC:.c=.o)
+C_TARGET_MDK_OBJ=$(C_TARGET_MDK_SRC:.c=.o)
+C_TARGET_NEWLIB_OBJ=$(C_TARGET_NEWLIB_SRC:.c=.o)
+C_TARGET_UART_OBJ=$(C_TARGET_UART_SRC:.c=.o)
 
-extract: $(TARGET_DIR) $(EXTRACTEDCSOURCES)
+########################### Coq files ###############################
+
+# Coq source files
+COQ_SRC_FILES=$(foreach dir, $(COQ_CORE_DIR)\
+	                     $(COQ_MODEL_DIR)\
+	                   , $(wildcard $(dir)/*.v)\
+               )
+
+# Coq file needed for extraction
+COQ_EXTRACTION_FILES=$(wildcard $(COQ_EXTRACTION_DIR)/*.v)
+
+# TODO: Uncomment the following lines once the proofs are done
+# Coq proof files
+#COQ_PROOF_FILES=$(foreach dir, $(COQ_PROOF_DIR)\
+#                               $(COQ_INVARIANTS_DIR)\
+#                             , $(wildcard $(dir)/*.v)\
+#                 )
+
+# TODO: Uncomment the following lines once the proofs are done
+# Group of Coq files written by humans
+#COQ_VFILES=$(COQ_PROOF_FILES) $(COQ_SRC_FILES)
+COQ_VFILES=$(COQ_SRC_FILES)
+
+# Coq dependency files (generated by coqdep and included in this makefile)
+COQ_DEPFILES=$(COQ_VFILES:.v=.v.d)
+# Coq compiled sources
+COQ_VOFILES=$(COQ_VFILES:.v=.vo)
+# Coq glob files (needed for html generation)
+COQ_GLOBFILES=$(COQ_VFILES:.v=.glob)
+# Unused but still produced by Coq sources compilation
+# and thus need to be tracked and cleaned
+COQ_VOSFILES=$(COQ_VFILES:.v=.vos)
+COQ_VOKFILES=$(COQ_VFILES:.v=.vok)
+COQ_AUXFILES=$(COQ_VFILES:.v=.aux)
+# Prepends a '.' to .aux file names (dir/.name.aux)
+COQ_AUXFILES:=$(join\
+		$(dir $(COQ_AUXFILES)),\
+		$(addprefix ., $(notdir $(COQ_AUXFILES)))\
+	      )
+
+# Coq extraction "compilation" files
+COQ_EXTR_DEPFILE=$(COQ_EXTRACTION_FILES:.v=.v.d)
+COQ_EXTR_VOFILE=$(COQ_EXTRACTION_FILES:.v=.vo)
+COQ_EXTR_GLOBFILE=$(COQ_EXTRACTION_FILES:.v=.glob)
+COQ_EXTR_VOSFILE=$(COQ_EXTRACTION_FILES:.v=.vos)
+COQ_EXTR_VOKFILE=$(COQ_EXTRACTION_FILES:.v=.vok)
+COQ_EXTR_AUXFILE=$(COQ_EXTRACTION_FILES:.v=.aux)
+COQ_EXTR_AUXFILE:=$(addprefix $(dir $(COQ_EXTR_AUXFILE))., $(notdir $(COQ_EXTR_AUXFILE)))
+
+COQ_EXTR_COMPILED_FILES:=$(COQ_EXTR_VOFILE) $(COQ_EXTR_GLOBFILE)\
+	$(COQ_EXTR_VOSFILE) $(COQ_EXTR_VOKFILE) $(COQ_EXTR_AUXFILE)
+
+# Group of Coq files produced by the compilation process
+COQ_COMPILED_FILES=$(COQ_VOFILES) $(COQ_VOKFILES) $(COQ_VOSFILES)\
+		   $(COQ_GLOBFILES) $(COQ_AUXFILES)\
+		   $(COQ_EXTR_COMPILED_FILES)
+
+COQ_DEPENDENCY_FILES=$(COQ_DEPFILES) $(COQ_EXTR_DEPFILE)
+
+######################## Miscellaneous files ########################
+
+OBJECT_FILES=$(C_TARGET_MAL_OBJ) $(C_TARGET_BOOT_OBJ)\
+             $(C_TARGET_CMSIS_OBJ) $(C_TARGET_DEBUG_OBJ)\
+             $(C_TARGET_MDK_OBJ) $(C_TARGET_NEWLIB_OBJ)\
+             $(C_TARGET_UART_OBJ) $(C_GENERATED_OBJ)\
+	     $(AS_TARGET_BOOT_OBJ) $(GAS_TARGET_BOOT_OBJ)
+
+# Jsons (Coq extracted AST)
+JSONS=Internal.json MAL.json MALInternal.json Services.json
+JSONS:=$(addprefix $(GENERATED_FILES_DIR)/, $(JSONS))
+
+#####################################################################
+##                    Default Makefile target                      ##
+#####################################################################
+
+all: pip.bin
+
+pip.bin: pip.elf
+	$(BI) -O binary $< $@
+
+#####################################################################
+##                    Code compilation targets                     ##
+#####################################################################
+
+###################### Generation from Coq to C #####################
 
 DIGGERFLAGS := -m Monad -M coq_LLI
 DIGGERFLAGS += -m Datatypes -r Coq_true:true -r Coq_false:false -r Coq_tt:tt -r index:Coq_index
-DIGGERFLAGS += -m MALInternal -d :MALInternal.json
-DIGGERFLAGS += -m MAL -d :MAL.json
+DIGGERFLAGS += -m MALInternal -d :$(GENERATED_FILES_DIR)/MALInternal.json
+DIGGERFLAGS += -m MAL -d :$(GENERATED_FILES_DIR)/MAL.json
 DIGGERFLAGS += -m ADT -m Nat
 DIGGERFLAGS += -q maldefines.h
 DIGGERFLAGS += -c true -c false -c tt -c Coq_error
+DIGGERFLAGS += --ignore coq_N
 
-$(TARGET_DIR)/pipcore/Internal.c: Internal.json $(DIGGER)
-	$(DIGGER) $(DIGGERFLAGS) --ignore coq_N $< -o $@
+$(GENERATED_FILES_DIR)/Internal.h: $(GENERATED_FILES_DIR)/Internal.json $(JSONS)\
+                                 | $(GENERATED_FILES_DIR) $(DIGGER)
+	$(DIGGER) $(DIGGERFLAGS) --header\
+		                 $< -o $@
 
-$(TARGET_DIR)/pipcore/Internal.h: Internal.json $(DIGGER)
-	$(DIGGER) $(DIGGERFLAGS) --ignore coq_N --header $< -o $@
+$(GENERATED_FILES_DIR)/Internal.c: $(GENERATED_FILES_DIR)/Internal.json $(JSONS)\
+	                           $(GENERATED_FILES_DIR)/Internal.h\
+                                 | $(GENERATED_FILES_DIR) $(DIGGER)
+	$(DIGGER) $(DIGGERFLAGS) -q Internal.h -q mal.h\
+	                         $< -o $@
 
-$(TARGET_DIR)/pipcore/Services.c: Services.json $(DIGGER) $(TARGET_DIR)/pipcore/Internal.h $(TARGET_DIR)/pipcore/Services.h
-	$(DIGGER) $(DIGGERFLAGS) -m Internal -d :Internal.json -q Internal.h $< -o $@
+$(GENERATED_FILES_DIR)/Services.h: $(GENERATED_FILES_DIR)/Services.json $(JSONS)\
+                                 | $(GENERATED_FILES_DIR) $(DIGGER)
+	$(DIGGER) $(DIGGERFLAGS) --header\
+		                 $< -o $@
+$(GENERATED_FILES_DIR)/Services.c: $(GENERATED_FILES_DIR)/Services.json $(JSONS)\
+	                           $(GENERATED_FILES_DIR)/Services.h\
+	                           $(GENERATED_FILES_DIR)/Internal.json\
+	                           $(GENERATED_FILES_DIR)/Internal.h\
+                                 | $(GENERATED_FILES_DIR) $(DIGGER)
+	$(DIGGER) $(DIGGERFLAGS) -m Internal -d :$(GENERATED_FILES_DIR)/Internal.json\
+	                         -q Services.h -q Internal.h -q mal.h\
+				 $< -o $@
 
-$(TARGET_DIR)/pipcore/Services.h: Services.json $(DIGGER)
-	$(DIGGER) $(DIGGERFLAGS) --ignore coq_N --header $< -o $@
+############################## Coq rules ############################
 
-#%.o: %.S
-$(TARGET_DIR)/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/%.S
-	$(AS) -o $@ $^ $(ASFLAGS)
+# Rule to generate dependency files
+$(COQ_DEPENDENCY_FILES):\
+	%.v.d : %.v
+	@$(COQDEP) $(COQFLAGS) $< > $@
 
-#%.o: %.c
-$(TARGET_DIR)/newlib/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/newlib/%.c
-	$(CC) -o $@ $^ -c $(CFLAGS)
+-include $(COQ_DEPENDENCY_FILES)
 
-$(TARGET_DIR)/uart/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/uart/%.c
-	$(CC) -o $@ $^ -c $(CFLAGS)
+ifneq (,$(findstring grouped-target,$(.FEATURES)))
+$(JSONS) $(COQ_EXTR_COMPILED_FILES) &:\
+		$(COQ_EXTRACTION_FILES) $(COQ_EXTR_DEPFILE)\
+		| $(GENERATED_FILES_DIR)
+	cd $(GENERATED_FILES_DIR) && $(COQC) $(COQCEXTRFLAGS) ../$<
 
-$(TARGET_DIR)/uart/util/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/uart/util/%.c
-	$(CC) -o $@ $^ -c $(CFLAGS)
+%.vo %.vok %.vos %.glob .%.aux &: %.v %.v.d
+	$(COQC) $(COQCFLAGS) $<
+else
+# Unfortunately, without grouped-target we cannot inherit dependencies
+# computed by coqdep, so we must mv files after the fact
+$(JSONS): src/extraction/Extraction.vo | $(GENERATED_FILES_DIR)
+	mv $(notdir $@) $(GENERATED_FILES_DIR)
 
-$(TARGET_DIR)/mdk/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/mdk/%.c
-	$(CC) -o $@ $^ -c $(CFLAGS)
+%.vo %.vok %.vos %.glob .%.aux : %.v %.v.d
+	$(COQC) $(COQCFLAGS) $<
+endif
 
-$(TARGET_DIR)/debug/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/debug/%.c
-	$(CC) -o $@ $^ -c $(CFLAGS)
+########################### C object rules ##########################
 
-$(TARGET_DIR)/MAL/%.o: $(SRC_DIR)/MAL/$(TARGET)/%.c
-	$(CC) -o $@ $^ -c $(CFLAGS)
+# Static pattern rule for constructing object files from generated C files
+$(C_GENERATED_OBJ):\
+    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
+              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
+              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
+              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
+              $(C_TARGET_UART_HEADERS)
+	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
+                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
+                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
+                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
+                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
+                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
+                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
+                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
+                        -I $(C_TARGET_UART_INCLUDE_DIR)\
+                        -c -o $@ $<
 
-$(TARGET_DIR)/%.o: $(SRC_DIR)/boot/$(TARGET)/ARM/%.c
-	$(CC) -o $@ $^ -c $(CFLAGS)
+# Static pattern rule for constructing object files from target boot C files
+$(C_TARGET_BOOT_OBJ):\
+    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
+              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
+              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
+              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
+              $(C_TARGET_UART_HEADERS)
+	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
+                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
+                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
+                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
+                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
+                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
+                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
+                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
+                        -I $(C_TARGET_UART_INCLUDE_DIR)\
+                        -c -o $@ $<
 
-$(TARGET_DIR)/pipcore/%.o: $(TARGET_DIR)/pipcore/%.c
-	$(CC) -o $@ $^ -c $(CFLAGS)
+$(C_TARGET_CMSIS_OBJ):\
+    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
+              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
+              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
+              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
+              $(C_TARGET_UART_HEADERS)
+	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
+                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
+                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
+                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
+                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
+                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
+                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
+                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
+                        -I $(C_TARGET_UART_INCLUDE_DIR)\
+                        -c -o $@ $<
 
-app.elf: $(OBJS)
-	$(CC) $(LDFLAGS) -T$(LINKSCRIPT) $^ -o $(TARGET_DIR)/app.elf
+$(C_TARGET_DEBUG_OBJ):\
+    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
+              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
+              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
+              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
+              $(C_TARGET_UART_HEADERS)
+	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
+                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
+                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
+                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
+                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
+                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
+                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
+                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
+                        -I $(C_TARGET_UART_INCLUDE_DIR)\
+                        -c -o $@ $<
 
-app.bin: $(TARGET_DIR) app.elf
-	$(BI) -O binary $(TARGET_DIR)/app.elf $(TARGET_DIR)/app.bin
+$(C_TARGET_MDK_OBJ):\
+    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
+              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
+              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
+              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
+              $(C_TARGET_UART_HEADERS)
+	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
+                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
+                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
+                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
+                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
+                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
+                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
+                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
+                        -I $(C_TARGET_UART_INCLUDE_DIR)\
+                        -c -o $@ $<
 
-clean: clean-c clean-coq
-	rm -rf $(TARGET_DIR)/
+$(C_TARGET_NEWLIB_OBJ):\
+    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
+              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
+              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
+              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
+              $(C_TARGET_UART_HEADERS)
+	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
+                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
+                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
+                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
+                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
+                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
+                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
+                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
+                        -I $(C_TARGET_UART_INCLUDE_DIR)\
+                        -c -o $@ $<
 
-clean-coq:
-	rm -f $(TARGET_DIR)/pipcore/* *.json
-	rm -f $(VOBJECTS) $(VSOURCES:.v=.v.d) $(VSOURCES:.v=.glob)
+$(C_TARGET_UART_OBJ):\
+    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
+              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
+              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
+              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
+              $(C_TARGET_UART_HEADERS)
+	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
+                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
+                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
+                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
+                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
+                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
+                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
+                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
+                        -I $(C_TARGET_UART_INCLUDE_DIR)\
+                        -c -o $@ $<
 
-clean-c:
-	find $(TARGET_DIR) ! \( -name "*.c" -o -name "*.h" \) -type f -exec rm -f {} +
+# Static pattern rule for constructing object files from target boot assembly files
+$(AS_TARGET_BOOT_OBJ):\
+    %.o : %.s
+	$(AS) $(ASFLAGS) -o $@ $<
 
-# Generate build directory
-$(TARGET_DIR):
+$(GAS_TARGET_BOOT_OBJ):\
+    %.o : %.S
+	$(AS) $(ASFLAGS) -o $@ $<
+
+# Static pattern rule for constructing object files from target MAL C files
+$(C_TARGET_MAL_OBJ):\
+    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
+              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
+              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
+              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
+              $(C_TARGET_UART_HEADERS)
+	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
+                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
+                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
+                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
+                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
+                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
+                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
+                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
+                        -I $(C_TARGET_UART_INCLUDE_DIR)\
+                        -c -o $@ $<
+
+######################### Pip + Partition ELF #######################
+
+# $(AS_TARGET_BOOT_OBJ) must be the first object file arg to the linker
+pip.elf: $(C_SRC_TARGET_DIR)/link.ld\
+         $(C_TARGET_BOOT_OBJ) $(AS_TARGET_BOOT_OBJ)\
+         $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
+         $(C_TARGET_DEBUG_OBJ) $(C_TARGET_MDK_OBJ)\
+         $(C_TARGET_NEWLIB_OBJ) $(C_TARGET_UART_OBJ)\
+         $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)
+	$(LD) \
+         $(C_TARGET_BOOT_OBJ) $(AS_TARGET_BOOT_OBJ)\
+         $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
+         $(C_TARGET_DEBUG_OBJ) $(C_TARGET_MDK_OBJ)\
+         $(C_TARGET_NEWLIB_OBJ) $(C_TARGET_UART_OBJ)\
+         $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)\
+         -T $< -o $@ $(LDFLAGS)
+
+#####################################################################
+##                      Proof related targets                      ##
+#####################################################################
+
+# TODO: Uncomment the following lines once the proofs are done
+#       Don't forget to add this target to the .PHONY target
+#proofs: $(COQ_PROOF_FILES:.v=.vo)
+
+####################################################################
+##                        Utility targets                         ##
+####################################################################
+
+####################### Documentation targets ######################
+
+doc: doc-c doc-coq gettingstarted
+
+doc-c: | $(C_DOC_DIR)
+	cd doc && doxygen doxygen.conf
+
+doc-coq: $(COQ_VFILES) $(COQ_GLOBFILES) | $(COQ_DOC_DIR)
+	$(COQDOC)\
+		-toc -interpolate -utf8 -html -g $(COQFLAGS) -d $(COQ_DOC_DIR)\
+		$(COQ_VFILES)
+
+gettingstarted:
+	cd doc/getting-started/ &&\
+        pdflatex getting-started.tex &&\
+        pdflatex getting-started.tex
+
+####################################################################
+
+$(GENERATED_FILES_DIR) $(C_DOC_DIR) $(COQ_DOC_DIR):
 	mkdir -p $@
-	mkdir -p $@/pipcore
-	mkdir -p $@/newlib
-	mkdir -p $@/uart
-	mkdir -p $@/uart/util
-	mkdir -p $@/mdk
-	mkdir -p $@/debug
-	mkdir -p $@/MAL
+
+realclean: clean
+	rm -rf $(COQ_DOC_DIR) $(C_DOC_DIR)
+	rm -f $(DOC_DIR)/getting-started/getting-started.aux\
+              $(DOC_DIR)/getting-started/getting-started.out\
+              $(DOC_DIR)/getting-started/getting-started.toc\
+              $(DOC_DIR)/getting-started/getting-started.log\
+              $(DOC_DIR)/getting-started/getting-started.pdf
+
+clean:
+	rm -f .lia.cache $(COQ_DEPENDENCY_FILES)
+	rm -rf $(COQ_COMPILED_FILES)
+	rm -rf $(GENERATED_FILES_DIR)
+	rm -f $(OBJECT_FILES)
+	rm -f pip.elf
+	rm -f pip.bin
+
+.PHONY: all doc doc-c doc-coq gettingstarted realclean clean
