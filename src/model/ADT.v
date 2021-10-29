@@ -62,17 +62,20 @@ Proof. unfold tableSize; auto. Qed.
    END SIMULATION *)
 
 (* BEGIN NOT SIMULATION *)
-(*Axiom tableSize nbLevel nbPage: nat.
-Axiom nbLevelNotZero: nbLevel > 0.
-Axiom nbPageNotZero: nbPage > 0.*)
 Axiom maxAddr: nat. (* Size of memory *)
 Axiom maxAddrNotZero: maxAddr > 0.
 Axiom maxIdx: nat. (* max prepare * kernel entries nb *)
+Definition maxIdxLowerBound := 1. (* at minimum, we need to count to 1 *)
 Axiom maxIdxNotZero: maxIdx > 0.
+Axiom maxIdxBigEnough : maxIdx > maxIdxLowerBound.
 Axiom maxIdxEqualMaxAddr: maxIdx = maxAddr.
 
 Axiom MPURegionsNb: nat.
 Axiom MPURegionsNbNotZero: MPURegionsNb > 0.
+
+Axiom KSEntriesNbNotZero: kernelStructureEntriesNb > 0.
+Axiom KSEntriesNbLessThanMaxIdx: kernelStructureEntriesNb < maxIdx - 1.
+Axiom maxNbPrepareNotZero: maxNbPrepare > 0.
 
 (*******************************************************************************)
 (* Elementary datatypes *)

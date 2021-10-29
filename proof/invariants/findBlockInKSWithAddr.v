@@ -77,7 +77,7 @@ revert kernelstructurestart blockEntryAddr.
 		unfold pdentryPDStructurePointer in *.
 		unfold isPDT in *.
 		cbn. subst. unfold CIndex. destruct (lt_dec 0 maxIdx) ; intuition.
-		simpl in *. contradict n0. apply maxIdxNotZero.
+		simpl in *. simpl. contradict n0. apply maxIdxNotZero.
 	}
 	intro maxEntryAddrInStructure.
 	eapply bindRev.
@@ -145,7 +145,7 @@ revert kernelstructurestart blockEntryAddr.
 						unfold KSIsBE in *. eauto.
 						unfold NextKSIsKS in *. 
 						destruct H4.
-						apply H21 with kernelstructurestart x ; intuition.
+						apply H22 with kernelstructurestart x ; intuition.
 						(* Prove nextKernelStructure <> nullAddr *)
 						apply beqAddrFalse in H3. intuition.
 					}

@@ -107,22 +107,22 @@ Fixpoint findBlockInKSInStructAux (timeout : nat) (currentidx : index)
 										else
 											(** continue search *)
 											perform maxentriesnb := getKernelStructureEntriesNb in
-											(** Our last index is table size - 1, as we're indexed on zero*)
-											perform maxindex := Index.pred maxentriesnb in
-											perform islastidx := getBeqIdx currentidx maxindex in
-											if (islastidx)
+											perform nextidx := Index.succ currentidx in
+											(** Indexed on zero, so <*)
+											perform isnotlastidx := Index.ltb nextidx maxentriesnb in
+											if (isnotlastidx)
 											then
-												(** STOP CONDITION 1: reached end of current structure,
-																							block not found *)
-												ret nullAddr
-											else
 												(** RECURSIVE call to the next index**)
-												perform nextidx := Index.succ currentidx in
-												findBlockInKSInStructAux 	timeout1
+												findBlockInKSInStructAux timeout1
 																								nextidx
 																								currentkernelstructure
 																								referenceaddr
 																								compoption
+											else
+												(** STOP CONDITION 1: reached end of current structure,
+																							block not found *)
+												ret nullAddr
+
 	end.
 
 (** The [findBlockInKSAux] function recursively search by going through
@@ -149,8 +149,8 @@ Fixpoint findBlockInKSAux (timeout : nat)
 																																		currentkernelstructure
 																																		idblock
 																																		compoption in
-										perform isnull := getBeqAddr foundblock nullAddr in
-										if negb isnull
+										perform foundblockisnull := compareAddrToNull foundblock in
+										if negb foundblockisnull
 										then
 											(** STOP CONDITION 2: block found, stop *)
 											ret foundblock
@@ -158,8 +158,8 @@ Fixpoint findBlockInKSAux (timeout : nat)
 											(** block not found in current structure, continue search *)
 											perform nextkernelstructure := readNextFromKernelStructureStart
 																												currentkernelstructure in
-											perform isnull :=  getBeqAddr nextkernelstructure nullAddr in
-											if isnull
+											perform nextKSisnull :=  compareAddrToNull nextkernelstructure in
+											if nextKSisnull
 											then
 												(** STOP CONDITION 1: reached last structure, not found *)
 												ret nullAddr
@@ -173,7 +173,7 @@ Fixpoint findBlockInKSAux (timeout : nat)
 (* TODO: return Some blockentry or None *)
 (** The [findBlockInKS] function fixes the timeout value of [findBlockInKSAux]
 		and lauches the block seach for the address being the start address.
-		Same function as in findBlockInKS but with a different comparator. *)
+		Same function as in findBelongingBlock but with a different comparator. *)
 Definition findBlockInKS (idPD : paddr) (idBlock: paddr) : LLI paddr :=
 	perform zero := Index.zero in (* Comparator 1 *)
 	perform kernelstructurestart := readPDStructurePointer idPD in
@@ -185,7 +185,7 @@ Definition findBlockInKS (idPD : paddr) (idBlock: paddr) : LLI paddr :=
 		Same function as in findBlockInKS but with a different comparator. *)
 Definition findBelongingBlock (idPD : paddr) (referenceaddr: paddr) : LLI paddr :=
 	perform zero := Index.zero in
-	perform one := Index.succ zero in (* Comparator 1 *)
+	perform one := Index.succ zero in (* Comparator 2 *)
 	perform kernelstructurestart := readPDStructurePointer idPD in
 	findBlockInKSAux N kernelstructurestart referenceaddr one.
 

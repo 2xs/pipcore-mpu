@@ -112,12 +112,11 @@ exists kernelstartaddr : paddr,
 StateLib.Paddr.subPaddrIdx blockentryaddr blockentry.(blockindex) = Some kernelstartaddr
 /\ isBE kernelstartaddr s.
 
-(* TODO : check if needed *)
-(*Definition BlockEntryAddrInBlocksRangeIsBE s :=
-forall blockentryaddr : paddr, forall blockidx : index, forall entry : BlockEntry,
-lookup blockentryaddr (memory s) beqAddr = Some (BE entry) ->
+Definition BlockEntryAddrInBlocksRangeIsBE s :=
+forall blockentryaddr : paddr, forall blockidx : index,
+isBE blockentryaddr s ->
 blockidx < kernelStructureEntriesNb ->
-isBE (CPaddr (blockentryaddr + blockidx)) s.*)
+isBE (CPaddr (blockentryaddr + blkoffset + blockidx)) s.
 
 Definition KernelStructureStartFromBlockEntryAddrIsBE s :=
 forall blockentryaddr : paddr, forall entry : BlockEntry,
@@ -136,8 +135,6 @@ lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
 sh1entry.(inChildLocation) <> nullAddr ->
 isBE sh1entry.(inChildLocation) s.
 
-
-
 (** ** Conjunction of all consistency properties *)
 Definition consistency s := 
 wellFormedFstShadowIfBlockEntry s /\
@@ -147,7 +144,7 @@ FirstFreeSlotPointerIsBE s /\
 CurrentPartIsPDT s /\
 KernelStartIsBE s /\
 wellFormedShadowCutIfBlockEntry s /\
-(*BlockEntryAddrInBlocksRangeIsBE s /\*)
+BlockEntryAddrInBlocksRangeIsBE s /\
 KernelStructureStartFromBlockEntryAddrIsBE s /\
 PDchildIsBE s /\
 sh1InChildLocationIsBE s /\

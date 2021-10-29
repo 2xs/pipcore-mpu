@@ -31,80 +31,87 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary 
-    This file contains the invariant of [checkChildOfCurrPart].
-*)
-Require Import Model.Monad Model.Lib Model.MAL.
-Require Import Core.Internal.
-Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
-               Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants
-							 Proof.invariants.findBlockInKSWithAddr.
+(** * Summary
+    This file contains the invariant of [findBlock].
+    We prove that this PIP service preserves the isolation property *)
 
-Lemma checkChildOfCurrPart (currentPartition idPDchild : paddr) P :
-{{ fun s => P s /\ consistency s /\ isPDT currentPartition s}}
-Internal.checkChildOfCurrPart  currentPartition idPDchild
-{{fun isChild s => P s
-/\ (isChild = true -> exists sh1entryaddr, isChild = StateLib.checkChild idPDchild s sh1entryaddr
-										/\ exists entry, lookup idPDchild s.(memory) beqAddr = Some (BE entry)
-										/\ exists sh1entry, lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry))
-}}.
+Require Import Model.ADT Core.Services.
+Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPreconditions
+Proof.StateLib Proof.DependentTypeLemmas.
+Require Import Invariants getGlobalIdPDCurrentOrChild findBlockInKS.
+Require Import Compare_dec.
+
+Require Import Model.Monad Model.MALInternal Model.Lib (* for visibility *).
+
+Module WP := WeakestPreconditions.
+
+Lemma findBlock (idPD: paddr) (addrInBlock : paddr) :
+{{fun s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}
+Services.findBlock idPD addrInBlock
+{{fun _ s  => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}.
 Proof.
-unfold Internal.checkChildOfCurrPart.
-eapply WP.bindRev.
-{
-	(** findBlockInKSWithAddr *)
-	eapply weaken. apply findBlockInKSWithAddr.
+unfold Services.findBlock.
+eapply bindRev.
+{ (** getCurPartition **)
+	eapply weaken. apply getCurPartition.
 	intros. simpl. split. apply H. intuition.
 }
-intro blockInParentPartAddr. simpl.
-(** compareAddrToNull **)
-eapply WP.bindRev.
-{
-	eapply weaken. eapply compareAddrToNull.
+intro currentPart.
+eapply bindRev.
+{ (** Internal.getGlobalIdPDCurrentOrChild **)
+	eapply weaken. apply getGlobalIdPDCurrentOrChild.
+	intros. simpl. split. apply H. intuition.
+}
+intro globalIdPD.
+eapply bindRev.
+{ (** compareAddrToNull **)
+	eapply weaken. apply Invariants.compareAddrToNull.
 	intros. simpl. apply H.
 }
-intro addrIsNull0.
-simpl.
-case_eq addrIsNull0.
-- (* case_eq addrIsNull0 = true*)
+intro addrIsNull.
+case_eq addrIsNull.
+- (* case_eq addrIsNull = true *)
+	intros.
 	{ (** ret *)
-		intros. eapply WP.weaken. apply WP.ret.
-		intros. simpl. intuition.
+	eapply weaken. apply WP.ret.
+  simpl. intros. intuition.
 	}
-- (* case_eq addrIsNull0 = false *)
+- (* case_eq addrIsNull = false *)
 	intros.
 	eapply bindRev.
-	{	(** Invariants.readSh1PDFlagFromBlockEntryAddr *)
-		eapply weaken. apply Invariants.readSh1PDFlagFromBlockEntryAddr.
-		intros. simpl. split. apply H0.
-		intuition.
-		intros. simpl.
-		(* prove blockInParentPartAddr can't be NULL and not NULL at the same time *)
-		apply beqAddrFalse in H2. exfalso ; congruence.
-		destruct H4. exists x. apply H4.
+	{ (** Internal.findBelongingBlock *)
+		eapply weaken. apply findBlockInKS.findBelongingBlock.
+		intros. simpl. split. apply H0. intuition.
+		apply H5. intros. apply beqAddrFalse in H2. congruence.
 	}
-		intro isChild. simpl.
-		case_eq isChild.
-		+ (* ischild =  true *)
-			intro childIsNotNull. simpl.
-			{ (** ret *)
-				eapply weaken. apply WP.ret.
-				intros. simpl. intuition.
-				(*blockInParentPartAddr can't be NULL and not NULL at the same time *)
-				apply beqAddrFalse in H3. exfalso ; congruence.
-				destruct H2. destruct H2. exists x0.
-				split. unfold checkChild. destruct H5. intuition. subst. 
-				rewrite H2. rewrite H8.
-				unfold sh1entryPDflag in *. rewrite -> H8 in *. assumption.
-				destruct H5. exists x1. split. intuition. subst. assumption.
-				exists x. intuition.
-			}
-	 	+ (* ischild = false : sh1entry exists but PDflag = 0 *)
-			simpl. intros.
-			{ (** ret *)
-				eapply weaken. apply WP.ret.
-				intros. simpl. split. apply H1.
-				intuition.
-			}
+	intro blockAddr.
+	eapply bindRev.
+	{ (** compareAddrToNull **)
+		eapply weaken. apply Invariants.compareAddrToNull.
+		intros. simpl. apply H0.
+	}
+	intro addrIsNull0.
+	case_eq addrIsNull0.
+	+ (* case_eq addrIsNull0 = true *)
+		intros. simpl.
+		{ (** ret *)
+			eapply weaken. apply WP.ret.
+			intros. intuition.
+		}
+	+ (* case_eq addrIsNull0 = false *)
+		intros.
+		eapply bindRev.
+		{ (** MAL.readBlockEntryFromBlockEntryAddr *)
+			eapply weaken. apply readBlockEntryFromBlockEntryAddr.
+			intros. simpl. split. apply H1. intuition.
+			- (* blockAddr = nullAddr, this is false since we are in the branch
+						where we found the block *)
+				contradict H12. apply beqAddrFalse in H3. congruence.
+			- unfold isBE. destruct H12. rewrite H6;trivial.
+		}
+		intro blockentry.
+		{ (** ret *)
+			eapply weaken. apply WP.ret.
+			intros. intuition.
+		}
 Qed.
-

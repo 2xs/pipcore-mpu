@@ -153,6 +153,29 @@ intros. simpl. intuition.
 intros. eapply weaken. apply undefined. intros. simpl. intuition.
 Qed.
 
+(* COPY *)
+Lemma succ  (idx : index) (P: index -> state -> Prop) :
+{{fun s => idx < (maxIdx -1) /\ forall  l : idx + 1 < maxIdx ,
+    P {| i := idx + 1; Hi := MALInternal.Index.succ_obligation_1 idx l |} s}} MALInternal.Index.succ idx {{ P }}.
+Proof.
+unfold MALInternal.Index.succ.
+case_eq (lt_dec (idx + 1) maxIdx) .
+intros. simpl.
+eapply weaken.
+eapply ret .
+intros. intuition.
+intros. eapply weaken.
+eapply undefined .
+simpl. intros.
+destruct idx. simpl in *.
+destruct H0.
+destruct n.
+(* BEGIN SIMULATION
+unfold tableSize in *.
+   END SIMULATION *)
+omega.
+Qed.
+
 End Index.
 
 Module Paddr.
@@ -242,29 +265,9 @@ eapply weaken.
 eapply ret .
 trivial.
 Qed.
+*)
 
-Lemma succ  (idx : index) (P: index -> state -> Prop) :
-{{fun s => idx < (tableSize -1) /\ forall  l : idx + 1 < tableSize ,
-    P {| i := idx + 1; Hi := MALInternal.Index.succ_obligation_1 idx l |} s}} MALInternal.Index.succ idx {{ P }}.
-Proof.
-unfold MALInternal.Index.succ.
-case_eq (lt_dec (idx + 1) tableSize) .
-intros. simpl.
-eapply weaken.
-eapply ret .
-intros. intuition.
-intros. eapply weaken.
-eapply undefined .
-simpl. intros.
-destruct idx. simpl in *.
-destruct H0.
-destruct n.
-(* BEGIN SIMULATION
-unfold tableSize in *.
-   END SIMULATION *)
-omega.
-Qed.
-<<<<<<< HEAD
+(*
 End Index.
 
 Module Page.
@@ -835,6 +838,37 @@ eapply bind .
        subst. inversion Hpage'.
   - eapply weaken.
    eapply get . intuition.
+Qed.
+
+(* DUP *)
+Lemma readBlockEntryFromBlockEntryAddr  (addr : paddr) (P : BlockEntry -> state -> Prop) :
+{{fun s  =>  exists addrentry : BlockEntry, lookup addr s.(memory) beqAddr = Some (BE addrentry)
+             /\ P addrentry s }}
+MAL.readBlockEntryFromBlockEntryAddr addr
+{{P}}.
+Proof.
+unfold MAL.readBlockEntryFromBlockEntryAddr.
+eapply bind .
+  - intro s.
+    case_eq (lookup addr (memory s) beqAddr).
+     + intros v Hpage.
+       instantiate (1:= fun s s0 => s=s0 /\ exists p1 ,
+                    lookup addr s.(memory) beqAddr =
+                    Some (BE p1) /\ P p1 s).
+ 			simpl.
+       case_eq v; intros; eapply weaken; try eapply undefined ;simpl;
+ 			intros s1 H0; try destruct H0 as (Hs & p1 & Hpage' & Hret);
+ 			try rewrite Hpage in Hpage';
+ 			subst; try inversion Hpage';
+ 			try eassumption.
+ 			unfold Monad.ret.
+       eassumption.
+     + intros Hpage; eapply weaken; try eapply undefined ;simpl.
+       intros s0 H0.  destruct H0 as (Hs & p1 & Hpage' & Hret) .
+       rewrite Hpage in Hpage'.
+       subst. inversion Hpage'.
+  - eapply weaken.
+    eapply get . intuition.
 Qed.
 
 

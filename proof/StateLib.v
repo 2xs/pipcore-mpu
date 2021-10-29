@@ -44,13 +44,13 @@ Definition leb (a b : index) : bool := a <=? b.
 Definition ltb (a b : index) : bool := a <? b.
 Definition gtb (a b : index) : bool := b <? a.
 Definition eqb (a b : index) : bool := a =? b.
-(*Definition succ (n : index): option index:=
+Definition succ (n : index): option index:=
 let isucc := n + 1 in
-match lt_dec isucc tableSize with
+match lt_dec isucc maxIdx with
 | left x =>
     Some {| i := isucc; Hi := MALInternal.Index.succ_obligation_1 n x |}
 | right _ => None
-end.*)
+end.
 
 Program Definition pred (n : index) : option index := 
 if gt_dec n 0 then
@@ -619,6 +619,14 @@ match lookup blockentryaddr s.(memory) beqAddr with
 | _ => False
 end.
 
+(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
+    into the given physical page [table] is type of [VE] and the user flag stored into 
+    this entry is equal to a given flag [flag] *)
+Definition entryBE entryaddr be s:= 
+match lookup entryaddr s.(memory) beqAddr with 
+| Some (BE entry) => be = entry
+| _ => False
+end.
 
 (** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
     into the given physical page [table] is type of [VE] and the user flag stored into 
