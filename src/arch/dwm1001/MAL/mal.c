@@ -1227,21 +1227,10 @@ void activate(paddr desc)
 {
 	if (desc == getCurPartition())
 	{
-		//DEBUG(TRACE, "activate %08x\r\n", desc);
-		//enable_paging();
 		printf("DEBUG: activate %08x\r\n, no load", desc);
 		return;
 	}
-	//DEBUG(TRACE, "activate %08x: activating\r\n", desc);
 	printf("DEBUG: activate %08x\r\n", desc);
-
-	/* switch to partition va */
-	/*activate_s(mmu_make_ttbr(
-		((void**)desc)[getPDidx()+1],// Translation Table
-		RGN_NOCACHE,	// FIXME: No cache
-		RGN_NOCACHE,	// FIXME: No cache
-		0, 1					// Non shareable
-	));*/
 	PDTable_t* PDT = (PDTable_t*) desc;
 	if (PDT == NULL)
 	{

@@ -64,15 +64,6 @@ void main_user_app_trampoline(int argc, char* argv[]);
  */
 int main (int argc, char* argv[])
 {
-	/*
-	// At this point, mmu is still not enabled.
-	ial_get_ctx_addr(0, getRootPartition(), &ctx_p, &ctx_v);
-
-	return ial_prepare_yield(getRootPartition(), ctx_v);*/
-
-	// cpu_switch_context_exit(); -> Yield, switch to root partition
-
-  // yield partition 0
 #if defined(UART_DEBUG)
   init_uart();
 #endif // UART_DEBUG
