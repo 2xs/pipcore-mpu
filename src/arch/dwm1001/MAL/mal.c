@@ -1093,7 +1093,14 @@ void replaceBlockInPhysicalMPU(paddr pd, paddr blockblockentryaddr, uint32_t MPU
 	PDTable_t* PDT = (PDTable_t*) pd;
 	PDT->mpu[MPURegionNb] = (BlockEntry_t*)blockblockentryaddr;
 	configure_LUT_entry(PDT->LUT, MPURegionNb, blockblockentryaddr, PDT->mpu[MPURegionNb]->blockrange.startAddr);
-	mpu_configure_from_LUT(PDT->LUT);
+
+	/* Reconfigure the MPU from LUT if and only if the partition
+	 * descriptor passed as argument is the partition descriptor of
+	 * the current partition. */
+	if (pd == getCurPartition())
+	{
+		mpu_configure_from_LUT(PDT->LUT);
+	}
 }
 
 
