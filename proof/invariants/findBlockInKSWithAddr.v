@@ -77,7 +77,6 @@ revert kernelstructurestart blockEntryAddr.
 		unfold pdentryPDStructurePointer in *.
 		unfold isPDT in *.
 		cbn. subst. unfold CIndex. destruct (lt_dec 0 maxIdx) ; intuition.
-		simpl in *. simpl. contradict n0. apply maxIdxNotZero.
 	}
 	intro maxEntryAddrInStructure.
 	eapply bindRev.

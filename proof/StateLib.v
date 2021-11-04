@@ -46,7 +46,7 @@ Definition gtb (a b : index) : bool := b <? a.
 Definition eqb (a b : index) : bool := a =? b.
 Definition succ (n : index): option index:=
 let isucc := n + 1 in
-match lt_dec isucc maxIdx with
+match le_dec isucc maxIdx with
 | left x =>
     Some {| i := isucc; Hi := MALInternal.Index.succ_obligation_1 n x |}
 | right _ => None
@@ -93,20 +93,20 @@ Qed.
 
 Program Definition subPaddr (a b : paddr)  : option index := 
 let res := a-b in
-if (lt_dec res maxIdx) then
+if (le_dec res maxIdx) then
 Some (Build_index res _ )
 else  None.
 
 Program Definition subPaddrIdx (n : paddr) (m : index)  : option paddr := 
 let res := n-m in
-if (lt_dec res maxAddr )
+if (le_dec res maxAddr )
 then
 Some (Build_paddr res _ )
 else  None.
 
 Program Definition addPaddrIdx (n : paddr) (m : index)  : option paddr := 
 let res := n+m in
-if (lt_dec res maxAddr )
+if (le_dec res maxAddr )
 then
 Some (Build_paddr res _ )
 else  None.
@@ -121,6 +121,21 @@ let entry :=  lookup blockentryaddr memory beqAddr  in
   | Some (BE a) => true
   | _ => false
  end.
+
+Definition blockInRAM (blockentryaddr : paddr) s : bool :=
+match lookup blockentryaddr s.(memory) beqAddr with
+| Some (BE a) => ((RAMStartAddr <=? a.(blockrange).(startAddr)) &&
+											(a.(blockrange).(endAddr) <=?	RAMEndAddr))
+| _ => false
+end.
+
+Definition isBlockInRAM (blockentryaddr : paddr) (isInRAM : bool) s : Prop :=
+match lookup blockentryaddr s.(memory) beqAddr with
+| Some (BE a) => isInRAM = ((RAMStartAddr <=? a.(blockrange).(startAddr)) &&
+											(a.(blockrange).(endAddr) <=?	RAMEndAddr))
+| _ => False
+end.
+
 Definition monadToValue {A : Type} (p : LLI A) s : option A :=
 match p s with
 	| val (n,s') => Some n
@@ -652,6 +667,15 @@ end.
 Definition pdentryPDStructurePointer entryaddr structurepointer s:= 
 match lookup entryaddr s.(memory) beqAddr with 
 | Some (PDT entry) => structurepointer =  entry.(structure) (*/\ isBE structurepointer s*)
+| _ => False
+end.
+
+(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
+    into the given physical page [table] is type of [VE] and the user flag stored into
+    this entry is equal to a given flag [flag] *)
+Definition pdentryNbPrepare entryaddr nbPrepare s:=
+match lookup entryaddr s.(memory) beqAddr with
+| Some (PDT entry) => nbPrepare =  entry.(nbprepare)
 | _ => False
 end.
 
