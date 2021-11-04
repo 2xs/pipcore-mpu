@@ -115,7 +115,6 @@ Lemma findBlockInKSInStructAux n (currentidx : index)
 {{  fun s : state => P s /\ consistency s
 										/\ isKS currentkernelstructure s
 										/\ currentidx < kernelStructureEntriesNb
-										/\ currentidx < maxIdx -1
 }}
 Internal.findBlockInKSInStructAux n currentidx currentkernelstructure referenceaddr compoption
 {{fun (blockaddr : paddr) (s : state) => P s /\ consistency s /\
@@ -172,9 +171,10 @@ induction n.
 		{ (** succ *)
 			eapply weaken. apply Index.succ.
 			intros. simpl. split. apply H0. intuition.
-			(*apply PeanoNat.Nat.lt_add_lt_sub_l.
+			apply PeanoNat.Nat.lt_le_incl.
+			rewrite KSEntriesNbLessThanMaxIdx in *.
 			apply PeanoNat.Nat.lt_add_lt_sub_l in H8.
-			rewrite KSEntriesNbLessThanMaxIdx in *. assumption.*)
+			rewrite PeanoNat.Nat.add_comm. assumption.
 		}
 		intro nextidx.
 		eapply bindRev.
@@ -189,23 +189,16 @@ induction n.
 			{ (** induction hypothesis *)
 				eapply weaken. apply IHn.
 				intros. intuition.
-				- unfold StateLib.Index.ltb in *.
-					apply eq_sym in H3.
-					apply PeanoNat.Nat.ltb_lt in H3. subst.
-					unfold CIndex in *.
-					destruct (lt_dec kernelStructureEntriesNb maxIdx).
-					intuition. contradict n0. rewrite KSEntriesNbLessThanMaxIdx. intuition.
-				- (* nextidx < kernelStructureEntriesNb < maxIdx - 1*)
-					unfold StateLib.Index.succ in *.
-					destruct (lt_dec (currentidx + 1) maxIdx) ; try (exfalso ; congruence).
-					destruct nextidx. simpl in *.
+				- (* nextidx < kernelStructureEntriesNb checked before *)
 					unfold StateLib.Index.ltb in *.
 					apply eq_sym in H3.
 					apply PeanoNat.Nat.ltb_lt in H3. subst.
-					unfold CIndex in *.
-					destruct (lt_dec kernelStructureEntriesNb maxIdx).
-					simpl in *. intuition.
-					contradict n0. rewrite KSEntriesNbLessThanMaxIdx. intuition.
+					unfold CIndex in *. destruct (le_dec kernelStructureEntriesNb maxIdx).
+					simpl in *. assumption.
+					contradict n0. apply PeanoNat.Nat.lt_le_incl.
+					apply NPeano.Nat.lt_pred_lt.
+					rewrite Minus.pred_of_minus.
+					apply KSEntriesNbLessThanMaxIdx.
 		}
 		* (* case_eq isnotlastidx = false *)
 			intros.
@@ -222,8 +215,7 @@ Lemma findBlockInKSAux n (currentkernelstructure idblock : paddr)
 Internal.findBlockInKSAux n currentkernelstructure idblock compoption
 {{fun (blockaddr : paddr) (s : state) => P s /\ consistency s /\
 																				(blockaddr = nullAddr \/
-																	(exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)
-																			(*/\ blockaddr = idblock*))) }}.
+																	(exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry))) }}.
 Proof.
 (* revert mandatory to generalize the induction hypothesis *)
 revert currentkernelstructure idblock compoption.
@@ -248,8 +240,8 @@ induction n.
 		intros. simpl. split. apply H. intuition.
 		- (* zero < kernelStructureEntriesNb by axiom *)
 			apply CIndex0ltKSEntriesNb. assumption.
-		- (* zero < maxIdx - 1 by axiom *)
-			apply CIndex0ltMaxIdx. assumption.
+		(*- (* zero < maxIdx - 1 by axiom *)
+			apply CIndex0ltMaxIdx. assumption.*)
 	}
 	intro foundblock.
 	eapply bindRev.
@@ -311,8 +303,7 @@ Lemma findBelongingBlock (idPD referenceaddr: paddr) (P : state -> Prop) :
 Internal.findBelongingBlock idPD referenceaddr 
 {{fun (blockaddr : paddr) (s : state) => P s /\ consistency s /\
 			(blockaddr = nullAddr
-					\/ (exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)
-																			(*/\ blockaddr = blockEntryAddr*)))
+					\/ (exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)))
 }}.
 Proof.
 unfold Internal.findBelongingBlock.
@@ -326,10 +317,10 @@ eapply bindRev.
 { (** MALInternal.Index.succ *)
 	eapply weaken. apply Index.succ.
 	intros. simpl. split. apply H.
-	intuition. rewrite H1. unfold CIndex. destruct (lt_dec 0 maxIdx).
-	simpl. rewrite <- PeanoNat.Nat.lt_add_lt_sub_l.
-	simpl. apply maxIdxBigEnough.
-	contradict n. apply maxIdxNotZero.
+	intuition. rewrite H1. unfold CIndex. destruct (le_dec 0 maxIdx).
+(*	simpl. rewrite <- PeanoNat.Nat.lt_add_lt_sub_l.*)
+	simpl. apply PeanoNat.Nat.lt_le_incl. apply maxIdxBigEnough.
+	contradict n. apply PeanoNat.Nat.lt_le_incl. apply maxIdxNotZero.
 }
 intro one.
 eapply bindRev.
@@ -357,8 +348,7 @@ Lemma findBlockInKS (idPD blockEntryAddr: paddr) (P : state -> Prop) :
 Internal.findBlockInKS idPD blockEntryAddr 
 {{fun (blockaddr : paddr) (s : state) => P s /\ consistency s /\
 			(blockaddr = nullAddr
-					\/ (exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)
-																			(*/\ blockaddr = blockEntryAddr*)))
+			\/ (exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)))
 }}.
 Proof.
 unfold Internal.findBlockInKS.
