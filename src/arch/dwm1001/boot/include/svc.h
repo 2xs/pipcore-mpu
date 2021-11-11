@@ -60,13 +60,32 @@ __attribute__ ((noinline)) int Pip_prepare( uint32_t* idPD,
   __asm("SVC #3");
 }
 
-__attribute__ ((noinline)) uint32_t* Pip_addMemoryBlock(uint32_t* idPDchild,
-                                                        uint32_t* idBlockToShare,
-                                                        uint32_t r,
-                                                        uint32_t w,
-                                                        uint32_t e)
-{
-  __asm("SVC #4");
+__attribute__((noinline))
+uint32_t* Pip_addMemoryBlock(
+	uint32_t *childPartDescBlockLocalId,
+	uint32_t *blockToShareLocalId,
+	uint32_t  r,
+	uint32_t  w,
+	uint32_t  e
+) {
+	register uint32_t r0 asm("r0");
+	register uint32_t r1 asm("r1");
+	register uint32_t r2 asm("r2");
+
+	r0 = (uint32_t) childPartDescBlockLocalId;
+	r1 = (uint32_t) blockToShareLocalId;
+	r2 = ((r & 1) << 2) | ((w & 1) << 1) | (e & 1);
+
+	asm volatile
+	(
+		"svc #4"
+		: "+r" (r0)
+		: "r"  (r1),
+		  "r"  (r2)
+		: "memory"
+	);
+
+	return (uint32_t *) r0;
 }
 
 __attribute__ ((noinline)) uint32_t Pip_removeMemoryBlock(uint32_t* idPDchild,

@@ -108,11 +108,11 @@ void SVC_Handler_Main( unsigned int *svc_args )
     break;
 
     case 4:
-      sp[0] = (uint32_t) addMemoryBlock((uint32_t *)svc_args[0], //paddr idPDchild,
-                                        (uint32_t *)svc_args[1], //paddr idBlockToShare,
-                                        (uint32_t)svc_args[2], //bool r,
-                                        (uint32_t)svc_args[3], //bool w,
-                                        (uint32_t)orig_sp[0] //bool e)
+      sp[0] = (uint32_t) addMemoryBlock((paddr) svc_args[0], //paddr idPDchild,
+                                        (paddr) svc_args[1], //paddr idBlockToShare,
+                                        (bool)  ((svc_args[2] >> 2) & 1), //bool r,
+                                        (bool)  ((svc_args[2] >> 1) & 1), //bool w,
+                                        (bool)  svc_args[2] & 1 //bool e)
                                         );
       break;
     case 5:
