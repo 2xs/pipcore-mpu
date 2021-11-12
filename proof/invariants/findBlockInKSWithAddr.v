@@ -74,7 +74,7 @@ revert kernelstructurestart blockEntryAddr.
 	{ (** getSh1EntryAddrFromKernelStructureStart *)
 		eapply weaken. apply getSh1EntryAddrFromKernelStructureStart.
 		intros. simpl. split. apply H. unfold consistency in *. intuition.
-		unfold pdentryPDStructurePointer in *.
+		unfold pdentryStructurePointer in *.
 		unfold isPDT in *.
 		cbn. subst. unfold CIndex. destruct (lt_dec 0 maxIdx) ; intuition.
 	}
@@ -173,7 +173,7 @@ eapply bindRev.
 	unfold isPDT in *.
 	destruct (lookup idPD (memory s) beqAddr) eqn:Hlookup ; try (exfalso; congruence).
 	destruct v eqn:Hv ; try (exfalso; congruence).
-	unfold pdentryPDStructurePointer in *.
+	unfold pdentryStructurePointer in *.
 	rewrite Hlookup in H1.
 	subst.
 	apply H13 with idPD.

@@ -322,6 +322,19 @@ simpl. intuition.
 Qed.
 
 (* DUP *)
+Lemma getMPURegionsNb P :
+{{fun s => P s}} MALInternal.getMPURegionsNb
+{{fun mpuregionsnb s => P s /\ mpuregionsnb = (CIndex MPURegionsNb) }}.
+Proof.
+unfold MALInternal.getMPURegionsNb.
+eapply WP.weaken.
+eapply WP.ret .
+intros.
+simpl. intuition.
+Qed.
+
+
+(* DUP *)
 Lemma getKernelStructureTotalLength P :
 {{fun s => P s}} MALInternal.getKernelStructureTotalLength
 {{fun totallength s => P s /\ totallength = Constants.kernelStructureTotalLength }}.
@@ -674,14 +687,24 @@ Qed.
 Lemma lookupPDStructurePointer entryaddr s : 
 forall entry , lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
 (*consistency s ->*)
-pdentryPDStructurePointer entryaddr (structure entry) s.
+pdentryStructurePointer entryaddr (structure entry) s.
 Proof.
 intros.
-unfold pdentryPDStructurePointer.
+unfold pdentryStructurePointer.
 rewrite H;trivial.
 (*intuition.
 unfold consistency in *. unfold StructurePointerIsBE in *. intuition.
 specialize (H11 entryaddr entry H). trivial.*)
+Qed.
+
+(*DUP*)
+Lemma lookupPDMPU entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
+pdentryMPU entryaddr (MPU entry) s.
+Proof.
+intros.
+unfold pdentryMPU.
+rewrite H;trivial.
 Qed.
 
 
@@ -866,7 +889,7 @@ Qed.
 (* DUP *)
 Lemma readPDStructurePointer (pdpaddr : paddr) (P : state -> Prop) : 
 {{ fun s => P s /\ isPDT pdpaddr s  }} MAL.readPDStructurePointer pdpaddr
-{{ fun (structurepointer : paddr) (s : state) => P s /\ pdentryPDStructurePointer pdpaddr structurepointer s }}.
+{{ fun (structurepointer : paddr) (s : state) => P s /\ pdentryStructurePointer pdpaddr structurepointer s }}.
 Proof.
 eapply WP.weaken. 
 apply WP.getPDTRecordField.
@@ -877,6 +900,22 @@ apply isPDTLookupEq in Hentry ;trivial.
 destruct Hentry as (entry & Hentry).
 exists entry. intuition.
 apply lookupPDStructurePointer;trivial.
+Qed.
+
+(* DUP *)
+Lemma readPDMPU (pdpaddr : paddr) (P : state -> Prop) :
+{{ fun s => P s /\ isPDT pdpaddr s  }} MAL.readPDMPU pdpaddr
+{{ fun (MPU : list paddr) (s : state) => P s /\ pdentryMPU pdpaddr MPU s }}.
+Proof.
+eapply WP.weaken.
+apply WP.getPDTRecordField.
+simpl.
+intros.
+destruct H as (H & Hentry).
+apply isPDTLookupEq in Hentry ;trivial.
+destruct Hentry as (entry & Hentry).
+exists entry. repeat split;trivial.
+apply lookupPDEntryMPU;trivial.
 Qed.
 
 (* DUP *)
@@ -893,6 +932,28 @@ apply isPDTLookupEq in Hentry ;trivial.
 destruct Hentry as (entry & Hentry).
 exists entry. repeat split;trivial.
 apply lookupPDEntryNbPrepare;trivial.
+Qed.
+
+(* DUP *)
+Lemma readBlockFromPhysicalMPU (pd : paddr) (idx : index) (P : state -> Prop) :
+{{ fun s => P s /\ isPDT pd s  }} MAL.readBlockFromPhysicalMPU pd idx
+{{ fun (block: paddr) (s : state) => P s /\ pdentryMPUblock pd idx block s }}.
+Proof.
+unfold readBlockFromPhysicalMPU.
+eapply bindRev.
+{ (** readPDMPU *)
+	eapply weaken. apply readPDMPU.
+	intros. simpl. split. apply H. intuition.
+}
+intro realMPU.
+{ (** ret *)
+	eapply weaken. apply WeakestPreconditions.ret.
+	intros. simpl. intuition.
+	unfold pdentryMPUblock. unfold isPDT in *. 	unfold pdentryMPU in *.
+	destruct (lookup pd (memory s) beqAddr) ; try (exfalso ; congruence).
+	destruct v ; try (exfalso ; congruence).
+	subst. reflexivity.
+}
 Qed.
 
 (* Partial DUP *)
