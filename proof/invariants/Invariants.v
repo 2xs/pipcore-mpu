@@ -333,6 +333,19 @@ intros.
 simpl. intuition.
 Qed.
 
+
+(* DUP *)
+Lemma getPDStructureTotalLength P :
+{{fun s => P s}} MALInternal.getPDStructureTotalLength
+{{fun totallength s => P s /\ totallength = Constants.PDStructureTotalLength }}.
+Proof.
+unfold MALInternal.getPDStructureTotalLength.
+eapply WP.weaken.
+eapply WP.ret .
+intros.
+simpl. intuition.
+Qed.
+
 (* DUP *)
 Lemma removeDupIdentity  (l :  list (paddr * value)) : 
 forall addr1 addr2 , addr1 <> addr2  -> 
