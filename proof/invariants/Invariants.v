@@ -333,6 +333,19 @@ intros.
 simpl. intuition.
 Qed.
 
+
+(* DUP *)
+Lemma getPDStructurePointerAddrFromPD (paddr : paddr) (P : state -> Prop) :
+{{ fun s => P s /\ isPDT paddr s  }} MAL.getPDStructurePointerAddrFromPD paddr
+{{ fun (pointerToKS : ADT.paddr) (s : state) => P s /\ pointerToKS = CPaddr (paddr + Constants.kernelstructureidx) }}.
+Proof.
+unfold MAL.getPDStructurePointerAddrFromPD.
+eapply WP.weaken.
+eapply WP.ret .
+intros.
+simpl. intuition.
+Qed.
+
 (* DUP *)
 Lemma removeDupIdentity  (l :  list (paddr * value)) : 
 forall addr1 addr2 , addr1 <> addr2  -> 
@@ -881,7 +894,6 @@ destruct Hentry as (entry & Hentry).
 exists entry. repeat split;trivial.
 apply lookupPDEntryNbPrepare;trivial.
 Qed.
-
 
 (* Partial DUP *)
 Lemma compareAddrToNull (pa : paddr) (P : state -> Prop): 
