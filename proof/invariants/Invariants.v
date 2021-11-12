@@ -401,14 +401,16 @@ Qed.
 
 (* DUP *)
 Lemma isBELookupEq (blockentryaddr : paddr) s : 
-isBE blockentryaddr s -> exists entry : BlockEntry,
+isBE blockentryaddr s <-> exists entry : BlockEntry,
   lookup blockentryaddr (memory s) beqAddr = Some (BE entry).
 Proof.
-intros.  
+intros. split.
+- intros.
 unfold isBE in H.
 destruct (lookup blockentryaddr (memory s) beqAddr); try now contradict H.
 destruct v; try now contradict H.
 eexists;repeat split;trivial.
+- intros. unfold isBE. destruct H. rewrite H ; trivial.
 Qed.
 
 (* DUP *)
