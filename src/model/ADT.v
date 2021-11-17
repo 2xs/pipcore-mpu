@@ -62,17 +62,20 @@ Proof. unfold tableSize; auto. Qed.
    END SIMULATION *)
 
 (* BEGIN NOT SIMULATION *)
-(*Axiom tableSize nbLevel nbPage: nat.
-Axiom nbLevelNotZero: nbLevel > 0.
-Axiom nbPageNotZero: nbPage > 0.*)
 Axiom maxAddr: nat. (* Size of memory *)
 Axiom maxAddrNotZero: maxAddr > 0.
 Axiom maxIdx: nat. (* max prepare * kernel entries nb *)
+Definition maxIdxLowerBound := 1. (* at minimum, we need to count to 1 *)
 Axiom maxIdxNotZero: maxIdx > 0.
+Axiom maxIdxBigEnough : maxIdx > maxIdxLowerBound.
 Axiom maxIdxEqualMaxAddr: maxIdx = maxAddr.
 
 Axiom MPURegionsNb: nat.
 Axiom MPURegionsNbNotZero: MPURegionsNb > 0.
+
+Axiom KSEntriesNbNotZero: kernelStructureEntriesNb > 0.
+Axiom KSEntriesNbLessThanMaxIdx: kernelStructureEntriesNb < maxIdx - 1.
+Axiom maxNbPrepareNotZero: maxNbPrepare > 0.
 
 (*******************************************************************************)
 (* Elementary datatypes *)
@@ -80,18 +83,18 @@ Axiom MPURegionsNbNotZero: MPURegionsNb > 0.
 (* index corresponds to an integer in C *)
 Record index := {
   i :> nat ;
-  Hi : i < maxIdx }.
+  Hi : i <= maxIdx }.
 Parameter index_d : index. (* default index : 0 *)
 Program Definition CIndex  (p : nat) : index :=
-if (lt_dec p maxIdx) then Build_index p _ else  index_d.
+if (le_dec p maxIdx) then Build_index p _ else  index_d.
 
 (* paddr corresponds to a physical address *)
 Record paddr := { 
   p :> nat;
-  Hp : p < maxAddr }.
+  Hp : p <= maxAddr }.
 Parameter paddr_d : paddr. (* default paddr : NULL *)
 Program Definition CPaddr (p : nat) : paddr := 
-if (lt_dec p maxAddr) then Build_paddr p _ else  paddr_d.
+if (le_dec p maxAddr) then Build_paddr p _ else  paddr_d.
 Axiom RAMStartAddr: paddr.
 Axiom RAMEndAddr: paddr.
 
@@ -102,11 +105,23 @@ Axiom RAMEndAddr: paddr.
 Record block := {
   startAddr : paddr;
   endAddr : paddr ;
-  Haddr : startAddr < endAddr
+  Haddr : startAddr < endAddr ;
+	Hsize : endAddr - startAddr < maxIdx (* [startAddr ; endAddr ] because the MPU region
+																					 end address IS included in the region,
+																					however the size is STRICTLY under maxIdx
+																					[_______________]
+																					^						^		^
+																					|						|		| maxIdx = maxAddr
+																					|@start --- |@end
+*)
 }.
 Parameter block_d : block.
 Program Definition CBlock (startAddr endAddr : paddr) : block :=
-if (lt_dec startAddr endAddr) then Build_block startAddr endAddr _ else  block_d.
+if (lt_dec startAddr endAddr)
+then if lt_dec (endAddr - startAddr) maxIdx
+		then Build_block startAddr endAddr _ _
+		else block_d
+else  block_d.
 
 Record BlockEntry : Type:=
 {

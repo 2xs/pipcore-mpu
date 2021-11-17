@@ -135,7 +135,7 @@ trivial.
 Qed.
 
 Lemma pred  (n : index) (P: index -> state -> Prop) :
-{{ fun s : state => n > 0 /\ forall Hi : n - 1 < maxIdx,
+{{ fun s : state => n > 0 /\ forall Hi : n - 1 <= maxIdx,
                    P {| i := n -1; Hi := Hi |} s }}
 MALInternal.Index.pred n
 {{ P }}.
@@ -144,14 +144,32 @@ unfold MALInternal.Index.pred.
 destruct n.
 destruct i.
 simpl.
-case_eq (lt_dec 0 maxIdx).
-intros. eapply weaken. apply ret. intros. omega.
-intros. eapply weaken. apply undefined. intros. simpl. congruence.
+eapply weaken. apply ret. intros. omega.
 simpl.
-case_eq (lt_dec (i - 0) maxIdx).
+case_eq (le_dec (i - 0) maxIdx).
 intros. simpl. eapply weaken. apply ret.
 intros. simpl. intuition.
 intros. eapply weaken. apply undefined. intros. simpl. intuition.
+Qed.
+
+
+(* COPY *)
+Lemma succ  (idx : index) (P: index -> state -> Prop) :
+{{fun s => idx + 1 <= maxIdx /\ forall  l : idx + 1 <= maxIdx ,
+    P {| i := idx + 1; Hi := MALInternal.Index.succ_obligation_1 idx l |} s}} MALInternal.Index.succ idx {{ P }}.
+Proof.
+unfold MALInternal.Index.succ.
+case_eq (le_dec (idx + 1) maxIdx) .
+intros. simpl.
+eapply weaken.
+eapply ret .
+intros. intuition.
+intros. eapply weaken.
+eapply undefined .
+simpl. intros.
+destruct idx. simpl in *.
+destruct H0.
+omega.
 Qed.
 
 End Index.
@@ -169,7 +187,7 @@ trivial.
 Qed.
 
 Lemma subPaddr  (addr1 addr2 : paddr) (P : index -> state -> Prop):
-{{ fun s : state => addr1 >= 0 /\ addr2 >= 0 /\ addr1 - addr2 < maxIdx /\ forall Hi : addr1 - addr2 < maxIdx,
+{{ fun s : state => addr1 >= 0 /\ addr2 >= 0 /\ addr1 - addr2 < maxIdx /\ forall Hi : addr1 - addr2 <= maxIdx,
                    P {| i := addr1 - addr2; Hi := Hi |} s }}
 MALInternal.Paddr.subPaddr addr1 addr2
 {{ P }}.
@@ -178,28 +196,25 @@ unfold MALInternal.Paddr.subPaddr.
 destruct addr1.
 destruct addr2.
 simpl.
-case_eq ( lt_dec (p - p0) maxIdx) .
+case_eq ( le_dec (p - p0) maxIdx) .
 intros.
 eapply weaken.
 eapply ret .
 intros. intuition.
 intros. eapply weaken.
 eapply undefined .
-simpl. intros.
-destruct H0. destruct H1.
-destruct H2.
-congruence.
+simpl. intros. intuition.
 Qed.
 
 (* DUP*)
 Lemma subPaddrIdx  (n : paddr) (m: index) (P: paddr -> state -> Prop) :
-{{ fun s : state => n >= 0 /\ m >= 0 /\ forall Hp : n - m < maxAddr,
+{{ fun s : state => n >= 0 /\ m >= 0 /\ forall Hp : n - m <=maxAddr,
                    P {| p := n -m; Hp := Hp |} s }} MALInternal.Paddr.subPaddrIdx n m {{ P }}.
 Proof.
 unfold MALInternal.Paddr.subPaddrIdx.
 destruct n.
 simpl.
-case_eq (lt_dec (p - m) maxAddr) .
+case_eq (le_dec (p - m) maxAddr) .
 intros.
 eapply weaken.
 eapply ret .
@@ -212,7 +227,7 @@ Qed.
 
 (* DUP *)
 Lemma pred  (n : paddr) (P: paddr -> state -> Prop) :
-{{ fun s : state => n > 0 /\ forall Hp : n - 1 < maxAddr,
+{{ fun s : state => n > 0 /\ forall Hp : n - 1 <= maxAddr,
                    P {| p := n -1; Hp := Hp |} s }}
 MALInternal.Paddr.pred n
 {{ P }}.
@@ -221,77 +236,15 @@ unfold MALInternal.Paddr.pred.
 destruct n.
 destruct p.
 simpl.
-case_eq (lt_dec 0 maxAddr).
 intros. eapply weaken. apply ret. intros. omega.
-intros. eapply weaken. apply undefined. intros. simpl. congruence.
 simpl.
-case_eq (lt_dec (p - 0) maxAddr).
+case_eq (le_dec (p - 0) maxAddr).
 intros. simpl. eapply weaken. apply ret.
 intros. simpl. intuition.
 intros. eapply weaken. apply undefined. intros. simpl. intuition.
 Qed.
 
 End Paddr.
-
-(*
-Lemma geb  index1 index2 (P : bool -> state -> Prop):
-{{ fun s : state => P (StateLib.Index.geb index1 index2)  s }}
-  MALInternal.Index.geb index1 index2 {{ fun s => P s}}.
-Proof.
-unfold MALInternal.Index.pred.
-destruct n.
-destruct i.
-simpl.
-case_eq (lt_dec 0 maxIdx).
-intros. eapply weaken. apply ret. intros. omega.
-intros. eapply weaken. apply undefined. intros. simpl. congruence.
-simpl.
-case_eq (lt_dec (i - 0) maxIdx).
-intros. simpl. eapply weaken. apply ret.
-intros. simpl. intuition.
-intros. eapply weaken. apply undefined. intros. simpl. intuition.
-Qed.
-
-End Index.
-
-Module Paddr.
-(* DUP *)
-Lemma leb  addr1 addr2 (P : bool -> state -> Prop):
-{{ fun s : state => P (StateLib.Paddr.leb addr1 addr2)  s }} 
-  MALInternal.Paddr.leb addr1 addr2 {{ fun s => P s}}.
-Proof.
-unfold MALInternal.Paddr.leb, StateLib.Paddr.leb.
-eapply weaken.
-eapply ret .
-trivial.
-Qed.
-
-Lemma succ  (idx : index) (P: index -> state -> Prop) :
-{{fun s => idx < (tableSize -1) /\ forall  l : idx + 1 < tableSize ,
-    P {| i := idx + 1; Hi := MALInternal.Index.succ_obligation_1 idx l |} s}} MALInternal.Index.succ idx {{ P }}.
-Proof.
-unfold MALInternal.Paddr.subPaddr.
-destruct addr1.
-destruct addr2.
-simpl.
-case_eq ( lt_dec (p - p0) maxIdx) .
-intros.
-eapply weaken.
-eapply ret .
-intros. intuition.
-intros. eapply weaken.
-eapply undefined .
-simpl. intros.
-destruct idx. simpl in *.
-destruct H0.
-destruct n.
-(* BEGIN SIMULATION
-unfold tableSize in *.
-   END SIMULATION *)
-omega.
-Qed.
-End Index.
-*)
 
 (* COPY *)
 Lemma writeBlockAccessibleFromBlockEntryAddr  (entryaddr : paddr) (flag : bool)  (P : unit -> state -> Prop) :
@@ -836,6 +789,37 @@ eapply bind .
    eapply get . intuition.
 Qed.
 
+(* DUP *)
+Lemma readBlockEntryFromBlockEntryAddr  (addr : paddr) (P : BlockEntry -> state -> Prop) :
+{{fun s  =>  exists addrentry : BlockEntry, lookup addr s.(memory) beqAddr = Some (BE addrentry)
+             /\ P addrentry s }}
+MAL.readBlockEntryFromBlockEntryAddr addr
+{{P}}.
+Proof.
+unfold MAL.readBlockEntryFromBlockEntryAddr.
+eapply bind .
+  - intro s.
+    case_eq (lookup addr (memory s) beqAddr).
+     + intros v Hpage.
+       instantiate (1:= fun s s0 => s=s0 /\ exists p1 ,
+                    lookup addr s.(memory) beqAddr =
+                    Some (BE p1) /\ P p1 s).
+ 			simpl.
+       case_eq v; intros; eapply weaken; try eapply undefined ;simpl;
+ 			intros s1 H0; try destruct H0 as (Hs & p1 & Hpage' & Hret);
+ 			try rewrite Hpage in Hpage';
+ 			subst; try inversion Hpage';
+ 			try eassumption.
+ 			unfold Monad.ret.
+       eassumption.
+     + intros Hpage; eapply weaken; try eapply undefined ;simpl.
+       intros s0 H0.  destruct H0 as (Hs & p1 & Hpage' & Hret) .
+       rewrite Hpage in Hpage'.
+       subst. inversion Hpage'.
+  - eapply weaken.
+    eapply get . intuition.
+Qed.
+
 
 (* DUP *)
 Lemma readNextFromKernelStructureStart2  (nextaddr : paddr) (P : paddr -> state -> Prop) :
@@ -1082,6 +1066,36 @@ eapply weaken. apply ret.
 	intros. simpl. intuition.
 Qed.
 
+Lemma checkBlockInRAM  (blockentryaddr : paddr) (P : bool -> state -> Prop) :
+{{fun s => exists bentry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE bentry) /\
+             P (blockInRAM blockentryaddr s) s }}
+MAL.checkBlockInRAM blockentryaddr
+{{P}}.
+Proof.
+unfold MAL.checkBlockInRAM.
+eapply bind. intro s.
+case_eq (lookup blockentryaddr (memory s) beqAddr).
+- intros. instantiate (1:= fun s s0 => s=s0 /\ exists p1 ,
+                   lookup blockentryaddr s.(memory) beqAddr =
+                   Some (BE p1) /\ P (blockInRAM blockentryaddr s0) s0).
+	destruct v eqn:Hv.
+	+ eapply weaken. apply ret.
+		intros. simpl. intuition. unfold blockInRAM in *. subst. rewrite H in H2. simpl in *.
+		destruct H2. intuition.
+	+ eapply weaken. apply ret.
+		intros. simpl. intuition. unfold blockInRAM in *. subst. rewrite H in H2. destruct H2. intuition.
+	+ eapply weaken. apply ret.
+		intros. simpl. intuition. unfold blockInRAM in *. subst. rewrite H in H2. destruct H2. intuition.
+	+ eapply weaken. apply ret.
+		intros. simpl. intuition. unfold blockInRAM in *. subst. rewrite H in H2. destruct H2. intuition.
+	+	eapply weaken. apply ret.
+		intros. simpl. intuition. unfold blockInRAM in *. subst. rewrite H in H2. destruct H2. intuition.
+- intros.
+	eapply weaken. apply ret.
+	intros. simpl. intuition. unfold blockInRAM in *. subst. rewrite H in H2. destruct H2. intuition.
+- eapply weaken. apply get.
+	intros. simpl. intuition.
+Qed.
 
 Lemma check32Aligned  (addrToCheck : paddr) (P : bool -> state -> Prop) :
 {{fun  s => P (StateLib.is32Aligned addrToCheck) s }}

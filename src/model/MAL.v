@@ -1032,10 +1032,8 @@ Definition checkBlockInRAM (blockentryaddr : paddr) : LLI bool :=
 	perform s := get in
   let entry :=  lookup blockentryaddr s.(memory) beqAddr in
   match entry with
-  | Some (BE a) => 	perform startInRAM := Paddr.leb RAMStartAddr
-																										a.(blockrange).(startAddr) in
-										perform endInRAM := Paddr.leb a.(blockrange).(endAddr)
-																									RAMEndAddr in
+  | Some (BE a) => 	let startInRAM := RAMStartAddr <=? a.(blockrange).(startAddr) in
+										let endInRAM := a.(blockrange).(endAddr) <=? RAMEndAddr in
 										ret (startInRAM && endInRAM)
 	| _ => ret false
   end.
