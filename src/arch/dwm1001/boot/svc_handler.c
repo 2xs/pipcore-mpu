@@ -142,8 +142,8 @@ void SVC_Handler_Main( unsigned int *svc_args )
     case 10:
     {
       // Note as the result is in memory, the parameters are passed with R1 and R2, not RO
-      blockOrError block_found = findBlock( (uint32_t *)svc_args[1], //paddr idPD
-                                            (uint32_t *)svc_args[2] // paddr addrInBlock)
+      blockOrError block_found = findBlock( (uint32_t *)svc_args[0], //paddr idPD
+                                            (uint32_t *)svc_args[1] // paddr addrInBlock)
                                             );
       // Fill R0-R3: the access permissions and accessible bit are squeezed into R3
       sp[0] = (uint32_t) block_found.blockAttr.blockentryaddr;

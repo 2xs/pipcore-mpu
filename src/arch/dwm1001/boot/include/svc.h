@@ -117,53 +117,38 @@ __attribute__ ((noinline)) uint32_t* Pip_readMPU( uint32_t* idPD,
   __asm("SVC #9");
 }
 
-__attribute__ ((noinline))  blockOrError Pip_findBlock(uint32_t* idPD,
-                                                       uint32_t* addrInBlock)
-{
+__attribute__((noinline))
+int32_t Pip_findBlock(
+	uint32_t     *partDescBlockId,
+	uint32_t     *addrInBlock,
+	blockOrError *blockAddr
+) {
+	register uint32_t r0 asm("r0");
+	register uint32_t r1 asm("r1");
+	register uint32_t r2 asm("r2");
+	register uint32_t r3 asm("r3");
 
-  asm volatile (
-      " push {r3}	\n" // compiler uses r3 so save it now...
-      " SVC #10	\n"
-      " mov r8, r0\n"
-      " mov r9, r1\n"
-      " mov r10, r2\n"
-      " mov r11, r3\n"
-      " pop {r3} \n"); // ...restore r3
+	r0 = (uint32_t) partDescBlockId;
+	r1 = (uint32_t) addrInBlock;
 
+	asm volatile
+	(
+		"svc #10"
+		: "+r" (r0),
+		  "+r" (r1),
+		  "=r" (r2),
+		  "=r" (r3)
+		:
+		: "memory"
+	);
 
-  volatile blockOrError block_found = { .error=-1,
-                                        .blockAttr.blockentryaddr=NULL,
-                                        .blockAttr.blockstartaddr=NULL,
-                                        .blockAttr.blockendaddr=NULL,
-                                        .blockAttr.read = 0,
-                                        .blockAttr.write = 0,
-                                        .blockAttr.exec = 0,
-                                        .blockAttr.accessible = 0
-                                      }; // must be volatile
-  volatile uint32_t perm = 0;
-  // Fill error field
-  asm  (
-        " mov %[error], r0 \n"
-          : [error] "=r" (block_found.error)
+	blockAddr->blockAttr.blockentryaddr = (uint32_t *) r0;
+	blockAddr->blockAttr.blockstartaddr = (uint32_t *) r1;
+	blockAddr->blockAttr.blockendaddr   = (uint32_t *) r2;
+	blockAddr->blockAttr.read           = (r3 & 1);
+	blockAddr->blockAttr.write          = ((r3 >> 1) & 1);
+	blockAddr->blockAttr.exec           = ((r3 >> 2) & 1);
+	blockAddr->blockAttr.accessible     = ((r3 >> 3) & 1);
 
-      );
-  if(block_found.error != -1){
-    // If no error, then fill the other fields
-    asm  (" mov %[entryaddr], r8 \n"
-          " mov %[startaddr], r9 \n"
-          " mov %[endaddr], r10 \n"
-          " mov %[AP], r11 \n"
-          : // Outputs
-          [entryaddr] "=r" (block_found.blockAttr.blockentryaddr),
-          [startaddr] "=r" (block_found.blockAttr.blockstartaddr),
-          [endaddr] "=r" (block_found.blockAttr.blockendaddr),
-          [AP] "=r" (perm)
-      );
-    // Fill the bits' fields: writing bits so no need for first bit masking after shifting
-    block_found.blockAttr.read = perm & (0x1);
-    block_found.blockAttr.write = (perm >> 1);
-    block_found.blockAttr.exec = (perm >> 2);
-    block_found.blockAttr.accessible = (perm >> 3);
-  }
-  return block_found;
+	return (int32_t) blockAddr->error;
 }
