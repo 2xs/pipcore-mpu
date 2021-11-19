@@ -36,6 +36,13 @@
 
 #include "user_ADT.h"
 
+/*!
+ * \brief System call that creates a new child, i.e. a sub-partition of
+ *        the current partition.
+ * \param blockLocalId The local ID of the block that will contain the
+ *        partition descriptor structure.
+ * \return 1 if the system call succeed, 0 otherwise.
+ */
 __attribute__((noinline))
 uint32_t Pip_createPartition(uint32_t *blockLocalId)
 {
@@ -54,6 +61,16 @@ uint32_t Pip_createPartition(uint32_t *blockLocalId)
 	return r0;
 }
 
+/*!
+ * \brief System call that cuts a block at an address that creates a new
+ *        sub-block at that address.
+ * \param blockToCutLocalId The local ID of the block to cut.
+ * \param cutAddr The address where to cut the block.
+ * \param mpuRegionNb The region number of the physical MPU where to
+ *        place the created sub-block.
+ * \return Returns the ID of the newly created sub-block if the system
+ *         call succeed, NULL otherwise.
+ */
 __attribute__((noinline))
 uint32_t *Pip_cutMemoryBlock(
 	uint32_t *blockToCutLocalId,
@@ -80,6 +97,17 @@ uint32_t *Pip_cutMemoryBlock(
 	return (uint32_t *) r0;
 }
 
+/*!
+ * \brief System call that merges two blocks together.
+ * \param blockToMerge1LocalId The local ID of the block to be merged
+ *        becomes the beginning of the merged blocks.
+ * \param blockToMerge2LocalId The local ID of the block to be merged
+ *        disappears from the list of blocks.
+ * \param mpuRegionNb The region number of the physical MPU where to
+ *        place the merged block.
+ * \return Returns the local ID of the merged blocks if the system call
+ *         succeed, NULL otherwise.
+ */
 __attribute__((noinline))
 uint32_t *Pip_mergeMemoryBlocks(
 	uint32_t *blockToMerge1LocalId,
@@ -106,6 +134,18 @@ uint32_t *Pip_mergeMemoryBlocks(
 	return (uint32_t *) r0;
 }
 
+/*!
+ * \brief System call that prepares the partition descriptor structure
+ *        of the current partition or one of its child to receive blocks
+ *        and use a block as a metadata structure.
+ * \param partDescBlockId The ID of the block containing the current
+ *        partition descriptor structure or one of its child.
+ * \param projectedSlotsNb The number of requested slots. -1 to force
+ *        the prepare, even if there are still free slots.
+ * \param requisitionedBlockLocalId The local ID of the block used as
+ *        the new kernel structure.
+ * \return 1 if the system call succeed, 0 otherwise.
+ */
 __attribute__((noinline))
 uint32_t Pip_prepare(
 	uint32_t *partDescBlockId,
@@ -175,6 +215,15 @@ uint32_t* Pip_addMemoryBlock(
 	return (uint32_t *) r0;
 }
 
+/*!
+ * \brief System call that removes a block from the partition descriptor
+ *        structure of a child of the current partition.
+ * \param childPartDescBlockLocalId The local ID of the block containing
+ *        the partition descriptor structure of the child.
+ * \param blockToRemoveLocalId The local ID of the block to remove from
+ *        the child partition.
+ * \return 1 if the system call succeed, 0 otherwise.
+ */
 __attribute__((noinline))
 uint32_t Pip_removeMemoryBlock(
 	uint32_t *childPartDescBlockLocalId,
@@ -197,6 +246,13 @@ uint32_t Pip_removeMemoryBlock(
 	return r0;
 }
 
+/*!
+ * \brief System call that deletes the block containing the partition
+ *        descriptor structure of a child of the current partition.
+ * \param childPartDescBlockLocalId The local ID of the block containing
+ *        the partition descriptor structure of the child to remove.
+ * \return 1 if the system call succeed, 0 otherwise.
+ */
 __attribute__((noinline))
 uint32_t Pip_deletePartition(uint32_t *childPartDescBlockLocalId)
 {
@@ -215,6 +271,15 @@ uint32_t Pip_deletePartition(uint32_t *childPartDescBlockLocalId)
 	return r0;
 }
 
+/*!
+ * \brief System call that collects an empty structure, if possible, from
+ *        the block containing the partition descriptor structure of the
+ *        current partition or one of its childs.
+ * \param partDescBlockId The block containing the partition descriptor
+ *        structure of the current partition or one of its child.
+ * \return The ID of the collected block containing the structure if the
+ *         system call succeed, NULL otherwise.
+ */
 __attribute__((noinline))
 uint32_t *Pip_collect(uint32_t *partDescBlockId)
 {
@@ -233,6 +298,19 @@ uint32_t *Pip_collect(uint32_t *partDescBlockId)
 	return (uint32_t *) r0;
 }
 
+/*!
+ * \brief System call that maps a block in the physical MPU region of
+ *        the partition descriptor structure of the current partition or
+ *        one of its childs.
+ * \param partDescBlockId The ID of the block containing the partition
+ *        descriptor structure of the current partition or one of its
+ *        child.
+ * \param blockToMapLocalId The ID of the block to map in a physical MPU
+ *        region of the partition descriptor structure.
+ * \param mpuRegionNb The number of the physical MPU region from which
+ *        to write.
+ * \return 1 if the system call succeed, 0 otherwise.
+ */
 __attribute__((noinline))
 uint32_t Pip_mapMPU(
 	uint32_t *partDescBlockId,
@@ -259,6 +337,17 @@ uint32_t Pip_mapMPU(
 	return r0;
 }
 
+/*!
+ * \brief System call that reads the content of a physical MPU region in
+ *        the partition descriptor structure of the current partition or
+ *        one of its childs.
+ * \param partDescBlockId The block containing the partition descriptor
+ *        structure of the current partition or one of its child.
+ * \param mpuRegionNb The number of the physical MPU region from which
+ *        to read.
+ * \return The block ID in the read physical MPU region if the function
+ *         succeed, NULL otherwise.
+ */
 __attribute__((noinline))
 uint32_t *Pip_readMPU(
 	uint32_t *partDescBlockId,
@@ -281,6 +370,18 @@ uint32_t *Pip_readMPU(
 	return (uint32_t *) r0;
 }
 
+/*!
+ * \brief System call that finds in which block an address is located by
+ *        searching in the blocks list of the partition descriptor
+ *        structure of the current partition or one of its childs.
+ * \param partDescBlockId The ID of the block containing the partition
+ *        descriptor structure of the current partition or one of its
+ *        child.
+ * \param addrToFind The address to find in the blocks list.
+ * \param blockAddr The address of a block structure where to store the
+ *        informations of the found block.
+ * \return The value of the error field in the structure.
+ */
 __attribute__((noinline))
 int32_t Pip_findBlock(
 	uint32_t     *partDescBlockId,
