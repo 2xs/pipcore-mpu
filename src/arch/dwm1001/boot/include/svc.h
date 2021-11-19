@@ -31,35 +31,122 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
+#ifndef __SVC_H__
+#define __SVC_H__
+
 #include "user_ADT.h"
 
-__attribute__ ((noinline)) int Pip_createPartition(uint32_t* idBlock)
+__attribute__((noinline))
+uint32_t Pip_createPartition(uint32_t *blockLocalId)
 {
-  __asm("SVC #0");
+	register uint32_t r0 asm("r0");
+
+	r0 = (uint32_t) blockLocalId;
+
+	asm volatile
+	(
+		"svc #0"
+		: "+r" (r0)
+		:
+		: "memory"
+	);
+
+	return r0;
 }
 
-__attribute__ ((noinline)) uint32_t* Pip_cutMemoryBlock(uint32_t* idBlockToCut,
-                                                    uint32_t* cutAddr,
-                                                    int32_t mPURegionNb)
-{
-  __asm("SVC #1");
+__attribute__((noinline))
+uint32_t *Pip_cutMemoryBlock(
+	uint32_t *blockToCutLocalId,
+	uint32_t *cutAddr,
+	int32_t   mpuRegionNb
+) {
+	register uint32_t r0 asm("r0");
+	register uint32_t r1 asm("r1");
+	register uint32_t r2 asm("r2");
+
+	r0 = (uint32_t) blockToCutLocalId;
+	r1 = (uint32_t) cutAddr;
+	r2 = (uint32_t) mpuRegionNb;
+
+	asm volatile
+	(
+		"svc #1"
+		: "+r" (r0)
+		: "r"  (r1),
+		  "r"  (r2)
+		: "memory"
+	);
+
+	return (uint32_t *) r0;
 }
 
-__attribute__ ((noinline)) uint32_t* Pip_mergeMemoryBlocks( uint32_t* idBlockToMerge1,
-                                                        uint32_t* idBlockToMerge2,
-                                                        int32_t mPURegionNb)
-{
-  __asm("SVC #2");
+__attribute__((noinline))
+uint32_t *Pip_mergeMemoryBlocks(
+	uint32_t *blockToMerge1LocalId,
+	uint32_t *blockToMerge2LocalId,
+	int32_t   mpuRegionNb
+) {
+	register uint32_t r0 asm("r0");
+	register uint32_t r1 asm("r1");
+	register uint32_t r2 asm("r2");
+
+	r0 = (uint32_t) blockToMerge1LocalId;
+	r1 = (uint32_t) blockToMerge2LocalId;
+	r2 = (uint32_t) mpuRegionNb;
+
+	asm volatile
+	(
+		"svc #2"
+		: "+r" (r0)
+		: "r"  (r1),
+		  "r"  (r2)
+		: "memory"
+	);
+
+	return (uint32_t *) r0;
 }
 
+__attribute__((noinline))
+uint32_t Pip_prepare(
+	uint32_t *partDescBlockId,
+	int32_t   projectedSlotsNb,
+	uint32_t *requisitionedBlockLocalId
+) {
+	register uint32_t r0 asm("r0");
+	register uint32_t r1 asm("r1");
+	register uint32_t r2 asm("r2");
 
-__attribute__ ((noinline)) int Pip_prepare( uint32_t* idPD,
-                                            int32_t projectedSlotsNb,
-                                            uint32_t* idRequisitionedBlock)
-{
-  __asm("SVC #3");
+	r0 = (uint32_t) partDescBlockId;
+	r1 = (uint32_t) projectedSlotsNb;
+	r2 = (uint32_t) requisitionedBlockLocalId;
+
+	asm volatile
+	(
+		"svc #3"
+		: "+r" (r0)
+		: "r"  (r1),
+		  "r"  (r2)
+		: "memory"
+	);
+
+	return r0;
 }
 
+/*!
+ * \brief System call that adds a block to the partition descriptor
+ *        structure of a child of the current partition. The block
+ *        is still accessible from the current partition (shared
+ *        memory).
+ * \param childPartDescBlockLocalId The local ID of the block containing
+ *        the partition descriptor structure of the child.
+ * \param blockToShareLocalId The local ID of the block to share with
+ *        the child partition.
+ * \param r The read right to apply to the block in the child partition.
+ * \param w The write right to apply to the block in the child partition.
+ * \param e The execute right to apply to the block in the child
+ *          partition.
+ * \return Returns the ID of the shared block in the child.
+ */
 __attribute__((noinline))
 uint32_t* Pip_addMemoryBlock(
 	uint32_t *childPartDescBlockLocalId,
@@ -88,33 +175,110 @@ uint32_t* Pip_addMemoryBlock(
 	return (uint32_t *) r0;
 }
 
-__attribute__ ((noinline)) uint32_t Pip_removeMemoryBlock(uint32_t* idPDchild,
-                                                          uint32_t* idBlockToRemove)
-{
-  __asm("SVC #5");
+__attribute__((noinline))
+uint32_t Pip_removeMemoryBlock(
+	uint32_t *childPartDescBlockLocalId,
+	uint32_t *blockToRemoveLocalId
+) {
+	register uint32_t r0 asm("r0");
+	register uint32_t r1 asm("r1");
+
+	r0 = (uint32_t) childPartDescBlockLocalId;
+	r1 = (uint32_t) blockToRemoveLocalId;
+
+	asm volatile
+	(
+		"svc #5"
+		: "+r" (r0)
+		: "r"  (r1)
+		: "memory"
+	);
+
+	return r0;
 }
 
-__attribute__ ((noinline)) uint32_t Pip_deletePartition(uint32_t* idPDchildToDelete)
+__attribute__((noinline))
+uint32_t Pip_deletePartition(uint32_t *childPartDescBlockLocalId)
 {
-  __asm("SVC #6");
+	register uint32_t r0 asm("r0");
+
+	r0 = (uint32_t) childPartDescBlockLocalId;
+
+	asm volatile
+	(
+		"svc #6"
+		: "+r" (r0)
+		:
+		: "memory"
+	);
+
+	return r0;
 }
 
-__attribute__ ((noinline)) uint32_t* Pip_collect(uint32_t* idPD)
+__attribute__((noinline))
+uint32_t *Pip_collect(uint32_t *partDescBlockId)
 {
-  __asm("SVC #7");
+	register uint32_t r0 asm("r0");
+
+	r0 = (uint32_t) partDescBlockId;
+
+	asm volatile
+	(
+		"svc #7"
+		: "+r" (r0)
+		:
+		: "memory"
+	);
+
+	return (uint32_t *) r0;
 }
 
-__attribute__ ((noinline)) uint32_t Pip_mapMPU( uint32_t* idPD,
-                                                uint32_t* idBlockToEnable,
-                                                int32_t mPURegionNb)
-{
-  __asm("SVC #8");
+__attribute__((noinline))
+uint32_t Pip_mapMPU(
+	uint32_t *partDescBlockId,
+	uint32_t *blockToMapLocalId,
+	int32_t   mpuRegionNb
+) {
+	register uint32_t r0 asm("r0");
+	register uint32_t r1 asm("r1");
+	register uint32_t r2 asm("r2");
+
+	r0 = (uint32_t) partDescBlockId;
+	r1 = (uint32_t) blockToMapLocalId;
+	r2 = (uint32_t) mpuRegionNb;
+
+	asm volatile
+	(
+		"svc #8"
+		: "+r" (r0)
+		: "r"  (r1),
+		  "r"  (r2)
+		: "memory"
+	);
+
+	return r0;
 }
 
-__attribute__ ((noinline)) uint32_t* Pip_readMPU( uint32_t* idPD,
-                                                  int32_t mPURegionNb)
-{
-  __asm("SVC #9");
+__attribute__((noinline))
+uint32_t *Pip_readMPU(
+	uint32_t *partDescBlockId,
+	int32_t   mpuRegionNb
+) {
+	register uint32_t r0 asm("r0");
+	register uint32_t r1 asm("r1");
+
+	r0 = (uint32_t) partDescBlockId;
+	r1 = (uint32_t) mpuRegionNb;
+
+	asm volatile
+	(
+		"svc #9"
+		: "+r" (r0)
+		: "r"  (r1)
+		: "memory"
+	);
+
+	return (uint32_t *) r0;
 }
 
 __attribute__((noinline))
@@ -152,3 +316,5 @@ int32_t Pip_findBlock(
 
 	return (int32_t) blockAddr->error;
 }
+
+#endif /* __SVC_H__ */
