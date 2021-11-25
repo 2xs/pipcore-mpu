@@ -507,6 +507,10 @@ Definition addMemoryBlock (idPDchild idBlockToShare: paddr) (r w e : bool)
 																	blockToShareInCurrPartAddr in
 		if negb addrIsPresent then (** block is not present *) ret nullAddr else
 
+		(* Check that the block to add is not the block
+		 * containing the VIDT of the current partition. *)
+		perform vidtBlockGlobalId := readPDVidt globalIdPDChild in
+		if (beqAddr vidtBlockGlobalId blockToShareInCurrPartAddr) then ret nullAddr else
 
 		(** Child: set the block to share in the child's first free slot*)
 		(* the block start is set as origin in the child*)
@@ -562,6 +566,11 @@ Definition removeMemoryBlock (idPDchild idBlockToRemove: paddr)		: LLI bool :=
 																blockToRemoveInCurrPartAddr in
 		perform hasChildBlock := getBeqAddr globalIdPDChild pdchildblock in
 		if negb hasChildBlock then (* no correspondance, stop *) ret false else
+
+                (* Check that the block to remove is not the block
+                 * containing the VIDT of the current partition. *)
+		perform vidtBlockGlobalId := readPDVidt globalIdPDChild in
+		if (beqAddr vidtBlockGlobalId blockToRemoveInCurrPartAddr) then ret false else
 
 		(** Child (and grand-children): remove block if possible *)
 		perform idBlockToRemove := readBlockStartFromBlockEntryAddr blockToRemoveInCurrPartAddr in
@@ -792,5 +801,80 @@ Definition findBlock (idPD: paddr) (addrInBlock : paddr) : LLI blockOrError :=
 		perform blockentry := readBlockEntryFromBlockEntryAddr blockAddr in
 		ret (blockAttr blockAddr blockentry).
 
-
-
+(**
+ * The setVIDT PIP MPU service.
+ *
+ * The [setVIDT] system call sets the VIDT block in the partition
+ * descriptor structure of the current partition or one of its child.
+ *
+ * It returns true if the VIDT block has been added to the partition
+ * descriptor structure, false otherwise.
+ *
+ * <<partDescBlockId>> The ID of the block containing the partition
+ *                     descriptor structure of the current partition or
+ *                     one of its childs.
+ *
+ * <<vidtBlockLocalId>> The ID of the block that will contain the VIDT
+ *                      or 0 to reset the VIDT block to NULL in the
+ *                      partition descriptor structure.
+ *)
+Definition setVIDT (partDescBlockId vidtBlockLocalId : paddr) : LLI bool :=
+  perform currentPartDescBlockGlobalId := getCurPartition in
+  (* Check that partDescBlockId is either the current partition or one
+   * of its childs. *)
+  perform currentOrChildPartDescBlockGlobalId := getGlobalIdPDCurrentOrChild currentPartDescBlockGlobalId partDescBlockId in
+  perform currentOrChildPartDescBlockGlobalIdIsNull := compareAddrToNull currentOrChildPartDescBlockGlobalId in
+  if currentOrChildPartDescBlockGlobalIdIsNull
+  then ret false
+  else
+    (* Check if the vidtBlockLocalId is null. *)
+    perform vidtBlockLocalIdIsNull := compareAddrToNull(vidtBlockLocalId) in
+    if vidtBlockLocalIdIsNull
+    then
+      (* If the vidtBlockLocalId is null, reset the VIDT block with a
+       * null address. *)
+      writePDVidt currentOrChildPartDescBlockGlobalId nullAddr ;;
+      ret true
+    else
+      (* Check that the vidtBlockLocalId is a block in the partition
+       * descriptor of currentOrChildPartDescBlockGlobalId. *)
+      perform vidtBlockGlobalId := findBlockInKSWithAddr currentOrChildPartDescBlockGlobalId vidtBlockLocalId in
+      perform vidtBlockGlobalIdIsNull := compareAddrToNull vidtBlockGlobalId in
+        if vidtBlockGlobalIdIsNull
+        then ret false
+        else
+          (* Check that the vidtBlockGlobalId is an accessible block. *)
+          perform vidtBlockGlobalIdIsAccessible := readBlockAccessibleFromBlockEntryAddr vidtBlockGlobalId in
+          if negb vidtBlockGlobalIdIsAccessible
+          then ret false
+          else
+            (* Check that the vidtBlockGlobalId size is greater or equal
+	     * to the minimum VIDT size. *)
+            perform minVidtBlockSize := getMinVidtBlockSize in
+            perform vidtBlockSize := sizeOfBlock vidtBlockGlobalId in
+            perform vidtBlockSizeIsBigEnough := Index.leb minVidtBlockSize vidtBlockSize in
+            if negb vidtBlockSizeIsBigEnough
+            then ret false
+            else
+              (* Check if the current partition is setting its own VIDT
+	       * block. Otherwise, the current partition is setting the
+	       * VIDT of its child. *)
+              if (beqAddr currentOrChildPartDescBlockGlobalId currentPartDescBlockGlobalId)
+              then
+                (* Check that the VIDT block is not a shared block. *)
+                perform childPartDescGlobalId := readSh1PDChildFromBlockEntryAddr vidtBlockGlobalId in
+                perform childPartDescGlobalIdIsNull := compareAddrToNull childPartDescGlobalId in
+                if negb childPartDescGlobalIdIsNull
+                then ret false
+                else
+                  writePDVidt currentOrChildPartDescBlockGlobalId vidtBlockGlobalId ;;
+                  ret true
+              else
+                (* Checks that the VIDT block is not shared in the child. *)
+                perform vidtBlockInChildGlobalId := readSh1InChildLocationFromBlockEntryAddr vidtBlockGlobalId in
+                perform vidtBlockInChildGlobalIdIsNull := compareAddrToNull vidtBlockInChildGlobalId in
+                if negb vidtBlockInChildGlobalIdIsNull
+                then ret false
+                else
+                  writePDVidt currentOrChildPartDescBlockGlobalId vidtBlockGlobalId ;;
+                  ret true.

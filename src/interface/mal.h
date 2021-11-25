@@ -120,6 +120,8 @@ uint32_t readPDNbPrepare(paddr pdaddr); //!< Gets the number of prepare done uti
 void writePDNbPrepare(paddr pdaddr, uint32_t value); //!< Sets the number of prepare done util then
 paddr readPDParent(paddr pdaddr); //!< Gets the parent PD's address
 void writePDParent(paddr pdaddr, paddr value); //!< Sets the parent PD's address
+paddr readPDVidt(paddr pdaddr); //!< Read the VIDT block from the partition descriptor structure.
+void writePDVidt(paddr pdaddr, paddr value); //!< Write the VIDT block to the partition descriptor structure.
 paddr readBlockStartFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the block's start address from the given entry
 void writeBlockStartFromBlockEntryAddr(paddr blockentryaddr, paddr value); //!< Sets the block's start address
 paddr readBlockEndFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the block's end address from the given entry

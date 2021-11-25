@@ -162,6 +162,12 @@ void SVC_Handler_Main( unsigned int *svc_args )
 #endif
       break;
     }
+    case 11:
+      sp[0] = setVIDT(
+        (paddr) svc_args[0],
+        (paddr) svc_args[1]
+      );
+      break;
 #ifdef UNIT_TESTS
     case 127: // Enable Privileged mode !TODO!: to remove with system calls in SVC instead
       __set_CONTROL( __get_CONTROL( ) & ~CONTROL_nPRIV_Msk ) ;

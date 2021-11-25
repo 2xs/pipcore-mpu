@@ -138,7 +138,9 @@ Record PDTable :=
  nbfreeslots : index ;
  nbprepare : index ;
  parent : paddr ;
- MPU : list paddr (*;
+ MPU : list paddr ;
+ vidtBlock : paddr
+ (*;
  HMPU : length MPU = MPURegionsNb*)
 
 (*;

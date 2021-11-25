@@ -418,4 +418,38 @@ int32_t Pip_findBlock(
 	return (int32_t) blockAddr->error;
 }
 
+/*!
+ * \brief System call that sets the VIDT block in the partition
+ *        descriptor structure of the current partition or one of its
+ *        child.
+ * \param partDescBlockId The ID of the block containing the partition
+ *        descriptor structure of the current partition or one of its
+ *        childs.
+ * \param vidtBlockLocalId The ID of the block that will contain the
+ *        VIDT or 0 to reset the VIDT block to NULL in the partition
+ *        descriptor structure.
+ * \return 1 if the system call succeed, 0 otherwise.
+ */
+__attribute__((noinline))
+uint32_t Pip_setVIDT(
+	uint32_t *partDescBlockId,
+	uint32_t *vidtBlockLocalId
+) {
+	register uint32_t r0 asm("r0");
+	register uint32_t r1 asm("r1");
+
+	r0 = (uint32_t) partDescBlockId;
+	r1 = (uint32_t) vidtBlockLocalId;
+
+	asm volatile
+	(
+		"svc #11"
+		: "+r" (r0)
+		: "r"  (r1)
+		: "memory"
+	);
+
+	return r0;
+}
+
 #endif /* __SVC_H__ */

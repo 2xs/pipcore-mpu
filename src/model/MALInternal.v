@@ -138,6 +138,15 @@ Definition rootPart := CPaddr 0.
 
 Definition minBlockSize := CIndex 32.
 
+(**
+  * The VIDT is an array of 32 pointers of 4 bytes. This requires a
+  * block of at least 128 bytes, which is a valid MPU region size.
+  *
+  * TODO: Do not hard-code this value because on some architectures, a
+  * pointer is not necessarily equal to 4 bytes.
+ *)
+Definition minVidtBlockSize := CIndex 128.
+
 (* TODO : power of 2*)
 Definition kernelStructureTotalLength := CIndex (nextoffset + 1).
 Definition PDStructureTotalLength := CIndex (5+8). (*5 fields + table of 8 MPU regions *)
@@ -149,6 +158,7 @@ Definition getKernelStructureEntriesNb : LLI index := ret (CIndex kernelStructur
 Definition getMaxNbPrepare : LLI index := ret (CIndex maxNbPrepare).
 (*Definition getMinBlockSize : LLI paddr := ret Constants.minBlockSize.*)
 Definition getMinBlockSize : LLI index := ret Constants.minBlockSize.
+Definition getMinVidtBlockSize : LLI index := ret Constants.minVidtBlockSize.
 Definition getKernelStructureTotalLength : LLI index := ret Constants.kernelStructureTotalLength.
 Definition getPDStructureTotalLength : LLI index := ret Constants.PDStructureTotalLength.
 Definition getMPURegionsNb : LLI index := ret (CIndex MPURegionsNb).
