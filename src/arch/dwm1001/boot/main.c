@@ -79,6 +79,7 @@ int main (int argc, char* argv[])
   paddr root = getRootPartition();
   dump_partition(root);
   activate(root);
+  updateCurPartition(root);
 
   // set PSP to root stack
   uint32_t psp = (uint32_t) &user_stack_top;

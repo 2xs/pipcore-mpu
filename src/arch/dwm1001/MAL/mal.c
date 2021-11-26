@@ -1263,12 +1263,6 @@ blockOrError blockAttr(paddr blockentryaddr, BlockEntry_t blockentry)
  * the partition must already be validated */
 void activate(paddr desc)
 {
-	if (desc == getCurPartition())
-	{
-		printf("DEBUG: activate %08x\r\n, no load", desc);
-		return;
-	}
-	printf("DEBUG: activate %08x\r\n", desc);
 	PDTable_t* PDT = (PDTable_t*) desc;
 	if (PDT == NULL)
 	{

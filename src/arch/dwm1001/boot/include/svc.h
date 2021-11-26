@@ -452,4 +452,59 @@ uint32_t Pip_setVIDT(
 	return r0;
 }
 
+/*!
+ * \brief System call that yield from the current partition (the
+ *        caller), to its parent or one of its childs (the callee).
+ * \param calleePartDescBlockId The ID of the block containing the
+ *        partition descriptor structure of a child of the current
+ *        partition, or an ID equals to 0 for the partition descriptor
+ *        structure of its parent.
+ * \param userTargetInterrupt The index of the VIDT, which contains the
+ *        address pointing to the location where the current context is
+ *        to be restored.
+ * \param userCallerContextSaveIndex The index of the VIDT, which
+ *        contains the address pointing to the location where the
+ *        current context is to be stored. If this address is zero, the
+ *        context is not stored.
+ * \param flagsOnYield The state the partition wishes to be on yield.
+ * \param flagsOnWake The state the partition wishes to be on wake.
+ * \return If the system call succeeds, no value is returned to the
+ *         caller. If an error occurs, the system call returns an error
+ *         code indicating the nature of the error. If the context is
+ *         restored, the return value should be ignored.
+ */
+__attribute__((noinline))
+uint32_t Pip_yield(
+	uint32_t *calleePartDescBlockId,
+	uint32_t userTargetInterrupt,
+	uint32_t userCallerContextSaveIndex,
+	uint32_t flagsOnYield,
+	uint32_t flagsOnWake
+) {
+	register uint32_t r0 asm("r0");
+	register uint32_t r1 asm("r1");
+	register uint32_t r2 asm("r2");
+	register uint32_t r3 asm("r3");
+	register uint32_t r4 asm("r4");
+
+	r0 = (uint32_t) calleePartDescBlockId;
+	r1 = userTargetInterrupt;
+	r2 = userCallerContextSaveIndex;
+	r3 = flagsOnYield;
+	r4 = flagsOnWake;
+
+	asm volatile
+	(
+		"svc #12"
+		: "+r" (r0)
+		: "r"  (r1),
+		  "r"  (r2),
+		  "r"  (r3),
+		  "r"  (r4)
+		: "memory"
+	);
+
+	return r0;
+}
+
 #endif /* __SVC_H__ */
