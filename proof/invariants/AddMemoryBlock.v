@@ -37,8 +37,7 @@ Require Import Core.Services.
 Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPreconditions
 Proof.StateLib (*Proof.InternalLemmas Proof.InternalLemmas2*) Proof.DependentTypeLemmas.
 
-Require Import Invariants (*GetTableAddr UpdateShadow2Structure UpdateShadow1Structure
-               PropagatedProperties MapMMUPage*) checkChildOfCurrPart insertNewEntry.
+Require Import Invariants checkChildOfCurrPart insertNewEntry.
 
 Require Import Bool List EqNat.
 
@@ -46,258 +45,182 @@ Require Import Model.Monad.
 
 Module WP := WeakestPreconditions.
 
-
-(*
-Lemma getCurPartition   (P: paddr -> state -> Prop) :
-{{wp P MAL.getCurPartition}} MAL.getCurPartition {{P}}.
-Proof.
-apply wpIsPrecondition.
-Qed.
-
-Lemma getCurPartition2 P :
-{{fun s => P s }} MAL.getCurPartition 
-{{fun (PR : paddr) (s : state) => P s  /\ PR = currentPartition s }}.
-Proof.
-eapply weaken.
-eapply getCurPartition.
-cbn. intros . intuition. 
-Qed.*)
-
 (** * Summary 
-    This file contains the invariant of [addVaddr]. 
+    This file contains the invariant of [addMemoryBlock].
     We prove that this PIP service preserves the isolation property *)
 
 Lemma addMemoryBlock  (idPDchild idBlockToShare: paddr) (r w e : bool) :
 {{fun s => partitionsIsolation s   /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }} 
-addMemoryBlock idPDchild idBlockToShare r w e 
+Services.addMemoryBlock idPDchild idBlockToShare r w e 
 {{fun _ s  => partitionsIsolation s   /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}.
 Proof.
 unfold addMemoryBlock.
-(** getCurPartition **)
 eapply WP.bindRev.
-eapply WP.weaken. 
-eapply Invariants.getCurPartition.
-cbn.
-intros. split.
-exact H. apply H. (*No need to pass H completely*)
+{ (** getCurPartition **)
+	eapply WP.weaken. apply Invariants.getCurPartition.
+	cbn. intros. split. exact H. intuition.
+}
 intro currentPart.
-(** findBlockInKSWithAddr **)
 eapply WP.bindRev.
-eapply findBlockInKSWithAddr.findBlockInKSWithAddr.
+{ (** findBlockInKSWithAddr **)
+	eapply weaken. eapply findBlockInKSWithAddr.findBlockInKSWithAddr.
+	intros. simpl. split. apply H. intuition.
+}
 intro blockToShareInCurrPartAddr.
-(** compareAddrToNull **)
 eapply WP.bindRev.
-eapply Invariants.compareAddrToNull.
+{ (** compareAddrToNull **)
+	eapply weaken. apply Invariants.compareAddrToNull.
+	intros. simpl. apply H.
+}
 intro addrIsNull.
 case_eq addrIsNull.
-{intros. eapply WP.weaken.
-  eapply WP.ret.
-  simpl. intros.
-  intuition. }
-intros.
-(*(** compareVAddrToNull **) 
-eapply WP.bindRev.
-eapply Invariants.compareVAddrToNull.
-intro vaInCurrentPartitionIsnull. simpl.
-case_eq vaInCurrentPartitionIsnull.
-{ intros.
-  eapply WP.weaken.
-  eapply WP.ret .
-  simpl. intros.
-  intuition. }
-intros HvaInCurrentPartition. 
-subst.
-  (** comparePageToNull **) 
-eapply WP.bindRev.
-eapply Invariants.compareVAddrToNull.
-intro descChildIsnull. simpl.
-case_eq descChildIsnull.
-{ intros.
-  eapply WP.weaken.
-  eapply WP.ret .
-  simpl. intros.
-  intuition. }
-intros HdescChildIsnull. 
-subst.  
-(** checkKernelMap *)
-eapply WP.bindRev.
-eapply WP.weaken.   
-eapply Invariants.checkKernelMap.
-intros. simpl. pattern s in H. eexact H. 
-intro.
-repeat (eapply WP.bindRev; [ eapply WP.weaken ; 
-              [ apply Invariants.checkKernelMap | intros; simpl; pattern s in H; eexact H ]
-                                | simpl; intro ]).
-                                simpl.
-case_eq (negb a && negb a0 );[|intros;eapply weaken;[ eapply WP.ret;trivial|
-  intros;simpl;intuition]].
-intro Hkmap.
-repeat rewrite andb_true_iff in Hkmap.
-try repeat rewrite and_assoc in Hkmap.
-repeat rewrite negb_true_iff in Hkmap. 
-intuition.
-subst.*)
-(** checkRights **)
-
-eapply WP.bindRev.
-{
-eapply weaken.
-eapply Invariants.checkRights.
-simpl.
-intros.
-split.
-apply H0.
-intuition.
-destruct H3 ; destruct H3. exists x. apply H3.
+- (* case_eq addrIsNull = true *)
+	intros.
+	{ (** ret **)
+		eapply WP.weaken. apply WP.ret.
+  	simpl. intros. intuition.
 }
-
-
-(*destruct H1.
-simpl in *.
- eexact H.
-intros right.
-case_eq right; intros Hright;[|intros;eapply weaken;[ eapply WP.ret;trivial|
-  intros;simpl;intuition]].
-subst.
-(** getCurPartition **)
-eapply WP.bindRev.
-eapply WP.weaken. 
-eapply Invariants.getCurPartition .
-cbn. 
-intros. 
-pattern s in H. 
-eexact H.
-intro currentPart.
-(** getNbLevel **)
-eapply WP.bindRev.
-eapply weaken.
-eapply Invariants.getNbLevel.
-simpl. intros.
-pattern s in H.
-eexact H.
-intros level.
-simpl.*)
-intro rcheck.
-destruct rcheck.
-2 : {
-simpl.
-eapply weaken. eapply WP.ret;trivial. intuition.
-}
-
-simpl in *.
-(** checkChildOfCurrPart **)
-eapply WP.bindRev.
-{ eapply weaken.
- 	apply checkChildOfCurrPart.checkChildOfCurrPart.
-	intros. simpl. split. apply H0. apply H0. (* destruct H0 as (HP & HcurrPart). destruct HP as (Hblock & HH).
-	destruct Hblock as (HA & Hbeq). destruct HA as (HQ&Hc).
-	apply HQ.*)
-	(*split. apply HQ. split. unfold consistency in HQ. intuition.
- intuition.*)
-}
-
-intro isChildCurrPart. simpl.
-destruct isChildCurrPart.
-2 : { simpl. eapply weaken. apply WP.ret. intros. simpl. apply H0. }
-(** readBlockStartFromBlockEntryAddr*)
-eapply WP.bindRev.
-{
-	eapply weaken.
--	apply Invariants.readBlockStartFromBlockEntryAddr.
--	intros. simpl. split. apply H0.
-	unfold isBE. destruct H0. destruct H1. destruct H2. destruct H2. destruct H3.
-	destruct H3.
-	rewrite -> H3. trivial.
-	(*unfold checkChild in H2.
-	Search (true = _).
-	apply Is_true_eq_right in H2. unfold Is_true in H2.
-	
-	assert(H'' := 
-
-destruct H2. destruct H3. destruct H3.  rewrite -> H3. trivial.*)
-}
-
-intro globalIdPDChild. simpl.
-(** readPDNbFreeSlots *)
-eapply WP.bindRev.
-{
-	eapply weaken.
--	apply Invariants.readPDNbFreeSlots.
-- intros. simpl. split. apply H0. intuition. unfold isPDT.
-	unfold consistency in *.
-	intuition. unfold PDTIfPDFlag in *. destruct H5. destruct H15 with idPDchild x.
-	destruct H5. assumption. destruct H34.
-
-
-
-unfold entryStartAddr in *. unfold entryPDT in *. rewrite -> H34 in H38.
-rewrite H34 in H2. rewrite <- H2 in H38.
-destruct (lookup globalIdPDChild (memory s) beqAddr) eqn:Hlookup.
-	destruct v eqn:Hv. repeat trivial. trivial. repeat trivial. trivial.
-	trivial. trivial.
-}
-
-	intro nbfreeslots. eapply bindRev. apply Invariants.Index.zero.
-
-	intro zero.
-
+- (* case_eq addrIsNull = false *)
+	intros.
 	eapply bindRev.
-{ (*MALInternal.Index.leb nbfreeslots zero *)
-	eapply weaken. apply Invariants.Index.leb.
-	intros. simpl. apply H0.
-}
-	intro isFull.
-	case_eq (isFull).
-	{ (*case_eq isFull = false *)
-		intros. eapply weaken. apply WP.ret.
-		intros. simpl. apply H1.
+	{ (** checkRights **)
+		eapply weaken. apply Invariants.checkRights.
+		intros. simpl. split. apply H0. rewrite <- beqAddrFalse in *. intuition.
+		destruct H8. exists x. apply H5.
 	}
-	(*case_eq isFull = true *)
-	intros. eapply bindRev.
-{
-	eapply weaken. apply readBlockAccessibleFromBlockEntryAddr. 
-	intros. simpl. split. apply H1.
-	unfold isBE. intuition. destruct H8.
-	rewrite -> H8. trivial.
-
+	intro rcheck.
+	case_eq (negb rcheck).
+	+ (* case_eq negb rcheck = true *)
+		intros.
+	{ (** ret **)
+		eapply WP.weaken. apply WP.ret.
+  	simpl. intros. intuition.
 }
-	intro addrIsAccessible.
-	case_eq (addrIsAccessible).
-	2 : { (*case_eq addrIsAccessible = false *)
-		intros. simpl. eapply weaken. apply WP.ret.
+	+ (* case_eq negb rcheck = false *)
+		intros.
+		eapply WP.bindRev.
+		{ (** checkChildOfCurrPart **)
+			eapply weaken. apply checkChildOfCurrPart.checkChildOfCurrPart.
+			intros. simpl. split. apply H1. intuition.
+		}
+		intro isChildCurrPart.
+case_eq (negb isChildCurrPart).
+* (* case_eq negb isChildCurrPart = true *)
+	intros.
+	{ (** ret **)
+		eapply WP.weaken. apply WP.ret.
+  	simpl. intros. intuition.
+}
+* (* case_eq negb isChildCurrPart = true *)
+	intros.
+	eapply WP.bindRev.
+	{ (** readBlockStartFromBlockEntryAddr **)
+		eapply weaken. apply Invariants.readBlockStartFromBlockEntryAddr.
+		intros. simpl. split. apply H2.
+		repeat rewrite <- beqAddrFalse in *. (* get rid of NULL conditions since we
+		are in this branch *)
+		rewrite negb_false_iff in *. (* get rif of trivial cases *)
+		intuition.
+		(* child has been checked, we know that idPDchild is valid and isBE *)
+		destruct H9. destruct H4. destruct H9.
+		unfold isBE. intuition. rewrite H15; trivial.
+	}
+	intro globalIdPDChild.
+	eapply WP.bindRev.
+	{ (** readPDNbFreeSlots **)
+		eapply weaken. apply Invariants.readPDNbFreeSlots.
+		intros. simpl. split. apply H2.
+		repeat rewrite <- beqAddrFalse in *. rewrite negb_false_iff in *. intuition.
+		(* globalIdPDChild is a PDT because it is the start address of idPDchild 
+				who is a child *)
+		unfold bentryStartAddr in *. destruct H10. destruct H5.
+		destruct H10. destruct H10.
+		unfold consistency in *.
+		unfold PDTIfPDFlag in *. intuition.
+		unfold entryPDT in *.
+		destruct H19 with idPDchild x. subst. intuition.
+		destruct H62.
+		rewrite H10 in *. rewrite <- H4 in *.
+		unfold isPDT.
+		destruct (lookup globalIdPDChild (memory s) beqAddr) eqn:Hlookup ; try(exfalso ; congruence).
+		destruct v eqn:Hv ; try (exfalso ; congruence).
+		trivial.
+	}
+	intro nbfreeslots.
+	eapply bindRev.
+	{ (** zero **)
+		eapply weaken. apply Invariants.Index.zero.
 		intros. simpl. apply H2.
 	}
-	(*case_eq addrIsAccessible = true *)
-	intros. simpl. eapply bindRev.
-
-{ eapply weaken. apply readBlockPresentFromBlockEntryAddr.
-	intros. simpl. split. apply H2.
-	unfold isBE. intuition. destruct H10.
-	rewrite -> H10. trivial.
-}
-	
-	intro addrIsPresent.
-	case_eq (addrIsPresent).
-	2 : { (*case_eq addrIsPresent = false *)
-		intros. simpl. eapply weaken. apply WP.ret.
-		intros. simpl. apply H3.
-	}
-	(*case_eq addrIsPresent = true *)
-	intros. simpl. eapply bindRev.
-{	eapply weaken. apply readBlockStartFromBlockEntryAddr.
-	intros. simpl. split. apply H3.
-	unfold isBE. intuition. destruct H15. destruct H15.
-	rewrite -> H15. trivial.
-}
-
-	intro blockstart.
+	intro zero.
 	eapply bindRev.
-{	eapply weaken. apply readBlockEndFromBlockEntryAddr.
-	intros. simpl. split. apply H3.
-	unfold isBE. intuition. destruct H16. destruct H16.
-	rewrite -> H16. trivial.
-}
-	intro blockend.
+	{ (** MALInternal.Index.leb nbfreeslots zero **)
+		eapply weaken. apply Invariants.Index.leb.
+		intros. simpl. apply H2.
+	}
+	intro isFull.
+	case_eq (isFull).
+	-- (* case_eq isFull = false *)
+			intros.
+			{ (** ret **)
+				eapply weaken. apply WP.ret.
+				intros. simpl. apply H3.
+			}
+	-- (*case_eq isFull = true *)
+			intros.
+			eapply bindRev.
+			{ (** readBlockAccessibleFromBlockEntryAddr *)
+				eapply weaken. apply readBlockAccessibleFromBlockEntryAddr. 
+				intros. simpl. split. apply H3.
+				repeat rewrite beqAddrFalse in *. rewrite negb_false_iff in *. subst.
+				intuition ; (unfold isBE ; destruct H6 ; rewrite -> H5 ; trivial).
+			}
+			intro addrIsAccessible.
+			case_eq (negb addrIsAccessible).
+			++ (*case_eq negb addrIsAccessible = true *)
+				intros. simpl.
+				{ (** ret **)
+					eapply weaken. apply WP.ret.
+					intros. simpl. intuition.
+				}
+			++ (*case_eq negb addrIsAccessible = false *)
+					intros.
+					eapply bindRev.
+					{ (** readBlockPresentFromBlockEntryAddr **)
+						eapply weaken. apply readBlockPresentFromBlockEntryAddr.
+						intros. simpl. split. apply H4.
+						repeat rewrite <- beqAddrFalse in *.
+						unfold isBE. intuition.
+						destruct H19. destruct H16. rewrite -> H16. trivial.
+					}
+					intro addrIsPresent.
+					case_eq (negb addrIsPresent).
+					** (*case_eq negb addrIsPresent = true *)
+						intros. simpl.
+						{ (** ret **)
+							eapply weaken. apply WP.ret.
+							intros. simpl. intuition.
+						}
+					** (*case_eq negb addrIsPresent = false *)
+							intros.
+							eapply bindRev.
+						{	(** readBlockStartFromBlockEntryAddr **)
+							eapply weaken. apply readBlockStartFromBlockEntryAddr.
+							intros. simpl. split. apply H5.
+							repeat rewrite <- beqAddrFalse in *.
+							unfold isBE. intuition.
+							destruct H21. destruct H18. rewrite -> H18. trivial.
+						}
+						intro blockstart.
+						eapply bindRev.
+						{	(** readBlockEndFromBlockEntryAddr **)
+							eapply weaken. apply readBlockEndFromBlockEntryAddr.
+							intros. simpl. split. apply H5.
+							repeat rewrite <- beqAddrFalse in *.
+							unfold isBE. intuition.
+							destruct H22. destruct H19. rewrite -> H19. trivial.
+						}
+						intro blockend.
 
 (* Start of structure modifications *)
 	
@@ -305,26 +228,1183 @@ destruct (lookup globalIdPDChild (memory s) beqAddr) eqn:Hlookup.
 
 (* 1) traiter les instructions de modifications en paquet *)
 	eapply bindRev.
-{ eapply weaken. apply insertNewEntry.
-	intros. simpl. intuition.
-	eexists. split.
-	- unfold consistency in *. intuition.
-		unfold PDTIfPDFlag in *.
-		destruct H15. destruct a.
-		specialize (H25 idPDchild x e0).
-		destruct H25 as [HidPDchild]. destruct H15.
-		unfold entryPDT in *. rewrite H15 in H25.
-		unfold entryStartAddr in *. rewrite H15 in H12. rewrite H12.
-		destruct (lookup (startAddr (blockrange HidPDchild)) (memory s) beqAddr) eqn:Hlookup ; congruence.
-	- split.
-		induction nbfreeslots.
-		simpl in *. destruct i. intuition. intuition.
-		split. assumption.
-		instantiate (1:= blockToShareInCurrPartAddr).
-		destruct H17. unfold isBE. destruct H17. subst. rewrite H17 ; trivial.
-}
+{ eapply weaken. apply insertNewEntry.insertNewEntry.
+	intros. simpl.
+	split. intuition. split. intuition. split. intuition.
+	split.
+	- repeat rewrite beqAddrFalse in *. rewrite negb_false_iff in *. subst.
+		(* DUP : globalIdPDChild is a PDT because it is the start address of idPDchild 
+				who is a child *)
+		unfold bentryStartAddr in *. intuition .
+		+ destruct H14. destruct H9.
+			destruct H14. destruct H14.
+			unfold consistency in *.
+			unfold PDTIfPDFlag in *. intuition.
+			unfold entryPDT in *.
+			destruct H23 with idPDchild x. subst. intuition.
+			destruct H66.
+			rewrite H66 in *. rewrite <- H8 in *.
+			unfold isPDT.
+			destruct (lookup globalIdPDChild (memory s) beqAddr) eqn:Hlookup ; try(exfalso ; congruence).
+			destruct v eqn:Hv ; try (exfalso ; congruence).
+			exists p. trivial.
+
+		(* DUP of before *)
+		+ destruct H14. destruct H9.
+			destruct H14. destruct H14.
+			unfold consistency in *.
+			unfold PDTIfPDFlag in *. intuition.
+			unfold entryPDT in *.
+			destruct H23 with idPDchild x. subst. intuition.
+			destruct H66.
+			rewrite H66 in *. rewrite <- H8 in *.
+			unfold isPDT.
+			destruct (lookup globalIdPDChild (memory s) beqAddr) eqn:Hlookup ; try(exfalso ; congruence).
+			destruct v eqn:Hv ; try (exfalso ; congruence).
+			exists p. trivial.
+	- split. intuition. unfold StateLib.Index.leb in *.
+		assert(PeanoNat.Nat.leb nbfreeslots zero = false) by intuition.
+		apply PeanoNat.Nat.leb_gt. assert (zero = CIndex 0) by intuition.
+		subst. simpl in H6. intuition.
+ }
 	intro blockToShareChildEntryAddr. simpl.
-	eapply bindRev.
+
+
+eapply bindRev.
+	{ (** MAL.writeSh1PDChildFromBlockEntryAddr **)
+		unfold MAL.writeSh1PDChildFromBlockEntryAddr.
+		eapply bindRev. 
+		{ (** MAL.getSh1EntryAddrFromBlockEntryAddr **) 
+			eapply weaken. apply getSh1EntryAddrFromBlockEntryAddr.
+			intros. split. apply H5.
+			assert(consistency s). admit.
+			unfold consistency in *. intuition.
+			apply isBELookupEq. 
+			unfold isBE. cbn. admit.
+		}
+		intro Sh1EAddr.
+		{ (** MAL.writeSh1PDChildFromBlockEntryAddr **)
+
+			eapply weaken. apply writeSh1PDChildFromBlockEntryAddr2.
+			intros. intuition. destruct H7 as [oldsh1entry oldSh1H].
+			exists oldsh1entry. intuition. Set Printing All. Check _ tt _.
+instantiate (1:= fun _ s =>
+((exists
+         (originals0 : state) (pdentry pdentry0 : PDTable) (bentry bentry0 bentry1 bentry2
+                                                    bentry3 bentry4
+                                                    bentry5 : BlockEntry) 
+       (sceaddr : paddr) (scentry : SCEntry) (newBlockEntryAddr
+                                              newFirstFreeSlotAddr : paddr) 
+       (predCurrentNbFreeSlots : index) (sh1eaddr : paddr)
+       (sh1entry : Sh1Entry),
+         s =
+         {|
+         currentPartition := currentPartition originals0;
+         memory := add sh1eaddr
+                     (SHE
+                        {|
+                        PDchild := globalIdPDChild;
+                        PDflag := PDflag sh1entry;
+                        inChildLocation := inChildLocation sh1entry |})
+                     (add sceaddr
+                        (SCE {| origin := blockstart; next := next scentry |})
+                        (add newBlockEntryAddr
+                           (BE
+                              (CBlockEntry (read bentry5) 
+                                 (write bentry5) e (present bentry5)
+                                 (accessible bentry5) (blockindex bentry5)
+                                 (blockrange bentry5)))
+                           (add newBlockEntryAddr
+                              (BE
+                                 (CBlockEntry (read bentry4) w 
+                                    (exec bentry4) (present bentry4)
+                                    (accessible bentry4) 
+                                    (blockindex bentry4) 
+                                    (blockrange bentry4)))
+                              (add newBlockEntryAddr
+                                 (BE
+                                    (CBlockEntry r (write bentry3) 
+                                       (exec bentry3) (present bentry3)
+                                       (accessible bentry3) 
+                                       (blockindex bentry3) 
+                                       (blockrange bentry3)))
+                                 (add newBlockEntryAddr
+                                    (BE
+                                       (CBlockEntry (read bentry2) 
+                                          (write bentry2) 
+                                          (exec bentry2) true 
+                                          (accessible bentry2) 
+                                          (blockindex bentry2) 
+                                          (blockrange bentry2)))
+                                    (add newBlockEntryAddr
+                                       (BE
+                                          (CBlockEntry (read bentry1) 
+                                             (write bentry1) 
+                                             (exec bentry1) 
+                                             (present bentry1) true
+                                             (blockindex bentry1)
+                                             (blockrange bentry1)))
+                                       (add newBlockEntryAddr
+                                          (BE
+                                             (CBlockEntry 
+                                                (read bentry0) 
+                                                (write bentry0) 
+                                                (exec bentry0) 
+                                                (present bentry0)
+                                                (accessible bentry0)
+                                                (blockindex bentry0)
+                                                (CBlock
+                                                   (startAddr (blockrange bentry0))
+                                                   blockend)))
+                                          (add newBlockEntryAddr
+                                             (BE
+                                                (CBlockEntry 
+                                                   (read bentry) 
+                                                   (write bentry) 
+                                                   (exec bentry) 
+                                                   (present bentry)
+                                                   (accessible bentry)
+                                                   (blockindex bentry)
+                                                   (CBlock blockstart
+                                                      (endAddr (blockrange bentry)))))
+                                             (add globalIdPDChild
+                                                (PDT
+                                                   {|
+                                                   structure := structure pdentry0;
+                                                   firstfreeslot := firstfreeslot
+                                                        pdentry0;
+                                                   nbfreeslots := predCurrentNbFreeSlots;
+                                                   nbprepare := nbprepare pdentry0;
+                                                   parent := parent pdentry0;
+                                                   MPU := MPU pdentry0 |})
+                                                (add globalIdPDChild
+                                                   (PDT
+                                                      {|
+                                                      structure := structure pdentry;
+                                                      firstfreeslot := newFirstFreeSlotAddr;
+                                                      nbfreeslots := ADT.nbfreeslots
+                                                        pdentry;
+                                                      nbprepare := nbprepare pdentry;
+                                                      parent := parent pdentry;
+                                                      MPU := MPU pdentry |})
+                                                   (memory originals0) beqAddr) beqAddr)
+                                             beqAddr) beqAddr) beqAddr) beqAddr)
+                                 beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+(*/\ sh1eaddr = Sh1EAddr*) /\
+       exists olds1, lookup sh1eaddr (memory olds1) beqAddr = Some (SHE sh1entry) /\
+			isBE blockToShareChildEntryAddr olds1
+) /\
+      isBE blockToShareChildEntryAddr s)
+     (*(exists sh1entry : Sh1Entry,
+        lookup Sh1EAddr (memory s) beqAddr = Some (SHE sh1entry) /\
+        sh1entryAddr blockToShareInCurrPartAddr Sh1EAddr s)*)
+). intros. simpl. intuition. destruct H8. exists x.
+	destruct H8. destruct H8. exists x0. exists x1. destruct H8. destruct H8. destruct H8.
+	destruct H8. destruct H8. destruct H8. destruct H8.
+	 exists x2. exists x3. exists x4. exists x5. exists x6.
+	 exists x7. exists x8. destruct H8. destruct H8. exists x9. exists x10.
+	destruct H8. destruct H8. destruct H8. exists x11. exists x12. exists x13.
+exists Sh1EAddr. exists oldsh1entry.
+	intuition. f_equal. rewrite H8. cbn. reflexivity. f_equal.
+rewrite H8. cbn. reflexivity. exists s. intuition.
+
+	apply isBELookupEq in H5. apply isBELookupEq.
+	destruct H5 as[oldbentry]. exists oldbentry.
+	cbn.
+	destruct (beqAddr Sh1EAddr blockToShareChildEntryAddr) eqn:Hbeq.
+	- rewrite <- beqAddrTrue in *. subst.
+		contradict H6. unfold not. congruence.
+	- rewrite removeDupIdentity. assumption.
+		unfold not. intros. subst. congruence.
+}
+}
+	intros.
+eapply bindRev.
+	{ (** MAL.writeSh1InChildLocationFromBlockEntryAddr **)
+		unfold MAL.writeSh1InChildLocationFromBlockEntryAddr.
+		eapply bindRev. 
+		{ (** MAL.getSh1EntryAddrFromBlockEntryAddr **) 
+			eapply weaken. apply getSh1EntryAddrFromBlockEntryAddr.
+			intros. split. apply H5.
+			assert(consistency s). admit.
+			unfold consistency in *. intuition.
+			apply isBELookupEq. admit.
+		}
+		intro Sh1EAddr. simpl.
+		{ (** MAL.writeSh1InChildLocationFromBlockEntryAddr2 **)
+
+			eapply weaken. apply writeSh1InChildLocationFromBlockEntryAddr2.
+			intros. intuition.
+(*			destruct H5. destruct H5. destruct H5. destruct H5. destruct H5. destruct H5.
+			destruct H5. destruct H5. destruct H5. destruct H5. destruct H5. destruct H5.
+			destruct H5. destruct H5. destruct H5. destruct H5. destruct H5. destruct H5.
+			exists x15.
+			destruct H6 as [oldSh1H]. intuition.*)
+
+			destruct H7 as [previoussh1entry oldSh1H].
+			exists previoussh1entry. intuition.
+instantiate (1:= fun _ s =>
+((exists
+         (originals0 : state) (pdentry pdentry0 : PDTable) (bentry bentry0 bentry1 bentry2
+                                                    bentry3 bentry4
+                                                    bentry5 : BlockEntry) 
+       (sceaddr : paddr) (scentry : SCEntry) (newBlockEntryAddr
+                                              newFirstFreeSlotAddr : paddr) 
+       (predCurrentNbFreeSlots : index) (sh1eaddr : paddr)
+       (sh1entry sh1entry1: Sh1Entry) (oldsh1eaddr : paddr),
+         s =
+         {|
+         currentPartition := currentPartition originals0;
+         memory := add sh1eaddr
+              (SHE
+                 {|
+                 PDchild := PDchild sh1entry1;
+                 PDflag := PDflag sh1entry1;
+                 inChildLocation := blockToShareChildEntryAddr |}) 
+									(add oldsh1eaddr
+                     (SHE
+                        {|
+                        PDchild := globalIdPDChild;
+                        PDflag := PDflag sh1entry;
+                        inChildLocation := inChildLocation sh1entry |})
+                     (add sceaddr
+                        (SCE {| origin := blockstart; next := next scentry |})
+                        (add newBlockEntryAddr
+                           (BE
+                              (CBlockEntry (read bentry5) 
+                                 (write bentry5) e (present bentry5)
+                                 (accessible bentry5) (blockindex bentry5)
+                                 (blockrange bentry5)))
+                           (add newBlockEntryAddr
+                              (BE
+                                 (CBlockEntry (read bentry4) w 
+                                    (exec bentry4) (present bentry4)
+                                    (accessible bentry4) 
+                                    (blockindex bentry4) 
+                                    (blockrange bentry4)))
+                              (add newBlockEntryAddr
+                                 (BE
+                                    (CBlockEntry r (write bentry3) 
+                                       (exec bentry3) (present bentry3)
+                                       (accessible bentry3) 
+                                       (blockindex bentry3) 
+                                       (blockrange bentry3)))
+                                 (add newBlockEntryAddr
+                                    (BE
+                                       (CBlockEntry (read bentry2) 
+                                          (write bentry2) 
+                                          (exec bentry2) true 
+                                          (accessible bentry2) 
+                                          (blockindex bentry2) 
+                                          (blockrange bentry2)))
+                                    (add newBlockEntryAddr
+                                       (BE
+                                          (CBlockEntry (read bentry1) 
+                                             (write bentry1) 
+                                             (exec bentry1) 
+                                             (present bentry1) true
+                                             (blockindex bentry1)
+                                             (blockrange bentry1)))
+                                       (add newBlockEntryAddr
+                                          (BE
+                                             (CBlockEntry 
+                                                (read bentry0) 
+                                                (write bentry0) 
+                                                (exec bentry0) 
+                                                (present bentry0)
+                                                (accessible bentry0)
+                                                (blockindex bentry0)
+                                                (CBlock
+                                                   (startAddr (blockrange bentry0))
+                                                   blockend)))
+                                          (add newBlockEntryAddr
+                                             (BE
+                                                (CBlockEntry 
+                                                   (read bentry) 
+                                                   (write bentry) 
+                                                   (exec bentry) 
+                                                   (present bentry)
+                                                   (accessible bentry)
+                                                   (blockindex bentry)
+                                                   (CBlock blockstart
+                                                      (endAddr (blockrange bentry)))))
+                                             (add globalIdPDChild
+                                                (PDT
+                                                   {|
+                                                   structure := structure pdentry0;
+                                                   firstfreeslot := firstfreeslot
+                                                        pdentry0;
+                                                   nbfreeslots := predCurrentNbFreeSlots;
+                                                   nbprepare := nbprepare pdentry0;
+                                                   parent := parent pdentry0;
+                                                   MPU := MPU pdentry0 |})
+                                                (add globalIdPDChild
+                                                   (PDT
+                                                      {|
+                                                      structure := structure pdentry;
+                                                      firstfreeslot := newFirstFreeSlotAddr;
+                                                      nbfreeslots := ADT.nbfreeslots
+                                                        pdentry;
+                                                      nbprepare := nbprepare pdentry;
+                                                      parent := parent pdentry;
+                                                      MPU := MPU pdentry |})
+                                                   (memory originals0) beqAddr) beqAddr)
+                                             beqAddr) beqAddr) beqAddr) beqAddr)
+                                 beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+(*/\ sh1eaddr = Sh1EAddr*)
+(* /\ exists olds1, lookup sh1eaddr (memory olds1) beqAddr = Some (SHE sh1entry1) /\
+			isBE blockToShareChildEntryAddr olds1
+			/\ exists oldolds1, lookup sh1eaddr (memory oldolds1) beqAddr = Some (SHE sh1entry) /\
+			isBE blockToShareChildEntryAddr oldolds1 /\*)
+     (*/\  lookup sh1eaddr (memory olds1) beqAddr = Some (SHE sh1entry1) /\
+			isBE blockToShareChildEntryAddr olds1
+			/\ lookup sh1eaddr (memory oldolds1) beqAddr = Some (SHE sh1entry) /\
+			isBE blockToShareChildEntryAddr oldolds1 *)
+) /\
+      isBE blockToShareChildEntryAddr s)
+     (*(exists sh1entry : Sh1Entry,
+        lookup Sh1EAddr (memory s) beqAddr = Some (SHE sh1entry) /\
+        sh1entryAddr blockToShareInCurrPartAddr Sh1EAddr s)*)
+). intros. simpl. intuition. destruct H5. exists x.
+	destruct H5. destruct H5. exists x0. exists x1. destruct H5. destruct H5. destruct H5.
+	destruct H5. destruct H5. destruct H5. destruct H5.
+	 exists x2. exists x3. exists x4. exists x5. exists x6.
+	 exists x7. exists x8. destruct H5. destruct H5. exists x9. exists x10.
+	destruct H5. destruct H5. destruct H5. exists x11. exists x12. exists x13.
+	destruct H5.
+	exists Sh1EAddr. destruct H5. destruct H5. exists x15. exists previoussh1entry.
+
+	exists x14.
+	intuition. rewrite H5. cbn. simpl.
+	f_equal. f_equal. cbn. f_equal.
+	apply isBELookupEq in H8. apply isBELookupEq.
+	destruct H8 as[oldbentry]. exists oldbentry.
+	cbn.
+	destruct (beqAddr Sh1EAddr blockToShareChildEntryAddr) eqn:Hbeq.
+	- rewrite <- beqAddrTrue in *. subst.
+		contradict H6. unfold not. congruence.
+	- rewrite removeDupIdentity. assumption.
+		unfold not. intros. subst. congruence.
+}
+}
+	intros.
+	{ (** ret **)
+		eapply weaken. apply WP.ret.
+		intros. simpl. intuition.
+		- (** partitionIsolation **)
+
+}
+				unfold MAL.writeSh1PDChildFromBlockEntryAddr2.
+				eapply bindRev.
+		{ (** get **)
+			eapply weaken. apply WP.get.
+			intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+((*partitionsIsolation s /\
+      verticalSharing s /\
+      consistency s /\*)
+      isBE blockToShareChildEntryAddr s /\
+      (exists
+         (s0 : state) (pdentry pdentry0 : PDTable) (bentry bentry0 bentry1 bentry2
+                                                    bentry3 bentry4
+                                                    bentry5 : BlockEntry) 
+       (sceaddr : paddr) (scentry : SCEntry) (newBlockEntryAddr
+                                              newFirstFreeSlotAddr : paddr) 
+       (predCurrentNbFreeSlots : index),
+         s =
+         {|
+         currentPartition := currentPartition s0;
+         memory := add sceaddr (SCE {| origin := blockstart; next := next scentry |})
+                     (add newBlockEntryAddr
+                        (BE
+                           (CBlockEntry (read bentry5) (write bentry5) e
+                              (present bentry5) (accessible bentry5)
+                              (blockindex bentry5) (blockrange bentry5)))
+                        (add newBlockEntryAddr
+                           (BE
+                              (CBlockEntry (read bentry4) w 
+                                 (exec bentry4) (present bentry4)
+                                 (accessible bentry4) (blockindex bentry4)
+                                 (blockrange bentry4)))
+                           (add newBlockEntryAddr
+                              (BE
+                                 (CBlockEntry r (write bentry3) 
+                                    (exec bentry3) (present bentry3)
+                                    (accessible bentry3) 
+                                    (blockindex bentry3) 
+                                    (blockrange bentry3)))
+                              (add newBlockEntryAddr
+                                 (BE
+                                    (CBlockEntry (read bentry2) 
+                                       (write bentry2) (exec bentry2) true
+                                       (accessible bentry2) 
+                                       (blockindex bentry2) 
+                                       (blockrange bentry2)))
+                                 (add newBlockEntryAddr
+                                    (BE
+                                       (CBlockEntry (read bentry1) 
+                                          (write bentry1) 
+                                          (exec bentry1) 
+                                          (present bentry1) true 
+                                          (blockindex bentry1) 
+                                          (blockrange bentry1)))
+                                    (add newBlockEntryAddr
+                                       (BE
+                                          (CBlockEntry (read bentry0) 
+                                             (write bentry0) 
+                                             (exec bentry0) 
+                                             (present bentry0) 
+                                             (accessible bentry0)
+                                             (blockindex bentry0)
+                                             (CBlock (startAddr (blockrange bentry0))
+                                                blockend)))
+                                       (add newBlockEntryAddr
+                                          (BE
+                                             (CBlockEntry 
+                                                (read bentry) 
+                                                (write bentry) 
+                                                (exec bentry) 
+                                                (present bentry) 
+                                                (accessible bentry)
+                                                (blockindex bentry)
+                                                (CBlock blockstart
+                                                   (endAddr (blockrange bentry)))))
+                                          (add globalIdPDChild
+                                             (PDT
+                                                {|
+                                                structure := structure pdentry0;
+                                                firstfreeslot := firstfreeslot
+                                                        pdentry0;
+                                                nbfreeslots := predCurrentNbFreeSlots;
+                                                nbprepare := nbprepare pdentry0;
+                                                parent := parent pdentry0;
+                                                MPU := MPU pdentry0 |})
+                                             (add globalIdPDChild
+                                                (PDT
+                                                   {|
+                                                   structure := structure pdentry;
+                                                   firstfreeslot := newFirstFreeSlotAddr;
+                                                   nbfreeslots := ADT.nbfreeslots
+                                                        pdentry;
+                                                   nbprepare := nbprepare pdentry;
+                                                   parent := parent pdentry;
+                                                   MPU := MPU pdentry |}) 
+                                                (memory s0) beqAddr) beqAddr) beqAddr)
+                                       beqAddr) beqAddr) beqAddr) beqAddr) beqAddr)
+                        beqAddr) beqAddr |})) /\
+     (exists sh1entry : Sh1Entry,
+        lookup Sh1EAddr (memory s) beqAddr = Some (SHE sh1entry) /\
+        sh1entryAddr blockToShareInCurrPartAddr Sh1EAddr s)
+). intuition.
+	}
+intro s0. intuition.
+		destruct (lookup Sh1EAddr (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+	2: {
+		
+instantiate (1:= fun _ s =>
+(*partitionsIsolation s /\
+exists pdentry : PDTable, exists pdinsertion : paddr,
+ exists bentry : BlockEntry, exists newBlockEntryAddr : paddr,
+exists scentry : SCEntry, exists sceaddr : paddr,
+exists sh1entry : Sh1Entry, exists sh1addr : paddr,
+exists predCurrentNbFreeSlots : index, exists newFirstFreeSlotAddr : paddr,
+exists startaddr endaddr origin : paddr,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion s /\
+lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr s /\
+lookup sceaddr (memory s) beqAddr = Some (SCE scentry) /\
+isSCE sceaddr s /\
+scentryAddr newBlockEntryAddr sceaddr s) /\
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry r w e
+                       true true (blockindex bentry)
+                       (CBlock startaddr endaddr)))
+
+
+				(add sceaddr (SCE {| origin := origin; next := next scentry |})
+				(add sh1addr
+                 (SHE
+                    {|
+                    PDchild := globalIdPDChild;
+                    PDflag := PDflag sh1entry;
+                    inChildLocation := inChildLocation sh1entry |}) 
+ (memory s) beqAddr) beqAddr) beqAddr) beqAddr |} *)
+(*add SCEAddr (SCE {| origin := origin; next := next scentry |}) 
+                 (memory s) beqAddr |})*)
+(exists
+         (s0 : state) (pdentry pdentry0 : PDTable) (bentry bentry0 bentry1 bentry2
+                                                    bentry3 bentry4
+                                                    bentry5 : BlockEntry) 
+       (sceaddr : paddr) (scentry : SCEntry) (newBlockEntryAddr
+                                              newFirstFreeSlotAddr : paddr) 
+       (predCurrentNbFreeSlots : index) (sh1eaddr : paddr) (sh1entry : Sh1Entry),
+         s =
+         {|
+         currentPartition := currentPartition s0;
+         memory := add sh1eaddr
+                 (SHE
+                    {|
+                    PDchild := globalIdPDChild;
+                    PDflag := PDflag sh1entry;
+                    inChildLocation := inChildLocation sh1entry |})
+									(add sceaddr (SCE {| origin := blockstart; next := next scentry |})
+                     (add newBlockEntryAddr
+                        (BE
+                           (CBlockEntry (read bentry5) (write bentry5) e
+                              (present bentry5) (accessible bentry5)
+                              (blockindex bentry5) (blockrange bentry5)))
+                        (add newBlockEntryAddr
+                           (BE
+                              (CBlockEntry (read bentry4) w 
+                                 (exec bentry4) (present bentry4)
+                                 (accessible bentry4) (blockindex bentry4)
+                                 (blockrange bentry4)))
+                           (add newBlockEntryAddr
+                              (BE
+                                 (CBlockEntry r (write bentry3) 
+                                    (exec bentry3) (present bentry3)
+                                    (accessible bentry3) 
+                                    (blockindex bentry3) 
+                                    (blockrange bentry3)))
+                              (add newBlockEntryAddr
+                                 (BE
+                                    (CBlockEntry (read bentry2) 
+                                       (write bentry2) (exec bentry2) true
+                                       (accessible bentry2) 
+                                       (blockindex bentry2) 
+                                       (blockrange bentry2)))
+                                 (add newBlockEntryAddr
+                                    (BE
+                                       (CBlockEntry (read bentry1) 
+                                          (write bentry1) 
+                                          (exec bentry1) 
+                                          (present bentry1) true 
+                                          (blockindex bentry1) 
+                                          (blockrange bentry1)))
+                                    (add newBlockEntryAddr
+                                       (BE
+                                          (CBlockEntry (read bentry0) 
+                                             (write bentry0) 
+                                             (exec bentry0) 
+                                             (present bentry0) 
+                                             (accessible bentry0)
+                                             (blockindex bentry0)
+                                             (CBlock (startAddr (blockrange bentry0))
+                                                blockend)))
+                                       (add newBlockEntryAddr
+                                          (BE
+                                             (CBlockEntry 
+                                                (read bentry) 
+                                                (write bentry) 
+                                                (exec bentry) 
+                                                (present bentry) 
+                                                (accessible bentry)
+                                                (blockindex bentry)
+                                                (CBlock blockstart
+                                                   (endAddr (blockrange bentry)))))
+                                          (add globalIdPDChild
+                                             (PDT
+                                                {|
+                                                structure := structure pdentry0;
+                                                firstfreeslot := firstfreeslot
+                                                        pdentry0;
+                                                nbfreeslots := predCurrentNbFreeSlots;
+                                                nbprepare := nbprepare pdentry0;
+                                                parent := parent pdentry0;
+                                                MPU := MPU pdentry0 |})
+                                             (add globalIdPDChild
+                                                (PDT
+                                                   {|
+                                                   structure := structure pdentry;
+                                                   firstfreeslot := newFirstFreeSlotAddr;
+                                                   nbfreeslots := ADT.nbfreeslots
+                                                        pdentry;
+                                                   nbprepare := nbprepare pdentry;
+                                                   parent := parent pdentry;
+                                                   MPU := MPU pdentry |}) 
+                                                (memory s0) beqAddr) beqAddr) beqAddr)
+                                       beqAddr) beqAddr) beqAddr) beqAddr) beqAddr)
+                        beqAddr) beqAddr) beqAddr |})
+/\ isBE blockToShareChildEntryAddr s
+
+
+). eapply weaken. apply WP.modify.
+		intros. simpl. set (s' := {|
+      currentPartition :=  _|}). 
+intros. simpl.
+	split.
+	- intuition.
+		destruct H9. destruct H5. destruct H5. destruct H5. destruct H5. destruct H5.
+		 destruct H5. destruct H5. destruct H5. destruct H5. destruct H5. destruct H5.
+		 destruct H5. destruct H5. destruct H5.
+		exists x. exists x0. exists x1. exists x2. exists x3. exists x4. exists x5.
+		exists x6. exists x7. exists x8. exists x9. exists x10. exists x11.
+		exists x12. exists x13. destruct H8. exists Sh1EAddr. exists s.
+		subst. intuition.
+	- unfold isBE. admit.
+}
+	eapply weaken. apply WP.undefined. intros.
+			simpl. intuition. destruct H8. intuition. congruence.
+	eapply weaken. apply WP.undefined. intros.
+			simpl. intuition. destruct H8. intuition. congruence.
+	eapply weaken. apply WP.undefined. intros.
+			simpl. intuition. destruct H8. intuition. congruence.
+	eapply weaken. apply WP.undefined. intros.
+			simpl. intuition. destruct H8. intuition. congruence.
+	eapply weaken. apply WP.undefined. intros.
+			simpl. intuition. destruct H8. intuition. congruence.
+}
+}
+	intros.
+
+eapply bindRev.
+	{ (** MAL.writeSh1InChildLocationFromBlockEntryAddr **)
+		unfold MAL.writeSh1InChildLocationFromBlockEntryAddr.
+		eapply bindRev. 
+		{ (** MAL.getSh1EntryAddrFromBlockEntryAddr **) 
+			eapply weaken. apply getSh1EntryAddrFromBlockEntryAddr.
+			intros. split. apply H5.
+			assert(consistency s). admit.
+			unfold consistency in *. intuition.
+			apply isBELookupEq. admit.
+		}
+		intro Sh1EAddr.
+		{ (** MAL.writeSh1InChildLocationFromBlockEntryAddr2 **)
+			eapply weaken. apply writeSh1InChildLocationFromBlockEntryAddr2.
+			intros. simpl. intuition. destruct H7. exists x. intuition.
+			instantiate (1:= fun _ s =>
+(*partitionsIsolation s /\
+exists pdentry : PDTable, exists pdinsertion : paddr,
+ exists bentry : BlockEntry, exists newBlockEntryAddr : paddr,
+exists scentry : SCEntry, exists sceaddr : paddr,
+exists sh1entry : Sh1Entry, exists sh1addr : paddr,
+exists predCurrentNbFreeSlots : index, exists newFirstFreeSlotAddr : paddr,
+exists startaddr endaddr origin : paddr,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion s /\
+lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr s /\
+lookup sceaddr (memory s) beqAddr = Some (SCE scentry) /\
+isSCE sceaddr s /\
+scentryAddr newBlockEntryAddr sceaddr s) /\
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry r w e
+                       true true (blockindex bentry)
+                       (CBlock startaddr endaddr)))
+
+
+				(add sceaddr (SCE {| origin := origin; next := next scentry |})
+				(add sh1addr
+                 (SHE
+                    {|
+                    PDchild := globalIdPDChild;
+                    PDflag := PDflag sh1entry;
+                    inChildLocation := blockToShareChildEntryAddr |}) 
+ (memory s) beqAddr) beqAddr) beqAddr) beqAddr |} 
+(*add SCEAddr (SCE {| origin := origin; next := next scentry |}) 
+                 (memory s) beqAddr |})*)*)
+((exists
+         (s0 : state) (pdentry pdentry0 : PDTable) (bentry bentry0 bentry1 bentry2
+                                                    bentry3 bentry4
+                                                    bentry5 : BlockEntry) 
+       (sceaddr : paddr) (scentry : SCEntry) (newBlockEntryAddr
+                                              newFirstFreeSlotAddr : paddr) 
+       (predCurrentNbFreeSlots : index) (sh1eaddr : paddr)
+       (sh1entry sh1entry1: Sh1Entry),
+         s =
+         {|
+         currentPartition := currentPartition s0;
+         memory := add Sh1EAddr
+                 (SHE
+                    {|
+                    PDchild := PDchild x;
+                    PDflag := PDflag x;
+                    inChildLocation := blockToShareChildEntryAddr |}) 
+									(add Sh1EAddr
+                     (SHE
+                        {|
+                        PDchild := globalIdPDChild;
+                        PDflag := PDflag sh1entry;
+                        inChildLocation := inChildLocation sh1entry |})
+                     (add sceaddr
+                        (SCE {| origin := blockstart; next := next scentry |})
+                        (add newBlockEntryAddr
+                           (BE
+                              (CBlockEntry (read bentry5) 
+                                 (write bentry5) e (present bentry5)
+                                 (accessible bentry5) (blockindex bentry5)
+                                 (blockrange bentry5)))
+                           (add newBlockEntryAddr
+                              (BE
+                                 (CBlockEntry (read bentry4) w 
+                                    (exec bentry4) (present bentry4)
+                                    (accessible bentry4) 
+                                    (blockindex bentry4) 
+                                    (blockrange bentry4)))
+                              (add newBlockEntryAddr
+                                 (BE
+                                    (CBlockEntry r (write bentry3) 
+                                       (exec bentry3) (present bentry3)
+                                       (accessible bentry3) 
+                                       (blockindex bentry3) 
+                                       (blockrange bentry3)))
+                                 (add newBlockEntryAddr
+                                    (BE
+                                       (CBlockEntry (read bentry2) 
+                                          (write bentry2) 
+                                          (exec bentry2) true 
+                                          (accessible bentry2) 
+                                          (blockindex bentry2) 
+                                          (blockrange bentry2)))
+                                    (add newBlockEntryAddr
+                                       (BE
+                                          (CBlockEntry (read bentry1) 
+                                             (write bentry1) 
+                                             (exec bentry1) 
+                                             (present bentry1) true
+                                             (blockindex bentry1)
+                                             (blockrange bentry1)))
+                                       (add newBlockEntryAddr
+                                          (BE
+                                             (CBlockEntry 
+                                                (read bentry0) 
+                                                (write bentry0) 
+                                                (exec bentry0) 
+                                                (present bentry0)
+                                                (accessible bentry0)
+                                                (blockindex bentry0)
+                                                (CBlock
+                                                   (startAddr (blockrange bentry0))
+                                                   blockend)))
+                                          (add newBlockEntryAddr
+                                             (BE
+                                                (CBlockEntry 
+                                                   (read bentry) 
+                                                   (write bentry) 
+                                                   (exec bentry) 
+                                                   (present bentry)
+                                                   (accessible bentry)
+                                                   (blockindex bentry)
+                                                   (CBlock blockstart
+                                                      (endAddr (blockrange bentry)))))
+                                             (add globalIdPDChild
+                                                (PDT
+                                                   {|
+                                                   structure := structure pdentry0;
+                                                   firstfreeslot := firstfreeslot
+                                                        pdentry0;
+                                                   nbfreeslots := predCurrentNbFreeSlots;
+                                                   nbprepare := nbprepare pdentry0;
+                                                   parent := parent pdentry0;
+                                                   MPU := MPU pdentry0 |})
+                                                (add globalIdPDChild
+                                                   (PDT
+                                                      {|
+                                                      structure := structure pdentry;
+                                                      firstfreeslot := newFirstFreeSlotAddr;
+                                                      nbfreeslots := ADT.nbfreeslots
+                                                        pdentry;
+                                                      nbprepare := nbprepare pdentry;
+                                                      parent := parent pdentry;
+                                                      MPU := MPU pdentry |})
+                                                   (memory s0) beqAddr) beqAddr)
+                                             beqAddr) beqAddr) beqAddr) beqAddr)
+                                 beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+(*/\ 
+        lookup Sh1EAddr (memory s) beqAddr = Some (SHE x)*)
+) /\
+      isBE blockToShareChildEntryAddr s)
+     (*(exists sh1entry : Sh1Entry,
+        lookup Sh1EAddr (memory s) beqAddr = Some (SHE sh1entry) /\
+        sh1entryAddr blockToShareInCurrPartAddr Sh1EAddr s)*)
+). intros. simpl. intuition.
+	destruct H5. destruct H5. destruct H5. destruct H5. destruct H5.
+	destruct H5. destruct H5. destruct H5. destruct H5.
+	destruct H5. destruct H5. destruct H5. destruct H5. destruct H5.
+	destruct H5. destruct H5. destruct H5.
+
+	exists x0. exists x1. exists x2. exists x3. exists x4. exists x5. exists x6.
+	 exists x7. exists x8. exists x9. exists x10. exists x11. exists x12. exists x13.
+ exists x14. exists Sh1EAddr. exists x. exists x.
+	intuition. f_equal. rewrite H5. cbn. reflexivity. f_equal.
+	rewrite H5. f_equal. cbn. f_equal. intuition.
+
+
+unfold MAL.writeSh1InChildLocationFromBlockEntryAddr2.
+				eapply bindRev.
+				{ (** get **)
+					eapply weaken. apply WP.get.
+					intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+(*(partitionsIsolation s /\
+      (exists
+         (pdentry : PDTable) (pdinsertion : paddr) (bentry : BlockEntry) 
+       (newBlockEntryAddr : paddr) (scentry : SCEntry) (sceaddr : paddr) 
+       (sh1entry : Sh1Entry) (sh1addr : paddr) (predCurrentNbFreeSlots : index) 
+       (newFirstFreeSlotAddr startaddr endaddr origin : paddr),
+         (lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\
+          isPDT pdinsertion s /\
+          lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\
+          isBE newBlockEntryAddr s /\
+          lookup sceaddr (memory s) beqAddr = Some (SCE scentry) /\
+          isSCE sceaddr s /\ scentryAddr newBlockEntryAddr sceaddr s) /\
+         s =
+         {|
+         currentPartition := currentPartition s;
+         memory := add pdinsertion
+                     (PDT
+                        {|
+                        structure := structure pdentry;
+                        firstfreeslot := newFirstFreeSlotAddr;
+                        nbfreeslots := predCurrentNbFreeSlots;
+                        nbprepare := nbprepare pdentry;
+                        parent := parent pdentry;
+                        MPU := MPU pdentry |})
+                     (add newBlockEntryAddr
+                        (BE
+                           (CBlockEntry r w e true true (blockindex bentry)
+                              (CBlock startaddr endaddr)))
+                        (add sceaddr
+                           (SCE {| origin := origin; next := next scentry |})
+                           (add sh1addr
+                              (SHE
+                                 {|
+                                 PDchild := globalIdPDChild;
+                                 PDflag := PDflag sh1entry;
+                                 inChildLocation := inChildLocation sh1entry |})
+                              (memory s) beqAddr) beqAddr) beqAddr) beqAddr |})) /\
+     (exists sh1entry : Sh1Entry,
+        lookup Sh1EAddr (memory s) beqAddr = Some (SHE sh1entry) /\
+        sh1entryAddr blockToShareInCurrPartAddr Sh1EAddr s)*)
+((*partitionsIsolation s /\
+      (exists
+         (pdentry : PDTable) (pdinsertion : paddr) (bentry : BlockEntry) 
+       (newBlockEntryAddr : paddr) (scentry : SCEntry) (sceaddr : paddr) 
+       (_ : Sh1Entry) (_ : paddr) (_ : index) (_ _ _ _ : paddr),
+         (lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\
+          isPDT pdinsertion s /\
+          lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\
+          isBE newBlockEntryAddr s /\
+          lookup sceaddr (memory s) beqAddr = Some (SCE scentry) /\
+          isSCE sceaddr s /\ scentryAddr newBlockEntryAddr sceaddr s) /\*)
+         (exists
+         (s0 : state) (pdentry pdentry0 : PDTable) (bentry bentry0 bentry1 bentry2
+                                                    bentry3 bentry4
+                                                    bentry5 : BlockEntry) 
+       (sceaddr : paddr) (scentry : SCEntry) (newBlockEntryAddr
+                                              newFirstFreeSlotAddr : paddr) 
+       (predCurrentNbFreeSlots : index) (sh1eaddr : paddr) 
+       (sh1entry : Sh1Entry),
+         s =
+         {|
+         currentPartition := currentPartition s0;
+         memory := add sh1eaddr
+                     (SHE
+                        {|
+                        PDchild := globalIdPDChild;
+                        PDflag := PDflag sh1entry;
+                        inChildLocation := inChildLocation sh1entry |})
+                     (add sceaddr
+                        (SCE {| origin := blockstart; next := next scentry |})
+                        (add newBlockEntryAddr
+                           (BE
+                              (CBlockEntry (read bentry5) 
+                                 (write bentry5) e (present bentry5)
+                                 (accessible bentry5) (blockindex bentry5)
+                                 (blockrange bentry5)))
+                           (add newBlockEntryAddr
+                              (BE
+                                 (CBlockEntry (read bentry4) w 
+                                    (exec bentry4) (present bentry4)
+                                    (accessible bentry4) 
+                                    (blockindex bentry4) 
+                                    (blockrange bentry4)))
+                              (add newBlockEntryAddr
+                                 (BE
+                                    (CBlockEntry r (write bentry3) 
+                                       (exec bentry3) (present bentry3)
+                                       (accessible bentry3) 
+                                       (blockindex bentry3) 
+                                       (blockrange bentry3)))
+                                 (add newBlockEntryAddr
+                                    (BE
+                                       (CBlockEntry (read bentry2) 
+                                          (write bentry2) 
+                                          (exec bentry2) true 
+                                          (accessible bentry2) 
+                                          (blockindex bentry2) 
+                                          (blockrange bentry2)))
+                                    (add newBlockEntryAddr
+                                       (BE
+                                          (CBlockEntry (read bentry1) 
+                                             (write bentry1) 
+                                             (exec bentry1) 
+                                             (present bentry1) true
+                                             (blockindex bentry1)
+                                             (blockrange bentry1)))
+                                       (add newBlockEntryAddr
+                                          (BE
+                                             (CBlockEntry 
+                                                (read bentry0) 
+                                                (write bentry0) 
+                                                (exec bentry0) 
+                                                (present bentry0)
+                                                (accessible bentry0)
+                                                (blockindex bentry0)
+                                                (CBlock
+                                                   (startAddr (blockrange bentry0))
+                                                   blockend)))
+                                          (add newBlockEntryAddr
+                                             (BE
+                                                (CBlockEntry 
+                                                   (read bentry) 
+                                                   (write bentry) 
+                                                   (exec bentry) 
+                                                   (present bentry)
+                                                   (accessible bentry)
+                                                   (blockindex bentry)
+                                                   (CBlock blockstart
+                                                      (endAddr (blockrange bentry)))))
+                                             (add globalIdPDChild
+                                                (PDT
+                                                   {|
+                                                   structure := structure pdentry0;
+                                                   firstfreeslot := firstfreeslot
+                                                        pdentry0;
+                                                   nbfreeslots := predCurrentNbFreeSlots;
+                                                   nbprepare := nbprepare pdentry0;
+                                                   parent := parent pdentry0;
+                                                   MPU := MPU pdentry0 |})
+                                                (add globalIdPDChild
+                                                   (PDT
+                                                      {|
+                                                      structure := structure pdentry;
+                                                      firstfreeslot := newFirstFreeSlotAddr;
+                                                      nbfreeslots := ADT.nbfreeslots
+                                                        pdentry;
+                                                      nbprepare := nbprepare pdentry;
+                                                      parent := parent pdentry;
+                                                      MPU := MPU pdentry |})
+                                                   (memory s0) beqAddr) beqAddr)
+                                             beqAddr) beqAddr) beqAddr) beqAddr)
+                                 beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}) /\
+      isBE blockToShareChildEntryAddr s) /\
+     (exists sh1entry : Sh1Entry,
+        lookup Sh1EAddr (memory s) beqAddr = Some (SHE sh1entry) /\
+        sh1entryAddr blockToShareInCurrPartAddr Sh1EAddr s)
+). intuition.
+}
+	intro s0. intuition.
+		destruct (lookup Sh1EAddr (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+	2: {
+instantiate (1:= fun _ s =>
+(*partitionsIsolation s /\
+exists pdentry : PDTable, exists pdinsertion : paddr,
+ exists bentry : BlockEntry, exists newBlockEntryAddr : paddr,
+exists scentry : SCEntry, exists sceaddr : paddr,
+exists sh1entry : Sh1Entry, exists sh1addr : paddr,
+exists predCurrentNbFreeSlots : index, exists newFirstFreeSlotAddr : paddr,
+exists startaddr endaddr origin : paddr,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion s /\
+lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr s /\
+lookup sceaddr (memory s) beqAddr = Some (SCE scentry) /\
+isSCE sceaddr s /\
+scentryAddr newBlockEntryAddr sceaddr s) /\
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry r w e
+                       true true (blockindex bentry)
+                       (CBlock startaddr endaddr)))
+
+
+				(add sceaddr (SCE {| origin := origin; next := next scentry |})
+				(add sh1addr
+                 (SHE
+                    {|
+                    PDchild := globalIdPDChild;
+                    PDflag := PDflag sh1entry;
+                    inChildLocation := blockToShareChildEntryAddr |}) 
+ (memory s) beqAddr) beqAddr) beqAddr) beqAddr |} 
+(*add SCEAddr (SCE {| origin := origin; next := next scentry |}) 
+                 (memory s) beqAddr |})*)*)
+((exists
+         (s0 : state) (pdentry pdentry0 : PDTable) (bentry bentry0 bentry1 bentry2
+                                                    bentry3 bentry4
+                                                    bentry5 : BlockEntry) 
+       (sceaddr : paddr) (scentry : SCEntry) (newBlockEntryAddr
+                                              newFirstFreeSlotAddr : paddr) 
+       (predCurrentNbFreeSlots : index) (sh1eaddr : paddr)
+       (sh1entry sh1entry1: Sh1Entry),
+         s =
+         {|
+         currentPartition := currentPartition s0;
+         memory := add sh1eaddr
+                 (SHE
+                    {|
+                    PDchild := PDchild sh1entry1;
+                    PDflag := PDflag sh1entry1;
+                    inChildLocation := blockToShareChildEntryAddr |}) 
+									(add sh1eaddr
+                     (SHE
+                        {|
+                        PDchild := globalIdPDChild;
+                        PDflag := PDflag sh1entry;
+                        inChildLocation := inChildLocation sh1entry |})
+                     (add sceaddr
+                        (SCE {| origin := blockstart; next := next scentry |})
+                        (add newBlockEntryAddr
+                           (BE
+                              (CBlockEntry (read bentry5) 
+                                 (write bentry5) e (present bentry5)
+                                 (accessible bentry5) (blockindex bentry5)
+                                 (blockrange bentry5)))
+                           (add newBlockEntryAddr
+                              (BE
+                                 (CBlockEntry (read bentry4) w 
+                                    (exec bentry4) (present bentry4)
+                                    (accessible bentry4) 
+                                    (blockindex bentry4) 
+                                    (blockrange bentry4)))
+                              (add newBlockEntryAddr
+                                 (BE
+                                    (CBlockEntry r (write bentry3) 
+                                       (exec bentry3) (present bentry3)
+                                       (accessible bentry3) 
+                                       (blockindex bentry3) 
+                                       (blockrange bentry3)))
+                                 (add newBlockEntryAddr
+                                    (BE
+                                       (CBlockEntry (read bentry2) 
+                                          (write bentry2) 
+                                          (exec bentry2) true 
+                                          (accessible bentry2) 
+                                          (blockindex bentry2) 
+                                          (blockrange bentry2)))
+                                    (add newBlockEntryAddr
+                                       (BE
+                                          (CBlockEntry (read bentry1) 
+                                             (write bentry1) 
+                                             (exec bentry1) 
+                                             (present bentry1) true
+                                             (blockindex bentry1)
+                                             (blockrange bentry1)))
+                                       (add newBlockEntryAddr
+                                          (BE
+                                             (CBlockEntry 
+                                                (read bentry0) 
+                                                (write bentry0) 
+                                                (exec bentry0) 
+                                                (present bentry0)
+                                                (accessible bentry0)
+                                                (blockindex bentry0)
+                                                (CBlock
+                                                   (startAddr (blockrange bentry0))
+                                                   blockend)))
+                                          (add newBlockEntryAddr
+                                             (BE
+                                                (CBlockEntry 
+                                                   (read bentry) 
+                                                   (write bentry) 
+                                                   (exec bentry) 
+                                                   (present bentry)
+                                                   (accessible bentry)
+                                                   (blockindex bentry)
+                                                   (CBlock blockstart
+                                                      (endAddr (blockrange bentry)))))
+                                             (add globalIdPDChild
+                                                (PDT
+                                                   {|
+                                                   structure := structure pdentry0;
+                                                   firstfreeslot := firstfreeslot
+                                                        pdentry0;
+                                                   nbfreeslots := predCurrentNbFreeSlots;
+                                                   nbprepare := nbprepare pdentry0;
+                                                   parent := parent pdentry0;
+                                                   MPU := MPU pdentry0 |})
+                                                (add globalIdPDChild
+                                                   (PDT
+                                                      {|
+                                                      structure := structure pdentry;
+                                                      firstfreeslot := newFirstFreeSlotAddr;
+                                                      nbfreeslots := ADT.nbfreeslots
+                                                        pdentry;
+                                                      nbprepare := nbprepare pdentry;
+                                                      parent := parent pdentry;
+                                                      MPU := MPU pdentry |})
+                                                   (memory s0) beqAddr) beqAddr)
+                                             beqAddr) beqAddr) beqAddr) beqAddr)
+                                 beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+/\ 
+        lookup sh1eaddr (memory s) beqAddr = Some (SHE sh1entry1)
+) /\
+      isBE blockToShareChildEntryAddr s)
+     (*(exists sh1entry : Sh1Entry,
+        lookup Sh1EAddr (memory s) beqAddr = Some (SHE sh1entry) /\
+        sh1entryAddr blockToShareInCurrPartAddr Sh1EAddr s)*)
+). eapply weaken. apply WP.modify.
+		intros. simpl. set (s' := {|
+      currentPartition :=  _|}). 
+intros. simpl.
+intuition.
+		destruct H7. destruct H5. destruct H5. destruct H5. destruct H5. destruct H5.
+		 destruct H5. destruct H5. destruct H5. destruct H5. destruct H5. destruct H5.
+		 destruct H5. destruct H5. destruct H5. destruct H5. destruct H5.
+		exists x. exists x0. exists x1. exists x2. exists x3. exists x4. exists x5.
+		exists x6. exists x7. exists x8. exists x9. exists x10. exists x11.
+		exists x12. exists x13. exists Sh1EAddr. exists x15. destruct H8. exists s. 
+		subst. intuition. unfold s'. cbn. f_equal. f_equal. f_equal. 
+(* y a un truc faux dans le instantiate juste avant*)
+intuition.
+	- unfold isBE. admit.
+
+
+simpl. cbn. admit. } admit. admit. admit. admit. admit. }
+	intros.
+
+ 
+	{ (** ret **)
+	eapply weaken. apply WP.ret. intros. simpl. intuition.
+	admit. admit. admit. 
+
+----------------------------------------------------------
 2: { intros.
 		eapply bindRev.
 		2: { intros. eapply weaken. eapply WP.ret.

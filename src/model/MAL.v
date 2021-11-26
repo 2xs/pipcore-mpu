@@ -134,7 +134,7 @@ Definition writePDFirstFreeSlotPointer (pdtablepaddr: paddr) (firstfreeslotpaddr
 																					MPU := a.(MPU)
 																			|} in
 											modify (fun s => {| currentPartition := s.(currentPartition);
-																								memory := add pdtablepaddr (PDT newEntry) s.(memory) beqAddr|} )
+																						memory := add pdtablepaddr (PDT newEntry) s.(memory) beqAddr|} )
 		| Some _ => undefined 60
 		| None => undefined 59
 	end.
@@ -252,7 +252,7 @@ Definition writePDMPU (pdtablepaddr: paddr) (MPUlist : list paddr) : LLI unit :=
 		| None => undefined 59
 	end.
 
-
+(*
 Definition readBlockStartFromBlockEntryAddr  (paddr : paddr) : LLI ADT.paddr :=
   perform s := get in
   let entry :=  lookup paddr s.(memory) beqAddr in
@@ -260,7 +260,7 @@ Definition readBlockStartFromBlockEntryAddr  (paddr : paddr) : LLI ADT.paddr :=
   | Some (BE a) => ret a.(blockrange).(startAddr)
   | Some _ => undefined 12
   | None => undefined 11
-  end.
+  end.*)
 
 Definition writeBlockStartFromBlockEntryAddr  (paddr : paddr) (newstartaddr : ADT.paddr) : LLI unit :=
   perform s := get in
@@ -289,7 +289,7 @@ Definition writeBlockStartFromBlockEntryAddr  (paddr : paddr) (newstartaddr : AD
 		| None => undefined 59
   end.
 
-
+(*
 Definition readBlockEndFromBlockEntryAddr  (paddr : paddr) : LLI ADT.paddr :=
   perform s := get in
   let entry :=  lookup paddr s.(memory) beqAddr in
@@ -298,6 +298,7 @@ Definition readBlockEndFromBlockEntryAddr  (paddr : paddr) : LLI ADT.paddr :=
   | Some _ => undefined 12
   | None => undefined 11
   end.
+*)
 
 Definition writeBlockEndFromBlockEntryAddr  (paddr : paddr) (newendaddr : ADT.paddr) : LLI unit :=
   perform s := get in
@@ -334,6 +335,14 @@ Definition getBlockRecordField {Y : Type} (field : BlockEntry -> Y) (addr : padd
   | Some _ => undefined 12
   | None => undefined 11
   end.
+
+Definition readBlockStartFromBlockEntryAddr  (addr : paddr) : LLI paddr :=
+	perform blockrange := getBlockRecordField blockrange addr in
+	ret (blockrange.(startAddr)).
+
+Definition readBlockEndFromBlockEntryAddr  (addr : paddr) : LLI paddr :=
+	perform blockrange := getBlockRecordField blockrange addr in
+	ret (blockrange.(endAddr)).
 
 (*
 Definition readBlockAccessibleFromBlockEntryAddr  (paddr : paddr) : LLI bool :=

@@ -45,12 +45,13 @@ Module WP := WeakestPreconditions.
 (* Couper le code de preuve -> ici que faire une propagation des propriétés initiale
 + propager nouvelles propriétés *) 
 Lemma insertNewEntry 	(pdinsertion startaddr endaddr origin: paddr)
-											(r w e : bool) (currnbfreeslots : index) idBlockToShare :
+											(r w e : bool) (currnbfreeslots : index) :
 {{ fun s => (*P s /\*) partitionsIsolation s   (*/\ kernelDataIsolation s*) /\ verticalSharing s
-/\ exists pdentry, lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry)
-								(*/\ exists entry, lookup startaddr (memory s) beqAddr = Some (entry)*)
-								/\ currnbfreeslots > 0
-/\ consistency s (*/\ exists nullAddr,  lookup nullAddr (memory s) beqAddr = Some (PADDR nullAddr)*)
+/\ consistency s
+(* to retrieve the fields in pdinsertion *)
+/\ (exists pdentry, lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry))
+(* to show the first free slot pointer is not NULL *)
+/\ (pdentryNbFreeSlots pdinsertion currnbfreeslots s /\ currnbfreeslots > 0)
 (*/\ exists entry , lookup (CPaddr (entryaddr + scoffset)) s.(memory) beqAddr = Some (SCE entry) /\
 P tt {|
   currentPartition := currentPartition s;
@@ -73,24 +74,102 @@ Q tt
                    nbprepare := nbprepare pdentry;
                    parent := parent pdentry;
                    MPU := MPU pdentry |}) (memory s) beqAddr |}*)
-/\ (*(exists entry : BlockEntry, exists blockToShareInCurrPartAddr : paddr,
+(*/\ (*(exists entry : BlockEntry, exists blockToShareInCurrPartAddr : paddr,
                  lookup blockToShareInCurrPartAddr (memory s) beqAddr =
-                 Some (BE bentry)*) isBE idBlockToShare s
+                 Some (BE bentry)*) isBE idBlockToShare s*)
 
 }}
 
 Internal.insertNewEntry pdinsertion startaddr endaddr origin r w e currnbfreeslots
-{{fun newentryaddr s => partitionsIsolation s   (*/\ kernelDataIsolation s*) /\ verticalSharing s /\ consistency s (*Q s /\ consistency s*)
-(*{{ fun entryaddr s => Q tt s /\ P entryaddr s*)
-(*/\ exists sh1entryaddr, isChild = StateLib.checkChild idPDchild s sh1entryaddr
-/\ if isChild then (exists entry, lookup idPDchild s.(memory) beqAddr = Some (BE entry)
-										/\ exists sh1entry, lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry))
-		else isChild = false*)
+{{fun newentryaddr s => (*partitionsIsolation s   (*/\ kernelDataIsolation s*) /\ verticalSharing s /\ consistency s*)
 (*/\ exists globalIdPDChild : paddr, 
 	exists pdtentry : PDTable, lookup (beentry.(blockrange).(startAddr)) s.(memory) beqAddr = Some (PDT pdtentry)
 -> pas cette condition car on retourne ensuite dans le code principal et si on termine 
 en faux on peut pas prouver ctte partie *)
-/\ isBE idBlockToShare s
+isBE newentryaddr s /\
+(*
+exists sceaddr scentry pdentry bentry newBlockEntryAddr newFirstFreeSlotAddr predCurrentNbFreeSlots,
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry r w e
+                       true true (blockindex bentry)
+                       (CBlock startaddr endaddr)))
+
+
+				(add sceaddr (SCE {| origin := origin; next := next scentry |})
+ (memory s) beqAddr) beqAddr) beqAddr |})
+*)
+
+(exists s0, exists pdentry : PDTable, exists pdentry0 : PDTable, 
+		exists bentry bentry0 bentry1 bentry2 bentry3 bentry4 bentry5: BlockEntry,
+		exists sceaddr, exists scentry : SCEntry,
+		exists newBlockEntryAddr newFirstFreeSlotAddr predCurrentNbFreeSlots,
+  s = {|
+     currentPartition := currentPartition s0;
+     memory := add sceaddr
+									(SCE {| origin := origin; next := next scentry |})
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry5) (write bentry5) e (present bentry5) 
+                       (accessible bentry5) (blockindex bentry5) (blockrange bentry5))) 
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry4) w (exec bentry4) (present bentry4) 
+                       (accessible bentry4) (blockindex bentry4) (blockrange bentry4)))
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry r (write bentry3) (exec bentry3) (present bentry3) 
+                       (accessible bentry3) (blockindex bentry3) (blockrange bentry3))) 
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry2) (write bentry2) (exec bentry2) true 
+                       (accessible bentry2) (blockindex bentry2) (blockrange bentry2))) 
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry1) (write bentry1) (exec bentry1) 
+                       (present bentry1) true (blockindex bentry1) (blockrange bentry1)))
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry0) (write bentry0) (exec bentry0) 
+                       (present bentry0) (accessible bentry0) (blockindex bentry0)
+                       (CBlock (startAddr (blockrange bentry0)) endaddr)))
+							(add newBlockEntryAddr
+                     (BE
+                        (CBlockEntry (read bentry) (write bentry) 
+                           (exec bentry) (present bentry) (accessible bentry)
+                           (blockindex bentry)
+                           (CBlock startaddr (endAddr (blockrange bentry)))))
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry0;
+                    firstfreeslot := firstfreeslot pdentry0;
+                    nbfreeslots := predCurrentNbFreeSlots;
+                    nbprepare := nbprepare pdentry0;
+                    parent := parent pdentry0;
+                    MPU := MPU pdentry0 |})
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry;
+                    firstfreeslot := newFirstFreeSlotAddr;
+                    nbfreeslots := nbfreeslots pdentry;
+                    nbprepare := nbprepare pdentry;
+                    parent := parent pdentry;
+                    MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+  
+)
 }}.
 Proof.
 (*unfold Internal.insertNewEntry.
@@ -107,14 +186,14 @@ eapply bind. intro ttwriteBlockPresentFromBlockEntryAddr.
 eapply bind. intro ttwriteBlockRFromBlockEntryAddr.
 eapply bind. intro ttwriteBlockWFromBlockEntryAddr.
 eapply bind. intro ttwriteBlockXFromBlockEntryAddr.
-eapply bind. intro ttwriteSCOriginFromBlockEntryAddr.
 eapply weaken. apply ret.
 intros. simpl. apply H.
-eapply weaken. apply WP.writeSCOriginFromBlockEntryAddr.
+admit.
+(*eapply weaken. eapply WP.writeSCOriginFromBlockEntryAddr.*)
 (* Peux pas avancer en bind car s'applique avec des WP, or on en a pas pour certains write
 car sont des opérations monadiques -> ne change rien si on réordonne les instructions
 pour que les write soient tous ensemble*)
-intros. simpl. apply H.
+(*intros. simpl. apply H.*)
 eapply weaken. apply WP.writeBlockXFromBlockEntryAddr.
 intros. simpl. apply H.
 eapply weaken. apply WP.writeBlockWFromBlockEntryAddr.
@@ -178,163 +257,2313 @@ intros.
 *)
 
 
-(*
+
 unfold Internal.insertNewEntry.
 eapply WP.bindRev.
-{ eapply weaken. apply readPDFirstFreeSlotPointer.
+{ (** readPDFirstFreeSlotPointer **)
+	eapply weaken. apply readPDFirstFreeSlotPointer.
 	intros. simpl. split. apply H.
-	unfold isPDT. intuition. destruct H. destruct H. rewrite -> H. trivial.
+	unfold isPDT. intuition. destruct H2. intuition. rewrite -> H2. trivial.
 }
 	intro newBlockEntryAddr.
 	eapply bindRev.
-{ eapply weaken. apply readBlockEndFromBlockEntryAddr.
+{ (** readBlockEndFromBlockEntryAddr **)
+	eapply weaken. apply readBlockEndFromBlockEntryAddr.
 	intros. simpl. split. apply H.
-	unfold isBE. intuition. destruct H0. intuition.
+	unfold isBE. intuition. destruct H3. intuition.
  	unfold consistency in *. intuition. 
-	unfold FirstFreeSlotPointerIsBE in *.
-	destruct H5 with pdinsertion x. apply H0.
-	unfold entryFirstFreeSlot in H1.
-	rewrite H0 in H1. subst. rewrite H10. trivial.
+	unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
+	destruct H8 with pdinsertion x. apply H3.
+	- unfold FirstFreeSlotPointerNotNullEq in *.
+		pose (H_slotnotnull := H22 pdinsertion currnbfreeslots).
+		destruct H_slotnotnull. pose (H_conj := conj H4 H6).
+		destruct H21. assumption. unfold pdentryFirstFreeSlot in *.
+		rewrite H3 in H21. destruct H21. subst. assumption.
+	-	unfold pdentryFirstFreeSlot in *.
+		rewrite H3 in H1. subst. rewrite isBELookupEq in H21. destruct H21.
+		rewrite H1. trivial.
 }
 	intro newFirstFreeSlotAddr.
 	eapply bindRev.
-{	eapply weaken. apply Index.pred.
-	intros. simpl. split. apply H.
-	intuition. destruct H. intuition.
+{	(** Index.pred **)
+	eapply weaken. apply Index.pred.
+	intros. simpl. split. apply H. intuition.
 }
 	intro predCurrentNbFreeSlots. simpl.
 	eapply bindRev.
-{ eapply weaken.
-	apply WP.writePDFirstFreeSlotPointer.
+	{ (**  MAL.writePDFirstFreeSlotPointer **)
+		eapply weaken.
+		2 : { intros. exact H. }
+		unfold MAL.writePDFirstFreeSlotPointer.
+		eapply bindRev.
+		{ (** get **)
+			eapply weaken. apply get.
+			intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+((((*partitionsIsolation s /\
+       verticalSharing s /\*)
+       (exists pdentry : PDTable,
+          lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry)) /\
+          (pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+          currnbfreeslots > 0) (*/\ consistency s *)/\
+      pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+     bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s) /\
+    StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots)). intuition.
+	}
+		intro s0. intuition.
+		destruct (lookup pdinsertion (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+		4 : {
+		{ (** modify **)
+			instantiate (1:= fun _ s => exists pd : PDTable, lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+     pdentryNbFreeSlots pdinsertion currnbfreeslots s /\ currnbfreeslots > 0 /\
+     pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+    bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+   StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots 
+
+/\ (exists s0, exists pdentry : PDTable, (*lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry)
+/\*) s = {|
+     currentPartition := currentPartition s0;
+     memory := add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry;
+                    firstfreeslot := newFirstFreeSlotAddr;
+                    nbfreeslots := nbfreeslots pdentry;
+                    nbprepare := nbprepare pdentry;
+                    parent := parent pdentry;
+                    MPU := MPU pdentry |}) (memory s0) beqAddr |}
+  )
+).
+			unfold Monad.modify.
+			eapply bindRev. eapply weaken. apply get. intros. simpl.
+			pattern s in H. apply H.
+			intro ss.
+			eapply weaken. apply put.
+			intros. simpl. set (s' := {|
+      currentPartition :=  _|}).
+			eexists. split. rewrite beqAddrTrue. f_equal.
+			split. unfold pdentryNbFreeSlots in *. destruct H. destruct H.
+			destruct H. destruct H. rewrite Hlookup in H2.
+			cbn. rewrite beqAddrTrue. cbn. intuition. intuition.
+			admit. admit.
+			exists ss. exists p. intuition.
+
+} }			admit. admit. admit. admit. admit. }
+		intros. simpl.
+
+eapply bindRev.
+	{ (**  MAL.writePDNbFreeSlots **)
+		eapply weaken.
+		2 : { intros. exact H. }
+		unfold MAL.writePDNbFreeSlots.
+		eapply bindRev.
+		{ (** get **)
+			eapply weaken. apply get.
+			intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+exists pd : PDTable,
+      lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+      pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+      currnbfreeslots > 0 /\
+      pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+      bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+      StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+      (exists (s0 : state) (pdentry : PDTable),
+         s =
+         {|
+         currentPartition := currentPartition s0;
+         memory := add pdinsertion
+                     (PDT
+                        {|
+                        structure := structure pdentry;
+                        firstfreeslot := newFirstFreeSlotAddr;
+                        nbfreeslots := nbfreeslots pdentry;
+                        nbprepare := nbprepare pdentry;
+                        parent := parent pdentry;
+                        MPU := MPU pdentry |}) (memory s0) beqAddr |})). intuition.
+	}
+		intro s0. intuition.
+		destruct (lookup pdinsertion (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+		4 : {
+		{ (** modify **)
+			instantiate (1:= fun _ s => exists pd : PDTable, lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+     pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s /\ predCurrentNbFreeSlots > 0 /\
+     pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+    bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+   StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots 
+
+/\ (exists s0, exists pdentry : PDTable, (*lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry)
+/\*)  exists pdentry0 : PDTable, s = {|
+     currentPartition := currentPartition s0;
+     memory := add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry0;
+                    firstfreeslot := firstfreeslot pdentry0;
+                    nbfreeslots := predCurrentNbFreeSlots;
+                    nbprepare := nbprepare pdentry0;
+                    parent := parent pdentry0;
+                    MPU := MPU pdentry0 |})
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry;
+                    firstfreeslot := newFirstFreeSlotAddr;
+                    nbfreeslots := nbfreeslots pdentry;
+                    nbprepare := nbprepare pdentry;
+                    parent := parent pdentry;
+                    MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr |}
+  
+)).
+			eapply weaken. apply modify.
+			intros. simpl.  set (s' := {|
+      currentPartition :=  _|}).
+			eexists. split. rewrite beqAddrTrue. f_equal.
+			split. unfold pdentryNbFreeSlots in *. destruct H. destruct H.
+			destruct H0. destruct H. rewrite Hlookup in H0.
+			cbn. rewrite beqAddrTrue. cbn. intuition. intuition.
+			admit. admit. admit. destruct H1. intuition.
+			destruct H1. intuition. destruct H7. destruct H6.
+			exists x0. exists x1. exists p. subst. intuition. }
+}
+			admit. admit. admit. admit. admit.
+} intros. simpl.
+
+eapply bindRev.
+	{ (**  MAL.writeBlockStartFromBlockEntryAddr **)
+		eapply weaken.
+		2 : { intros. exact H. }
+		unfold MAL.writeBlockStartFromBlockEntryAddr.
+		eapply bindRev.
+		{ (** get **)
+			eapply weaken. apply get.
+			intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+exists pd : PDTable,
+      lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+      pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s /\
+      predCurrentNbFreeSlots > 0 /\
+      pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+      bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+      StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+      (exists (s0 : state) (pdentry pdentry0 : PDTable),
+         s =
+         {|
+         currentPartition := currentPartition s0;
+         memory := add pdinsertion
+                     (PDT
+                        {|
+                        structure := structure pdentry0;
+                        firstfreeslot := firstfreeslot pdentry0;
+                        nbfreeslots := predCurrentNbFreeSlots;
+                        nbprepare := nbprepare pdentry0;
+                        parent := parent pdentry0;
+                        MPU := MPU pdentry0 |})
+                     (add pdinsertion
+                        (PDT
+                           {|
+                           structure := structure pdentry;
+                           firstfreeslot := newFirstFreeSlotAddr;
+                           nbfreeslots := nbfreeslots pdentry;
+                           nbprepare := nbprepare pdentry;
+                           parent := parent pdentry;
+                           MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr |})). intuition.
+	}
+		intro s0. intuition.
+		destruct (lookup newBlockEntryAddr (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+		4 : {
+		{ (** modify **)
+			instantiate (1:= fun _ s => exists pd : PDTable, lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+     pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s /\ predCurrentNbFreeSlots > 0 /\
+     pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+    bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+   StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots 
+
+/\ (exists s0, exists pdentry : PDTable, exists pdentry0 : PDTable, 
+		exists bentry : BlockEntry,
+  s = {|
+     currentPartition := currentPartition s0;
+     memory := add newBlockEntryAddr
+                     (BE
+                        (CBlockEntry (read bentry) (write bentry) 
+                           (exec bentry) (present bentry) (accessible bentry) 
+                           (blockindex bentry)
+                           (CBlock startaddr (endAddr (blockrange bentry)))))
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry0;
+                    firstfreeslot := firstfreeslot pdentry0;
+                    nbfreeslots := predCurrentNbFreeSlots;
+                    nbprepare := nbprepare pdentry0;
+                    parent := parent pdentry0;
+                    MPU := MPU pdentry0 |})
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry;
+                    firstfreeslot := newFirstFreeSlotAddr;
+                    nbfreeslots := nbfreeslots pdentry;
+                    nbprepare := nbprepare pdentry;
+                    parent := parent pdentry;
+                    MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr |}
+  
+)). admit. } }
+			eapply weaken. apply modify.
+			intros. simpl.  set (s' := {|
+      currentPartition :=  _|}). destruct H. destruct H0. exists x.
+			
+			split. cbn. admit.
+			split. unfold pdentryNbFreeSlots in *. destruct H. destruct H0.
+			destruct H0. rewrite H in H0. admit. intuition. intuition.
+			admit. admit. destruct H7. destruct H6. destruct H6.
+			exists x0. exists x1. exists x2. exists b. subst. intuition.
+			admit. admit. admit. admit. }
+intros. simpl.
+
+eapply bindRev.
+	{ (**  MAL.writeBlockEndFromBlockEntryAddr **)
+		eapply weaken.
+		2 : { intros. exact H. }
+		unfold MAL.writeBlockEndFromBlockEntryAddr.
+		eapply bindRev.
+		{ (** get **)
+			eapply weaken. apply get.
+			intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+exists pd : PDTable,
+      lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+      pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s /\
+      predCurrentNbFreeSlots > 0 /\
+      pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+      bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+      StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+      (exists (s0 : state) (pdentry pdentry0 : PDTable) (bentry : BlockEntry),
+         s =
+         {|
+         currentPartition := currentPartition s0;
+         memory := add newBlockEntryAddr
+                     (BE
+                        (CBlockEntry (read bentry) (write bentry) 
+                           (exec bentry) (present bentry) 
+                           (accessible bentry) (blockindex bentry)
+                           (CBlock startaddr (endAddr (blockrange bentry)))))
+                     (add pdinsertion
+                        (PDT
+                           {|
+                           structure := structure pdentry0;
+                           firstfreeslot := firstfreeslot pdentry0;
+                           nbfreeslots := predCurrentNbFreeSlots;
+                           nbprepare := nbprepare pdentry0;
+                           parent := parent pdentry0;
+                           MPU := MPU pdentry0 |})
+                        (add pdinsertion
+                           (PDT
+                              {|
+                              structure := structure pdentry;
+                              firstfreeslot := newFirstFreeSlotAddr;
+                              nbfreeslots := nbfreeslots pdentry;
+                              nbprepare := nbprepare pdentry;
+                              parent := parent pdentry;
+                              MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr)
+                     beqAddr |})). intuition.
+	}
+		intro s0. intuition.
+		destruct (lookup newBlockEntryAddr (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+		{ (** modify **)
+			instantiate (1:= fun _ s => exists pd : PDTable, lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+     pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s /\ predCurrentNbFreeSlots > 0 /\
+     pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+    bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+   StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots 
+
+/\ (exists s0, exists pdentry : PDTable, exists pdentry0 : PDTable, 
+		exists bentry bentry0: BlockEntry,
+  s = {|
+     currentPartition := currentPartition s0;
+     memory := add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry0) (write bentry0) (exec bentry0) 
+                       (present bentry0) (accessible bentry0) (blockindex bentry0)
+                       (CBlock (startAddr (blockrange bentry0)) endaddr)))
+							(add newBlockEntryAddr
+                     (BE
+                        (CBlockEntry (read bentry) (write bentry) 
+                           (exec bentry) (present bentry) (accessible bentry)
+                           (blockindex bentry)
+                           (CBlock startaddr (endAddr (blockrange bentry)))))
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry0;
+                    firstfreeslot := firstfreeslot pdentry0;
+                    nbfreeslots := predCurrentNbFreeSlots;
+                    nbprepare := nbprepare pdentry0;
+                    parent := parent pdentry0;
+                    MPU := MPU pdentry0 |})
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry;
+                    firstfreeslot := newFirstFreeSlotAddr;
+                    nbfreeslots := nbfreeslots pdentry;
+                    nbprepare := nbprepare pdentry;
+                    parent := parent pdentry;
+                    MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr |}
+  
+)).
+			eapply weaken. apply modify.
+			intros. simpl.  set (s' := {|
+      currentPartition :=  _|}). destruct H. destruct H0. exists x.
+			
+			split. cbn. admit.
+			split. unfold pdentryNbFreeSlots in *. destruct H. destruct H0.
+			destruct H0. rewrite H in H0. admit. intuition. intuition.
+			admit. admit. destruct H7. destruct H6. destruct H6. destruct H6.
+			exists x0. exists x1. exists x2. exists x3. exists b. subst. intuition.
+}
+			admit. admit. admit. admit. admit. }
+intros. simpl.
+
+eapply bindRev.
+	{ (**  MAL.writeBlockAccessibleFromBlockEntryAddr **)
+		eapply weaken.
+		2 : { intros. exact H. }
+		unfold MAL.writeBlockAccessibleFromBlockEntryAddr.
+		eapply bindRev.
+		{ (** get **)
+			eapply weaken. apply get.
+			intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+exists pd : PDTable,
+      lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+      pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s /\
+      predCurrentNbFreeSlots > 0 /\
+      pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+      bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+      StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+      (exists
+         (s0 : state) (pdentry pdentry0 : PDTable) (bentry bentry0 : BlockEntry),
+         s =
+         {|
+         currentPartition := currentPartition s0;
+         memory := add newBlockEntryAddr
+                     (BE
+                        (CBlockEntry (read bentry0) (write bentry0) 
+                           (exec bentry0) (present bentry0) 
+                           (accessible bentry0) (blockindex bentry0)
+                           (CBlock (startAddr (blockrange bentry0)) endaddr)))
+                     (add newBlockEntryAddr
+                        (BE
+                           (CBlockEntry (read bentry) (write bentry) 
+                              (exec bentry) (present bentry) 
+                              (accessible bentry) (blockindex bentry)
+                              (CBlock startaddr (endAddr (blockrange bentry)))))
+                        (add pdinsertion
+                           (PDT
+                              {|
+                              structure := structure pdentry0;
+                              firstfreeslot := firstfreeslot pdentry0;
+                              nbfreeslots := predCurrentNbFreeSlots;
+                              nbprepare := nbprepare pdentry0;
+                              parent := parent pdentry0;
+                              MPU := MPU pdentry0 |})
+                           (add pdinsertion
+                              (PDT
+                                 {|
+                                 structure := structure pdentry;
+                                 firstfreeslot := newFirstFreeSlotAddr;
+                                 nbfreeslots := nbfreeslots pdentry;
+                                 nbprepare := nbprepare pdentry;
+                                 parent := parent pdentry;
+                                 MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr)
+                        beqAddr) beqAddr |})). intuition.
+	}
+		intro s0. intuition.
+		destruct (lookup newBlockEntryAddr (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+		{ (** modify **)
+			instantiate (1:= fun _ s => exists pd : PDTable, lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+     pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s /\ predCurrentNbFreeSlots > 0 /\
+     pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+    bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+   StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots 
+
+/\ (exists s0, exists pdentry : PDTable, exists pdentry0 : PDTable, 
+		exists bentry bentry0 bentry1: BlockEntry,
+  s = {|
+     currentPartition := currentPartition s0;
+     memory := add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry1) (write bentry1) (exec bentry1) 
+                       (present bentry1) true (blockindex bentry1) (blockrange bentry1)))
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry0) (write bentry0) (exec bentry0) 
+                       (present bentry0) (accessible bentry0) (blockindex bentry0)
+                       (CBlock (startAddr (blockrange bentry0)) endaddr)))
+							(add newBlockEntryAddr
+                     (BE
+                        (CBlockEntry (read bentry) (write bentry) 
+                           (exec bentry) (present bentry) (accessible bentry)
+                           (blockindex bentry)
+                           (CBlock startaddr (endAddr (blockrange bentry)))))
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry0;
+                    firstfreeslot := firstfreeslot pdentry0;
+                    nbfreeslots := predCurrentNbFreeSlots;
+                    nbprepare := nbprepare pdentry0;
+                    parent := parent pdentry0;
+                    MPU := MPU pdentry0 |})
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry;
+                    firstfreeslot := newFirstFreeSlotAddr;
+                    nbfreeslots := nbfreeslots pdentry;
+                    nbprepare := nbprepare pdentry;
+                    parent := parent pdentry;
+                    MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+  
+)).
+			eapply weaken. apply modify.
+			intros. simpl.  set (s' := {|
+      currentPartition :=  _|}). destruct H. destruct H0. exists x.
+			
+			split. cbn. admit.
+			split. unfold pdentryNbFreeSlots in *. destruct H. destruct H0.
+			destruct H0. rewrite H in H0. admit. intuition. intuition.
+			admit. admit. destruct H7. destruct H6. destruct H6. destruct H6. destruct H6.
+			exists x0. exists x1. exists x2. exists x3. exists x4. exists b. subst. intuition.
+}
+			admit. admit. admit. admit. admit. }
+intros. simpl.
+
+eapply bindRev.
+	{ (**  MAL.writeBlockPresentFromBlockEntryAddr **)
+		eapply weaken.
+		2 : { intros. exact H. }
+		unfold MAL.writeBlockPresentFromBlockEntryAddr.
+		eapply bindRev.
+		{ (** get **)
+			eapply weaken. apply get.
+			intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+exists pd : PDTable,
+      lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+      pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s /\
+      predCurrentNbFreeSlots > 0 /\
+      pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+      bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+      StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+      (exists
+         (s0 : state) (pdentry pdentry0 : PDTable) (bentry bentry0
+                                                    bentry1 : BlockEntry),
+         s =
+         {|
+         currentPartition := currentPartition s0;
+         memory := add newBlockEntryAddr
+                     (BE
+                        (CBlockEntry (read bentry1) (write bentry1) 
+                           (exec bentry1) (present bentry1) true 
+                           (blockindex bentry1) (blockrange bentry1)))
+                     (add newBlockEntryAddr
+                        (BE
+                           (CBlockEntry (read bentry0) (write bentry0) 
+                              (exec bentry0) (present bentry0) 
+                              (accessible bentry0) (blockindex bentry0)
+                              (CBlock (startAddr (blockrange bentry0)) endaddr)))
+                        (add newBlockEntryAddr
+                           (BE
+                              (CBlockEntry (read bentry) 
+                                 (write bentry) (exec bentry) 
+                                 (present bentry) (accessible bentry)
+                                 (blockindex bentry)
+                                 (CBlock startaddr (endAddr (blockrange bentry)))))
+                           (add pdinsertion
+                              (PDT
+                                 {|
+                                 structure := structure pdentry0;
+                                 firstfreeslot := firstfreeslot pdentry0;
+                                 nbfreeslots := predCurrentNbFreeSlots;
+                                 nbprepare := nbprepare pdentry0;
+                                 parent := parent pdentry0;
+                                 MPU := MPU pdentry0 |})
+                              (add pdinsertion
+                                 (PDT
+                                    {|
+                                    structure := structure pdentry;
+                                    firstfreeslot := newFirstFreeSlotAddr;
+                                    nbfreeslots := nbfreeslots pdentry;
+                                    nbprepare := nbprepare pdentry;
+                                    parent := parent pdentry;
+                                    MPU := MPU pdentry |}) 
+                                 (memory s0) beqAddr) beqAddr) beqAddr) beqAddr)
+                     beqAddr |})). intuition.
+	}
+		intro s0. intuition.
+		destruct (lookup newBlockEntryAddr (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+		{ (** modify **)
+			instantiate (1:= fun _ s => exists pd : PDTable, lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+     pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s /\ predCurrentNbFreeSlots > 0 /\
+     pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+    bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+   StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots 
+
+/\ (exists s0, exists pdentry : PDTable, exists pdentry0 : PDTable, 
+		exists bentry bentry0 bentry1 bentry2: BlockEntry,
+  s = {|
+     currentPartition := currentPartition s0;
+     memory := add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry2) (write bentry2) (exec bentry2) true 
+                       (accessible bentry2) (blockindex bentry2) (blockrange bentry2))) 
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry1) (write bentry1) (exec bentry1) 
+                       (present bentry1) true (blockindex bentry1) (blockrange bentry1)))
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry0) (write bentry0) (exec bentry0) 
+                       (present bentry0) (accessible bentry0) (blockindex bentry0)
+                       (CBlock (startAddr (blockrange bentry0)) endaddr)))
+							(add newBlockEntryAddr
+                     (BE
+                        (CBlockEntry (read bentry) (write bentry) 
+                           (exec bentry) (present bentry) (accessible bentry)
+                           (blockindex bentry)
+                           (CBlock startaddr (endAddr (blockrange bentry)))))
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry0;
+                    firstfreeslot := firstfreeslot pdentry0;
+                    nbfreeslots := predCurrentNbFreeSlots;
+                    nbprepare := nbprepare pdentry0;
+                    parent := parent pdentry0;
+                    MPU := MPU pdentry0 |})
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry;
+                    firstfreeslot := newFirstFreeSlotAddr;
+                    nbfreeslots := nbfreeslots pdentry;
+                    nbprepare := nbprepare pdentry;
+                    parent := parent pdentry;
+                    MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+  
+)).
+			eapply weaken. apply modify.
+			intros. simpl.  set (s' := {|
+      currentPartition :=  _|}). destruct H. destruct H0. exists x.
+			
+			split. cbn. admit.
+			split. unfold pdentryNbFreeSlots in *. destruct H. destruct H0.
+			destruct H0. rewrite H in H0. admit. intuition. intuition.
+			admit. admit. destruct H7. destruct H6. destruct H6. destruct H6. destruct H6.
+			destruct H6.
+			exists x0. exists x1. exists x2. exists x3. exists x4. exists x5.
+			exists b. subst. intuition.
+}
+			admit. admit. admit. admit. admit. }
+intros. simpl.
+
+eapply bindRev.
+	{ (**  MAL.writeBlockRFromBlockEntryAddr **)
+		eapply weaken.
+		2 : { intros. exact H. }
+		unfold MAL.writeBlockRFromBlockEntryAddr.
+		eapply bindRev.
+		{ (** get **)
+			eapply weaken. apply get.
+			intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+exists pd : PDTable,
+      lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+      pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s /\
+      predCurrentNbFreeSlots > 0 /\
+      pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+      bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+      StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+      (exists
+         (s0 : state) (pdentry pdentry0 : PDTable) (bentry bentry0 bentry1
+                                                    bentry2 : BlockEntry),
+         s =
+         {|
+         currentPartition := currentPartition s0;
+         memory := add newBlockEntryAddr
+                     (BE
+                        (CBlockEntry (read bentry2) (write bentry2) 
+                           (exec bentry2) true (accessible bentry2)
+                           (blockindex bentry2) (blockrange bentry2)))
+                     (add newBlockEntryAddr
+                        (BE
+                           (CBlockEntry (read bentry1) (write bentry1) 
+                              (exec bentry1) (present bentry1) true
+                              (blockindex bentry1) (blockrange bentry1)))
+                        (add newBlockEntryAddr
+                           (BE
+                              (CBlockEntry (read bentry0) 
+                                 (write bentry0) (exec bentry0) 
+                                 (present bentry0) (accessible bentry0)
+                                 (blockindex bentry0)
+                                 (CBlock (startAddr (blockrange bentry0)) endaddr)))
+                           (add newBlockEntryAddr
+                              (BE
+                                 (CBlockEntry (read bentry) 
+                                    (write bentry) (exec bentry) 
+                                    (present bentry) (accessible bentry)
+                                    (blockindex bentry)
+                                    (CBlock startaddr (endAddr (blockrange bentry)))))
+                              (add pdinsertion
+                                 (PDT
+                                    {|
+                                    structure := structure pdentry0;
+                                    firstfreeslot := firstfreeslot pdentry0;
+                                    nbfreeslots := predCurrentNbFreeSlots;
+                                    nbprepare := nbprepare pdentry0;
+                                    parent := parent pdentry0;
+                                    MPU := MPU pdentry0 |})
+                                 (add pdinsertion
+                                    (PDT
+                                       {|
+                                       structure := structure pdentry;
+                                       firstfreeslot := newFirstFreeSlotAddr;
+                                       nbfreeslots := nbfreeslots pdentry;
+                                       nbprepare := nbprepare pdentry;
+                                       parent := parent pdentry;
+                                       MPU := MPU pdentry |}) 
+                                    (memory s0) beqAddr) beqAddr) beqAddr) beqAddr)
+                        beqAddr) beqAddr |})). intuition.
+	}
+		intro s0. intuition.
+		destruct (lookup newBlockEntryAddr (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+		{ (** modify **)
+			instantiate (1:= fun _ s => exists pd : PDTable, lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+     pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s /\ predCurrentNbFreeSlots > 0 /\
+     pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+    bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+   StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots 
+
+/\ (exists s0, exists pdentry : PDTable, exists pdentry0 : PDTable, 
+		exists bentry bentry0 bentry1 bentry2 bentry3: BlockEntry,
+  s = {|
+     currentPartition := currentPartition s0;
+     memory := add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry r (write bentry3) (exec bentry3) (present bentry3) 
+                       (accessible bentry3) (blockindex bentry3) (blockrange bentry3))) 
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry2) (write bentry2) (exec bentry2) true 
+                       (accessible bentry2) (blockindex bentry2) (blockrange bentry2))) 
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry1) (write bentry1) (exec bentry1) 
+                       (present bentry1) true (blockindex bentry1) (blockrange bentry1)))
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry0) (write bentry0) (exec bentry0) 
+                       (present bentry0) (accessible bentry0) (blockindex bentry0)
+                       (CBlock (startAddr (blockrange bentry0)) endaddr)))
+							(add newBlockEntryAddr
+                     (BE
+                        (CBlockEntry (read bentry) (write bentry) 
+                           (exec bentry) (present bentry) (accessible bentry)
+                           (blockindex bentry)
+                           (CBlock startaddr (endAddr (blockrange bentry)))))
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry0;
+                    firstfreeslot := firstfreeslot pdentry0;
+                    nbfreeslots := predCurrentNbFreeSlots;
+                    nbprepare := nbprepare pdentry0;
+                    parent := parent pdentry0;
+                    MPU := MPU pdentry0 |})
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry;
+                    firstfreeslot := newFirstFreeSlotAddr;
+                    nbfreeslots := nbfreeslots pdentry;
+                    nbprepare := nbprepare pdentry;
+                    parent := parent pdentry;
+                    MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+  
+)).
+			eapply weaken. apply modify.
+			intros. simpl.  set (s' := {|
+      currentPartition :=  _|}). destruct H. destruct H0. exists x.
+			
+			split. cbn. admit.
+			split. unfold pdentryNbFreeSlots in *. destruct H. destruct H0.
+			destruct H0. rewrite H in H0. admit. intuition. intuition.
+			admit. admit. destruct H7. destruct H6. destruct H6. destruct H6. destruct H6.
+			destruct H6. destruct H6.
+			exists x0. exists x1. exists x2. exists x3. exists x4. exists x5. exists x6.
+			exists b. subst. intuition.
+}
+			admit. admit. admit. admit. admit. }
+intros. simpl.
+
+eapply bindRev.
+	{ (**  MAL.writeBlockWFromBlockEntryAddr **)
+		eapply weaken.
+		2 : { intros. exact H. }
+		unfold MAL.writeBlockWFromBlockEntryAddr.
+		eapply bindRev.
+		{ (** get **)
+			eapply weaken. apply get.
+			intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+exists pd : PDTable,
+      lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+      pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s /\
+      predCurrentNbFreeSlots > 0 /\
+      pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+      bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+      StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+      (exists
+         (s0 : state) (pdentry pdentry0 : PDTable) (bentry bentry0 bentry1 bentry2
+                                                    bentry3 : BlockEntry),
+         s =
+         {|
+         currentPartition := currentPartition s0;
+         memory := add newBlockEntryAddr
+                     (BE
+                        (CBlockEntry r (write bentry3) (exec bentry3)
+                           (present bentry3) (accessible bentry3)
+                           (blockindex bentry3) (blockrange bentry3)))
+                     (add newBlockEntryAddr
+                        (BE
+                           (CBlockEntry (read bentry2) (write bentry2) 
+                              (exec bentry2) true (accessible bentry2)
+                              (blockindex bentry2) (blockrange bentry2)))
+                        (add newBlockEntryAddr
+                           (BE
+                              (CBlockEntry (read bentry1) 
+                                 (write bentry1) (exec bentry1) 
+                                 (present bentry1) true (blockindex bentry1)
+                                 (blockrange bentry1)))
+                           (add newBlockEntryAddr
+                              (BE
+                                 (CBlockEntry (read bentry0) 
+                                    (write bentry0) (exec bentry0) 
+                                    (present bentry0) (accessible bentry0)
+                                    (blockindex bentry0)
+                                    (CBlock (startAddr (blockrange bentry0)) endaddr)))
+                              (add newBlockEntryAddr
+                                 (BE
+                                    (CBlockEntry (read bentry) 
+                                       (write bentry) (exec bentry) 
+                                       (present bentry) (accessible bentry)
+                                       (blockindex bentry)
+                                       (CBlock startaddr
+                                          (endAddr (blockrange bentry)))))
+                                 (add pdinsertion
+                                    (PDT
+                                       {|
+                                       structure := structure pdentry0;
+                                       firstfreeslot := firstfreeslot pdentry0;
+                                       nbfreeslots := predCurrentNbFreeSlots;
+                                       nbprepare := nbprepare pdentry0;
+                                       parent := parent pdentry0;
+                                       MPU := MPU pdentry0 |})
+                                    (add pdinsertion
+                                       (PDT
+                                          {|
+                                          structure := structure pdentry;
+                                          firstfreeslot := newFirstFreeSlotAddr;
+                                          nbfreeslots := nbfreeslots pdentry;
+                                          nbprepare := nbprepare pdentry;
+                                          parent := parent pdentry;
+                                          MPU := MPU pdentry |}) 
+                                       (memory s0) beqAddr) beqAddr) beqAddr) beqAddr)
+                           beqAddr) beqAddr) beqAddr |})). intuition.
+	}
+		intro s0. intuition.
+		destruct (lookup newBlockEntryAddr (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+		{ (** modify **)
+			instantiate (1:= fun _ s => exists pd : PDTable, lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+     pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s /\ predCurrentNbFreeSlots > 0 /\
+     pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+    bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+   StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots 
+
+/\ (exists s0, exists pdentry : PDTable, exists pdentry0 : PDTable, 
+		exists bentry bentry0 bentry1 bentry2 bentry3 bentry4: BlockEntry,
+  s = {|
+     currentPartition := currentPartition s0;
+     memory := add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry4) w (exec bentry4) (present bentry4) 
+                       (accessible bentry4) (blockindex bentry4) (blockrange bentry4)))
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry r (write bentry3) (exec bentry3) (present bentry3) 
+                       (accessible bentry3) (blockindex bentry3) (blockrange bentry3))) 
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry2) (write bentry2) (exec bentry2) true 
+                       (accessible bentry2) (blockindex bentry2) (blockrange bentry2))) 
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry1) (write bentry1) (exec bentry1) 
+                       (present bentry1) true (blockindex bentry1) (blockrange bentry1)))
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry0) (write bentry0) (exec bentry0) 
+                       (present bentry0) (accessible bentry0) (blockindex bentry0)
+                       (CBlock (startAddr (blockrange bentry0)) endaddr)))
+							(add newBlockEntryAddr
+                     (BE
+                        (CBlockEntry (read bentry) (write bentry) 
+                           (exec bentry) (present bentry) (accessible bentry)
+                           (blockindex bentry)
+                           (CBlock startaddr (endAddr (blockrange bentry)))))
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry0;
+                    firstfreeslot := firstfreeslot pdentry0;
+                    nbfreeslots := predCurrentNbFreeSlots;
+                    nbprepare := nbprepare pdentry0;
+                    parent := parent pdentry0;
+                    MPU := MPU pdentry0 |})
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry;
+                    firstfreeslot := newFirstFreeSlotAddr;
+                    nbfreeslots := nbfreeslots pdentry;
+                    nbprepare := nbprepare pdentry;
+                    parent := parent pdentry;
+                    MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+  
+)).
+			eapply weaken. apply modify.
+			intros. simpl.  set (s' := {|
+      currentPartition :=  _|}). destruct H. destruct H0. exists x.
+			
+			split. cbn. admit.
+			split. unfold pdentryNbFreeSlots in *. destruct H. destruct H0.
+			destruct H0. rewrite H in H0. admit. intuition. intuition.
+			admit. admit. destruct H7. destruct H6. destruct H6. destruct H6. destruct H6.
+			destruct H6. destruct H6. destruct H6.
+			exists x0. exists x1. exists x2. exists x3. exists x4. exists x5. exists x6.
+			exists x7.
+			exists b. subst. intuition.
+}
+			admit. admit. admit. admit. admit. }
+intros. simpl.
+
+eapply bindRev.
+	{ (**  MAL.writeBlockXFromBlockEntryAddr **)
+		eapply weaken.
+		2 : { intros. exact H. }
+		unfold MAL.writeBlockXFromBlockEntryAddr.
+		eapply bindRev.
+		{ (** get **)
+			eapply weaken. apply get.
+			intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+exists pd : PDTable,
+      lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+      pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s /\
+      predCurrentNbFreeSlots > 0 /\
+      pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+      bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+      StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+      (exists
+         (s0 : state) (pdentry pdentry0 : PDTable) (bentry bentry0 bentry1 bentry2
+                                                    bentry3 bentry4 : BlockEntry),
+         s =
+         {|
+         currentPartition := currentPartition s0;
+         memory := add newBlockEntryAddr
+                     (BE
+                        (CBlockEntry (read bentry4) w (exec bentry4)
+                           (present bentry4) (accessible bentry4)
+                           (blockindex bentry4) (blockrange bentry4)))
+                     (add newBlockEntryAddr
+                        (BE
+                           (CBlockEntry r (write bentry3) 
+                              (exec bentry3) (present bentry3) 
+                              (accessible bentry3) (blockindex bentry3)
+                              (blockrange bentry3)))
+                        (add newBlockEntryAddr
+                           (BE
+                              (CBlockEntry (read bentry2) 
+                                 (write bentry2) (exec bentry2) true
+                                 (accessible bentry2) (blockindex bentry2)
+                                 (blockrange bentry2)))
+                           (add newBlockEntryAddr
+                              (BE
+                                 (CBlockEntry (read bentry1) 
+                                    (write bentry1) (exec bentry1) 
+                                    (present bentry1) true 
+                                    (blockindex bentry1) 
+                                    (blockrange bentry1)))
+                              (add newBlockEntryAddr
+                                 (BE
+                                    (CBlockEntry (read bentry0) 
+                                       (write bentry0) (exec bentry0)
+                                       (present bentry0) 
+                                       (accessible bentry0) 
+                                       (blockindex bentry0)
+                                       (CBlock (startAddr (blockrange bentry0))
+                                          endaddr)))
+                                 (add newBlockEntryAddr
+                                    (BE
+                                       (CBlockEntry (read bentry) 
+                                          (write bentry) 
+                                          (exec bentry) (present bentry)
+                                          (accessible bentry) 
+                                          (blockindex bentry)
+                                          (CBlock startaddr
+                                             (endAddr (blockrange bentry)))))
+                                    (add pdinsertion
+                                       (PDT
+                                          {|
+                                          structure := structure pdentry0;
+                                          firstfreeslot := firstfreeslot pdentry0;
+                                          nbfreeslots := predCurrentNbFreeSlots;
+                                          nbprepare := nbprepare pdentry0;
+                                          parent := parent pdentry0;
+                                          MPU := MPU pdentry0 |})
+                                       (add pdinsertion
+                                          (PDT
+                                             {|
+                                             structure := structure pdentry;
+                                             firstfreeslot := newFirstFreeSlotAddr;
+                                             nbfreeslots := nbfreeslots pdentry;
+                                             nbprepare := nbprepare pdentry;
+                                             parent := parent pdentry;
+                                             MPU := MPU pdentry |}) 
+                                          (memory s0) beqAddr) beqAddr) beqAddr)
+                                 beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |})). intuition.
+	}
+		intro s0. intuition.
+		destruct (lookup newBlockEntryAddr (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+		{ (** modify **)
+			instantiate (1:= fun _ s => exists pd : PDTable, lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+     pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s /\ predCurrentNbFreeSlots > 0 /\
+     pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+    bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+   StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots 
+
+/\ (exists s0, exists pdentry : PDTable, exists pdentry0 : PDTable, 
+		exists bentry bentry0 bentry1 bentry2 bentry3 bentry4 bentry5: BlockEntry,
+  s = {|
+     currentPartition := currentPartition s0;
+     memory := add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry5) (write bentry5) e (present bentry5) 
+                       (accessible bentry5) (blockindex bentry5) (blockrange bentry5))) 
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry4) w (exec bentry4) (present bentry4) 
+                       (accessible bentry4) (blockindex bentry4) (blockrange bentry4)))
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry r (write bentry3) (exec bentry3) (present bentry3) 
+                       (accessible bentry3) (blockindex bentry3) (blockrange bentry3))) 
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry2) (write bentry2) (exec bentry2) true 
+                       (accessible bentry2) (blockindex bentry2) (blockrange bentry2))) 
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry1) (write bentry1) (exec bentry1) 
+                       (present bentry1) true (blockindex bentry1) (blockrange bentry1)))
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry0) (write bentry0) (exec bentry0) 
+                       (present bentry0) (accessible bentry0) (blockindex bentry0)
+                       (CBlock (startAddr (blockrange bentry0)) endaddr)))
+							(add newBlockEntryAddr
+                     (BE
+                        (CBlockEntry (read bentry) (write bentry) 
+                           (exec bentry) (present bentry) (accessible bentry)
+                           (blockindex bentry)
+                           (CBlock startaddr (endAddr (blockrange bentry)))))
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry0;
+                    firstfreeslot := firstfreeslot pdentry0;
+                    nbfreeslots := predCurrentNbFreeSlots;
+                    nbprepare := nbprepare pdentry0;
+                    parent := parent pdentry0;
+                    MPU := MPU pdentry0 |})
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry;
+                    firstfreeslot := newFirstFreeSlotAddr;
+                    nbfreeslots := nbfreeslots pdentry;
+                    nbprepare := nbprepare pdentry;
+                    parent := parent pdentry;
+                    MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+  
+)).
+			eapply weaken. apply modify.
+			intros. simpl.  set (s' := {|
+      currentPartition :=  _|}). destruct H. destruct H0. exists x.
+			
+			split. cbn. admit.
+			split. unfold pdentryNbFreeSlots in *. destruct H. destruct H0.
+			destruct H0. rewrite H in H0. admit. intuition. intuition.
+			admit. admit. destruct H7. destruct H6. destruct H6. destruct H6. destruct H6.
+			destruct H6. destruct H6. destruct H6. destruct H6.
+			exists x0. exists x1. exists x2. exists x3. exists x4. exists x5. exists x6.
+			exists x7. exists x8.
+			exists b. subst. intuition.
+}
+			admit. admit. admit. admit. admit. }
+intros. simpl.
+
+eapply bindRev.
+	{ (**  MAL.writeSCOriginFromBlockEntryAddr **)
+		eapply weaken.
+		2 : { intros. exact H. }
+		unfold MAL.writeSCOriginFromBlockEntryAddr.
+		eapply bindRev. 
+		{ (** MAL.getSCEntryAddrFromBlockEntryAddr **) 
+			eapply weaken. apply getSCEntryAddrFromBlockEntryAddr.
+			intros. split. apply H. unfold consistency in *. intuition.
+			admit. admit. admit.
+		}
+		intro SCEAddr.
+				unfold MAL.writeSCOriginFromBlockEntryAddr2.
+			eapply bindRev.
+		eapply weaken. apply get.
+		intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+(exists pd : PDTable,
+       lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+       pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s /\
+       predCurrentNbFreeSlots > 0 /\
+       pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+       bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+       StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+       (exists
+          (s0 : state) (pdentry pdentry0 : PDTable) (bentry bentry0 bentry1 bentry2
+                                                     bentry3 bentry4
+                                                     bentry5 : BlockEntry),
+          s =
+          {|
+          currentPartition := currentPartition s0;
+          memory := add newBlockEntryAddr
+                      (BE
+                         (CBlockEntry (read bentry5) (write bentry5) e
+                            (present bentry5) (accessible bentry5)
+                            (blockindex bentry5) (blockrange bentry5)))
+                      (add newBlockEntryAddr
+                         (BE
+                            (CBlockEntry (read bentry4) w 
+                               (exec bentry4) (present bentry4) 
+                               (accessible bentry4) (blockindex bentry4)
+                               (blockrange bentry4)))
+                         (add newBlockEntryAddr
+                            (BE
+                               (CBlockEntry r (write bentry3) 
+                                  (exec bentry3) (present bentry3)
+                                  (accessible bentry3) (blockindex bentry3)
+                                  (blockrange bentry3)))
+                            (add newBlockEntryAddr
+                               (BE
+                                  (CBlockEntry (read bentry2) 
+                                     (write bentry2) (exec bentry2) true
+                                     (accessible bentry2) 
+                                     (blockindex bentry2) 
+                                     (blockrange bentry2)))
+                               (add newBlockEntryAddr
+                                  (BE
+                                     (CBlockEntry (read bentry1) 
+                                        (write bentry1) (exec bentry1)
+                                        (present bentry1) true 
+                                        (blockindex bentry1) 
+                                        (blockrange bentry1)))
+                                  (add newBlockEntryAddr
+                                     (BE
+                                        (CBlockEntry (read bentry0) 
+                                           (write bentry0) 
+                                           (exec bentry0) 
+                                           (present bentry0) 
+                                           (accessible bentry0) 
+                                           (blockindex bentry0)
+                                           (CBlock (startAddr (blockrange bentry0))
+                                              endaddr)))
+                                     (add newBlockEntryAddr
+                                        (BE
+                                           (CBlockEntry (read bentry) 
+                                              (write bentry) 
+                                              (exec bentry) 
+                                              (present bentry) 
+                                              (accessible bentry) 
+                                              (blockindex bentry)
+                                              (CBlock startaddr
+                                                 (endAddr (blockrange bentry)))))
+                                        (add pdinsertion
+                                           (PDT
+                                              {|
+                                              structure := structure pdentry0;
+                                              firstfreeslot := firstfreeslot pdentry0;
+                                              nbfreeslots := predCurrentNbFreeSlots;
+                                              nbprepare := nbprepare pdentry0;
+                                              parent := parent pdentry0;
+                                              MPU := MPU pdentry0 |})
+                                           (add pdinsertion
+                                              (PDT
+                                                 {|
+                                                 structure := structure pdentry;
+                                                 firstfreeslot := newFirstFreeSlotAddr;
+                                                 nbfreeslots := nbfreeslots pdentry;
+                                                 nbprepare := nbprepare pdentry;
+                                                 parent := parent pdentry;
+                                                 MPU := MPU pdentry |}) 
+                                              (memory s0) beqAddr) beqAddr) beqAddr)
+                                     beqAddr) beqAddr) beqAddr) beqAddr) beqAddr)
+                      beqAddr |})) /\
+    (exists entry : SCEntry,
+       lookup SCEAddr (memory s) beqAddr = Some (SCE entry) /\
+       scentryAddr newBlockEntryAddr SCEAddr s)). intuition.
+		intro s0. intuition.
+		destruct (lookup SCEAddr (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+		3: { (** modify **)
+			instantiate (1:= fun _ s => exists pd : PDTable, lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
+     pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s /\ predCurrentNbFreeSlots > 0 /\
+     pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s /\
+    bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+   StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots 
+
+/\ (exists s0, exists pdentry : PDTable, exists pdentry0 : PDTable, 
+		exists bentry bentry0 bentry1 bentry2 bentry3 bentry4 bentry5: BlockEntry,
+		exists sceaddr, exists scentry : SCEntry,
+  s = {|
+     currentPartition := currentPartition s0;
+     memory := add sceaddr
+									(SCE {| origin := origin; next := next scentry |})
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry5) (write bentry5) e (present bentry5) 
+                       (accessible bentry5) (blockindex bentry5) (blockrange bentry5))) 
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry4) w (exec bentry4) (present bentry4) 
+                       (accessible bentry4) (blockindex bentry4) (blockrange bentry4)))
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry r (write bentry3) (exec bentry3) (present bentry3) 
+                       (accessible bentry3) (blockindex bentry3) (blockrange bentry3))) 
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry2) (write bentry2) (exec bentry2) true 
+                       (accessible bentry2) (blockindex bentry2) (blockrange bentry2))) 
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry1) (write bentry1) (exec bentry1) 
+                       (present bentry1) true (blockindex bentry1) (blockrange bentry1)))
+							(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry0) (write bentry0) (exec bentry0) 
+                       (present bentry0) (accessible bentry0) (blockindex bentry0)
+                       (CBlock (startAddr (blockrange bentry0)) endaddr)))
+							(add newBlockEntryAddr
+                     (BE
+                        (CBlockEntry (read bentry) (write bentry) 
+                           (exec bentry) (present bentry) (accessible bentry)
+                           (blockindex bentry)
+                           (CBlock startaddr (endAddr (blockrange bentry)))))
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry0;
+                    firstfreeslot := firstfreeslot pdentry0;
+                    nbfreeslots := predCurrentNbFreeSlots;
+                    nbprepare := nbprepare pdentry0;
+                    parent := parent pdentry0;
+                    MPU := MPU pdentry0 |})
+								(add pdinsertion
+                 (PDT
+                    {|
+                    structure := structure pdentry;
+                    firstfreeslot := newFirstFreeSlotAddr;
+                    nbfreeslots := nbfreeslots pdentry;
+                    nbprepare := nbprepare pdentry;
+                    parent := parent pdentry;
+                    MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+  
+)).
+			eapply weaken. apply modify.
+			intros. simpl.  set (s' := {|
+      currentPartition :=  _|}). destruct H. destruct H0. destruct H0. exists x.
+			
+			split. cbn. admit.
+			split. unfold pdentryNbFreeSlots in *. destruct H. destruct H0.
+			destruct H0. rewrite H in H0. admit. intuition. intuition.
+			admit. admit. destruct H8. destruct H7. destruct H7. destruct H7. destruct H7.
+			destruct H7. destruct H7. destruct H7. destruct H7. destruct H7.
+			exists x0. exists x1. exists x2. exists x3. exists x4. exists x5. exists x6.
+			exists x7. exists x8. exists x9.
+			exists SCEAddr. exists s. subst. intuition.
+}
+			admit. admit. admit. admit. admit. }
+intros. simpl.
+	eapply weaken. apply ret.
+	intros. intuition. split. admit.
+	destruct H. intuition.
+	destruct H6. destruct H5. destruct H5. destruct H5.
+			destruct H5. destruct H5. destruct H5. destruct H5. destruct H5.
+			destruct H5. destruct H5. destruct H5.
+			eexists. eexists. eexists. eexists. eexists. eexists. eexists. eexists.
+			eexists. eexists. eexists. eexists. exists newBlockEntryAddr. exists newFirstFreeSlotAddr. exists predCurrentNbFreeSlots. 
+
+			intuition. rewrite H5. f_equal.
+			Admitted.
+(*
+			exists x10. exists x11.
+			exists x2. exists x9. exists newBlockEntryAddr. exists newFirstFreeSlotAddr. exists predCurrentNbFreeSlots. 
+			intuition. cbn. (* change postcondition or show equivalence *)
+			simpl in *. unfold add in H5. simpl in H5.
+			repeat rewrite beqAddrTrue in H5.
+ exists s. subst. intuition.
+
+
+-----------------------
+
+			instantiate (1:= fun _ s => (*partitionsIsolation s /\ *)
+				exists pdentry : PDTable,
+				(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) 
+				) /\  isPDT pdinsertion s
+				(*/\ s = {|
+					currentPartition := currentPartition s;
+					memory := add pdinsertion
+								      (PDT
+								         {|
+								         structure := structure pdentry;
+								         firstfreeslot := newFirstFreeSlotAddr;
+												(*structure := newFirstFreeSlotAddr;
+								         firstfreeslot := newFirstFreeSlotAddr;*)
+								         nbfreeslots := nbfreeslots pdentry;
+								         nbprepare := nbprepare pdentry;
+								         parent := parent pdentry;
+								         MPU := MPU pdentry |}) (memory s) beqAddr |}
+										(*s.(memory) |}*)*)
+
+				). simpl. set (s' := {|
+      currentPartition :=  _|}).
+- eexists. split. rewrite beqAddrTrue. (*split.*)
+			+ f_equal.
+			+ (*split.*) unfold isPDT. cbn. rewrite beqAddrTrue. intuition.
+			}
+			} 	cbn. admit. admit. admit. admit. admit.
+			}
+			intros.
+			eapply weaken. apply modify.
+			intros. simpl.
+			instantiate (1:= fun _ s => (*partitionsIsolation s /\ *)
+				exists pdentry : PDTable,
+				(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) 
+				) /\  isPDT pdinsertion s
+				/\ s = {|
+					currentPartition := currentPartition s;
+					memory := add pdinsertion
+								      (PDT
+								         {|
+								         structure := structure pdentry;
+								         firstfreeslot := newFirstFreeSlotAddr;
+												(*structure := newFirstFreeSlotAddr;
+								         firstfreeslot := newFirstFreeSlotAddr;*)
+								         nbfreeslots := nbfreeslots pdentry;
+								         nbprepare := nbprepare pdentry;
+								         parent := parent pdentry;
+								         MPU := MPU pdentry |}) (memory s) beqAddr |}
+										(*s.(memory) |}*)  (*/\
+
+				((*partitionsIsolation s /\
+					 verticalSharing s /\*)
+						
+					pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+				 bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+				StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+
+							pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+							currnbfreeslots > 0 /\ consistency s (* /\ isBE idBlockToShare s *)
+				/\ isPDT pdinsertion s*)
+				(*/\ exists pdentry : PDTable,
+				lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry)*)
+				). simpl. set (s' := {|
+      currentPartition :=  _|}).
+		 (*split. 
+		- admit.*)
+		- eexists. split. rewrite beqAddrTrue. (*split.*)
+			+ f_equal.
+			+ (*split.*) unfold isPDT. cbn. rewrite beqAddrTrue. intuition.
+				cbn. admit.
+			
+		}
+}  eapply weaken. apply undefined. intros.
+			simpl. intuition. destruct H. intuition. congruence.
+eapply weaken. apply undefined. intros.
+			simpl. intuition. destruct H. intuition. congruence.
+eapply weaken. apply undefined. intros.
+			simpl. intuition. destruct H. intuition. congruence.
+eapply weaken. apply undefined. intros.
+			simpl. intuition. destruct H. intuition. congruence.
+eapply weaken. apply undefined. intros.
+			simpl. intuition. destruct H. intuition. congruence.
+} intros.
+	eapply bindRev.
+	{ (** MAL.writePDNbFreeSlots **)
+		eapply weaken.
+		2 : { intros. exact H. }
+		unfold MAL.writePDNbFreeSlots.
+		eapply bindRev.
+		{ (** get **)
+			eapply weaken. apply get.
+			intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\
+(*partitionsIsolation s /\*)
+    exists pdentry : PDTable,
+       (lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\
+        isPDT pdinsertion s)  /\
+        s =
+        {|
+        currentPartition := currentPartition s;
+        memory := add pdinsertion
+                    (PDT
+                       {|
+                       structure := structure pdentry;
+                       firstfreeslot := newFirstFreeSlotAddr;
+                       nbfreeslots := nbfreeslots pdentry;
+                       nbprepare := nbprepare pdentry;
+                       parent := parent pdentry;
+                       MPU := MPU pdentry |}) (memory s1) beqAddr |} (*/\
+       ((*partitionsIsolation s /\
+        verticalSharing s /\*)
+			pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+       bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+       StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+       pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+       currnbfreeslots > 0 (*/\
+       consistency s*) (* /\ isBE idBlockToShare s *) /\ isPDT pdinsertion s)*)). intuition.
+intuition. destruct H. exists x. intuition. }
+intro s0. simpl. intuition. (*admit.*)
+		destruct (lookup pdinsertion (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+		4 : {
+unfold Monad.modify.
+eapply bindRev.
+		{ (** get **)
+					eapply weaken. apply get.
+			intro s. intros. simpl. pattern s in H. apply H.
+	}
+	intro s1.
+	eapply weaken. apply put.
 	intros. simpl.
-	(* assert(exists x, lookup pdinsertion (memory s) beqAddr = Some (PDT x) ).
-	{ intuition. destruct H4. destruct H0. exists x. assumption. }
-	destruct H0. exists x. split. assumption.*)
-	intuition.
-	destruct H0. intuition.
-	destruct H6. destruct H5. destruct H5.
-	assert (newFirstFreeSlotAddr = x1).
-	{ unfold entryEndAddr in *. unfold entryFirstFreeSlot in *.
-	rewrite H0 in *. unfold consistency in *. intuition. unfold FirstFreeSlotPointerIsBE in *.
-	specialize (H9 pdinsertion x H0). destruct H9. subst.
-	rewrite H9 in *. subst.
-	instantiate (1: newFirstFreeSlotAddr = x1 
-exact H6.
-	
-	destruct H6. destruct H5. 
-	generalize dependent x1.
-	intros.
+(*
+		eapply weaken. apply modify.
+		intros.*)
+instantiate (1:= fun _ s => (*partitionsIsolation s /\ *)
+exists pdentry : PDTable,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry)) /\ 
+isPDT pdinsertion s /\
 
-destruct H6. destruct H5. destruct H5. exact H6. H7.
-	unfold entryEndAddr in *.
-	unfold entryFirstFreeSlot in *.
-	rewrite H0 in H4.
-	subst. unfold consistency in *. unfold FirstFreeSlotPointerIsBE in *. intuition.
-	specialize (H9 pdinsertion x H0).
-	destruct H9 as [slotentry].
-	rewrite H9 in H3. subst.
-	destruct H8. eapply H3.
-	
-	specialize (H8 (endAddr (blockrange slotentry))).
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := nbfreeslots pdentry;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |}) (memory s) beqAddr |} (*/\
+
+((*partitionsIsolation s /\
+   verticalSharing s /\*)
+    
+  pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+
+      pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+      currnbfreeslots > 0 /\ consistency s (* /\ isBE idBlockToShare s *)
+/\ isPDT pdinsertion s
+(*/\ exists pdentry : PDTable,
+lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry)*) *)
+). simpl. set (s' := {|
+      currentPartition :=  _|}).
+		 (*split. 
+		- admit.*)
+		- eexists. split. rewrite beqAddrTrue. (*split.*)
+			+ f_equal. + split.
+			 (*split.*) unfold isPDT. cbn. rewrite beqAddrTrue. intuition.
+				cbn. intuition. destruct H1.  intuition. subst. cbn in *.
+				rewrite H2 in s'. f_equal.
 
 
- apply H8. destruct H8. apply H7.
+			 } admit. admit. admit. admit. admit. } intros.
+	eapply bindRev.
+	{ (** MAL.writeBlockStartFromBlockEntryAddr **)
+		eapply weaken.
+		2 : { intros. exact H. }
+		unfold MAL.writeBlockStartFromBlockEntryAddr.
+		eapply bindRev.
+		eapply weaken. apply get.
+		intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+(*partitionsIsolation s /\*)
+    (exists pdentry : PDTable,
+       (lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\
+        isPDT pdinsertion s (*/\
+        s =
+        {|
+        currentPartition := currentPartition s;
+        memory := add pdinsertion
+                    (PDT
+                       {|
+                       structure := structure pdentry;
+                       firstfreeslot := newFirstFreeSlotAddr;
+                       nbfreeslots := predCurrentNbFreeSlots;
+                       nbprepare := nbprepare pdentry;
+                       parent := parent pdentry;
+                       MPU := MPU pdentry |}) (memory s) beqAddr |} *) ) /\
+       ((*partitionsIsolation s /\
+        verticalSharing s /\*) pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+       bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+       StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+       pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+       currnbfreeslots > 0 /\
+       consistency s(*  /\ isBE idBlockToShare s *) /\ isPDT pdinsertion s)). intuition.
+intro s0. intuition.
+		destruct (lookup newBlockEntryAddr (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+		eapply weaken. apply modify.
+		intros. (*instantiate (1:= fun _ s => tt=tt /\ s =s ).*)
+instantiate (1:= fun _ s => partitionsIsolation s /\ 
+exists pdentry : PDTable, exists bentry : BlockEntry,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion s /\
+lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr s (*/\
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry) (write bentry) (exec bentry) 
+                       (present bentry) (accessible bentry) (blockindex bentry)
+                       (CBlock startaddr (endAddr (blockrange bentry)))))
 
-	intuition.
-	destruct H4. destruct H0. exists x. intuition.
-	
-}
-	intros.
+ (memory s) beqAddr) beqAddr |} *) ) /\
+
+(partitionsIsolation s /\
+   verticalSharing s /\
+    
+  pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+
+      pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+      currnbfreeslots > 0 /\ consistency s (* /\ isBE idBlockToShare s *)
+/\ isPDT pdinsertion s
+(*/\ exists pdentry : PDTable,
+lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry)*)
+). simpl. admit. admit. admit. admit. admit. admit. } intros.
 	eapply bindRev.
-{ eapply weaken. apply WP.writePDNbFreeSlots.
-	intros. simpl. exact H.
-}
-	intros.
+	{ (** MAL.writeBlockEndFromBlockEntryAddr **)
+		eapply weaken.
+		2 : { intros. exact H. }
+		unfold MAL.writeBlockEndFromBlockEntryAddr.
+		eapply bindRev.
+		eapply weaken. apply get.
+		intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+(*partitionsIsolation s /\ *)
+exists pdentry : PDTable, exists bentry : BlockEntry,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion s /\
+lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr s (*/\
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry) (write bentry) (exec bentry) 
+                       (present bentry) (accessible bentry) (blockindex bentry)
+                       (CBlock startaddr (endAddr (blockrange bentry)))))
+
+ (memory s) beqAddr) beqAddr |} *) ) /\
+
+((*partitionsIsolation s /\
+   verticalSharing s /\*)
+    
+  pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+
+      pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+      currnbfreeslots > 0 /\ consistency s (* /\ isBE idBlockToShare s *)
+/\ isPDT pdinsertion s). intuition. admit.
+intro s0. intuition.
+		destruct (lookup newBlockEntryAddr (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+		eapply weaken. apply modify.
+		intros. (*instantiate (1:= fun _ s => tt=tt /\ s =s ).*)
+instantiate (1:= fun _ s => (*partitionsIsolation s /\ *)
+exists pdentry : PDTable, exists bentry : BlockEntry,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion s /\
+lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr s (*/\
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry) (write bentry) (exec bentry) 
+                       (present bentry) (accessible bentry) (blockindex bentry)
+                       (CBlock startaddr endaddr)))
+
+ (memory s) beqAddr) beqAddr |} *) ) /\
+
+((*partitionsIsolation s /\
+   verticalSharing s /\*)
+    
+  pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+
+      pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+      currnbfreeslots > 0 /\ consistency s (* /\ isBE idBlockToShare s *)
+/\ isPDT pdinsertion s
+(*/\ exists pdentry : PDTable,
+lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry)*)
+). simpl. admit. admit. admit. admit. admit. admit. } intros.
+
 	eapply bindRev.
-{ eapply weaken. apply WP.writeBlockStartFromBlockEntryAddr.
-	intros. simpl. exact H.
-}
-	intros.
+	{ (** MAL.writeBlockAccessibleFromBlockEntryAddr **)
+		eapply weaken.
+		2 : { intros. exact H. }
+		unfold MAL.writeBlockAccessibleFromBlockEntryAddr.
+		eapply bindRev.
+		eapply weaken. apply get.
+		intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+(*partitionsIsolation s /\ *)
+exists pdentry : PDTable, exists bentry : BlockEntry,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion s /\
+lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr s (*/\
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry) (write bentry) (exec bentry) 
+                       (present bentry) (accessible bentry) (blockindex bentry)
+                       (CBlock startaddr endaddr)))
+
+ (memory s) beqAddr) beqAddr |} *) ) /\
+
+((*partitionsIsolation s /\
+   verticalSharing s /\*)
+    
+  pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+
+      pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+      currnbfreeslots > 0 /\ consistency s (* /\ isBE idBlockToShare s *)
+/\ isPDT pdinsertion s). intuition.
+intro s0. intuition.
+		destruct (lookup newBlockEntryAddr (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+		eapply weaken. apply modify.
+		intros. (*instantiate (1:= fun _ s => tt=tt /\ s =s ).*)
+instantiate (1:= fun _ s => (*partitionsIsolation s /\ *)
+exists pdentry : PDTable, exists bentry : BlockEntry,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion s /\
+lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr s (*/\
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry) (write bentry) (exec bentry) 
+                       (present bentry) true (blockindex bentry)
+                       (CBlock startaddr endaddr)))
+
+ (memory s) beqAddr) beqAddr |} *) ) /\
+
+((*partitionsIsolation s /\
+   verticalSharing s /\*)
+    
+  pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+
+      pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+      currnbfreeslots > 0 /\ consistency s (* /\ isBE idBlockToShare s *)
+/\ isPDT pdinsertion s
+(*/\ exists pdentry : PDTable,
+lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry)*)
+). simpl. admit. admit. admit. admit. admit. admit. } intros.
+
 	eapply bindRev.
-{ eapply weaken. apply WP.writeBlockEndFromBlockEntryAddr.
-	intros. simpl. exact H.
-}
-	intros.
+	{ (** MAL.writeBlockPresentFromBlockEntryAddr **)
+		eapply weaken.
+		2 : { intros. exact H. }
+		unfold MAL.writeBlockAccessibleFromBlockEntryAddr.
+		eapply bindRev.
+		eapply weaken. apply get.
+		intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+(*partitionsIsolation s /\ *)
+exists pdentry : PDTable, exists bentry : BlockEntry,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion s /\
+lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr s (*/\
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry) (write bentry) (exec bentry) 
+                       (present bentry) true (blockindex bentry)
+                       (CBlock startaddr endaddr)))
+
+ (memory s) beqAddr) beqAddr |} *) ) /\
+
+((*partitionsIsolation s /\
+   verticalSharing s /\*)
+    
+  pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+
+      pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+      currnbfreeslots > 0 /\ consistency s (* /\ isBE idBlockToShare s *)
+/\ isPDT pdinsertion s). intuition.
+intro s0. intuition.
+		destruct (lookup newBlockEntryAddr (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+		eapply weaken. apply modify.
+		intros. (*instantiate (1:= fun _ s => tt=tt /\ s =s ).*)
+instantiate (1:= fun _ s => (*partitionsIsolation s /\ *)
+exists pdentry : PDTable, exists bentry : BlockEntry,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion s /\
+lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr s (*/\
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry) (write bentry) (exec bentry) 
+                       true true (blockindex bentry)
+                       (CBlock startaddr endaddr)))
+
+ (memory s) beqAddr) beqAddr |} *) ) /\
+
+((*partitionsIsolation s /\
+   verticalSharing s /\*)
+    
+  pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+
+      pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+      currnbfreeslots > 0 /\ consistency s (* /\ isBE idBlockToShare s *)
+/\ isPDT pdinsertion s
+(*/\ exists pdentry : PDTable,
+lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry)*)
+). simpl. admit. admit. admit. admit. admit. admit. } intros.
+
 	eapply bindRev.
-{ eapply weaken. apply WP.writeBlockAccessibleFromBlockEntryAddr.
-	intros. simpl. exact H.
-}
-	intros.
+	{ (** MAL.writeBlockRFromBlockEntryAddr **)
+		eapply weaken.
+		2 : { intros. exact H. }
+		unfold MAL.writeBlockRFromBlockEntryAddr.
+		eapply bindRev.
+		eapply weaken. apply get.
+		intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+(*partitionsIsolation s /\ *)
+exists pdentry : PDTable, exists bentry : BlockEntry,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion s /\
+lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr s (*/\
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry) (write bentry) (exec bentry) 
+                       true true (blockindex bentry)
+                       (CBlock startaddr endaddr)))
+
+ (memory s) beqAddr) beqAddr |} *) ) /\
+
+((*partitionsIsolation s /\
+   verticalSharing s /\*)
+    
+  pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+
+      pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+      currnbfreeslots > 0 /\ consistency s (* /\ isBE idBlockToShare s *)
+/\ isPDT pdinsertion s). intuition.
+intro s0. intuition.
+		destruct (lookup newBlockEntryAddr (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+		eapply weaken. apply modify.
+		intros. (*instantiate (1:= fun _ s => tt=tt /\ s =s ).*)
+instantiate (1:= fun _ s => (*partitionsIsolation s /\ *)
+exists pdentry : PDTable, exists bentry : BlockEntry,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion s /\
+lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr s (*/\
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry r (write bentry) (exec bentry) 
+                       true true (blockindex bentry)
+                       (CBlock startaddr endaddr)))
+
+ (memory s) beqAddr) beqAddr |} *) ) /\
+
+((*partitionsIsolation s /\
+   verticalSharing s /\*)
+    
+  pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+
+      pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+      currnbfreeslots > 0 /\ consistency s(*  /\ isBE idBlockToShare s *)
+/\ isPDT pdinsertion s
+(*/\ exists pdentry : PDTable,
+lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry)*)
+). simpl. admit. admit. admit. admit. admit. admit. } intros.
+
+
 	eapply bindRev.
-{ eapply weaken. apply WP.writeBlockPresentFromBlockEntryAddr.
-	intros. simpl. exact H.
-}
-	intros.
+	{ (** MAL.writeBlockWFromBlockEntryAddr **)
+		eapply weaken.
+		2 : { intros. exact H. }
+		unfold MAL.writeBlockWFromBlockEntryAddr.
+		eapply bindRev.
+		eapply weaken. apply get.
+		intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+(*partitionsIsolation s /\ *)
+exists pdentry : PDTable, exists bentry : BlockEntry,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion s /\
+lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr s (*/\
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry r (write bentry) (exec bentry) 
+                       true true (blockindex bentry)
+                       (CBlock startaddr endaddr)))
+
+ (memory s) beqAddr) beqAddr |} *) ) /\
+
+((*partitionsIsolation s /\
+   verticalSharing s /\*)
+    
+  pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+
+      pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+      currnbfreeslots > 0 /\ consistency s (* /\ isBE idBlockToShare s *)
+/\ isPDT pdinsertion s). intuition.
+intro s0. intuition.
+		destruct (lookup newBlockEntryAddr (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+		eapply weaken. apply modify.
+		intros. (*instantiate (1:= fun _ s => tt=tt /\ s =s ).*)
+instantiate (1:= fun _ s => (*partitionsIsolation s /\ *)
+exists pdentry : PDTable, exists bentry : BlockEntry,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion s /\
+lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr s (*/\
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry r w (exec bentry) 
+                       true true (blockindex bentry)
+                       (CBlock startaddr endaddr)))
+
+ (memory s) beqAddr) beqAddr |} *) ) /\
+
+((*partitionsIsolation s /\
+   verticalSharing s /\*)
+    
+  pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+
+      pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+      currnbfreeslots > 0 /\ consistency s (* /\ isBE idBlockToShare s *)
+/\ isPDT pdinsertion s
+(*/\ exists pdentry : PDTable,
+lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry)*)
+). simpl. admit. admit. admit. admit. admit. admit. } intros.
+
+
+
 	eapply bindRev.
-{ eapply weaken. apply WP.writeBlockRFromBlockEntryAddr.
-	intros. simpl. exact H.
-}
-	intros.
+	{ (** MAL.writeBlockXFromBlockEntryAddr **)
+		eapply weaken.
+		2 : { intros. exact H. }
+		unfold MAL.writeBlockXFromBlockEntryAddr.
+		eapply bindRev.
+		eapply weaken. apply get.
+		intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+(*partitionsIsolation s /\ *)
+exists pdentry : PDTable, exists bentry : BlockEntry,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion s /\
+lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr s (*/\
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry r w (exec bentry) 
+                       true true (blockindex bentry)
+                       (CBlock startaddr endaddr)))
+
+ (memory s) beqAddr) beqAddr |} *) ) /\
+
+((*partitionsIsolation s /\
+   verticalSharing s /\*)
+    
+  pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+
+      pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+      currnbfreeslots > 0 /\ consistency s (* /\ isBE idBlockToShare s *)
+/\ isPDT pdinsertion s). intuition.
+intro s0. intuition.
+		destruct (lookup newBlockEntryAddr (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+		eapply weaken. apply modify.
+		intros. (*instantiate (1:= fun _ s => tt=tt /\ s =s ).*)
+instantiate (1:= fun _ s => (*partitionsIsolation s /\ *)
+exists pdentry : PDTable, exists bentry : BlockEntry,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion s /\
+lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr s (*/\
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry r w e
+                       true true (blockindex bentry)
+                       (CBlock startaddr endaddr)))
+
+ (memory s) beqAddr) beqAddr |} *) ) /\
+
+((*partitionsIsolation s /\
+   verticalSharing s /\*)
+    
+  pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+
+      pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+      currnbfreeslots > 0 /\ consistency s (* /\ isBE idBlockToShare s *)
+/\ isPDT pdinsertion s
+(*/\ exists pdentry : PDTable,
+lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry)*)
+). simpl. admit. admit. admit. admit. admit. admit. } intros.
+
 	eapply bindRev.
-{ eapply weaken. apply WP.writeBlockWFromBlockEntryAddr.
-	intros. simpl. exact H.
-}
-	intros.
-	eapply bindRev.
-{ eapply weaken. apply WP.writeBlockXFromBlockEntryAddr.
-	intros. simpl. exact H.
-}
-	intros.
-	eapply bindRev.
-{ eapply weaken. apply writeSCOriginFromBlockEntryAddr.
-	intros. simpl. exact H.
-}
-	intros.
-	eapply weaken. apply ret.
-	intros. simpl. exact H.
-Qed.*)
-	eapply bind. intros.
-	eapply bind. intros.
-	eapply bind. intros.
-	eapply bind. intros.
-	eapply bind. intros.
-	(*eapply bind. intros.
-	eapply bind. intros.
-	eapply bind. intros.
-	eapply bind. intros.
-	eapply bind. intros.*)
-	eapply weaken. apply ret.
-	intros. apply H.
-	(*apply writeSCOriginFromBlockEntryAddr.
-	apply writeBlockXFromBlockEntryAddr.
-	apply writeBlockWFromBlockEntryAddr.
-	apply writeBlockRFromBlockEntryAddr.
-	apply writeBlockPresentFromBlockEntryAddr.
-	apply writeBlockAccessibleFromBlockEntryAddr.
-	apply writeBlockEndFromBlockEntryAddr.
-	apply writeBlockStartFromBlockEntryAddr.*)
-	apply writePDNbFreeSlots. simpl.
-	apply WP.writePDFirstFreeSlotPointer. simpl.
-	intros.
-	apply WP.Index.pred.
-	apply WP.readBlockEndFromBlockEntryAddr. 
-	eapply weaken. apply WP.readPDFirstFreeSlotPointer.
+	{ (** MAL.writeSCOriginFromBlockEntryAddr **)
+		unfold MAL.writeSCOriginFromBlockEntryAddr.
+		eapply bindRev. 
+		{ (** MAL.getSCEntryAddrFromBlockEntryAddr **) 
+			eapply weaken. apply getSCEntryAddrFromBlockEntryAddr.
+			intros. split. apply H. unfold consistency in *. intuition.
+			admit. admit. admit.
+		}
+		intro SCEAddr.
+				unfold MAL.writeSCOriginFromBlockEntryAddr2.
+			eapply bindRev.
+		eapply weaken. apply get.
+		intro s. intros. simpl. instantiate (1:= fun s s0 => s = s0 /\ 
+(*partitionsIsolation s /\ *)
+exists pdentry : PDTable, exists bentry : BlockEntry,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion s /\
+lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr s (*/\
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry r w e
+                       true true (blockindex bentry)
+                       (CBlock startaddr endaddr)))
+
+ (memory s) beqAddr) beqAddr |} *)) /\
+
+((*partitionsIsolation s /\
+   verticalSharing s /\*)
+    
+  pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+
+      pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+      currnbfreeslots > 0 /\ consistency s (* /\ isBE idBlockToShare s *)
+/\ isPDT pdinsertion s /\
+(exists entry : SCEntry,
+       lookup SCEAddr (memory s) beqAddr = Some (SCE entry) /\
+       scentryAddr newBlockEntryAddr SCEAddr s)
+). intuition. destruct H0. destruct H. exists x. exists x0.
+intuition.
+intro s0. intuition.
+		destruct (lookup SCEAddr (memory s0) beqAddr) eqn:Hlookup.
+		destruct v eqn:Hv.
+	3 : {
+		eapply weaken. apply modify.
+		intros. (*instantiate (1:= fun _ s => tt=tt /\ s =s ).*)
+(*instantiate (1:= fun _ st => 
+partitionsIsolation st /\ 
+exists pdentry : PDTable, exists bentry : BlockEntry, exists scentry : SCEntry,
+(lookup pdinsertion (memory st) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion st /\
+lookup newBlockEntryAddr (memory st) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr st /\
+st = {|
+  currentPartition := currentPartition st;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry r w e
+                       true true (blockindex bentry)
+                       (CBlock startaddr endaddr)))
+
+ (memory st) beqAddr) beqAddr |}) /\
+
+(partitionsIsolation st /\
+   verticalSharing st /\
+    
+  pdentryFirstFreeSlot pdinsertion newBlockEntryAddr st) /\
+ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr st /\
+StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+
+      pdentryNbFreeSlots pdinsertion currnbfreeslots st /\
+      currnbfreeslots > 0 /\ consistency st /\ isBE idBlockToShare st /\
+(exists sceaddr : paddr, isSCE sceaddr st /\ 
+scentryAddr newBlockEntryAddr sceaddr st /\
+lookup sceaddr (memory st) beqAddr = Some (SCE scentry))).*)
+
+instantiate (1:= fun _ s => 
+(*partitionsIsolation s /\ *)
+exists pdentry : PDTable, exists bentry : BlockEntry,
+exists scentry : SCEntry, exists sceaddr : paddr,
+(lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry) /\ 
+isPDT pdinsertion s /\
+lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) /\ 
+isBE newBlockEntryAddr s /\
+lookup sceaddr (memory s) beqAddr = Some (SCE scentry) /\
+isSCE sceaddr s /\
+scentryAddr newBlockEntryAddr sceaddr s /\
+s = {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure pdentry;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := predCurrentNbFreeSlots;
+                 nbprepare := nbprepare pdentry;
+                 parent := parent pdentry;
+                 MPU := MPU pdentry |})
+					(add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry r w e
+                       true true (blockindex bentry)
+                       (CBlock startaddr endaddr)))
+
+
+				(add sceaddr (SCE {| origin := origin; next := next scentry |})
+ (memory s) beqAddr) beqAddr) beqAddr |} ) /\
+(*add SCEAddr (SCE {| origin := origin; next := next scentry |}) 
+                 (memory s) beqAddr |})*)
+((*partitionsIsolation s /\
+   verticalSharing s /\*)
+    
+  pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s /\
+StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots /\
+
+      pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+      currnbfreeslots > 0 /\ consistency s (* /\ isBE idBlockToShare s *)
+/\ isPDT pdinsertion s
+
+). intros. simpl. set (s' := {|
+      currentPartition :=  _|}).
+		 (*split. 
+		- admit.*)
+		- eexists. eexists. eexists. eexists. split. repeat rewrite beqAddrTrue. cbn. split.
+			+ f_equal.
+			+ (*split.*) unfold isPDT. cbn. rewrite beqAddrTrue. trivial.
+				(*cbn. admit.*)
+			+ admit.
+
+
+
+admit. } admit. admit. admit. admit. admit. }
+	intros. 
+	{ (** ret **)
+	eapply weaken. apply ret. intros. simpl. intuition.
+	admit. admit. admit. 
+Admitted.
+
+(*
+		
+
+	intros. split. reflexivity. split.
+	admit. intuition. 
+	unfold bentryEndAddr. cbn.
+	assert (pdinsertion <> newBlockEntryAddr). admit. 
+	rewrite beqAddrFalse in *. cbn. simpl. rewrite H5. rewrite removeDupIdentity.
+	unfold bentryEndAddr in H3. subst. destruct (lookup newBlockEntryAddr (memory s) beqAddr) eqn:Hlookup' ; try (exfalso ; congruence).
+	destruct v eqn:Hv0 ; try (exfalso ; congruence). intuition. rewrite <- beqAddrFalse in *. intuition. 
+admit. admit. admit. admit. admit. } admit. admit. admit. admit. admit. }
+	intros. simpl.
+
+
+
+(((partitionsIsolation s /\
+   verticalSharing s /\
+   (exists pdentry : PDTable,
+      Some (PDT p) = Some (PDT pdentry) /\
+      pdentryNbFreeSlots pdinsertion currnbfreeslots s /\
+      currnbfreeslots > 0 /\ consistency s /\ isBE idBlockToShare s)) /\
+  pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s) /\
+ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s) /\
+StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots). intuition.
+
+
+
+		
+
+		instantiate (1:= forall s, s =  {|
+  currentPartition := currentPartition s;
+  memory := add pdinsertion
+              (PDT
+                 {|
+                 structure := structure p;
+                 firstfreeslot := newFirstFreeSlotAddr;
+                 nbfreeslots := nbfreeslots p;
+                 nbprepare := nbprepare p;
+                 parent := parent p;
+                 MPU := MPU p |}) (memory s) beqAddr |}). /\ 
+
+    (((partitionsIsolation s0 /\
+       verticalSharing s0 /\
+       (exists pdentry : PDTable,
+          Some (PDT p) = Some (PDT pdentry) /\
+          pdentryNbFreeSlots pdinsertion currnbfreeslots s0 /\
+          currnbfreeslots > 0 /\ consistency s0 /\ isBE idBlockToShare s0)) /\
+      pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s0) /\
+     bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s0) /\
+    StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots
+).
+		apply H.
+		try (apply undefined ; congruence).
+		try (apply undefined ; congruence).
+		intros.  simpl.
+		unfold Monad.modify.
+		eapply bindRev. apply get. intro s0.
+
+
+
+eapply weaken. apply WP.writePDFirstFreeSlotPointer.
+		intros. simpl.
+		eexists. split.
+		- intuition. destruct H5. Set Printing All. instantiate (1:= 
+                 fun tt => {|
+                 structure := structure x;
+                 firstfreeslot := firstfreeslot x (*newFirstFreeSlotAddr*);
+                 nbfreeslots := nbfreeslots x;
+                 nbprepare := nbprepare x;
+                 parent := parent x;
+                 MPU := MPU x |}).
+	}
+(*{ (** writePDFirstFreeSlotPointer **)
+	eapply weaken.
+	apply Invariants.writePDFirstFreeSlotPointer.
 	intros. simpl. intuition.
-	destruct H2.  exists x. split. apply H1.
-	intuition. unfold consistency in *. unfold FirstFreeSlotPointerIsBE in *.
-	intuition. specialize (H7 pdinsertion x H2).
-	destruct H7. exists x0. split. intuition.
-	split. assumption.
-	intros. simpl. exists x. split. apply H2.
-	rewrite beqAddrTrue. simpl.
-	eexists. split. 
-	f_equal.
-	split. intros parent child1 child2 Hparent Hchild1 Hchild2 Hneq.
-	intros paddr1 Hpaddr1 Hpaddr1'.
-cbn in *. unfold partitionsIsolation, Lib.disjoint, not in H0.
-	apply H0 with parent child1 child2 paddr1 ; trivial.
+	- unfold isPDT. destruct H5. intuition. rewrite H5. trivial.
+	- destruct H5. intuition.
+}
+	intros. simpl.
+	eapply bindRev. (* ajouter propagation de props *)
+	{ (** MAL.writePDNbFreeSlots **)
+		eapply weaken. apply Invariants.writePDNbFreeSlots.
+		intros. simpl. destruct H. intuition.
+		- unfold isPDT. rewrite H0; trivial.
+	}
+	intros.
+	eapply bindRev.
+	{ (** MAL.writeBlockStartFromBlockEntryAddr **)
+		eapply weaken. apply Invariants.writeBlockStartFromBlockEntryAddr.
+		intros. simpl. destruct H. intuition.
+		unfold isBE. admit.
+	} intros.*)
 
-
+	
 unfold partitionsIsolation. intros. simpl.
 	unfold getUsedBlocks. unfold getConfigBlocks.
 	unfold getMappedBlocks. set (s' := {|
@@ -1580,4 +3809,5 @@ eapply bindRev.
 
 	unfold checkChild in *.
 Admitted.*)
-
+*)
+*)

@@ -63,10 +63,19 @@ Definition nullAddrExists s :=
 getNullAddr s = Some n.*)
 isPADDR nullAddr s.
 
-Definition FirstFreeSlotPointerIsBE s :=
+Definition FirstFreeSlotPointerIsBEAndFreeSlot s :=
 forall entryaddr entry,
 lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
-exists slotentry, lookup entry.(firstfreeslot) s.(memory) beqAddr = Some (BE slotentry).
+entry.(firstfreeslot) <> nullAddr ->
+isBE entry.(firstfreeslot) s /\
+(*exists slotentry, lookup entry.(firstfreeslot) s.(memory) beqAddr = Some (BE slotentry) /\*)
+isFreeSlot entry.(firstfreeslot) s.
+
+Definition FirstFreeSlotPointerNotNullEq s :=
+forall pdinsertion currnbfreeslots,
+pdentryNbFreeSlots pdinsertion currnbfreeslots s /\ currnbfreeslots > 0 <->
+exists freeslotpointer, pdentryFirstFreeSlot pdinsertion freeslotpointer s /\
+freeslotpointer <> nullAddr.
 
 Definition StructurePointerIsBE s :=
 forall entryaddr entry,
@@ -135,12 +144,19 @@ lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
 sh1entry.(inChildLocation) <> nullAddr ->
 isBE sh1entry.(inChildLocation) s.
 
+Definition chainedFreeSlots s :=
+forall entry nextfreeslotentry,
+isFreeSlot entry s ->
+nextfreeslotentry <> nullAddr ->
+bentryEndAddr entry nextfreeslotentry s ->
+(isBE nextfreeslotentry s /\ isFreeSlot nextfreeslotentry s).
+
 (** ** Conjunction of all consistency properties *)
 Definition consistency s := 
 wellFormedFstShadowIfBlockEntry s /\
 PDTIfPDFlag s /\
 nullAddrExists s /\
-FirstFreeSlotPointerIsBE s /\
+FirstFreeSlotPointerIsBEAndFreeSlot s /\
 CurrentPartIsPDT s /\
 KernelStartIsBE s /\
 wellFormedShadowCutIfBlockEntry s /\
@@ -152,4 +168,5 @@ StructurePointerIsBE s /\
 StructurePointerIsKS s /\
 NextKSIsKS s /\
 NextKSOffsetIsPADDR s /\
-KSIsBE s.
+KSIsBE s /\
+FirstFreeSlotPointerNotNullEq s.

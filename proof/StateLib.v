@@ -572,6 +572,18 @@ match lookup paddr s.(memory) beqAddr with
              |_ => False
 end.
 
+(*DUP*)
+(** The [isSHE] proposition reutrns True if the entry at position [idx]
+    into the given page [table] is type of [PE] *)
+(* isKS is not distinguishable by the match but onmly constructed after some specific instructions
+		like readNextFromKernelStructureStart *)
+Definition isFreeSlot paddr s: Prop := 
+match lookup paddr s.(memory) beqAddr with 
+             |Some (BE entry) => entry.(blockrange).(startAddr) = nullAddr /\
+																entry.(blockrange).(endAddr) <> nullAddr
+             |_ => False
+end.
+
 (** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
     into the given physical page [table] is type of [VE] and the user flag stored into 
     this entry is equal to a given flag [flag] *)
