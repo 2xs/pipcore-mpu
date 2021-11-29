@@ -1179,7 +1179,7 @@ updateCurPartition (paddr descriptor)
 {
 	current_partition = descriptor;
 	//DEBUG(TRACE, "Registered partition descriptor %x.\n", descriptor);
-	printf("DEBUG: Registered partition descriptor %x.\n", descriptor);
+	printf("DEBUG: Registered partition descriptor %p.\n", descriptor);
 }
 
 /*! \fn paddr getRootPartition()
@@ -1266,15 +1266,17 @@ void activate(paddr desc)
 	PDTable_t* PDT = (PDTable_t*) desc;
 	if (PDT == NULL)
 	{
-		printf("ERROR: can't activate %08x\r\n", desc);
+		printf("ERROR: can't activate %p\r\n", desc);
 		while(1);
 	}
-	printf("DEBUG: activate %08x: loading MPU...\r\n", desc);
+
+	printf("DEBUG: activate %p: loading MPU...\r\n", desc);
+
 	if (mpu_configure_from_LUT(PDT->LUT) < 0)
 	{
-		printf("ERROR: can't activate %08x\r\n", desc);
+		printf("ERROR: can't activate %p\r\n", desc);
 		while(1);
 	}
-	printf("DEBUG: activate %08x: MPU loaded\r\n", desc);
-	updateCurPartition(desc);
+
+	printf("DEBUG: activate %p: MPU loaded\r\n", desc);
 }
