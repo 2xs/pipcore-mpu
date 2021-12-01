@@ -36,6 +36,9 @@
 #include "nrf52.h"
 #include "pip_debug.h"
 #include "main_user_app.h"
+#include "context.h"
+#include "yield_c.h"
+#include "scb.h"
 
 #if defined(UART_DEBUG)
 #include "uart_debug_init.h"
@@ -54,143 +57,80 @@ extern paddr blockentryaddr_ram1;
 extern paddr blockentryaddr_ram2;
 extern paddr blockentryaddr_periph;
 
-// Trampoline to start root in unprivileged mode
-void main_user_app_trampoline(int argc, char* argv[]);
-
 /**
  * Main entry point.
  * If UART_DEBUG, sends printf messages on UART
  * If -DTRACE -DOS_USE_TRACE_SEMIHOSTING_DEBUG flags are set, send printf messages on the semihosting debug channel
  */
-int main (int argc, char* argv[])
+__attribute__((noreturn))
+void main (void)
 {
 #if defined(UART_DEBUG)
-  init_uart();
+	init_uart();
 #endif // UART_DEBUG
 
-#if defined(TRACE)
-  const char* trace_msg = "Trace is on\r\n";
-  trace_printf((uint8_t const *)trace_msg);
-#endif // TRACE
+	// Initialize the root partition and init the MPU
+	mal_init();
 
-  // Initialize the root partition and init the MPU
-  mal_init();
+	/* Set the PendSV exception as pending by writing 1 to the
+	 * PENDSVSET bit. */
+	ICSR.PENDSVSET = 1;
 
-  paddr root = getRootPartition();
-  dump_partition(root);
-  activate(root);
-  updateCurPartition(root);
+	/* Trigger the PendSV exception immediately by synchronizing the
+	 * execution stream with memory accesses. */
+	__DSB();
 
-  // set PSP to root stack
-  uint32_t psp = (uint32_t) &user_stack_top;
-  __set_PSP(psp);
-
-  // select PSP to Thread Mode (can't be done in Handler mode because it would be ignored)
-  __set_CONTROL(__get_CONTROL() |
-                CONTROL_SPSEL_Msk);// use psp
-
-  // Call the trampoline which will lower the privileges to UNPRIVILEGED and start root
-  uint32_t* initial_blocks[6] = { root,
-                                  blockentryaddr_flash,
-                                  blockentryaddr_ram0,
-                                  blockentryaddr_ram1,
-                                  blockentryaddr_ram2,
-                                  blockentryaddr_periph};
-
-  main_user_app_trampoline(6, (char**)initial_blocks);
+	/* We should never end up here because the DSB instruction must
+	 * immediately trigger the PendSV exception. */
+	__builtin_unreachable();
 }
 
-/**
- * Trampoline to main.
- * The stack and registers are correctly set up to call main in Thread Mode.
- * However, we need first to set the processor mode to unprivileged.
- * We can't use CONTROL_nPRIV_Msk here because we would return in unprivileged
- * Thread mode but not in a region defined in the MPU, resulting in a memory fault.
- * Therefore, we need to pass through a handler and lower the privilege there.
- * We use PendSV for this.
- */
-void main_user_app_trampoline(int argc, char* argv[])
+__attribute__((noreturn))
+void PendSV_Handler(void)
 {
-  // Pend a PendSV exception by writing 1 to PENDSVSET at bit 28
-  // In ASM in order to use R4 and R5 and not disturbing the registers
-  asm volatile(
-    "  LDR r4,=0xE000ED04   \n" /* ICSR: Interrupt Control and State */
-    "  MOV r5,#1            \n"
-    "  LSL r5,r5,#28        \n" /* r5 := (1 << 28) (PENDSVSET bit) */
-    "  STR r5, [r4]         \n" // set PendSV
-      : // Outputs
-      : // Inputs
-      : // Clobbers
-  );
+	/* Get the top of the PSP */
+	uint32_t *sp  = (uint32_t *) &user_stack_top;
 
-  /********************** Start of user application ************************/
-  // Trigger PendSV immediately to start root
-  __DSB();
-  printf("App ended\n\r");
-}
+	/* Reserve on the stack the space necessary for the
+	 * arguments. */
+	uint32_t  argc = 6;
+	uint32_t *argv = sp - argc;
 
-void PendSV_Handler(uint32_t argc, char** argv) {
-  __asm(
-    ".global PendSV_Handler_Main\n"
-    "TST lr, #4\n"
-    "ITE EQ\n"
-    "MRSEQ r0, MSP\n"
-    "MRSNE r0, PSP\n"
-    "B PendSV_Handler_Main\n"
-  ) ;
-}
+	/* Copy arguments onto the stack */
+	argv[0] = (uint32_t) getRootPartition();
+	argv[1] = (uint32_t) blockentryaddr_flash;
+	argv[2] = (uint32_t) blockentryaddr_ram0;
+	argv[3] = (uint32_t) blockentryaddr_ram1;
+	argv[4] = (uint32_t) blockentryaddr_ram2;
+	argv[5] = (uint32_t) blockentryaddr_periph;
 
-/**
- * PendSV_Handler_Main returns in unprivileged Thread mode and branch on root's main.
- */
-void __attribute__ ((section(".after_vectors"),weak,used))
-PendSV_Handler_Main (uint32_t* frame __attribute__((unused)))
-{
+	/* Declare the context of the root partition on the MSP in order
+	 * to start it. This context is not stored in a VIDT. */
+	user_context_t rootPartitionContext;
 
-  uint32_t pc = 0;
-  uint32_t* orig_sp = NULL;
+	/* Reset the structure to ensure that the restored registers do
+	 * not contain undefined value */
+	for (size_t i = 0; i < CONTEXT_REGISTER_NUMBER; i++)
+	{
+		rootPartitionContext.registers[i] = 0;
+	}
 
-  uint32_t* sp = frame;
-  uint32_t  r0 = sp[0];
-  uint32_t  r1 = sp[1];
-  uint32_t  r2 = sp[2];
-  uint32_t  r3 = sp[3];
-  uint32_t  r12 = sp[4];
-  uint32_t  lreg = sp[5];   /* Link register. */
-            pc = sp[6];     /* Program counter. */
-  uint32_t  psr = sp[7];    /* Program status register. */
+	/* Initialize the root partition context. */
+	rootPartitionContext.registers[R0] = argc;
+	rootPartitionContext.registers[R1] = (uint32_t) argv;
+	rootPartitionContext.registers[PC] = (uint32_t) main_user_app;
+	rootPartitionContext.registers[SP] = (uint32_t) argv;
+	rootPartitionContext.pipflags      = 0;
+	rootPartitionContext.valid         = 1;
 
-  /* Reconstruct original stack pointer before exception occurred */
-  orig_sp = sp + 8;
-#ifdef SCB_CCR_STKALIGN_Msk
-  if (psr & SCB_CCR_STKALIGN_Msk) {
-      /* Stack was not 8-byte aligned */
-      orig_sp += 1;
-      debug_puts("PendSV: Stack was not 8-byte aligned\r\n");
-  }
-#endif /* SCB_CCR_STKALIGN_Msk */
-  debug_puts("\nContext before PendSV:");
+	/* Switch to unprivileged Thread mode. */
+	__set_CONTROL(__get_CONTROL() | CONTROL_nPRIV_Msk );
+	__DMB(); __ISB(); __DSB();
 
-  debug_printf("   r0 (sp): %x\n"
-              "   orig_sp: %x\n"
-              "   r1: %x\n"
-              "   r2: %x\n"
-              "   r3: %x\n",
-              r0, orig_sp, r1, r2, r3);
-  debug_printf("  r12: %x\n"
-          "   lr: %x\n"
-          "   pc: %x\n"
-          "  psr: %x\n\n",
-          r12, lreg, pc, psr);
+	/* Yield to the root partition. */
+	switchContextCont(getRootPartition(), 0, &rootPartitionContext);
 
-  // ********************** Start of user application ************************ /
-  sp[6] = (uint32_t) main_user_app; // change PC to point to the main_user_app at exception return
-  __set_CONTROL(__get_CONTROL() |
-                CONTROL_nPRIV_Msk ); // switch to unprivileged Thread Mode
-  __DMB();
-  __ISB();
-  __DSB();
-
-  debug_puts("\n\r**********************Root starts***************************\n\r");
-  // At exception return, the main user app will start in unprivileged Thread Mode
+	/* We should never end up here because the switchContextCont
+	 * function never returns to the caller. */
+	__builtin_unreachable();
 }

@@ -77,11 +77,9 @@ extern uint32_t _ebss;
 // By default, there are no arguments, but this can be customised
 // by redefining __initialize_args(), which is done when the
 // semihosting configurations are used.
-extern int
-main (int argc, char* argv[]);
+extern void main (void);
 
-extern int
-main_test (int argc, char* argv[]);
+extern void main_test (void);
 
 // ----------------------------------------------------------------------------
 
@@ -164,9 +162,9 @@ _start (void)
   __initialize_hardware ();
 
 #if defined UNIT_TESTS
-  int code = main_test (0, NULL); // Pip test main
+  main_test(); // Pip test main
 #else
-  int code = main (0, NULL); // Pip main
+  main(); // Pip main
 #endif // UNIT_TESTS
 
   while (1) {}
