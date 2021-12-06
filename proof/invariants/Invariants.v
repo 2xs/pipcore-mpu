@@ -1106,6 +1106,7 @@ intro kernelStartAddr. simpl.
 	replace kernelStartAddr with (CPaddr (blockentryaddr - blockidx)).
 	exists x0.
 	split. rewrite H5. apply H0. reflexivity.
+	unfold bentryBlockIndex. rewrite H4. intuition. rewrite <- H5. intuition.
 }
 Qed.
 

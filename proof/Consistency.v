@@ -57,7 +57,6 @@ true = StateLib.checkChild idPDchild s sh1entryaddr ->
 (exists entry, lookup idPDchild s.(memory) beqAddr = Some (BE entry)
 /\ entryPDT idPDchild entry.(blockrange).(startAddr) s).
 
-(* TODO : check if needed *)
 Definition nullAddrExists s :=
 (*forall n,
 getNullAddr s = Some n.*)
@@ -113,6 +112,7 @@ forall pdaddr,
 currentPartition s = pdaddr ->
 isPDT pdaddr s.
 
+(* TODO: To remove *)
 Definition KernelStartIsBE s :=
 forall blockentryaddr,
 exists blockentry : BlockEntry,
@@ -128,9 +128,18 @@ blockidx < kernelStructureEntriesNb ->
 isBE (CPaddr (blockentryaddr + blkoffset + blockidx)) s.
 
 Definition KernelStructureStartFromBlockEntryAddrIsBE s :=
+(*forall blockentryaddr : paddr, forall entry : BlockEntry,
+lookup blockentryaddr (memory s) beqAddr = Some (BE entry) ->
+isBE (CPaddr (blockentryaddr - entry.(blockindex))) s.*)
+(*forall blockentryaddr : paddr, forall entry : BlockEntry,
+lookup blockentryaddr (memory s) beqAddr = Some (BE entry)->
+exists entry' : BlockEntry, isBE (CPaddr (blockentryaddr - entry'.(blockindex))) s
+/\ entry'.(blockindex) = entry.(blockindex).*)
 forall blockentryaddr : paddr, forall entry : BlockEntry,
 lookup blockentryaddr (memory s) beqAddr = Some (BE entry) ->
+bentryBlockIndex blockentryaddr entry.(blockindex) s ->
 isBE (CPaddr (blockentryaddr - entry.(blockindex))) s.
+
 
 Definition PDchildIsBE s :=
 forall sh1entryaddr sh1entry,

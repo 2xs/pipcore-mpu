@@ -423,7 +423,7 @@ eapply bind .
   - eapply weaken. eapply get . intuition.
 Qed.
 
-
+Require Import Proof.InternalLemmas.
 (* COPY *)
 Lemma writeBlockXFromBlockEntryAddr  (entryaddr : paddr) (flag : bool)  (P : unit -> state -> Prop) :
 {{fun  s => exists entry , lookup entryaddr s.(memory) beqAddr = Some (BE entry) /\
@@ -434,35 +434,45 @@ P tt {|
 																	entry.(present) entry.(accessible)
 																	entry.(blockindex) entry.(blockrange)))
               (memory s) beqAddr |} }}
-writeBlockXFromBlockEntryAddr entryaddr flag  {{P}}.
+writeBlockXFromBlockEntryAddr entryaddr flag  {{P (*fun _ s => P tt s /\ exists entry entry', lookup entryaddr s.(memory) beqAddr = Some (BE entry') /\
+																							entry' = (CBlockEntry 	entry.(read) entry.(write) flag
+																	entry.(present) entry.(accessible)
+entry.(blockindex) entry.(blockrange))*)}}.
 Proof.
 unfold writeBlockXFromBlockEntryAddr.
 eapply bind .
   - intro s. simpl.
    case_eq (lookup entryaddr s.(memory) beqAddr).
      + intros v Hpage.
-       instantiate (1:= fun s s0 => s = s0 /\ exists entry , lookup entryaddr s.(memory) beqAddr = Some (BE entry) /\
+       instantiate (1:= fun s s0 => s = s0 /\ exists entry, (*exists entry entry',*) lookup entryaddr s.(memory) beqAddr = Some (BE entry) /\
+																							(*entry' = (CBlockEntry 	entry.(read) entry.(write) flag
+																	entry.(present) entry.(accessible)
+																	entry.(blockindex) entry.(blockrange)) /\*)
                                               P tt {| currentPartition := currentPartition s;
                                                       memory := add entryaddr
                                                              (BE (CBlockEntry 	entry.(read) entry.(write) flag
 																	entry.(present) entry.(accessible)
 																	entry.(blockindex) entry.(blockrange)))
+																																(*(BE entry')*)
                                                                   (memory s) beqAddr |}).
        simpl in *.
        case_eq v; intros; eapply weaken; try eapply undefined ;simpl;
        subst;
        cbn; intros;
-       try destruct H as (Hs & x & H1 & Hp); subst;
+       try destruct H as (Hs & x (*& x0*) & H1 & Hp); subst;
        try rewrite H1 in Hpage; inversion Hpage; subst; try assumption.
        eapply modify .
        intros.
        simpl.
-       assumption.
+       assumption. (*intuition. intuition. apply (f_equal BE) in H. rewrite <- H. intuition.
+				exists b. (*exists x0.*) intuition. rewrite InternalLemmas.beqAddrTrue in *.
+				f_equal. apply (f_equal Some). intuition.*)
      + intros Hpage; eapply weaken; try eapply undefined ;simpl.
-       intros s0 H0. destruct H0 as (Hs & x & H1 & Hp).
+       intros s0 H0. destruct H0 as (Hs & x (*& x0*) & H1 & Hp).
        rewrite H1 in Hpage.
        inversion Hpage.
   - eapply weaken. eapply get . intuition.
+		(* intuition. destruct H. exists x. eexists. intuition.*)
 Qed.
 
 (* COPY *)
