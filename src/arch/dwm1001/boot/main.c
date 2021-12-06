@@ -32,10 +32,10 @@
 /*******************************************************************************/
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "maldefines.h"
 #include "nrf52.h"
 #include "pip_debug.h"
-#include "main_user_app.h"
 #include "context.h"
 #include "yield_c.h"
 #include "scb.h"
@@ -56,6 +56,8 @@ extern paddr blockentryaddr_ram0;
 extern paddr blockentryaddr_ram1;
 extern paddr blockentryaddr_ram2;
 extern paddr blockentryaddr_periph;
+
+extern void main_yield(int argc, uint32_t **argv);
 
 /**
  * Main entry point.
@@ -118,7 +120,7 @@ void PendSV_Handler(void)
 	/* Initialize the root partition context. */
 	rootPartitionContext.registers[R0] = argc;
 	rootPartitionContext.registers[R1] = (uint32_t) argv;
-	rootPartitionContext.registers[PC] = (uint32_t) main_user_app;
+	rootPartitionContext.registers[PC] = (uint32_t) main_yield;
 	rootPartitionContext.registers[SP] = (uint32_t) argv;
 	rootPartitionContext.pipflags      = 0;
 	rootPartitionContext.valid         = 1;
