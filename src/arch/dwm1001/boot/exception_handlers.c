@@ -109,30 +109,30 @@ dumpExceptionStack (ExceptionStackFrame* frame,
 #if defined(TRACE)
 #if defined(DUMP)
   trace_printf ("Stack frame:\n");
-  trace_printf (" R0 =  %08X\n", frame->r0);
-  trace_printf (" R1 =  %08X\n", frame->r1);
-  trace_printf (" R2 =  %08X\n", frame->r2);
-  trace_printf (" R3 =  %08X\n", frame->r3);
-  trace_printf (" R12 = %08X\n", frame->r12);
-  trace_printf (" LR =  %08X\n", frame->lr);
-  trace_printf (" PC =  %08X\n", frame->pc);
-  trace_printf (" PSR = %08X\n", frame->psr);
+  trace_printf (" R0 =  %08lX\n", frame->r0);
+  trace_printf (" R1 =  %08lX\n", frame->r1);
+  trace_printf (" R2 =  %08lX\n", frame->r2);
+  trace_printf (" R3 =  %08lX\n", frame->r3);
+  trace_printf (" R12 = %08lX\n", frame->r12);
+  trace_printf (" LR =  %08lX\n", frame->lr);
+  trace_printf (" PC =  %08lX\n", frame->pc);
+  trace_printf (" PSR = %08lX\n", frame->psr);
   trace_printf ("FSR/FAR:\n");
-  trace_printf (" CFSR =  %08X\n", cfsr);
-  trace_printf (" HFSR =  %08X\n", SCB->HFSR);
-  trace_printf (" DFSR =  %08X\n", SCB->DFSR);
-  trace_printf (" AFSR =  %08X\n", SCB->AFSR);
+  trace_printf (" CFSR =  %08lX\n", cfsr);
+  trace_printf (" HFSR =  %08lX\n", SCB->HFSR);
+  trace_printf (" DFSR =  %08lX\n", SCB->DFSR);
+  trace_printf (" AFSR =  %08lX\n", SCB->AFSR);
 
   if (cfsr & (1UL << 7))
     {
-      trace_printf (" MMFAR = %08X\n", mmfar);
+      trace_printf (" MMFAR = %08lX\n", mmfar);
     }
   if (cfsr & (1UL << 15))
     {
-      trace_printf (" BFAR =  %08X\n", bfar);
+      trace_printf (" BFAR =  %08lX\n", bfar);
     }
   trace_printf ("Misc\n");
-  trace_printf (" LR/EXC_RETURN= %08X\n", lr);
+  trace_printf (" LR/EXC_RETURN= %08lX\n", lr);
 #endif
 #endif
 }

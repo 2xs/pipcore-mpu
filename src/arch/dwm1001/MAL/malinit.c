@@ -132,7 +132,7 @@ void mal_init_root_part(paddr part)
 	//  init structure kernel of root partition: zero the block + fill in [0; kernel length]
 	if (!initStructure(kstructure, user_alloc_pos))// TODO: defined as bigger than minimal MPU region size)
 	{
-		printf("mal_init_root_part( part=%08x) : couldn't initialise structure\r\n", part);
+		printf("mal_init_root_part( part=%p) : couldn't initialise structure\r\n", part);
 		while(1);
 	}
 	// TODO change ed of kernel structure param ?
@@ -172,7 +172,7 @@ void mal_init_root_part(paddr part)
 
 #endif // UNIT_TESTS
 	//DEBUG(TRACE, "mal_init_root_part( part=%08x) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
-	printf("mal_init_root_part( part=%08x) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
+	printf("mal_init_root_part( part=%p) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
 
 	// Map stack and VIDT
 /*
@@ -224,5 +224,5 @@ void mal_init(void)
 	mal_init_root_part(part);
 
 	//DEBUG(TRACE, "mal_init( part=%08x) : root is initialized\r\n", part);
-	printf("mal_init( part=%08x) : root is initialized\r\n", part);
+	printf("mal_init( part=%p) : root is initialized\r\n", part);
 }

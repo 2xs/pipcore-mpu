@@ -365,27 +365,27 @@ Clear BFARVALID/MMARVALID.*/
     debug_puts("\nContext before memfault:");
 
     /* TODO: printf in ISR context might be a bad idea */
-    debug_printf("   r0 (sp): %x\n"
-            "   orig_sp: %x\n"
-            "   r1: %x\n"
-            "   r2: %x\n"
-            "   r3: %x\n",
-            r0, orig_sp, r1, r2, r3);
-    debug_printf("  r12: %x\n"
-            "   lr: %x\n"
-            "   pc: %x\n"
-            "  psr: %x\n\n",
+    debug_printf("   r0 (sp): %lx\n"
+            "   orig_sp: %p\n"
+            "   r1: %lx\n"
+            "   r2: %lx\n"
+            "   r3: %lx\n",
+            r0, (void *) orig_sp, r1, r2, r3);
+    debug_printf("  r12: %lx\n"
+            "   lr: %lx\n"
+            "   pc: %lx\n"
+            "  psr: %lx\n\n",
             r12, lreg, pc, psr);
 
     debug_puts("FSR/FAR:");
-    debug_printf(" CFSR: %x\n", cfsr);
+    debug_printf(" CFSR: %lx\n", cfsr);
     if (cfsr & BFARVALID_MASK) {
         /* BFAR valid flag set */
-        debug_printf(" BFAR: %x\n", bfar);
+        debug_printf(" BFAR: %lx\n", bfar);
     }
     if (cfsr & SCB_CFSR_MEMFAULTSR_Msk){
         /* MMFAR valid flag set */
-        debug_printf("MMFAR: %x\n", mmfar);
+        debug_printf("MMFAR: %lx\n", mmfar);
     }
   debug_puts ("\r\n[MemManageFault]\n");
   dumpExceptionStack ((ExceptionStackFrame*)frame, cfsr, mmfar, bfar, lr);
@@ -398,8 +398,8 @@ Clear BFARVALID/MMARVALID.*/
     if (cfsr & DACCVIOL_MASK) {
         debug_puts("\r\nDACCVIOL");
         if(cfsr & MMARVALID_MASK){
-            debug_printf(" on address: %x", mmfar);
-            debug_printf(" at (possibly) instruction: %x\n", pc);
+            debug_printf(" on address: %lx", mmfar);
+            debug_printf(" at (possibly) instruction: %lx\n", pc);
 #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
         faulted_address = mmfar;
 #endif
@@ -409,7 +409,7 @@ Clear BFARVALID/MMARVALID.*/
     }
     if (cfsr & IACCVIOL_MASK) {
         debug_puts("\r\nIACCVIOL");
-        debug_printf(" at (possibly) instruction: %x\n", pc);
+        debug_printf(" at (possibly) instruction: %lx\n", pc);
 #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__)
         faulted_address = pc;
 #endif
@@ -448,12 +448,12 @@ Clear BFARVALID/MMARVALID.*/
                 // Check in the MPU configuration if this is a real MPU fault (not because the block has been partially configured)
                 if((uint32_t) readPhysicalMPUStartAddr(i) <= faulted_address && faulted_address <= (uint32_t) readPhysicalMPUEndAddr(i)){
                     // Operation not permitted: raise fault
-                    debug_printf("Block mapped in MPU, real fault on address: %x\r\n", faulted_address);
+                    debug_printf("Block mapped in MPU, real fault on address: %lx\r\n", faulted_address);
                     break;
                 }
                 else{
                     // Operation permitted: reconfigure MPU and redo faulted legitimate operation
-                    debug_printf("Block mapped in MPU, reconfiguring MPU with legitimate faulted block %x for address %x\r\n", currPart->mpu[i], faulted_address);
+                    debug_printf("Block mapped in MPU, reconfiguring MPU with legitimate faulted block %p for address %lx\r\n", (void *) currPart->mpu[i], faulted_address);
                     configure_LUT_entry(currPart->LUT, i, currPart->mpu[i], (uint32_t*) faulted_address);
                     mpu_configure_from_LUT(currPart->LUT);
                     // return to faulted operation without notifying the fault to the user
@@ -462,7 +462,7 @@ Clear BFARVALID/MMARVALID.*/
             }
         }
         if(!block_in_MPU) {
-            debug_printf("No block matches in MPU, real fault on address: %x\r\n", faulted_address);
+            debug_printf("No block matches in MPU, real fault on address: %lx\r\n", faulted_address);
 #if !defined(UNIT_TESTS)
             while(1);
 #endif
