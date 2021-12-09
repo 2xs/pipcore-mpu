@@ -246,7 +246,7 @@ void main_yield(int argc, uint32_t **argv)
 	 * the child. The -1 as an argument indicates that we want to force
 	 * the addition of the kernel structure even if there are still
 	 * free slots.*/
-	if (!Pip_prepare(childPartDescBlockLocalId, 1, childKernStructBlockLocalId))
+	if (!Pip_prepare(childPartDescBlockLocalId, -1, childKernStructBlockLocalId))
 	{
 		printf("Failed to prepare childKernStructBlockLocalId...\n");
 		for (;;);
