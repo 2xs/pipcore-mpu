@@ -10,7 +10,6 @@
 
 // Override the 'write' clib method to implement 'printf' over UART.
 int _write( int handle, char* data, int size ) {
-    const char * nl = "\r\n";
 
     #if defined(TRACE)
     // Trace message

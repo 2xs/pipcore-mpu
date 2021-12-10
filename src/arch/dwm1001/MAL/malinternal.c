@@ -264,7 +264,6 @@ uint32_t powlog2(uint32_t v)
  */
 uint32_t max_powlog2_alignment(uint32_t v)
 {
-	uint32_t v2 = v;
 	if(v==0) return 31;
 	// Counts the number of trailing zeroes after the minimum 32 bytes so 2⁽5)
 	unsigned r = 4;
