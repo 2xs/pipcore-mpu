@@ -2721,6 +2721,7 @@ bentry0 = (CBlockEntry (read bentry) (write bentry)
                            (exec bentry) (present bentry) (accessible bentry)
                            (blockindex bentry)
                            (CBlock startaddr (endAddr (blockrange bentry))))
+/\ sceaddr = (CPaddr (newBlockEntryAddr + scoffset))
 (* (exists olds : state, P olds /\ partitionsIsolation olds /\
        verticalSharing olds /\ consistency olds /\ pdentryFirstFreeSlot pdinsertion newBlockEntryAddr olds /\
     bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr olds)*)
@@ -2984,7 +2985,184 @@ intuition.
 		assert(HBE : lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry6))
 									by intuition.
 		rewrite HBE ; trivial.
-	- unfold consistency. admit.
+	- unfold consistency. split.
+		{ (* wellFormedFstShadowIfBlockEntry *)
+			unfold wellFormedFstShadowIfBlockEntry.
+			intros pa HBEs.
+
+			(* 1) Prove goal is True only for modified newBlockEntryAddr *)
+			
+			destruct (beqAddr pdinsertion pa) eqn:beqpdpa in HBEs ; try(exfalso ; congruence).
+			* (* pdinsertion = pa *)
+				rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdpa.
+				rewrite <- beqpdpa in *.
+				unfold isPDT in *. unfold isBE in *. rewrite H in *. exfalso. congruence.
+			* (* pdinsertion <> pa *)
+				apply isBELookupEq in HBEs. rewrite Hs in HBEs. cbn in HBEs. destruct HBEs as [entry HBEs].
+				destruct (beqAddr sceaddr pa) eqn:beqpasce in HBEs ; try(exfalso ; congruence).
+				(* sceaddr <> pa *)
+				destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:beqpdnewblock in HBEs ; try(exfalso ; congruence).
+				**	(* pdinsertion = newBlockEntryAddr *)
+					rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdnewblock.
+					rewrite beqpdnewblock in *.
+					unfold isPDT in *. unfold isBE in *. rewrite H in *. congruence.
+				** (* pdinsertion <> newBlockEntryAddr *)
+					destruct (beqAddr newBlockEntryAddr sceaddr) eqn:beqnewblocksce in HBEs ; try(exfalso ; congruence).
+					*** (* newBlockEntryAddr = sceaddr *)
+							rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewblocksce.
+							rewrite beqnewblocksce in *.
+							rewrite Hs in H4. cbn in H4. repeat rewrite beqAddrTrue in H4.
+							congruence.
+					*** (* newBlockEntryAddr <> sceaddr *)
+							repeat rewrite beqAddrTrue in HBEs.
+							cbn in HBEs.
+							destruct (beqAddr newBlockEntryAddr pa) eqn:beqnewblockpa in HBEs ; try(exfalso ; congruence).
+							**** (* newBlockEntryAddr = pa *)
+									rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewblockpa.
+									rewrite <- beqnewblockpa in *.
+									assert(Hcons : wellFormedFstShadowIfBlockEntry s0)
+													by (unfold consistency in *; intuition).
+									unfold wellFormedFstShadowIfBlockEntry in *.
+									specialize (Hcons newBlockEntryAddr).
+									unfold isBE in Hcons.
+									assert(HBE : lookup newBlockEntryAddr (memory s0) beqAddr = Some (BE bentry))
+												by intuition.
+									rewrite HBE in *.
+
+									apply isSHELookupEq.
+									rewrite Hs. cbn.
+									destruct (beqAddr sceaddr (CPaddr (newBlockEntryAddr + sh1offset))) eqn:beqsceoffset ; try(exfalso ; congruence).
+									++++ (* sceaddr = (CPaddr (newBlockEntryAddr + sh1offset)) *)
+												rewrite <- DependentTypeLemmas.beqAddrTrue in beqsceoffset.
+												assert(HSCE : wellFormedShadowCutIfBlockEntry s0)
+																by (unfold consistency in *; intuition).
+												specialize(HSCE newBlockEntryAddr).
+												unfold isBE in HSCE.
+												rewrite HBE in *. destruct HSCE ; trivial.
+												intuition. subst x.
+												unfold isSCE in *. unfold isSHE in *.
+												rewrite <- beqsceoffset in *.
+												rewrite <- H11 in *.
+												destruct (lookup sceaddr (memory s0) beqAddr) eqn:Hlookup ; try(exfalso ; congruence).
+												destruct v eqn:Hv ; try(exfalso ; congruence).
+									++++ (*sceaddr <> (CPaddr (newBlockEntryAddr + sh1offset))*)
+												repeat rewrite beqAddrTrue.
+												rewrite <- beqAddrFalse in *. intuition.
+												repeat rewrite removeDupIdentity; intuition.
+												destruct (beqAddr newBlockEntryAddr sceaddr) eqn:Hfalse. (*proved before *)
+												rewrite <- DependentTypeLemmas.beqAddrTrue in Hfalse ; congruence.
+												cbn.
+												destruct (beqAddr newBlockEntryAddr (CPaddr (newBlockEntryAddr + sh1offset))) eqn:newblocksh1offset.
+												+++++ (* newBlockEntryAddr = (CPaddr (newBlockEntryAddr + sh1offset))*)
+															rewrite <- DependentTypeLemmas.beqAddrTrue in newblocksh1offset.
+															rewrite <- newblocksh1offset in *.
+															unfold isSHE in *. rewrite HBE in *.
+															exfalso ; congruence.
+												+++++ (* newBlockEntryAddr <> (CPaddr (newBlockEntryAddr + sh1offset))*)
+															cbn.
+															rewrite <- beqAddrFalse in *. intuition.
+															repeat rewrite removeDupIdentity; intuition.
+															destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:Hffalse. (*proved before *)
+															rewrite <- DependentTypeLemmas.beqAddrTrue in Hffalse ; congruence.
+															cbn.
+															destruct (beqAddr pdinsertion (CPaddr (newBlockEntryAddr + sh1offset))) eqn:pdsh1offset.
+															++++++ (* pdinsertion = (CPaddr (newBlockEntryAddr + sh1offset))*)
+																			rewrite <- DependentTypeLemmas.beqAddrTrue in *.
+																			rewrite <- pdsh1offset in *.
+																			unfold isSHE in *. unfold isPDT in *.
+																			destruct (lookup pdinsertion (memory s0) beqAddr) eqn:Hlookup ; try(exfalso ; congruence).
+																			destruct v eqn:Hv ; try(exfalso ; congruence).
+															++++++ (* pdinsertion <> (CPaddr (newBlockEntryAddr + sh1offset))*)
+																			rewrite <- beqAddrFalse in *.
+																			repeat rewrite removeDupIdentity; intuition.
+																			apply isSHELookupEq in H18. destruct H18 as [shentry].
+																			exists shentry. easy.
+
+							**** cbn in HBEs.
+									destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:Hfalse ; try(exfalso ; congruence).
+									rewrite <- beqAddrFalse in *.
+									do 6 rewrite removeDupIdentity in HBEs; intuition.
+									cbn in HBEs.
+									destruct (beqAddr pdinsertion pa) eqn:Hffalse ; try(exfalso ; congruence).
+									do 4 rewrite removeDupIdentity in HBEs; intuition.
+									(* no modifictions of SHE so what is true at s0 is still true at s *)
+									assert(HSHEEq : isSHE (CPaddr (pa + sh1offset)) s = isSHE (CPaddr (pa + sh1offset)) s0).
+									{
+										assert(HSHE : wellFormedFstShadowIfBlockEntry s0)
+																by (unfold consistency in *; intuition).
+									specialize(HSHE pa).
+									unfold isBE in HSHE.
+										assert(HSCE : wellFormedShadowCutIfBlockEntry s0)
+																by (unfold consistency in *; intuition).
+									specialize(HSCE pa).
+									unfold isBE in HSCE.
+									rewrite HBEs in *. intuition.
+									destruct H20 as [scentryaddr]. intuition. subst scentryaddr.
+										rewrite Hs. unfold isSHE. cbn.
+									repeat rewrite beqAddrTrue.
+												rewrite <- beqAddrFalse in *. intuition.
+												repeat rewrite removeDupIdentity; intuition.
+															assert(HBE : lookup newBlockEntryAddr (memory s0) beqAddr = Some (BE bentry))
+																		by intuition.
+												destruct (beqAddr sceaddr (CPaddr (pa + sh1offset))) eqn:Hscesh1offset.
+												 - 	(* sceaddr = (CPaddr (pa + sh1offset))*)
+														rewrite <- DependentTypeLemmas.beqAddrTrue in Hscesh1offset.
+														rewrite <- Hscesh1offset in *.
+														assert(HSCE : isSCE sceaddr s0).
+														{ rewrite H11.
+															assert(HSCE : wellFormedShadowCutIfBlockEntry s0)
+																by (unfold consistency in *; intuition).
+															specialize(HSCE newBlockEntryAddr).
+															unfold isBE in HSCE.
+															rewrite HBE in *. intuition.
+															destruct H20. intuition. subst x.
+															rewrite <- H11 in *.
+															unfold isSHE in *. unfold isSCE in *. congruence.
+														}
+														apply isSCELookupEq in HSCE. destruct HSCE.
+														rewrite H20. trivial.
+												(* almost DUP with previous step *)
+												- (* sceaddr <> (CPaddr (pa + sh1offset))*)
+															destruct(beqAddr newBlockEntryAddr sceaddr) eqn:Hnewblocksce. (* Proved before *)
+															rewrite <- DependentTypeLemmas.beqAddrTrue in Hnewblocksce ; congruence.
+															cbn.
+															rewrite <- beqAddrFalse in *.
+															destruct (beqAddr newBlockEntryAddr (CPaddr (pa + sh1offset))) eqn:newblocksh1offset.
+												+++++ (* newBlockEntryAddr = (CPaddr (pa + sh1offset))*)
+															rewrite <- DependentTypeLemmas.beqAddrTrue in newblocksh1offset.
+															rewrite <- newblocksh1offset in *.
+															unfold isSHE in *. rewrite HBE in *.
+															exfalso ; congruence.
+												+++++ (* newBlockEntryAddr <> (CPaddr (pa + sh1offset))*)
+															cbn.
+															rewrite <- beqAddrFalse in *.
+															repeat rewrite removeDupIdentity; intuition.
+															destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:Hfffalse. (*proved before *)
+															rewrite <- DependentTypeLemmas.beqAddrTrue in Hfffalse ; congruence.
+															cbn.
+															destruct (beqAddr pdinsertion (CPaddr (pa + sh1offset))) eqn:pdsh1offset.
+															++++++ (* pdinsertion = (CPaddr (pa + sh1offset))*)
+																			rewrite <- DependentTypeLemmas.beqAddrTrue in *.
+																			rewrite <- pdsh1offset in *.
+																			unfold isSHE in *. unfold isPDT in *.
+																			destruct (lookup pdinsertion (memory s0) beqAddr) eqn:Hlookup ; try(exfalso ; congruence).
+																			destruct v eqn:Hv ; try(exfalso ; congruence).
+															++++++ (* pdinsertion <> (CPaddr (pa + sh1offset))*)
+																			rewrite <- beqAddrFalse in *.
+																			repeat rewrite removeDupIdentity; intuition.
+									}
+									rewrite HSHEEq.
+									assert(HSHE : wellFormedFstShadowIfBlockEntry s0)
+																by (unfold consistency in *; intuition).
+									specialize(HSHE pa).
+									unfold isBE in HSHE.
+									rewrite HBEs in *. intuition.
+			}
+	split.
+	{ (* PDTIfPDFlag s *)
+
+
+	}
 	- exists newpd. intuition. exists s0. exists pdentry. exists pdentry0.
 		exists bentry. exists bentry0. exists bentry1. exists bentry2. exists bentry3.
 		exists bentry4. exists bentry5. exists bentry6. exists sceaddr. exists scentry.
