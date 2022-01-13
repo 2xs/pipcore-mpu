@@ -1,5 +1,6 @@
 #include "mal.h"
 #include <stdio.h>
+#include <stdint.h>
 #include "mpu.h"
 
 /*!
@@ -154,7 +155,7 @@ int dump_mpu()
     mpu_enabled() ? printf("\r\n\r\nMPU is enabled\r\n") : printf("\r\nMPU is disabled\r\n");
     ((MPU->CTRL & MPU_CTRL_PRIVDEFENA_Msk) != 0) ? printf("PRIVDEFENA set\r\n") : printf("PRIVDEFENA NOT set\r\n");
     printf("MPU settings:\r\n");
-	for (int i = 0; i < MPU_NUM_REGIONS ; i++){
+	for (uint32_t i = 0; i < MPU_NUM_REGIONS ; i++){
         MPU->RNR  = i;
         uint32_t* start = readPhysicalMPUStartAddr(i);
         uint32_t* end = readPhysicalMPUEndAddr(i);
@@ -164,8 +165,8 @@ int dump_mpu()
         uint32_t size = readPhysicalMPUSizeBits(i);
         uint32_t enable = readPhysicalMPURegionEnable(i);
 
-        printf("%d:MPU->RBAR =%lx, start=%p\n", i, MPU->RBAR, (void *) start);// size=%d, AP=%d, X=%d,
-        printf("%d:MPU->RASR =%lx, end=%p, regionsize=(2^(%ld+1)=%ld, AP=%ld, XNbit=%ld, enable=%ld\n",
+        printf("%ld:MPU->RBAR =%lx, start=%p\n", i, MPU->RBAR, (void *) start);// size=%d, AP=%d, X=%d,
+        printf("%ld:MPU->RASR =%lx, end=%p, regionsize=(2^(%ld+1)=%ld, AP=%ld, XNbit=%ld, enable=%ld\n",
                                                     i,
                                                     MPU->RASR,
                                                     (void *) end,

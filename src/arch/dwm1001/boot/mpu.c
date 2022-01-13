@@ -22,6 +22,7 @@
 #include "mpu.h"
 #include <string.h> // include memcpy
 #include <stdio.h> // include printf
+#include <stdint.h>
 #include "pip_debug.h"
 
 /*!
@@ -86,7 +87,7 @@ int mpu_init(void) {
     // Disable MPU
 	mpu_disable();
 #if __MPU_PRESENT && !defined(__ARM_ARCH_8M_MAIN__) && !defined(__ARM_ARCH_8M_BASE__)
-    for (int i = 0; i < MPU_NUM_REGIONS ; i++){
+    for (uint32_t i = 0; i < MPU_NUM_REGIONS ; i++){
         MPU->RNR  = i; // no need if VALID bit with REGION bits are set in RBAR
         MPU->RBAR = 0;
         MPU->RASR = 0;
@@ -155,7 +156,7 @@ int mpu_configure_from_LUT(uint32_t* LUT)
 		orderedCpy((void*)&( MPU->RBAR), LUT+i*2*sizeof(uint32_t), MPU_ALIAS_REG_NB*2*sizeof(uint32_t));
 
 	}*/
-    for (int i = 0; i < MPU_NUM_REGIONS ; i++){
+    for (uint32_t i = 0; i < MPU_NUM_REGIONS ; i++){
         //MPU->RNR  = i; // no need if VALID bit with REGION bits are set in RBAR
         MPU->RBAR = LUT[i*2];
         MPU->RASR = LUT[i*2+1];
@@ -438,7 +439,7 @@ Clear BFARVALID/MMARVALID.*/
         // Reconfigure MPU because of DACCVIOL or IACCVIOL
         int block_in_MPU = 0;
         // Otherwise search for corresponding block in the MPU
-        for (int i = 0; i < MPU_NUM_REGIONS ; i++){
+        for (uint32_t i = 0; i < MPU_NUM_REGIONS ; i++){
             PDTable_t* currPart = (PDTable_t*) getCurPartition();
             if((currPart->mpu[i])->present && (uint32_t)(currPart->mpu[i])->blockrange.startAddr <= faulted_address
                 && faulted_address <= (uint32_t)(currPart->mpu[i])->blockrange.endAddr)
