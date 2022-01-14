@@ -166,7 +166,8 @@ exists pd : PDTable, lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
                     nbfreeslots := predCurrentNbFreeSlots;
                     nbprepare := nbprepare pdentry0;
                     parent := parent pdentry0;
-                    MPU := MPU pdentry0 |})
+                    MPU := MPU pdentry0;
+										vidtBlock := vidtBlock pdentry0 |})
 								(add pdinsertion
                  (PDT
                     {|
@@ -175,7 +176,8 @@ exists pd : PDTable, lookup pdinsertion (memory s) beqAddr = Some (PDT pd) /\
                     nbfreeslots := nbfreeslots pdentry;
                     nbprepare := nbprepare pdentry;
                     parent := parent pdentry;
-                    MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+                    MPU := MPU pdentry;
+										vidtBlock := vidtBlock pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
 
 /\ lookup newBlockEntryAddr (memory s0) beqAddr = Some (BE bentry)
 /\ lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry6) /\
@@ -414,7 +416,8 @@ pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s (*/\ predCurrentNbFreeSl
                     nbfreeslots := predCurrentNbFreeSlots;
                     nbprepare := nbprepare pdentry0;
                     parent := parent pdentry0;
-                    MPU := MPU pdentry0 |})
+                    MPU := MPU pdentry0;
+										vidtBlock := vidtBlock pdentry0 |})
 								(add pdinsertion
                  (PDT
                     {|
@@ -423,7 +426,8 @@ pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s (*/\ predCurrentNbFreeSl
                     nbfreeslots := nbfreeslots pdentry;
                     nbprepare := nbprepare pdentry;
                     parent := parent pdentry;
-                    MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr |}
+                    MPU := MPU pdentry;
+										vidtBlock := vidtBlock pdentry |}) (memory s0) beqAddr) beqAddr |}
 (*/\
 (exists olds : state, P olds /\ partitionsIsolation olds /\
        verticalSharing olds /\ consistency olds /\ pdentryFirstFreeSlot pdinsertion newBlockEntryAddr olds /\
@@ -1178,7 +1182,8 @@ pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s (*/\ predCurrentNbFreeSl
                     nbfreeslots := predCurrentNbFreeSlots;
                     nbprepare := nbprepare pdentry0;
                     parent := parent pdentry0;
-                    MPU := MPU pdentry0 |})
+                    MPU := MPU pdentry0;
+										vidtBlock := vidtBlock pdentry0 |})
 								(add pdinsertion
                  (PDT
                     {|
@@ -1187,7 +1192,8 @@ pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s (*/\ predCurrentNbFreeSl
                     nbfreeslots := nbfreeslots pdentry;
                     nbprepare := nbprepare pdentry;
                     parent := parent pdentry;
-                    MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+                    MPU := MPU pdentry;
+										vidtBlock := vidtBlock pdentry|}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
 /\ lookup newBlockEntryAddr (memory s0) beqAddr = Some (BE bentry)
 /\ lookup newBlockEntryAddr (memory s) beqAddr = Some (BE newEntry) /\
 newEntry = (CBlockEntry (read bentry2) (write bentry2) (exec bentry2) true 
@@ -1414,7 +1420,8 @@ pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s (*/\ predCurrentNbFreeSl
                     nbfreeslots := predCurrentNbFreeSlots;
                     nbprepare := nbprepare pdentry0;
                     parent := parent pdentry0;
-                    MPU := MPU pdentry0 |})
+                    MPU := MPU pdentry0;
+										vidtBlock := vidtBlock pdentry0 |})
 								(add pdinsertion
                  (PDT
                     {|
@@ -1423,7 +1430,8 @@ pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s (*/\ predCurrentNbFreeSl
                     nbfreeslots := nbfreeslots pdentry;
                     nbprepare := nbprepare pdentry;
                     parent := parent pdentry;
-                    MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+                    MPU := MPU pdentry;
+										vidtBlock := vidtBlock pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
 /\ lookup newBlockEntryAddr (memory s0) beqAddr = Some (BE bentry)
 /\ lookup newBlockEntryAddr (memory s) beqAddr = Some (BE newEntry) /\
 newEntry = (CBlockEntry r (write bentry3) (exec bentry3) (present bentry3) 
@@ -1667,7 +1675,8 @@ pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s (*/\ predCurrentNbFreeSl
                     nbfreeslots := predCurrentNbFreeSlots;
                     nbprepare := nbprepare pdentry0;
                     parent := parent pdentry0;
-                    MPU := MPU pdentry0 |})
+                    MPU := MPU pdentry0;
+										vidtBlock := vidtBlock pdentry0 |})
 								(add pdinsertion
                  (PDT
                     {|
@@ -1676,7 +1685,8 @@ pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s (*/\ predCurrentNbFreeSl
                     nbfreeslots := nbfreeslots pdentry;
                     nbprepare := nbprepare pdentry;
                     parent := parent pdentry;
-                    MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+                    MPU := MPU pdentry;
+										vidtBlock := vidtBlock pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
 /\ lookup newBlockEntryAddr (memory s0) beqAddr = Some (BE bentry)
 /\ lookup newBlockEntryAddr (memory s) beqAddr = Some (BE newEntry) /\
 newEntry = (CBlockEntry (read bentry4) w (exec bentry4) (present bentry4) 
@@ -1944,7 +1954,8 @@ pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s (*/\ predCurrentNbFreeSl
                     nbfreeslots := predCurrentNbFreeSlots;
                     nbprepare := nbprepare pdentry0;
                     parent := parent pdentry0;
-                    MPU := MPU pdentry0 |})
+                    MPU := MPU pdentry0;
+										vidtBlock := vidtBlock pdentry0 |})
 								(add pdinsertion
                  (PDT
                     {|
@@ -1953,7 +1964,8 @@ pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s (*/\ predCurrentNbFreeSl
                     nbfreeslots := nbfreeslots pdentry;
                     nbprepare := nbprepare pdentry;
                     parent := parent pdentry;
-                    MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+                    MPU := MPU pdentry;
+										vidtBlock := vidtBlock pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
 /\ lookup newBlockEntryAddr (memory s0) beqAddr = Some (BE bentry)
 /\ lookup newBlockEntryAddr (memory s) beqAddr = Some (BE newEntry) /\
 newEntry = (CBlockEntry (read bentry5) (write bentry5) e (present bentry5) 
@@ -2685,7 +2697,8 @@ pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s (*/\ predCurrentNbFreeSl
                     nbfreeslots := predCurrentNbFreeSlots;
                     nbprepare := nbprepare pdentry0;
                     parent := parent pdentry0;
-                    MPU := MPU pdentry0 |})
+                    MPU := MPU pdentry0;
+										vidtBlock := vidtBlock pdentry0 |})
 								(add pdinsertion
                  (PDT
                     {|
@@ -2694,7 +2707,8 @@ pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s (*/\ predCurrentNbFreeSl
                     nbfreeslots := nbfreeslots pdentry;
                     nbprepare := nbprepare pdentry;
                     parent := parent pdentry;
-                    MPU := MPU pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+                    MPU := MPU pdentry;
+										vidtBlock := vidtBlock pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
 
 /\ lookup newBlockEntryAddr (memory s0) beqAddr = Some (BE bentry)
 /\ lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry6) /\
@@ -2795,7 +2809,7 @@ bentry0 = (CBlockEntry (read bentry) (write bentry)
 }	intros. simpl.
 
 (*
-<<<<<<< Updated upstream
+
 				unfold MAL.writeSCOriginFromBlockEntryAddr2.
 			eapply bindRev.
 		eapply weaken. apply get.
@@ -2969,16 +2983,6 @@ bentry0 = (CBlockEntry (read bentry) (write bentry)
 			exists x0. exists x1. exists x2. exists x3. exists x4. exists x5. exists x6.
 			exists x7. exists x8. exists x9.
 			exists SCEAddr. exists s. subst. intuition.
-=======
-unfold Internal.insertNewEntry.
-eapply WP.bindRev.
-{ eapply weaken. apply readPDFirstFreeSlotPointer.
-	intros. simpl. split. apply H.
-	unfold isPDT. intuition. destruct H. destruct H. rewrite -> H. trivial.
-}
-<<<<<<< Updated upstream
-	intro newBlockEntryAddr.
-=======
 			admit. admit. admit. admit. admit. }
 intros. simpl.*)
 

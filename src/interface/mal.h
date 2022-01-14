@@ -43,16 +43,17 @@
 #include <stddef.h>
 
 
-/* Activate : deprecated */
-void activate(paddr dir);
+/* Activate */
+void activate(paddr descriptor); //!< Sets up the Partition Descriptor's memory space (MPU configuration)
 
 /* Current page directory */
 extern paddr root_partition;
-paddr getCurPartition(void); //!< Interface to get the current Page Directory
-void updateCurPartition (paddr descriptor);
+paddr getCurPartition(void); //!< Gets the current Partition Descriptor
+void updateCurPartition(paddr descriptor); //!< Updates the current Partition Descriptor
+void updateCurPartAndActivate(paddr calleePartDescGlobalId); //!< Updates the current Partition Descriptor and activate it
 
-paddr getRootPartition(void); //!< Interface to get the current Page Directory
-void updateRootPartition (paddr descriptor);
+paddr getRootPartition(void);           //!< Gets the root Partition Descriptor
+void updateRootPartition(paddr descriptor); //!< Updates the root Partition Descriptor
 
 uint32_t getTableSize(void); //!< Table size
 uint32_t getMaxIndex(void); //!< Table size
@@ -120,6 +121,8 @@ uint32_t readPDNbPrepare(paddr pdaddr); //!< Gets the number of prepare done uti
 void writePDNbPrepare(paddr pdaddr, uint32_t value); //!< Sets the number of prepare done util then
 paddr readPDParent(paddr pdaddr); //!< Gets the parent PD's address
 void writePDParent(paddr pdaddr, paddr value); //!< Sets the parent PD's address
+paddr readPDVidt(paddr pdaddr); //!< Read the VIDT block from the partition descriptor structure.
+void writePDVidt(paddr pdaddr, paddr value); //!< Write the VIDT block to the partition descriptor structure.
 paddr readBlockStartFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the block's start address from the given entry
 void writeBlockStartFromBlockEntryAddr(paddr blockentryaddr, paddr value); //!< Sets the block's start address
 paddr readBlockEndFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the block's end address from the given entry

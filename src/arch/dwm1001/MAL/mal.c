@@ -293,6 +293,37 @@ void writePDParent(paddr pdaddr, paddr value)
 }
 
 /*!
+ * \brief Read the ID of the block containing the VIDT from a
+ *        partition descriptor structure.
+ * \param partDescAddr The ID of the block containing a partition
+ *        descriptor structure from which the VIDT block is to be
+ *        read.
+ * \return The ID of the block containing the VIDT.
+ */
+paddr readPDVidt(paddr partDescAddr)
+{
+	PDTable_t *partDesc = (PDTable_t *) partDescAddr;
+
+	return partDesc->vidtBlock;
+}
+
+/*!
+ * \brief Write the ID of the block containing the VIDT to a partition
+ *        descriptor structure.
+ * \param partDescAddr The ID of the block containing a partition
+ *        descriptor structure from which the VIDT block is to be
+ *        written.
+ * \param vidtBlockAddr The ID of the block containing the VIDT to write
+ *        to the partition descriptor structure.
+ */
+void writePDVidt(paddr partDescAddr, paddr vidtBlockAddr)
+{
+	PDTable_t *partDesc = (PDTable_t *) partDescAddr;
+
+	partDesc->vidtBlock = vidtBlockAddr;
+}
+
+/*!
  * \fn paddr readBlockStartFromBlockEntryAddr(paddr blockentryaddr)
  * \brief Gets the block's start address from the given entry.
  * \param blockentryaddr The address of the block entry to read from
@@ -1093,7 +1124,14 @@ void replaceBlockInPhysicalMPU(paddr pd, paddr blockblockentryaddr, uint32_t MPU
 	PDTable_t* PDT = (PDTable_t*) pd;
 	PDT->mpu[MPURegionNb] = (BlockEntry_t*)blockblockentryaddr;
 	configure_LUT_entry(PDT->LUT, MPURegionNb, blockblockentryaddr, PDT->mpu[MPURegionNb]->blockrange.startAddr);
-	mpu_configure_from_LUT(PDT->LUT);
+
+	/* Reconfigure the MPU from LUT if and only if the partition
+	 * descriptor passed as argument is the partition descriptor of
+	 * the current partition. */
+	if (pd == getCurPartition())
+	{
+		mpu_configure_from_LUT(PDT->LUT);
+	}
 }
 
 
@@ -1141,7 +1179,7 @@ updateCurPartition (paddr descriptor)
 {
 	current_partition = descriptor;
 	//DEBUG(TRACE, "Registered partition descriptor %x.\n", descriptor);
-	printf("DEBUG: Registered partition descriptor %x.\n", descriptor);
+	printf("DEBUG: Registered partition descriptor %p.\n", descriptor);
 }
 
 /*! \fn paddr getRootPartition()
@@ -1225,35 +1263,26 @@ blockOrError blockAttr(paddr blockentryaddr, BlockEntry_t blockentry)
  * the partition must already be validated */
 void activate(paddr desc)
 {
-	if (desc == getCurPartition())
-	{
-		//DEBUG(TRACE, "activate %08x\r\n", desc);
-		//enable_paging();
-		printf("DEBUG: activate %08x\r\n, no load", desc);
-		return;
-	}
-	//DEBUG(TRACE, "activate %08x: activating\r\n", desc);
-	printf("DEBUG: activate %08x\r\n", desc);
-
-	/* switch to partition va */
-	/*activate_s(mmu_make_ttbr(
-		((void**)desc)[getPDidx()+1],// Translation Table
-		RGN_NOCACHE,	// FIXME: No cache
-		RGN_NOCACHE,	// FIXME: No cache
-		0, 1					// Non shareable
-	));*/
 	PDTable_t* PDT = (PDTable_t*) desc;
 	if (PDT == NULL)
 	{
-		printf("ERROR: can't activate %08x\r\n", desc);
+		printf("ERROR: can't activate %p\r\n", desc);
 		while(1);
 	}
-	printf("DEBUG: activate %08x: loading MPU...\r\n", desc);
+
+	printf("DEBUG: activate %p: loading MPU...\r\n", desc);
+
 	if (mpu_configure_from_LUT(PDT->LUT) < 0)
 	{
-		printf("ERROR: can't activate %08x\r\n", desc);
+		printf("ERROR: can't activate %p\r\n", desc);
 		while(1);
 	}
-	printf("DEBUG: activate %08x: MPU loaded\r\n", desc);
-	updateCurPartition(desc);
+
+	printf("DEBUG: activate %p: MPU loaded\r\n", desc);
+}
+
+void updateCurPartAndActivate(paddr calleePartDescGlobalId)
+{
+	updateCurPartition(calleePartDescGlobalId);
+	activate(calleePartDescGlobalId);
 }

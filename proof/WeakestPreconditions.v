@@ -565,7 +565,7 @@ P tt {|
   memory := add entryaddr
               (PDT {| structure := entry.(structure); firstfreeslot := pointer; nbfreeslots := entry.(nbfreeslots);
                      nbprepare := entry.(nbprepare); parent := entry.(parent);
-											MPU := entry.(MPU) |})
+											MPU := entry.(MPU) ; vidtBlock := entry.(vidtBlock) |})
               (memory s) beqAddr |} }} writePDFirstFreeSlotPointer entryaddr pointer  {{P}}.
 Proof.
 unfold writePDFirstFreeSlotPointer.
@@ -578,7 +578,7 @@ eapply bind .
                                                       memory := add entryaddr
                                                                   (PDT {| structure := entry.(structure); firstfreeslot := pointer; nbfreeslots := entry.(nbfreeslots);
 																																				 nbprepare := entry.(nbprepare); parent := entry.(parent);
-																																					MPU := entry.(MPU) |})
+																																					MPU := entry.(MPU) ; vidtBlock := entry.(vidtBlock) |})
                                                                   (memory s) beqAddr |}).
        simpl in *.
        case_eq v; intros; eapply weaken; try eapply undefined ;simpl;
@@ -605,7 +605,7 @@ P tt {|
   memory := add entryaddr
               (PDT {| structure := entry.(structure); firstfreeslot := entry.(firstfreeslot) ; nbfreeslots := nbfreeslots;
                      nbprepare := entry.(nbprepare); parent := entry.(parent);
-											MPU := entry.(MPU) |})
+											MPU := entry.(MPU) ; vidtBlock := entry.(vidtBlock) |})
               (memory s) beqAddr |} }}
 writePDNbFreeSlots entryaddr nbfreeslots  {{P}}.
 Proof.
@@ -619,7 +619,7 @@ eapply bind .
                                                       memory := add entryaddr
                                                                   (PDT {| structure := entry.(structure); firstfreeslot := entry.(firstfreeslot) ; nbfreeslots := nbfreeslots;
                      nbprepare := entry.(nbprepare); parent := entry.(parent);
-											MPU := entry.(MPU) |})
+											MPU := entry.(MPU) ; vidtBlock := entry.(vidtBlock) |})
                                                                   (memory s) beqAddr |}).
        simpl in *.
        case_eq v; intros; eapply weaken; try eapply undefined ;simpl;
@@ -647,7 +647,7 @@ P tt {|
   memory := add pdtablepaddr
               (PDT {| structure := entry.(structure); firstfreeslot := entry.(firstfreeslot) ; nbfreeslots := entry.(nbfreeslots);
                      nbprepare := entry.(nbprepare); parent := entry.(parent);
-											MPU := MPUlist |})
+											MPU := MPUlist ; vidtBlock := entry.(vidtBlock)|})
               (memory s) beqAddr |} }}
 writePDMPU pdtablepaddr MPUlist  {{P}}.
 Proof.
@@ -661,7 +661,7 @@ eapply bind .
                                                       memory := add pdtablepaddr
                                                                   (PDT {| structure := entry.(structure); firstfreeslot := entry.(firstfreeslot) ; nbfreeslots := entry.(nbfreeslots);
                      nbprepare := entry.(nbprepare); parent := entry.(parent);
-											MPU := MPUlist |})
+											MPU := MPUlist ; vidtBlock := entry.(vidtBlock) |})
                                                                   (memory s) beqAddr |}).
        simpl in *.
        case_eq v; intros; eapply weaken; try eapply undefined ;simpl;
