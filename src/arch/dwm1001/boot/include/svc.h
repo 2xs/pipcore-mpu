@@ -69,8 +69,7 @@ __attribute__ ((noinline)) uint32_t* Pip_addMemoryBlock(uint32_t* idPDchild,
   __asm("SVC #4");
 }
 
-__attribute__ ((noinline)) uint32_t Pip_removeMemoryBlock(uint32_t* idPDchild,
-                                                          uint32_t* idBlockToRemove)
+__attribute__ ((noinline)) uint32_t Pip_removeMemoryBlock(uint32_t* idBlockToRemove)
 {
   __asm("SVC #5");
 }

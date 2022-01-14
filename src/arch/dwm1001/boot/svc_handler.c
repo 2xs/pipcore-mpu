@@ -116,9 +116,8 @@ void SVC_Handler_Main( unsigned int *svc_args )
                                         );
       break;
     case 5:
-      sp[0] = removeMemoryBlock((uint32_t *)svc_args[0], //paddr idPDchild,
-                                (uint32_t *)svc_args[1] //paddr idBlockToRemove
-                                );
+      sp[0] = removeMemoryBlock((uint32_t *)svc_args[0] // paddr idBlockToRemove
+      );
       break;
 
     case 6:

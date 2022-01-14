@@ -92,7 +92,7 @@ int main_user_app(int argc, char* argv[])
     printf("Add done\n");
   }
 
-  int isRemoved = Pip_removeMemoryBlock(blockentryaddr_ram1_2, blockentryaddr_flash);
+  int isRemoved = Pip_removeMemoryBlock(blockentryaddr_flash);
   if(isRemoved == 1){
     printf("Remove done\n");
   }
