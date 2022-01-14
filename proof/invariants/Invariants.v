@@ -1108,7 +1108,7 @@ intro kernelStartAddr. simpl.
 	replace kernelStartAddr with (CPaddr (blockentryaddr - blockidx)).
 	exists x0.
 	split. rewrite H5. apply H0. reflexivity.
-	unfold bentryBlockIndex. rewrite H4. intuition. rewrite <- H5. intuition.
+	(*unfold bentryBlockIndex. rewrite H4. intuition. rewrite <- H5. intuition.*)
 }
 Qed.
 
@@ -1626,7 +1626,7 @@ exists entry , lookup pdtablepaddr s.(memory) beqAddr = Some (PDT entry)
 											nbfreeslots := entry.(nbfreeslots);
                      	nbprepare := entry.(nbprepare);
 											parent := entry.(parent);
-											MPU := entry.(MPU) |})
+											MPU := entry.(MPU) ; vidtBlock := entry.(vidtBlock) |})
               (memory s) beqAddr |}
 /\ partitionsIsolation s   (*/\ kernelDataIsolation s*) /\ verticalSharing s
 					/\ consistency s  }}.
@@ -1649,7 +1649,7 @@ exists entry , lookup pdtablepaddr s.(memory) beqAddr = Some (PDT entry)
 											nbfreeslots := nbfreeslots;
                     	nbprepare := entry.(nbprepare);
 											parent := entry.(parent);
-											MPU := entry.(MPU) |})
+											MPU := entry.(MPU) ; vidtBlock := entry.(vidtBlock) |})
               (memory s) beqAddr |}
 /\ partitionsIsolation s   (*/\ kernelDataIsolation s*) /\ verticalSharing s
 					/\ consistency s  }}.

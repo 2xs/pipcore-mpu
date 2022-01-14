@@ -252,15 +252,6 @@ Definition writePDVidt (pdtablepaddr: paddr) (vidtBlock : paddr) : LLI unit :=
   end.
 
 
-Definition readBlockStartFromBlockEntryAddr  (paddr : paddr) : LLI ADT.paddr :=
-  perform s := get in
-  let entry := lookup paddr s.(memory) beqAddr in
-  match entry with
-  | Some (BE a) => ret a.(blockrange).(startAddr)
-  | Some _ => undefined 12
-  | None => undefined 11
-  end.
-
 Definition writeBlockStartFromBlockEntryAddr  (paddr : paddr) (newstartaddr : ADT.paddr) : LLI unit :=
   perform s := get in
   let entry := lookup paddr s.(memory) beqAddr in
@@ -280,16 +271,6 @@ Definition writeBlockStartFromBlockEntryAddr  (paddr : paddr) (newstartaddr : AD
   |})
   | Some _ => undefined 60
   | None => undefined 59
-  end.
-
-
-Definition readBlockEndFromBlockEntryAddr  (paddr : paddr) : LLI ADT.paddr :=
-  perform s := get in
-  let entry := lookup paddr s.(memory) beqAddr in
-  match entry with
-  | Some (BE a) => ret a.(blockrange).(endAddr)
-  | Some _ => undefined 12
-  | None => undefined 11
   end.
 
 Definition writeBlockEndFromBlockEntryAddr  (paddr : paddr) (newendaddr : ADT.paddr) : LLI unit :=
@@ -321,6 +302,14 @@ Definition getBlockRecordField {Y : Type} (field : BlockEntry -> Y) (addr : padd
   | Some _ => undefined 12
   | None => undefined 11
   end.
+
+Definition readBlockStartFromBlockEntryAddr  (addr : paddr) : LLI paddr :=
+	perform blockrange := getBlockRecordField blockrange addr in
+	ret (blockrange.(startAddr)).
+
+Definition readBlockEndFromBlockEntryAddr  (addr : paddr) : LLI paddr :=
+	perform blockrange := getBlockRecordField blockrange addr in
+	ret (blockrange.(endAddr)).
 
 Definition readBlockAccessibleFromBlockEntryAddr  (addr : paddr) : LLI bool :=
 	getBlockRecordField accessible addr.
