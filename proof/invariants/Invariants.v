@@ -377,26 +377,28 @@ Qed.
 
 (* DUP *)
 Lemma isSHELookupEq (sh1entryaddr : paddr) s : 
-isSHE sh1entryaddr s -> exists entry : Sh1Entry,
+isSHE sh1entryaddr s <-> exists entry : Sh1Entry,
   lookup sh1entryaddr (memory s) beqAddr = Some (SHE entry).
 Proof.
-intros.  
-unfold isSHE in H.
-destruct (lookup sh1entryaddr (memory s) beqAddr); try now contradict H.
-destruct v; try now contradict H.
-eexists;repeat split;trivial.
+intros. split.
+- intros. unfold isSHE in H.
+	destruct (lookup sh1entryaddr (memory s) beqAddr); try now contradict H.
+	destruct v; try now contradict H.
+	eexists;repeat split;trivial.
+- intros. unfold isSHE. destruct H. rewrite H ; trivial.
 Qed.
 
 (* DUP *)
 Lemma isSCELookupEq (scentryaddr : paddr) s : 
-isSCE scentryaddr s -> exists entry : SCEntry,
+isSCE scentryaddr s <-> exists entry : SCEntry,
   lookup scentryaddr (memory s) beqAddr = Some (SCE entry).
 Proof.
-intros.
-unfold isSCE in H.
+intros. split.
+- intros. unfold isSCE in H.
 destruct (lookup scentryaddr (memory s) beqAddr); try now contradict H.
 destruct v; try now contradict H.
 eexists;repeat split;trivial.
+- intros. unfold isSCE. destruct H. rewrite H ; trivial.
 Qed.
 
 (* DUP *)
