@@ -31,150 +31,217 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
+#include <stdio.h>
 #include "exception_handlers.h"
 #include "Services.h"
 #include "nrf52.h"
 #include "core_cm4.h"
-#include <stdio.h>
 #include "pip_debug.h"
+#include "context.h"
+#include "yield_c.h"
+#include "ADT.h"
 
-extern void
-  SVC_Handler (void);
+/* The MSP top of stack defined in the link script. */
+extern uint32_t __StackTop;
 
+extern void SVC_Handler (void);
 
-void __attribute__ ((section(".after_vectors"),weak))
-SVC_Handler (void)
+/*!
+ * \brief Enumeration of the SVC numbers
+ */
+typedef enum svc_number_e
 {
-  __asm(
-    ".global SVC_Handler_Main\n"
-    "TST lr, #4\n"
-    "ITE EQ\n"
-    "MRSEQ r0, MSP\n"
-    "MRSNE r0, PSP\n"
-    "B SVC_Handler_Main\n"
-  ) ;
+	SVC_NUMBER_CREATE_PARTITION    = 0 , /*!< The createPartition SVC number. */
+	SVC_NUMBER_CUT_MEMORY_BLOCK    = 1 , /*!< The cutMemoryBlock SVC number. */
+	SVC_NUMBER_MERGE_MEMORY_BLOCK  = 2 , /*!< The mergeMemoryBlocks SVC number. */
+	SVC_NUMBER_PREPARE             = 3 , /*!< The prepare SVC number. */
+	SVC_NUMBER_ADD_MEMORY_BLOCK    = 4 , /*!< The addMemoryBlock SVC number. */
+	SVC_NUMBER_REMOVE_MEMORY_BLOCK = 5 , /*!< The removeMemoryBlock SVC number. */
+	SVC_NUMBER_DELETE_PARTITION    = 6 , /*!< The deletePartition SVC number. */
+	SVC_NUMBER_COLLECT             = 7 , /*!< The collect SVC number. */
+	SVC_NUMBER_MAP_MPU             = 8 , /*!< The mapMPU SVC number. */
+	SVC_NUMBER_READ_MPU            = 9 , /*!< The readMPU SVC number. */
+	SVC_NUMBER_FIND_BLOCK          = 10, /*!< The findBlock SVC number. */
+	SVC_NUMBER_SET_VIDT            = 11, /*!< The setVIDT SVC number. */
+	SVC_NUMBER_YIELD               = 12  /*!< The yield SVC number. */
+} svc_number_t;
+
+/*!
+ * \brief The SVC handler in the ISR vector disables interrupts, stacks
+ *        registers, and calls the SVC_Handler_Main function.
+ */
+__attribute__((section(".after_vectors"), weak, naked))
+void SVC_Handler (void)
+{
+	asm volatile
+	(
+		".global SVC_Handler_Main;"
+
+		/* Disable interrupts. */
+		"cpsid   i;"
+
+		/* The processor necessarily runs the partition code in
+		 * unprivileged Thread mode and uses the PSP. Therefore,
+		 * it is not necessary to test the SPSEL bit. */
+		"mrs     r1, psp;"
+
+		/* Retrieves the SVC number encoded on the last byte of
+		 * the instruction in the PC register  pushed onto the
+		 * stack. */
+		"ldr     r0, [r1, #24];"
+		"ldrb    r0, [r0, #-2];"
+
+		/* Copy the initial value of the PSP into R3. */
+		"mov     r3, r1;"
+
+		/* Push the registers R3 to R11 onto the stack. */
+		"stmdb   r1!, {r3-r11};"
+
+		/* Branch to the SVC_Handler_Main function without
+		 * storing the return address in LR. This way, the
+		 * SVC_Handler_Main function will leave the execption
+		 * when it returns. */
+		"b       SVC_Handler_Main;"
+	);
 }
 
-void SVC_Handler_Main( unsigned int *svc_args )
+/*!
+ * \brief Call the PIP service associated with the SVC number.
+ * \param svc_number The CSV number associated with the service to be
+ *        called.
+ * \param context The context stacked on the caller's stack.
+ */
+void SVC_Handler_Main(uint32_t svc_number, context_svc_t *context)
 {
-#if defined(DEBUG)
-  __DEBUG_BKPT();
-#endif
+	switch (svc_number)
+	{
+		case SVC_NUMBER_CREATE_PARTITION:
+			context->registers[R0] = (uint32_t) createPartition(
+				(paddr) context->registers[R0]
+			);
+			break;
 
-  unsigned int svc_number;
-  /*
-  * Stack contains:
-  * r0, r1, r2, r3, r12, r14, the return address and xPSR
-  * First argument (r0) is svc_args[0]
-  */
-  svc_number = ( ( char * )svc_args[ 6 ] )[ -2 ] ;
-  uint32_t * sp = (uint32_t*) svc_args;
-  uint32_t * orig_sp = NULL;
-  uint32_t psr = sp[7];  /* Program status register. */
-  /* Reconstruct original stack pointer before fault occurred */
-  orig_sp = sp + 8;
-#ifdef SCB_CCR_STKALIGN_Msk
-  if (psr & SCB_CCR_STKALIGN_Msk) {
-      /* Stack was not 8-byte aligned */
-      orig_sp += 1;
-      debug_puts("SVC: Stack was not 8-byte aligned\r\n");
-  }
-#endif /* SCB_CCR_STKALIGN_Msk */
+		case SVC_NUMBER_CUT_MEMORY_BLOCK:
+			context->registers[R0] = (uint32_t) cutMemoryBlock(
+				(paddr) context->registers[R0],
+				(paddr) context->registers[R1],
+				(Coq_index) context->registers[R2]
+			);
+			break;
 
-  // disable interrupts...
-  __disable_irq();
-  switch( svc_number )
-  {
-    case 0:
-      sp[0] = (uint32_t) createPartition((uint32_t *)svc_args[0]); //paddr idBlock
-      break;
-    case 1:
-      sp[0] = (uint32_t) cutMemoryBlock((uint32_t *)svc_args[0], //paddr idBlockToCut,
-                                        (uint32_t *)svc_args[1], //paddr cutAddr,
-                                        svc_args[2] //index mPURegionNb)
-                                        );
-      break;
-    case 2:
-      sp[0] = (uint32_t) mergeMemoryBlocks((uint32_t *)svc_args[0], //paddr idBlockToMerge1,
-                                            (uint32_t *)svc_args[1], //paddr idBlockToMerge2,
-                                            svc_args[2] //index mPURegionNb)
-                                            );
-      break;
-    case 3:
-      sp[0] = (uint32_t) prepare((uint32_t *)svc_args[0], //paddr idPD,
-                                  svc_args[1], //index projectedSlotsNb,
-                                  (uint32_t *)svc_args[2] //paddr idRequisitionedBlock
-                                  );
-    break;
+		case SVC_NUMBER_MERGE_MEMORY_BLOCK:
+			context->registers[R0] = (uint32_t) mergeMemoryBlocks(
+				(paddr) context->registers[R0],
+				(paddr) context->registers[R1],
+				(Coq_index) context->registers[R2]
+			);
+			break;
 
-    case 4:
-      sp[0] = (uint32_t) addMemoryBlock((uint32_t *)svc_args[0], //paddr idPDchild,
-                                        (uint32_t *)svc_args[1], //paddr idBlockToShare,
-                                        (uint32_t)svc_args[2], //bool r,
-                                        (uint32_t)svc_args[3], //bool w,
-                                        (uint32_t)orig_sp[0] //bool e)
-                                        );
-      break;
-    case 5:
-      sp[0] = removeMemoryBlock((uint32_t *)svc_args[0] // paddr idBlockToRemove
-      );
-      break;
+		case SVC_NUMBER_PREPARE:
+			context->registers[R0] = (uint32_t) prepare(
+				(paddr) context->registers[R0],
+				(Coq_index) context->registers[R1],
+				(paddr) context->registers[R2]
+			);
+			break;
 
-    case 6:
-      sp[0] = deletePartition((uint32_t *)svc_args[0]); //paddr idPDchildToDelete
-    break;
+		case SVC_NUMBER_ADD_MEMORY_BLOCK:
+			context->registers[R0] = (uint32_t) addMemoryBlock(
+				(paddr) context->registers[R0],
+				(paddr) context->registers[R1],
+				(bool) ((context->registers[R2] >> 2) & 1),
+				(bool) ((context->registers[R2] >> 1) & 1),
+				(bool) context->registers[R2] & 1
+			);
+			break;
 
-    case 7:
-      sp[0] = (uint32_t) collect((uint32_t *)svc_args[0]); //paddr idPD
-      break;
-    case 8:
-      sp[0] = mapMPU( (uint32_t *)svc_args[0], //paddr idPD
-                      (uint32_t *)svc_args[1], //paddr idBlockToEnable,
-                      svc_args[2] // index mPURegionNb
-                      );
-      break;
-    case 9:
-      sp[0] = (uint32_t) readMPU((uint32_t *)svc_args[0], //paddr idPD
-                                  svc_args[1] // index mPURegionNb
-                                  );
-      break;
-    case 10:
-    {
-      // Note as the result is in memory, the parameters are passed with R1 and R2, not RO
-      blockOrError block_found = findBlock( (uint32_t *)svc_args[1], //paddr idPD
-                                            (uint32_t *)svc_args[2] // paddr addrInBlock)
-                                            );
-      // Fill R0-R3: the access permissions and accessible bit are squeezed into R3
-      sp[0] = (uint32_t) block_found.blockAttr.blockentryaddr;
-      sp[1] = (uint32_t) block_found.blockAttr.blockrange.startAddr; // displays start and end
-      sp[2] = (uint32_t) block_found.blockAttr.blockrange.endAddr;
-      sp[3] = (uint32_t) block_found.blockAttr.read |
-              (uint32_t) block_found.blockAttr.write << 1 |
-              (uint32_t) block_found.blockAttr.exec << 2 |
-              (uint32_t) block_found.blockAttr.accessible << 3;
-#ifdef DEBUG
-      if(block_found.error ==1){
-        debug_printf("error: %d\n", block_found.error);
-      }
-      else debug_printf("block found: %d\n", block_found.blockAttr.blockentryaddr);
+		case SVC_NUMBER_REMOVE_MEMORY_BLOCK:
+			context->registers[R0] = (uint32_t) removeMemoryBlock(
+				(paddr) context->registers[R0]
+			);
+			break;
 
-#endif
-      break;
-    }
+		case SVC_NUMBER_DELETE_PARTITION:
+			context->registers[R0] = (uint32_t) deletePartition(
+				(paddr) context->registers[R0]
+			);
+			break;
+
+		case SVC_NUMBER_COLLECT:
+			context->registers[R0] = (uint32_t) collect(
+				(paddr) context->registers[R0]
+			);
+			break;
+
+		case SVC_NUMBER_MAP_MPU:
+			context->registers[R0] = (uint32_t) mapMPU(
+				(paddr) context->registers[R0],
+				(paddr) context->registers[R1],
+				(Coq_index) context->registers[R2]
+			);
+			break;
+
+		case SVC_NUMBER_READ_MPU:
+			context->registers[R0] = (uint32_t) readMPU(
+				(paddr) context->registers[R0],
+				(Coq_index) context->registers[R1]
+			);
+			break;
+
+		case SVC_NUMBER_FIND_BLOCK:
+		{
+			// Note as the result is in memory, the parameters are passed with R1 and R2, not RO
+			blockOrError block_found = findBlock(
+				(paddr) context->registers[R0],
+				(paddr) context->registers[R1]
+			);
+
+			// Fill R0-R3: the access permissions and accessible bit are squeezed into R3
+			context->registers[R0] = (uint32_t) block_found.blockAttr.blockentryaddr;
+			context->registers[R1] = (uint32_t) block_found.blockAttr.blockrange.startAddr; // displays start and end
+			context->registers[R2] = (uint32_t) block_found.blockAttr.blockrange.endAddr;
+			context->registers[R3] = (uint32_t) block_found.blockAttr.read |
+						 (uint32_t) block_found.blockAttr.write << 1 |
+						 (uint32_t) block_found.blockAttr.exec << 2 |
+						 (uint32_t) block_found.blockAttr.accessible << 3;
+			break;
+		}
+
+		case SVC_NUMBER_SET_VIDT:
+			context->registers[R0] = setVIDT(
+				(paddr) context->registers[R0],
+				(paddr) context->registers[R1]
+			);
+			break;
+
+		case SVC_NUMBER_YIELD:
+			context->registers[R0] = (uint32_t) yieldGlue(
+				context,
+				(paddr) context->registers[R0],
+				context->registers[R1],
+				context->registers[R2],
+				context->registers[R3],
+				context->registers[R4]
+			);
+			break;
+
 #ifdef UNIT_TESTS
-    case 127: // Enable Privileged mode !TODO!: to remove with system calls in SVC instead
-      __set_CONTROL( __get_CONTROL( ) & ~CONTROL_nPRIV_Msk ) ;
-      break;
-    case 128: // Disable Privileged mode !TODO!: to remove with system calls in SVC instead
-      __set_CONTROL(__get_CONTROL() | CONTROL_nPRIV_Msk ); // switch to unprivileged Thread Mode
-      __DMB();
-      __ISB();
-      __DSB();
-      break;
+		case 127: // Enable Privileged mode !TODO!: to remove with system calls in SVC instead
+			__set_CONTROL( __get_CONTROL( ) & ~CONTROL_nPRIV_Msk ) ;
+			break;
+
+		case 128: // Disable Privileged mode !TODO!: to remove with system calls in SVC instead
+			__set_CONTROL(__get_CONTROL() | CONTROL_nPRIV_Msk ); // switch to unprivileged Thread Mode
+			__DMB();
+			__ISB();
+			__DSB();
+			break;
 #endif // UNIT_TESTS
-    default:    // unknown SVC
-      break;
-  }
-  // ...enable interrupts back
-  __enable_irq();
+
+		default:
+			/* Unknown SVC */
+			break;
+	}
+
+	__enable_irq();
 }

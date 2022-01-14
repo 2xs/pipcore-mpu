@@ -33,7 +33,7 @@
 
 #include <stdio.h>
 #include "user_ADT.h"
-#include "svc.h"
+//#include "svc.h"
 
 #define MSG_INIT	\
 	"\r\n\n"	\
@@ -131,11 +131,16 @@ int main_user_app(int argc, char* argv[])
     printf("read MPU done\n");
   }
 
-  blockOrError block_found = Pip_findBlock(root, (uint32_t*)0x20007000);
-  blockOrError block_found1 = Pip_findBlock(root, (uint32_t*)0x20000000);
-  blockOrError block_found2 = Pip_findBlock(root, (uint32_t*)0x0);
-  blockOrError block_found3 = Pip_findBlock(root, (uint32_t*)0x800000);
-  blockOrError block_found4 = Pip_findBlock(root+1, (uint32_t*)0x20007000);
+  blockOrError block_found;
+  Pip_findBlock(root, (uint32_t *)0x20007000, &block_found);
+  blockOrError block_found1;
+  Pip_findBlock(root, (uint32_t *)0x20000000, &block_found1);
+  blockOrError block_found2;
+  Pip_findBlock(root, (uint32_t *)0x0, &block_found2);
+  blockOrError block_found3;
+  Pip_findBlock(root, (uint32_t *)0x800000, &block_found3);
+  blockOrError block_found4;
+  Pip_findBlock(root + 1, (uint32_t *)0x20007000, &block_found4);
   if(block_found.error != -1
 	  && block_found1.error != -1
 	  && block_found2.error != -1

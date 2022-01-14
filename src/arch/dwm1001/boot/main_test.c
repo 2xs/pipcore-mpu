@@ -84,7 +84,7 @@ void init_tests_only_ram()
   enableBlockInMPU(root, initial_block_root_address, 0);
 
   //dump_partition(root);
-  activate(root);
+  updateCurPartAndActivate(root);
 }
 
 /*!
@@ -106,7 +106,7 @@ void init_tests_flash_ram_w_stack()
   block_ram2 = insertNewEntry(root, (paddr)0x20001000, &user_stack_top, (paddr)0x20001000, true, true, false, readPDNbFreeSlots(root));
 
   //dump_partition(root);
-  activate(root);
+  updateCurPartAndActivate(root);
 }
 
 
@@ -3264,7 +3264,7 @@ void test_mpu_in_sync_with_system_calls()
 
   // in child : set the block in the MPU, shoud not be writable
   assert(mapMPU(block_create_child_root_address, shared_block_address, 0) == true);
-  updateCurPartition(child_partition_pd);
+  updateCurPartAndActivate(child_partition_pd);
   currPart = (PDTable_t*) getCurPartition();
   assert(currPart->mpu[0] == shared_block_address);
   assert(readPhysicalMPUAP(0) == 2);
