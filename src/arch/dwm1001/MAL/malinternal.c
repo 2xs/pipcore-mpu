@@ -567,5 +567,5 @@ int checkMPU()
  */
 int initMPU()
 {
-	mpu_init();
+	return mpu_init();
 }
