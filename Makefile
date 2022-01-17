@@ -78,6 +78,7 @@ COQ_INVARIANTS_DIR=$(COQ_PROOF_DIR)/invariants
 
 # Architecture agnostic C dirs
 C_MODEL_INTERFACE_INCLUDE_DIR=$(SRC_DIR)/interface
+C_BENCHMARK_DIR+=../embench-iot/src/aha-mont64/
 
 # Architecture dependent C dirs
 ARCH_DEPENDENT_DIR=$(SRC_DIR)/arch
@@ -125,6 +126,7 @@ C_TARGET_UART_SRC=$(wildcard $(C_TARGET_UART_DIR)/*.c)
 C_TARGET_MAL_SRC=$(wildcard $(C_TARGET_MAL_DIR)/*.c)
 AS_TARGET_BOOT_SRC=$(wildcard $(C_TARGET_BOOT_DIR)/*.s)
 GAS_TARGET_BOOT_SRC=$(wildcard $(C_TARGET_BOOT_DIR)/*.S)
+C_BENCHMARK_SRC=$(wildcard $(C_BENCHMARK_DIR)/*.c)
 
 C_GENERATED_HEADERS=$(C_GENERATED_HEADERS_DIR)/Internal.h $(C_GENERATED_HEADERS_DIR)/Services.h
 C_MODEL_INTERFACE_HEADERS=$(wildcard $(C_MODEL_INTERFACE_INCLUDE_DIR)/*.h)
@@ -146,6 +148,7 @@ C_TARGET_DEBUG_OBJ=$(C_TARGET_DEBUG_SRC:.c=.o)
 C_TARGET_MDK_OBJ=$(C_TARGET_MDK_SRC:.c=.o)
 C_TARGET_NEWLIB_OBJ=$(C_TARGET_NEWLIB_SRC:.c=.o)
 C_TARGET_UART_OBJ=$(C_TARGET_UART_SRC:.c=.o)
+C_BENCHMARK_OBJ=$(C_BENCHMARK_SRC:.c=.o)
 
 ########################### Coq files ###############################
 
@@ -220,7 +223,8 @@ OBJECT_FILES=$(C_TARGET_MAL_OBJ) $(C_TARGET_BOOT_OBJ)\
              $(C_TARGET_CMSIS_OBJ) $(C_TARGET_DEBUG_OBJ)\
              $(C_TARGET_MDK_OBJ) $(C_TARGET_NEWLIB_OBJ)\
              $(C_TARGET_UART_OBJ) $(C_GENERATED_OBJ)\
-	     $(AS_TARGET_BOOT_OBJ) $(GAS_TARGET_BOOT_OBJ)
+	     $(AS_TARGET_BOOT_OBJ) $(GAS_TARGET_BOOT_OBJ)\
+            $(C_BENCHMARK_OBJ)
 
 # Jsons (Coq extracted AST)
 JSONS=Internal.json MAL.json MALInternal.json Services.json
@@ -424,6 +428,24 @@ $(C_TARGET_UART_OBJ):\
                         -I $(C_TARGET_UART_INCLUDE_DIR)\
                         -c -o $@ $<
 
+$(C_BENCHMARK_OBJ):\
+    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
+              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
+              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
+              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
+              $(C_TARGET_UART_HEADERS)
+	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
+                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
+                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
+                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
+                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
+                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
+                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
+                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
+                        -I $(C_TARGET_UART_INCLUDE_DIR)\
+                        -I ../embench-iot/support\
+                        -c -o $@ $<
+
 # Static pattern rule for constructing object files from target boot assembly files
 $(AS_TARGET_BOOT_OBJ):\
     %.o : %.s
@@ -459,13 +481,15 @@ pip.elf: $(C_SRC_TARGET_DIR)/link.ld\
          $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
          $(C_TARGET_DEBUG_OBJ) $(C_TARGET_MDK_OBJ)\
          $(C_TARGET_NEWLIB_OBJ) $(C_TARGET_UART_OBJ)\
-         $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)
+         $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)\
+         $(C_BENCHMARK_OBJ)
 	$(LD) \
          $(C_TARGET_BOOT_OBJ) $(AS_TARGET_BOOT_OBJ)\
          $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
          $(C_TARGET_DEBUG_OBJ) $(C_TARGET_MDK_OBJ)\
          $(C_TARGET_NEWLIB_OBJ) $(C_TARGET_UART_OBJ)\
          $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)\
+         $(C_BENCHMARK_OBJ)\
          -T $< -o $@ $(LDFLAGS)
 
 #####################################################################

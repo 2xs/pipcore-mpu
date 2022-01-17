@@ -48,6 +48,14 @@
 #include "trace.h"
 #endif // TRACE
 
+#if defined(BENCHMARK)
+#include "benchmark.h"
+extern void main_benchmark();//int argc, uint32_t **argv);
+
+#endif // BENCHMARK
+
+//extern void	main_test(void);
+
 // Stack end address for the user section; defined in linker script
 extern uint32_t user_stack_top;
 
@@ -60,9 +68,14 @@ extern paddr blockentryaddr_periph;
 extern void main_yield(int argc, uint32_t **argv);
 
 /**
- * Main entry point.
+ * Pip's main entry point.
  * If UART_DEBUG, sends printf messages on UART
  * If -DTRACE -DOS_USE_TRACE_SEMIHOSTING_DEBUG flags are set, send printf messages on the semihosting debug channel
+ * We are in PRIV Thread Mode and we want to switch to the root partition
+ * The root partition should be in Unprivileged Thread Mode using PSP.
+ * However, switching to the unprivileged root partition is not possible yet, since the current location is in Pip's protected region.
+ * Hence, a direct switch would trigger a MemFault.
+ * Instead, we enter the Handler Mode with PendSV and launches the root partition (UNPRIV/PSP) as an exception return.
  */
 __attribute__((noreturn))
 void main (void)
@@ -70,9 +83,6 @@ void main (void)
 #if defined(UART_DEBUG)
 	init_uart();
 #endif // UART_DEBUG
-
-	// Initialize the root partition and init the MPU
-	mal_init();
 
 	/* Set the PendSV exception as pending by writing 1 to the
 	 * PENDSVSET bit. */
@@ -87,11 +97,55 @@ void main (void)
 	__builtin_unreachable();
 }
 
+/**
+ * PendSV Handler
+ * Handler mode: launch the root partition during exception return.
+ */
 __attribute__((noreturn))
 void PendSV_Handler(void)
 {
 	/* Get the top of the PSP */
-	uint32_t *sp  = (uint32_t *) &user_stack_top;
+uint32_t *sp = (uint32_t *)&user_stack_top;
+
+#if defined BENCHMARK
+	START_BENCHMARK();
+#endif // BENCHMARK
+
+#if defined BENCHMARK_BASELINE
+	// Version wo Pip / wo MPU
+	uint32_t frame = sp - 0x20; // Build benchmark frame
+	__set_PSP(frame);
+	// Thread mode is unprivileged
+	__set_CONTROL(__get_CONTROL() | CONTROL_nPRIV_Msk );
+	__DMB(); __ISB(); __DSB();
+
+	// exception return/exit frame
+	// Stack frame when starting the benchmark
+	uint32_t *framePtr = (uint32_t *)frame;
+	framePtr[0] = 0;
+	framePtr[1] = 0;
+	framePtr[2] = 0;
+	framePtr[3] = 0;
+	framePtr[4] = 0;
+	framePtr[5] = 0;
+	framePtr[6] = (uint32_t)main_benchmark;
+	framePtr[7] = 0 /*| (1<<29) | (1<<30)*/ | (1 << 24);// T bit mandatroy: ARM Cortex M only supports Thumb instruction execution
+
+	asm volatile("cpsie   i;" // enable interrupts (CLOCK)
+				 " bx %0; "	  // branch to main in UNPRIV mode with PSP (EXC_RETURN=0xFFFFFFFD)
+
+				 /* Output operands */
+				 :
+
+				 /* Input operands */
+				 : "r"(0xFFFFFFFD)
+
+				 /* Clobbers */
+				 : "memory");
+#else
+
+	// Initialize the root partition and init the MPU
+	mal_init();
 
 	/* Reserve on the stack the space necessary for the
 	 * arguments. */
@@ -120,7 +174,11 @@ void PendSV_Handler(void)
 	/* Initialize the root partition context. */
 	rootPartitionContext.registers[R0] = argc;
 	rootPartitionContext.registers[R1] = (uint32_t) argv;
+#if defined BENCHMARK_PIP
+	rootPartitionContext.registers[PC] = (uint32_t)main_benchmark;
+#else
 	rootPartitionContext.registers[PC] = (uint32_t) main_yield;
+#endif // BENCHMARK_PIP
 	rootPartitionContext.registers[SP] = (uint32_t) argv;
 	rootPartitionContext.pipflags      = 0;
 	rootPartitionContext.valid         = 1;
@@ -131,8 +189,9 @@ void PendSV_Handler(void)
 
 	/* Yield to the root partition. */
 	switchContextCont(getRootPartition(), 0, &rootPartitionContext);
+#endif // BENCHMARK_BASELINE
 
-	/* We should never end up here because the switchContextCont
+		/* We should never end up here because the switchContextCont
 	 * function never returns to the caller. */
-	__builtin_unreachable();
+		__builtin_unreachable();
 }

@@ -31,7 +31,7 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
-#if defined UNIT_TESTS // include file only when testing
+//#if defined UNIT_TESTS // include file only when testing
 
 #include <stdio.h>
 #include "Services.h"
@@ -3703,8 +3703,11 @@ void test_find()
  */
 int main_test (int argc, char* argv[])
 {
+
   mal_init(); // initializes the global vars
-    if (KERNELSTRUCTUREENTRIESNB != 8)
+  //init_tests_only_ram();
+  //enablePrivilegedMode();
+  if (KERNELSTRUCTUREENTRIESNB != 8)
   {
     printf("KERNELSTRUCTUREENTRIESNB %d must be 8 for the tests, test abort.\r\n", KERNELSTRUCTUREENTRIESNB);
     while(1);
@@ -3716,7 +3719,7 @@ int main_test (int argc, char* argv[])
   // Test initial root partition definition
   test_initial_root();
   // Test cut system call
-  test_cut();
+  /*test_cut();
   printf("main_test: CUT OK\r\n");
   // Test create system call
   test_create();
@@ -3738,20 +3741,20 @@ int main_test (int argc, char* argv[])
   printf("main_test: MERGE OK\r\n");
   // Test collect system call
   test_collect();
-  printf("main_test: COLLECT OK\r\n");
+  printf("main_test: COLLECT OK\r\n");*/
   // Test mapMPU system call
   test_mapMPU();
   printf("main_test: MPU MAP OK\r\n");
   // Test readMPU system call
-  test_readMPU();
+  /*test_readMPU();
   printf("main_test: MPU READ OK\r\n");
   // Test findBlock system call
   test_find();
-  printf("main_test: FINDBLOCK OK\r\n");
+  printf("main_test: FINDBLOCK OK\r\n");*/
 
   printf("\r\nmain_test: All tests PASSED\r\n");
 
   while(1);
 }
 
-#endif //UNIT_TESTS
+//#endif //UNIT_TESTS

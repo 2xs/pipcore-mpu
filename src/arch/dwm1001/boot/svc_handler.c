@@ -40,6 +40,9 @@
 #include "context.h"
 #include "yield_c.h"
 #include "ADT.h"
+#ifdef BENCHMARK
+#include "benchmark.h"
+#endif // BENCHMARK
 
 /* The MSP top of stack defined in the link script. */
 extern uint32_t __StackTop;
@@ -238,9 +241,19 @@ void SVC_Handler_Main(uint32_t svc_number, context_svc_t *context)
 			break;
 #endif // UNIT_TESTS
 
-		default:
+#ifdef BENCHMARK
+    case 129:          // Stop benchmark (end_cycles_counting)
+      uint32_t cycles; // number of cycles
+      cycles = GetCycleCounter(); // get cycle counter
+      DisableCycleCounter();      // disable counting if not used
+      printf("Benchmark results:\n");
+      printf("Ticks:%d\n", cycles);
+      while (1);
+      break;
+#endif // BENCHMARK
+    default:
 			/* Unknown SVC */
-			break;
+      break;
 	}
 
 	__enable_irq();

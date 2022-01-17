@@ -594,6 +594,21 @@ configure_global_variables() {
 				test)
 					arch_cflags="$arch_cflags"' -DUNIT_TESTS'
 					;;
+				bench-baseline)
+					arch_cflags="$arch_cflags"' -DBENCHMARK'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE'
+					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
+					;;
+				bench-baseline-witness)
+					arch_cflags="$arch_cflags"' -DBENCHMARK'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_WITNESS_ONLY'
+					;;
+				bench-pip)
+					arch_cflags="$arch_cflags"' -DBENCHMARK'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP'
+					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
+					;;
 			esac
 			arch_cflags="$arch_cflags"' -DDUMP'
 			arch_cflags="$arch_cflags"' -DNRF52832_XXAA'
@@ -639,14 +654,14 @@ main() {
 		validate_command_path_version_wrapper "$cc" "$cc_regex" "$cc_minimum_version"
 		validate_command_path_version_wrapper "$as" "$as_regex" "$as_minimum_version"
 		validate_command_path_version_wrapper "$ld" "$ld_regex" "$ld_minimum_version"
-		validate_command_path_version_wrapper "$coqc" "$coqc_regex" "$coqc_minimum_version"
+		#validate_command_path_version_wrapper "$coqc" "$coqc_regex" "$coqc_minimum_version"
 
 		# These commands need to have only their paths validated
 		validate_command_path_wrapper "$coqdep"
 		validate_command_path_wrapper "$coqdoc"
 		validate_command_path_wrapper "$objcopy"
 		validate_command_path_wrapper "$pdflatex"
-		validate_command_path_wrapper "$gdb"
+		#validate_command_path_wrapper "$gdb"
 		validate_command_path_wrapper "$doxygen"
 		validate_command_path_wrapper "$make"
 	fi

@@ -43,7 +43,7 @@
  *        partition descriptor structure.
  * \return 1 if the system call succeed, 0 otherwise.
  */
-__attribute__((noinline))
+static __attribute__((noinline))
 uint32_t Pip_createPartition(uint32_t *blockLocalId)
 {
 	register uint32_t r0 asm("r0");
@@ -71,7 +71,7 @@ uint32_t Pip_createPartition(uint32_t *blockLocalId)
  * \return Returns the ID of the newly created sub-block if the system
  *         call succeed, NULL otherwise.
  */
-__attribute__((noinline))
+static __attribute__((noinline))
 uint32_t *Pip_cutMemoryBlock(
 	uint32_t *blockToCutLocalId,
 	uint32_t *cutAddr,
@@ -108,7 +108,7 @@ uint32_t *Pip_cutMemoryBlock(
  * \return Returns the local ID of the merged blocks if the system call
  *         succeed, NULL otherwise.
  */
-__attribute__((noinline))
+static __attribute__((noinline))
 uint32_t *Pip_mergeMemoryBlocks(
 	uint32_t *blockToMerge1LocalId,
 	uint32_t *blockToMerge2LocalId,
@@ -146,7 +146,7 @@ uint32_t *Pip_mergeMemoryBlocks(
  *        the new kernel structure.
  * \return 1 if the system call succeed, 0 otherwise.
  */
-__attribute__((noinline))
+static __attribute__((noinline))
 uint32_t Pip_prepare(
 	uint32_t *partDescBlockId,
 	int32_t   projectedSlotsNb,
@@ -187,7 +187,7 @@ uint32_t Pip_prepare(
  *          partition.
  * \return Returns the ID of the shared block in the child.
  */
-__attribute__((noinline))
+static __attribute__((noinline))
 uint32_t* Pip_addMemoryBlock(
 	uint32_t *childPartDescBlockLocalId,
 	uint32_t *blockToShareLocalId,
@@ -222,7 +222,7 @@ uint32_t* Pip_addMemoryBlock(
  *        the child partition.
  * \return 1 if the system call succeed, 0 otherwise.
  */
-__attribute__((noinline))
+static __attribute__((noinline))
 uint32_t Pip_removeMemoryBlock(
 	uint32_t *blockToRemoveLocalId
 ) {
@@ -248,7 +248,7 @@ uint32_t Pip_removeMemoryBlock(
  *        the partition descriptor structure of the child to remove.
  * \return 1 if the system call succeed, 0 otherwise.
  */
-__attribute__((noinline))
+static __attribute__((noinline))
 uint32_t Pip_deletePartition(uint32_t *childPartDescBlockLocalId)
 {
 	register uint32_t r0 asm("r0");
@@ -275,7 +275,7 @@ uint32_t Pip_deletePartition(uint32_t *childPartDescBlockLocalId)
  * \return The ID of the collected block containing the structure if the
  *         system call succeed, NULL otherwise.
  */
-__attribute__((noinline))
+static __attribute__((noinline))
 uint32_t *Pip_collect(uint32_t *partDescBlockId)
 {
 	register uint32_t r0 asm("r0");
@@ -306,7 +306,7 @@ uint32_t *Pip_collect(uint32_t *partDescBlockId)
  *        to write.
  * \return 1 if the system call succeed, 0 otherwise.
  */
-__attribute__((noinline))
+static __attribute__((noinline))
 uint32_t Pip_mapMPU(
 	uint32_t *partDescBlockId,
 	uint32_t *blockToMapLocalId,
@@ -343,7 +343,7 @@ uint32_t Pip_mapMPU(
  * \return The block ID in the read physical MPU region if the function
  *         succeed, NULL otherwise.
  */
-__attribute__((noinline))
+static __attribute__((noinline))
 uint32_t *Pip_readMPU(
 	uint32_t *partDescBlockId,
 	int32_t   mpuRegionNb
@@ -377,7 +377,7 @@ uint32_t *Pip_readMPU(
  *        informations of the found block.
  * \return The value of the error field in the structure.
  */
-__attribute__((noinline))
+static __attribute__((noinline))
 int32_t Pip_findBlock(
 	uint32_t     *partDescBlockId,
 	uint32_t     *addrInBlock,
@@ -425,7 +425,7 @@ int32_t Pip_findBlock(
  *        descriptor structure.
  * \return 1 if the system call succeed, 0 otherwise.
  */
-__attribute__((noinline))
+static __attribute__((noinline))
 uint32_t Pip_setVIDT(
 	uint32_t *partDescBlockId,
 	uint32_t *vidtBlockLocalId
@@ -468,7 +468,7 @@ uint32_t Pip_setVIDT(
  *         code indicating the nature of the error. If the context is
  *         restored, the return value should be ignored.
  */
-__attribute__((noinline))
+static __attribute__((noinline))
 uint32_t Pip_yield(
 	uint32_t *calleePartDescBlockId,
 	uint32_t userTargetInterrupt,

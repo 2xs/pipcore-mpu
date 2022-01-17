@@ -33,7 +33,7 @@
 
 #include <stdio.h>
 #include "user_ADT.h"
-//#include "svc.h"
+#include "svc.h"
 
 #define MSG_INIT	\
 	"\r\n\n"	\
