@@ -107,7 +107,7 @@ void SVC_Handler (void)
 
 /*!
  * \brief Call the PIP service associated with the SVC number.
- * \param svc_number The CSV number associated with the service to be
+ * \param svc_number The SVC number associated with the service to be
  *        called.
  * \param context The context stacked on the caller's stack.
  */
