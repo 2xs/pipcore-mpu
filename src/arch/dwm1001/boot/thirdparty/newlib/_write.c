@@ -11,6 +11,9 @@
 // Override the 'write' clib method to implement 'printf' over UART.
 int _write( int handle, char* data, int size ) {
 
+    /* Unused parameter. */
+    (void) handle;
+
     #if defined(TRACE)
     // Trace message
     trace_write (data, size);
