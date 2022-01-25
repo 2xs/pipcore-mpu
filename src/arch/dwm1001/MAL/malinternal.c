@@ -556,7 +556,7 @@ void clear_LUT(uint32_t* LUT)
  */
 int checkMPU()
 {
-	if (MPU_NUM_REGIONS < 0 || MPU_NUM_REGIONS != MPU_REGIONS_NB) return -1;
+	if (MPU_NUM_REGIONS != MPU_REGIONS_NB) return -1;
 	else return 0;
 }
 
