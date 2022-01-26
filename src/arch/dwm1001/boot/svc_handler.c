@@ -245,9 +245,13 @@ void SVC_Handler_Main(uint32_t svc_number, context_svc_t *context)
     case 129:          // Stop benchmark (end_cycles_counting)
       uint32_t cycles; // number of cycles
       cycles = GetCycleCounter(); // get cycle counter
-      DisableCycleCounter();      // disable counting if not used
+	  // Trigger External benchmark end
+	  nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
+	  nrf_gpio_pin_write(13, 0);
+	  DisableCycleCounter();      // disable counting if not used
       printf("Benchmark results:\n");
       printf("Ticks:%d\n", cycles);
+
       while (1);
       break;
 #endif // BENCHMARK
