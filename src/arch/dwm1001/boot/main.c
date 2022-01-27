@@ -65,7 +65,7 @@ extern void main_yield(int argc, uint32_t **argv);
  * If -DTRACE -DOS_USE_TRACE_SEMIHOSTING_DEBUG flags are set, send printf messages on the semihosting debug channel
  */
 __attribute__((noreturn))
-void main (void)
+void pip_main (void)
 {
 #if defined(UART_DEBUG)
 	init_uart();
