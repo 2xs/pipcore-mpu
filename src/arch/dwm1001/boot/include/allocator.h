@@ -31,86 +31,79 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
-#ifndef __CONTEXT_H__
-#define __CONTEXT_H__
+#ifndef __ALLOCATOR_H__
+#define __ALLOCATOR_H__
 
 #include <stdint.h>
 
 /*!
- * \def CONTEXT_REGISTER_NUMBER
- *
- * \brief The register number of a context.
+ * \brief Structure representing an MPU block.
  */
-#define CONTEXT_REGISTER_NUMBER 17
-
-/*!
- * \def CONTEXT_VALID_VALUE
- *
- * \brief An arbitrary value used to identify a valid context.
- */
-#define CONTEXT_VALID_VALUE 0x41b06b8a
-
-/*!
- * \brief Enumeration of registers to be stored for a context.
- *
- * \warning Do not change the register number in the enumeration.
- */
-typedef enum context_register_e
-{
-	SP   = 0  , /*!< PSP register  */
-	R4   = 1  , /*!< R4 register   */
-	R5   = 2  , /*!< R5 register   */
-	R6   = 3  , /*!< R6 register   */
-	R7   = 4  , /*!< R7 register   */
-	R8   = 5  , /*!< R8 register   */
-	R9   = 6  , /*!< R9 register   */
-	R10  = 7  , /*!< R10 register  */
-	R11  = 8  , /*!< R11 register  */
-	R0   = 9  , /*!< R0 register   */
-	R1   = 10 , /*!< R1 register   */
-	R2   = 11 , /*!< R2 register   */
-	R3   = 12 , /*!< R3 register   */
-	R12  = 13 , /*!< R12 register  */
-	LR   = 14 , /*!< LR register   */
-	PC   = 15 , /*!< PC register   */
-	XPSR = 16   /*!< xPSR register */
-} context_register_t;
-
-/*!
- * \brief Structure representing a context as stacked by an assembly
- *        entry point.
- */
-typedef struct stacked_context_s
+typedef struct block_s
 {
 	/*!
-	 * \brief Registers stacked by an assembly entry point.
+	 * \brief The ID of the block.
 	 */
-	uint32_t registers[CONTEXT_REGISTER_NUMBER];
-} stacked_context_t;
+        uint32_t *id;
+
+	/*!
+	 * \brief The start address of the block.
+	 */
+        uint32_t address;
+
+	/*!
+	 * \brief The size of the block.
+	 */
+        uint32_t size;
+} block_t;
 
 /*!
- * \brief Structure representing a context as stored by the yield
- *        system call.
+ * \brief Initialize the block allocator.
+ *
+ * \param blockId The id of the block from which to cut new sub blocks.
+ *
+ * \param blockAddress The start address of the block to cut.
  */
-typedef struct user_context_s
-{
-	/*!
-	 * \brief The validity of the structure: a zero value indicates
-	 *        an invalid structure, a non-zero value indicates a
-	 *        valid structure.
-	 */
-	uint32_t valid;
+void allocatorInitialize(
+	uint32_t *blockId,
+	void     *blockAddress
+);
 
-	/*!
-	 * \brief The state in which the partition wishes to be at the
-	 *        next yield.
-	 */
-	uint32_t pipflags;
+/*!
+ * \brief Allocates a new memory block whose size is greater than or
+ *        equal to the requested one, taking into account the MPU
+ *        constraints.
+ *
+ * \param block A pointer to a structure that will contain informations
+ *        about the allocated block.
+ *
+ * \param blockSize The requested size of the block to be allocated.
+ *
+ * \param usePartialConfiguration This parameter tells the block
+ *        allocator whether or not to use the partial block
+ *        configuration. A value of 0 disables the use of the partial
+ *        block configuration, while a value other than 0 enables it.
+ *
+ *        Partial block configuration saves memory at the cost of
+ *        performance. This is because accessing the address of a
+ *        partially configured block in the MPU can raise a MemManage
+ *        fault that requires the MPU regions to be reconfigured.
+ *
+ *        Not using the partial block configuration increases
+ *        performance at the cost of memory. This is because if the
+ *        address of the block to be cut is not aligned with the size
+ *        of the block, additional cutting is required.
+ *
+ * \warning The block containing the stack of a partition must be
+ *          allocated without partial configuration.
+ *
+ * \return 1 if the allocator has successfully allocate the requested
+ *         block, 0 otherwise.
+ */
+int allocatorAllocateBlock(
+	block_t  *block,
+	uint32_t blockSize,
+	uint32_t usePartialConfiguration
+);
 
-	/*!
-	 * \brief All stored registers by the SVC handler.
-	 */
-	uint32_t registers[CONTEXT_REGISTER_NUMBER];
-} user_context_t;
-
-#endif /* __CONTEXT_H__ */
+#endif /* __ALLOCATOR_H__ */

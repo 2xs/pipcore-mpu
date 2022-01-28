@@ -36,8 +36,9 @@
 #include "Internal.h"
 #include "context.h"
 #include "yield_c.h"
+#include "nrf52.h"
 #include "mal.h"
-#include "scb.h"
+#include "scs.h"
 
 /* Check that an address does not exceed the end of a block. */
 #define IS_BLOCK_END_EXCEEDED(address, blockEnd) \
@@ -49,9 +50,6 @@
 /* This EXC_RETURN value allows to return to Thread mode with
  * the PSP stack. */
 #define EXC_RETURN_THREAD_MODE_PSP 0xFFFFFFFD
-
-/* Size of a basic frame without FP extension. */
-#define FRAME_SIZE 0x20
 
 /* The MSP top of stack defined in the link script. */
 extern uint32_t __StackTop;
@@ -79,35 +77,6 @@ static yield_return_code_t getChildPartDescCont(
 	paddr calleePartDescAddr,
 	unsigned targetInterrupt,
 	unsigned callerContextSaveIndex,
-	int_mask_t flagsOnYield,
-	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext
-);
-
-static yield_return_code_t getParentPartDescCont(
-	paddr callerPartDesc,
-	unsigned targetInterrupt,
-	unsigned callerContextSaveIndex,
-	int_mask_t flagsOnYield,
-	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext
-);
-
-static yield_return_code_t getSourcePartVidtCont(
-	paddr calleePartDesc,
-	paddr callerPartDesc,
-	unsigned targetInterrupt,
-	unsigned callerContextSaveIndex,
-	int_mask_t flagsOnYield,
-	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext
-);
-
-static yield_return_code_t getTargetPartVidtCont(
-	paddr calleePartDesc,
-	paddr callerPartDesc,
-	paddr callerContextSaveAddr,
-	unsigned targetInterrupt,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake,
 	user_context_t *callerInterruptedContext
@@ -149,7 +118,7 @@ static void updateCurPartAndActivate(paddr calleePartDesc);
 static void kernel_set_int_state(uint32_t interrupt_state);
 
 yield_return_code_t yieldGlue(
-	context_svc_t *svc_ctx,
+	stacked_context_t *svc_ctx,
 	paddr calleePartDescLocalId,
 	uservalue_t userTargetInterrupt,
 	uservalue_t userCallerContextSaveIndex,
@@ -168,7 +137,7 @@ yield_return_code_t yieldGlue(
 	uint32_t forceAlign = CCR.STKALIGN;
 	uint32_t spMask     = ((ctx.registers[XPSR] >> 9) & forceAlign) << 2;
 	ctx.registers[SP]   = (ctx.registers[SP] + FRAME_SIZE) | spMask;
-	ctx.valid           = 1;
+	ctx.valid           = CONTEXT_VALID_VALUE;
 
 	return checkIntLevelCont(
 		calleePartDescLocalId,
@@ -278,7 +247,7 @@ static yield_return_code_t getChildPartDescCont(
 	);
 }
 
-static yield_return_code_t getParentPartDescCont(
+yield_return_code_t getParentPartDescCont(
 	paddr callerPartDescGlobalId,
 	unsigned targetInterrupt,
 	unsigned callerContextSaveIndex,
@@ -308,7 +277,7 @@ static yield_return_code_t getParentPartDescCont(
 	);
 }
 
-static yield_return_code_t getSourcePartVidtCont(
+yield_return_code_t getSourcePartVidtCont(
 	paddr calleePartDescGlobalId,
 	paddr callerPartDescGlobalId,
 	unsigned targetInterrupt,
@@ -357,7 +326,7 @@ static yield_return_code_t getSourcePartVidtCont(
 	);
 }
 
-static yield_return_code_t getTargetPartVidtCont(
+yield_return_code_t getTargetPartVidtCont(
 	paddr calleePartDescGlobalId,
 	paddr callerPartDescGlobalId,
 	paddr callerContextSaveAddr,
@@ -476,7 +445,14 @@ static yield_return_code_t getTargetPartCtxCont(
 
 	user_context_t *targetContext = (user_context_t *) calleeContextAddr;
 
-	if (!(callerContextSaveAddr == 0))
+	/* Check that the target context has a valid context value in
+	 * the valid field of the structure. */
+	if (targetContext->valid != CONTEXT_VALID_VALUE)
+	{
+		return CALLEE_CONTEXT_INVALID;
+	}
+
+	if (!(callerContextSaveAddr == NULL))
 	{
 		return saveSourcePartCtxCont(
 			calleePartDescGlobalId,
@@ -591,7 +567,7 @@ static void writeContext(
 		userland_save_ptr->registers[i] = ctx->registers[i];
 	}
 	userland_save_ptr->pipflags = flagsOnWake;
-	userland_save_ptr->valid = 1;
+	userland_save_ptr->valid = CONTEXT_VALID_VALUE;
 }
 
 yield_return_code_t switchContextCont(
@@ -634,8 +610,32 @@ static void updateCurPartAndActivate(paddr calleePartDescGlobalId)
 
 static void kernel_set_int_state(uint32_t interrupt_state)
 {
-	/* TODO */
-	(void) interrupt_state;
+	/* Retrieve the current partition block. */
+	paddr currentpartDescBlockGlobalId = getCurPartition();
+
+	if (currentpartDescBlockGlobalId == NULL)
+	{
+		return;
+	}
+
+	/* Retrieve the VIDT block of the current partition. */
+	paddr currentVidtBlockGlobalId =
+		readPDVidt(currentpartDescBlockGlobalId);
+
+	if (currentVidtBlockGlobalId == NULL)
+	{
+		return;
+	}
+
+	/* Retrieve the VIDT address from the VIDT block of the current
+	 * partition. */
+	user_context_t **currentVidtAddr =
+		readBlockStartFromBlockEntryAddr(currentVidtBlockGlobalId);
+
+	/* Write the interrupt state at index INTERRUPT_STATE_IDX in the
+	 * VIDT of the current partition. */
+	currentVidtAddr[INTERRUPT_STATE_IDX] =
+		(user_context_t *) interrupt_state;
 }
 
 __attribute__((noreturn))
@@ -643,9 +643,6 @@ static void loadContext(
 	user_context_t *ctx,
 	unsigned enforce_interrupts
 ) {
-	/* TODO: Handle interrupts. */
-	(void) enforce_interrupts;
-
 	/* Forces the callee's stack to be aligned to 8 bytes when the
 	 * STKALIGN bit is set to 1. */
 	uint32_t forceAlign    = CCR.STKALIGN;
@@ -665,10 +662,24 @@ static void loadContext(
 	framePtr[6]        = ctx->registers[PC];
 	framePtr[7]        = ctx->registers[XPSR] | (framePtrAlign << 9) | (1 << 24);
 
+	if (!enforce_interrupts)
+	{
+		/* Enable BASEPRI masking. All interrupts lower
+		 * or equal to the priority 1, i.e. interrupts
+		 * below the SVCall in the vector table, are
+		 * disabled. */
+		__set_BASEPRI(1 << (8 - __NVIC_PRIO_BITS));
+	}
+	else
+	{
+		/* Disable BASEPRI masking. */
+		__set_BASEPRI(0);
+	}
+
 	asm volatile
 	(
-		/* Restores registers R4 to R11 from
-		 * the context. */
+		/* Restore registers R4 to R11 from the
+		 * context. */
 		"ldmia   %0!, {r4-r11};"
 
 		/* Reset the MSP to its top of stack. */
@@ -677,11 +688,12 @@ static void loadContext(
 		/* Set the PSP to the stacked frame.  */
 		"msr     psp, %2;"
 
-		/* Enable interrupts. */
+		/* Enable interrupts by setting the PRIMASK
+                 * register to 0. */
 		"cpsie   i;"
 
-		/* The exception returns to Thread
-		 * mode and uses the PSP. */
+		/* The exception returns to Thread mode and uses
+		 * the PSP. */
 		"bx      %3;"
 
 		/* Output operands */
@@ -699,7 +711,7 @@ static void loadContext(
 		  "r10", "r11", "memory"
 	);
 
-        /* We should never end up here because we are in Handler mode
+	/* We should never end up here because we are in Handler mode
 	 * and we have executed the BX instruction with the special
 	 * value EXC_RETURN_THREAD_MODE_PSP. */
 	__builtin_unreachable();

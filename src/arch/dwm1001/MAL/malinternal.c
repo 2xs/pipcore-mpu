@@ -292,13 +292,14 @@ uint32_t MINBLOCKSIZE(void)
 uint32_t MINVIDTBLOCKSIZE(void)
 {
 	/*
-	 * The VIDT is an array of 32 pointers of 4 bytes. This requires a
-	 * block of at least 128 bytes, which is a valid MPU region size.
+	 * The VIDT is an array of 128 pointers of 4 bytes. This
+	 * requires a block of at least 512 bytes.
 	 *
-	 * TODO: Do not hard-code this value because on some architectures, a
-	 * pointer is not necessarily equal to 4 bytes.
+	 * TODO: Do not hard-code this value because on some
+	 * architectures, a pointer is not necessarily equal to 4
+	 * bytes.
 	 */
-	return 128;
+	return 512;
 }
 
 /*!

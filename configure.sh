@@ -546,7 +546,7 @@ configure_global_variables() {
 			### Default names of the commands
 
 			cc=${cc:='arm-none-eabi-gcc'}
-			as=${as:='arm-none-eabi-as'}
+			as=${as:='arm-none-eabi-gcc'}
 			ld=${ld:='arm-none-eabi-gcc'}
 			objcopy=${objcopy:='arm-none-eabi-objcopy'}
 			coqc=${coqc:='coqc'}
@@ -564,14 +564,14 @@ configure_global_variables() {
 			### number from the "--version" output
 
 			cc_regex='^.*gcc ([^)]\+) \([^ \n]\+\).*$'
-			as_regex='^GNU .\+ \([^ \n]\+\).*$'
+			as_regex='^.*gcc ([^)]\+) \([^ \n]\+\).*$'
 			ld_regex='^.*gcc ([^)]\+) \([^ \n]\+\).*$'
 			coqc_regex='^The Coq Proof Assistant, version \([^ \n]\+\).*$'
 
 			### Minimum versions of the toolchain for the selected
 			### architecture
 
-			as_minimum_version='2.35.2'
+			as_minimum_version='8.3.1'
 			cc_minimum_version='8.3.1'
 			ld_minimum_version='8.3.1'
 			coqc_minimum_version='8.13.1'
@@ -605,14 +605,14 @@ configure_global_variables() {
 			arch_ldflags="$arch_ldflags"' -lgcc'
 			arch_ldflags="$arch_ldflags"' -lm'
 			arch_ldflags="$arch_ldflags"' -std=gnu11'
-			arch_ldflags="$arch_ldflags"' -Wall'
 			arch_ldflags="$arch_ldflags"' -ffreestanding'
 			arch_ldflags="$arch_ldflags"' -mthumb'
 			arch_ldflags="$arch_ldflags"' -mcpu=cortex-m4'
 
 			### ASFLAGS for the selected architecture
 
-			arch_asflags=''
+			arch_asflags="$arch_cflags"
+			arch_asflags="$arch_asflags"' -c'
 
 			return 0
 			;;

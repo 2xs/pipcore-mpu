@@ -38,7 +38,7 @@
 #include "pip_debug.h"
 #include "context.h"
 #include "yield_c.h"
-#include "scb.h"
+#include "scs.h"
 
 #if defined(UART_DEBUG)
 #include "uart_debug_init.h"
@@ -47,6 +47,28 @@
 #if defined(TRACE)
 #include "trace.h"
 #endif // TRACE
+
+/*!
+ * \def SYSTEM_CLOCK_SOURCE_HZ
+ *
+ * \brief The system clock frequency in Hertz.
+ */
+#define SYSTEM_CLOCK_SOURCE_HZ 8000000 /* 8MHz */
+
+/*!
+ * \def SYSTICK_DELAY_SECOND
+ *
+ * \brief The delay between two SysTick in second.
+ */
+#define SYSTICK_DELAY_SECOND 0.01 /* 10 ms */
+
+/*!
+ * \def SYST_RVR_RELOAD_VALUE
+ *
+ * \brief The reload value for the SYST_RVR register.
+ */
+#define SYST_RVR_RELOAD_VALUE \
+	(((SYSTEM_CLOCK_SOURCE_HZ) * (SYSTICK_DELAY_SECOND)) - 1)
 
 // Stack end address for the user section; defined in linker script
 extern uint32_t user_stack_top;
@@ -58,6 +80,29 @@ extern paddr blockentryaddr_ram2;
 extern paddr blockentryaddr_periph;
 
 extern void main_yield(int argc, uint32_t **argv);
+
+/*!
+ * \brief Enable the SysTick timer.
+ */
+static void
+systick_timer_enable(void)
+{
+	/* Reset the SYST_CSR register */
+	SYST_CSR.as_uint32_t = 0;
+
+	/* Set the reload value of the SYST_CVR register. */
+	SYST_RVR.RELOAD = SYST_RVR_RELOAD_VALUE;
+
+	/* SysTick uses the processor clock. */
+	SYST_CSR.CLKSOURCE = 1;
+
+	/* Count to 0 changes the SysTick exception status to
+	 * pending. */
+	SYST_CSR.TICKINT = 1;
+
+	/* Counter is operating. */
+	SYST_CSR.ENABLE = 1;
+}
 
 /**
  * Main entry point.
@@ -73,6 +118,9 @@ void pip_main (void)
 
 	// Initialize the root partition and init the MPU
 	mal_init();
+
+	/* Enable the SysTick timer. */
+	systick_timer_enable();
 
 	/* Set the PendSV exception as pending by writing 1 to the
 	 * PENDSVSET bit. */
@@ -90,6 +138,16 @@ void pip_main (void)
 __attribute__((noreturn))
 void PendSV_Handler(void)
 {
+	int externalIrqNumber = 32 * (SCnSCB->ICTR + 1);
+
+	/* At reset, all priorities are equal to zero. Here, we want to mask
+	 * interrupt using BASEPRI=1 below DebugMonitor. So set PendSV,
+	 * SysTick and external interrupts at priority 1. */
+	for (int irq = PendSV_IRQn; irq < externalIrqNumber; irq++)
+	{
+		NVIC_SetPriority(irq, 1);
+	}
+
 	/* Get the top of the PSP */
 	uint32_t *sp  = (uint32_t *) &user_stack_top;
 
@@ -123,7 +181,7 @@ void PendSV_Handler(void)
 	rootPartitionContext.registers[PC] = (uint32_t) main_yield;
 	rootPartitionContext.registers[SP] = (uint32_t) argv;
 	rootPartitionContext.pipflags      = 0;
-	rootPartitionContext.valid         = 1;
+	rootPartitionContext.valid         = CONTEXT_VALID_VALUE;
 
 	/* Switch to unprivileged Thread mode. */
 	__set_CONTROL(__get_CONTROL() | CONTROL_nPRIV_Msk );

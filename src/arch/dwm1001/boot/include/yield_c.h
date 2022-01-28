@@ -35,7 +35,49 @@
 #define __YIELD_C_H__
 
 #include <stdint.h>
+
 #include "mal.h"
+
+/*!
+ * \brief Size of a basic frame without FP extension.
+ */
+#define FRAME_SIZE 0x20
+
+/*!
+ * \brief Enumeration of some of the VIDT index.
+ */
+typedef enum vidt_index_e
+{
+	/*!
+	 * \brief The index 7 of the ISR vector is a reserved index in
+	 *        the ARMv7-M architecture. We use it to save the
+	 *        interrupt state of an interrupted partition.
+	 */
+	INTERRUPT_STATE_IDX = 7,
+
+	/*!
+	 * \brief The index 8 of the ISR vector is a reserved index in
+	 *        the ARMv7-M architecture. We use it to save an
+	 *        interrupted context when its pipflags has a value
+	 *        equal to 0.
+	 */
+	CLI_SAVE_INDEX = 8,
+
+	/*!
+	 * \brief The index 9 of the ISR vector is a reserved index in
+	 *        the ARMv7-M architecture. We use it to save an
+	 *        interrupted context when its pipflags has a value
+	 *        othen than 0.
+	 */
+	STI_SAVE_INDEX = 9,
+
+	/*!
+	 * \brief The index 10 of the ISR vector is a reserved index in
+	 *        the ARMv7-M architecture. We use it to save a context
+	 *        that raised a double fault.
+	 */
+	DOUBLE_FAULT_LEVEL = 10
+} vidt_index_t;
 
 /*!
  * \brief Enumeration of the possible return codes for the yield system
@@ -184,7 +226,13 @@ typedef enum yield_return_code_e
 	 * \brief The address at which the callee's context should be
 	 *        read is not aligned on a 4-byte boundary.
 	 */
-	CALLEE_CONTEXT_MISALIGNED = 22
+	CALLEE_CONTEXT_MISALIGNED = 22,
+
+	/*!
+	 * \brief The valid field of the context structure does not
+	 *        contain a valid context value.
+	 */
+	CALLEE_CONTEXT_INVALID = 23
 
 } yield_return_code_t;
 
@@ -194,27 +242,34 @@ typedef uint32_t int_mask_t;
 /*!
  * \brief System call that yield from the current partition (the
  *        caller), to its parent or one of its childs (the callee).
+ *
  * \param svc_ctx Registers stacked by the SVC handler.
+ *
  * \param calleePartDescBlockId The ID of the block containing the
  *        partition descriptor structure of a child of the current
  *        partition, or an ID equals to 0 for the partition descriptor
  *        structure of its parent.
+ *
  * \param userTargetInterrupt The index of the VIDT, which contains the
  *        address pointing to the location where the current context is
  *        to be restored.
+ *
  * \param userCallerContextSaveIndex The index of the VIDT, which
  *        contains the address pointing to the location where the
  *        current context is to be stored. If this address is zero, the
  *        context is not stored.
+ *
  * \param flagsOnYield The state the partition wishes to be on yield.
+ *
  * \param flagsOnWake The state the partition wishes to be on wake.
+ *
  * \return If the system call succeeds, no value is returned to the
  *         caller. If an error occurs, the system call returns an error
  *         code indicating the nature of the error. If the context is
  *         restored, the return value should be ignored.
  */
 yield_return_code_t yieldGlue(
-	context_svc_t *svc_ctx,
+	stacked_context_t *svc_ctx,
 	paddr calleePartDescAddr,
 	uservalue_t userTargetInterrupt,
 	uservalue_t userCallerContextSaveIndex,
@@ -222,14 +277,48 @@ yield_return_code_t yieldGlue(
 	int_mask_t flagsOnWake
 );
 
+yield_return_code_t getSourcePartVidtCont(
+        paddr calleePartDesc,
+        paddr callerPartDesc,
+        unsigned targetInterrupt,
+        unsigned callerContextSaveIndex,
+        int_mask_t flagsOnYield,
+        int_mask_t flagsOnWake,
+        user_context_t *callerInterruptedContext
+);
+
+yield_return_code_t getTargetPartVidtCont(
+        paddr calleePartDesc,
+        paddr callerPartDesc,
+        paddr callerContextSaveAddr,
+        unsigned targetInterrupt,
+        int_mask_t flagsOnYield,
+        int_mask_t flagsOnWake,
+        user_context_t *callerInterruptedContext
+);
+
+yield_return_code_t getParentPartDescCont(
+	paddr callerPartDesc,
+	unsigned targetInterrupt,
+	unsigned callerContextSaveIndex,
+	int_mask_t flagsOnYield,
+	int_mask_t flagsOnWake,
+	user_context_t *callerInterruptedContext
+);
+
 /*!
  * \brief Yield to another partition.
+ *
  * \warning This function is publicly exposed only to start the root
  *          partition.
+ *
  * \param calleePartDesc The ID of the block containing the partition
  *        descriptor structure of the partition on which to yield.
+ *
  * \param flagsOnYield The state the partition wishes to be on yield.
+ *
  * \param ctx The context from which to restore the processor registers.
+ *
  * \return Although the function has a return type, it never returns to
  *         the caller. This return type is required for a future
  *         implementation of the service in Coq.

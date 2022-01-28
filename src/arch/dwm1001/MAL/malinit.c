@@ -84,7 +84,7 @@ extern uint32_t user_stack_top;
 
 extern uint32_t _sram;
 
-static void* user_alloc_pos = NULL;
+void* user_alloc_pos = NULL;
 
 paddr blockentryaddr_flash = NULL;
 paddr blockentryaddr_ram0 = NULL;
