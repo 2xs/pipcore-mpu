@@ -53,35 +53,35 @@ Definition leb (a b : paddr) : LLI bool := ret (a <=? b).
 Definition ltb (a b : paddr) : LLI bool := ret (a <? b).
 Program Definition succ (n : paddr) : LLI paddr :=
 let isucc := n+1 in
-if (lt_dec isucc maxAddr )
+if (le_dec isucc maxAddr )
 then
   ret (Build_paddr isucc _ )
 else  undefined 68.
 
 Program Definition pred (n : paddr) : LLI paddr :=
 let ipred := n-1 in
-if (lt_dec ipred maxAddr )
+if (le_dec ipred maxAddr )
 then
   ret (Build_paddr ipred _ )
 else  undefined 69.
 
 Program Definition addPaddrIdx (n : paddr) (m: index) : LLI paddr :=
 let res := n+m in
-if (lt_dec res maxAddr )
+if (le_dec res maxAddr )
 then
   ret (Build_paddr res _ )
 else  undefined 70.
 
 Program Definition subPaddrIdx (n : paddr) (m: index) : LLI paddr :=
 let res := n-m in
-if (lt_dec res maxAddr )
+if (le_dec res maxAddr )
 then
   ret (Build_paddr res _ )
 else  undefined 71.
 
 Program Definition subPaddr (n : paddr) (m: paddr) : LLI index :=
 let res := n-m in
-if (lt_dec res maxIdx)
+if (le_dec res maxIdx)
 then
   ret (Build_index res _ )
 else  undefined 72.
@@ -93,13 +93,13 @@ Definition leb (a b : index) : LLI bool := ret (a <=? b).
 Definition ltb (a b : index) : LLI bool := ret (a <? b).
 Program Definition succ (n : index) : LLI index :=
 let isucc := n+1 in
-if (lt_dec isucc maxIdx)
+if (le_dec isucc maxIdx)
 then
   ret (Build_index isucc _ )
 else  undefined 68.
 Program Definition pred (n : index) : LLI index :=
 let ipred := n-1 in
-if (lt_dec ipred maxIdx)
+if (le_dec ipred maxIdx)
 then
   ret (Build_index ipred _ )
 else  undefined 71.
@@ -108,21 +108,21 @@ Program Definition zero : LLI index:= ret (CIndex 0).
 
 Program Definition subIdx (n : index) (m: index) : LLI index :=
 let res := n-m in
-if (lt_dec res maxIdx )
+if (le_dec res maxIdx )
 then
   ret (Build_index res _ )
 else  undefined 72.
 
 Program Definition addIdx (n : index) (m: index) : LLI index :=
 let res := n+m in
-if (lt_dec res maxIdx )
+if (le_dec res maxIdx )
 then
   ret (Build_index res _ )
 else  undefined 72.
 
 Program Definition mulIdx (n : index) (m: index) : LLI index :=
 let res := n*m in
-if (lt_dec res maxIdx )
+if (le_dec res maxIdx )
 then
   ret (Build_index res _ )
 else  undefined 70.
@@ -153,6 +153,8 @@ Definition kernelStructureTotalLength := CIndex (nextoffset + 1).
 Definition PDStructureTotalLength := CIndex (5+8). (*5 fields + table of 8 MPU regions *)
 End Constants.
 
+Definition multiplexer := Constants.rootPart.
+
 (*Definition getNextOffset : LLI paddr := ret Constants.nextoffset.*)
 Definition getNextOffset : LLI index := ret nextoffset.
 Definition getKernelStructureEntriesNb : LLI index := ret (CIndex kernelStructureEntriesNb).
@@ -165,7 +167,7 @@ Definition getPDStructureTotalLength : LLI index := ret Constants.PDStructureTot
 Definition getMPURegionsNb : LLI index := ret (CIndex MPURegionsNb).
 
 Definition beqIdx (a b : ADT.index) : bool := a =? b.
-Definition beqAddr (a b : ADT.paddr) : bool := a =? b.
+Definition beqAddr (a b : paddr) : bool := a =? b.
 Definition nullAddr : paddr := CPaddr 0.
 Definition getNullAddr := ret nullAddr.
 Definition getBeqAddr (p1 : paddr)  (p2 : paddr) : LLI bool := ret (p1 =? p2).

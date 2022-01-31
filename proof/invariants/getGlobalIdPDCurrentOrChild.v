@@ -1,5 +1,5 @@
 (*******************************************************************************)
-(*  © Université de Lille, The Pip Development Team (2015-2022)                *)
+(*  © Université de Lille, The Pip Development Team (2015-2021)                *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -31,15 +31,78 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary 
-    This file contains the invariant of [removeVAddr]. 
-    We prove that this PIP service preserves the isolation property *)
-Require Import Model.ADT Model.Hardware Core.Services Isolation Consistency.
+(** * Summary
+    This file contains the invariant of [getGlobalIdPDCurrentOrChild].
+*)
 
-Lemma removeVAddr   (descChild : vaddr) (vaChild : vaddr) :
-{{fun s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }} 
-removeVAddr descChild vaChild 
-{{fun _ s  => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}.
+Require Import Model.ADT Core.Services Model.MALInternal Model.Lib.
+Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPreconditions
+Proof.StateLib Proof.DependentTypeLemmas.
+Require Import invariants.Invariants invariants.checkChildOfCurrPart.
+
+Require Import Model.Monad (* for visibility *).
+
+Module WP := WeakestPreconditions.
+
+Lemma getGlobalIdPDCurrentOrChild (currentPartition idPDToCheck : paddr) (P : state -> Prop):
+{{fun s => P s /\ consistency s
+					/\ isPDT currentPartition s}}
+Internal.getGlobalIdPDCurrentOrChild currentPartition idPDToCheck
+{{fun idPDChild s  => P s /\ consistency s /\
+										(idPDChild <> nullAddr -> isPDT idPDChild s) }}.
 Proof.
-(** TODO : To be proved *)
-Admitted.
+unfold Internal.getGlobalIdPDCurrentOrChild.
+eapply bindRev.
+{ (** MALInternal.getBeqAddr **)
+	eapply weaken. apply getBeqAddr.
+	intros. simpl. apply H.
+}
+intro isCurrentPart.
+case_eq isCurrentPart.
+- (* case_eq isCurrentPart = true *)
+	intros.
+	{ (** ret *)
+	eapply weaken. apply WP.ret.
+  simpl. intros. intuition.
+	}
+- (* case_eq isCurrentPart = false *)
+	intros.
+	eapply bindRev.
+	{ (** Internal.checkChildOfCurrPart *)
+		eapply weaken. apply checkChildOfCurrPart.
+		intros. simpl. split. apply H0. intuition.
+	}
+	intro isChildCurrPart.
+	case_eq isChildCurrPart.
+	+ (* case_eq isChildCurrPart = true *)
+		intros.
+		eapply bindRev.
+		{ (** MAL.readBlockStartFromBlockEntryAddr *)
+			eapply weaken. apply readBlockStartFromBlockEntryAddr.
+			intros. simpl. split. apply H1. intuition.
+			destruct H5. intuition. destruct H7.
+			unfold isBE. intuition. rewrite H7 ; trivial.
+		}
+		intro idPDChild.
+		{ (** ret *)
+		eapply weaken. apply WP.ret.
+		simpl. intros. intuition.
+		destruct H6. unfold consistency in *. unfold PDTIfPDFlag in *.
+		intuition. unfold entryPDT in *. destruct H10. intuition.
+		specialize (H6 idPDToCheck x H2).
+		destruct H6. intuition.
+		unfold bentryStartAddr in *. rewrite H10 in *. subst.
+		unfold isPDT.
+		destruct (lookup (startAddr (blockrange x1)) (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
+		destruct v eqn:Hv ; try (exfalso ; congruence) ; trivial.
+		}
+	+ (* case_eq isChildCurrPart = false *)
+		intros.
+		{ (** ret *)
+		eapply weaken. apply WP.ret.
+		simpl. intros. intuition.
+		}
+Qed.
+
+
+

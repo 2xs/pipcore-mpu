@@ -146,20 +146,20 @@ void mal_init_root_part(paddr part)
 	// add user memory block(s)
 #if !defined UNIT_TESTS // unit tests are prepared differently
 	// One FLASH block + one RAM block + one peripheral block -> seperated compilation
-	/*paddr blockentryaddr_flash = insertNewEntry(part, 0,  0x00080000, 0, true, false, true); // idpartition, start, end, origin, RWX
-	paddr blockentryaddr_ram = insertNewEntry(part, user_alloc_pos, &user_mem_end, user_alloc_pos, true, true, false);
-	paddr blockentryaddr_periph = insertNewEntry(part, 0x40000000, 0x5FFFFFFF, 0x40000000, true, true, false);
+	/*paddr blockentryaddr_flash = insertNewEntry(part, 0,  0x00080000, 0, true, false, true,readPDNbFreeSlots(part)); // idpartition, start, end, origin, RWX
+	paddr blockentryaddr_ram = insertNewEntry(part, user_alloc_pos, &user_mem_end, user_alloc_pos, true, true, false, readPDNbFreeSlots(part));
+	paddr blockentryaddr_periph = insertNewEntry(part, 0x40000000, 0x5FFFFFFF, 0x40000000, true, true, false, readPDNbFreeSlots(part));
 	// Pre-configure the MPU LUT with inserted block(s)
 	enableBlockInMPU(part, blockentryaddr_flash, 0);
 	enableBlockInMPU(part, blockentryaddr_ram, 1);
 	enableBlockInMPU(part, blockentryaddr_periph, 2);*/
 
 	// One FLASH block + three RAM block (RW data + available memory + stack) + peripheral block -> not separated compilation
-	blockentryaddr_flash = insertNewEntry(part, (paddr) 0,  (paddr) 0x00080000, (paddr) 0, true, false, true);
-	blockentryaddr_ram0 = insertNewEntry(part, (paddr) 0x20000000, user_alloc_pos-1, (paddr) 0x20000000, true, true, false);
-	blockentryaddr_ram1 = insertNewEntry(part, user_alloc_pos, (paddr) 0x20007FFF, (paddr) 0x20000000, true, true, false);
-	blockentryaddr_ram2 = insertNewEntry(part, (paddr) 0x20008000, &user_stack_top, (paddr) 0x20008000, true, true, false);
-	blockentryaddr_periph = insertNewEntry(part, (paddr) 0x40000000, (paddr) 0x5FFFFFFF, (paddr) 0x40000000, true, true, false);
+	blockentryaddr_flash = insertNewEntry(part, (paddr)0, (paddr)0x00080000, (paddr)0, true, false, true, readPDNbFreeSlots(part));
+	blockentryaddr_ram0 = insertNewEntry(part, (paddr)0x20000000, user_alloc_pos - 1, (paddr)0x20000000, true, true, false, readPDNbFreeSlots(part));
+	blockentryaddr_ram1 = insertNewEntry(part, user_alloc_pos, (paddr)0x20007FFF, (paddr)0x20000000, true, true, false, readPDNbFreeSlots(part));
+	blockentryaddr_ram2 = insertNewEntry(part, (paddr)0x20008000, &user_stack_top, (paddr)0x20008000, true, true, false, readPDNbFreeSlots(part));
+	blockentryaddr_periph = insertNewEntry(part, (paddr)0x40000000, (paddr)0x5FFFFFFF, (paddr)0x40000000, true, true, false, readPDNbFreeSlots(part));
 
 	// Map 4 blocks -> flash, 2 ram blocks + peripherals
   	enableBlockInMPU(part, blockentryaddr_flash, 0); // Entire Flash

@@ -78,13 +78,13 @@ void init_tests_only_ram()
 
   // add user memory block(s)
   // One RAM block for unit testing
-	initial_block_root_address = insertNewEntry(root, initial_block_start, &user_mem_end - 1, initial_block_start, true, true, false);// idpartition, start, end, origin, RW = true, X = false
+  initial_block_root_address = insertNewEntry(root, initial_block_start, &user_mem_end - 1, initial_block_start, true, true, false, readPDNbFreeSlots(root)); // idpartition, start, end, origin, RW = true, X = false
 
-	// Pre-configure the MPU LUT with inserted block(s)
+  // Pre-configure the MPU LUT with inserted block(s)
   enableBlockInMPU(root, initial_block_root_address, 0);
 
   //dump_partition(root);
-  activate(root);
+  updateCurPartAndActivate(root);
 }
 
 /*!
@@ -99,14 +99,14 @@ void init_tests_flash_ram_w_stack()
 
   // add user memory block(s)
   // One FLASH block and two RAM blocks (RO data + stack)
-	block_flash = insertNewEntry(root, 0,  (paddr) 0x00080000, 0, true, false, true);
-	//block_ram1 = insertNewEntry(root, &_sram, &user_stack_limit-0x200, &_sram, true, true, false);
-	//block_ram2 = insertNewEntry(root, &user_stack_limit, &user_stack_top, &user_stack_limit, true, true, false);
-  block_ram1 = insertNewEntry(root, (paddr) 0x20000000, (paddr) 0x20000FFF, (paddr) 0x20000000, true, false, false);
-	block_ram2 = insertNewEntry(root, (paddr) 0x20001000, &user_stack_top, (paddr) 0x20001000, true, true, false);
+  block_flash = insertNewEntry(root, 0, (paddr)0x00080000, 0, true, false, true, readPDNbFreeSlots(root));
+  // block_ram1 = insertNewEntry(root, &_sram, &user_stack_limit-0x200, &_sram, true, true, false, readPDNbFreeSlots(root));
+  // block_ram2 = insertNewEntry(root, &user_stack_limit, &user_stack_top, &user_stack_limit, true, true, false, readPDNbFreeSlots(root));
+  block_ram1 = insertNewEntry(root, (paddr)0x20000000, (paddr)0x20000FFF, (paddr)0x20000000, true, false, false, readPDNbFreeSlots(root));
+  block_ram2 = insertNewEntry(root, (paddr)0x20001000, &user_stack_top, (paddr)0x20001000, true, true, false, readPDNbFreeSlots(root));
 
   //dump_partition(root);
-  activate(root);
+  updateCurPartAndActivate(root);
 }
 
 
@@ -1644,8 +1644,7 @@ void remove_alone(int fast)
   remaining_blocks_slots_form_a_linked_list(1, KERNELSTRUCTUREENTRIESNB - 1, child_kernel_structure_start);
 
   // REMOVE block + checks PD is same as before + BLK/Sh1/SC are default
-  assert(removeMemoryBlock(block_create_child_root_address,
-                          block_to_share_root_address) != false);
+  assert(removeMemoryBlock(block_to_share_root_address) != false);
   dump_partition(child_partition_pd);
   assert(old_pointer_to_BLK_linked_list == readPDStructurePointer(child_partition_pd));
   assert(old_first_free_slot_address == readPDFirstFreeSlotPointer(child_partition_pd));
@@ -1749,8 +1748,7 @@ void remove_in_grandchildren()
 
   // REMOVE : Switch back to parent and remove block to share
   updateCurPartition(root);
-  assert(removeMemoryBlock(block_create_child_root_address,
-                          block_to_share_root_address) != false);
+  assert(removeMemoryBlock(block_to_share_root_address) != false);
 
 
   // test block is not present anymore in child AND grandchild
@@ -1846,8 +1844,7 @@ void remove_accessible_subblocks()
 
   // REMOVE switch back to parent -> remove block in child
   updateCurPartition(root);
-  assert(removeMemoryBlock(block_create_child_root_address,
-                          block_to_share_root_address) != false);
+  assert(removeMemoryBlock(block_to_share_root_address) != false);
 
   // Test PD is same as before + BLK/Sh1/SC are default -> all cuts are removed as well
   assert(old_pointer_to_BLK_linked_list ==
@@ -1923,8 +1920,7 @@ void remove_fails_with_subblocks_inaccessible()
   assert(prepare(getCurPartition(), -1, block3_child_address) != false);
   // REMOVE fails
   updateCurPartition(root);
-  assert(removeMemoryBlock(block_create_child_root_address,
-                          block_to_share_root_address) == false);
+  assert(removeMemoryBlock(block_to_share_root_address) == false);
 }
 
 /*!
@@ -1975,8 +1971,7 @@ void remove_fails_with_block_in_child_not_accessible()
   assert(prepare(getCurPartition(), -1, block_to_share_child_address) != false);
   // REMOVE fails
   updateCurPartition(root);
-      assert(removeMemoryBlock(block_create_child_root_address,
-                              block_to_share_root_address) == false);
+      assert(removeMemoryBlock(block_to_share_root_address) == false);
 }
 
 /*!
@@ -2012,22 +2007,15 @@ void remove_bad_arguments()
   build_share_block_out_of_initial_block();
   init_test_with_create_prepare_child(false);
 
-  // Check fail because PD is not a child
-  assert(removeMemoryBlock((paddr) 0x1,
-                            block_to_share_root_address) == false);
-
   // Check the block to be shared doesn't exist with invalid block address (with kernel structure list length = 1)
-  assert(removeMemoryBlock(block_create_child_root_address,
-                          root_kernel_structure_start - 50) == false);
+  assert(removeMemoryBlock(root_kernel_structure_start - 50) == false);
 
   // PREPARE + Check the block to be shared doesn't exist with invalid block address (with kernel structure list length = 2)
   assert(prepare(getCurPartition(), -1, block_to_share_root_address) != false);
-  assert(removeMemoryBlock(block_create_child_root_address,
-                          root_kernel_structure_start - 50) == false);
+  assert(removeMemoryBlock(root_kernel_structure_start - 50) == false);
 
   // Check the block to be shared is inaccessible (block to share used in previous prepare);
-  assert(removeMemoryBlock(block_create_child_root_address,
-                          block_to_share_root_address) == false);
+  assert(removeMemoryBlock(block_to_share_root_address) == false);
 }
 /*!
  * \fn void test_remove_bad_arguments()
@@ -3276,7 +3264,7 @@ void test_mpu_in_sync_with_system_calls()
 
   // in child : set the block in the MPU, shoud not be writable
   assert(mapMPU(block_create_child_root_address, shared_block_address, 0) == true);
-  updateCurPartition(child_partition_pd);
+  updateCurPartAndActivate(child_partition_pd);
   currPart = (PDTable_t*) getCurPartition();
   assert(currPart->mpu[0] == shared_block_address);
   assert(readPhysicalMPUAP(0) == 2);

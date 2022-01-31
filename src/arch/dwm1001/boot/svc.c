@@ -129,20 +129,17 @@ uint32_t* Pip_addMemoryBlock(
 
 __attribute__((noinline))
 uint32_t Pip_removeMemoryBlock(
-	uint32_t *childPartDescBlockLocalId,
-	uint32_t *blockToRemoveLocalId
+        uint32_t *blockToRemoveLocalId
 ) {
 	register uint32_t r0 asm("r0");
-	register uint32_t r1 asm("r1");
 
-	r0 = (uint32_t) childPartDescBlockLocalId;
-	r1 = (uint32_t) blockToRemoveLocalId;
+	r0 = (uint32_t) blockToRemoveLocalId;
 
 	asm volatile
 	(
 		"svc #5"
 		: "+r" (r0)
-		: "r"  (r1)
+		:
 		: "memory"
 	);
 

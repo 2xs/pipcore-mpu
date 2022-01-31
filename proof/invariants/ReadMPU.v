@@ -31,74 +31,92 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary 
-    This file contains the formalization of interesting properties that we need 
-    to prove *)
-Require Import Model.ADT Model.MALInternal.
-Require Import Proof.StateLib Proof.Lib.
-Require Import List.
-Import List.ListNotations.
+(** * Summary
+    This file contains the invariant of [readMPU].
+    We prove that this PIP service preserves the isolation property *)
 
-(** THE VERTICAL SHARING PROPERTY:
-    All child used blocks (PD + kernel structures + mapped blocks) are mapped into 
-    the parent partition  *)
-Definition verticalSharing s : Prop := 
+Require Import Model.ADT Core.Services.
+Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPreconditions
+Proof.StateLib Proof.DependentTypeLemmas.
+Require Import Invariants getGlobalIdPDCurrentOrChild findBlockInKS.
+Require Import Compare_dec Bool.
 
-forall parent child : paddr (*page*) , 
+Require Import Model.Monad Model.MALInternal Model.Lib (* for visibility *).
 
-  In parent (getPartitions multiplexer s) -> 
+Module WP := WeakestPreconditions.
 
-  In child (getChildren parent s) -> 
-
-  (*incl (getUsedPages child s) (getMappedPages parent s).*)
-  incl (getUsedBlocks child s) (getMappedBlocks parent s).
-
-(** THE ISOLATION PROPERTY BETWEEN PARTITIONS, 
-    If we take two different children of a given parent, 
-    then all their used blocks are different  *)
-Definition partitionsIsolation  s : Prop :=  
-
-forall parent child1 child2 : paddr , 
-
-  In parent (getPartitions multiplexer s)-> 
-
-  In child1 (getChildren parent s) -> 
-
-  In child2 (getChildren parent s) -> 
-
-  child1 <> child2 ->
-
-  (*disjoint (getUsedPages child1 s)(getUsedPages child2 s).*)
-  disjoint (getUsedBlocks child1 s)(getUsedBlocks child2 s).
-
-(** THE ISOLATION PROPERTY BETWEEN THE KERNEL DATA AND PARTITIONS
-    kernel data is the configuration pages of partitions.
-    All configuration tables of a given partition are inaccessible by all
-    partitions *)
-
-(* TODO : include range not raw element -> the base address doesn't say anything on subblocks *)
-(*Definition kernelDataIsolation s : Prop :=
-
-forall partition1 partition2 : paddr, 
-
-  In partition1 (getPartitions multiplexer s) ->
-
-  In partition2 (getPartitions multiplexer s) -> 
-
-  (*disjoint (getAccessibleMappedPages partition1 s) (getConfigPages partition2 s).*)
- 	(partition1 <> partition2) /\
-	disjoint (getAccessibleMappedBlocks partition1 s) (getConfigBlocks partition2 s)
-	\/
- 	(partition1 = partition2) /\
-	disjoint (getAccessibleBlocks partition1 s) (getConfigBlocks partition2 s).*)
-
-Definition kernelDataIsolation s : Prop :=
-	forall partition1 partition2 : paddr,
-
-	In partition1 (getPartitions multiplexer s) ->
-
-  In partition2 (getPartitions multiplexer s) -> 
-	~exists Asubblock Csubblock : paddr,
-	In Asubblock (getAccessibleMappedBlocks partition1 s) -> 
-	In Csubblock (getConfigBlocks partition2 s) -> 
-	checkissubblock Asubblock Csubblock s \/ checkissubblock Csubblock Asubblock s.
+Lemma readMPU (idPD: paddr) (MPURegionNb : index) :
+{{fun s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}
+Services.readMPU idPD MPURegionNb
+{{fun _ s  => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}.
+Proof.
+unfold Services.readMPU.
+eapply bindRev.
+{ (** getCurPartition **)
+	eapply weaken. apply getCurPartition.
+	intros. simpl. split. apply H. intuition.
+}
+intro currentPart.
+eapply bindRev.
+{ (** Internal.getGlobalIdPDCurrentOrChild **)
+	eapply weaken. apply getGlobalIdPDCurrentOrChild.
+	intros. simpl. split. apply H. intuition.
+}
+intro globalIdPD.
+eapply bindRev.
+{ (** compareAddrToNull **)
+	eapply weaken. apply Invariants.compareAddrToNull.
+	intros. simpl. apply H.
+}
+intro addrIsNull.
+case_eq addrIsNull.
+- (* case_eq addrIsNull = true *)
+	intros.
+	{ (** ret *)
+	eapply weaken. apply WP.ret.
+  simpl. intros. intuition.
+	}
+- (* case_eq addrIsNull = false *)
+	intros.
+	eapply bindRev.
+	{ (** zero **)
+		eapply weaken. apply Invariants.Index.zero.
+		intros. simpl. apply H0.
+	}
+	intro zero.
+	eapply bindRev.
+	{ (** ltb **)
+		eapply weaken. apply Invariants.Index.ltb.
+		intros. simpl. apply H0.
+	}
+	intro isBelowZero.
+	eapply bindRev.
+	{ (** getMPURegionsNb **)
+		eapply weaken. apply Invariants.getMPURegionsNb.
+		intros. simpl. apply H0.
+	}
+	intro maxMPURegions.
+	eapply bindRev.
+	{ (** leb **)
+		eapply weaken. apply Invariants.Index.leb.
+		intros. simpl. apply H0.
+	}
+	intro isAboveMPURegionsNb.
+	case_eq (isBelowZero || isAboveMPURegionsNb).
+	+ (* case_eq (isBelowZero || isAboveMPURegionsNb) = true *)
+		intros.
+		{ (** ret *)
+			eapply weaken. apply WP.ret.
+			simpl. intros. apply H1.
+		}
+	+ (* case_eq (isBelowZero || isAboveMPURegionsNb) = false *)
+		intros.
+		(* the invariant to apply has stronger post-condition than required *)
+		eapply strengthen.
+		{ (** MAL.readBlockFromPhysicalMPU **)
+			eapply weaken. apply readBlockFromPhysicalMPU.
+			intros. simpl. split. apply H1. intuition.
+			apply H10. rewrite <- beqAddrFalse in *. congruence.
+		}
+		intros. intuition; intuition.
+Qed.

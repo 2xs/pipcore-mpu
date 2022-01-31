@@ -1280,3 +1280,9 @@ void activate(paddr desc)
 
 	printf("DEBUG: activate %p: MPU loaded\r\n", desc);
 }
+
+void updateCurPartAndActivate(paddr calleePartDescGlobalId)
+{
+	updateCurPartition(calleePartDescGlobalId);
+	activate(calleePartDescGlobalId);
+}

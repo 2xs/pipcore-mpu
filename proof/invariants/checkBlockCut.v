@@ -31,17 +31,58 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary 
-    This file contains the invariant of [collect]. 
-    We prove that this PIP service preserves the isolation property *)
+(**  * Summary 
+    In this file we formalize and prove all invariants of the MAL and MALInternal functions *)
+Require Import (*Model.ADT*) Model.Monad Model.Lib
+               Model.MAL.
+Require Import Core.Internal.
+Require Import Proof.Consistency (*Pip.Proof.DependentTypeLemmas*) Proof.Hoare
+               Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants
+								Proof.invariants.findBlockInKSWithAddr.
+Require Import Coq.Logic.ProofIrrelevance Lia Setoid Compare_dec (*EqNat*) List Bool.
 
-Require Import Model.ADT Model.Hardware Core.Services Isolation Consistency.
+Module WP := WeakestPreconditions.
 
-Lemma collect (descChild : vaddr) (vaToCollect : vaddr) :
-{{fun s => partitionsIsolation s  /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }} 
-collect descChild vaToCollect 
-{{fun _ s  => partitionsIsolation s  /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}.
+(* Couper le code de preuve -> ici que faire une propagation des propriétés initiale
++ propager nouvelles propriétés *) 
+Lemma checkBlockCut (blockentryaddr : paddr) P :
+{{ fun s => P s /\ consistency s
+						/\ isBE blockentryaddr s }}
+Internal.checkBlockCut blockentryaddr
+{{fun isBlockCut s => P s /\ consistency s
+(*/\ exists sh1entryaddr, isChild = StateLib.checkChild idPDchild s sh1entryaddr
+/\ if isChild then (exists entry, lookup idPDchild s.(memory) beqAddr = Some (BE entry)
+										/\ exists sh1entry, lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry))
+		else isChild = false*)
+}}.
 Proof.
-
-(** TODO : To be proved *)
-Admitted.
+unfold Internal.checkBlockCut.
+eapply WP.bindRev.
+{ (** readSCOriginFromBlockEntryAddr *)
+	eapply weaken. apply readSCOriginFromBlockEntryAddr.
+	intros. simpl. split. apply H. intuition. apply isBELookupEq. intuition.
+}
+	intro blockOrigin.
+	eapply WP.bindRev.
+{ (** readBlockStartFromBlockEntryAddr *)
+	eapply weaken. apply readBlockStartFromBlockEntryAddr.
+	intros. simpl. split. apply H. intuition.
+}
+	intro blockStart.
+	eapply WP.bindRev.
+{ (** readSCNextFromBlockEntryAddr *)
+	eapply weaken. apply readSCNextFromBlockEntryAddr.
+	intros. simpl. split. apply H. intuition. apply isBELookupEq. intuition.
+	
+}
+	intro blockNext. simpl.
+	case_eq (beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr).
+{ (** case_eq beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr = true *)
+	intros. eapply weaken. apply ret.
+	intros. simpl. intuition.
+}
+{ (** case_eq beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr = false *)
+	intros. eapply weaken. apply ret.
+	intros. simpl. intuition.
+}
+Qed.

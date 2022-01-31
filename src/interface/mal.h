@@ -43,16 +43,17 @@
 #include <stddef.h>
 
 
-/* Activate : deprecated */
-void activate(paddr dir);
+/* Activate */
+void activate(paddr descriptor); //!< Sets up the Partition Descriptor's memory space (MPU configuration)
 
 /* Current page directory */
 extern paddr root_partition;
-paddr getCurPartition(void); //!< Interface to get the current Page Directory
-void updateCurPartition (paddr descriptor);
+paddr getCurPartition(void); //!< Gets the current Partition Descriptor
+void updateCurPartition(paddr descriptor); //!< Updates the current Partition Descriptor
+void updateCurPartAndActivate(paddr calleePartDescGlobalId); //!< Updates the current Partition Descriptor and activate it
 
-paddr getRootPartition(void); //!< Interface to get the current Page Directory
-void updateRootPartition (paddr descriptor);
+paddr getRootPartition(void);           //!< Gets the root Partition Descriptor
+void updateRootPartition(paddr descriptor); //!< Updates the root Partition Descriptor
 
 uint32_t getTableSize(void); //!< Table size
 uint32_t getMaxIndex(void); //!< Table size

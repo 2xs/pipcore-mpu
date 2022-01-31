@@ -31,17 +31,273 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary 
-    This file contains the invariant of [prepare]. 
+(** * Summary
+    This file contains the invariant of [prepare].
     We prove that this PIP service preserves the isolation property *)
+Require Import Model.ADT Core.Services.
+Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPreconditions
+Proof.StateLib Proof.DependentTypeLemmas.
+Require Import Proof.invariants.Invariants getGlobalIdPDCurrentOrChild sizeOfBlock.
+Require Import Compare_dec Bool.
 
-Require Import Model.ADT Model.Hardware Core.Services Isolation Consistency.
+Require Import Model.Monad Model.MALInternal Model.Lib (* for visibility *).
 
-Lemma prepare (descChild : vaddr)  (va : vaddr) (fstVA : vaddr) (needNewConfigPagesList : bool) :
+Module WP := WeakestPreconditions.
+
+Lemma prepare (idPD : paddr)
+							(projectedSlotsNb : index)
+							(idRequisitionedBlock : paddr) :
 {{fun s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }} 
-prepare descChild va fstVA needNewConfigPagesList
+Services.prepare idPD projectedSlotsNb idRequisitionedBlock
 {{fun _ s  => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}.
 Proof.
-
-(** TODO : To be proved *)
-Admitted.
+unfold Services.prepare.
+eapply bindRev.
+{ (** getCurPartition **)
+	eapply weaken. apply getCurPartition.
+	intros. simpl. split. apply H. intuition.
+}
+intro currentPart.
+eapply bindRev.
+{ (** Internal.getGlobalIdPDCurrentOrChild **)
+	eapply weaken. apply getGlobalIdPDCurrentOrChild.
+	intros. simpl. split. apply H. intuition.
+}
+intro globalIdPD.
+eapply bindRev.
+{ (** compareAddrToNull **)
+	eapply weaken. apply Invariants.compareAddrToNull.
+	intros. simpl. apply H.
+}
+intro addrIsNull.
+case_eq addrIsNull.
+- (* case_eq addrIsNull = true *)
+	intros.
+	{ (** ret *)
+	eapply weaken. apply WP.ret.
+  simpl. intros. intuition.
+	}
+- (* case_eq addrIsNull = false *)
+	intros.
+	eapply bindRev.
+	{ (** MAL.readPDNbPrepare *)
+		eapply weaken. apply readPDNbPrepare.
+		intros. simpl. split. apply H0. intuition.
+		apply H5. intros. apply beqAddrFalse in H2. congruence.
+	}
+	intro nbPrepare.
+	eapply bindRev.
+	{ (** MALInternal.getMaxNbPrepare *)
+		eapply weaken. apply Invariants.getMaxNbPrepare.
+		intros. simpl. apply H0.
+	}
+	intro maxnbprepare.
+	eapply bindRev.
+	{ (** leb *)
+		eapply weaken. apply Invariants.Index.leb.
+		intros. simpl. apply H0.
+	}
+	intro isMaxPrepare.
+	case_eq isMaxPrepare.
+	+ (* case_eq isMaxPrepare = true*)
+		intros.
+		{ (** ret *)
+			intros. eapply WP.weaken. apply WP.ret.
+			intros. simpl. intuition.
+		}
+	+ (* case_eq isMaxPrepare = false *)
+		intros.
+		eapply bindRev.
+		{ (** MAL.readPDNbFreeSlots *)
+			eapply weaken. apply readPDNbFreeSlots.
+			intros. simpl. split. apply H1. intuition.
+			apply H8. intros.
+			(* globallIdPD is false, since we are in the branch addrIsNull = false *)
+			apply beqAddrFalse in H5. congruence.
+		}
+		intro currentFreeSlotsNb.
+		eapply bindRev.
+		{ (** leb *)
+			eapply weaken. apply Invariants.Index.leb.
+			intros. simpl. apply H1.
+		}
+		intro isEnoughFreeSlots.
+		eapply bindRev.
+		{ (** MALInternal.Index.zero *)
+			eapply weaken. apply Invariants.Index.zero.
+			intros. simpl. apply H1.
+		}
+		intro zero.
+		eapply bindRev.
+		{ (** ltb *)
+			eapply weaken. apply Invariants.Index.ltb.
+			intros. simpl. apply H1.
+		}
+		intro isForcedPrepare.
+		case_eq (isEnoughFreeSlots && negb isForcedPrepare).
+		* (* case_eq isEnoughFreeSlots && negb isForcedPrepare = true*)
+			intros.
+			{ (** ret *)
+				intros. eapply WP.weaken. apply WP.ret.
+				intros. simpl. intuition.
+			}
+		* (* case_eq isEnoughFreeSlots && negb isForcedPrepare = false *)
+			intros.
+			eapply bindRev.
+			{ (** getKernelStructureEntriesNb *)
+				eapply weaken. apply Invariants.getKernelStructureEntriesNb.
+				intros. simpl. apply H2.
+			}
+			intro kernelentriesnb.
+			eapply bindRev.
+			{ (** ltb *)
+				eapply weaken. apply Invariants.Index.ltb.
+				intros. simpl. apply H2.
+			}
+			intro isOutsideBound.
+			case_eq (negb isForcedPrepare && isOutsideBound).
+			-- (* case_eq (negb isForcedPrepare && isOutsideBound) = true*)
+				intros.
+				{ (** ret *)
+					intros. eapply WP.weaken. apply WP.ret.
+					intros. simpl. intuition.
+				}
+			-- (* case_eq (negb isForcedPrepare && isOutsideBound) = false *)
+				intros.
+				eapply bindRev.
+				{ (** Internal.findBlockInKSWithAddr *)
+					eapply weaken. apply findBlockInKSWithAddr.findBlockInKSWithAddr.
+					intros. simpl. split. apply H3. intuition.
+				}
+				intro requisitionedBlockInCurrPartAddr.
+				eapply bindRev.
+				{ (** compareAddrToNull **)
+					eapply weaken. apply Invariants.compareAddrToNull.
+					intros. simpl. apply H3.
+				}
+				intro addrIsNull0.
+				case_eq addrIsNull0.
+				++ (* case_eq addrIsNull0 = true *)
+						intros.
+						{ (** ret *)
+						eapply weaken. apply WP.ret.
+						simpl. intros. intuition.
+						}
+				++ (* case_eq addrIsNull0 = false *)
+						intros.
+						eapply bindRev.
+						{ (** MAL.checkBlockInRAM **)
+							eapply weaken. apply Invariants.checkBlockInRAM.
+							intros. simpl. split. apply H4. intuition.
+							(* TODO: next two subgoals to factor and to use also in the next
+												instructions *)
+							- (* we know this case is impossible because we are in the branch
+									where requisitionedBlockInCurrPartAddr is not NULL *)
+									apply beqAddrFalse in H6. congruence.
+							- destruct H23. intuition. subst.
+								unfold isBE. rewrite H23 ; trivial.
+						}
+						intro isInRAM.
+						case_eq (negb isInRAM).
+						** (* case_eq (negb isInRAM = true*)
+							intros.
+							{ (** ret *)
+								intros. eapply WP.weaken. apply WP.ret.
+								intros. simpl. intuition.
+							}
+						** (* case_eq (negb isInRAM = false *)
+								intros.
+								eapply bindRev.
+								{ (** sizeOfBlock *)
+									eapply weaken. apply sizeOfBlock.
+									intros. simpl. split. apply H5. intuition.
+									- (* we know this case is impossible because we are in the branch
+										where requisitionedBlockInCurrPartAddr is not NULL *)
+										apply beqAddrFalse in H8. congruence.
+									- destruct H25. intuition. subst.
+								unfold isBE. rewrite H25 ; trivial.
+								}
+								intro blockSize.
+								eapply bindRev.
+								{ (** getKernelStructureTotalLength *)
+									eapply weaken. apply Invariants.getKernelStructureTotalLength.
+									intros. simpl. apply H5.
+								}
+								intro kStructureTotalLength.
+								eapply bindRev.
+								{ (** Index.ltb *)
+									eapply weaken. apply Invariants.Index.ltb.
+									intros. simpl. apply H5.
+								}
+								intro isBlockTooSmall.
+								case_eq isBlockTooSmall.
+								--- (* case_eq isBlockTooSmall = true *)
+										intros.
+										{ (** ret *)
+										eapply weaken. apply WP.ret.
+										simpl. intros. intuition.
+										}
+								--- (* case_eq isBlockTooSmall = false *)
+										intros.
+										eapply bindRev.
+										{ (** MAL.readBlockAccessibleFromBlockEntryAddr *)
+											eapply weaken. apply readBlockAccessibleFromBlockEntryAddr.
+											intros. simpl. split. apply H6. intuition.
+											- (* we know this case is impossible because we are in the branch
+												where requisitionedBlockInCurrPartAddr is not NULL *)
+											apply beqAddrFalse in H12. congruence.
+											- destruct H29. intuition. subst.
+										unfold isBE. rewrite H29 ; trivial.
+										}
+										intro addrIsAccessible.
+										case_eq (negb addrIsAccessible).
+										+++ (* case_eq negb addrIsAccessible = true *)
+												intros.
+												{ (** ret *)
+												eapply weaken. apply WP.ret.
+												simpl. intros. intuition.
+												}
+										+++ (* case_eq negb addrIsAccessible = false *)
+												intros.
+												eapply bindRev.
+												{ (** MAL.readBlockPresentFromBlockEntryAddr *)
+													eapply weaken. apply readBlockPresentFromBlockEntryAddr.
+													intros. simpl. split. apply H7. intuition.
+													- (* we know this case is impossible because we are in the branch
+														where requisitionedBlockInCurrPartAddr is not NULL *)
+														apply beqAddrFalse in H14. congruence.
+													- destruct H31. intuition. subst.
+														unfold isBE. rewrite H31 ; trivial.
+												}
+												intro addrIsPresent.
+												case_eq (negb addrIsPresent).
+												*** (* case_eq negb addrIsPresent = true *)
+														intros.
+														{ (** ret *)
+														eapply weaken. apply WP.ret.
+														simpl. intros. intuition.
+														}
+												*** (* case_eq negb addrIsPresent = false *)
+														intros.
+														eapply bindRev.
+														{ (** MAL.readBlockStartFromBlockEntryAddr *)
+															eapply weaken. apply readBlockStartFromBlockEntryAddr.
+															intros. simpl. split. apply H8. intuition.
+															- (* we know this case is impossible because we are in the branch
+																where requisitionedBlockInCurrPartAddr is not NULL *)
+																apply beqAddrFalse in H16. congruence.
+															- destruct H33. intuition. subst.
+																unfold isBE. rewrite H33 ; trivial.
+														}
+														intro requisitionedBlockStart.
+														eapply bindRev.
+														{ (** MAL.readBlockEndFromBlockEntryAddr *)
+															eapply weaken. apply readBlockEndFromBlockEntryAddr.
+															intros. simpl. split. apply H8. intuition.
+															- (* we know this case is impossible because we are in the branch
+																where requisitionedBlockInCurrPartAddr is not NULL *)
+																apply beqAddrFalse in H17. congruence.
+															- destruct H34. intuition. subst.
+														unfold isBE. rewrite H34 ; trivial.
+														}
+														intro requisitionedBlockEnd.

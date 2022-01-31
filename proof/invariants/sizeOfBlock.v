@@ -31,16 +31,64 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary 
-    This file contains the invariant of [countToMap]. 
-    We prove that this PIP service preserves the isolation property *)
-Require Import Model.ADT Model.Hardware Core.Services Isolation Consistency.
+(**  * Summary 
+    This file contains the invariants of [sizeOfBlock].
+*)
+Require Import Model.Monad Model.Lib Model.MAL.
+Require Import Core.Internal.
+Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
+               Proof.Isolation Proof.StateLib Proof.WeakestPreconditions
+							 Proof.invariants.Invariants.
+Require Import Compare_dec Bool.
+Require Import Model.ADT.
 
-Lemma countToMap (descChild : vaddr) (vaToMap : vaddr) :
-{{fun s => partitionsIsolation s  /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }} 
-countToMap descChild vaToMap
-{{fun _ s  => partitionsIsolation s  /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}.
+Lemma sizeOfBlock (blockentryaddr : paddr) (P :  state -> Prop) :
+{{fun s => P s /\ consistency s /\ isBE blockentryaddr s }}
+Internal.sizeOfBlock blockentryaddr
+{{fun _ s => P s /\ consistency s}}.
 Proof.
-
-(** TODO : To be proved *)
-Admitted.
+unfold sizeOfBlock.
+eapply bindRev.
+{ (** MAL.readBlockStartFromBlockEntryAddr *)
+	eapply weaken. apply readBlockStartFromBlockEntryAddr.
+	intros. simpl. split. apply H. intuition.
+}
+intro startAddr.
+eapply bindRev.
+{ (** MAL.readBlockEndFromBlockEntryAddr *)
+	eapply weaken. apply readBlockEndFromBlockEntryAddr.
+	intros. simpl. split. apply H. intuition.
+}
+intro endAddr.
+eapply bindRev.
+{ (** MALInternal.Paddr.subPaddr *)
+	eapply weaken. apply Paddr.subPaddr.
+	intros. simpl. split. apply H. intuition.
+	(* exploit the fact that it is a blockentry and this is the property Hsize *)
+	unfold isBE in *.
+	destruct (lookup blockentryaddr (memory s) beqAddr) eqn:Hlookup; try (exfalso ; congruence).
+	destruct v eqn:Hv ; try (exfalso ; congruence).
+	unfold bentryStartAddr in *.
+	unfold bentryEndAddr in *.
+	rewrite Hlookup in *. subst.
+	destruct b. destruct blockrange. intuition.
+}
+intro size.
+{ (** MALInternal.Index.succ *)
+	eapply weaken. apply Proof.WeakestPreconditions.Index.succ. intuition.
+	rewrite PeanoNat.Nat.add_1_r. apply Lt.lt_le_S.
+	(* we know endAddr - startAddr < maxIdx because it comes from a BlockEntry (same as previous instruction) *)
+	unfold bentryStartAddr in *.
+	unfold bentryEndAddr in *.
+	unfold isBE in *.
+	destruct (lookup blockentryaddr (memory s) beqAddr) eqn:Hlookup; try (exfalso ; congruence).
+	destruct v eqn:Hv ; try (exfalso ; congruence).
+	destruct blockrange. subst. simpl in *.
+	(* extract that size = endAddr - startAddr *)
+	unfold StateLib.Paddr.subPaddr in *.
+	destruct (le_dec (endAddr0 - startAddr0) maxIdx); try (exfalso ; congruence).
+	destruct size. simpl.
+	inversion H1.
+	assumption.
+}
+Qed.

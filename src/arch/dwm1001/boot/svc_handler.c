@@ -117,8 +117,7 @@ void SVC_Handler_C(stacked_context_t *stackedContext)
 
 		case SVC_NUMBER_REMOVE_MEMORY_BLOCK:
 			stackedContext->registers[R0] = (uint32_t) removeMemoryBlock(
-				(paddr) stackedContext->registers[R0],
-				(paddr) stackedContext->registers[R1]
+				(paddr) stackedContext->registers[R0]
 			);
 			break;
 

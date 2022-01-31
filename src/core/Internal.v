@@ -107,22 +107,22 @@ Fixpoint findBlockInKSInStructAux (timeout : nat) (currentidx : index)
 										else
 											(** continue search *)
 											perform maxentriesnb := getKernelStructureEntriesNb in
-											(** Our last index is table size - 1, as we're indexed on zero*)
-											perform maxindex := Index.pred maxentriesnb in
-											perform islastidx := getBeqIdx currentidx maxindex in
-											if (islastidx)
+											perform nextidx := Index.succ currentidx in
+											(** Indexed on zero, so <*)
+											perform isnotlastidx := Index.ltb nextidx maxentriesnb in
+											if (isnotlastidx)
 											then
-												(** STOP CONDITION 1: reached end of current structure,
-																							block not found *)
-												ret nullAddr
-											else
 												(** RECURSIVE call to the next index**)
-												perform nextidx := Index.succ currentidx in
-												findBlockInKSInStructAux 	timeout1
+												findBlockInKSInStructAux timeout1
 																								nextidx
 																								currentkernelstructure
 																								referenceaddr
 																								compoption
+											else
+												(** STOP CONDITION 1: reached end of current structure,
+																							block not found *)
+												ret nullAddr
+
 	end.
 
 (** The [findBlockInKSAux] function recursively search by going through
@@ -149,8 +149,8 @@ Fixpoint findBlockInKSAux (timeout : nat)
 																																		currentkernelstructure
 																																		idblock
 																																		compoption in
-										perform isnull := getBeqAddr foundblock nullAddr in
-										if negb isnull
+										perform foundblockisnull := compareAddrToNull foundblock in
+										if negb foundblockisnull
 										then
 											(** STOP CONDITION 2: block found, stop *)
 											ret foundblock
@@ -158,8 +158,8 @@ Fixpoint findBlockInKSAux (timeout : nat)
 											(** block not found in current structure, continue search *)
 											perform nextkernelstructure := readNextFromKernelStructureStart
 																												currentkernelstructure in
-											perform isnull :=  getBeqAddr nextkernelstructure nullAddr in
-											if isnull
+											perform nextKSisnull :=  compareAddrToNull nextkernelstructure in
+											if nextKSisnull
 											then
 												(** STOP CONDITION 1: reached last structure, not found *)
 												ret nullAddr
@@ -173,7 +173,7 @@ Fixpoint findBlockInKSAux (timeout : nat)
 (* TODO: return Some blockentry or None *)
 (** The [findBlockInKS] function fixes the timeout value of [findBlockInKSAux]
 		and lauches the block seach for the address being the start address.
-		Same function as in findBlockInKS but with a different comparator. *)
+		Same function as in findBelongingBlock but with a different comparator. *)
 Definition findBlockInKS (idPD : paddr) (idBlock: paddr) : LLI paddr :=
 	perform zero := Index.zero in (* Comparator 1 *)
 	perform kernelstructurestart := readPDStructurePointer idPD in
@@ -185,7 +185,7 @@ Definition findBlockInKS (idPD : paddr) (idBlock: paddr) : LLI paddr :=
 		Same function as in findBlockInKS but with a different comparator. *)
 Definition findBelongingBlock (idPD : paddr) (referenceaddr: paddr) : LLI paddr :=
 	perform zero := Index.zero in
-	perform one := Index.succ zero in (* Comparator 1 *)
+	perform one := Index.succ zero in (* Comparator 2 *)
 	perform kernelstructurestart := readPDStructurePointer idPD in
 	findBlockInKSAux N kernelstructurestart referenceaddr one.
 
@@ -222,17 +222,21 @@ Fixpoint findBlockInKSWithAddrAux 	(timeout : nat)
 												(** Check the block entry exists and is present*)
 												perform entryExists := checkEntry 	currentkernelstructure
 																														blockEntryAddr in
-												perform isPresent := readBlockPresentFromBlockEntryAddr blockEntryAddr in
-												if entryExists && isPresent
-												then (** STOP CONDITION 2: the block has been found and is present (i.e. it's a real block)*)
-													ret blockEntryAddr
-												else (** STOP CONDITION 3: bad arguments OR block not present *)
+												if (negb entryExists)
+												then (** STOP CONDITION 3: bad arguments *)
 													ret nullAddr
+												else (* entry addr is valid *)
+													perform isPresent := readBlockPresentFromBlockEntryAddr blockEntryAddr in
+													if isPresent
+													then (** STOP CONDITION 2: the block has been found and is present (i.e. it's a real block)*)
+														ret blockEntryAddr
+													else (** STOP CONDITION 3: block not present *)
+														ret nullAddr
 										else (** RECURSIVE call: block not found in current structure,
 														check next kernel structure*)
 											perform nextKernelStructure := readNextFromKernelStructureStart
 																											currentkernelstructure in
-											perform isnull :=  getBeqAddr nextKernelStructure nullAddr in
+											perform isnull :=  compareAddrToNull nextKernelStructure in
 											if isnull
 											then
 												(** STOP CONDITION 1: reached last structure, not found *)
@@ -340,23 +344,24 @@ Definition writeAccessibleToAncestorsIfNotCutRec (pdbasepartition : paddr)
 
 	Returns the inserted entry's address
 
-	<<pdinsertion>> the PD where to insert the new entry
-	<<startaddr>>		the new entry's start address
-	<<endaddr>>			the new entry's end address
-	<<origin>>			the new entry's block origin
-	<<r w e >>			the new entry's rights
+	<<pdinsertion>> 		the PD where to insert the new entry
+	<<startaddr>>				the new entry's start address
+	<<endaddr>>					the new entry's end address
+	<<origin>>					the new entry's block origin
+	<<r w e >>					the new entry's rights
+	<<currnbfreeslots>> the current number of free slots
 *)
 Definition insertNewEntry 	(pdinsertion startaddr endaddr origin: paddr)
-													(r w e : bool) 													: LLI paddr :=
+													(r w e : bool) (currnbfreeslots : index): LLI paddr :=
 	(** Checks have been done before: PD is correct, slot start and end @ are correct,
 			block_origin is correct, there is one or more free slots *)
 	perform newBlockEntryAddr := readPDFirstFreeSlotPointer pdinsertion in
 	(** Adjust the free slot pointer to the next free slot*)
 	perform newFirstFreeSlotAddr := readBlockEndFromBlockEntryAddr newBlockEntryAddr in
-	writePDFirstFreeSlotPointer pdinsertion newFirstFreeSlotAddr ;;
 	(** Adjust the free slots count to count - 1*)
-	perform currentNbFreeSlots := readPDNbFreeSlots pdinsertion in
-	perform predCurrentNbFreeSlots := Index.pred currentNbFreeSlots in
+	perform predCurrentNbFreeSlots := Index.pred currnbfreeslots in
+
+	writePDFirstFreeSlotPointer pdinsertion newFirstFreeSlotAddr ;;
 	writePDNbFreeSlots pdinsertion predCurrentNbFreeSlots ;;
 
 	(** Insert the new block entry in the free slot*)
@@ -470,24 +475,25 @@ Definition removeBlockInDescendantsRec 	(currLevelIdPD : paddr)
 Fixpoint checkRemoveSubblocksRecAux (timeout : nat) (subblockAddr : paddr): LLI bool :=
 	match timeout with
 		| 0 => ret false (*reached timeout*)
-		| S timeout1 => perform isNull := compareAddrToNull subblockAddr in
-										if isNull
-										then (** STOP condition 1: reached last subblock*) ret true
+		| S timeout1 => (** PROCESSING: checks (subblockAddr is valid, checked before *)
+										perform isAccessible := readBlockAccessibleFromBlockEntryAddr
+																								subblockAddr in
+										perform isPresent := readBlockPresentFromBlockEntryAddr
+																								subblockAddr in
+										(* if accessible, then PDflag can't be set, we just need to check PDchild *)
+										perform PDChildAddr := readSh1PDChildFromBlockEntryAddr	subblockAddr in
+										perform PDChildAddrIsNull := compareAddrToNull PDChildAddr in
+										if negb (isAccessible && isPresent && PDChildAddrIsNull)
+										then (** STOP condition 2: the subblock is not accessible,
+													not present or is shared *) ret false
 										else
-												(** PROCESSING: checks *)
-												perform isAccessible := readBlockAccessibleFromBlockEntryAddr
+												perform nextsubblock := readSCNextFromBlockEntryAddr
 																										subblockAddr in
-												perform isPresent := readBlockPresentFromBlockEntryAddr
-																										subblockAddr in
-												(* if accessible, then PDflag can't be set, we just need to check PDchild *)
-												perform PDChildAddr := readSh1PDChildFromBlockEntryAddr	subblockAddr in
-												perform PDChildAddrIsNull := compareAddrToNull PDChildAddr in
-												if negb (isAccessible && isPresent && PDChildAddrIsNull)
-												then (** STOP condition 2: the subblock is not accessible,
-															not present or is shared *) ret false
+												perform isnull := compareAddrToNull nextsubblock in
+												if isnull
+												then (** STOP condition 1: reached last subblock*)
+														ret true
 												else (** RECURSIVE call: check the next subblock*)
-														perform nextsubblock := readSCNextFromBlockEntryAddr
-																												subblockAddr in
 														checkRemoveSubblocksRecAux timeout1 nextsubblock
 	end.
 
@@ -525,8 +531,8 @@ Fixpoint removeSubblocksRecAux (timeout : nat) (idPDchild subblockAddr : paddr)
 Definition removeSubblocksRec (idPDchild subblockAddr : paddr): LLI bool :=
 	removeSubblocksRecAux N idPDchild subblockAddr.
 
-(** The [removeBlockInChildAndDescendants] function removes the block <idBlockToRemove>
-		from the child and potential descendants.
+(** The [removeBlockInChildAndDescendants] function removes the block
+		<blockToRemoveInCurrPartAddr> from the child and potential descendants.
 		There are two treatments depending if the block to remove is cut or not:
 			- not cut: remove the block in the child and all descendants if it is
 								accessible (e.g. not used as kernel structure in the child or
@@ -537,17 +543,17 @@ Definition removeSubblocksRec (idPDchild subblockAddr : paddr): LLI bool :=
 		Returns true:OK/false:NOK
 
     <<currentPart>>					the current/parent partition
-		<<idPDchild>>						the child partition to remove from
-		<<idBlockToRemove>>			the block to remove
 		<<blockToRemoveInCurrPartAddr>>	the block to remove id in the parent
 *)
 Definition removeBlockInChildAndDescendants (currentPart
+																						blockToRemoveInCurrPartAddr
 																						idPDchild
-																						idBlockToRemove
-																						blockToRemoveInCurrPartAddr : paddr)
+																						blockToRemoveInChildAddr : paddr)
 																																	: LLI bool :=
-		perform blockToRemoveInChildAddr := readSh1InChildLocationFromBlockEntryAddr
-																						blockToRemoveInCurrPartAddr in
+		(** Checks done before, blockToRemoveInCurrPartAddr and blockToRemoveInChildAddr
+				are valid block entries *)
+		perform globalIdBlockToRemove := readBlockStartFromBlockEntryAddr
+																				blockToRemoveInCurrPartAddr in
 		perform isBlockCut := checkBlockCut blockToRemoveInChildAddr in
 		if negb isBlockCut
 		then (** Case 1: block not cut in the child partition -> remove the
@@ -555,7 +561,7 @@ Definition removeBlockInChildAndDescendants (currentPart
 
 				(* 	check block is accessible *)
 				perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr
-																			blockToRemoveInChildAddr in
+																				blockToRemoveInChildAddr in
 				if negb addrIsAccessible
 				then
 						(* block is inaccessible, it is used as kernel structure or cut in
@@ -581,14 +587,14 @@ Definition removeBlockInChildAndDescendants (currentPart
 
 				(** Remove all subblocks  from the child*)
 				perform recRemoveSubblocksEnded := removeSubblocksRec
-																											idPDchild
-																											blockToRemoveInChildAddr in
+																								idPDchild
+																								blockToRemoveInChildAddr in
 				if negb recRemoveSubblocksEnded then (* timeout reached *) ret false else
 
 				(** Set back the block as accessible in the ancestors because it was cut *)
 				writeBlockAccessibleFromBlockEntryAddr blockToRemoveInCurrPartAddr true ;;
 				perform recWriteEnded := writeAccessibleRec currentPart
-																										idBlockToRemove
+																										globalIdBlockToRemove
 																										true in
 				if negb recWriteEnded then (* timeout reached or error *) ret false else
 				ret true.

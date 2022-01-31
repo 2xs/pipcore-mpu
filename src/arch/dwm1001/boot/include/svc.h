@@ -145,16 +145,12 @@ uint32_t* Pip_addMemoryBlock(
  * \brief System call that removes a block from the partition descriptor
  *        structure of a child of the current partition.
  *
- * \param childPartDescBlockLocalId The local ID of the block containing
- *        the partition descriptor structure of the child.
- *
  * \param blockToRemoveLocalId The local ID of the block to remove from
  *        the child partition.
  *
  * \return 1 if the system call succeed, 0 otherwise.
  */
 uint32_t Pip_removeMemoryBlock(
-	uint32_t *childPartDescBlockLocalId,
 	uint32_t *blockToRemoveLocalId
 );
 

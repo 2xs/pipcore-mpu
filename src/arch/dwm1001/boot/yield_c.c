@@ -114,7 +114,6 @@ static void loadContext(
 	unsigned enforce_interrupts
 ) __attribute__((noreturn));
 
-static void updateCurPartAndActivate(paddr calleePartDesc);
 static void kernel_set_int_state(uint32_t interrupt_state);
 
 yield_return_code_t yieldGlue(
@@ -600,12 +599,6 @@ yield_return_code_t switchContextCont(
 	 * function never returns to the caller. However, it is required
 	 * for the future Coq implementation of the service. */
 	return YIELD_SUCCESS;
-}
-
-static void updateCurPartAndActivate(paddr calleePartDescGlobalId)
-{
-	updateCurPartition(calleePartDescGlobalId);
-	activate(calleePartDescGlobalId);
 }
 
 static void kernel_set_int_state(uint32_t interrupt_state)
