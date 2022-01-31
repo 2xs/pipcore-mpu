@@ -1,6 +1,6 @@
 #!/bin/sh
 ###############################################################################
-#  © Université de Lille, The Pip Development Team (2015-2021)                #
+#  © Université de Lille, The Pip Development Team (2015-2022)                #
 #                                                                             #
 #  This software is a computer program whose purpose is to run a minimal,     #
 #  hypervisor relying on proven properties such as memory isolation.          #
@@ -154,7 +154,7 @@ Usage: %s <MANDATORY ARGUMENTS> [OPTIONAL ARGUMENTS]
 generate_toolchains() {
 cat <<EOF > toolchain.mk
 ###############################################################################
-#  © Université de Lille, The Pip Development Team (2015-2021)                #
+#  © Université de Lille, The Pip Development Team (2015-2022)                #
 #                                                                             #
 #  This software is a computer program whose purpose is to run a minimal,     #
 #  hypervisor relying on proven properties such as memory isolation.          #
@@ -240,7 +240,7 @@ exit 0
 
 cat <<EOF > src/arch/"$target"/partitions/toolchain.mk
 ###############################################################################
-#  © Université de Lille, The Pip Development Team (2015-2021)                #
+#  © Université de Lille, The Pip Development Team (2015-2022)                #
 #                                                                             #
 #  This software is a computer program whose purpose is to run a minimal,     #
 #  hypervisor relying on proven properties such as memory isolation.          #
