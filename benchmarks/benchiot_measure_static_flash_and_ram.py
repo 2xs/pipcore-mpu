@@ -473,7 +473,7 @@ RAM_END = 0x20010000
 #                                 MAIN                                #
 #######################################################################
 
-def measure_static():
+def measure_static(benchmarks):
     '''
     parser = argparse.ArgumentParser()
     parser.add_argument('-b', '--binpath', dest='BIN_PATH', type=str,
@@ -504,19 +504,6 @@ def measure_static():
     #                    iot2_settings.BUILD_OPTIONS[args.benchmark_configuration][iot2_settings.BENCH_TYPE] +
     #                    iot2_settings.BUILD_OPTIONS[args.benchmark_configuration][iot2_settings.BENCH_CONFIG_RES_DIR] +
     #                    iot2_settings.BINS_DIR)
-
-    #benchmarks = ['aha-mont64', 'crc32', 'cubic', 'edn', 'huffbench']
-    benchmarks = find_benchmarks()
-    benchmarks.remove('matmult-int')
-    benchmarks.remove('md5sum')
-    benchmarks.remove('nettle-aes')
-    benchmarks.remove('picojpeg')
-    benchmarks.remove('st')
-    benchmarks.remove('tarfind')
-    benchmarks.remove('ud')
-    benchmarks.remove('wikisort')
-    print("benchiot_measure_static_flash_and_ram.py: Considered benchmarks: ", end="")
-    print(benchmarks)
 
     bins_path = "generated/benchmarks/"
 

@@ -138,3 +138,9 @@ $(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).elf: $(C_SRC_TARGET_DIR)/link.ld\
 
 $(BENCH_DIR)/$(BENCH_NAME):
 	mkdir -p $@
+
+cleanbench-soft:
+	rm -f $(OBJECT_FILES)
+
+cleanbench-hard:
+	rm -rf $(BENCH_DIR)

@@ -108,7 +108,7 @@ void PendSV_Handler(void)
 uint8_t *sp = (uint8_t *)&user_stack_top;
 
 #if defined BENCHMARK
-	START_BENCHMARK();
+	//START_BENCHMARK();
 #endif // BENCHMARK
 
 #if defined BENCHMARK_BASELINE
@@ -150,12 +150,9 @@ uint8_t *sp = (uint8_t *)&user_stack_top;
 	/* Reserve on the stack the space necessary for the
 	 * arguments. */
 	uint32_t  argc = 6;
-	uint32_t *argv = (uint32_t) sp - argc;
-
-
+	uint32_t *argv = sp - argc*sizeof(uint32_t) ;
 
 	/* Copy arguments onto the stack */
-
 	argv[0] = (uint32_t) getRootPartition();
 	argv[1] = (uint32_t) blockentryaddr_flash;
 	argv[2] = (uint32_t) blockentryaddr_ram0;
