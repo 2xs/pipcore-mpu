@@ -105,7 +105,7 @@ __attribute__((noreturn))
 void PendSV_Handler(void)
 {
 	/* Get the top of the PSP */
-uint32_t *sp = (uint32_t *)&user_stack_top;
+uint8_t *sp = (uint8_t *)&user_stack_top;
 
 #if defined BENCHMARK
 	START_BENCHMARK();
@@ -113,7 +113,7 @@ uint32_t *sp = (uint32_t *)&user_stack_top;
 
 #if defined BENCHMARK_BASELINE
 	// Version wo Pip / wo MPU
-	uint32_t frame = sp - 0x20; // Build benchmark frame
+	uint32_t frame = (uint32_t) sp - 0x20; // Build benchmark frame
 	__set_PSP(frame);
 	// Thread mode is unprivileged
 	__set_CONTROL(__get_CONTROL() | CONTROL_nPRIV_Msk );
@@ -150,9 +150,12 @@ uint32_t *sp = (uint32_t *)&user_stack_top;
 	/* Reserve on the stack the space necessary for the
 	 * arguments. */
 	uint32_t  argc = 6;
-	uint32_t *argv = sp - argc;
+	uint32_t *argv = (uint32_t) sp - argc;
+
+
 
 	/* Copy arguments onto the stack */
+
 	argv[0] = (uint32_t) getRootPartition();
 	argv[1] = (uint32_t) blockentryaddr_flash;
 	argv[2] = (uint32_t) blockentryaddr_ram0;

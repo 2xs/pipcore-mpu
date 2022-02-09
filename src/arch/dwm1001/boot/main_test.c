@@ -31,7 +31,7 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
-//#if defined UNIT_TESTS // include file only when testing
+#if defined UNIT_TESTS // include file only when testing
 
 #include <stdio.h>
 #include "Services.h"
@@ -3757,4 +3757,4 @@ int main_test (int argc, char* argv[])
   while(1);
 }
 
-//#endif //UNIT_TESTS
+#endif //UNIT_TESTS

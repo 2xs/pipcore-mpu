@@ -35,7 +35,6 @@
 #	@echo $<
 #	$(info $$C_BENCHMARK_OBJ is [${C_BENCHMARK_OBJ}])
 
-
 #####################################################################
 ##                      Directory variables                        ##
 #####################################################################
@@ -59,6 +58,8 @@ C_BENCHMARK_COMMON_SRC=$(C_TARGET_BENCHMARK_INCLUDE_DIR)/beebsc.c
 
 C_BENCHMARK_OBJ=$(addprefix $(BENCH_DIR)/$(BENCH_NAME)/,$(notdir $(C_BENCHMARK_SRC:.c=.o)))
 C_BENCHMARK_COMMON_OBJ=$(addprefix $(BENCH_DIR)/$(BENCH_NAME)/, $(notdir $(C_BENCHMARK_COMMON_SRC:.c=.o)))
+
+OBJECT_FILES+=$(C_BENCHMARK_OBJ)
 
 #####################################################################
 ##                    Code compilation targets                     ##
@@ -104,7 +105,15 @@ $(C_BENCHMARK_OBJ): \
 
 ######################### ELF #######################
 
+all:
+	$(error No rule named "all", use "bench" instead)
+
+ifndef BENCH_NAME
+bench:
+	$(error BENCH_NAME not set)
+else
 bench: $(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).bin
+endif
 
 $(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).bin: $(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).elf
 	$(BI) -O binary $< $@

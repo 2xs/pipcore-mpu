@@ -224,17 +224,19 @@ OBJECT_FILES=$(C_TARGET_MAL_OBJ) $(C_TARGET_BOOT_OBJ)\
              $(C_TARGET_CMSIS_OBJ) $(C_TARGET_DEBUG_OBJ)\
              $(C_TARGET_MDK_OBJ) $(C_TARGET_NEWLIB_OBJ)\
              $(C_TARGET_UART_OBJ) $(C_GENERATED_OBJ)\
-	     $(AS_TARGET_BOOT_OBJ) $(GAS_TARGET_BOOT_OBJ)\
-            $(C_BENCHMARK_OBJ)
+	     	 $(AS_TARGET_BOOT_OBJ) $(GAS_TARGET_BOOT_OBJ)
 
 # Jsons (Coq extracted AST)
 JSONS=Internal.json MAL.json MALInternal.json Services.json
 JSONS:=$(addprefix $(GENERATED_FILES_DIR)/, $(JSONS))
 
-ifeq (,$(filter BENCHMARK,$(CFLAGS)))
-    include benchmarks/Makefile
-endif
 
+######################## Include benchmarks ########################
+
+ifneq (,$(filter -DBENCHMARK,$(CFLAGS)))
+### Benchmarks makefile prevails
+	include benchmarks/Makefile
+else
 #####################################################################
 ##                    Default Makefile target                      ##
 #####################################################################
@@ -243,6 +245,8 @@ all: pip.bin
 
 pip.bin: pip.elf
 	$(BI) -O binary $< $@
+
+endif
 
 #####################################################################
 ##                    Code compilation targets                     ##
@@ -512,6 +516,7 @@ gettingstarted:
 $(GENERATED_FILES_DIR) $(C_DOC_DIR) $(COQ_DOC_DIR):
 	mkdir -p $@
 
+######################## Clean ########################
 realclean: clean
 	rm -rf $(COQ_DOC_DIR) $(C_DOC_DIR)
 	rm -f $(DOC_DIR)/getting-started/getting-started.aux\

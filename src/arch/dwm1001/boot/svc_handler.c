@@ -249,10 +249,14 @@ void SVC_Handler_Main(uint32_t svc_number, context_svc_t *context)
 	  nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
 	  nrf_gpio_pin_write(13, 0);
 	  DisableCycleCounter();      // disable counting if not used
-      printf("Benchmark results:\n");
-      printf("Ticks:%d\n", cycles);
+	  uint32_t main_stack_usage = finish_stack_usage_measurement(&__StackLimit, &__StackTop);	 /* main (Pip) stack */
+	  uint32_t app_stack_usage = finish_stack_usage_measurement(&user_stack_limit, &user_stack_top); /* app stack */
+	  printf("Benchmark results:\n");
+	  printf("Ticks:%d\n", cycles);
+	  printf("Main stack usage:%d\n", main_stack_usage);
+	  printf("App stack usage:%d\n", app_stack_usage);
 
-      while (1);
+	  while (1);
       break;
 #endif // BENCHMARK
     default:

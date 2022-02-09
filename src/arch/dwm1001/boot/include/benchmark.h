@@ -83,16 +83,17 @@ extern uint32_t user_stack_top;
     "Built :  " __DATE__ " " __TIME__ "\n" \
     "\r\n"
 
+int32_t prepare_stack_usage_measurement(uint32_t *lower_addr, uint32_t *upper_addr);
+uint32_t finish_stack_usage_measurement(uint32_t *lower_addr, uint32_t *upper_addr);
+
 /*!
  * \brief Launches the benchmark init sequence procedure
  */
-#define START_BENCHMARK()                                                            \
-    print_benchmark_msg();                                                           \
-    begin_stack_usage_measurement(__StackLimit, __StackTop);         /* pip stack */ \
-    begin_stack_usage_measurement(user_stack_limit, user_stack_top); /* app stack */ \
-    __DMB();                                                                         \
-    __ISB();                                                                         \
-    __DSB();                                                                         \
+#define START_BENCHMARK()                                                                \
+    print_benchmark_msg();                                                               \
+    prepare_stack_usage_measurement(&__StackLimit, &__StackTop);         /* pip stack */ \
+    prepare_stack_usage_measurement(&user_stack_limit, &user_stack_top); /* app stack */ \
+    __DMB(); __ISB(); __DSB(); \
     start_cycles_counting();
 
 /*!

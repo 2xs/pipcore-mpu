@@ -537,9 +537,9 @@ configure_global_variables() {
 			# The boot sequence performing the unit tests of the
 			# dwm1001 only works in semihosting mode
 
-			if  [ "$debugging_mode" != "semihosting" ] && [ "$boot_sequence" = "test" ]
+			if  [ "$debugging_mode" != "semihosting" ] && [ "$boot_sequence" = "test" | "bench-baseline" | "bench-pip" ]
 			then
-				print_error 'The unit tests of the dwm1001 only works in semihosting mode ...\n'
+				print_error 'The unit tests of the dwm1001 only works in semihosting mode (if desired, add --debugging-mode=semihosting )...\n'
 				return 1
 			fi
 
@@ -608,6 +608,12 @@ configure_global_variables() {
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
+					;;
+				default)
+					;;
+				*)
+					print_error 'Unknown boot-sequence\n'
+					return 1
 					;;
 			esac
 			arch_cflags="$arch_cflags"' -DDUMP'

@@ -96,24 +96,43 @@ void print_benchmark_msg(){
 #endif
 }
 
-void begin_stack_usage_measurement(uint32_t *from, uint32_t *to)
+/**
+ *	Fills the memory region [lower_addr, upper_addr] with a specific mark value.
+ *	From lower address to upper address.
+ **/
+int32_t prepare_stack_usage_measurement(uint32_t *lower_addr, uint32_t *upper_addr)
 {
-	if (to < from)
-		return false;
-	uint32_t *p = from;
-	while (p < to)
+	if (upper_addr < lower_addr)
+		return -1;
+	uint32_t *p = lower_addr;
+	while (p < upper_addr)
 		*p++ = STACK_INIT_MARK;
-	return true;
+	return 0;
 }
 
-void end_stack_usage_measurement(uint32_t *from, uint32_t *to)
+/**
+ *	Computes the memory region [lower_addr, upper_addr] usage.
+ *	Check from lower to upper addresses in case some bytes have been jumped off.
+ **/
+uint32_t finish_stack_usage_measurement(uint32_t *lower_addr, uint32_t *upper_addr)
 {
-	if (to < from)
+	if (upper_addr < lower_addr)
 		return false;
-	uint32_t *p = from;
-	while (p < to)
-		*p++ = STACK_INIT_MARK;
-	return true;
+
+	uint32_t *p = lower_addr;
+	while (p < upper_addr)
+		if (*p++ == STACK_INIT_MARK)
+			continue;
+		else
+		{
+			// real stack limit hit
+			break;
+		}
+	if (p <= lower_addr + 1){
+		printf("Warning: probable stack overflow at lower_addr 0x%x\n", lower_addr);
+		return 0;
+	}
+	return (upper_addr - p + 1)*4; // stack is descending so base is top + convert number to bytes
 }
 
 /**
@@ -140,15 +159,15 @@ start_cycles_counting()
 		EnableCycleCounter(); // start counting
 	}
 
-	void BENCHMARK_INITIALISE()
-	{
+void BENCHMARK_INITIALISE()
+{
 #if defined BENCHMARK_IN_PIP_CHILD
 		// empty vs empty pip root = Cost of Pip root partition set up
 #else
 
 #endif
-	initialise_benchmark();
-	//warm_caches(WARMUP_HEAT);
+		initialise_benchmark(); // embench init
+		// warm_caches(WARMUP_HEAT);
 }
 
 void BENCHMARK_FINALISE()
