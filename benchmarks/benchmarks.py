@@ -105,7 +105,7 @@ def decode_results(file_str):
     return results
 
 """ Join the static and the dynamic results """
-def produce_recap(results_dir, benchmarks, sequence):
+def produce_recap(results_dir, benchmarks, sequence, runs):
     # Compute the baseline data we need
     baseline = {}
 
@@ -123,11 +123,70 @@ def produce_recap(results_dir, benchmarks, sequence):
             res_dyn_filename = "results_dynamic_" + str(sequence)
             if file_extension == ".json" and os.path.basename(filename) == res_dyn_filename:
                 with open(file_path) as fdynamics:
-                    dynamic_data = json.load(fdynamics)
+                    dynamic_data_all = json.load(fdynamics)
+                    dynamic_data = {}
+                    # Average, min, max
+                    for bench in dynamic_data_all:
+                        recap_tot[bench] = {}
+                        cycles_average = 0
+                        cycles_min = sys.maxsize
+                        cycles_max = 0
+                        cycles_var = 0
+                        main_stack_average = 0
+                        main_stack_min = sys.maxsize
+                        main_stack_max = 0
+                        main_stack_var = 0
+                        app_stack_average = 0
+                        app_stack_min = sys.maxsize
+                        app_stack_max = 0
+                        app_stack_var = 0
+                        for run in dynamic_data_all[bench]:
+                            run_cycles = run["Cycles"]
+                            cycles_average += run_cycles
+                            if cycles_max < run_cycles:
+                                cycles_max = run_cycles
+                            if cycles_min > run_cycles:
+                                cycles_min = run_cycles
+                            run_main_stack = run["Main_stack_usage"]
+                            main_stack_average += run_main_stack
+                            if main_stack_max < run_main_stack:
+                                main_stack_max = run_main_stack
+                            if main_stack_min > run_main_stack:
+                                main_stack_min = run_main_stack
+                            run_app_stack = run["App_stack_usage"]
+                            app_stack_average += run_app_stack
+                            if app_stack_max < run_app_stack:
+                                app_stack_max = run_app_stack
+                            if app_stack_min > run_app_stack:
+                                app_stack_min = run_app_stack
+                        cycles_average /= runs
+                        main_stack_average /= runs
+                        app_stack_average /= runs
+                        # Variance
+                        for run in dynamic_data_all[bench]:
+                            cycles_var += (run["Cycles"]-cycles_average)**2
+                            main_stack_var += (run["Main_stack_usage"]-main_stack_average)**2
+                            app_stack_var += (run["App_stack_usage"]-app_stack_average)**2
+                        cycles_var /= runs
+                        main_stack_var /= runs
+                        app_stack_var /= runs
+                        dynamic_data[bench] = { 'Cycles_average': cycles_average,
+                                                'Cycles_min': cycles_min,
+                                                'Cycles_max': cycles_max,
+                                                'Cycles_var': cycles_var,
+                                                'Time_ms_average': float(int(cycles_average)) / float(64000000), # TODO: set real cpu frequency
+                                                'Main_stack_average': main_stack_average,
+                                                'Main_stack_min': main_stack_min,
+                                                'Main_stack_max': main_stack_max,
+                                                'Main_stack_var': main_stack_var,
+                                                'App_stack_average': app_stack_average,
+                                                'App_stack_min': app_stack_min,
+                                                'App_stack_max': app_stack_max,
+                                                'App_stack_var': app_stack_var
+                                             }
     for bench in benchmarks:
-        recap_tot[bench] = []
-        recap_tot[bench].append({"Static" : static_data[bench]})
-        recap_tot[bench].append({"Dynamic" : dynamic_data[bench]})
+        recap_tot[bench]["Static"] = static_data[bench]
+        recap_tot[bench]["Dynamic"] = dynamic_data[bench]
     res_rec_filename = 'results_recap_' + str(sequence) + '.json'
     recap_file = os.path.join(results_dir, res_rec_filename)
     with open(recap_file, "w") as outfile:
@@ -256,6 +315,74 @@ def analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence):
     with open(baseline_file, "w") as outfile:
         json.dump(dynamic_results, outfile, indent=4, sort_keys=True)
 
+def compare_baseline(results_dir, sequence):
+    # TODO: check variance is small
+    if sequence == "bench-baseline":
+        print("Skipping baseline recap")
+        return
+    rel_baseline_data = {}
+    # Open baseline file
+    res_recap_baseline_filename = 'results_recap_bench-baseline.json'
+    recap_file = os.path.join(results_dir, res_recap_baseline_filename)
+    with open(recap_file) as frecapbase:
+        b_data = json.load(frecapbase)
+        # open sequence file
+        res_recap_filename = 'results_recap_' + str(sequence) + '.json'
+        recap_file = os.path.join(results_dir, res_recap_filename)
+        with open(recap_file) as frecap:
+            data = json.load(frecap)
+            for bench in data:
+                base_cycles = b_data[bench]["Dynamic"]["Cycles_average"]
+                sequence_cycles = data[bench]["Dynamic"]["Cycles_average"]
+                base_time = b_data[bench]["Dynamic"]["Time_ms_average"]
+                sequence_time = data[bench]["Dynamic"]["Time_ms_average"]
+                base_main_stack = b_data[bench]["Dynamic"]["Main_stack_average"]
+                sequence_main_stack = data[bench]["Dynamic"]["Main_stack_average"]
+                base_app_stack = b_data[bench]["Dynamic"]["App_stack_average"]
+                sequence_app_stack = data[bench]["Dynamic"]["App_stack_average"]
+                base_indirect_calls = b_data[bench]["Static"]["Indirect_calls"]
+                sequence_indirect_calls = data[bench]["Static"]["Indirect_calls"]
+                base_gadgets = b_data[bench]["Static"]["ROP_gadgets"]
+                sequence_gadgets = data[bench]["Static"]["ROP_gadgets"]
+                base_bss = b_data[bench]["Static"]["bss"]
+                sequence_bss = data[bench]["Static"]["bss"]
+                base_data = b_data[bench]["Static"]["data"]
+                sequence_data = data[bench]["Static"]["data"]
+                base_rodata = b_data[bench]["Static"]["rodata"]
+                sequence_rodata = data[bench]["Static"]["rodata"]
+                base_text = b_data[bench]["Static"]["text"]
+                sequence_text = data[bench]["Static"]["text"]
+                rel_baseline_data[bench] = {"Dynamic" : {
+                                                            "Cycles_rel_average" : sequence_cycles*100/base_cycles if base_cycles != 0 else sequence_cycles,
+                                                            "Cycles_base_var" : b_data[bench]["Dynamic"]["Cycles_var"],
+                                                            f'Cycles_{sequence}_var' : int(data[bench]["Dynamic"]["Cycles_var"]),
+                                                            "Time_ms_rel_average" : sequence_time*100/base_time if base_time != 0 else sequence_time,
+                                                            #"Time_ms_base_var" : b_data[bench]["Dynamic"]["Time_ms_var"],
+                                                            #f'Time_ms_{sequence}_var' : data[bench]["Dynamic"]["Time_ms_var"],
+                                                            "Main_stack_rel_average": sequence_main_stack*100/base_main_stack if base_main_stack != 0 else sequence_main_stack,
+                                                            "Main_stack_base_var": b_data[bench]["Dynamic"]["Main_stack_var"],
+                                                            f'Main_stack_{sequence}_var' : data[bench]["Dynamic"]["Main_stack_var"],
+                                                            "App_stack_rel_average": sequence_app_stack*100/base_app_stack if base_app_stack != 0 else sequence_app_stack,
+                                                            "App_stack_base_var": b_data[bench]["Dynamic"]["App_stack_var"],
+                                                            f'Main_stack_{sequence}_var' : data[bench]["Dynamic"]["App_stack_var"],
+                                                        },
+                                            "Static" : {
+                                                            "Indirect_calls_rel" : sequence_indirect_calls*100/base_indirect_calls if base_indirect_calls != 0 else sequence_indirect_calls,
+                                                            "ROP_gadgets_rel": sequence_gadgets*100/base_gadgets if base_gadgets != 0 else sequence_gadgets,
+                                                            "bss_rel": sequence_bss*100/base_bss if base_bss != 0 else sequence_bss,
+                                                            "data_rel": sequence_data*100/base_data if base_data != 0 else sequence_data,
+                                                            "rodata_rel": sequence_rodata*100/base_rodata if base_rodata != 0 else sequence_rodata,
+                                                            "text_rel": sequence_text*100/base_text if base_text != 0 else sequence_text
+                                                        }
+                                            }
+    res_compare_filename = 'results_baseline_compare_' + str(sequence) + '.json'
+    compare_file = os.path.join(results_dir, res_compare_filename)
+    with open(compare_file, "w") as outfile:
+        json.dump(rel_baseline_data, outfile, indent=4, sort_keys=True)
+
+
+
+
 """ Build and run the benchmarks, then analyse the results"""
 def main():
     # Establish the root directory of the repository, since we know this file is
@@ -266,7 +393,7 @@ def main():
 
     bench_dir = "generated/benchmarks"
 
-    runs = 5
+    runs = 2
 
     do_all = False
     build_only= False
@@ -274,6 +401,7 @@ def main():
     dynamic_analysis_only_no_run = False
     static_analysis_only = False
     recap_only = False
+    baseline_compare_only = False
 
     if(len(sys.argv)==1):
         do_all = True
@@ -289,6 +417,8 @@ def main():
                 static_analysis_only = True
             case "recap-only":
                 recap_only = True
+            case "baseline-compare-only":
+                baseline_compare_only = True
             case _:
                 do_all = True
 
@@ -399,7 +529,10 @@ def main():
             static_metrics(bench_dir, benchmarks, sequence)
 
         if do_all or recap_only:
-            produce_recap(results_dir, benchmarks, sequence)
+            produce_recap(results_dir, benchmarks, sequence, runs)
+
+        if do_all or baseline_compare_only:
+            compare_baseline(results_dir, sequence)
     print("\n\nDONE: Nothing to do left")
 
 # Make sure we have new enough Python and only run if this is the main package
