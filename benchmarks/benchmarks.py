@@ -70,6 +70,7 @@ def static_metrics(bench_dir, benchmarks, sequence):
         raw_totals[bench] = sum(raw_section_data[bench].values())
         bench_path = os.path.join(bench_dir, bench)
         size_out = raw_section_data[bench]
+        static_results[bench] = {}
         for f in os.listdir(bench_path):
             file_path = os.path.join(bench_path, f)
             if os.path.isfile(file_path):
@@ -78,7 +79,9 @@ def static_metrics(bench_dir, benchmarks, sequence):
                     with open(file_path) as fdata:
                         data = json.load(fdata)
                         static_out = size_out | {"ROP_gadgets" : int(data["ROP_gadgets"]), "Indirect_calls" : int(data["Indirect_calls"])}
-                        static_results[bench] = static_out
+                        static_results[bench] |= static_out
+                if file_extension == ".bin":
+                    static_results[bench] |= {"binsize" : (os.path.getsize(file_path))}
     res_rec_filename = 'results_static_' + str(sequence) + '.json'
     static_metrics_file = os.path.join(bench_dir, 'results', res_rec_filename)
     with open(static_metrics_file, "w") as outfile:
@@ -352,6 +355,8 @@ def compare_baseline(results_dir, sequence):
                 sequence_rodata = data[bench]["Static"]["rodata"]
                 base_text = b_data[bench]["Static"]["text"]
                 sequence_text = data[bench]["Static"]["text"]
+                base_binsize = b_data[bench]["Static"]["binsize"]
+                sequence_binsize = data[bench]["Static"]["binsize"]
                 rel_baseline_data[bench] = {"Dynamic" : {
                                                             "Cycles_rel_average" : sequence_cycles*100/base_cycles if base_cycles != 0 else sequence_cycles,
                                                             "Cycles_base_var" : b_data[bench]["Dynamic"]["Cycles_var"],
@@ -372,7 +377,8 @@ def compare_baseline(results_dir, sequence):
                                                             "bss_rel": sequence_bss*100/base_bss if base_bss != 0 else sequence_bss,
                                                             "data_rel": sequence_data*100/base_data if base_data != 0 else sequence_data,
                                                             "rodata_rel": sequence_rodata*100/base_rodata if base_rodata != 0 else sequence_rodata,
-                                                            "text_rel": sequence_text*100/base_text if base_text != 0 else sequence_text
+                                                            "text_rel": sequence_text*100/base_text if base_text != 0 else sequence_text,
+                                                            "binsize_rel" : sequence_binsize*100/base_binsize if base_binsize != 0 else sequence_binsize
                                                         }
                                             }
     res_compare_filename = 'results_baseline_compare_' + str(sequence) + '.json'
@@ -403,24 +409,25 @@ def main():
     recap_only = False
     baseline_compare_only = False
 
+    args = sys.argv[1:]
+
     if(len(sys.argv)==1):
         do_all = True
     else:
-        match (sys.argv[1]):
-            case "build-only":
+        for arg in args:
+            if "build" in arg:
                 build_only= True
-            case "dynamic-only":
-                dynamic_analysis_only = True
-            case "dynamic-only-no-run":
-                dynamic_analysis_only_no_run = True
-            case "static-only":
+            if "dynamic" in arg:
+                if "no-run" in arg:
+                    dynamic_analysis_only_no_run = True
+                else:
+                    dynamic_analysis_only = True
+            if "static" in arg:
                 static_analysis_only = True
-            case "recap-only":
+            if "recap" in arg:
                 recap_only = True
-            case "baseline-compare-only":
+            if "compare" in arg:
                 baseline_compare_only = True
-            case _:
-                do_all = True
 
     if do_all:
         if(os.path.isdir(results_dir)):
@@ -458,12 +465,11 @@ def main():
 
 
     #benchmarks = ['aha-mont64', 'crc32', 'cubic', 'edn', 'huffbench']
-    print("benchmarks.py: Considered benchmarks: ", end="")
-    print(benchmarks)
+    print("benchmarks.py: Considered benchmarks: %s " % benchmarks)
     log_benchmarks(benchmarks)
 
     # Launch the benchmark batch in different scenarios (baseline, with Pip...)
-    boot_sequence = ["bench-baseline", "bench-pip"] #["bench-pip"] #
+    boot_sequence = ["bench-baseline", "bench-pip"] #["bench-pip"]
     for sequence in boot_sequence:
         print("\n\n-----> Configuring sequence %s" % sequence, end="...")
         try:
@@ -476,7 +482,7 @@ def main():
                     f'--boot-sequence={sequence}'],
                 capture_output=True,
             )
-            if res.returncode != 0:
+            if res_clean.returncode != 0 or res.returncode != 0:
                 print("***NOK***")
                 succeeded = False
 
