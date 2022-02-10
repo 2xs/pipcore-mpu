@@ -108,7 +108,7 @@ void PendSV_Handler(void)
 uint8_t *sp = (uint8_t *)&user_stack_top;
 
 #if defined BENCHMARK
-	//START_BENCHMARK();
+	START_BENCHMARK();
 #endif // BENCHMARK
 
 #if defined BENCHMARK_BASELINE
