@@ -77,7 +77,7 @@ extern uint32_t _ebss;
 // By default, there are no arguments, but this can be customised
 // by redefining __initialize_args(), which is done when the
 // semihosting configurations are used.
-extern void main (void);
+extern void pip_main (void);
 
 extern void main_test (void);
 
@@ -164,7 +164,7 @@ _start (void)
 #if defined UNIT_TESTS
   main_test(); // Pip test main
 #else
-  main(); // Pip main
+  pip_main(); // Pip main
 #endif // UNIT_TESTS
 
   while (1) {}

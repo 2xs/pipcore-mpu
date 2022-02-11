@@ -1,5 +1,5 @@
 /*******************************************************************************/
-/*  © Université de Lille, The Pip Development Team (2015-2021)                */
+/*  © Université de Lille, The Pip Development Team (2015-2022)                */
 /*                                                                             */
 /*  This software is a computer program whose purpose is to run a minimal,     */
 /*  hypervisor relying on proven properties such as memory isolation.          */
@@ -3719,7 +3719,7 @@ int main_test (int argc, char* argv[])
   // Test initial root partition definition
   test_initial_root();
   // Test cut system call
-  /*test_cut();
+  test_cut();
   printf("main_test: CUT OK\r\n");
   // Test create system call
   test_create();
@@ -3741,16 +3741,16 @@ int main_test (int argc, char* argv[])
   printf("main_test: MERGE OK\r\n");
   // Test collect system call
   test_collect();
-  printf("main_test: COLLECT OK\r\n");*/
+  printf("main_test: COLLECT OK\r\n");
   // Test mapMPU system call
   test_mapMPU();
   printf("main_test: MPU MAP OK\r\n");
   // Test readMPU system call
-  /*test_readMPU();
+  test_readMPU();
   printf("main_test: MPU READ OK\r\n");
   // Test findBlock system call
   test_find();
-  printf("main_test: FINDBLOCK OK\r\n");*/
+  printf("main_test: FINDBLOCK OK\r\n");
 
   printf("\r\nmain_test: All tests PASSED\r\n");
 

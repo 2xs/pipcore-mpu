@@ -1,5 +1,5 @@
 /*******************************************************************************/
-/*  © Université de Lille, The Pip Development Team (2015-2021)                */
+/*  © Université de Lille, The Pip Development Team (2015-2022)                */
 /*                                                                             */
 /*  This software is a computer program whose purpose is to run a minimal,     */
 /*  hypervisor relying on proven properties such as memory isolation.          */
@@ -264,7 +264,6 @@ uint32_t powlog2(uint32_t v)
  */
 uint32_t max_powlog2_alignment(uint32_t v)
 {
-	uint32_t v2 = v;
 	if(v==0) return 31;
 	// Counts the number of trailing zeroes after the minimum 32 bytes so 2⁽5)
 	unsigned r = 4;
@@ -293,13 +292,14 @@ uint32_t MINBLOCKSIZE(void)
 uint32_t MINVIDTBLOCKSIZE(void)
 {
 	/*
-	 * The VIDT is an array of 32 pointers of 4 bytes. This requires a
-	 * block of at least 128 bytes, which is a valid MPU region size.
+	 * The VIDT is an array of 128 pointers of 4 bytes. This
+	 * requires a block of at least 512 bytes.
 	 *
-	 * TODO: Do not hard-code this value because on some architectures, a
-	 * pointer is not necessarily equal to 4 bytes.
+	 * TODO: Do not hard-code this value because on some
+	 * architectures, a pointer is not necessarily equal to 4
+	 * bytes.
 	 */
-	return 128;
+	return 512;
 }
 
 /*!
@@ -557,7 +557,7 @@ void clear_LUT(uint32_t* LUT)
  */
 int checkMPU()
 {
-	if (MPU_NUM_REGIONS < 0 || MPU_NUM_REGIONS != MPU_REGIONS_NB) return -1;
+	if (MPU_NUM_REGIONS != MPU_REGIONS_NB) return -1;
 	else return 0;
 }
 
@@ -568,5 +568,5 @@ int checkMPU()
  */
 int initMPU()
 {
-	mpu_init();
+	return mpu_init();
 }

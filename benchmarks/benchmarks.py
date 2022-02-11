@@ -230,10 +230,10 @@ def init_telnet(bench_name, run, queue, sequence):
         output = tn.read_all()
         tn.close()
     except ConnectionRefusedError:
-        log.warning(f'Warning: Run of {bench_name} timed out.')
+        print(f'Warning: Run of {bench_name} timed out.')
         succeeded = False
     except BaseException:
-        log.warning(f'Warning: {bench_name} failed')
+        print(f'Warning: {bench_name} failed')
         succeeded = False
     # Dump the data if successful
     outfile = os.path.join("generated/benchmarks", bench_name, f'{sequence}_{bench_name}_{run}.txt')
@@ -247,7 +247,7 @@ def init_telnet(bench_name, run, queue, sequence):
                 linecount=linecount+1
             fileh.close()
             if linecount == 1:
-                print("***ERROR: " + bench_name + "failed, check gdbserver connection (is the device up and running? or try to augment sleep delay)")
+                print("***ERROR: " + bench_name + "failed, check gdbserver connection (is the device up and running? or try to augment sleep delay? or check the line number corresponds to 'while(1)' instruction in gdb_connect_flash_run.py)")
     else:
         print("***ERROR: " + bench_name + "failed, check gdbserver connection (is the device up and running? or try to augment sleep delay)")
         queue.put_nowait([bench_name, "Failed"])
@@ -256,7 +256,7 @@ def init_telnet(bench_name, run, queue, sequence):
             fileh.close()
 
 def run_dynamic_metrics(benchmarks, sequence, runs):
-    print("\nCollecting dynamic data: please ensure the line number corresponds to 'while(1)' instruction in gdb_connect_flash_run.py")
+    print("\nCollecting dynamic data:")
     for bench in benchmarks:
         que = queue.Queue()
         print(f'\n***Launching {sequence} benchmark for {bench}***')
@@ -277,7 +277,7 @@ def run_dynamic_metrics(benchmarks, sequence, runs):
                     capture_output=True,
                 )
             except subprocess.TimeoutExpired:
-                    log.warning(f'Warning: Run of {bench} timed out.')
+                    print(f'Warning: Run of {bench} timed out.')
                     print("NOK***")
 
             tn.join()
@@ -295,7 +295,6 @@ def analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence):
             if os.path.isfile(file_path):
                 filename, file_extension = os.path.splitext(file_path)
                 if file_extension == ".txt" and sequence in filename:
-                    print(file_path)
                     with open(file_path) as fdata:
                         read_data = fdata.read()
                         data = decode_results(read_data)
@@ -321,8 +320,8 @@ def analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence):
 def compare_baseline(results_dir, sequence):
     # TODO: check variance is small
     if sequence == "bench-baseline":
-        print("Skipping baseline recap")
         return
+    print("Producing comparison report for %s" % sequence, end="...")
     rel_baseline_data = {}
     # Open baseline file
     res_recap_baseline_filename = 'results_recap_bench-baseline.json'
@@ -385,6 +384,7 @@ def compare_baseline(results_dir, sequence):
     compare_file = os.path.join(results_dir, res_compare_filename)
     with open(compare_file, "w") as outfile:
         json.dump(rel_baseline_data, outfile, indent=4, sort_keys=True)
+    print("OK")
 
 
 
@@ -399,7 +399,7 @@ def main():
 
     bench_dir = "generated/benchmarks"
 
-    runs = 2
+    runs = 1
 
     do_all = False
     build_only= False
@@ -484,6 +484,7 @@ def main():
             )
             if res_clean.returncode != 0 or res.returncode != 0:
                 print("***NOK***")
+                print("Investigate with commands: 1) make cleanbench-soft 2) ./configure.sh --architecture=dwm1001 --debugging-mode=semihosting --boot-sequence=%s" % sequence)
                 succeeded = False
 
             else:

@@ -23,7 +23,6 @@
 
 #include "nrf52.h"
 #include "core_cm4.h"
-#include "exception_handlers.h"
 #include "trace.h"
 #include "mal.h"
 

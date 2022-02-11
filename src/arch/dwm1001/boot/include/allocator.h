@@ -31,65 +31,79 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
-/**
- * \file maldefines.h
- * \brief Memory Abstraction Layer provided methods for Coq
- */
+#ifndef __ALLOCATOR_H__
+#define __ALLOCATOR_H__
 
-#ifndef __MAL_DEFINES__
-#define __MAL_DEFINES__
-
-#include "mal.h"
 #include <stdint.h>
-#include <stddef.h>
 
-extern uint32_t MINVIDTBLOCKSIZE(void);
+/*!
+ * \brief Structure representing an MPU block.
+ */
+typedef struct block_s
+{
+	/*!
+	 * \brief The ID of the block.
+	 */
+        uint32_t *id;
 
-/* Constants */
-#define Constants_rootPart root_partition
+	/*!
+	 * \brief The start address of the block.
+	 */
+        uint32_t address;
 
-/* ADT structure */
-#define coq_PDTable PDTable_t
-#define coq_BlockEntry BlockEntry_t
-#define coq_Sh1Entry Sh1Entry_t
-#define coq_SCEntry SCEntry_t
-#define Coq_error   (blockOrError){ .error = -1 }
+	/*!
+	 * \brief The size of the block.
+	 */
+        uint32_t size;
+} block_t;
 
-/* MALInternals */
-#define Paddr_leb lebPaddr
-#define Paddr_subPaddr subPaddr
-#define Paddr_pred predPaddr
-#define Paddr_addPaddrIdx addPaddrIdxBytes
+/*!
+ * \brief Initialize the block allocator.
+ *
+ * \param blockId The id of the block from which to cut new sub blocks.
+ *
+ * \param blockAddress The start address of the block to cut.
+ */
+void allocatorInitialize(
+	uint32_t *blockId,
+	void     *blockAddress
+);
 
-#define Index_succ      inc
-#define Index_pred      dec
-#define Index_eqb       eqb
-#define Index_zero      zero
-#define Index_one       one
-#define Index_geb       geb
-#define Index_gtb       gtb
-#define Index_leb       leb
-#define Index_ltb       ltb
-#define Index_subIdx    sub
-#define Index_addIdx    add
-#define Index_mulIdx    mul
+/*!
+ * \brief Allocates a new memory block whose size is greater than or
+ *        equal to the requested one, taking into account the MPU
+ *        constraints.
+ *
+ * \param block A pointer to a structure that will contain informations
+ *        about the allocated block.
+ *
+ * \param blockSize The requested size of the block to be allocated.
+ *
+ * \param usePartialConfiguration This parameter tells the block
+ *        allocator whether or not to use the partial block
+ *        configuration. A value of 0 disables the use of the partial
+ *        block configuration, while a value other than 0 enables it.
+ *
+ *        Partial block configuration saves memory at the cost of
+ *        performance. This is because accessing the address of a
+ *        partially configured block in the MPU can raise a MemManage
+ *        fault that requires the MPU regions to be reconfigured.
+ *
+ *        Not using the partial block configuration increases
+ *        performance at the cost of memory. This is because if the
+ *        address of the block to be cut is not aligned with the size
+ *        of the block, additional cutting is required.
+ *
+ * \warning The block containing the stack of a partition must be
+ *          allocated without partial configuration.
+ *
+ * \return 1 if the allocator has successfully allocate the requested
+ *         block, 0 otherwise.
+ */
+int allocatorAllocateBlock(
+	block_t  *block,
+	uint32_t blockSize,
+	uint32_t usePartialConfiguration
+);
 
-#define Bool_eqb eqb
-
-#define getBeqAddr beqAddr
-#define getBeqIdx beqIdx
-#define nullAddr NULL
-
-#define maxNbPrepare MAXNBPREPARE
-#define getMaxNbPrepare getMaxNbPrepare
-#define getMinBlockSize MINBLOCKSIZE
-#define getMinVidtBlockSize MINVIDTBLOCKSIZE
-#define getKernelStructureTotalLength KERNELSTRUCTURETOTALLENGTH
-#define getPDStructureTotalLength PDSTRUCTURETOTALLENGTH
-#define getKernelStructureEntriesNb getKernelStructureEntriesNb
-#define kernelStructureEntriesNb KERNELSTRUCTUREENTRIESNB
-
-/* Astucious defines */
-#define coq_N   1000
-
-#endif
+#endif /* __ALLOCATOR_H__ */

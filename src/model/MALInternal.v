@@ -1,5 +1,5 @@
 (*******************************************************************************)
-(*  © Université de Lille, The Pip Development Team (2015-2021)                *)
+(*  © Université de Lille, The Pip Development Team (2015-2022)                *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -139,13 +139,14 @@ Definition rootPart := CPaddr 0.
 Definition minBlockSize := CIndex 32.
 
 (**
-  * The VIDT is an array of 32 pointers of 4 bytes. This requires a
-  * block of at least 128 bytes, which is a valid MPU region size.
-  *
-  * TODO: Do not hard-code this value because on some architectures, a
-  * pointer is not necessarily equal to 4 bytes.
+ * The VIDT is an array of 128 pointers of 4 bytes. This
+ * requires a block of at least 512 bytes.
+ *
+ * TODO: Do not hard-code this value because on some
+ * architectures, a pointer is not necessarily equal to 4
+ * bytes.
  *)
-Definition minVidtBlockSize := CIndex 128.
+Definition minVidtBlockSize := CIndex 512.
 
 (* TODO : power of 2*)
 Definition kernelStructureTotalLength := CIndex (nextoffset + 1).

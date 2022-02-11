@@ -1,5 +1,6 @@
 #include "mal.h"
 #include <stdio.h>
+#include <stdint.h>
 #include "mpu.h"
 
 /*!
@@ -12,22 +13,22 @@ void dump_PD_structure(paddr pd)
 {
 #if defined DUMP
     PDTable_t* pdt = (PDTable_t*) pd;
-    printf("\r\n----------PD %x (size: %d/%d)------------\r\n", pdt, sizeof(PDTable_t), PDSTRUCTURETOTALLENGTH());
-    printf("%x:PD\t%x\r\n", &(pdt->structure), pdt->structure);
-    printf("%x:PD\t%x\r\n", &(pdt->firstfreeslot), pdt->firstfreeslot);
-    printf("%x:PD\t%u\r\n", &(pdt->nbfreeslots), pdt->nbfreeslots);
-    printf("%x:PD\t%u\r\n", &(pdt->nbprepare), pdt->nbprepare);
-    printf("%x:PD\t%x\r\n", &(pdt->parent), pdt->parent);
-    printf("%x:PD\t", &(pdt->mpu));
+    printf("\r\n----------PD %p (size: %zu/%ld)------------\r\n", (void *) pdt, sizeof(PDTable_t), PDSTRUCTURETOTALLENGTH());
+    printf("%p:PD\t%p\r\n", (void *) &(pdt->structure), (void *) pdt->structure);
+    printf("%p:PD\t%p\r\n", (void *) &(pdt->firstfreeslot), (void *) pdt->firstfreeslot);
+    printf("%p:PD\t%lu\r\n", (void *) &(pdt->nbfreeslots), pdt->nbfreeslots);
+    printf("%p:PD\t%lu\r\n", (void *) &(pdt->nbprepare), pdt->nbprepare);
+    printf("%p:PD\t%p\r\n", (void *) &(pdt->parent), (void *) pdt->parent);
+    printf("%p:PD\t", (void *) &(pdt->mpu));
     for(int i = 0 ; i < MPU_REGIONS_NB ; i++)
     {
-        printf(" %x ", (pdt->mpu[i]));
+        printf(" %p ", (void *) pdt->mpu[i]);
     }
-    printf("\r\n%x:PD\t", &(pdt->LUT));
+    printf("\r\n%p:PD\t", (void *) &(pdt->LUT));
     for(int i = 0 ; i < MPU_REGIONS_NB ; i++)
     {
-        printf(" %x ", (pdt->LUT[i*2]));
-        printf(" %x ", (pdt->LUT[i*2+1]));
+        printf(" %lx ", (pdt->LUT[i*2]));
+        printf(" %lx ", (pdt->LUT[i*2+1]));
     }
     printf("\r\n");
 #endif // DUMP
@@ -43,13 +44,13 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
 {
 #if defined DUMP
     KStructure_t* ks = (KStructure_t*) kernel_structure_start_addr;
-    printf("\r\n----------Kernel structure %x (size: %d)----\r\n", kernel_structure_start_addr,
+    printf("\r\n----------Kernel structure %p (size: %ld)----\r\n", kernel_structure_start_addr,
                                                                 KERNELSTRUCTURETOTALLENGTH());
     printf("\r\n----------BLOCKS---------------------------\r\n");
     for (int i=0;i<KERNELSTRUCTUREENTRIESNB;i++)
     {
         paddr blockentryadddr = &ks->blocks[i];
-        printf("%x:%-1d:BLK\t%-10x|%-10x\t|%-1u|%-1u|%-1u%-1u%-1u\r\n",    blockentryadddr,
+        printf("%p:%-1ld:BLK\t%-10p|%-10p\t|%-1lu|%-1lu|%-1lu%-1lu%-1lu\r\n",    blockentryadddr,
                                                             readBlockIndexFromBlockEntryAddr(blockentryadddr),
                                                             readBlockStartFromBlockEntryAddr(blockentryadddr),
                                                             readBlockEndFromBlockEntryAddr(blockentryadddr),
@@ -74,7 +75,7 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
 
         paddr blockentryadddr = &ks->blocks[i];
         paddr sh1entryadddr = &ks->sh1[i];
-        printf("%x:SH1\t%-10x|%-1u|%-10x\r\n",  sh1entryadddr,
+        printf("%p:SH1\t%-10p|%-1lu|%p\r\n",  sh1entryadddr,
                                                 readSh1PDChildFromBlockEntryAddr(blockentryadddr),
                                                 readSh1PDFlagFromBlockEntryAddr(blockentryadddr),
                                                 readSh1InChildLocationFromBlockEntryAddr(blockentryadddr));
@@ -91,12 +92,12 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
 
         paddr blockentryadddr = &ks->blocks[i];
         paddr scentryadddr = &ks->sc[i];
-        printf("%x:SC\t%-10x|%-10x\r\n",  scentryadddr,
+        printf("%p:SC\t%p|%p\r\n",  scentryadddr,
                                                 readSCOriginFromBlockEntryAddr(blockentryadddr),
                                                 readSCNextFromBlockEntryAddr(blockentryadddr));
     }
 
-    printf("\r\n----------next = %x----------------------\r\n", ks->next);
+    printf("\r\n----------next = %p----------------------\r\n", (void *) ks->next);
 #endif // DUMP
 }
 
@@ -154,7 +155,7 @@ int dump_mpu()
     mpu_enabled() ? printf("\r\n\r\nMPU is enabled\r\n") : printf("\r\nMPU is disabled\r\n");
     ((MPU->CTRL & MPU_CTRL_PRIVDEFENA_Msk) != 0) ? printf("PRIVDEFENA set\r\n") : printf("PRIVDEFENA NOT set\r\n");
     printf("MPU settings:\r\n");
-	for (int i = 0; i < MPU_NUM_REGIONS ; i++){
+	for (uint32_t i = 0; i < MPU_NUM_REGIONS ; i++){
         MPU->RNR  = i;
         uint32_t* start = readPhysicalMPUStartAddr(i);
         uint32_t* end = readPhysicalMPUEndAddr(i);
@@ -164,11 +165,11 @@ int dump_mpu()
         uint32_t size = readPhysicalMPUSizeBits(i);
         uint32_t enable = readPhysicalMPURegionEnable(i);
 
-        printf("%d:MPU->RBAR =%x, start=%x\n", i, MPU->RBAR, start);// size=%d, AP=%d, X=%d,
-        printf("%d:MPU->RASR =%x, end=%x, regionsize=(2^(%d+1)=%d, AP=%d, XNbit=%d, enable=%d\n",
+        printf("%ld:MPU->RBAR =%lx, start=%p\n", i, MPU->RBAR, (void *) start);// size=%d, AP=%d, X=%d,
+        printf("%ld:MPU->RASR =%lx, end=%p, regionsize=(2^(%ld+1)=%ld, AP=%ld, XNbit=%ld, enable=%ld\n",
                                                     i,
                                                     MPU->RASR,
-                                                    end,
+                                                    (void *) end,
                                                     size,
                                                     regionsize,
                                                     AP,

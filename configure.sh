@@ -1,6 +1,6 @@
 #!/bin/sh
 ###############################################################################
-#  © Université de Lille, The Pip Development Team (2015-2021)                #
+#  © Université de Lille, The Pip Development Team (2015-2022)                #
 #                                                                             #
 #  This software is a computer program whose purpose is to run a minimal,     #
 #  hypervisor relying on proven properties such as memory isolation.          #
@@ -154,7 +154,7 @@ Usage: %s <MANDATORY ARGUMENTS> [OPTIONAL ARGUMENTS]
 generate_toolchains() {
 cat <<EOF > toolchain.mk
 ###############################################################################
-#  © Université de Lille, The Pip Development Team (2015-2021)                #
+#  © Université de Lille, The Pip Development Team (2015-2022)                #
 #                                                                             #
 #  This software is a computer program whose purpose is to run a minimal,     #
 #  hypervisor relying on proven properties such as memory isolation.          #
@@ -240,7 +240,7 @@ exit 0
 
 cat <<EOF > src/arch/"$target"/partitions/toolchain.mk
 ###############################################################################
-#  © Université de Lille, The Pip Development Team (2015-2021)                #
+#  © Université de Lille, The Pip Development Team (2015-2022)                #
 #                                                                             #
 #  This software is a computer program whose purpose is to run a minimal,     #
 #  hypervisor relying on proven properties such as memory isolation.          #
@@ -537,7 +537,7 @@ configure_global_variables() {
 			# The boot sequence performing the unit tests of the
 			# dwm1001 only works in semihosting mode
 
-			if  [ "$debugging_mode" != "semihosting" ] && [ "$boot_sequence" = "test" | "bench-baseline" | "bench-pip" ]
+			if  [ "$debugging_mode" != "semihosting" ] && [[ "$boot_sequence" = "test"] || ["$boot_sequence" = "bench-baseline"] || ["$boot_sequence" = "bench-pip" ]]
 			then
 				print_error 'The unit tests of the dwm1001 only works in semihosting mode (if desired, add --debugging-mode=semihosting )...\n'
 				return 1
@@ -546,7 +546,7 @@ configure_global_variables() {
 			### Default names of the commands
 
 			cc=${cc:='arm-none-eabi-gcc'}
-			as=${as:='arm-none-eabi-as'}
+			as=${as:='arm-none-eabi-gcc'}
 			ld=${ld:='arm-none-eabi-gcc'}
 			objcopy=${objcopy:='arm-none-eabi-objcopy'}
 			coqc=${coqc:='coqc'}
@@ -564,14 +564,14 @@ configure_global_variables() {
 			### number from the "--version" output
 
 			cc_regex='^.*gcc ([^)]\+) \([^ \n]\+\).*$'
-			as_regex='^GNU .\+ \([^ \n]\+\).*$'
+			as_regex='^.*gcc ([^)]\+) \([^ \n]\+\).*$'
 			ld_regex='^.*gcc ([^)]\+) \([^ \n]\+\).*$'
 			coqc_regex='^The Coq Proof Assistant, version \([^ \n]\+\).*$'
 
 			### Minimum versions of the toolchain for the selected
 			### architecture
 
-			as_minimum_version='2.35.2'
+			as_minimum_version='8.3.1'
 			cc_minimum_version='8.3.1'
 			ld_minimum_version='8.3.1'
 			coqc_minimum_version='8.13.1'
@@ -626,14 +626,14 @@ configure_global_variables() {
 			arch_ldflags="$arch_ldflags"' -lgcc'
 			arch_ldflags="$arch_ldflags"' -lm'
 			arch_ldflags="$arch_ldflags"' -std=gnu11'
-			arch_ldflags="$arch_ldflags"' -Wall'
 			arch_ldflags="$arch_ldflags"' -ffreestanding'
 			arch_ldflags="$arch_ldflags"' -mthumb'
 			arch_ldflags="$arch_ldflags"' -mcpu=cortex-m4'
 
 			### ASFLAGS for the selected architecture
 
-			arch_asflags=''
+			arch_asflags="$arch_cflags"
+			arch_asflags="$arch_asflags"' -c'
 
 			return 0
 			;;

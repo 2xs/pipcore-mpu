@@ -1,5 +1,5 @@
 /*******************************************************************************/
-/*  © Université de Lille, The Pip Development Team (2015-2021)                */
+/*  © Université de Lille, The Pip Development Team (2015-2022)                */
 /*                                                                             */
 /*  This software is a computer program whose purpose is to run a minimal,     */
 /*  hypervisor relying on proven properties such as memory isolation.          */
@@ -38,12 +38,21 @@
 
 /*!
  * \def CONTEXT_REGISTER_NUMBER
+ *
  * \brief The register number of a context.
  */
 #define CONTEXT_REGISTER_NUMBER 17
 
 /*!
+ * \def CONTEXT_VALID_VALUE
+ *
+ * \brief An arbitrary value used to identify a valid context.
+ */
+#define CONTEXT_VALID_VALUE 0x41b06b8a
+
+/*!
  * \brief Enumeration of registers to be stored for a context.
+ *
  * \warning Do not change the register number in the enumeration.
  */
 typedef enum context_register_e
@@ -68,15 +77,16 @@ typedef enum context_register_e
 } context_register_t;
 
 /*!
- * \brief Structure representing a context as stored by the SVC handler.
+ * \brief Structure representing a context as stacked by an assembly
+ *        entry point.
  */
-typedef struct context_svc_s
+typedef struct stacked_context_s
 {
 	/*!
-	 * \brief All stored registers by the SVC handler.
+	 * \brief Registers stacked by an assembly entry point.
 	 */
 	uint32_t registers[CONTEXT_REGISTER_NUMBER];
-} context_svc_t;
+} stacked_context_t;
 
 /*!
  * \brief Structure representing a context as stored by the yield

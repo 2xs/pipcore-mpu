@@ -1,5 +1,5 @@
 /*******************************************************************************/
-/*  © Université de Lille, The Pip Development Team (2015-2021)                */
+/*  © Université de Lille, The Pip Development Team (2015-2022)                */
 /*                                                                             */
 /*  This software is a computer program whose purpose is to run a minimal,     */
 /*  hypervisor relying on proven properties such as memory isolation.          */
@@ -84,7 +84,7 @@ extern uint32_t user_stack_top;
 
 extern uint32_t _sram;
 
-static void* user_alloc_pos = NULL;
+void* user_alloc_pos = NULL;
 
 paddr blockentryaddr_flash = NULL;
 paddr blockentryaddr_ram0 = NULL;
@@ -132,7 +132,7 @@ void mal_init_root_part(paddr part)
 	//  init structure kernel of root partition: zero the block + fill in [0; kernel length]
 	if (!initStructure(kstructure, user_alloc_pos))// TODO: defined as bigger than minimal MPU region size)
 	{
-		printf("mal_init_root_part( part=%08x) : couldn't initialise structure\r\n", part);
+		printf("mal_init_root_part( part=%p) : couldn't initialise structure\r\n", part);
 		while(1);
 	}
 	// TODO change ed of kernel structure param ?
@@ -172,7 +172,7 @@ void mal_init_root_part(paddr part)
 
 #endif // UNIT_TESTS
 	//DEBUG(TRACE, "mal_init_root_part( part=%08x) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
-	printf("mal_init_root_part( part=%08x) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
+	printf("mal_init_root_part( part=%p) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
 
 	// Map stack and VIDT
 /*
@@ -224,5 +224,5 @@ void mal_init(void)
 	mal_init_root_part(part);
 
 	//DEBUG(TRACE, "mal_init( part=%08x) : root is initialized\r\n", part);
-	printf("mal_init( part=%08x) : root is initialized\r\n", part);
+	printf("mal_init( part=%p) : root is initialized\r\n", part);
 }

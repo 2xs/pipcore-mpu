@@ -33,10 +33,9 @@
 #if defined BENCHMARK
 #include <stdio.h>
 #include "context.h"
-//#include "svc.h"
 #include "user_ADT.h"
 #include "nrf52.h"
-#include "scb.h"
+//#include "scb.h"
 #include "svc.h"
 #include "benchmark.h"
 #include "nrf_gpio.h"
@@ -147,12 +146,12 @@ start_cycles_counting()
 		InitCycleCounter();	 // enable DWT
 		ResetCycleCounter(); // reset DWT cycle counter
 		// Enable SysTick interrupt: value can't be too low else it will interrupt in the SysTick_Handler itself and loop forever
-		if (SysTick_Config(SystemCoreClock / 1000)) // Generate interrupt each 1 ms: SystemCoreClock is the nb of ticks in a second
+		/*if (SysTick_Config(SystemCoreClock / 1000)) // Generate interrupt each 1 ms: SystemCoreClock is the nb of ticks in a second
 		{
 			printf("Benchmark Init error: can't load SysTick\n");
 			while (1)
 				;
-		}
+		}*/
 		// Trigger External benchmark start
 		nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
 		nrf_gpio_pin_write(13, 1);
