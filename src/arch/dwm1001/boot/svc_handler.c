@@ -203,21 +203,25 @@ void SVC_Handler_C(stacked_context_t *stackedContext)
 
 #ifdef BENCHMARK
     case 129:          // Stop benchmark (end_cycles_counting)
-      uint32_t cycles; // number of cycles
-      cycles = GetCycleCounter(); // get cycle counter
-	  // Trigger External benchmark end
-	  nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
-	  nrf_gpio_pin_write(13, 0);
-	  DisableCycleCounter();      // disable counting if not used
-	  uint32_t main_stack_usage = finish_stack_usage_measurement(&__StackLimit, &__StackTop);	 /* main (Pip) stack */
-	  uint32_t app_stack_usage = finish_stack_usage_measurement(&user_stack_limit, &user_stack_top); /* app stack */
-	  printf("Benchmark results:\n");
-	  printf("Ticks:%d\n", cycles);
-	  printf("Main stack usage:%d\n", main_stack_usage);
-	  printf("App stack usage:%d\n", app_stack_usage);
+		uint32_t cycles; // number of cycles
+		cycles = GetCycleCounter(); // get cycle counter
+		// Trigger External benchmark end
+		nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
+		nrf_gpio_pin_write(13, 0);
+		DisableCycleCounter();      // disable counting if not used
+		uint32_t main_stack_usage = finish_stack_usage_measurement(&__StackLimit, &__StackTop);	 /* main (Pip) stack */
+		uint32_t app_stack_usage = finish_stack_usage_measurement(&user_stack_limit, &user_stack_top); /* app stack */
+		printf("Benchmark results:\n");
+		printf("Ticks:%d\n", cycles);
+		printf("Main stack usage:%d\n", main_stack_usage);
+		printf("App stack usage:%d\n", app_stack_usage);
+		#if defined BENCHMARK_PIP_ROOT
+		uint32_t systickhandler_stack_usage = finish_stack_usage_measurement(rootSysTickStackBlockStart, rootSysTickStackBlockEnd); /* app stack */
+		printf("Systick stack usage:%d\n", systickhandler_stack_usage);
+		#endif
 
-	  while (1);
-      break;
+		while (1);
+		break;
 #endif // BENCHMARK
     default:
 			/* Unknown SVC */

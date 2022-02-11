@@ -51,6 +51,7 @@ void witness(){
 void print_benchmark_msg(){
 	// Start benchmark initialisation
 	printf(BENCH_MSG_INIT);
+	printf("WARNING: Monitor stack usage on: RAM is erased from user_mem_start and up");
 #if defined BENCHMARK_BASELINE
 	printf(BENCH_MSG_BASELINE);
 #endif
@@ -95,7 +96,7 @@ uint32_t finish_stack_usage_measurement(uint32_t *lower_addr, uint32_t *upper_ad
 		printf("Warning: probable stack overflow at lower_addr 0x%x\n", lower_addr);
 		return 0;
 	}
-	return (upper_addr - p + 1)*4; // stack is descending so base is top + convert number to bytes
+	return (upper_addr - p)*4; // stack is descending so base is top + convert number to bytes
 }
 
 /**
@@ -109,13 +110,6 @@ start_cycles_counting()
 	// Enable cycle counting
 	InitCycleCounter();	 // enable DWT
 	ResetCycleCounter(); // reset DWT cycle counter
-	// Enable SysTick interrupt: value can't be too low else it will interrupt in the SysTick_Handler itself and loop forever
-	/*if (SysTick_Config(SystemCoreClock / 1000)) // Generate interrupt each 1 ms: SystemCoreClock is the nb of ticks in a second
-	{
-		printf("Benchmark Init error: can't load SysTick\n");
-		while (1)
-			;
-	}*/
 	// Trigger External benchmark start
 	nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
 	nrf_gpio_pin_write(13, 1);
@@ -216,6 +210,9 @@ typedef  enum vidt_index_e
  */
 extern void *user_alloc_pos;
 
+uint32_t rootSysTickStackBlockStart;
+uint32_t rootSysTickStackBlockEnd;
+
 block_t rootKernStructBlock;
 
 /*!
@@ -310,7 +307,6 @@ void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 	 * partition.
 	 */
 
-
 	if (!allocatorAllocateBlock(&rootKernStructBlock, KS_BLOCK_SIZE, 1))
 	{
 		PANIC("Failed to allocate rootKernStructBlock...\n");
@@ -358,6 +354,8 @@ void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 	{
 		PANIC("Failed to allocate rootSysTickStackBlock...\n");
 	}
+	rootSysTickStackBlockStart = rootSysTickStackBlock.address;
+	rootSysTickStackBlockEnd = rootSysTickStackBlock.address + rootSysTickStackBlock.size;
 
 	block_t rootSysTickContextBlock;
 

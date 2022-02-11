@@ -105,6 +105,9 @@ def decode_results(file_str):
     app_stack_usage = re.search('App stack usage:(\d+)', file_str, re.S)
     if app_stack_usage:
         results["App_stack_usage"] = app_stack_usage.group(1)
+    systick_stack_usage = re.search('Systick stack usage:(\d+)', file_str, re.S)
+    if systick_stack_usage:
+        results["Systick_stack_usage"] = systick_stack_usage.group(1)
     return results
 
 """ Join the static and the dynamic results """
@@ -131,6 +134,7 @@ def produce_recap(results_dir, benchmarks, sequence, runs):
                     # Average, min, max
                     for bench in dynamic_data_all:
                         recap_tot[bench] = {}
+                        systick_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
                         cycles_average = 0
                         cycles_min = sys.maxsize
                         cycles_max = 0
@@ -162,17 +166,29 @@ def produce_recap(results_dir, benchmarks, sequence, runs):
                                 app_stack_max = run_app_stack
                             if app_stack_min > run_app_stack:
                                 app_stack_min = run_app_stack
+                            if "pip" in sequence:
+                                run_systick_stack = run["Systick_stack_usage"]
+                                systick_data["average"] += run_systick_stack
+                                if systick_data["max"] < run_systick_stack:
+                                    systick_data["max"] = run_systick_stack
+                                if systick_data["min"] > run_systick_stack:
+                                    systick_data["min"] = run_systick_stack
                         cycles_average /= runs
                         main_stack_average /= runs
                         app_stack_average /= runs
+                        systick_data["average"] /= runs
                         # Variance
                         for run in dynamic_data_all[bench]:
                             cycles_var += (run["Cycles"]-cycles_average)**2
                             main_stack_var += (run["Main_stack_usage"]-main_stack_average)**2
                             app_stack_var += (run["App_stack_usage"]-app_stack_average)**2
+                            if "pip" in sequence:
+                                systick_data["var"] += (run["Systick_stack_usage"]-systick_data["average"])**2
                         cycles_var /= runs
                         main_stack_var /= runs
                         app_stack_var /= runs
+                        systick_data["var"] /= runs
+                        # Full results
                         dynamic_data[bench] = { 'Cycles_average': cycles_average,
                                                 'Cycles_min': cycles_min,
                                                 'Cycles_max': cycles_max,
@@ -187,6 +203,11 @@ def produce_recap(results_dir, benchmarks, sequence, runs):
                                                 'App_stack_max': app_stack_max,
                                                 'App_stack_var': app_stack_var
                                              }
+                        if "pip" in sequence:
+                            dynamic_data[bench] |= {'Systick_stack_average': systick_data["average"],
+                                                'Systick_stack_min': systick_data["min"],
+                                                'Systick_stack_max': systick_data["max"],
+                                                'Systick_stack_var': systick_data["var"]}
     for bench in benchmarks:
         recap_tot[bench]["Static"] = static_data[bench]
         recap_tot[bench]["Dynamic"] = dynamic_data[bench]
@@ -308,6 +329,8 @@ def analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence):
                                             'Main_stack_usage': int(data["Main_stack_usage"]),
                                             'App_stack_usage': int(data["App_stack_usage"])
                                         }
+                            if "pip" in sequence:
+                                run_res_out |= {'Systick_stack_usage': int(data["Systick_stack_usage"])}
                             if file_name.group(1) not in dynamic_results:
                                 dynamic_results[file_name.group(1)] = []
                             dynamic_results[file_name.group(1)].append(run_res_out)
@@ -343,6 +366,7 @@ def compare_baseline(results_dir, sequence):
                 sequence_main_stack = data[bench]["Dynamic"]["Main_stack_average"]
                 base_app_stack = b_data[bench]["Dynamic"]["App_stack_average"]
                 sequence_app_stack = data[bench]["Dynamic"]["App_stack_average"]
+                sequence_systick_stack = data[bench]["Dynamic"]["Systick_stack_average"]
                 base_indirect_calls = b_data[bench]["Static"]["Indirect_calls"]
                 sequence_indirect_calls = data[bench]["Static"]["Indirect_calls"]
                 base_gadgets = b_data[bench]["Static"]["ROP_gadgets"]
@@ -369,7 +393,9 @@ def compare_baseline(results_dir, sequence):
                                                             f'Main_stack_{sequence}_var' : data[bench]["Dynamic"]["Main_stack_var"],
                                                             "App_stack_rel_average": sequence_app_stack*100/base_app_stack if base_app_stack != 0 else sequence_app_stack,
                                                             "App_stack_base_var": b_data[bench]["Dynamic"]["App_stack_var"],
-                                                            f'Main_stack_{sequence}_var' : data[bench]["Dynamic"]["App_stack_var"],
+                                                            f'App_stack_{sequence}_var' : data[bench]["Dynamic"]["App_stack_var"],
+                                                            "Systick_stack_average": sequence_systick_stack,
+                                                            f'Systick_stack_{sequence}_var' : data[bench]["Dynamic"]["Systick_stack_var"],
                                                         },
                                             "Static" : {
                                                             "Indirect_calls_rel" : sequence_indirect_calls*100/base_indirect_calls if base_indirect_calls != 0 else sequence_indirect_calls,

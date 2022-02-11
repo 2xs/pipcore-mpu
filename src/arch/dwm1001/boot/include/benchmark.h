@@ -40,6 +40,13 @@ extern uint32_t __StackTop;
 extern uint32_t __StackLimit;
 extern uint32_t user_stack_limit;
 extern uint32_t user_stack_top;
+extern uint32_t user_mem_start;
+extern uint32_t user_mem_end;
+
+#if defined BENCHMARK_PIP_ROOT
+extern uint32_t rootSysTickStackBlockStart;
+extern uint32_t rootSysTickStackBlockEnd;
+#endif
 
 #define STACK_INIT_MARK 0xcafebeef
 
@@ -89,11 +96,13 @@ uint32_t finish_stack_usage_measurement(uint32_t *lower_addr, uint32_t *upper_ad
 /*!
  * \brief Launches the benchmark init sequence procedure
  */
-#define START_BENCHMARK()                                                                \
-    print_benchmark_msg();                                                               \
-    prepare_stack_usage_measurement(&__StackLimit, &__StackTop);         /* pip stack */ \
-    prepare_stack_usage_measurement(&user_stack_limit, &user_stack_top); /* app stack */ \
-    __DMB(); __ISB(); __DSB(); \
+#define START_BENCHMARK()                                                                    \
+    print_benchmark_msg();                                                                   \
+    prepare_stack_usage_measurement(&__StackLimit, &__StackTop);         /* pip stack */     \
+    prepare_stack_usage_measurement(&user_mem_start, &user_mem_end);    /* mark RAM */       \
+    __DMB();                                                                                 \
+    __ISB();                                                                                 \
+    __DSB();                                                                                 \
     start_cycles_counting();
 
 /*!
