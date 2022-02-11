@@ -133,8 +133,6 @@ void pip_main (void)
 	/* Enable the SysTick timer. */
 	systick_timer_enable();
 
-	while(1)
-
 	/* Set the PendSV exception as pending by writing 1 to the
 	 * PENDSVSET bit. */
 	ICSR.PENDSVSET = 1;
@@ -235,13 +233,12 @@ uint8_t *sp = (uint8_t *)&user_stack_top;
 	/* Initialize the root partition context. */
 	rootPartitionContext.registers[R0] = argc;
 	rootPartitionContext.registers[R1] = (uint32_t) argv;
-#if defined BENCHMARK_PIP
+#if defined BENCHMARK_PIP_ROOT
 	rootPartitionContext.registers[PC] = (uint32_t)main_benchmark;
-	rootPartitionContext.pipflags = 0; // do not enforce interrupts (for systick)
 #else
 	rootPartitionContext.registers[PC] = (uint32_t) main_yield;
+#endif // BENCHMARK_PIP_ROOT
 	rootPartitionContext.pipflags = 0;
-#endif // BENCHMARK_PIP
 	rootPartitionContext.registers[SP] = (uint32_t) argv;
 	rootPartitionContext.valid         = CONTEXT_VALID_VALUE;
 

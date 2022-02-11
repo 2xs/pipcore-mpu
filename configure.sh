@@ -606,7 +606,7 @@ configure_global_variables() {
 					;;
 				bench-pip)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
-					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP_ROOT'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
 					;;
 				default)

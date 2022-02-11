@@ -270,7 +270,7 @@ def run_dynamic_metrics(benchmarks, sequence, runs):
             tn = start_thread(init_telnet, args=[bench, run, que, sequence])
             print("OK")
 
-            print("Flashing and running " + bench + "...")
+            print("Flashing and running " + bench, end="...")
             try:
                 res = subprocess.run(
                     ["arm-none-eabi-gdb", "--batch", "-ex", f'py arg0 = "{bench}"', "-x", "benchmarks/gdb_connect_flash_run.py"],
@@ -282,6 +282,7 @@ def run_dynamic_metrics(benchmarks, sequence, runs):
 
             tn.join()
             gdbs.join()
+            print("OK")
             print("Run %s ended" % run)
             # All threads have returned
 
