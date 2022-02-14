@@ -323,3 +323,39 @@ uint32_t Pip_yield(
 
 	return r0;
 }
+
+__attribute__((noinline))
+uint32_t Pip_getIntState(
+	uint32_t *childPartDescBlockLocalId
+) {
+	register uint32_t r0 asm("r0");
+
+	r0 = (uint32_t) childPartDescBlockLocalId;
+
+	asm volatile
+	(
+		"svc #13"
+		: "+r" (r0)
+		:
+		: "memory"
+	);
+
+	return r0;
+}
+
+__attribute__((noinline))
+void Pip_setIntState(
+	uint32_t interruptState
+) {
+	register uint32_t r0 asm("r0");
+
+	r0 = interruptState;
+
+	asm volatile
+	(
+		"svc #14"
+		:
+		: "r" (r0)
+		: "memory"
+	);
+}

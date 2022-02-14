@@ -67,6 +67,20 @@
 #define CONTEXT_BLOCK_SIZE 76
 
 /*!
+ * \def DISABLE_INTERRUPTS
+ *
+ * \brief Value used to disable interrupts with Pip_setIntState.
+ */
+#define DISABLE_INTERRUPTS 0
+
+/*!
+ * \def ENABLE_INTERRUPTS
+ *
+ * \brief Value used to enable interrupts with Pip_setIntState.
+ */
+#define ENABLE_INTERRUPTS 1
+
+/*!
  * \def ROOT_PARTITION_VIDT
  *
  * \brief The address of the VIDT of the root partition.
@@ -87,11 +101,11 @@
  *
  * \brief Print a message and loop forever.
  */
-#define PANIC(...) \
-	do \
-	{ \
+#define PANIC(...)                   \
+	do                           \
+	{                            \
 		printf(__VA_ARGS__); \
-		for (;;); \
+		for (;;);            \
 	} while (0)
 
 /*!
@@ -681,14 +695,14 @@ void main_yield(int argc, uint32_t **argv)
 	}
 
 	/*
-	 * Yield to the first child partition.
+	 * Enable interrupts.
 	 */
 
-	Pip_yield(child1PartDescBlock.id, DEFAULT_INDEX, DEFAULT_INDEX, 0, 0);
+	Pip_setIntState(ENABLE_INTERRUPTS);
 
 	/*
-	 * Should never be reached.
+	 * Wait for the SysTick exception to be raised.
 	 */
 
-	PANIC("The root partition failed to start its child 1\n");
+	for (;;);
 }

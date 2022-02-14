@@ -60,7 +60,9 @@ typedef enum svc_number_e
 	SVC_NUMBER_READ_MPU            = 9 , /*!< The readMPU SVC number. */
 	SVC_NUMBER_FIND_BLOCK          = 10, /*!< The findBlock SVC number. */
 	SVC_NUMBER_SET_VIDT            = 11, /*!< The setVIDT SVC number. */
-	SVC_NUMBER_YIELD               = 12  /*!< The yield SVC number. */
+	SVC_NUMBER_YIELD               = 12, /*!< The yield SVC number. */
+	SVC_NUMBER_GET_INT_STATE       = 13, /*!< The getIntState SVC number. */
+	SVC_NUMBER_SET_INT_STATE       = 14  /*!< The setIntState SVC number. */
 } svc_number_t;
 
 /*!
@@ -185,6 +187,18 @@ void SVC_Handler_C(stacked_context_t *stackedContext)
 				stackedContext->registers[R2],
 				stackedContext->registers[R3],
 				stackedContext->registers[R4]
+			);
+			break;
+
+		case SVC_NUMBER_GET_INT_STATE:
+			stackedContext->registers[R0] = (uint32_t) getIntState(
+				(paddr) stackedContext->registers[R0]
+			);
+			break;
+
+		case SVC_NUMBER_SET_INT_STATE:
+			setIntState(
+				stackedContext->registers[R0]
 			);
 			break;
 
