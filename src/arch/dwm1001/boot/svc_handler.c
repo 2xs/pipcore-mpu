@@ -208,6 +208,8 @@ void SVC_Handler_C(stacked_context_t *stackedContext)
 		// Trigger External benchmark end
 		nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
 		nrf_gpio_pin_write(13, 0);
+		nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
+		nrf_gpio_pin_write(LED_0, 1); // 0 = Light the LED
 		DisableCycleCounter();      // disable counting if not used
 		uint32_t main_stack_usage = finish_stack_usage_measurement(&__StackLimit, &__StackTop);	 /* main (Pip) stack */
 		uint32_t app_stack_usage = finish_stack_usage_measurement(&user_stack_limit, &user_stack_top); /* app stack */

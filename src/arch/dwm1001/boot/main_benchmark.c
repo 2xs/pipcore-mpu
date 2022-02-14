@@ -41,11 +41,14 @@
 #include "allocator.h"
 
 /*
- * Simple computation.
+ * Simple sleep.
  * Minimal code letting a SysTick interrupt to happen.
  */
 void witness(){
-	for(int i = 0; i<10000;i++);
+	for (int i = 0; i < 0x2000000; i++)
+	{
+		__asm__("nop");
+	}
 }
 
 void print_benchmark_msg(){
@@ -113,6 +116,14 @@ start_cycles_counting()
 	// Trigger External benchmark start
 	nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
 	nrf_gpio_pin_write(13, 1);
+	nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
+	nrf_gpio_pin_write(LED_0, 0); // 0 = Light the LED
+	nrf_gpio_pin_dir_set(LED_1, NRF_GPIO_PIN_DIR_OUTPUT);
+	nrf_gpio_pin_write(LED_1, 0); // 0 = Light the LED
+	nrf_gpio_pin_dir_set(LED_2, NRF_GPIO_PIN_DIR_OUTPUT);
+	nrf_gpio_pin_write(LED_2, 0); // 0 = Light the LED
+	nrf_gpio_pin_dir_set(LED_3, NRF_GPIO_PIN_DIR_OUTPUT);
+	nrf_gpio_pin_write(LED_3, 0); // 0 = Light the LED*/
 	EnableCycleCounter(); // start counting
 }
 

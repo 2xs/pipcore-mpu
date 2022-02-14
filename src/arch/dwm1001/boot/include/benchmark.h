@@ -82,6 +82,12 @@ extern uint32_t rootSysTickStackBlockEnd;
     DWT_CYCCNT
 /*!< Read cycle counter register */
 
+// User LEDs
+#define LED_0 30 // Green
+#define LED_1 31 // Blue
+#define LED_2 22 // Red
+#define LED_3 14 // Red
+
 #define BENCH_MSG_BASELINE "********* BASELINE BENCHMARK ********\n"
 #define BENCH_MSG_WITNESS "********* WITNESS ONLY **************\n"
 #define BENCH_MSG_INIT                     \
