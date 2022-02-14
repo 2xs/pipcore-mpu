@@ -437,10 +437,30 @@ void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 	}
 
 	/*
+	 * The block containing the SysTick stack must be mapped in the
+	 * physical MPU of the root partition.
+	 */
+
+	if (!Pip_mapMPU(rootPartDescBlockId, rootSysTickStackBlock.id, 5))
+	{
+		PANIC("Failed to map rootTimerStackBlock...\n");
+	}
+
+	/*
+	 * Enable interrupts.
+	 */
+
+	Pip_setIntState(ENABLE_INTERRUPTS);
+
+	// empty vs empty pip root = Cost of Pip root partition set up
+#endif
+#if defined BENCHMARK_PIP_CHILD
+
+	/*
 	 * Creation of the three child partitions.
 	 */
-/*
-	if (!createChildPartition(&child1PartDescBlock, childPartition,
+
+	/*if (!createChildPartition(&child1PartDescBlock, childPartition,
 							  rootPartDescBlockId, rootFlashBlockLocalId, rootRam0BlockLocalId))
 	{
 		PANIC("Failed to create the child partition 1...\n");
@@ -456,27 +476,7 @@ void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 							  rootPartDescBlockId, rootFlashBlockLocalId, rootRam0BlockLocalId))
 	{
 		PANIC("Failed to create the child partition 3...\n");
-	}
-*/
-	/*
-	 * The block containing the SysTick stack must be mapped in the
-	 * physical MPU of the root partition.
-	 */
-
-	if (!Pip_mapMPU(rootPartDescBlockId, rootSysTickStackBlock.id, 5))
-	{
-		PANIC("Failed to map rootTimerStackBlock...\n");
-	}
-
-	/*
-	 * Yield to self partition in order to activate the interrupts.
-	 */
-
-	Pip_yield(rootKernStructBlock.id, DEFAULT_INDEX, DEFAULT_INDEX, 1, 1);
-
-	// empty vs empty pip root = Cost of Pip root partition set up
-#endif
-#if defined BENCHMARK_PIP_CHILD
+	}*/
 
 #else
 
