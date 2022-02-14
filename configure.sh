@@ -603,6 +603,7 @@ configure_global_variables() {
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_WITNESS_ONLY'
+					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
 					;;
 				bench-pip)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
