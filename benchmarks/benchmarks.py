@@ -278,6 +278,17 @@ def init_telnet(bench_name, run, queue, sequence):
 
 def run_dynamic_metrics(benchmarks, sequence, runs):
     print("\nCollecting dynamic data:")
+    # Check the benchmark exit line number corresponds for gdb commands
+    linenumber = 223
+    file_path = "src/arch/dwm1001/boot/svc_handler.c"
+    with open(file_path) as fdata:
+        for position, line in enumerate(fdata):
+            if position == (linenumber - 1):
+                if "while (1)" not in line:
+                    print("***Error in function run_dynamic_metrics: Benchmark halt line is not correct. Please ensure the linenumber corresponds to the while (1) instruction")
+                    sys.exit(1)
+        fdata.close()
+
     for bench in benchmarks:
         que = queue.Queue()
         print(f'\n***Launching {sequence} benchmark for {bench}***')
@@ -290,11 +301,10 @@ def run_dynamic_metrics(benchmarks, sequence, runs):
             time.sleep(0.5) # wait GDBServer is up
             tn = start_thread(init_telnet, args=[bench, run, que, sequence])
             print("OK")
-
-            print("Flashing and running " + bench, end="...")
+            print("Flashing and running %s..." % bench)
             try:
                 res = subprocess.run(
-                    ["arm-none-eabi-gdb", "--batch", "-ex", f'py arg0 = "{bench}"', "-x", "benchmarks/gdb_connect_flash_run.py"],
+                    ["arm-none-eabi-gdb", "--batch", "-ex", f'py arg0 = "{bench}"', "-ex", f'py arg1 = "{linenumber}"', "-x", "benchmarks/gdb_connect_flash_run.py"],
                     capture_output=True,
                 )
             except subprocess.TimeoutExpired:
@@ -302,8 +312,8 @@ def run_dynamic_metrics(benchmarks, sequence, runs):
                     print("NOK***")
 
             tn.join()
+            time.sleep(5)
             gdbs.join()
-            print("OK")
             print("Run %s ended" % run)
             # All threads have returned
 
@@ -336,6 +346,7 @@ def analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence):
                             dynamic_results[file_name.group(1)].append(run_res_out)
                         else:
                             print("***Error: Didn't find any output for " + f)
+                            sys.exit(1)
     res_dyn_filename = 'results_dynamic_' + str(sequence) + '.json'
     baseline_file = os.path.join(results_dir, res_dyn_filename)
     with open(baseline_file, "w") as outfile:
