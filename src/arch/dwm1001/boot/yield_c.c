@@ -601,8 +601,9 @@ yield_return_code_t switchContextCont(
 	return YIELD_SUCCESS;
 }
 
-static void kernel_set_int_state(uint32_t interrupt_state)
-{
+static void kernel_set_int_state(
+	uint32_t interrupt_state
+) {
 	/* Retrieve the current partition block. */
 	paddr currentpartDescBlockGlobalId = getCurPartition();
 
@@ -629,6 +630,62 @@ static void kernel_set_int_state(uint32_t interrupt_state)
 	 * VIDT of the current partition. */
 	currentVidtAddr[INTERRUPT_STATE_IDX] =
 		(user_context_t *) interrupt_state;
+}
+
+uint32_t getIntState(
+	paddr childPartDescBlockLocalId
+) {
+	/* Retrieve the current partition block. */
+	paddr currentPartDescBlockGlobalId = getCurPartition();
+
+	/* Check that the child is a child of the current partition. */
+	if (!(checkChildOfCurrPart(currentPartDescBlockGlobalId, childPartDescBlockLocalId)))
+	{
+		return ~0;
+	}
+
+	paddr childPartDescBlockGlobalId =
+		readBlockStartFromBlockEntryAddr(childPartDescBlockLocalId);
+
+	/* Retrieve the VIDT block of the child partition. */
+	paddr childVidtBlockGlobalId =
+		readPDVidt(childPartDescBlockGlobalId);
+
+	if (childVidtBlockGlobalId == NULL)
+	{
+		return ~0;
+	}
+
+	/* Retrieve the VIDT address from the VIDT block of the child
+	 * partition. */
+	user_context_t **childVidtAddr =
+		readBlockStartFromBlockEntryAddr(childVidtBlockGlobalId);
+
+	/* Return the interrupt state of the child partition. */
+	return (uint32_t) childVidtAddr[INTERRUPT_STATE_IDX];
+}
+
+void setIntState(
+	uint32_t interruptState
+) {
+	kernel_set_int_state(interruptState);
+
+	if (getCurPartition() == getRootPartition())
+	{
+		if (interruptState == 0)
+		{
+			/* Enable BASEPRI masking. All interrupts lower
+			 * or equal to the priority 1, i.e. interrupts
+			 * below the SVCall in the vector table, are
+			 * disabled. */
+			__set_BASEPRI(1 << (8 - __NVIC_PRIO_BITS));
+		}
+		else
+		{
+			/* Disable BASEPRI masking. */
+			__set_BASEPRI(0);
+		}
+	}
 }
 
 __attribute__((noreturn))

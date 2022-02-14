@@ -277,6 +277,14 @@ yield_return_code_t yieldGlue(
 	int_mask_t flagsOnWake
 );
 
+uint32_t getIntState(
+	paddr childPartDescBlockLocalId
+);
+
+void setIntState(
+	uint32_t interruptState
+);
+
 yield_return_code_t getSourcePartVidtCont(
         paddr calleePartDesc,
         paddr callerPartDesc,

@@ -301,4 +301,30 @@ uint32_t Pip_yield(
 	uint32_t flagsOnWake
 );
 
+/*!
+ * \brief System call that retrieves the interrupt state of a child
+ *        partition of the current partition.
+ *
+ * \param childPartDescBlockLocalId The ID of the block containing the
+ *        partition descriptor structure of a child partition.
+ *
+ * \return The interrupt state of the child partition if the system call
+ *         succeed, ~0 otherwise.
+ */
+uint32_t Pip_getIntState(
+	uint32_t *childPartDescBlockLocalId
+);
+
+/*!
+ * \brief System call that sets the interrupt state of the current
+ *        partition.
+ *
+ * \param interruptState The interrupt state to set to the current
+ *        partition. A value of 0 disables interrupts while a value of 1
+ *        enables interrupts.
+ */
+void Pip_setIntState(
+	uint32_t interruptState
+);
+
 #endif /* __SVC_H__ */
