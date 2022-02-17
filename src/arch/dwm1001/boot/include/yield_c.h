@@ -49,13 +49,6 @@
 typedef enum vidt_index_e
 {
 	/*!
-	 * \brief The index 7 of the ISR vector is a reserved index in
-	 *        the ARMv7-M architecture. We use it to save the
-	 *        interrupt state of an interrupted partition.
-	 */
-	INTERRUPT_STATE_IDX = 7,
-
-	/*!
 	 * \brief The index 8 of the ISR vector is a reserved index in
 	 *        the ARMv7-M architecture. We use it to save an
 	 *        interrupted context when its pipflags has a value
@@ -277,12 +270,16 @@ yield_return_code_t yieldGlue(
 	int_mask_t flagsOnWake
 );
 
-uint32_t getIntState(
+int_mask_t getIntState(
 	paddr childPartDescBlockLocalId
 );
 
+int_mask_t getSelfIntState(
+	void
+);
+
 void setIntState(
-	uint32_t interruptState
+	int_mask_t interruptState
 );
 
 yield_return_code_t getSourcePartVidtCont(

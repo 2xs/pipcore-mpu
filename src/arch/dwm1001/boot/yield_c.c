@@ -601,41 +601,10 @@ yield_return_code_t switchContextCont(
 	return YIELD_SUCCESS;
 }
 
-static void kernel_set_int_state(
-	uint32_t interrupt_state
-) {
-	/* Retrieve the current partition block. */
-	paddr currentpartDescBlockGlobalId = getCurPartition();
-
-	if (currentpartDescBlockGlobalId == NULL)
-	{
-		return;
-	}
-
-	/* Retrieve the VIDT block of the current partition. */
-	paddr currentVidtBlockGlobalId =
-		readPDVidt(currentpartDescBlockGlobalId);
-
-	if (currentVidtBlockGlobalId == NULL)
-	{
-		return;
-	}
-
-	/* Retrieve the VIDT address from the VIDT block of the current
-	 * partition. */
-	user_context_t **currentVidtAddr =
-		readBlockStartFromBlockEntryAddr(currentVidtBlockGlobalId);
-
-	/* Write the interrupt state at index INTERRUPT_STATE_IDX in the
-	 * VIDT of the current partition. */
-	currentVidtAddr[INTERRUPT_STATE_IDX] =
-		(user_context_t *) interrupt_state;
-}
-
-uint32_t getIntState(
+int_mask_t getIntState(
 	paddr childPartDescBlockLocalId
 ) {
-	/* Retrieve the current partition block. */
+	/* Retrieve the current partition descriptor block. */
 	paddr currentPartDescBlockGlobalId = getCurPartition();
 
 	/* Check that the child is a child of the current partition. */
@@ -644,31 +613,40 @@ uint32_t getIntState(
 		return ~0;
 	}
 
-	paddr childPartDescBlockGlobalId =
-		readBlockStartFromBlockEntryAddr(childPartDescBlockLocalId);
-
-	/* Retrieve the VIDT block of the child partition. */
-	paddr childVidtBlockGlobalId =
-		readPDVidt(childPartDescBlockGlobalId);
-
-	if (childVidtBlockGlobalId == NULL)
-	{
-		return ~0;
-	}
-
-	/* Retrieve the VIDT address from the VIDT block of the child
-	 * partition. */
-	user_context_t **childVidtAddr =
-		readBlockStartFromBlockEntryAddr(childVidtBlockGlobalId);
-
 	/* Return the interrupt state of the child partition. */
-	return (uint32_t) childVidtAddr[INTERRUPT_STATE_IDX];
+	return ((PDTable_t *) childPartDescBlockLocalId)->interruptState;
+}
+
+int_mask_t getSelfIntState(
+	void
+) {
+	/* Retrieve the current partition descriptor block. */
+	paddr currentPartDescBlockGlobalId = getCurPartition();
+
+	/* Return the interrupt state of the current partition. */
+	return ((PDTable_t *) currentPartDescBlockGlobalId)->interruptState;
+}
+
+static void kernel_set_int_state(
+	int_mask_t interruptState
+) {
+	/* Retrieve the current partition descriptor block. */
+	paddr currentPartDescBlockGlobalId = getCurPartition();
+
+	/* Set the interrupt state of the current partition. */
+	((PDTable_t *) currentPartDescBlockGlobalId)->interruptState
+		= interruptState;
 }
 
 void setIntState(
-	uint32_t interruptState
+	int_mask_t interruptState
 ) {
-	kernel_set_int_state(interruptState);
+	/* Retrieve the current partition descriptor block. */
+	paddr currentPartDescBlockGlobalId = getCurPartition();
+
+	/* Set the interrupt state of the current partition. */
+	((PDTable_t *) currentPartDescBlockGlobalId)->interruptState
+		= interruptState;
 
 	if (getCurPartition() == getRootPartition())
 	{
