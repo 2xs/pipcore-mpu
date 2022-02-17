@@ -48,6 +48,14 @@
 /* Check that an address is aligned on a 4-byte boundary. */
 #define IS_MISALIGNED(address) ((address) & 0x3)
 
+/*!
+ * \def VIDT_MAX_INDEX
+ *
+ * \brief The maximum index of the VIDT.
+ */
+#define VIDT_MAX_INDEX \
+	((getMinVidtBlockSize()) / (sizeof(void *)))
+
 /* This EXC_RETURN value allows to return to Thread mode with
  * the PSP stack. */
 #define EXC_RETURN_THREAD_MODE_PSP 0xFFFFFFFD
@@ -155,7 +163,7 @@ static yield_return_code_t checkIntLevelCont(
 	int_mask_t flagsOnWake,
 	user_context_t *callerInterruptedContext
 ) {
-	if (!(userTargetInterrupt < 33))
+	if (!(userTargetInterrupt < VIDT_MAX_INDEX))
 	{
 		return CALLEE_INVALID_VIDT_INDEX;
 	}
@@ -181,7 +189,7 @@ static yield_return_code_t checkCtxSaveIdxCont(
 	int_mask_t flagsOnWake,
 	user_context_t *callerInterruptedContext
 ) {
-	if (!(userCallerContextSaveIndex < 33))
+	if (!(userCallerContextSaveIndex < VIDT_MAX_INDEX))
 	{
 		return CALLER_INVALID_VIDT_INDEX;
 	}
