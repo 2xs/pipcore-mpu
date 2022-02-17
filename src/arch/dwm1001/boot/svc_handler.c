@@ -38,6 +38,7 @@
 #include "pip_debug.h"
 #include "context.h"
 #include "yield_c.h"
+#include "pip_interrupt_calls.h"
 #include "ADT.h"
 
 /*!

@@ -230,7 +230,6 @@ typedef enum yield_return_code_e
 } yield_return_code_t;
 
 typedef uint32_t uservalue_t;
-typedef uint32_t int_mask_t;
 
 /*!
  * \brief System call that yield from the current partition (the
@@ -268,18 +267,6 @@ yield_return_code_t yieldGlue(
 	uservalue_t userCallerContextSaveIndex,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake
-);
-
-int_mask_t getIntState(
-	paddr childPartDescBlockLocalId
-);
-
-int_mask_t getSelfIntState(
-	void
-);
-
-void setIntState(
-	int_mask_t interruptState
 );
 
 yield_return_code_t getSourcePartVidtCont(

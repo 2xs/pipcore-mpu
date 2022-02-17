@@ -41,10 +41,8 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include "pip_interrupt_calls.h"
 #include "userconstants.h"
-
-/* TODO: Move this to an appropriate header file. */
-typedef uint32_t int_mask_t;
 
 /* bool */
 typedef uint32_t boolean;

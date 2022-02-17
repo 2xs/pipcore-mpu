@@ -38,6 +38,7 @@
 #include "trace.h"
 #include "context.h"
 #include "yield_c.h"
+#include "pip_interrupt_calls.h"
 #include "mal.h"
 #include "scs.h"
 #include "mpu.h"
