@@ -126,106 +126,118 @@ typedef enum yield_return_code_e
 	CALLER_VIDT_IS_NOT_ACCESSIBLE = 7,
 
 	/*!
+	 * \brief The block containing the VIDT of the caller is too
+	 *        small.
+	 */
+	CALLER_VIDT_BLOCK_TOO_SMALL = 8,
+
+	/*!
 	 * \brief The address of the block containing the VIDT of the
 	 *        callee is null.
 	 */
-	CALLEE_VIDT_IS_NULL = 8,
+	CALLEE_VIDT_IS_NULL = 9,
 
 	/*!
 	 * \brief The block containing the VIDT of the callee does not
 	 *        have the present flag.
 	 */
-	CALLEE_VIDT_IS_NOT_PRESENT = 9,
+	CALLEE_VIDT_IS_NOT_PRESENT = 10,
 
 	/*!
 	 * \brief The block containing the VIDT of the callee does not
 	 *        have the accessible flag.
 	 */
-	CALLEE_VIDT_IS_NOT_ACCESSIBLE = 10,
+	CALLEE_VIDT_IS_NOT_ACCESSIBLE = 11,
+
+	/*!
+	 * \brief The block containing the VIDT of the callee is too
+	 *        small.
+	 */
+	CALLEE_VIDT_BLOCK_TOO_SMALL = 12,
 
 	/*!
 	 * \brief No block were found in the caller's address space
 	 *        that match the context address read from the VIDT.
 	 */
-	CALLER_CONTEXT_BLOCK_NOT_FOUND = 11,
+	CALLER_CONTEXT_BLOCK_NOT_FOUND = 13,
 
 	/*!
 	 * \brief The block containing the address to which the context
 	 *        of the caller is to be written does not have the
 	 *        present flag.
 	 */
-	CALLER_CONTEXT_BLOCK_IS_NOT_PRESENT = 12,
+	CALLER_CONTEXT_BLOCK_IS_NOT_PRESENT = 14,
 
 	/*!
 	 * \brief The block containing the address to which the context
 	 *        of the caller is to be written does not have the
 	 *        accessible flag.
 	 */
-	CALLER_CONTEXT_BLOCK_IS_NOT_ACCESSIBLE = 13,
+	CALLER_CONTEXT_BLOCK_IS_NOT_ACCESSIBLE = 15,
 
 	/*!
 	 * \brief The block containing the address to which the context
 	 *        of the caller is to be written does not have the
 	 *        writable flag.
 	 */
-	CALLER_CONTEXT_BLOCK_IS_NOT_WRITABLE = 14,
+	CALLER_CONTEXT_BLOCK_IS_NOT_WRITABLE = 16,
 
 	/*!
 	 * \brief The address of the caller's context, added to the
 	 *        size of a context, exceeds the end of the block.
 	 */
-	CALLER_CONTEXT_EXCEED_BLOCK_END = 15,
+	CALLER_CONTEXT_EXCEED_BLOCK_END = 17,
 
 	/*!
 	 * \brief The address to which the caller's context should be
 	 *        written is not aligned on a 4-byte boundary.
 	 */
-	CALLER_CONTEXT_MISALIGNED = 16,
+	CALLER_CONTEXT_MISALIGNED = 18,
 
 	/*!
 	 * \brief No block were found in the callee's address space
 	 *        that match the context address read from the VIDT.
 	 */
-	CALLEE_CONTEXT_BLOCK_NOT_FOUND = 17,
+	CALLEE_CONTEXT_BLOCK_NOT_FOUND = 19,
 
 	/*!
 	 * \brief The block containing the address at which the context
 	 *        of the callee is to be read does not have the present
 	 *        flag.
 	 */
-	CALLEE_CONTEXT_BLOCK_IS_NOT_PRESENT = 18,
+	CALLEE_CONTEXT_BLOCK_IS_NOT_PRESENT = 20,
 
 	/*!
 	 * \brief The block containing the address at which the context
 	 *        of the callee is to be read does not have the
 	 *        accessible flag.
 	 */
-	CALLEE_CONTEXT_BLOCK_IS_NOT_ACCESSIBLE = 19,
+	CALLEE_CONTEXT_BLOCK_IS_NOT_ACCESSIBLE = 21,
 
 	/*!
 	 * \brief The block containing the address at which the context
 	 *        of the callee is to be read does not have the readable
 	 *        flag.
 	 */
-	CALLEE_CONTEXT_BLOCK_IS_NOT_READABLE = 20,
+	CALLEE_CONTEXT_BLOCK_IS_NOT_READABLE = 22,
 
 	/*!
 	 * \brief The address of the callee's context, added to the size
 	 *        of a context, exceeds the end of the block.
 	 */
-	CALLEE_CONTEXT_EXCEED_BLOCK_END = 21,
+	CALLEE_CONTEXT_EXCEED_BLOCK_END = 23,
 
 	/*!
 	 * \brief The address at which the callee's context should be
 	 *        read is not aligned on a 4-byte boundary.
 	 */
-	CALLEE_CONTEXT_MISALIGNED = 22,
+	CALLEE_CONTEXT_MISALIGNED = 24,
 
 	/*!
 	 * \brief The valid field of the context structure does not
 	 *        contain a valid context value.
 	 */
-	CALLEE_CONTEXT_INVALID = 23
+	CALLEE_CONTEXT_INVALID = 25
 
 } yield_return_code_t;
 

@@ -315,6 +315,22 @@ yield_return_code_t getSourcePartVidtCont(
 		return CALLER_VIDT_IS_NOT_ACCESSIBLE;
 	}
 
+	uintptr_t callerVidtBlockEntryStart =
+		(uintptr_t) readBlockStartFromBlockEntryAddr(callerVidtBlockEntryAddr);
+
+	uintptr_t callerVidtBlockEntryEnd =
+		(uintptr_t) readBlockEndFromBlockEntryAddr(callerVidtBlockEntryAddr);
+
+	uintptr_t callerVidtBlockSize =
+		callerVidtBlockEntryEnd - callerVidtBlockEntryStart + 1;
+
+	/* Check that the block containing the VIDT of the caller is
+	 * big enough. */
+	if (callerVidtBlockSize < getMinVidtBlockSize())
+	{
+		return CALLER_VIDT_BLOCK_TOO_SMALL;
+	}
+
 	paddr callerVidtAddr =
 		readBlockStartFromBlockEntryAddr(callerVidtBlockEntryAddr);
 
@@ -362,6 +378,22 @@ yield_return_code_t getTargetPartVidtCont(
 	if (!(readBlockAccessibleFromBlockEntryAddr(calleeVidtBlockEntryAddr)))
 	{
 		return CALLEE_VIDT_IS_NOT_ACCESSIBLE;
+	}
+
+	uintptr_t calleeVidtBlockEntryStart =
+		(uintptr_t) readBlockStartFromBlockEntryAddr(calleeVidtBlockEntryAddr);
+
+	uintptr_t calleeVidtBlockEntryEnd =
+		(uintptr_t) readBlockEndFromBlockEntryAddr(calleeVidtBlockEntryAddr);
+
+	uintptr_t calleeVidtBlockSize =
+		calleeVidtBlockEntryEnd - calleeVidtBlockEntryStart + 1;
+
+	/* Check that the block containing the VIDT of the callee is
+	 * big enough. */
+	if (calleeVidtBlockSize < getMinVidtBlockSize())
+	{
+		return CALLEE_VIDT_BLOCK_TOO_SMALL;
 	}
 
 	paddr calleeVidtAddr =
