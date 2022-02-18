@@ -187,7 +187,7 @@ propagateFault(
 	user_context_t *context
 ) {
 	/* We try to propagate the fault to the parent partition of the
-	 * one that has failed by saving its context at the address
+	 * one that has faulted by saving its context at the address
 	 * found at the saveIndex in its VIDT. Then, we restore the
 	 * context pointed to by the address found at the index
 	 * corresponding to the fault number in the VIDT of the parent
@@ -238,9 +238,9 @@ propagateFault(
 		{
 			/* We tried to propagate the fault to the parent
 			 * partition of the root partition. This means
-			 * that either the root partition has failed, or
-			 * that one of its children has failed and could
-			 * not handle the fault. */
+			 * that either the root partition has faulted,
+			 * or that one of its children has faulted and
+			 * could not handle the fault. */
 			printf("PIP: The root partition has faulted!\n");
 
 			break;
@@ -365,7 +365,7 @@ MemManage_Handler_C(stacked_context_t *stackedContext)
 	else
 	{
 		/* All other MemManage faults are not due to partial
-		 * path configuration. We set the faultedAddress to an
+		 * block configuration. We set the faultedAddress to an
 		 * inaccessible address to avoid searching for a valid
 		 * block in the MPU. */
 		faultedAddress = UNREACHABLE_ADDRESS;
