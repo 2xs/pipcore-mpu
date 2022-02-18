@@ -244,15 +244,13 @@ typedef enum yield_return_code_e
 typedef uint32_t uservalue_t;
 
 /*!
- * \brief System call that yield from the current partition (the
- *        caller), to its parent or one of its childs (the callee).
+ * \brief Yield from the current partition (the caller), to its parent,
+ *        itself or one of its children (the callee).
  *
- * \param svc_ctx Registers stacked by the SVC handler.
- *
- * \param calleePartDescBlockId The ID of the block containing the
- *        partition descriptor structure of a child of the current
- *        partition, or an ID equals to 0 for the partition descriptor
- *        structure of its parent.
+ * \param calleePartDescBlockId The ID of a block containing a
+ *        partition descriptor structure. An ID equals to 0 mean the
+ *        partition descriptor structure of the parent of the current
+ *        partition.
  *
  * \param userTargetInterrupt The index of the VIDT, which contains the
  *        address pointing to the location where the current context is

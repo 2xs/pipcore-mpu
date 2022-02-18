@@ -199,9 +199,25 @@ static yield_return_code_t checkCtxSaveIdxCont(
 
 	paddr callerPartDescGlobalId = getCurPartition();
 
-	if (calleePartDescLocalId == 0)
+	if (calleePartDescLocalId == NULL)
 	{
+		/* The caller wants to yield to a context in the VIDT
+		 * of its parent.*/
 		return getParentPartDescCont(
+			callerPartDescGlobalId,
+			targetInterrupt,
+			callerContextSaveIndex,
+			flagsOnYield,
+			flagsOnWake,
+			callerInterruptedContext
+		);
+	}
+	else if (calleePartDescLocalId == callerPartDescGlobalId)
+	{
+		/* The caller wants to yield to a context in its own
+		 * VIDT. */
+		return getSourcePartVidtCont(
+			calleePartDescLocalId,
 			callerPartDescGlobalId,
 			targetInterrupt,
 			callerContextSaveIndex,
@@ -212,6 +228,8 @@ static yield_return_code_t checkCtxSaveIdxCont(
 	}
 	else
 	{
+		/* The caller wants to yield to a context in the VIDT
+		 * of one of its children. */
 		return getChildPartDescCont(
 			callerPartDescGlobalId,
 			calleePartDescLocalId,
