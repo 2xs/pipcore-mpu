@@ -40,7 +40,7 @@
 #include "mal.h"
 #include <stddef.h>
 #include "mpu.h"
-//#include "debug.h"
+#include "pip_debug.h"
 
 /*#ifdef DEBUG_MAL
 #define MALDBG(fmt,...) DEBUG(ERROR, fmt, ##__VA_ARGS__)
@@ -1179,7 +1179,7 @@ updateCurPartition (paddr descriptor)
 {
 	current_partition = descriptor;
 	//DEBUG(TRACE, "Registered partition descriptor %x.\n", descriptor);
-	printf("DEBUG: Registered partition descriptor %p.\n", descriptor);
+	debug_printf("DEBUG: Registered partition descriptor %p.\n", descriptor);
 }
 
 /*! \fn paddr getRootPartition()
@@ -1270,7 +1270,7 @@ void activate(paddr desc)
 		while(1);
 	}
 
-	printf("DEBUG: activate %p: loading MPU...\r\n", desc);
+	debug_printf("DEBUG: activate %p: loading MPU...\r\n", desc);
 
 	if (mpu_configure_from_LUT(PDT->LUT) < 0)
 	{
@@ -1278,7 +1278,7 @@ void activate(paddr desc)
 		while(1);
 	}
 
-	printf("DEBUG: activate %p: MPU loaded\r\n", desc);
+	debug_printf("DEBUG: activate %p: MPU loaded\r\n", desc);
 }
 
 void updateCurPartAndActivate(paddr calleePartDescGlobalId)
