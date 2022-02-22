@@ -235,8 +235,7 @@ void SVC_Handler_C(stacked_context_t *stackedContext)
 		uint32_t systickhandler_stack_usage = finish_stack_usage_measurement(rootSysTickStackBlockStart, rootSysTickStackBlockEnd); /* app stack */
 		printf("Systick stack usage:%d\n", systickhandler_stack_usage);
 		#endif
-
-		while (1);
+		BENCHMARK_SINK();
 		break;
 #endif // BENCHMARK
     default:

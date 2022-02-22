@@ -98,6 +98,7 @@ extern uint32_t rootSysTickStackBlockEnd;
 
 int32_t prepare_stack_usage_measurement(uint32_t *lower_addr, uint32_t *upper_addr);
 uint32_t finish_stack_usage_measurement(uint32_t *lower_addr, uint32_t *upper_addr);
+void BENCHMARK_SINK();
 
 /*!
  * \brief Launches the benchmark init sequence procedure

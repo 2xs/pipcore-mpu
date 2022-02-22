@@ -306,6 +306,9 @@ parse_arguments() {
 			--quiet)
 				quiet=1
 				;;
+			--debug)
+				debug=1
+				;;
 			--debugging-mode)
 				debugging_mode=$value
 				;;
@@ -617,7 +620,10 @@ configure_global_variables() {
 					return 1
 					;;
 			esac
-			arch_cflags="$arch_cflags"' -DDUMP'
+			if  [ "$debug" == 1 ]
+			then
+				arch_cflags="$arch_cflags"' -DDUMP'
+			fi
 			arch_cflags="$arch_cflags"' -DNRF52832_XXAA'
 
 			### LDFLAGS for the selected architecture

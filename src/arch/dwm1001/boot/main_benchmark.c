@@ -40,6 +40,10 @@
 #include "nrf_gpio.h"
 #include "allocator.h"
 
+
+void BENCHMARK_SINK(){
+	while (1);
+}
 /*
  * Simple sleep.
  * Minimal code letting a SysTick interrupt to happen.
@@ -156,6 +160,20 @@ start_cycles_counting()
 #define CONTEXT_BLOCK_SIZE 76
 
 /*!
+ * \def DISABLE_INTERRUPTS
+ *
+ * \brief Value used to disable interrupts with Pip_setIntState.
+ */
+#define DISABLE_INTERRUPTS 0
+
+/*!
+ * \def ENABLE_INTERRUPTS
+ *
+ * \brief Value used to enable interrupts with Pip_setIntState.
+ */
+#define ENABLE_INTERRUPTS 1
+
+/*!
  * \def ROOT_PARTITION_VIDT
  *
  * \brief The address of the VIDT of the root partition.
@@ -225,12 +243,15 @@ uint32_t rootSysTickStackBlockStart;
 uint32_t rootSysTickStackBlockEnd;
 
 block_t rootKernStructBlock;
+block_t rootVidtBlock;
+uint32_t ram1_printf;
+uint32_t rootid;
 
 /*!
-	* \brief Initialize a VIDT with NULL addresses.
-	*
-	* \param context A VIDT as an array of pointers.
-	*/
+ * \brief Initialize a VIDT with NULL addresses.
+ *
+ * \param context A VIDT as an array of pointers.
+ */
 static void
 initializeVidt(user_context_t **vidt, size_t blockSize)
 {
@@ -267,15 +288,100 @@ initializeContext(user_context_t *context)
 static void
 systick_handler(void)
 {
-	Pip_yield(rootKernStructBlock.id, DEFAULT_INDEX, DEFAULT_INDEX, 0, 0);
-	/*
-	for (;;)
-	{
-		Pip_yield(child1PartDescBlock.id, DEFAULT_INDEX, SYSTICK_INDEX, 0, 0);
-		Pip_yield(child2PartDescBlock.id, DEFAULT_INDEX, SYSTICK_INDEX, 0, 0);
-		Pip_yield(child3PartDescBlock.id, DEFAULT_INDEX, SYSTICK_INDEX, 0, 0);
-	}
+	// Restore interrupted context
+	/*uint32_t reg = ROOT_PARTITION_VIDT[DEFAULT_INDEX]->registers[PC];
+	uint32_t reg0 = ROOT_PARTITION_VIDT[DEFAULT_INDEX]->registers[SP];
+	printf("%d", reg);// = (uint32_t)scheduler;
+	printf("%d", reg0);// = sp;
+	printf(ROOT_PARTITION_VIDT[DEFAULT_INDEX]->valid);// = CONTEXT_VALID_VALUE;
 	*/
+	// printf
+	/*if (!Pip_mapMPU(rootid, ram1_printf, 7))
+	{
+		PANIC("Failed to map ram1_printf...\n");
+	}*/
+
+	//printf("Hello");
+	//printf("Hello");
+
+	if (!Pip_mapMPU(rootid, rootVidtBlock.id, 4))
+	{
+		PANIC("Failed to map rootVidtBlock...\n");
+	}
+
+	user_context_t *ctx = (user_context_t *)((user_context_t **)rootVidtBlock.address)[STI_SAVE_INDEX];
+
+	/*for (size_t i = 0; i < CONTEXT_REGISTER_NUMBER; i++)
+	{
+		uint32_t t = ctx->registers[i];
+		printf("%x", t);
+	}*/
+
+		uint32_t frame = (ctx->registers[SP]) - 15*sizeof(uint32_t); // Build benchmark frame FRAME_SIZE);
+
+		// Copy registers R0 to R3, R12, LR, PC and xPSR to the stack of
+		 // the callee.
+		uint32_t *framePtr = (uint32_t *)frame;
+		framePtr[0] = ctx->registers[PC];
+		//framePtr[0] = ctx->registers[R1];
+		framePtr[1] = ctx->registers[R2];
+		framePtr[2] = ctx->registers[R3];
+		framePtr[3] = ctx->registers[R4];
+		framePtr[4] = ctx->registers[R5];
+		framePtr[5] = ctx->registers[R6];
+		//framePtr[7] = ctx->registers[XPSR];// | (1 << 24);*/
+		framePtr[6] = ctx->registers[R7];
+		framePtr[7] = ctx->registers[R8];
+		framePtr[8] = ctx->registers[R9];
+		framePtr[9] = ctx->registers[R10];
+		framePtr[10] = ctx->registers[R11];
+		framePtr[11] = ctx->registers[R12];
+		framePtr[12] = ctx->registers[LR];
+		framePtr[13] = ctx->registers[R0];
+		//printf("PC set at: %x\n", ctx->registers[PC]);
+		framePtr[14] = ctx->registers[PC] | (1 << 0);
+		//printf("PC set at: %x\n", framePtr[14]);
+
+			/*asm inline volatile(
+				"msr     psr, %0;"
+				// Output operands
+				:
+				// Input operands
+				: "r"(ctx->registers[XPSR])
+
+				// Clobbers
+				: "memory");*/
+
+			/*stmdb sp !, { r4, r5, r6, r7, r8, lr }
+			000004b0 : sub sp, #8*/
+
+			__asm__ inline __volatile__("mov     sp, %0;"
+										:
+										: "r"(frame)
+										: "sp", "memory");
+
+		__asm__ inline __volatile__(
+			"pop     {r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, lr};"
+			"mov r0, #1;"
+			"svc #14;" // Enable interrupt again now
+			"pop     {r0};"
+			:
+			:
+			: "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "lr");
+		__asm__ inline __volatile__(
+			//"add sp,#1;"
+			//"ldmia.w sp !,{pc}; "
+			"pop     {pc};"
+			//"bx sp;"
+			//"b %0;"
+			:
+			: //"r"(ctx->registers[PC])
+			: "pc");
+
+		/*asm inline __volatile__("BX %0"
+			:
+			: "r"(ctx->registers[PC]));*/
+
 }
 
 void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
@@ -306,10 +412,12 @@ void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 	(void)rootPeriphBlockLocalId;
 	(void)rootRam2BlockLocalId;
 	(void)argc;
+	ram1_printf = rootRam1BlockLocalId;
+	rootid = rootPartDescBlockId;
 
-	/*
-	 * Initialization of the block allocator.
-	 */
+		/*
+		 * Initialization of the block allocator.
+		 */
 
 	allocatorInitialize(rootRam1BlockLocalId, user_alloc_pos);
 
@@ -318,7 +426,7 @@ void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 	 * partition.
 	 */
 
-	if (!allocatorAllocateBlock(&rootKernStructBlock, KS_BLOCK_SIZE, 1))
+	if (!allocatorAllocateBlock(&rootKernStructBlock, KS_BLOCK_SIZE, 0))
 	{
 		PANIC("Failed to allocate rootKernStructBlock...\n");
 	}
@@ -328,7 +436,7 @@ void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 		PANIC("Failed to prepare rootPartDescBlockId...\n");
 	}
 
-	if (!allocatorAllocateBlock(&rootKernStructBlock, KS_BLOCK_SIZE, 1))
+	if (!allocatorAllocateBlock(&rootKernStructBlock, KS_BLOCK_SIZE, 0))
 	{
 		PANIC("Failed to allocate rootKernStructBlock...\n");
 	}
@@ -352,16 +460,15 @@ void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 	 * Create a block for the VIDT of the root partition.
 	 */
 
-	block_t rootVidtBlock;
 
-	if (!allocatorAllocateBlock(&rootVidtBlock, VIDT_BLOCK_SIZE, 1))
+	if (!allocatorAllocateBlock(&rootVidtBlock, VIDT_BLOCK_SIZE, 0))
 	{
 		PANIC("Failed to allocate rootVidtBlock...\n");
 	}
 
 	block_t rootSysTickStackBlock;
 
-	if (!allocatorAllocateBlock(&rootSysTickStackBlock, 512, 0))
+	if (!allocatorAllocateBlock(&rootSysTickStackBlock, 1024, 0))
 	{
 		PANIC("Failed to allocate rootSysTickStackBlock...\n");
 	}
@@ -418,6 +525,32 @@ void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 
 	initializeContext(ROOT_PARTITION_VIDT[SYSTICK_INDEX]);
 
+	block_t stiBlock;
+
+	// Init context for STI
+	if (!allocatorAllocateBlock(&stiBlock, CONTEXT_BLOCK_SIZE, 0))
+	{
+		PANIC("Failed to allocate rootKernStructBlock...\n");
+	}
+
+	/*
+	 * Set the context address at index SYSTICK_INDEX
+	 * in the VIDT of the root partition.
+	 */
+
+	ROOT_PARTITION_VIDT[STI_SAVE_INDEX] =
+		(user_context_t *)stiBlock.address;
+
+	ROOT_PARTITION_VIDT[CLI_SAVE_INDEX] =
+		(user_context_t *)stiBlock.address;
+
+	if (!Pip_mapMPU(rootPartDescBlockId, stiBlock.id, 7))
+	{
+		PANIC("Failed to map rootTimerStackBlock...\n");
+	}
+
+	initializeContext(ROOT_PARTITION_VIDT[STI_SAVE_INDEX]);
+
 	/*
 	 * Initialize the context that will be restore when
 	 * a SysTick interrupt will be triggered.
@@ -427,9 +560,9 @@ void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 	ROOT_PARTITION_VIDT[SYSTICK_INDEX]->registers[SP] = sp;
 	ROOT_PARTITION_VIDT[SYSTICK_INDEX]->valid = CONTEXT_VALID_VALUE;
 
-	/*
-	 * Set the VIDT block of the root partition.
-	 */
+ /*
+  * Set the VIDT block of the root partition.
+  */
 
 	if (!Pip_setVIDT(rootPartDescBlockId, rootVidtBlock.id))
 	{
@@ -449,7 +582,10 @@ void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 	/*
 	 * Enable interrupts.
 	 */
-
+	if (!Pip_mapMPU(rootid, rootVidtBlock.id, 4))
+	{
+		PANIC("Failed to map rootVidtBlock...\n");
+	}
 	Pip_setIntState(ENABLE_INTERRUPTS);
 
 	// empty vs empty pip root = Cost of Pip root partition set up
@@ -525,6 +661,27 @@ void main_benchmark(int argc, uint32_t **argv)
 #if defined BENCHMARK_WITNESS_ONLY
 	// Witness
 	witness();
+	__asm__ __volatile__(
+		"push     {pc};"
+		:
+		:
+		: "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12");
+	__asm__ __volatile__(
+		"push     {lr, r12, r11, r10,r9,r8,r7,r6,r5,r4,r3,r2,r1,r0};"
+		:
+		:
+		: "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12");
+
+	__asm__ __volatile__(
+		"pop     {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, lr};"
+		:
+		:
+		: "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12");
+	__asm__ __volatile__(
+		"pop     {pc};"
+		:
+		:
+		:);
 #else
 	BENCHMARK_INITIALISE(argc, argv); // do nothing or prepare child
 	volatile int result;

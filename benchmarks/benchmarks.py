@@ -279,8 +279,8 @@ def init_telnet(bench_name, run, queue, sequence):
 def run_dynamic_metrics(benchmarks, sequence, runs):
     print("\nCollecting dynamic data:")
     # Check the benchmark exit line number corresponds for gdb commands
-    linenumber = 223
-    file_path = "src/arch/dwm1001/boot/svc_handler.c"
+    linenumber = 238
+    '''file_path = "src/arch/dwm1001/boot/svc_handler.c"
     with open(file_path) as fdata:
         for position, line in enumerate(fdata):
             if position == (linenumber - 1):
@@ -288,6 +288,7 @@ def run_dynamic_metrics(benchmarks, sequence, runs):
                     print("***Error in function run_dynamic_metrics: Benchmark halt line is not correct. Please ensure the linenumber corresponds to the while (1) instruction")
                     sys.exit(1)
         fdata.close()
+'''
 
     for bench in benchmarks:
         que = queue.Queue()
@@ -303,8 +304,9 @@ def run_dynamic_metrics(benchmarks, sequence, runs):
             print("OK")
             print("Flashing and running %s..." % bench)
             try:
+                # "-ex", f'py arg1 = "{linenumber}"',
                 res = subprocess.run(
-                    ["arm-none-eabi-gdb", "--batch", "-ex", f'py arg0 = "{bench}"', "-ex", f'py arg1 = "{linenumber}"', "-x", "benchmarks/gdb_connect_flash_run.py"],
+                    ["arm-none-eabi-gdb", "--batch", "-ex", f'py arg0 = "{bench}"', "-x", "benchmarks/gdb_connect_flash_run.py"],
                     capture_output=True,
                 )
             except subprocess.TimeoutExpired:
@@ -483,9 +485,9 @@ def main():
     benchmarks.remove('tarfind')
     benchmarks.remove('st')
 
-    '''
+
     benchmarks.remove('aha-mont64')
-    benchmarks.remove('crc32')
+    '''benchmarks.remove('crc32')
     benchmarks.remove('cubic')
     benchmarks.remove('edn')
     benchmarks.remove('huffbench')
@@ -507,7 +509,7 @@ def main():
     log_benchmarks(benchmarks)
 
     # Launch the benchmark batch in different scenarios (baseline, with Pip...)
-    boot_sequence = ["bench-baseline", "bench-pip"] #["bench-pip"]
+    boot_sequence = ["bench-pip"] #["bench-baseline", "bench-pip"]
     for sequence in boot_sequence:
         print("\n\n-----> Configuring sequence %s" % sequence, end="...")
         try:

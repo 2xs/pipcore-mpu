@@ -10,10 +10,10 @@ int dump_mpu();
 
 #if defined DUMP
 #define debug_printf(fmt, ...) do {printf(fmt, __VA_ARGS__); } while (0)
-#define debug_puts(...) do {puts(__VA_ARGS__); } while (0) // TODO: fix no output
+//#define debug_puts(...) do {puts(__VA_ARGS__); } while (0) // TODO: fix no output -> triggers HardFault
 #else
 #define debug_printf(fmt, ...) (void)0
-#define debug_puts(X) (void) 0
+//#define debug_puts(X) (void) 0
 #endif
 
 #endif // __PIP_DEBUG__
