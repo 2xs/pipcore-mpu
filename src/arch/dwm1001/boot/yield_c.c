@@ -36,6 +36,7 @@
 #include "Internal.h"
 #include "context.h"
 #include "yield_c.h"
+#include "pip_interrupt_calls.h"
 #include "nrf52.h"
 #include "mal.h"
 #include "scs.h"
@@ -46,6 +47,14 @@
 
 /* Check that an address is aligned on a 4-byte boundary. */
 #define IS_MISALIGNED(address) ((address) & 0x3)
+
+/*!
+ * \def VIDT_MAX_INDEX
+ *
+ * \brief The maximum index of the VIDT.
+ */
+#define VIDT_MAX_INDEX \
+	((getMinVidtBlockSize()) / (sizeof(void *)))
 
 /* This EXC_RETURN value allows to return to Thread mode with
  * the PSP stack. */
@@ -114,8 +123,6 @@ static void loadContext(
 	unsigned enforce_interrupts
 ) __attribute__((noreturn));
 
-static void kernel_set_int_state(uint32_t interrupt_state);
-
 yield_return_code_t yieldGlue(
 	stacked_context_t *svc_ctx,
 	paddr calleePartDescLocalId,
@@ -156,7 +163,7 @@ static yield_return_code_t checkIntLevelCont(
 	int_mask_t flagsOnWake,
 	user_context_t *callerInterruptedContext
 ) {
-	if (!(userTargetInterrupt < 33))
+	if (!(userTargetInterrupt < VIDT_MAX_INDEX))
 	{
 		return CALLEE_INVALID_VIDT_INDEX;
 	}
@@ -182,7 +189,7 @@ static yield_return_code_t checkCtxSaveIdxCont(
 	int_mask_t flagsOnWake,
 	user_context_t *callerInterruptedContext
 ) {
-	if (!(userCallerContextSaveIndex < 33))
+	if (!(userCallerContextSaveIndex < VIDT_MAX_INDEX))
 	{
 		return CALLER_INVALID_VIDT_INDEX;
 	}
@@ -192,9 +199,25 @@ static yield_return_code_t checkCtxSaveIdxCont(
 
 	paddr callerPartDescGlobalId = getCurPartition();
 
-	if (calleePartDescLocalId == 0)
+	if (calleePartDescLocalId == NULL)
 	{
+		/* The caller wants to yield to a context in the VIDT
+		 * of its parent.*/
 		return getParentPartDescCont(
+			callerPartDescGlobalId,
+			targetInterrupt,
+			callerContextSaveIndex,
+			flagsOnYield,
+			flagsOnWake,
+			callerInterruptedContext
+		);
+	}
+	else if (calleePartDescLocalId == callerPartDescGlobalId)
+	{
+		/* The caller wants to yield to a context in its own
+		 * VIDT. */
+		return getSourcePartVidtCont(
+			calleePartDescLocalId,
 			callerPartDescGlobalId,
 			targetInterrupt,
 			callerContextSaveIndex,
@@ -205,6 +228,8 @@ static yield_return_code_t checkCtxSaveIdxCont(
 	}
 	else
 	{
+		/* The caller wants to yield to a context in the VIDT
+		 * of one of its children. */
 		return getChildPartDescCont(
 			callerPartDescGlobalId,
 			calleePartDescLocalId,
@@ -308,6 +333,22 @@ yield_return_code_t getSourcePartVidtCont(
 		return CALLER_VIDT_IS_NOT_ACCESSIBLE;
 	}
 
+	uintptr_t callerVidtBlockEntryStart =
+		(uintptr_t) readBlockStartFromBlockEntryAddr(callerVidtBlockEntryAddr);
+
+	uintptr_t callerVidtBlockEntryEnd =
+		(uintptr_t) readBlockEndFromBlockEntryAddr(callerVidtBlockEntryAddr);
+
+	uintptr_t callerVidtBlockSize =
+		callerVidtBlockEntryEnd - callerVidtBlockEntryStart + 1;
+
+	/* Check that the block containing the VIDT of the caller is
+	 * big enough. */
+	if (callerVidtBlockSize < getMinVidtBlockSize())
+	{
+		return CALLER_VIDT_BLOCK_TOO_SMALL;
+	}
+
 	paddr callerVidtAddr =
 		readBlockStartFromBlockEntryAddr(callerVidtBlockEntryAddr);
 
@@ -355,6 +396,22 @@ yield_return_code_t getTargetPartVidtCont(
 	if (!(readBlockAccessibleFromBlockEntryAddr(calleeVidtBlockEntryAddr)))
 	{
 		return CALLEE_VIDT_IS_NOT_ACCESSIBLE;
+	}
+
+	uintptr_t calleeVidtBlockEntryStart =
+		(uintptr_t) readBlockStartFromBlockEntryAddr(calleeVidtBlockEntryAddr);
+
+	uintptr_t calleeVidtBlockEntryEnd =
+		(uintptr_t) readBlockEndFromBlockEntryAddr(calleeVidtBlockEntryAddr);
+
+	uintptr_t calleeVidtBlockSize =
+		calleeVidtBlockEntryEnd - calleeVidtBlockEntryStart + 1;
+
+	/* Check that the block containing the VIDT of the callee is
+	 * big enough. */
+	if (calleeVidtBlockSize < getMinVidtBlockSize())
+	{
+		return CALLEE_VIDT_BLOCK_TOO_SMALL;
 	}
 
 	paddr calleeVidtAddr =
@@ -599,93 +656,6 @@ yield_return_code_t switchContextCont(
 	 * function never returns to the caller. However, it is required
 	 * for the future Coq implementation of the service. */
 	return YIELD_SUCCESS;
-}
-
-static void kernel_set_int_state(
-	uint32_t interrupt_state
-) {
-	/* Retrieve the current partition block. */
-	paddr currentpartDescBlockGlobalId = getCurPartition();
-
-	if (currentpartDescBlockGlobalId == NULL)
-	{
-		return;
-	}
-
-	/* Retrieve the VIDT block of the current partition. */
-	paddr currentVidtBlockGlobalId =
-		readPDVidt(currentpartDescBlockGlobalId);
-
-	if (currentVidtBlockGlobalId == NULL)
-	{
-		return;
-	}
-
-	/* Retrieve the VIDT address from the VIDT block of the current
-	 * partition. */
-	user_context_t **currentVidtAddr =
-		readBlockStartFromBlockEntryAddr(currentVidtBlockGlobalId);
-
-	/* Write the interrupt state at index INTERRUPT_STATE_IDX in the
-	 * VIDT of the current partition. */
-	currentVidtAddr[INTERRUPT_STATE_IDX] =
-		(user_context_t *) interrupt_state;
-}
-
-uint32_t getIntState(
-	paddr childPartDescBlockLocalId
-) {
-	/* Retrieve the current partition block. */
-	paddr currentPartDescBlockGlobalId = getCurPartition();
-
-	/* Check that the child is a child of the current partition. */
-	if (!(checkChildOfCurrPart(currentPartDescBlockGlobalId, childPartDescBlockLocalId)))
-	{
-		return ~0;
-	}
-
-	paddr childPartDescBlockGlobalId =
-		readBlockStartFromBlockEntryAddr(childPartDescBlockLocalId);
-
-	/* Retrieve the VIDT block of the child partition. */
-	paddr childVidtBlockGlobalId =
-		readPDVidt(childPartDescBlockGlobalId);
-
-	if (childVidtBlockGlobalId == NULL)
-	{
-		return ~0;
-	}
-
-	/* Retrieve the VIDT address from the VIDT block of the child
-	 * partition. */
-	user_context_t **childVidtAddr =
-		readBlockStartFromBlockEntryAddr(childVidtBlockGlobalId);
-
-	/* Return the interrupt state of the child partition. */
-	return (uint32_t) childVidtAddr[INTERRUPT_STATE_IDX];
-}
-
-void setIntState(
-	uint32_t interruptState
-) {
-	kernel_set_int_state(interruptState);
-
-	if (getCurPartition() == getRootPartition())
-	{
-		if (interruptState == 0)
-		{
-			/* Enable BASEPRI masking. All interrupts lower
-			 * or equal to the priority 1, i.e. interrupts
-			 * below the SVCall in the vector table, are
-			 * disabled. */
-			__set_BASEPRI(1 << (8 - __NVIC_PRIO_BITS));
-		}
-		else
-		{
-			/* Disable BASEPRI masking. */
-			__set_BASEPRI(0);
-		}
-	}
 }
 
 __attribute__((noreturn))

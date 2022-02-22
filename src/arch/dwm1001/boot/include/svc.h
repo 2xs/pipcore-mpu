@@ -256,12 +256,13 @@ uint32_t Pip_setVIDT(
 
 /*!
  * \brief System call that yield from the current partition (the
- *        caller), to its parent or one of its childs (the callee).
+ *        caller), to its parent, itself or one of its children (the
+ *        callee).
  *
- * \param calleePartDescBlockId The ID of the block containing the
- *        partition descriptor structure of a child of the current
- *        partition, or an ID equals to 0 for the partition descriptor
- *        structure of its parent.
+ * \param calleePartDescBlockId The ID of a block containing a
+ *        partition descriptor structure. An ID equals to 0 mean the
+ *        partition descriptor structure of the parent of the current
+ *        partition.
  *
  * \param userTargetInterrupt The index of the VIDT, which contains the
  *        address pointing to the location where the current context is
@@ -289,14 +290,15 @@ uint32_t Pip_yield(
 	uint32_t flagsOnWake);
 
 /*!
- * \brief System call that retrieves the interrupt state of a child
- *        partition of the current partition.
+ * \brief System call that retrieves the interrupt state of one of the
+ *        current partition's children.
  *
  * \param childPartDescBlockLocalId The ID of the block containing the
- *        partition descriptor structure of a child partition.
+ *        partition descriptor structure of one of the current
+ *        partition's children.
  *
- * \return The interrupt state of the child partition if the system call
- *         succeed, ~0 otherwise.
+ * \return The interrupt state of one of the current partition's
+ *         children, ~0 otherwise.
  */
 uint32_t Pip_getIntState(
 	uint32_t *childPartDescBlockLocalId
@@ -306,9 +308,12 @@ uint32_t Pip_getIntState(
  * \brief System call that sets the interrupt state of the current
  *        partition.
  *
- * \param interruptState The interrupt state to set to the current
- *        partition. A value of 0 disables interrupts while a value of 1
- *        enables interrupts.
+ * \param interruptState The interrupt state to set for the current
+ *        partition. A value of 0 indicates that the current partition
+ *        does not wish to be interrupted, while a value other than 0
+ *        indicates that the current partition wishes to be interrupted.
+ *        If the current partition is the root partition, exceptions are
+ *        enabled or disabled accordingly.
  */
 void Pip_setIntState(
 	uint32_t interruptState

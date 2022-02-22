@@ -38,6 +38,7 @@
 #include "trace.h"
 #include "context.h"
 #include "yield_c.h"
+#include "pip_interrupt_calls.h"
 #include "mal.h"
 #include "scs.h"
 #include "mpu.h"
@@ -86,35 +87,17 @@ Interrupt_Handler_C(stacked_context_t *stackedContext)
 	context.valid         = CONTEXT_VALID_VALUE;
 
 	paddr rootPartDesc = getRootPartition();
-
-	/* Retrieve the VIDT block of the interrupted partition. */
 	paddr interruptedPartDesc = getCurPartition();
-	paddr interruptedVidtBlock = readPDVidt(interruptedPartDesc);
-	//dump_partition(interruptedPartDesc);
+	int_mask_t interruptedPartIntState = getSelfIntState();
+	uint32_t saveIndex;
 
-	uint32_t currentPartitionIntState = 0;
-	uint32_t saveIndex = 0;
-
-	if (interruptedVidtBlock != NULL)
+	if (interruptedPartIntState == 0)
 	{
-		/* Retrieve the interrupt state in which the interrupted
-		 * partition is in order to determine at which index to
-		 * save its context. */
-
-		user_context_t **interruptedVidtAddr =
-			readBlockStartFromBlockEntryAddr(interruptedVidtBlock);
-
-		currentPartitionIntState =
-			(uint32_t) interruptedVidtAddr[INTERRUPT_STATE_IDX];
-
-		if (currentPartitionIntState == 0)
-		{
-			saveIndex = CLI_SAVE_INDEX;
-		}
-		else
-		{
-			saveIndex = STI_SAVE_INDEX;
-		}
+		saveIndex = CLI_SAVE_INDEX;
+	}
+	else
+	{
+		saveIndex = STI_SAVE_INDEX;
 	}
 
 	/* We try to propagate the interrupt to the root partition by
@@ -128,8 +111,8 @@ Interrupt_Handler_C(stacked_context_t *stackedContext)
 		interruptedPartDesc,
 		ICSR.VECTACTIVE,
 		saveIndex,
-		currentPartitionIntState,
-		currentPartitionIntState,
+		interruptedPartIntState,
+		interruptedPartIntState,
 		&context
 	);
 
@@ -138,6 +121,7 @@ Interrupt_Handler_C(stacked_context_t *stackedContext)
 		case CALLER_VIDT_IS_NULL:
 		case CALLER_VIDT_IS_NOT_PRESENT:
 		case CALLER_VIDT_IS_NOT_ACCESSIBLE:
+		case CALLER_VIDT_BLOCK_TOO_SMALL:
 		case CALLER_CONTEXT_BLOCK_NOT_FOUND:
 		case CALLER_CONTEXT_BLOCK_IS_NOT_PRESENT:
 		case CALLER_CONTEXT_BLOCK_IS_NOT_ACCESSIBLE:
@@ -206,7 +190,7 @@ propagateFault(
 	user_context_t *context
 ) {
 	/* We try to propagate the fault to the parent partition of the
-	 * one that has failed by saving its context at the address
+	 * one that has faulted by saving its context at the address
 	 * found at the saveIndex in its VIDT. Then, we restore the
 	 * context pointed to by the address found at the index
 	 * corresponding to the fault number in the VIDT of the parent
@@ -225,6 +209,7 @@ propagateFault(
 		case CALLER_VIDT_IS_NULL:
 		case CALLER_VIDT_IS_NOT_PRESENT:
 		case CALLER_VIDT_IS_NOT_ACCESSIBLE:
+		case CALLER_VIDT_BLOCK_TOO_SMALL:
 		case CALLER_CONTEXT_BLOCK_NOT_FOUND:
 		case CALLER_CONTEXT_BLOCK_IS_NOT_PRESENT:
 		case CALLER_CONTEXT_BLOCK_IS_NOT_ACCESSIBLE:
@@ -256,9 +241,9 @@ propagateFault(
 		{
 			/* We tried to propagate the fault to the parent
 			 * partition of the root partition. This means
-			 * that either the root partition has failed, or
-			 * that one of its children has failed and could
-			 * not handle the fault. */
+			 * that either the root partition has faulted,
+			 * or that one of its children has faulted and
+			 * could not handle the fault. */
 			printf("PIP: The root partition has faulted!\n");
 
 			break;
@@ -322,40 +307,24 @@ Fault_Handler_C(stacked_context_t *stackedContext)
 	context.registers[SP] = (context.registers[SP] + FRAME_SIZE) | spMask;
 	context.valid         = CONTEXT_VALID_VALUE;
 
-	/* Retrieve the VIDT block of the faulted partition. */
-	paddr currentPartDesc      = getCurPartition();
-	paddr interruptedVidtBlock = readPDVidt(currentPartDesc);
+	paddr currentPartDesc = getCurPartition();
+	int_mask_t interruptedPartIntState = getSelfIntState();
+	uint32_t saveIndex;
+
+	if (interruptedPartIntState == 0)
+	{
+		saveIndex = CLI_SAVE_INDEX;
+	}
+	else
+	{
+		saveIndex = STI_SAVE_INDEX;
+	}
 
 	printf("The current partition (%p) has faulted...\n", currentPartDesc);
 
-	uint32_t currentPartitionIntState = 0;
-	uint32_t saveIndex = 0;
-
-	if (interruptedVidtBlock != NULL)
-	{
-		/* Retrieve the interrupt state in which the interrupted
-		 * partition is in order to determine at which index to
-		 * save its context. */
-
-		user_context_t **interruptedVidtAddr =
-			readBlockStartFromBlockEntryAddr(interruptedVidtBlock);
-
-		currentPartitionIntState =
-			(uint32_t) interruptedVidtAddr[INTERRUPT_STATE_IDX];
-
-		if (currentPartitionIntState == 0)
-		{
-			saveIndex = CLI_SAVE_INDEX;
-		}
-		else
-		{
-			saveIndex = STI_SAVE_INDEX;
-		}
-	}
-
 	/* Propagate the fault to the parent of the faulted partition. */
 	propagateFault(currentPartDesc, ICSR.VECTACTIVE, saveIndex,
-		currentPartitionIntState, currentPartitionIntState, &context);
+		interruptedPartIntState, interruptedPartIntState, &context);
 
 	/* We should never end up here because the propagateFault never
 	 * return to the caller. */
@@ -399,7 +368,7 @@ MemManage_Handler_C(stacked_context_t *stackedContext)
 	else
 	{
 		/* All other MemManage faults are not due to partial
-		 * path configuration. We set the faultedAddress to an
+		 * block configuration. We set the faultedAddress to an
 		 * inaccessible address to avoid searching for a valid
 		 * block in the MPU. */
 		faultedAddress = UNREACHABLE_ADDRESS;

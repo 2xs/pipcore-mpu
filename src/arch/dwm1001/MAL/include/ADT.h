@@ -41,6 +41,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include "pip_interrupt_calls.h"
 #include "userconstants.h"
 
 /* bool */
@@ -122,9 +123,10 @@ typedef struct PDTable
     uint32_t nbfreeslots                ;   //!< Number of free slots left
     uint32_t nbprepare                  ;   //!< Number of Prepare done on this partition
     uint32_t* parent                    ;   //!< Pointer to the parent partition
-    BlockEntry_t* mpu[MPU_REGIONS_NB]  ;   //!< List of pointers to enabled blocks
+    BlockEntry_t* mpu[MPU_REGIONS_NB]   ;   //!< List of pointers to enabled blocks
     uint32_t LUT[MPU_REGIONS_NB*2]      ;   //!< MPU registers' configuration sequence
     BlockEntry_t *vidtBlock             ;   //!< Pointer to the block containing the VIDT.
+    int_mask_t interruptState           ;   //!< The interrupt state of the partition.
 } PDTable_t;
 
 /**
