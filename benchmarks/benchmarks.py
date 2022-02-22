@@ -205,9 +205,9 @@ def produce_recap(results_dir, benchmarks, sequence, runs):
                                              }
                         if "pip" in sequence:
                             dynamic_data[bench] |= {'Systick_stack_average': systick_data["average"],
-                                                'Systick_stack_min': systick_data["min"],
-                                                'Systick_stack_max': systick_data["max"],
-                                                'Systick_stack_var': systick_data["var"]}
+                                                    'Systick_stack_min': systick_data["min"],
+                                                    'Systick_stack_max': systick_data["max"],
+                                                    'Systick_stack_var': systick_data["var"]}
     for bench in benchmarks:
         recap_tot[bench]["Static"] = static_data[bench]
         recap_tot[bench]["Dynamic"] = dynamic_data[bench]
@@ -486,8 +486,8 @@ def main():
     benchmarks.remove('st')
 
 
-    benchmarks.remove('aha-mont64')
-    '''benchmarks.remove('crc32')
+    '''benchmarks.remove('aha-mont64')
+    benchmarks.remove('crc32')
     benchmarks.remove('cubic')
     benchmarks.remove('edn')
     benchmarks.remove('huffbench')
@@ -509,7 +509,7 @@ def main():
     log_benchmarks(benchmarks)
 
     # Launch the benchmark batch in different scenarios (baseline, with Pip...)
-    boot_sequence = ["bench-pip"] #["bench-baseline", "bench-pip"]
+    boot_sequence = ["bench-baseline", "bench-pip"] # ["bench-pip"]
     for sequence in boot_sequence:
         print("\n\n-----> Configuring sequence %s" % sequence, end="...")
         try:

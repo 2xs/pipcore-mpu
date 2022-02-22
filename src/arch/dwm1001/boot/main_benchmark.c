@@ -244,7 +244,6 @@ uint32_t rootSysTickStackBlockEnd;
 
 block_t rootKernStructBlock;
 block_t rootVidtBlock;
-uint32_t ram1_printf;
 uint32_t rootid;
 
 /*!
@@ -289,98 +288,7 @@ static void
 systick_handler(void)
 {
 	// Restore interrupted context
-	/*uint32_t reg = ROOT_PARTITION_VIDT[DEFAULT_INDEX]->registers[PC];
-	uint32_t reg0 = ROOT_PARTITION_VIDT[DEFAULT_INDEX]->registers[SP];
-	printf("%d", reg);// = (uint32_t)scheduler;
-	printf("%d", reg0);// = sp;
-	printf(ROOT_PARTITION_VIDT[DEFAULT_INDEX]->valid);// = CONTEXT_VALID_VALUE;
-	*/
-	// printf
-	/*if (!Pip_mapMPU(rootid, ram1_printf, 7))
-	{
-		PANIC("Failed to map ram1_printf...\n");
-	}*/
-
-	//printf("Hello");
-	//printf("Hello");
-
-	if (!Pip_mapMPU(rootid, rootVidtBlock.id, 4))
-	{
-		PANIC("Failed to map rootVidtBlock...\n");
-	}
-
-	user_context_t *ctx = (user_context_t *)((user_context_t **)rootVidtBlock.address)[STI_SAVE_INDEX];
-
-	/*for (size_t i = 0; i < CONTEXT_REGISTER_NUMBER; i++)
-	{
-		uint32_t t = ctx->registers[i];
-		printf("%x", t);
-	}*/
-
-		uint32_t frame = (ctx->registers[SP]) - 15*sizeof(uint32_t); // Build benchmark frame FRAME_SIZE);
-
-		// Copy registers R0 to R3, R12, LR, PC and xPSR to the stack of
-		 // the callee.
-		uint32_t *framePtr = (uint32_t *)frame;
-		framePtr[0] = ctx->registers[PC];
-		//framePtr[0] = ctx->registers[R1];
-		framePtr[1] = ctx->registers[R2];
-		framePtr[2] = ctx->registers[R3];
-		framePtr[3] = ctx->registers[R4];
-		framePtr[4] = ctx->registers[R5];
-		framePtr[5] = ctx->registers[R6];
-		//framePtr[7] = ctx->registers[XPSR];// | (1 << 24);*/
-		framePtr[6] = ctx->registers[R7];
-		framePtr[7] = ctx->registers[R8];
-		framePtr[8] = ctx->registers[R9];
-		framePtr[9] = ctx->registers[R10];
-		framePtr[10] = ctx->registers[R11];
-		framePtr[11] = ctx->registers[R12];
-		framePtr[12] = ctx->registers[LR];
-		framePtr[13] = ctx->registers[R0];
-		//printf("PC set at: %x\n", ctx->registers[PC]);
-		framePtr[14] = ctx->registers[PC] | (1 << 0);
-		//printf("PC set at: %x\n", framePtr[14]);
-
-			/*asm inline volatile(
-				"msr     psr, %0;"
-				// Output operands
-				:
-				// Input operands
-				: "r"(ctx->registers[XPSR])
-
-				// Clobbers
-				: "memory");*/
-
-			/*stmdb sp !, { r4, r5, r6, r7, r8, lr }
-			000004b0 : sub sp, #8*/
-
-			__asm__ inline __volatile__("mov     sp, %0;"
-										:
-										: "r"(frame)
-										: "sp", "memory");
-
-		__asm__ inline __volatile__(
-			"pop     {r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, lr};"
-			"mov r0, #1;"
-			"svc #14;" // Enable interrupt again now
-			"pop     {r0};"
-			:
-			:
-			: "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "lr");
-		__asm__ inline __volatile__(
-			//"add sp,#1;"
-			//"ldmia.w sp !,{pc}; "
-			"pop     {pc};"
-			//"bx sp;"
-			//"b %0;"
-			:
-			: //"r"(ctx->registers[PC])
-			: "pc");
-
-		/*asm inline __volatile__("BX %0"
-			:
-			: "r"(ctx->registers[PC]));*/
+	Pip_yield(rootid, STI_SAVE_INDEX, DEFAULT_INDEX, 1, 1);
 
 }
 
@@ -412,12 +320,11 @@ void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 	(void)rootPeriphBlockLocalId;
 	(void)rootRam2BlockLocalId;
 	(void)argc;
-	ram1_printf = rootRam1BlockLocalId;
 	rootid = rootPartDescBlockId;
 
-		/*
-		 * Initialization of the block allocator.
-		 */
+	/*
+	* Initialization of the block allocator.
+	*/
 
 	allocatorInitialize(rootRam1BlockLocalId, user_alloc_pos);
 
@@ -582,10 +489,6 @@ void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 	/*
 	 * Enable interrupts.
 	 */
-	if (!Pip_mapMPU(rootid, rootVidtBlock.id, 4))
-	{
-		PANIC("Failed to map rootVidtBlock...\n");
-	}
 	Pip_setIntState(ENABLE_INTERRUPTS);
 
 	// empty vs empty pip root = Cost of Pip root partition set up
