@@ -29,6 +29,7 @@ import time
 from pathlib import Path
 import shutil
 import json
+import time
 
 sys.path.append(
     os.path.join(os.path.abspath(os.path.dirname(__file__)), '../../embench-iot')
@@ -431,6 +432,8 @@ def compare_baseline(results_dir, sequence):
 
 """ Build and run the benchmarks, then analyse the results"""
 def main():
+    # Start benchmark time measurement
+    start = time.time()
     # Establish the root directory of the repository, since we know this file is
     # in that directory.
     gp['rootdir'] = os.path.abspath(os.path.dirname(__file__))
@@ -580,7 +583,8 @@ def main():
 
         if do_all or baseline_compare_only:
             compare_baseline(results_dir, sequence)
-    print("\n\nDONE: Nothing to do left")
+    end = time.time()
+    print("\n\nDONE in %.02f second(s): Nothing to do left" % (end-start))
 
 # Make sure we have new enough Python and only run if this is the main package
 
