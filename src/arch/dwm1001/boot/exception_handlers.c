@@ -707,73 +707,19 @@ int isSemihosting(ExceptionStackFrame *frame, uint16_t opCode)
 }
 
 #endif
-void __attribute__((section(".after_vectors"), weak, naked))
-SysTick_Handler(void)
-{
-	asm volatile(
-		" tst lr,#4       \n"
-		" ite eq          \n"
-		" mrseq r0,msp    \n"
-		" mrsne r0,psp    \n"
-		" mov r1,lr       \n"
-		" ldr r2,=SysTick_Handler_C \n"
-		" bx r2"
 
-		: /* Outputs */
-		: /* Inputs */
-		: /* Clobbers */
-	);
-}
-
-void __attribute__((section(".after_vectors"), weak, used))
-SysTick_Handler_C(ExceptionStackFrame *frame __attribute__((unused)),
-					uint32_t lr __attribute__((unused)))
-{
-#if defined(TRACE)
-	uint32_t mmfar = MMFAR.ADDRESS; // MemManage Fault Address
-	uint32_t bfar = BFAR.ADDRESS;	 // Bus Fault Address
-	uint32_t *cfsr_pt = (0xe000ed28);
-	uint32_t cfsr = *cfsr_pt; // Configurable Fault Status Registers
-#endif
-
-#if defined(OS_USE_SEMIHOSTING) || defined(OS_USE_TRACE_SEMIHOSTING_STDOUT) || defined(OS_USE_TRACE_SEMIHOSTING_DEBUG)
-
-	// If the BKPT instruction is executed with C_DEBUGEN == 0 and MON_EN == 0,
-	// it will cause the processor to enter a HardFault exception, with DEBUGEVT
-	// in the Hard Fault Status register (HFSR) set to 1, and BKPT in the
-	// Debug Fault Status register (DFSR) also set to 1.
-
-	if (((SCB->DFSR & SCB_DFSR_BKPT_Msk) != 0) && ((SCB->HFSR & SCB_HFSR_DEBUGEVT_Msk) != 0))
-	{
-		if (isSemihosting(frame, 0xBE00 + (AngelSWI & 0xFF)))
-		{
-			// Clear the exception cause in exception status.
-			SCB->HFSR = SCB_HFSR_DEBUGEVT_Msk;
-
-			// Continue after the BKPT
-			return;
-		}
-	}
-
-#endif
-
-#if defined(TRACE)
-	debug_printf("[SysTick_Handler]%c\n", ' ');
-	dumpExceptionStack(frame, cfsr, mmfar, bfar, lr);
-#endif // defined(TRACE)
-}
-
-/*#if defined BENCHMARK_BASELINE
+#if defined BENCHMARK_BASELINE
 // Assumes a fixed clock rate
 void __attribute__((section(".after_vectors"), weak))
 SysTick_Handler(void)
 {
 	// DO NOT loop, just return.
+	debug_printf("[SysTick_Handler]\nCurrent SysTick value: % d\n", SysTick->VAL);
 	// Useful in case someone (like STM HAL) inadvertently enables SysTick.
-	// printf("Current SysTick value:%d\n", SysTick->VAL);
+	// printf();
 	;
 }
-#endif*/ /* BENCHMARK_BASELINE */
+#endif /* BENCHMARK_BASELINE */
 
 
 

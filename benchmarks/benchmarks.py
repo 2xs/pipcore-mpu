@@ -26,10 +26,11 @@ import queue
 import re
 import threading
 import time
+import datetime
 from pathlib import Path
 import shutil
 import json
-import time
+from statistics import mean
 
 sys.path.append(
     os.path.join(os.path.abspath(os.path.dirname(__file__)), '../../embench-iot')
@@ -295,6 +296,7 @@ def run_dynamic_metrics(benchmarks, sequence, runs):
         que = queue.Queue()
         print(f'\n***Launching {sequence} benchmark for {bench}***')
         for run in range(1, runs+1):
+            start_run = time.time()
             print("***RUN "+ str(run) + "/" + str(runs) + "***")
             print("Starting GDBServer", end='...')
             gdbs = start_thread(init_gdbserver, args=[bench])
@@ -317,7 +319,8 @@ def run_dynamic_metrics(benchmarks, sequence, runs):
             tn.join()
             time.sleep(5)
             gdbs.join()
-            print("Run %s ended" % run)
+            end_run = time.time()
+            print("Run %s ended in %s (HH:MM:SS)" % (run, str(datetime.timedelta(seconds=(end_run-start_run)))))
             # All threads have returned
 
 def analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence):
@@ -357,77 +360,129 @@ def analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence):
 
 def compare_baseline(results_dir, sequence):
     # TODO: check variance is small
-    if sequence == "bench-baseline":
+    if "bench-baseline" in sequence: # reject "bench-baseline-w-systick" and "bench-baseline-wo-systick":
         return
     print("Producing comparison report for %s" % sequence, end="...")
     rel_baseline_data = {}
+    rel_total_recap_mean = {}
     # Open baseline file
-    res_recap_baseline_filename = 'results_recap_bench-baseline.json'
+    res_recap_baseline_filename = 'results_recap_bench-baseline-w-systick.json'
     recap_file = os.path.join(results_dir, res_recap_baseline_filename)
     with open(recap_file) as frecapbase:
         b_data = json.load(frecapbase)
-        # open sequence file
-        res_recap_filename = 'results_recap_' + str(sequence) + '.json'
-        recap_file = os.path.join(results_dir, res_recap_filename)
-        with open(recap_file) as frecap:
-            data = json.load(frecap)
-            for bench in data:
-                base_cycles = b_data[bench]["Dynamic"]["Cycles_average"]
-                sequence_cycles = data[bench]["Dynamic"]["Cycles_average"]
-                base_time = b_data[bench]["Dynamic"]["Time_ms_average"]
-                sequence_time = data[bench]["Dynamic"]["Time_ms_average"]
-                base_main_stack = b_data[bench]["Dynamic"]["Main_stack_average"]
-                sequence_main_stack = data[bench]["Dynamic"]["Main_stack_average"]
-                base_app_stack = b_data[bench]["Dynamic"]["App_stack_average"]
-                sequence_app_stack = data[bench]["Dynamic"]["App_stack_average"]
-                sequence_systick_stack = data[bench]["Dynamic"]["Systick_stack_average"]
-                base_indirect_calls = b_data[bench]["Static"]["Indirect_calls"]
-                sequence_indirect_calls = data[bench]["Static"]["Indirect_calls"]
-                base_gadgets = b_data[bench]["Static"]["ROP_gadgets"]
-                sequence_gadgets = data[bench]["Static"]["ROP_gadgets"]
-                base_bss = b_data[bench]["Static"]["bss"]
-                sequence_bss = data[bench]["Static"]["bss"]
-                base_data = b_data[bench]["Static"]["data"]
-                sequence_data = data[bench]["Static"]["data"]
-                base_rodata = b_data[bench]["Static"]["rodata"]
-                sequence_rodata = data[bench]["Static"]["rodata"]
-                base_text = b_data[bench]["Static"]["text"]
-                sequence_text = data[bench]["Static"]["text"]
-                base_binsize = b_data[bench]["Static"]["binsize"]
-                sequence_binsize = data[bench]["Static"]["binsize"]
-                rel_baseline_data[bench] = {"Dynamic" : {
-                                                            "Cycles_rel_average" : sequence_cycles*100/base_cycles if base_cycles != 0 else sequence_cycles,
-                                                            "Cycles_base_var" : b_data[bench]["Dynamic"]["Cycles_var"],
-                                                            f'Cycles_{sequence}_var' : int(data[bench]["Dynamic"]["Cycles_var"]),
-                                                            "Time_ms_rel_average" : sequence_time*100/base_time if base_time != 0 else sequence_time,
-                                                            #"Time_ms_base_var" : b_data[bench]["Dynamic"]["Time_ms_var"],
-                                                            #f'Time_ms_{sequence}_var' : data[bench]["Dynamic"]["Time_ms_var"],
-                                                            "Main_stack_rel_average": sequence_main_stack*100/base_main_stack if base_main_stack != 0 else sequence_main_stack,
-                                                            "Main_stack_base_var": b_data[bench]["Dynamic"]["Main_stack_var"],
-                                                            f'Main_stack_{sequence}_var' : data[bench]["Dynamic"]["Main_stack_var"],
-                                                            "App_stack_rel_average": sequence_app_stack*100/base_app_stack if base_app_stack != 0 else sequence_app_stack,
-                                                            "App_stack_base_var": b_data[bench]["Dynamic"]["App_stack_var"],
-                                                            f'App_stack_{sequence}_var' : data[bench]["Dynamic"]["App_stack_var"],
-                                                            "Systick_stack_average": sequence_systick_stack,
-                                                            f'Systick_stack_{sequence}_var' : data[bench]["Dynamic"]["Systick_stack_var"],
-                                                        },
-                                            "Static" : {
-                                                            "Indirect_calls_rel" : sequence_indirect_calls*100/base_indirect_calls if base_indirect_calls != 0 else sequence_indirect_calls,
-                                                            "ROP_gadgets_rel": sequence_gadgets*100/base_gadgets if base_gadgets != 0 else sequence_gadgets,
-                                                            "bss_rel": sequence_bss*100/base_bss if base_bss != 0 else sequence_bss,
-                                                            "data_rel": sequence_data*100/base_data if base_data != 0 else sequence_data,
-                                                            "rodata_rel": sequence_rodata*100/base_rodata if base_rodata != 0 else sequence_rodata,
-                                                            "text_rel": sequence_text*100/base_text if base_text != 0 else sequence_text,
-                                                            "binsize_rel" : sequence_binsize*100/base_binsize if base_binsize != 0 else sequence_binsize
-                                                        }
-                                            }
+        # Open baseline file
+        res_recap_baseline_wo_systick_filename = 'results_recap_bench-baseline-wo-systick.json'
+        recap_file = os.path.join(results_dir, res_recap_baseline_wo_systick_filename)
+        with open(recap_file) as frecapbase:
+            b_wo_systick_data = json.load(frecapbase)
+            # open sequence file
+            res_recap_filename = 'results_recap_' + str(sequence) + '.json'
+            recap_file = os.path.join(results_dir, res_recap_filename)
+            with open(recap_file) as frecap:
+                data = json.load(frecap)
+                for bench in data:
+                    base_cycles = b_data[bench]["Dynamic"]["Cycles_average"]
+                    sequence_cycles = data[bench]["Dynamic"]["Cycles_average"]
+                    base_time = b_data[bench]["Dynamic"]["Time_ms_average"]
+                    sequence_time = data[bench]["Dynamic"]["Time_ms_average"]
+                    base_main_stack = b_data[bench]["Dynamic"]["Main_stack_average"]
+                    sequence_main_stack = data[bench]["Dynamic"]["Main_stack_average"]
+                    base_app_stack = b_data[bench]["Dynamic"]["App_stack_average"]
+                    sequence_app_stack = data[bench]["Dynamic"]["App_stack_average"]
+                    base_systick_stack = b_data[bench]["Dynamic"]["Main_stack_average"] - b_wo_systick_data[bench]["Dynamic"]["Main_stack_average"]
+                    sequence_systick_stack = data[bench]["Dynamic"]["Systick_stack_average"]
+                    base_indirect_calls = b_data[bench]["Static"]["Indirect_calls"]
+                    sequence_indirect_calls = data[bench]["Static"]["Indirect_calls"]
+                    base_gadgets = b_data[bench]["Static"]["ROP_gadgets"]
+                    sequence_gadgets = data[bench]["Static"]["ROP_gadgets"]
+                    base_bss = b_data[bench]["Static"]["bss"]
+                    sequence_bss = data[bench]["Static"]["bss"]
+                    base_data = b_data[bench]["Static"]["data"]
+                    sequence_data = data[bench]["Static"]["data"]
+                    base_rodata = b_data[bench]["Static"]["rodata"]
+                    sequence_rodata = data[bench]["Static"]["rodata"]
+                    base_text = b_data[bench]["Static"]["text"]
+                    sequence_text = data[bench]["Static"]["text"]
+                    base_binsize = b_data[bench]["Static"]["binsize"]
+                    sequence_binsize = data[bench]["Static"]["binsize"]
+                    rel_baseline_data[bench] = {"Dynamic" : {
+                                                                "Cycles_rel_average" : sequence_cycles*100/base_cycles if base_cycles != 0 else sequence_cycles,
+                                                                "Cycles_base_var" : b_data[bench]["Dynamic"]["Cycles_var"],
+                                                                f'Cycles_{sequence}_var' : int(data[bench]["Dynamic"]["Cycles_var"]),
+                                                                "Time_ms_rel_average" : sequence_time*100/base_time if base_time != 0 else sequence_time,
+                                                                #"Time_ms_base_var" : b_data[bench]["Dynamic"]["Time_ms_var"],
+                                                                #f'Time_ms_{sequence}_var' : data[bench]["Dynamic"]["Time_ms_var"],
+                                                                "Main_stack_rel_average": sequence_main_stack*100/base_main_stack if base_main_stack != 0 else sequence_main_stack,
+                                                                "Main_stack_base_var": b_data[bench]["Dynamic"]["Main_stack_var"],
+                                                                f'Main_stack_{sequence}_var' : data[bench]["Dynamic"]["Main_stack_var"],
+                                                                "App_stack_rel_average": sequence_app_stack*100/base_app_stack if base_app_stack != 0 else sequence_app_stack,
+                                                                "App_stack_base_var": b_data[bench]["Dynamic"]["App_stack_var"],
+                                                                f'App_stack_{sequence}_var' : data[bench]["Dynamic"]["App_stack_var"],
+                                                                "Systick_stack_rel_average":  sequence_systick_stack*100/base_systick_stack if base_systick_stack != 0 else sequence_systick_stack,
+                                                                "Systick_stack_base_var": b_data[bench]["Dynamic"]["Main_stack_var"],
+                                                                f'Systick_stack_{sequence}_var' : data[bench]["Dynamic"]["Systick_stack_var"],
+                                                            },
+                                                "Static" : {
+                                                                "Indirect_calls_rel" : sequence_indirect_calls*100/base_indirect_calls if base_indirect_calls != 0 else sequence_indirect_calls,
+                                                                "ROP_gadgets_rel": sequence_gadgets*100/base_gadgets if base_gadgets != 0 else sequence_gadgets,
+                                                                "bss_rel": sequence_bss*100/base_bss if base_bss != 0 else sequence_bss,
+                                                                "data_rel": sequence_data*100/base_data if base_data != 0 else sequence_data,
+                                                                "rodata_rel": sequence_rodata*100/base_rodata if base_rodata != 0 else sequence_rodata,
+                                                                "text_rel": sequence_text*100/base_text if base_text != 0 else sequence_text,
+                                                                "binsize_rel" : sequence_binsize*100/base_binsize if base_binsize != 0 else sequence_binsize
+                                                            }
+                                                }
+                    if "Cycles_rel_total_mean" not in rel_total_recap_mean \
+                        or "Main_stack_rel_average" not in rel_total_recap_mean \
+                        or "App_stack_rel_average" not in rel_total_recap_mean \
+                        or "Systick_stack_rel_average" not in rel_total_recap_mean \
+                        or "Indirect_calls_rel" not in rel_total_recap_mean \
+                        or "ROP_gadgets_rel" not in rel_total_recap_mean \
+                        or "bss_rel" not in rel_total_recap_mean \
+                        or "data_rel" not in rel_total_recap_mean \
+                        or "rodata_rel" not in rel_total_recap_mean \
+                        or "text_rel" not in rel_total_recap_mean \
+                        or "binsize_rel" not in rel_total_recap_mean:
+                        rel_total_recap_mean["Cycles_rel_total_mean"] = []
+                        rel_total_recap_mean["Main_stack_rel_total_mean"] = []
+                        rel_total_recap_mean["App_stack_rel_total_mean"] = []
+                        rel_total_recap_mean["Systick_stack_rel_total_mean"] = []
+                        rel_total_recap_mean["Indirect_calls_rel_total_mean"] = []
+                        rel_total_recap_mean["ROP_gadgets_rel_total_mean"] = []
+                        rel_total_recap_mean["bss_rel_total_mean"] = []
+                        rel_total_recap_mean["data_rel_total_mean"] = []
+                        rel_total_recap_mean["rodata_rel_total_mean"] = []
+                        rel_total_recap_mean["text_rel_total_mean"] = []
+                        rel_total_recap_mean["binsize_rel_total_mean"] = []
+                    rel_total_recap_mean["Cycles_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Cycles_rel_average"])
+                    rel_total_recap_mean["Main_stack_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Main_stack_rel_average"])
+                    rel_total_recap_mean["App_stack_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["App_stack_rel_average"])
+                    rel_total_recap_mean["Systick_stack_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Systick_stack_rel_average"])
+                    rel_total_recap_mean["Indirect_calls_rel_total_mean"].append(rel_baseline_data[bench]["Static"]["Indirect_calls_rel"])
+                    rel_total_recap_mean["ROP_gadgets_rel_total_mean"].append(rel_baseline_data[bench]["Static"]["ROP_gadgets_rel"])
+                    rel_total_recap_mean["bss_rel_total_mean"].append(rel_baseline_data[bench]["Static"]["bss_rel"])
+                    rel_total_recap_mean["data_rel_total_mean"].append(rel_baseline_data[bench]["Static"]["data_rel"])
+                    rel_total_recap_mean["rodata_rel_total_mean"].append(rel_baseline_data[bench]["Static"]["rodata_rel"])
+                    rel_total_recap_mean["text_rel_total_mean"].append(rel_baseline_data[bench]["Static"]["text_rel"])
+                    rel_total_recap_mean["binsize_rel_total_mean"].append(rel_baseline_data[bench]["Static"]["binsize_rel"])
+    # relative mean for each metric
+    rel_baseline_data["Total"] = { "Cycles_rel_average_tot" :  mean(rel_total_recap_mean["Cycles_rel_total_mean"]),
+                                    "Main_stack_rel_average_tot" :  mean(rel_total_recap_mean["Main_stack_rel_total_mean"]),
+                                    "App_stack_rel_average_tot" :  mean(rel_total_recap_mean["App_stack_rel_total_mean"]),
+                                    "Systick_stack_rel_average_tot" :  mean(rel_total_recap_mean["Systick_stack_rel_total_mean"]),
+                                    "Indirect_calls_rel_average_tot" :  mean(rel_total_recap_mean["Indirect_calls_rel_total_mean"]),
+                                    "ROP_gadgets_rel_average_tot" :  mean(rel_total_recap_mean["ROP_gadgets_rel_total_mean"]),
+                                    "bss_rel_average_tot" :  mean(rel_total_recap_mean["bss_rel_total_mean"]),
+                                    "data_rel_average_tot" :  mean(rel_total_recap_mean["data_rel_total_mean"]),
+                                    "rodata_rel_average_tot" :  mean(rel_total_recap_mean["rodata_rel_total_mean"]),
+                                    "text_rel_average_tot" :  mean(rel_total_recap_mean["text_rel_total_mean"]),
+                                    "binsize_rel_average_tot" :  mean(rel_total_recap_mean["binsize_rel_total_mean"]),
+                                    }
     res_compare_filename = 'results_baseline_compare_' + str(sequence) + '.json'
     compare_file = os.path.join(results_dir, res_compare_filename)
     with open(compare_file, "w") as outfile:
         json.dump(rel_baseline_data, outfile, indent=4, sort_keys=True)
-    print("OK")
-
-
+    print("OK -> written in %s" % compare_file)
 
 
 """ Build and run the benchmarks, then analyse the results"""
@@ -442,7 +497,7 @@ def main():
 
     bench_dir = "generated/benchmarks"
 
-    runs = 1
+    runs = 5
 
     do_all = False
     build_only= False
@@ -488,8 +543,9 @@ def main():
     benchmarks.remove('tarfind')
     benchmarks.remove('st')
 
+    '''
+    benchmarks.remove('aha-mont64')
 
-    '''benchmarks.remove('aha-mont64')
     benchmarks.remove('crc32')
     benchmarks.remove('cubic')
     benchmarks.remove('edn')
@@ -511,8 +567,9 @@ def main():
     print("benchmarks.py: Considered benchmarks: %s " % benchmarks)
     log_benchmarks(benchmarks)
 
-    # Launch the benchmark batch in different scenarios (baseline, with Pip...)
-    boot_sequence = ["bench-baseline", "bench-pip"] # ["bench-pip"]
+    # Launch the benchmark batch in different scenarios (baseline, without the systick interrupt, with Pip...)
+    # Always keep the baseline scenarios at first
+    boot_sequence = ["bench-baseline-wo-systick", "bench-baseline-w-systick", "bench-pip"] # ["bench-pip"]
     for sequence in boot_sequence:
         print("\n\n-----> Configuring sequence %s" % sequence, end="...")
         try:
@@ -584,7 +641,7 @@ def main():
         if do_all or baseline_compare_only:
             compare_baseline(results_dir, sequence)
     end = time.time()
-    print("\n\nDONE in %.02f second(s): Nothing to do left" % (end-start))
+    print("\n\nDONE in %s (HH:MM:SS): Nothing to do left" % str(datetime.timedelta(seconds=(end-start))))
 
 # Make sure we have new enough Python and only run if this is the main package
 

@@ -597,7 +597,7 @@ configure_global_variables() {
 				test)
 					arch_cflags="$arch_cflags"' -DUNIT_TESTS'
 					;;
-				bench-baseline)
+				bench-baseline-w-systick)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
@@ -606,6 +606,12 @@ configure_global_variables() {
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_WITNESS_ONLY'
+					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
+					;;
+				bench-baseline-wo-systick)
+					arch_cflags="$arch_cflags"' -DBENCHMARK'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_WO_SYSTICK'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
 					;;
 				bench-pip)

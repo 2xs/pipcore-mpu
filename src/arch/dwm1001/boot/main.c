@@ -130,8 +130,10 @@ void pip_main (void)
 	init_uart();
 #endif // UART_DEBUG
 
+#if !defined BENCHMARK_WO_SYSTICK
 	/* Enable the SysTick timer. */
 	systick_timer_enable();
+#endif
 
 	/* Set the PendSV exception as pending by writing 1 to the
 	 * PENDSVSET bit. */

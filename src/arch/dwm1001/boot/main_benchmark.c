@@ -58,7 +58,7 @@ void witness(){
 void print_benchmark_msg(){
 	// Start benchmark initialisation
 	printf(BENCH_MSG_INIT);
-	printf("WARNING: Monitor stack usage on: RAM is erased from user_mem_start and up");
+	printf("WARNING: Monitor stack usage on: RAM is erased from user_mem_start and up\n");
 #if defined BENCHMARK_BASELINE
 	printf(BENCH_MSG_BASELINE);
 #endif
@@ -564,27 +564,6 @@ void main_benchmark(int argc, uint32_t **argv)
 #if defined BENCHMARK_WITNESS_ONLY
 	// Witness
 	witness();
-	__asm__ __volatile__(
-		"push     {pc};"
-		:
-		:
-		: "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12");
-	__asm__ __volatile__(
-		"push     {lr, r12, r11, r10,r9,r8,r7,r6,r5,r4,r3,r2,r1,r0};"
-		:
-		:
-		: "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12");
-
-	__asm__ __volatile__(
-		"pop     {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, lr};"
-		:
-		:
-		: "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12");
-	__asm__ __volatile__(
-		"pop     {pc};"
-		:
-		:
-		:);
 #else
 	BENCHMARK_INITIALISE(argc, argv); // do nothing or prepare child
 	volatile int result;
@@ -595,12 +574,11 @@ void main_benchmark(int argc, uint32_t **argv)
 	{
 		printf("***ERROR***\nBad result\n");
 	}
-	// benchmark();
 	BENCHMARK_FINALISE(); // do nothing or destruct child
 #endif // BENCHMARK_WITNESS_ONLY
 #endif // BENCHMARK_EMPTY
-		END_BENCHMARK();
-		printf("***ERROR***\nShould never be reached\n");
-		while (1);
+	END_BENCHMARK();
+	printf("***ERROR***\nShould never be reached\n");
+	while (1);
 }
 #endif
