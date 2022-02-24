@@ -235,11 +235,11 @@ uint8_t *sp = (uint8_t *)&user_stack_top;
 	/* Initialize the root partition context. */
 	rootPartitionContext.registers[R0] = argc;
 	rootPartitionContext.registers[R1] = (uint32_t) argv;
-#if defined BENCHMARK_PIP_ROOT
+#if defined BENCHMARK_PIP
 	rootPartitionContext.registers[PC] = (uint32_t)main_benchmark;
 #else
 	rootPartitionContext.registers[PC] = (uint32_t) main_yield;
-#endif // BENCHMARK_PIP_ROOT
+#endif // BENCHMARK_PIP
 	rootPartitionContext.pipflags = 0;
 	rootPartitionContext.registers[SP] = (uint32_t) argv;
 	rootPartitionContext.valid         = CONTEXT_VALID_VALUE;

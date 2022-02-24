@@ -31,6 +31,7 @@ from pathlib import Path
 import shutil
 import json
 from statistics import mean
+import multiprocessing
 
 sys.path.append(
     os.path.join(os.path.abspath(os.path.dirname(__file__)), '../../embench-iot')
@@ -219,11 +220,11 @@ def produce_recap(results_dir, benchmarks, sequence, runs):
         json.dump(recap_tot, outfile, indent=4, sort_keys=True)
 
 
-""" Generic function to start a thread"""
-def start_thread(func, name=None, args = []):
-    thread = threading.Thread(target=func, name=name, args=args)
-    thread.start()
-    return thread
+""" Generic function to start a process"""
+def start_process(func, name=None, args = []):
+    proc = multiprocessing.Process(target=func, name=name, args=args)
+    proc.start()
+    return proc
 
 """ Start a JLinkGDBServer """
 def init_gdbserver(bench_name):
@@ -239,13 +240,11 @@ def init_gdbserver(bench_name):
                     stdout=subprocess.DEVNULL
                     #timeout=gp['timeout'],
                 )
-    except subprocess.TimeoutExpired:
-            log.warning(f'Warning: Run of {bench_name} timed out.')
     except BaseException:
         print("Error in init_gdbserver")
 
 """ Start a telnet to retrive the semihosting output"""
-def init_telnet(bench_name, run, queue, sequence):
+def init_telnet(bench_name, run, sequence):
     succeeded = True
     output = ""
     try:
@@ -253,15 +252,14 @@ def init_telnet(bench_name, run, queue, sequence):
         output = tn.read_all()
         tn.close()
     except ConnectionRefusedError:
-        print(f'Warning: Run of {bench_name} timed out.')
+        print(f'Telnet error: Run of {bench_name} timed out.')
         succeeded = False
     except BaseException:
-        print(f'Warning: {bench_name} failed')
+        print(f'Telnet error: {bench_name} failed')
         succeeded = False
     # Dump the data if successful
     outfile = os.path.join("generated/benchmarks", bench_name, f'{sequence}_{bench_name}_{run}.txt')
     if succeeded:
-        queue.put_nowait([bench_name, output])
         with open(outfile, "w") as fileh:
             linecount = 0
             for line in output.decode('utf-8').splitlines(keepends=True):
@@ -270,44 +268,30 @@ def init_telnet(bench_name, run, queue, sequence):
                 linecount=linecount+1
             fileh.close()
             if linecount == 1:
-                print("***ERROR: " + bench_name + "failed, check gdbserver connection (is the device up and running? or try to augment sleep delay? or check the line number corresponds to 'while(1)' instruction in gdb_connect_flash_run.py)")
+                print("***ERROR: " + bench_name + " failed, check gdbserver connection (is the device up and running? or try to augment sleep delay?)")
     else:
-        print("***ERROR: " + bench_name + "failed, check gdbserver connection (is the device up and running? or try to augment sleep delay)")
-        queue.put_nowait([bench_name, "Failed"])
+        print("***ERROR: " + bench_name + " failed, check gdbserver connection (is the device up and running? or try to augment sleep delay)")
         with open(outfile, 'w') as fileh:
             fileh.write("NOK")
             fileh.close()
 
 def run_dynamic_metrics(benchmarks, sequence, runs):
     print("\nCollecting dynamic data:")
-    # Check the benchmark exit line number corresponds for gdb commands
-    linenumber = 238
-    '''file_path = "src/arch/dwm1001/boot/svc_handler.c"
-    with open(file_path) as fdata:
-        for position, line in enumerate(fdata):
-            if position == (linenumber - 1):
-                if "while (1)" not in line:
-                    print("***Error in function run_dynamic_metrics: Benchmark halt line is not correct. Please ensure the linenumber corresponds to the while (1) instruction")
-                    sys.exit(1)
-        fdata.close()
-'''
 
     for bench in benchmarks:
-        que = queue.Queue()
         print(f'\n***Launching {sequence} benchmark for {bench}***')
         for run in range(1, runs+1):
             start_run = time.time()
             print("***RUN "+ str(run) + "/" + str(runs) + "***")
             print("Starting GDBServer", end='...')
-            gdbs = start_thread(init_gdbserver, args=[bench])
+            gdbs = start_process(init_gdbserver, args=[bench])
             print("OK")
             print("Starting Telnet", end='...')
             time.sleep(0.5) # wait GDBServer is up
-            tn = start_thread(init_telnet, args=[bench, run, que, sequence])
+            tn = start_process(init_telnet, args=[bench, run, sequence])
             print("OK")
             print("Flashing and running %s..." % bench)
             try:
-                # "-ex", f'py arg1 = "{linenumber}"',
                 res = subprocess.run(
                     ["arm-none-eabi-gdb", "--batch", "-ex", f'py arg0 = "{bench}"', "-x", "benchmarks/gdb_connect_flash_run.py"],
                     capture_output=True,
@@ -317,7 +301,7 @@ def run_dynamic_metrics(benchmarks, sequence, runs):
                     print("NOK***")
 
             tn.join()
-            time.sleep(5)
+            #time.sleep(5)
             gdbs.join()
             end_run = time.time()
             print("Run %s ended in %s (HH:MM:SS)" % (run, str(datetime.timedelta(seconds=(end_run-start_run)))))
@@ -542,25 +526,35 @@ def main():
     benchmarks.remove('ud')
     benchmarks.remove('tarfind')
     benchmarks.remove('st')
+    benchmarks.remove('huffbench')
+
+    # Not working with bench-pip-child
+    benchmarks.remove('wikisort')
+
+    # not working with bench-pip-child
 
     '''
+    # working
     benchmarks.remove('aha-mont64')
-
     benchmarks.remove('crc32')
     benchmarks.remove('cubic')
     benchmarks.remove('edn')
-    benchmarks.remove('huffbench')
     benchmarks.remove('minver')
+    benchmarks.remove('nbody')
     benchmarks.remove('nettle-sha256')
     benchmarks.remove('nsichneu')
-    benchmarks.remove('nbody')
     benchmarks.remove('primecount')
     benchmarks.remove('qrduino')
-    benchmarks.remove('sglib-combined')
-    benchmarks.remove('slre')
     benchmarks.remove('statemate')
-    benchmarks.remove('wikisort')
+
+
+    benchmarks.remove('slre')
+    benchmarks.remove('sglib-combined')
     '''
+
+    #not working
+
+
 
 
     #benchmarks = ['aha-mont64', 'crc32', 'cubic', 'edn', 'huffbench']
@@ -569,7 +563,7 @@ def main():
 
     # Launch the benchmark batch in different scenarios (baseline, without the systick interrupt, with Pip...)
     # Always keep the baseline scenarios at first
-    boot_sequence = ["bench-baseline-wo-systick", "bench-baseline-w-systick", "bench-pip"] # ["bench-pip"]
+    boot_sequence =  ["bench-baseline-wo-systick", "bench-baseline-w-systick", "bench-pip-root", "bench-pip-child"] # ["bench-pip-child"] #
     for sequence in boot_sequence:
         print("\n\n-----> Configuring sequence %s" % sequence, end="...")
         try:

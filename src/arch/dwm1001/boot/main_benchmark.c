@@ -186,9 +186,9 @@ start_cycles_counting()
  *
  * \brief The address of the VIDT of the child partition.
  */
-/*#define CHILD_PARTITION_VIDT \
+#define CHILD_PARTITION_VIDT \
 	((user_context_t **) childVidtBlock.address)
-*/
+
 /*!
  * \def PANIC
  *
@@ -205,7 +205,7 @@ start_cycles_counting()
 /*!
  * \brief Enumeration of some VIDT index.
  */
-typedef  enum vidt_index_e
+typedef enum vidt_index_e
 {
 	/*!
 	 * \brief The default index of the main context of the
@@ -231,7 +231,13 @@ typedef  enum vidt_index_e
 	 * \brief The index containing a pointer to the context loaded
 	 *        during a SysTick interrupt.
 	 */
-	SYSTICK_INDEX = 15
+	SYSTICK_INDEX = 15,
+
+	/*!
+	 * \brief The index containing a NULL pointer to not save
+	 *	      the context.
+	 */
+	NO_SAVE_INDEX = 16
 } vidt_index_t;
 
 /*!
@@ -245,6 +251,11 @@ uint32_t rootSysTickStackBlockEnd;
 block_t rootKernStructBlock;
 block_t rootVidtBlock;
 uint32_t rootid;
+
+/*!
+ * \brief The block containing the partition descriptor of the child partition.
+ */
+block_t child1PartDescBlock;
 
 /*!
  * \brief Initialize a VIDT with NULL addresses.
@@ -279,6 +290,303 @@ initializeContext(user_context_t *context)
 	context->valid = 0;
 }
 
+void child_main(int argc, uint32_t **argv)
+{
+	run_benchmark();
+	// Benchmark ended, go back to root
+	Pip_yield(0, DEFAULT_INDEX, DEFAULT_INDEX, 1, 1);
+}
+
+	/*!
+	 * \brief Create a new child partition
+	 *
+	 * \param childPartDescBlock A block that will contain the
+	 *        partition descriptor of the child partition.
+	 *
+	 * \param entrypoint An entry point for the child partition.
+	 *
+	 * \param rootPartDescBlockId A block containing the root
+	 *        partition descriptor.
+	 *
+	 * \param flashBlockId A block containing the flash block.
+	 *
+	 * \param ram0BlockId A block containing the RAM0 block.
+	 *
+	 * \return 1 in case of success, 0 otherwise.
+	 */
+	static int createChildPartition(
+		block_t *childPartDescBlock,
+		void *entrypoint,
+		void *rootPartDescBlockId,
+		void *flashBlockId,
+		void *ram0BlockId)
+{
+	/*
+	 * Allocation of a block for the creation of the partition
+	 * descriptor of the child partition.
+	 */
+
+	if (!allocatorAllocateBlock(childPartDescBlock, PD_BLOCK_SIZE, 1))
+	{
+		return 0;
+	}
+
+	if (!Pip_createPartition(childPartDescBlock->id))
+	{
+		return 0;
+	}
+
+	/*
+	 * Allocation of a block for the creation of the kernel
+	 * structure of the child partition.
+	 */
+
+	block_t childKernStructBlock;
+
+	if (!allocatorAllocateBlock(&childKernStructBlock, KS_BLOCK_SIZE, 1))
+	{
+		return 0;
+	}
+
+	if (!Pip_prepare(childPartDescBlock->id, -1, childKernStructBlock.id))
+	{
+		return 0;
+	}
+
+	/*
+	 * Allocation of blocks for the stack, the VIDT and the context
+	 * of the child partition.
+	 */
+
+	block_t childStackBlock;
+
+	if (!allocatorAllocateBlock(&childStackBlock, 4096, 0))
+	{
+		return 0;
+	}
+
+	block_t childVidtBlock;
+
+	if (!allocatorAllocateBlock(&childVidtBlock, VIDT_BLOCK_SIZE, 1))
+	{
+		return 0;
+	}
+
+	block_t childContextBlock;
+
+	if (!allocatorAllocateBlock(&childContextBlock, CONTEXT_BLOCK_SIZE, 0))
+	{
+		return 0;
+	}
+
+	block_t childSTIBlock;
+
+	if (!allocatorAllocateBlock(&childSTIBlock, CONTEXT_BLOCK_SIZE, 0))
+	{
+		return 0;
+	}
+
+	/*
+	 * Add the blocks in the child partition descriptor.
+	 */
+
+	uint32_t *stackBlockIdInChild;
+
+	if ((stackBlockIdInChild = Pip_addMemoryBlock(
+			 childPartDescBlock->id, childStackBlock.id, 1, 1, 0)) == NULL)
+	{
+		return 0;
+	}
+
+	uint32_t *vidtBlockIdInChild;
+
+	if ((vidtBlockIdInChild = Pip_addMemoryBlock(
+			 childPartDescBlock->id, childVidtBlock.id, 1, 1, 0)) == NULL)
+	{
+		return 0;
+	}
+
+	uint32_t *contextBlockIdInChild;
+
+	if ((contextBlockIdInChild = Pip_addMemoryBlock(
+			 childPartDescBlock->id, childContextBlock.id, 1, 1, 0)) == NULL)
+	{
+		return 0;
+	}
+
+	uint32_t *flashBlockIdInChild;
+
+	if ((flashBlockIdInChild = Pip_addMemoryBlock(
+			 childPartDescBlock->id, flashBlockId, 1, 0, 1)) == NULL)
+	{
+		return 0;
+	}
+
+	uint32_t *ram0BlockIdInChild;
+
+	if ((ram0BlockIdInChild = Pip_addMemoryBlock(
+			 childPartDescBlock->id, ram0BlockId, 1, 1, 0)) == NULL)
+	{
+		return 0;
+	}
+
+	/*
+	 * Add the blocks in the physical MPU structure of the
+	 * child partition.
+	 */
+
+	if (!Pip_mapMPU(childPartDescBlock->id, stackBlockIdInChild, 0))
+	{
+		return 0;
+	}
+
+	if (!Pip_mapMPU(childPartDescBlock->id, vidtBlockIdInChild, 1))
+	{
+		return 0;
+	}
+
+	if (!Pip_mapMPU(childPartDescBlock->id, contextBlockIdInChild, 2))
+	{
+		return 0;
+	}
+
+	if (!Pip_mapMPU(childPartDescBlock->id, flashBlockIdInChild, 3))
+	{
+		return 0;
+	}
+
+	if (!Pip_mapMPU(childPartDescBlock->id, ram0BlockIdInChild, 4))
+	{
+		return 0;
+	}
+
+	/*
+	 * Add the block containing the child's stack into the physical
+	 * MPU of the root partition since we need to write in it.
+	 */
+
+	if (!Pip_mapMPU(rootPartDescBlockId, childStackBlock.id, 5))
+	{
+		return 0;
+	}
+
+	/*
+	 * Calculate the stack address from the stack block.
+	 */
+
+	uint32_t childArgc = 7;
+	uint32_t sp = childStackBlock.address + childStackBlock.size - 8;
+	block_t *childArgv = ((block_t *)sp) - childArgc;
+
+	/*
+	 * Push arguments onto the stack of the child.
+	 */
+
+	childArgv[0].id = childPartDescBlock->id;
+	childArgv[0].address = childPartDescBlock->address;
+	childArgv[0].size = childPartDescBlock->size;
+
+	childArgv[1].id = childKernStructBlock.id;
+	childArgv[1].address = childKernStructBlock.address;
+	childArgv[1].size = childKernStructBlock.size;
+
+	childArgv[2].id = stackBlockIdInChild;
+	childArgv[2].address = childStackBlock.address;
+	childArgv[2].size = childStackBlock.size;
+
+	childArgv[3].id = vidtBlockIdInChild;
+	childArgv[3].address = childVidtBlock.address;
+	childArgv[3].size = childVidtBlock.size;
+
+	childArgv[4].id = contextBlockIdInChild;
+	childArgv[4].address = childContextBlock.address;
+	childArgv[4].size = childContextBlock.size;
+
+	childArgv[5].id = flashBlockIdInChild;
+	childArgv[5].address = 0;
+	childArgv[5].size = 0;
+
+	childArgv[6].id = ram0BlockIdInChild;
+	childArgv[6].address = 0;
+	childArgv[6].size = 0;
+
+	/*
+	 * Add the block containing the child's VIDT and the block
+	 * containing the child's context into the physical MPU
+	 * of the root partition since we need to write in it.
+	 */
+
+	if (!Pip_mapMPU(rootPartDescBlockId, childVidtBlock.id, 5))
+	{
+		return 0;
+	}
+
+	/*
+	 * Initialize the VIDT of the child with NULL pointer.
+	 */
+
+	initializeVidt(CHILD_PARTITION_VIDT, childVidtBlock.size);
+
+
+	/*
+	 * Set the context address at indexes DEFAULT_INDEX,
+	 * CLI_SAVE_INDEX and STI_SAVE_INDEX in the VIDT of
+	 * the child partition.
+	 */
+
+	CHILD_PARTITION_VIDT[DEFAULT_INDEX] =
+		(user_context_t *)childContextBlock.address;
+
+	CHILD_PARTITION_VIDT[CLI_SAVE_INDEX] =
+		(user_context_t *)childContextBlock.address;
+
+	CHILD_PARTITION_VIDT[STI_SAVE_INDEX] =
+		(user_context_t *)childContextBlock.address;
+
+	/*
+	 * Initialize the context with zero.
+	 */
+
+	if (!Pip_mapMPU(rootPartDescBlockId, childContextBlock.id, 6))
+	{
+		return 0;
+	}
+
+	/*if (!Pip_mapMPU(rootPartDescBlockId, childSTIBlock.id, 7))
+	{
+		return 0;
+	}*/
+
+	initializeContext(CHILD_PARTITION_VIDT[DEFAULT_INDEX]);
+	//initializeContext(CHILD_PARTITION_VIDT[STI_SAVE_INDEX]);
+
+	// remove STI from MPU
+	/*if (!Pip_mapMPU(rootPartDescBlockId, 0, 7))
+	{
+		return 0;
+	}*/
+
+	/*
+	 * Fill the context of the child partition.
+	 */
+
+	CHILD_PARTITION_VIDT[DEFAULT_INDEX]->registers[R0] = childArgc;
+	CHILD_PARTITION_VIDT[DEFAULT_INDEX]->registers[R1] = (uint32_t)childArgv;
+	CHILD_PARTITION_VIDT[DEFAULT_INDEX]->registers[PC] = (uint32_t)entrypoint;
+	CHILD_PARTITION_VIDT[DEFAULT_INDEX]->registers[SP] = (uint32_t)childArgv;
+	CHILD_PARTITION_VIDT[DEFAULT_INDEX]->valid = CONTEXT_VALID_VALUE;
+
+	/*
+	 * Set the VIDT of the child partition.
+	 */
+
+	if (!Pip_setVIDT(childPartDescBlock->id, vidtBlockIdInChild))
+	{
+		return 0;
+	}
+
+	return 1;
+}
 
 /*!
  * \brief This handler is a simple round-robin scheduler called at
@@ -287,14 +595,32 @@ initializeContext(user_context_t *context)
 static void
 systick_handler(void)
 {
+#if defined BENCHMARK_PIP_ROOT
 	// Restore interrupted context
-	Pip_yield(rootid, STI_SAVE_INDEX, DEFAULT_INDEX, 1, 1);
+	Pip_yield(rootid, STI_SAVE_INDEX, NO_SAVE_INDEX, 1, 1);
+#elif defined BENCHMARK_PIP_CHILD
+	// Restore the child's interrupted context
+	Pip_yield(child1PartDescBlock.id, CLI_SAVE_INDEX, NO_SAVE_INDEX, 0, 0);
 
+#endif
+	printf("Should never be reached\n");
 }
+
+/*!
+ * \brief This handler is a simple round-robin scheduler called at
+ *        each SysTick interrupt.
+ */
+/*static void
+systick_handler_child(void)
+{
+	// Restore interrupted context
+	Pip_yield(child1PartDescBlock.id, STI_SAVE_INDEX, NO_SAVE_INDEX, 1, 1);
+	printf("Should never be reached\n");
+}*/
 
 void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 {
-#if defined BENCHMARK_PIP_ROOT
+#if defined BENCHMARK_PIP
 	/* Global ID of the block containing the partition descriptor
 	 * of the root partition. */
 	uint32_t *rootPartDescBlockId = argv[0];
@@ -325,6 +651,13 @@ void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 	/*
 	* Initialization of the block allocator.
 	*/
+	blockOrError bt;
+	if (!Pip_findBlock(rootPartDescBlockId, 0x20007FF0, &bt))
+	{
+		printf("Block not found\n");
+	}
+	else
+		printf("Available RAM: %x - %x\n", bt.blockAttr.blockstartaddr, bt.blockAttr.blockendaddr);
 
 	allocatorInitialize(rootRam1BlockLocalId, user_alloc_pos);
 
@@ -467,14 +800,58 @@ void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 	ROOT_PARTITION_VIDT[SYSTICK_INDEX]->registers[SP] = sp;
 	ROOT_PARTITION_VIDT[SYSTICK_INDEX]->valid = CONTEXT_VALID_VALUE;
 
- /*
-  * Set the VIDT block of the root partition.
-  */
 
-	if (!Pip_setVIDT(rootPartDescBlockId, rootVidtBlock.id))
+
+
+
+	// empty vs empty pip root = Cost of Pip root partition set up
+
+
+
+#if defined BENCHMARK_PIP_CHILD
+
+	// Init context for DEFAULT_BLOCK -> holds the root partition context when yielding
+	block_t defaultBlock;
+
+	if (!allocatorAllocateBlock(&defaultBlock, CONTEXT_BLOCK_SIZE, 0))
 	{
-		PANIC("Failed to set the VIDT of the root partition...\n");
+		PANIC("Failed to allocate rootKernStructBlock...\n");
 	}
+
+	// Set the context address at index DEFAULT_INDEX
+	// in the VIDT of the root partition.
+	//
+
+		ROOT_PARTITION_VIDT[DEFAULT_INDEX] =
+			(user_context_t *)defaultBlock.address;
+
+	if (!Pip_readMPU(rootPartDescBlockId, 4) == 0)
+	{
+		PANIC("No space left in MPU region 4...\n");
+	}
+
+	if (!Pip_mapMPU(rootPartDescBlockId, defaultBlock.id, 4))
+	{
+		PANIC("Failed to map defaultBlock...\n");
+	}
+
+	initializeContext(ROOT_PARTITION_VIDT[DEFAULT_INDEX]);
+
+	if (!Pip_mapMPU(rootPartDescBlockId, 0, 4))
+	{
+		PANIC("Failed to UNmap defaultBlock of region 4...\n");
+	}
+
+	/*
+	 * Creation of the child partition and launch the benchmark.
+	 */
+
+	if (!createChildPartition(&child1PartDescBlock, child_main,
+							  rootPartDescBlockId, rootFlashBlockLocalId, rootRam0BlockLocalId))
+	{
+		PANIC("Failed to create the child partition 1...\n");
+	}
+#endif /* BENCHMARK_PIP_CHILD */
 
 	/*
 	 * The block containing the SysTick stack must be mapped in the
@@ -487,46 +864,28 @@ void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 	}
 
 	/*
-	 * Enable interrupts.
-	 */
-	Pip_setIntState(ENABLE_INTERRUPTS);
-
-	// empty vs empty pip root = Cost of Pip root partition set up
-#endif
-#if defined BENCHMARK_PIP_CHILD
-
-	/*
-	 * Creation of the three child partitions.
+	 * Set the VIDT block of the root partition.
 	 */
 
-	/*if (!createChildPartition(&child1PartDescBlock, childPartition,
-							  rootPartDescBlockId, rootFlashBlockLocalId, rootRam0BlockLocalId))
+	if (!Pip_setVIDT(rootPartDescBlockId, rootVidtBlock.id))
 	{
-		PANIC("Failed to create the child partition 1...\n");
+		PANIC("Failed to set the VIDT of the root partition...\n");
 	}
-
-	if (!createChildPartition(&child2PartDescBlock, childPartition,
-							  rootPartDescBlockId, rootFlashBlockLocalId, rootRam0BlockLocalId))
-	{
-		PANIC("Failed to create the child partition 2...\n");
-	}
-
-	if (!createChildPartition(&child3PartDescBlock, childPartition,
-							  rootPartDescBlockId, rootFlashBlockLocalId, rootRam0BlockLocalId))
-	{
-		PANIC("Failed to create the child partition 3...\n");
-	}*/
-
-#else
-
 #endif
-		initialise_benchmark(); // embench init
-		// warm_caches(WARMUP_HEAT);
+	initialise_benchmark(); // embench init
+	// warm_caches(WARMUP_HEAT);
 }
 
 void BENCHMARK_FINALISE()
 {
-#if defined BENCHMARK_IN_PIP_CHILD
+#if defined BENCHMARK_PIP
+	/*
+	 * Disable interrupts.
+	 */
+	Pip_setIntState(DISABLE_INTERRUPTS);
+#endif /* BENCHMARK_PIP */
+
+#if defined BENCHMARK_PIP_CHILD
 	// empty vs empty pip root = Cost of Pip root partition set up
 #endif
 }
@@ -549,6 +908,38 @@ void BENCHMARK_FINALISE()
 // BENCH
 // Yield root
 // Child tear down
+void run_benchmark()
+{
+	volatile int result;
+	int correct;
+	result = benchmark();
+	correct = verify_benchmark(result);
+	if (!correct)
+	{
+		printf("***ERROR***\nBad result\n");
+	}
+}
+
+void BENCHMARK_RUN()
+{
+#if defined BENCHMARK_PIP_ROOT
+	/*
+	 * Enable interrupts.
+	 */
+	Pip_setIntState(ENABLE_INTERRUPTS);
+	run_benchmark();
+
+#elif defined BENCHMARK_PIP_CHILD
+	/*
+	 * Enable interrupts.
+	 */
+	// Pip_setIntState(ENABLE_INTERRUPTS);
+	Pip_yield(child1PartDescBlock.id, DEFAULT_INDEX, DEFAULT_INDEX, 1, 1);
+#else
+	run_benchmark();
+#endif /* BENCHMARK_PIP_ROOT  BENCHMARK_PIP_CHILD */
+	printf("Benchmark ended\n");
+}
 
 /*!
  * \brief Main benchmark user program.
@@ -566,14 +957,7 @@ void main_benchmark(int argc, uint32_t **argv)
 	witness();
 #else
 	BENCHMARK_INITIALISE(argc, argv); // do nothing or prepare child
-	volatile int result;
-	int correct;
-	result = benchmark();
-	correct = verify_benchmark(result);
-	if (!correct)
-	{
-		printf("***ERROR***\nBad result\n");
-	}
+	BENCHMARK_RUN();
 	BENCHMARK_FINALISE(); // do nothing or destruct child
 #endif // BENCHMARK_WITNESS_ONLY
 #endif // BENCHMARK_EMPTY

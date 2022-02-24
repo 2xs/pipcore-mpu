@@ -43,7 +43,7 @@ extern uint32_t user_stack_top;
 extern uint32_t user_mem_start;
 extern uint32_t user_mem_end;
 
-#if defined BENCHMARK_PIP_ROOT
+#if defined BENCHMARK_PIP
 extern uint32_t rootSysTickStackBlockStart;
 extern uint32_t rootSysTickStackBlockEnd;
 #endif
@@ -98,6 +98,9 @@ extern uint32_t rootSysTickStackBlockEnd;
 
 int32_t prepare_stack_usage_measurement(uint32_t *lower_addr, uint32_t *upper_addr);
 uint32_t finish_stack_usage_measurement(uint32_t *lower_addr, uint32_t *upper_addr);
+void start_cycles_counting();
+void run_benchmark();
+void print_benchmark_msg();
 void BENCHMARK_SINK();
 
 /*!

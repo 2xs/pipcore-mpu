@@ -112,12 +112,13 @@ void SVC_Handler_C(stacked_context_t *stackedContext)
 			break;
 
 		case SVC_NUMBER_ADD_MEMORY_BLOCK:
+			uint32_t r2 = stackedContext->registers[R2];
 			stackedContext->registers[R0] = (uint32_t) addMemoryBlock(
 				(paddr) stackedContext->registers[R0],
 				(paddr) stackedContext->registers[R1],
-				(bool) ((stackedContext->registers[R2] >> 2) & 1),
-				(bool) ((stackedContext->registers[R2] >> 1) & 1),
-				(bool) stackedContext->registers[R2] & 1
+				(bool) ((/*stackedContext->registers[R2]*/ r2 >> 2) & 1),
+				(bool) ((/*stackedContext->registers[R2]*/ r2  >> 1) & 1),
+				(bool) ((/*stackedContext->registers[R2]*/ r2 >> 0) & 1)
 			);
 			break;
 
@@ -232,7 +233,7 @@ void SVC_Handler_C(stacked_context_t *stackedContext)
 		printf("Ticks:%d\n", cycles);
 		printf("Main stack usage:%d\n", main_stack_usage);
 		printf("App stack usage:%d\n", app_stack_usage);
-		#if defined BENCHMARK_PIP_ROOT
+		#if defined BENCHMARK_PIP
 		uint32_t systickhandler_stack_usage = finish_stack_usage_measurement(rootSysTickStackBlockStart, rootSysTickStackBlockEnd); /* app stack */
 		printf("Systick stack usage:%d\n", systickhandler_stack_usage);
 		#endif

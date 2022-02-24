@@ -66,6 +66,7 @@ quiet=
 libpip=
 debugging_mode='none'
 boot_sequence='default'
+res=
 
 # Print the script usage
 usage() {
@@ -540,7 +541,7 @@ configure_global_variables() {
 			# The boot sequence performing the unit tests of the
 			# dwm1001 only works in semihosting mode
 
-			if  [ "$debugging_mode" != "semihosting" ] && [[ "$boot_sequence" = "test"] || ["$boot_sequence" = "bench-baseline"] || ["$boot_sequence" = "bench-pip" ]]
+			if  [ "$debugging_mode" != "semihosting" ] && [[ "$boot_sequence"=="test" || "$boot_sequence"=="bench-baseline-w-systick" || "$boot_sequence"=="bench-baseline-wo-systick" || "$boot_sequence"=="bench-pip-root" || "$boot_sequence"=="bench-pip-child" ]]
 			then
 				print_error 'The unit tests of the dwm1001 only works in semihosting mode (if desired, add --debugging-mode=semihosting )...\n'
 				return 1
@@ -614,9 +615,16 @@ configure_global_variables() {
 					arch_cflags="$arch_cflags"' -DBENCHMARK_WO_SYSTICK'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
 					;;
-				bench-pip)
+				bench-pip-root)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP_ROOT'
+					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
+					;;
+				bench-pip-child)
+					arch_cflags="$arch_cflags"' -DBENCHMARK'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP_CHILD'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
 					;;
 				default)
