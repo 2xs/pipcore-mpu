@@ -30,6 +30,8 @@
 /*  The fact that you are presently reading this means that you have had       */
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
+#pragma GCC push_options
+#pragma GCC optimize("O0")
 
 #include <stdint.h>
 
@@ -63,17 +65,16 @@
 /* The MSP top of stack defined in the link script. */
 extern uint32_t __StackTop;
 
-__attribute__((section(".text_pip")))
+__attribute__((section(".text_pipcore")))
 static yield_return_code_t checkIntLevelCont(
 	paddr calleePartDescAddr,
 	uservalue_t userTargetInterrupt,
 	uservalue_t userCallerContextSaveIndex,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext
-);
+	user_context_t *callerInterruptedContext);
 
-__attribute__((section(".text_pip")))
+__attribute__((section(".text_pipcore")))
 static yield_return_code_t checkCtxSaveIdxCont(
 	paddr calleePartDescAddr,
 	unsigned targetInterrupt,
@@ -83,7 +84,7 @@ static yield_return_code_t checkCtxSaveIdxCont(
 	user_context_t *callerInterruptedContext
 );
 
-__attribute__((section(".text_pip")))
+__attribute__((section(".text_pipcore")))
 static yield_return_code_t getChildPartDescCont(
 	paddr callerPartDesc,
 	paddr calleePartDescAddr,
@@ -94,7 +95,7 @@ static yield_return_code_t getChildPartDescCont(
 	user_context_t *callerInterruptedContext
 );
 
-__attribute__((section(".text_pip")))
+__attribute__((section(".text_pipcore")))
 static yield_return_code_t getTargetPartCtxCont(
 	paddr calleePartDesc,
 	paddr callerPartDesc,
@@ -106,7 +107,7 @@ static yield_return_code_t getTargetPartCtxCont(
 	user_context_t *callerInterruptedContext
 );
 
-__attribute__((section(".text_pip")))
+__attribute__((section(".text_pipcore")))
 static yield_return_code_t saveSourcePartCtxCont(
 	paddr calleePartDesc,
 	paddr callerPartDesc,
@@ -117,20 +118,18 @@ static yield_return_code_t saveSourcePartCtxCont(
 	user_context_t *targetContext
 );
 
-__attribute__((section(".text_pip")))
-static void writeContext(
+__attribute__((section(".text_pipcore"))) static void writeContext(
 	user_context_t *ctx,
 	paddr ctxSaveVAddr,
-	int_mask_t flagsOnWake
-);
+	int_mask_t flagsOnWake);
 
-__attribute__((section(".text_pip")))
-static void loadContext(
+__attribute__((section(".text_pipcore")))static void
+loadContext(
 	user_context_t *ctx,
-	unsigned enforce_interrupts
-) __attribute__((noreturn));
+	unsigned enforce_interrupts) __attribute__((noreturn));
 
-__attribute__((section(".text_pip")))
+
+__attribute__((section(".text_pipcore")))
 yield_return_code_t yieldGlue(
 	stacked_context_t *svc_ctx,
 	paddr calleePartDescLocalId,
@@ -735,7 +734,7 @@ static void loadContext(
 
 		/* Clobbers */
 		: "r4", "r5", "r6",
-		  "r7", "r8", "r9",
+		  /*"r7",*/ "r8", "r9",
 		  "r10", "r11", "memory"
 	);
 
@@ -744,3 +743,5 @@ static void loadContext(
 	 * value EXC_RETURN_THREAD_MODE_PSP. */
 	__builtin_unreachable();
 }
+
+#pragma GCC pop_options

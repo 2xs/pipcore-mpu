@@ -63,12 +63,12 @@ def static_metrics(bench_dir, benchmarks, sequence):
         print("Configuring pip-only", end='...')
         res = subprocess.run(
             ["./configure.sh", "--architecture=dwm1001",
-                f'--boot-sequence=pip-only'],
+                f'--boot-sequence=pip-only', "--release"],
             capture_output=True,
         )
         if res.returncode != 0:
             print("***NOK***")
-            print("Investigate with command: ./configure.sh --architecture=dwm1001--boot-sequence=pip-only")
+            print("Investigate with command: ./configure.sh --architecture=dwm1001--boot-sequence=pip-only --release")
             succeeded = False
 
         else:

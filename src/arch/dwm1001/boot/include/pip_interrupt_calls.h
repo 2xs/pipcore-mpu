@@ -34,6 +34,9 @@
 #ifndef __PIP_INTERRUPT_CALLS__
 #define __PIP_INTERRUPT_CALLS__
 
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+
 #include <stdint.h>
 
 typedef uint32_t int_mask_t;
@@ -49,7 +52,7 @@ typedef uint32_t int_mask_t;
  * \return The interrupt state of one of the current partition's
  *         children, ~0 otherwise.
  */
-int_mask_t __attribute__((section(".text_pip")))
+int_mask_t __attribute__((section(".text_pipcore")))
 getIntState(
 	void *childPartDescBlockLocalId);
 
@@ -58,7 +61,7 @@ getIntState(
  *
  * \return The interrupt state of the current partition.
  */
-int_mask_t __attribute__((section(".text_pip")))
+int_mask_t __attribute__((section(".text_pipcore")))
 getSelfIntState(
 	void);
 
@@ -72,7 +75,7 @@ getSelfIntState(
  *        If the current partition is the root partition, exceptions are
  *        enabled or disabled accordingly.
  */
-void __attribute__((section(".text_pip")))
+void __attribute__((section(".text_pipcore")))
 setIntState(
 	int_mask_t interruptState);
 
@@ -84,8 +87,10 @@ setIntState(
  *        does not wish to be interrupted, while a value other than 0
  *        indicates that the current partition wishes to be interrupted.
  */
-void __attribute__((section(".text_pip")))
+void __attribute__((section(".text_pipcore")))
 kernel_set_int_state(
 	int_mask_t interruptState);
+
+#pragma GCC pop_options
 
 #endif /* __PIP_INTERRUPT_CALLS__ */

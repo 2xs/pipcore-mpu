@@ -21,6 +21,9 @@
 #ifndef MPU_H
 #define MPU_H
 
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+
 #include "nrf52.h"
 #include "core_cm4.h"
 #include "trace.h"
@@ -136,7 +139,7 @@ static inline uint32_t MPU_ATTR(
  * @return 0 on success
  * @return <0 on failure or no MPU present
  */
-int __attribute__((section(".text_pip"))) mpu_disable(void);
+int __attribute__((section(".text_pip_mal"))) mpu_disable(void);
 
 /**
  * @brief enable the MPU
@@ -144,7 +147,7 @@ int __attribute__((section(".text_pip"))) mpu_disable(void);
  * @return 0 on success
  * @return <0 on failure or no MPU present
  */
-int __attribute__((section(".text_pip"))) mpu_enable(void);
+int __attribute__((section(".text_pip_mal"))) mpu_enable(void);
 
 /**
  * @brief test if the MPU is enabled
@@ -152,14 +155,14 @@ int __attribute__((section(".text_pip"))) mpu_enable(void);
  * @return true if enabled
  * @return false if disabled
  */
-int __attribute__((section(".text_pip"))) mpu_enabled(void);
+int __attribute__((section(".text_pip_mal"))) mpu_enabled(void);
 
 /*!
  * \fn int mpu_init(void)
  * \brief Resets the physical MPU
  * \return 0:Success/-1:Error
  */
-int __attribute__((section(".text_pip"))) mpu_init(void);
+int __attribute__((section(".text_pip_mal"))) mpu_init(void);
 
 /**
  * @brief configure the base address and attributes for an MPU region
@@ -171,7 +174,7 @@ int __attribute__((section(".text_pip"))) mpu_init(void);
  * @return 0 on success
  * @return <0 on failure or no MPU present
  */
-int __attribute__((section(".text_pip"))) mpu_configure(uint_fast8_t region, uintptr_t base, uint_fast32_t attr);
+int __attribute__((section(".text_pip_mal"))) mpu_configure(uint_fast8_t region, uintptr_t base, uint_fast32_t attr);
 
 /**
  * @brief configure the MPU based on a lookup table (LUT)
@@ -181,19 +184,21 @@ int __attribute__((section(".text_pip"))) mpu_configure(uint_fast8_t region, uin
  * @return 0 on success
  * @return <0 on failure
  */
-int __attribute__((section(".text_pip"))) mpu_configure_from_LUT(uint32_t* LUT);
+int __attribute__((section(".text_pip_mal"))) mpu_configure_from_LUT(uint32_t* LUT);
 
-uint32_t*__attribute__((section(".text_pip"))) readPhysicalMPUStartAddr(uint32_t MPURegionNb); //!< the physical MPU region's start address
-uint32_t*__attribute__((section(".text_pip"))) readPhysicalMPUEndAddr(uint32_t MPURegionNb); //!< the physical MPU region's end address
-uint32_t __attribute__((section(".text_pip"))) readPhysicalMPUAP(uint32_t MPURegionNb); //!< the physical MPU region's RW bit
-uint32_t __attribute__((section(".text_pip"))) readPhysicalMPUXN(uint32_t MPURegionNb); //!< the physical MPU region's X bit
-uint32_t __attribute__((section(".text_pip"))) readPhysicalMPUSizeBits(uint32_t MPURegionNb); //!< the physical MPU region's region bits (size in log2)
-uint32_t __attribute__((section(".text_pip"))) readPhysicalMPUSizeBytes(uint32_t MPURegionNb); //!< the physical MPU region's region size in bytes
-uint32_t __attribute__((section(".text_pip"))) readPhysicalMPURegionEnable(uint32_t MPURegionNb); //!< the physical MPU region's enable bit
+uint32_t*__attribute__((section(".text_pip_mal"))) readPhysicalMPUStartAddr(uint32_t MPURegionNb); //!< the physical MPU region's start address
+uint32_t*__attribute__((section(".text_pip_mal"))) readPhysicalMPUEndAddr(uint32_t MPURegionNb); //!< the physical MPU region's end address
+uint32_t __attribute__((section(".text_pip_mal"))) readPhysicalMPUAP(uint32_t MPURegionNb); //!< the physical MPU region's RW bit
+uint32_t __attribute__((section(".text_pip_mal"))) readPhysicalMPUXN(uint32_t MPURegionNb); //!< the physical MPU region's X bit
+uint32_t __attribute__((section(".text_pip_mal"))) readPhysicalMPUSizeBits(uint32_t MPURegionNb); //!< the physical MPU region's region bits (size in log2)
+uint32_t __attribute__((section(".text_pip_mal"))) readPhysicalMPUSizeBytes(uint32_t MPURegionNb); //!< the physical MPU region's region size in bytes
+uint32_t __attribute__((section(".text_pip_mal"))) readPhysicalMPURegionEnable(uint32_t MPURegionNb); //!< the physical MPU region's enable bit
 
 
 #ifdef __cplusplus
 }
 #endif
+
+#pragma GCC pop_options
 
 #endif /* MPU_H */

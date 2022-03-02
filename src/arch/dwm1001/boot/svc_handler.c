@@ -30,6 +30,8 @@
 /*  The fact that you are presently reading this means that you have had       */
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
+#pragma GCC push_options
+#pragma GCC optimize("O0")
 
 #include <stdio.h>
 #include "Services.h"
@@ -260,3 +262,5 @@ void benchmark_results(){
 	BENCHMARK_SINK();
 }
 #endif
+
+#pragma GCC pop_options

@@ -68,6 +68,7 @@ debugging_mode='none'
 boot_sequence='default'
 res=
 release_mode='no'
+opt_cflags=' -O2' # Optimisation level 2 by default
 
 # Print the script usage
 usage() {
@@ -219,6 +220,7 @@ PARTITION = $partition_name
 
 # Arch related options
 ARCH_CFLAGS   = $arch_cflags
+ARCH_CFLAGS  += $opt_cflags
 ARCH_LDFLAGS  = $arch_ldflags
 ARCH_ASFLAGS  = $arch_asflags
 
@@ -352,6 +354,10 @@ parse_arguments() {
 				;;
 			--pdflatex)
 				pdflatex=$value
+				;;
+			--release)
+				release_mode='' # no debug flags -g -Og
+				opt_cflags=' -Os'
 				;;
 		esac
 	done
@@ -604,12 +610,11 @@ configure_global_variables() {
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_EMPTY'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
-					arch_cflags="$arch_cflags"' -O3'
 					;;
 				pip-only)
-					release_mode='' # no debug flags -g -Og
-					arch_cflags="$arch_cflags"' -DPIP_ONLY'
-					arch_cflags="$arch_cflags"' -Os'
+					# Warning: this does not include the whole pip code
+					# because the unused sections are erased
+					#opt_cflags=' -Os'
 					arch_ldflags="$arch_ldflags"'--specs=nosys.specs'
 					# remove all unused sections
 					arch_ldflags="$arch_ldflags"' -Wl,--gc-sections'
@@ -619,15 +624,12 @@ configure_global_variables() {
 					# assign a section to each flag, to be used with --gc-sections (no better)
 					#arch_ldflags="$arch_ldflags"' -ffunction-sections -fdata-sections'
 					# Some other interesting flags : -Wshadow -Wformat -Wformat-security -Wundef -fno-common -fstack-usage
-
-
 					;;
 				bench-baseline-priv-w-systick)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE_PRIV'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
-					arch_cflags="$arch_cflags"' -O3'
 					;;
 				bench-baseline-priv-witness)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
@@ -635,7 +637,6 @@ configure_global_variables() {
 					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE_PRIV'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_WITNESS_ONLY'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
-					arch_cflags="$arch_cflags"' -O3'
 					;;
 				bench-baseline-priv-wo-systick)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
@@ -643,14 +644,12 @@ configure_global_variables() {
 					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE_PRIV'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_WO_SYSTICK'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
-					arch_cflags="$arch_cflags"' -O3'
 					;;
 				bench-baseline-unpriv-w-systick)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE_UNPRIV'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
-					arch_cflags="$arch_cflags"' -O3'
 					;;
 				bench-baseline-unpriv-witness)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
@@ -658,7 +657,6 @@ configure_global_variables() {
 					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE_UNPRIV'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_WITNESS_ONLY'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
-					arch_cflags="$arch_cflags"' -O3'
 					;;
 				bench-baseline-unpriv-wo-systick)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
@@ -666,21 +664,18 @@ configure_global_variables() {
 					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE_UNPRIV'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_WO_SYSTICK'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
-					arch_cflags="$arch_cflags"' -O3'
 					;;
 				bench-pip-root)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP_ROOT'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
-					arch_cflags="$arch_cflags"' -O3'
 					;;
 				bench-pip-child)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP_CHILD'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
-					arch_cflags="$arch_cflags"' -O3'
 					;;
 				default)
 					;;

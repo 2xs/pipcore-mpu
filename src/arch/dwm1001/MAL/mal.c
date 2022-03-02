@@ -55,12 +55,12 @@ extern uint32_t _eram; // RAM end address; defined in linker script
 paddr __attribute__((section(".bss_pip"))) current_partition = NULL; /* Current partition, default root */
 paddr __attribute__((section(".bss_pip"))) root_partition = NULL;	   /* Multiplexer's partition descriptor, default 0*/
 
-static const __attribute__((section(".text_pip"))) PDTable_t DEFAULT_PD_TABLE = {NULL, NULL, 0, 0, NULL}; // BEWARE : LUT not initialized
-static const __attribute__((section(".text_pip"))) block_t DEFAULT_BLOCK = {0, 0};
-static const __attribute__((section(".text_pip"))) BlockIndex_t DEFAULT_BLOCK_INDEX = {-1};
+static const __attribute__((section(".text_pip_mal"))) PDTable_t DEFAULT_PD_TABLE = {NULL, NULL, 0, 0, NULL}; // BEWARE : LUT not initialized
+static const __attribute__((section(".text_pip_mal"))) block_t DEFAULT_BLOCK = {0, 0};
+static const __attribute__((section(".text_pip_mal"))) BlockIndex_t DEFAULT_BLOCK_INDEX = {-1};
 static const __attribute__((section(".rodata_pip"))) BlockEntry_t DEFAULT_BLOCK_ENTRY = {DEFAULT_BLOCK, DEFAULT_BLOCK_INDEX, false, false, false, false, false};
-static const __attribute__((section(".text_pip"))) Sh1Entry_t DEFAULT_SH1_ENTRY = {NULL, NULL, false};
-static const __attribute__((section(".text_pip"))) SCEntry_t DEFAULT_SC_ENTRY = {NULL, NULL};
+static const __attribute__((section(".text_pip_mal"))) Sh1Entry_t DEFAULT_SH1_ENTRY = {NULL, NULL, false};
+static const __attribute__((section(".text_pip_mal"))) SCEntry_t DEFAULT_SC_ENTRY = {NULL, NULL};
 
 /*!
  * \fn paddr getKernelStructureStartAddr(paddr blockentryaddr, uint32_t blockentryindex)

@@ -34,6 +34,9 @@
 #ifndef __YIELD_C_H__
 #define __YIELD_C_H__
 
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+
 #include <stdint.h>
 
 #include "mal.h"
@@ -270,7 +273,7 @@ typedef uint32_t uservalue_t;
  *         code indicating the nature of the error. If the context is
  *         restored, the return value should be ignored.
  */
-__attribute__((section(".text_pip")))
+__attribute__((section(".text_pipcore")))
 yield_return_code_t
 yieldGlue(
 	stacked_context_t *svc_ctx,
@@ -280,7 +283,7 @@ yieldGlue(
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake);
 
-__attribute__((section(".text_pip")))
+__attribute__((section(".text_pipcore")))
 yield_return_code_t
 getSourcePartVidtCont(
 	paddr calleePartDesc,
@@ -291,7 +294,7 @@ getSourcePartVidtCont(
 	int_mask_t flagsOnWake,
 	user_context_t *callerInterruptedContext);
 
-__attribute__((section(".text_pip")))
+__attribute__((section(".text_pipcore")))
 yield_return_code_t
 getTargetPartVidtCont(
 	paddr calleePartDesc,
@@ -302,7 +305,7 @@ getTargetPartVidtCont(
 	int_mask_t flagsOnWake,
 	user_context_t *callerInterruptedContext);
 
-__attribute__((section(".text_pip")))
+__attribute__((section(".text_pipcore")))
 yield_return_code_t
 getParentPartDescCont(
 	paddr callerPartDesc,
@@ -329,11 +332,13 @@ getParentPartDescCont(
  *         the caller. This return type is required for a future
  *         implementation of the service in Coq.
  */
-__attribute__((section(".text_pip")))
+__attribute__((section(".text_pipcore")))
 yield_return_code_t
 switchContextCont(
 	paddr calleePartDesc,
 	int_mask_t flagsOnYield,
 	user_context_t *ctx);
+
+#pragma GCC pop_options
 
 #endif /* __YIELD_C_H__ */

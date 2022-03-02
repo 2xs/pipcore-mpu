@@ -123,7 +123,7 @@ systick_timer_enable(void)
  * Hence, a direct switch would trigger a MemFault.
  * Instead, we enter the Handler Mode with PendSV and launches the root partition (UNPRIV/PSP) as an exception return.
  */
-__attribute__((section(".text_pip"), noreturn))
+__attribute__((section(".text_pip_init"), noreturn))
 void pip_main (void)
 {
 #if defined(UART_DEBUG)
@@ -167,7 +167,7 @@ void pip_main (void)
  * PendSV Handler
  * Handler mode: launch the root partition during exception return.
  */
-__attribute__((section(".text_pip"), noreturn))
+__attribute__((section(".text_pip_init"), noreturn))
 void PendSV_Handler(void)
 {
 	int externalIrqNumber = 32 * (SCnSCB->ICTR + 1);
@@ -247,9 +247,7 @@ uint8_t *sp = (uint8_t *)&user_stack_top;
 	/* Initialize the root partition context. */
 	rootPartitionContext.registers[R0] = argc;
 	rootPartitionContext.registers[R1] = (uint32_t) argv;
-#if defined PIP_ONLY
-	rootPartitionContext.registers[PC] = (uint32_t)0x0;
-#elif defined BENCHMARK_PIP
+#if defined BENCHMARK_PIP
 	rootPartitionContext.registers[PC] = (uint32_t)main_benchmark;
 #else
 	rootPartitionContext.registers[PC] = (uint32_t) main_yield;
