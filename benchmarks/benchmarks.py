@@ -105,6 +105,8 @@ def static_metrics(bench_dir, benchmarks, sequence):
             log.warning('Warning: link of pip-only timed out')
             succeeded = False
 
+        static_results = {}
+
         if succeeded:
             log.info('Compilation of pip-only successful')
             print("Compiling static metrics for pip-only", end='...')
@@ -124,14 +126,21 @@ def static_metrics(bench_dir, benchmarks, sequence):
 
                 else:
                     log.debug('Compilation of static metrics for pip-only successful')
+                    size_out_fd.close()
+                    static_results["Pip_size"] = {}
+                    size_out_fd = open(pip_static_result_filename, 'r')
+                    lines = size_out_fd.readlines()
+                    for line in lines:
+                        if "_pip" in line:
+                            " ".join(line.split())
+                            words = line.split()
+                            static_results["Pip_size"] |= { words[0] : words[1] }
+
                     print("OK")
 
             except subprocess.TimeoutExpired:
                 log.warning('Warning: link of benchmark pip-only timed out')
                 succeeded = False
-
-
-
         else:
                 print('ERROR: Not all benchmarks built successfully')
 
@@ -139,8 +148,8 @@ def static_metrics(bench_dir, benchmarks, sequence):
     raw_section_data = {}
     raw_totals = {}
     rel_data = {}
-    static_results = {}
-    '''
+
+
     # invoke BenchIoT ROP gadgets and indirect calls
     #exec(open("benchmarks/benchiot_measure_static_flash_and_ram.py").read())
     benchiot_measure_static_flash_and_ram.measure_static(benchmarks)
@@ -167,8 +176,6 @@ def static_metrics(bench_dir, benchmarks, sequence):
     static_metrics_file = os.path.join(bench_dir, 'results', res_rec_filename)
     with open(static_metrics_file, "w") as outfile:
         json.dump(static_results, outfile, indent=4, sort_keys=True)
-
-    '''
 
     if successful:
         return raw_totals, rel_data

@@ -612,9 +612,8 @@ configure_global_variables() {
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
 					;;
 				pip-only)
-					# Warning: this does not include the whole pip code
-					# because the unused sections are erased
-					#opt_cflags=' -Os'
+					# Pip is compiled with options to NOT optimise Pip's code
+					# and thus is entirely present in the binary
 					arch_ldflags="$arch_ldflags"'--specs=nosys.specs'
 					# remove all unused sections
 					arch_ldflags="$arch_ldflags"' -Wl,--gc-sections'
