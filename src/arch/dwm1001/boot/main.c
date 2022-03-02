@@ -123,7 +123,7 @@ systick_timer_enable(void)
  * Hence, a direct switch would trigger a MemFault.
  * Instead, we enter the Handler Mode with PendSV and launches the root partition (UNPRIV/PSP) as an exception return.
  */
-__attribute__((noreturn))
+__attribute__((section(".text_pip"), noreturn))
 void pip_main (void)
 {
 #if defined(UART_DEBUG)
@@ -134,6 +134,19 @@ void pip_main (void)
 	/* Enable the SysTick timer. */
 	systick_timer_enable();
 #endif
+
+#if defined BENCHMARK
+	START_BENCHMARK();
+#endif // BENCHMARK
+
+#if defined BENCHMARK_BASELINE_PRIV
+	main_benchmark();
+	/* We should never end up here because the benchmark ended */
+	__builtin_unreachable();
+#endif
+
+	// In order to launch the root partition in unprivileged mode,
+	// we need to get into Handler mode, here by triggering the PENDSV
 
 	/* Set the PendSV exception as pending by writing 1 to the
 	 * PENDSVSET bit. */
@@ -148,11 +161,13 @@ void pip_main (void)
 	__builtin_unreachable();
 }
 
+#if !defined BENCHMARK_BASELINE_PRIV
+
 /**
  * PendSV Handler
  * Handler mode: launch the root partition during exception return.
  */
-__attribute__((noreturn))
+__attribute__((section(".text_pip"), noreturn))
 void PendSV_Handler(void)
 {
 	int externalIrqNumber = 32 * (SCnSCB->ICTR + 1);
@@ -168,12 +183,9 @@ void PendSV_Handler(void)
 	/* Get the top of the PSP */
 uint8_t *sp = (uint8_t *)&user_stack_top;
 
-#if defined BENCHMARK
-	START_BENCHMARK();
-#endif // BENCHMARK
+#if defined BENCHMARK_BASELINE_UNPRIV
 
-#if defined BENCHMARK_BASELINE
-	// Version wo Pip / wo MPU
+	// Version wo Pip / wo MPU / with app running in unprivileged mode
 	uint32_t frame = (uint32_t) sp - 0x20; // Build benchmark frame
 	__set_PSP(frame);
 	// Thread mode is unprivileged
@@ -190,20 +202,20 @@ uint8_t *sp = (uint8_t *)&user_stack_top;
 	framePtr[4] = 0;
 	framePtr[5] = 0;
 	framePtr[6] = (uint32_t)main_benchmark;
-	framePtr[7] = 0 /*| (1<<29) | (1<<30)*/ | (1 << 24);// T bit mandatroy: ARM Cortex M only supports Thumb instruction execution
+	framePtr[7] = 0 | (1 << 24);// T bit mandatroy: ARM Cortex M only supports Thumb instruction execution
 
 	asm volatile("cpsie   i;" // enable interrupts (CLOCK)
 				 " bx %0; "	  // branch to main in UNPRIV mode with PSP (EXC_RETURN=0xFFFFFFFD)
 
-				 /* Output operands */
+				 // Output operands
 				 :
 
-				 /* Input operands */
+				 // Input operands
 				 : "r"(0xFFFFFFFD)
 
-				 /* Clobbers */
+				 // Clobbers
 				 : "memory");
-#else
+#elif !defined BENCHMARK_EMPTY
 
 	// Initialize the root partition and init the MPU
 	mal_init();
@@ -235,7 +247,9 @@ uint8_t *sp = (uint8_t *)&user_stack_top;
 	/* Initialize the root partition context. */
 	rootPartitionContext.registers[R0] = argc;
 	rootPartitionContext.registers[R1] = (uint32_t) argv;
-#if defined BENCHMARK_PIP
+#if defined PIP_ONLY
+	rootPartitionContext.registers[PC] = (uint32_t)0x0;
+#elif defined BENCHMARK_PIP
 	rootPartitionContext.registers[PC] = (uint32_t)main_benchmark;
 #else
 	rootPartitionContext.registers[PC] = (uint32_t) main_yield;
@@ -250,9 +264,11 @@ uint8_t *sp = (uint8_t *)&user_stack_top;
 
 	/* Yield to the root partition. */
 	switchContextCont(getRootPartition(), 0, &rootPartitionContext);
-#endif // BENCHMARK_BASELINE
+#endif // BENCHMARK_BASELINE_UNPRIV
 
 		/* We should never end up here because the switchContextCont
 	 * function never returns to the caller. */
 		__builtin_unreachable();
 }
+
+#endif // BENCHMARK_BASELINE_PRIV

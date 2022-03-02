@@ -49,18 +49,18 @@ typedef uint32_t int_mask_t;
  * \return The interrupt state of one of the current partition's
  *         children, ~0 otherwise.
  */
-int_mask_t getIntState(
-	void *childPartDescBlockLocalId
-);
+int_mask_t __attribute__((section(".text_pip")))
+getIntState(
+	void *childPartDescBlockLocalId);
 
 /*!
  * \brief Retrieves the interrupt state of the current partition.
  *
  * \return The interrupt state of the current partition.
  */
-int_mask_t getSelfIntState(
-	void
-);
+int_mask_t __attribute__((section(".text_pip")))
+getSelfIntState(
+	void);
 
 /*!
  * \brief Sets the interrupt state of the current partition.
@@ -72,9 +72,9 @@ int_mask_t getSelfIntState(
  *        If the current partition is the root partition, exceptions are
  *        enabled or disabled accordingly.
  */
-void setIntState(
-	int_mask_t interruptState
-);
+void __attribute__((section(".text_pip")))
+setIntState(
+	int_mask_t interruptState);
 
 /*!
  * \brief Sets the interrupt state of the current partition.
@@ -84,8 +84,8 @@ void setIntState(
  *        does not wish to be interrupted, while a value other than 0
  *        indicates that the current partition wishes to be interrupted.
  */
-void kernel_set_int_state(
-	int_mask_t interruptState
-);
+void __attribute__((section(".text_pip")))
+kernel_set_int_state(
+	int_mask_t interruptState);
 
 #endif /* __PIP_INTERRUPT_CALLS__ */

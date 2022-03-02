@@ -7,7 +7,6 @@ void dump_partition(paddr part);
 void dump_ancestors(paddr base_child_PD_address);
 int dump_mpu();
 
-
 #if defined DUMP
 #define debug_printf(fmt, ...) do {printf(fmt, __VA_ARGS__); } while (0)
 //#define debug_puts(...) do {puts(__VA_ARGS__); } while (0) // TODO: fix no output -> triggers HardFault

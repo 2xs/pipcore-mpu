@@ -30,7 +30,7 @@
 /*  The fact that you are presently reading this means that you have had       */
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
-#if !defined BENCHMARK
+#ifndef BENCHMARK
 
 #include <stdio.h>
 #include <stdint.h>
@@ -708,4 +708,4 @@ void main_yield(int argc, uint32_t **argv)
 	for (;;);
 }
 
-#endif // BENCHMARK
+#endif /* BENCHMARK */

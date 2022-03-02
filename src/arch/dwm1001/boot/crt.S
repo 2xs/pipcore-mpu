@@ -42,18 +42,23 @@ __isr_vector:
     .long   __StackTop         /* Top of Stack */
     .long   Reset_Handler      /* Reset        */
     .long   Interrupt_Handler  /* NMI          */
-    .long   HardFault_Handler      /* HardFault    */
+    .long   Fault_Handler      /* HardFault    */
     .long   MemManage_Handler  /* MemManage */
-    .long   BusFault_Handler      /* BusFault */
-    .long   UsageFault_Handler      /* UsageFault */
+    .long   Fault_Handler      /* BusFault */
+    .long   Fault_Handler      /* UsageFault */
     .long   0                  /* Reserved */
     .long   0                  /* Reserved */
     .long   0                  /* Reserved */
     .long   0                  /* Reserved */
     .long   SVC_Handler        /* SVCall */
-    .long   DebugMon_Handler      /* DebugMonitor */
+    .long   Fault_Handler      /* DebugMonitor */
     .long   0                  /* Reserved */
+#if defined BENCHMARK_BASELINE
+    .long   0                  /* PendSV */
+#else
     .long   PendSV_Handler     /* PendSV */
+
+#endif /* BENCHMARK_BASELINE_UNPRIV */
 #if defined BENCHMARK_BASELINE
     .long   SysTick_Handler    /* Systick */
 #else

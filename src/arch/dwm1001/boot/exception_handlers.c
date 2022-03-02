@@ -67,8 +67,9 @@
  *
  * \see The calling code is in the exception_entry.S file.
  */
-void __attribute__((section(".after_vectors"), noreturn))
-Interrupt_Handler_C(stacked_context_t *stackedContext)
+void /*__attribute__((section(".after_vectors"), noreturn))*/
+	__attribute__((section(".text_pip"), noreturn))
+	Interrupt_Handler_C(stacked_context_t *stackedContext)
 {
 	user_context_t context;
 
@@ -180,15 +181,16 @@ Interrupt_Handler_C(stacked_context_t *stackedContext)
  *
  * \param context The context of the faulted partition.
  */
-void __attribute__((section(".after_vectors"), noreturn))
-propagateFault(
-	paddr          currentPartDesc,
-	unsigned       targetInterrupt,
-	unsigned       saveIndex,
-	int_mask_t     flagOnYield,
-	int_mask_t     flagOnWake,
-	user_context_t *context
-) {
+void /*__attribute__((section(".after_vectors"), noreturn))*/
+	__attribute__((section(".text_pip"), noreturn))
+	propagateFault(
+		paddr currentPartDesc,
+		unsigned targetInterrupt,
+		unsigned saveIndex,
+		int_mask_t flagOnYield,
+		int_mask_t flagOnWake,
+		user_context_t *context)
+{
 	/* We try to propagate the fault to the parent partition of the
 	 * one that has faulted by saving its context at the address
 	 * found at the saveIndex in its VIDT. Then, we restore the
@@ -290,8 +292,9 @@ propagateFault(
  *
  * \see The calling code is in the exception_entry.S file.
  */
-void __attribute__((section(".after_vectors"), noreturn))
-Fault_Handler_C(stacked_context_t *stackedContext)
+void /*__attribute__((section(".after_vectors"), noreturn))*/
+	__attribute__((section(".text_pip"), noreturn))
+	Fault_Handler_C(stacked_context_t *stackedContext)
 {
 	user_context_t context;
 
@@ -343,9 +346,12 @@ Fault_Handler_C(stacked_context_t *stackedContext)
  *
  * \see The calling code is in the exception_entry.S file.
  */
-void __attribute__((section(".after_vectors")))
-MemManage_Handler_C(stacked_context_t *stackedContext)
+void /*__attribute__((section(".after_vectors")))*/
+	__attribute__((section(".text_pip")))
+	MemManage_Handler_C(stacked_context_t *stackedContext)
 {
+	uint32_t* mmfar = MMFAR.ADDRESS; // MemManage Fault Address
+	debug_printf("\n[MemManage_Handler] Faulted Address: %x\n", *mmfar);
 	uint32_t faultedAddress;
 
 	if (CFSR.MMFSR.DACCVIOL && CFSR.MMFSR.MMARVALID)
@@ -451,6 +457,9 @@ MemManage_Handler_C(stacked_context_t *stackedContext)
 	}
 
 #if !defined(UNIT_TESTS)
+	//dump_ancestors(getCurPartition());
+
+	debug_printf("DEBUG: MemManage_Handler] Fault at address:%x MMARVALID=%d\n", faultedAddress, CFSR.MMFSR.MMARVALID);
 
 	/* Call the fault handler if it is a real MemManage fault. */
 	Fault_Handler_C(stackedContext);
@@ -473,9 +482,10 @@ MemManage_Handler_C(stacked_context_t *stackedContext)
 
 #endif
 }
- // Exception Stack Frame of the Cortex-M3 or Cortex-M4 processor.
-  typedef struct
-  {
+
+// Exception Stack Frame of the Cortex-M3 or Cortex-M4 processor.
+typedef struct
+{
     uint32_t r0;
     uint32_t r1;
     uint32_t r2;
@@ -713,10 +723,8 @@ int isSemihosting(ExceptionStackFrame *frame, uint16_t opCode)
 void __attribute__((section(".after_vectors"), weak))
 SysTick_Handler(void)
 {
-	// DO NOT loop, just return.
+	// Just return.
 	debug_printf("[SysTick_Handler]\nCurrent SysTick value: % d\n", SysTick->VAL);
-	// Useful in case someone (like STM HAL) inadvertently enables SysTick.
-	// printf();
 	;
 }
 #endif /* BENCHMARK_BASELINE */

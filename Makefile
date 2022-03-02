@@ -53,8 +53,7 @@ ASFLAGS=$(ARCH_ASFLAGS)
 LDFLAGS=$(ARCH_LDFLAGS)
 
 # Enable debug symbols and logs
-CFLAGS+=$(if $(DEBUG), $(DEBUG_CFLAGS))
-
+CFLAGS+=$(if $(RELEASE), $(DEBUG_CFLAGS))
 COQFLAGS := $(shell $(CAT) _CoqProject)
 COQCFLAGS := $(COQFLAGS) -w all,-nonprimitive-projection-syntax
 COQCEXTRFLAGS := $(shell $(SED) 's/-[RQ]  */&..\//g' _CoqProject) -w all,-extraction
@@ -266,7 +265,7 @@ DIGGERFLAGS += --ignore coq_N
 $(GENERATED_FILES_DIR)/Internal.h: $(GENERATED_FILES_DIR)/Internal.json $(JSONS)\
                                  | $(GENERATED_FILES_DIR) $(DIGGER)
 	$(DIGGER) $(DIGGERFLAGS) --header\
-		                 $< -o $@
+		                 $< -o $@ && sed -i 's/extern/extern __attribute__((section(".text_pipcore")))/g' generated/Internal.h
 
 $(GENERATED_FILES_DIR)/Internal.c: $(GENERATED_FILES_DIR)/Internal.json $(JSONS)\
 	                           $(GENERATED_FILES_DIR)/Internal.h\
@@ -277,7 +276,7 @@ $(GENERATED_FILES_DIR)/Internal.c: $(GENERATED_FILES_DIR)/Internal.json $(JSONS)
 $(GENERATED_FILES_DIR)/Services.h: $(GENERATED_FILES_DIR)/Services.json $(JSONS)\
                                  | $(GENERATED_FILES_DIR) $(DIGGER)
 	$(DIGGER) $(DIGGERFLAGS) --header\
-		                 $< -o $@
+		                 $< -o $@ && sed -i 's/extern/extern __attribute__((section(".text_pipcore")))/g' generated/Services.h
 $(GENERATED_FILES_DIR)/Services.c: $(GENERATED_FILES_DIR)/Services.json $(JSONS)\
 	                           $(GENERATED_FILES_DIR)/Services.h\
 	                           $(GENERATED_FILES_DIR)/Internal.json\

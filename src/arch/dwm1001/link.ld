@@ -194,6 +194,7 @@ SECTIONS
     ASSERT(user_stack_top <= _eram , "stack top higher than end of RAM")
 
     /*_end = . ;*/
+    end = .;
 
     /* Set stack top to end of RAM, and stack limit move down by
 	 * size of stack_dummy section */

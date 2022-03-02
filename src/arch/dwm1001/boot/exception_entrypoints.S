@@ -150,12 +150,25 @@
 /*
  * Declaration of the entry points.
  */
+#if defined BENCHMARK_EMPTY
+    .text
+    .thumb
+    .thumb_func
+    .align 1
+    .globl Reset_Handler
+    .type Reset_Handler, %function
+Reset_Handler:
+	sev
+	wfe
+	wfe
 
+#else
 .global   Reset_Handler
 .type     Reset_Handler, %function
 .section  .after_vectors
 Reset_Handler:
-    bl _start
+	bl _start
+#endif
 
 EXCEPTION_ENTRYPOINT Interrupt_Handler
 

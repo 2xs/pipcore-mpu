@@ -84,18 +84,18 @@ extern uint32_t user_stack_top;
 
 extern uint32_t _sram;
 
-void* user_alloc_pos = NULL;
+void *user_alloc_pos = NULL;
 
-paddr blockentryaddr_flash = NULL;
-paddr blockentryaddr_ram0 = NULL;
-paddr blockentryaddr_ram1 = NULL;
-paddr blockentryaddr_ram2 = NULL;
-paddr blockentryaddr_periph = NULL;
+paddr __attribute__((section(".bss_pip"))) blockentryaddr_flash = NULL;
+paddr __attribute__((section(".bss_pip"))) blockentryaddr_ram0 = NULL;
+paddr __attribute__((section(".bss_pip"))) blockentryaddr_ram1 = NULL;
+paddr __attribute__((section(".bss_pip"))) blockentryaddr_ram2 = NULL;
+paddr __attribute__((section(".bss_pip"))) blockentryaddr_periph = NULL;
 
 /* Root partition initialisation.
  * All this code will run at startup.
  */
-static paddr mal_create_root_part(void)
+ paddr mal_create_root_part(void)
 {
 	uint32_t PD_SIZE = PDSTRUCTURETOTALLENGTH();//already MPU sized, in bytes
 	paddr part = user_alloc_pos;
@@ -167,7 +167,7 @@ void mal_init_root_part(paddr part)
   	enableBlockInMPU(part, blockentryaddr_ram2, 2); // Stack: !never touch!, should always be enabled in MPU
 	enableBlockInMPU(part, blockentryaddr_periph, 3); // Peripherals
 
-	dump_mpu();
+	//dump_mpu();
 
 
 #endif // UNIT_TESTS

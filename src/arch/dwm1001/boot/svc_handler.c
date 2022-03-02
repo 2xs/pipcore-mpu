@@ -42,29 +42,30 @@
 #include "ADT.h"
 #ifdef BENCHMARK
 #include "benchmark.h"
+extern uint32_t childStackBlockStart;
+extern uint32_t childStackBlockEnd;
 #endif // BENCHMARK
 
-/*!
- * \brief Enumeration of the SVC numbers
- */
-typedef enum svc_number_e
-{
-	SVC_NUMBER_CREATE_PARTITION    = 0 , /*!< The createPartition SVC number. */
-	SVC_NUMBER_CUT_MEMORY_BLOCK    = 1 , /*!< The cutMemoryBlock SVC number. */
-	SVC_NUMBER_MERGE_MEMORY_BLOCK  = 2 , /*!< The mergeMemoryBlocks SVC number. */
-	SVC_NUMBER_PREPARE             = 3 , /*!< The prepare SVC number. */
-	SVC_NUMBER_ADD_MEMORY_BLOCK    = 4 , /*!< The addMemoryBlock SVC number. */
-	SVC_NUMBER_REMOVE_MEMORY_BLOCK = 5 , /*!< The removeMemoryBlock SVC number. */
-	SVC_NUMBER_DELETE_PARTITION    = 6 , /*!< The deletePartition SVC number. */
-	SVC_NUMBER_COLLECT             = 7 , /*!< The collect SVC number. */
-	SVC_NUMBER_MAP_MPU             = 8 , /*!< The mapMPU SVC number. */
-	SVC_NUMBER_READ_MPU            = 9 , /*!< The readMPU SVC number. */
-	SVC_NUMBER_FIND_BLOCK          = 10, /*!< The findBlock SVC number. */
-	SVC_NUMBER_SET_VIDT            = 11, /*!< The setVIDT SVC number. */
-	SVC_NUMBER_YIELD               = 12, /*!< The yield SVC number. */
-	SVC_NUMBER_GET_INT_STATE       = 13, /*!< The getIntState SVC number. */
-	SVC_NUMBER_SET_INT_STATE       = 14  /*!< The setIntState SVC number. */
-} svc_number_t;
+	/*!
+	 * \brief Enumeration of the SVC numbers
+	 */
+	typedef enum svc_number_e {
+		SVC_NUMBER_CREATE_PARTITION = 0,	/*!< The createPartition SVC number. */
+		SVC_NUMBER_CUT_MEMORY_BLOCK = 1,	/*!< The cutMemoryBlock SVC number. */
+		SVC_NUMBER_MERGE_MEMORY_BLOCK = 2,	/*!< The mergeMemoryBlocks SVC number. */
+		SVC_NUMBER_PREPARE = 3,				/*!< The prepare SVC number. */
+		SVC_NUMBER_ADD_MEMORY_BLOCK = 4,	/*!< The addMemoryBlock SVC number. */
+		SVC_NUMBER_REMOVE_MEMORY_BLOCK = 5, /*!< The removeMemoryBlock SVC number. */
+		SVC_NUMBER_DELETE_PARTITION = 6,	/*!< The deletePartition SVC number. */
+		SVC_NUMBER_COLLECT = 7,				/*!< The collect SVC number. */
+		SVC_NUMBER_MAP_MPU = 8,				/*!< The mapMPU SVC number. */
+		SVC_NUMBER_READ_MPU = 9,			/*!< The readMPU SVC number. */
+		SVC_NUMBER_FIND_BLOCK = 10,			/*!< The findBlock SVC number. */
+		SVC_NUMBER_SET_VIDT = 11,			/*!< The setVIDT SVC number. */
+		SVC_NUMBER_YIELD = 12,				/*!< The yield SVC number. */
+		SVC_NUMBER_GET_INT_STATE = 13,		/*!< The getIntState SVC number. */
+		SVC_NUMBER_SET_INT_STATE = 14		/*!< The setIntState SVC number. */
+	} svc_number_t;
 
 /*!
  * \brief Call the PIP service associated with the SVC number.
@@ -72,6 +73,7 @@ typedef enum svc_number_e
  *        called.
  * \param context The context stacked on the caller's stack.
  */
+__attribute__((section(".text_pip")))
 void SVC_Handler_C(stacked_context_t *stackedContext)
 {
 	/* Retrieve the SVC number encoded on the second byte of the
@@ -219,25 +221,7 @@ void SVC_Handler_C(stacked_context_t *stackedContext)
 
 #ifdef BENCHMARK
     case 129:          // Stop benchmark (end_cycles_counting)
-		uint32_t cycles; // number of cycles
-		cycles = GetCycleCounter(); // get cycle counter
-		// Trigger External benchmark end
-		nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
-		nrf_gpio_pin_write(13, 0);
-		nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
-		nrf_gpio_pin_write(LED_0, 1); // 0 = Light the LED
-		DisableCycleCounter();      // disable counting if not used
-		uint32_t main_stack_usage = finish_stack_usage_measurement(&__StackLimit, &__StackTop);	 /* main (Pip) stack */
-		uint32_t app_stack_usage = finish_stack_usage_measurement(&user_stack_limit, &user_stack_top); /* app stack */
-		printf("Benchmark results:\n");
-		printf("Ticks:%d\n", cycles);
-		printf("Main stack usage:%d\n", main_stack_usage);
-		printf("App stack usage:%d\n", app_stack_usage);
-		#if defined BENCHMARK_PIP
-		uint32_t systickhandler_stack_usage = finish_stack_usage_measurement(rootSysTickStackBlockStart, rootSysTickStackBlockEnd); /* app stack */
-		printf("Systick stack usage:%d\n", systickhandler_stack_usage);
-		#endif
-		BENCHMARK_SINK();
+		benchmark_results();
 		break;
 #endif // BENCHMARK
     default:
@@ -247,3 +231,32 @@ void SVC_Handler_C(stacked_context_t *stackedContext)
 
 	__enable_irq();
 }
+
+#ifdef BENCHMARK
+void benchmark_results(){
+	uint32_t cycles;			// number of cycles
+	cycles = GetCycleCounter(); // get cycle counter
+	DisableCycleCounter();		// disable counting if not used
+	// Stack usage measurements
+	uint32_t main_stack_usage = finish_stack_usage_measurement(&__StackLimit, &__StackTop); /* main (Pip) stack */
+	printf("Benchmark results:\n");
+	printf("Ticks:%d\n", cycles);
+	printf("Main stack usage:%d\n", main_stack_usage);
+#if defined BENCHMARK_BASELINE_UNPRIV
+	uint32_t app_stack_usage = finish_stack_usage_measurement(&user_stack_limit, &user_stack_top); /* app stack */
+#elif defined BENCHMARK_PIP_ROOT
+	uint32_t app_stack_usage = finish_stack_usage_measurement(0x20008000, &user_stack_top); /* app stack */
+#elif defined BENCHMARK_PIP_CHILD
+	uint32_t app_stack_usage = finish_stack_usage_measurement(childStackBlockStart, childStackBlockEnd); /* app stack */
+#else // stack is priv, only main stack exists
+	uint32_t app_stack_usage = 0;
+#endif
+	printf("App stack usage:%d\n", app_stack_usage);
+	// Trigger External benchmark end
+	nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
+	nrf_gpio_pin_write(13, 0);
+	nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
+	nrf_gpio_pin_write(LED_0, 1); // 0 = Light the LED
+	BENCHMARK_SINK();
+}
+#endif

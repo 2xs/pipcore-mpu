@@ -30,6 +30,7 @@
 /*  The fact that you are presently reading this means that you have had       */
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
+
 #if defined BENCHMARK
 #include <stdio.h>
 #include "context.h"
@@ -40,8 +41,27 @@
 #include "nrf_gpio.h"
 #include "allocator.h"
 
+void shutoff(){
+	__WFE();
+}
 
 void BENCHMARK_SINK(){
+	//__WFE();
+	NRF_POWER->SYSTEMOFF = 1;
+	NRF_POWER->TASKS_LOWPWR = 1;
+	// Enter System ON sleep mode
+	//nrf_pwr_mgmt_shutdown(NRF_PWR_MGMT_SHUTDOWN_GOTO_DFU);
+	/*__WFI();
+	__SEV();
+	__WFI();
+	__DSB();*/
+
+	/* Solution for simulated System OFF in debug mode */
+	while (true)
+	{
+		shutoff();
+	}
+	// sd_power_system_off() ;
 	while (1);
 }
 /*
@@ -59,10 +79,11 @@ void print_benchmark_msg(){
 	// Start benchmark initialisation
 	printf(BENCH_MSG_INIT);
 	printf("WARNING: Monitor stack usage on: RAM is erased from user_mem_start and up\n");
-#if defined BENCHMARK_BASELINE
-	printf(BENCH_MSG_BASELINE);
-#endif
-#if defined BENCHMARK_WITNESS_ONLY
+#if defined BENCHMARK_BASELINE_PRIV
+	printf(BENCH_MSG_BASELINE_PRIV);
+#elif defined BENCHMARK_BASELINE_UNPRIV
+	printf(BENCH_MSG_BASELINE_UNPRIV);
+#elif defined BENCHMARK_WITNESS_ONLY
 	printf(BENCH_MSG_WITNESS);
 #endif
 }
@@ -130,6 +151,8 @@ start_cycles_counting()
 	nrf_gpio_pin_write(LED_3, 0); // 0 = Light the LED*/
 	EnableCycleCounter(); // start counting
 }
+
+#if defined BENCHMARK_PIP
 
 /*!
  * \def PD_BLOCK_SIZE
@@ -245,17 +268,15 @@ typedef enum vidt_index_e
  */
 extern void *user_alloc_pos;
 
-uint32_t rootSysTickStackBlockStart;
-uint32_t rootSysTickStackBlockEnd;
 
 block_t rootKernStructBlock;
 block_t rootVidtBlock;
 uint32_t rootid;
 
-/*!
- * \brief The block containing the partition descriptor of the child partition.
- */
-block_t child1PartDescBlock;
+
+
+
+
 
 /*!
  * \brief Initialize a VIDT with NULL addresses.
@@ -289,6 +310,15 @@ initializeContext(user_context_t *context)
 	context->pipflags = 0;
 	context->valid = 0;
 }
+
+#if defined BENCHMARK_PIP_CHILD
+uint32_t childStackBlockStart;
+uint32_t childStackBlockEnd;
+
+/*!
+ * \brief The block containing the partition descriptor of the child partition.
+ */
+block_t child1PartDescBlock;
 
 void child_main(int argc, uint32_t **argv)
 {
@@ -364,6 +394,9 @@ void child_main(int argc, uint32_t **argv)
 	{
 		return 0;
 	}
+
+	childStackBlockStart = childStackBlock.address;
+	childStackBlockEnd = childStackBlock.address + childStackBlock.size;
 
 	block_t childVidtBlock;
 
@@ -588,6 +621,8 @@ void child_main(int argc, uint32_t **argv)
 	return 1;
 }
 
+#endif // BENCHMARK_PIP_CHILD
+
 /*!
  * \brief This handler is a simple round-robin scheduler called at
  *        each SysTick interrupt.
@@ -605,6 +640,8 @@ systick_handler(void)
 #endif
 	printf("Should never be reached\n");
 }
+
+#endif // BENCHMARK_PIP
 
 /*!
  * \brief This handler is a simple round-robin scheduler called at
@@ -651,14 +688,14 @@ void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 	/*
 	* Initialization of the block allocator.
 	*/
-	blockOrError bt;
+	/*blockOrError bt;
 	if (!Pip_findBlock(rootPartDescBlockId, 0x20007FF0, &bt))
 	{
 		printf("Block not found\n");
 	}
 	else
 		printf("Available RAM: %x - %x\n", bt.blockAttr.blockstartaddr, bt.blockAttr.blockendaddr);
-
+	*/
 	allocatorInitialize(rootRam1BlockLocalId, user_alloc_pos);
 
 	/*
@@ -712,8 +749,6 @@ void BENCHMARK_INITIALISE(int argc, uint32_t **argv)
 	{
 		PANIC("Failed to allocate rootSysTickStackBlock...\n");
 	}
-	rootSysTickStackBlockStart = rootSysTickStackBlock.address;
-	rootSysTickStackBlockEnd = rootSysTickStackBlock.address + rootSysTickStackBlock.size;
 
 	block_t rootSysTickContextBlock;
 
@@ -910,9 +945,13 @@ void BENCHMARK_FINALISE()
 // Child tear down
 void run_benchmark()
 {
-	volatile int result;
+	volatile int result = 0;
 	int correct;
-	result = benchmark();
+	for (int i= 0 ; i<4 ; i++){
+		printf("Run %d\n", i);
+		result = result | benchmark();
+	}
+
 	correct = verify_benchmark(result);
 	if (!correct)
 	{
@@ -965,4 +1004,4 @@ void main_benchmark(int argc, uint32_t **argv)
 	printf("***ERROR***\nShould never be reached\n");
 	while (1);
 }
-#endif
+#endif /* BENCHMARK */

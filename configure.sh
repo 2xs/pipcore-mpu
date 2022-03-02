@@ -67,6 +67,7 @@ libpip=
 debugging_mode='none'
 boot_sequence='default'
 res=
+release_mode='no'
 
 # Print the script usage
 usage() {
@@ -222,13 +223,13 @@ ARCH_LDFLAGS  = $arch_ldflags
 ARCH_ASFLAGS  = $arch_asflags
 
 # Debug related options
-DEBUG_CFLAGS  = -g
+DEBUG_CFLAGS  = -g3
 DEBUG_CFLAGS += -Og
 
-# If the DEBUG variable is set, the output binary will
-# be in debug mode. Otherwise, if the DEBUG variable is
+# If the RELEASE variable is set, the output binary will
+# be in debug mode. Otherwise, if the RELEASE variable is
 # not set, the output binary will be in released mode.
-DEBUG = yes
+RELEASE = $release_mode
 
 ################## Execution options ##################
 
@@ -541,11 +542,12 @@ configure_global_variables() {
 			# The boot sequence performing the unit tests of the
 			# dwm1001 only works in semihosting mode
 
-			if  [ "$debugging_mode" != "semihosting" ] && [[ "$boot_sequence"=="test" || "$boot_sequence"=="bench-baseline-w-systick" || "$boot_sequence"=="bench-baseline-wo-systick" || "$boot_sequence"=="bench-pip-root" || "$boot_sequence"=="bench-pip-child" ]]
+			if [[ "$debugging_mode" != "semihosting" ]] && [[ "$boot_sequence" == "test" || "$boot_sequence" == "bench-baseline-w-systick" || "$boot_sequence" == "bench-baseline-wo-systick" || "$boot_sequence" == "bench-pip-root" || "$boot_sequence" == "bench-pip-child" ]]
 			then
-				print_error 'The unit tests of the dwm1001 only works in semihosting mode (if desired, add --debugging-mode=semihosting )...\n'
+				print_error 'The unit tests and the benchmarks of the dwm1001 only work in semihosting mode (if desired, add --debugging-mode=semihosting )...\n'
 				return 1
 			fi
+
 
 			### Default names of the commands
 
@@ -598,34 +600,87 @@ configure_global_variables() {
 				test)
 					arch_cflags="$arch_cflags"' -DUNIT_TESTS'
 					;;
-				bench-baseline-w-systick)
+				bench-empty)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
-					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_EMPTY'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
+					arch_cflags="$arch_cflags"' -O3'
 					;;
-				bench-baseline-witness)
+				pip-only)
+					release_mode='' # no debug flags -g -Og
+					arch_cflags="$arch_cflags"' -DPIP_ONLY'
+					arch_cflags="$arch_cflags"' -Os'
+					arch_ldflags="$arch_ldflags"'--specs=nosys.specs'
+					# remove all unused sections
+					arch_ldflags="$arch_ldflags"' -Wl,--gc-sections'
+					# print the unused and removed section: should lie directly
+					# after the previous --gc-sections flag
+					#arch_ldflags="$arch_ldflags"',--print-gc-sections'
+					# assign a section to each flag, to be used with --gc-sections (no better)
+					#arch_ldflags="$arch_ldflags"' -ffunction-sections -fdata-sections'
+					# Some other interesting flags : -Wshadow -Wformat -Wformat-security -Wundef -fno-common -fstack-usage
+
+
+					;;
+				bench-baseline-priv-w-systick)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE_PRIV'
+					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
+					arch_cflags="$arch_cflags"' -O3'
+					;;
+				bench-baseline-priv-witness)
+					arch_cflags="$arch_cflags"' -DBENCHMARK'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE_PRIV'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_WITNESS_ONLY'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
+					arch_cflags="$arch_cflags"' -O3'
 					;;
-				bench-baseline-wo-systick)
+				bench-baseline-priv-wo-systick)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE_PRIV'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_WO_SYSTICK'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
+					arch_cflags="$arch_cflags"' -O3'
+					;;
+				bench-baseline-unpriv-w-systick)
+					arch_cflags="$arch_cflags"' -DBENCHMARK'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE_UNPRIV'
+					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
+					arch_cflags="$arch_cflags"' -O3'
+					;;
+				bench-baseline-unpriv-witness)
+					arch_cflags="$arch_cflags"' -DBENCHMARK'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE_UNPRIV'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_WITNESS_ONLY'
+					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
+					arch_cflags="$arch_cflags"' -O3'
+					;;
+				bench-baseline-unpriv-wo-systick)
+					arch_cflags="$arch_cflags"' -DBENCHMARK'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE_UNPRIV'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_WO_SYSTICK'
+					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
+					arch_cflags="$arch_cflags"' -O3'
 					;;
 				bench-pip-root)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP_ROOT'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
+					arch_cflags="$arch_cflags"' -O3'
 					;;
 				bench-pip-child)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP_CHILD'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
+					arch_cflags="$arch_cflags"' -O3'
 					;;
 				default)
 					;;
@@ -642,7 +697,7 @@ configure_global_variables() {
 
 			### LDFLAGS for the selected architecture
 
-			arch_ldflags='-nostartfiles'
+			arch_ldflags="$arch_ldflags"' -nostartfiles'
 			arch_ldflags="$arch_ldflags"' -lc'
 			arch_ldflags="$arch_ldflags"' -lgcc'
 			arch_ldflags="$arch_ldflags"' -lm'

@@ -136,7 +136,7 @@ static inline uint32_t MPU_ATTR(
  * @return 0 on success
  * @return <0 on failure or no MPU present
  */
-int mpu_disable(void);
+int __attribute__((section(".text_pip"))) mpu_disable(void);
 
 /**
  * @brief enable the MPU
@@ -144,7 +144,7 @@ int mpu_disable(void);
  * @return 0 on success
  * @return <0 on failure or no MPU present
  */
-int mpu_enable(void);
+int __attribute__((section(".text_pip"))) mpu_enable(void);
 
 /**
  * @brief test if the MPU is enabled
@@ -152,14 +152,14 @@ int mpu_enable(void);
  * @return true if enabled
  * @return false if disabled
  */
-int mpu_enabled(void);
+int __attribute__((section(".text_pip"))) mpu_enabled(void);
 
 /*!
  * \fn int mpu_init(void)
  * \brief Resets the physical MPU
  * \return 0:Success/-1:Error
  */
-int mpu_init(void);
+int __attribute__((section(".text_pip"))) mpu_init(void);
 
 /**
  * @brief configure the base address and attributes for an MPU region
@@ -171,7 +171,7 @@ int mpu_init(void);
  * @return 0 on success
  * @return <0 on failure or no MPU present
  */
-int mpu_configure(uint_fast8_t region, uintptr_t base, uint_fast32_t attr);
+int __attribute__((section(".text_pip"))) mpu_configure(uint_fast8_t region, uintptr_t base, uint_fast32_t attr);
 
 /**
  * @brief configure the MPU based on a lookup table (LUT)
@@ -181,15 +181,15 @@ int mpu_configure(uint_fast8_t region, uintptr_t base, uint_fast32_t attr);
  * @return 0 on success
  * @return <0 on failure
  */
-int mpu_configure_from_LUT(uint32_t* LUT);
+int __attribute__((section(".text_pip"))) mpu_configure_from_LUT(uint32_t* LUT);
 
-uint32_t* readPhysicalMPUStartAddr(uint32_t MPURegionNb); //!< the physical MPU region's start address
-uint32_t* readPhysicalMPUEndAddr(uint32_t MPURegionNb); //!< the physical MPU region's end address
-uint32_t readPhysicalMPUAP(uint32_t MPURegionNb); //!< the physical MPU region's RW bit
-uint32_t readPhysicalMPUXN(uint32_t MPURegionNb); //!< the physical MPU region's X bit
-uint32_t readPhysicalMPUSizeBits(uint32_t MPURegionNb); //!< the physical MPU region's region bits (size in log2)
-uint32_t readPhysicalMPUSizeBytes(uint32_t MPURegionNb); //!< the physical MPU region's region size in bytes
-uint32_t readPhysicalMPURegionEnable(uint32_t MPURegionNb); //!< the physical MPU region's enable bit
+uint32_t*__attribute__((section(".text_pip"))) readPhysicalMPUStartAddr(uint32_t MPURegionNb); //!< the physical MPU region's start address
+uint32_t*__attribute__((section(".text_pip"))) readPhysicalMPUEndAddr(uint32_t MPURegionNb); //!< the physical MPU region's end address
+uint32_t __attribute__((section(".text_pip"))) readPhysicalMPUAP(uint32_t MPURegionNb); //!< the physical MPU region's RW bit
+uint32_t __attribute__((section(".text_pip"))) readPhysicalMPUXN(uint32_t MPURegionNb); //!< the physical MPU region's X bit
+uint32_t __attribute__((section(".text_pip"))) readPhysicalMPUSizeBits(uint32_t MPURegionNb); //!< the physical MPU region's region bits (size in log2)
+uint32_t __attribute__((section(".text_pip"))) readPhysicalMPUSizeBytes(uint32_t MPURegionNb); //!< the physical MPU region's region size in bytes
+uint32_t __attribute__((section(".text_pip"))) readPhysicalMPURegionEnable(uint32_t MPURegionNb); //!< the physical MPU region's enable bit
 
 
 #ifdef __cplusplus

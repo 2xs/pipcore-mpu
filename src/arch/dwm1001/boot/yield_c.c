@@ -63,6 +63,7 @@
 /* The MSP top of stack defined in the link script. */
 extern uint32_t __StackTop;
 
+__attribute__((section(".text_pip")))
 static yield_return_code_t checkIntLevelCont(
 	paddr calleePartDescAddr,
 	uservalue_t userTargetInterrupt,
@@ -72,6 +73,7 @@ static yield_return_code_t checkIntLevelCont(
 	user_context_t *callerInterruptedContext
 );
 
+__attribute__((section(".text_pip")))
 static yield_return_code_t checkCtxSaveIdxCont(
 	paddr calleePartDescAddr,
 	unsigned targetInterrupt,
@@ -81,6 +83,7 @@ static yield_return_code_t checkCtxSaveIdxCont(
 	user_context_t *callerInterruptedContext
 );
 
+__attribute__((section(".text_pip")))
 static yield_return_code_t getChildPartDescCont(
 	paddr callerPartDesc,
 	paddr calleePartDescAddr,
@@ -91,6 +94,7 @@ static yield_return_code_t getChildPartDescCont(
 	user_context_t *callerInterruptedContext
 );
 
+__attribute__((section(".text_pip")))
 static yield_return_code_t getTargetPartCtxCont(
 	paddr calleePartDesc,
 	paddr callerPartDesc,
@@ -102,6 +106,7 @@ static yield_return_code_t getTargetPartCtxCont(
 	user_context_t *callerInterruptedContext
 );
 
+__attribute__((section(".text_pip")))
 static yield_return_code_t saveSourcePartCtxCont(
 	paddr calleePartDesc,
 	paddr callerPartDesc,
@@ -112,17 +117,20 @@ static yield_return_code_t saveSourcePartCtxCont(
 	user_context_t *targetContext
 );
 
+__attribute__((section(".text_pip")))
 static void writeContext(
 	user_context_t *ctx,
 	paddr ctxSaveVAddr,
 	int_mask_t flagsOnWake
 );
 
+__attribute__((section(".text_pip")))
 static void loadContext(
 	user_context_t *ctx,
 	unsigned enforce_interrupts
 ) __attribute__((noreturn));
 
+__attribute__((section(".text_pip")))
 yield_return_code_t yieldGlue(
 	stacked_context_t *svc_ctx,
 	paddr calleePartDescLocalId,

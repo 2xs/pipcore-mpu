@@ -270,43 +270,47 @@ typedef uint32_t uservalue_t;
  *         code indicating the nature of the error. If the context is
  *         restored, the return value should be ignored.
  */
-yield_return_code_t yieldGlue(
+__attribute__((section(".text_pip")))
+yield_return_code_t
+yieldGlue(
 	stacked_context_t *svc_ctx,
 	paddr calleePartDescAddr,
 	uservalue_t userTargetInterrupt,
 	uservalue_t userCallerContextSaveIndex,
 	int_mask_t flagsOnYield,
-	int_mask_t flagsOnWake
-);
+	int_mask_t flagsOnWake);
 
-yield_return_code_t getSourcePartVidtCont(
-        paddr calleePartDesc,
-        paddr callerPartDesc,
-        unsigned targetInterrupt,
-        unsigned callerContextSaveIndex,
-        int_mask_t flagsOnYield,
-        int_mask_t flagsOnWake,
-        user_context_t *callerInterruptedContext
-);
-
-yield_return_code_t getTargetPartVidtCont(
-        paddr calleePartDesc,
-        paddr callerPartDesc,
-        paddr callerContextSaveAddr,
-        unsigned targetInterrupt,
-        int_mask_t flagsOnYield,
-        int_mask_t flagsOnWake,
-        user_context_t *callerInterruptedContext
-);
-
-yield_return_code_t getParentPartDescCont(
+__attribute__((section(".text_pip")))
+yield_return_code_t
+getSourcePartVidtCont(
+	paddr calleePartDesc,
 	paddr callerPartDesc,
 	unsigned targetInterrupt,
 	unsigned callerContextSaveIndex,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext
-);
+	user_context_t *callerInterruptedContext);
+
+__attribute__((section(".text_pip")))
+yield_return_code_t
+getTargetPartVidtCont(
+	paddr calleePartDesc,
+	paddr callerPartDesc,
+	paddr callerContextSaveAddr,
+	unsigned targetInterrupt,
+	int_mask_t flagsOnYield,
+	int_mask_t flagsOnWake,
+	user_context_t *callerInterruptedContext);
+
+__attribute__((section(".text_pip")))
+yield_return_code_t
+getParentPartDescCont(
+	paddr callerPartDesc,
+	unsigned targetInterrupt,
+	unsigned callerContextSaveIndex,
+	int_mask_t flagsOnYield,
+	int_mask_t flagsOnWake,
+	user_context_t *callerInterruptedContext);
 
 /*!
  * \brief Yield to another partition.
@@ -325,10 +329,11 @@ yield_return_code_t getParentPartDescCont(
  *         the caller. This return type is required for a future
  *         implementation of the service in Coq.
  */
-yield_return_code_t switchContextCont(
+__attribute__((section(".text_pip")))
+yield_return_code_t
+switchContextCont(
 	paddr calleePartDesc,
 	int_mask_t flagsOnYield,
-	user_context_t *ctx
-);
+	user_context_t *ctx);
 
 #endif /* __YIELD_C_H__ */

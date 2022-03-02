@@ -31,6 +31,7 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
+#if defined BENCHMARK
 #ifndef __BENCHMARK_H__
 #define __BENCHMARK_H__
 
@@ -88,7 +89,8 @@ extern uint32_t rootSysTickStackBlockEnd;
 #define LED_2 22 // Red
 #define LED_3 14 // Red
 
-#define BENCH_MSG_BASELINE "********* BASELINE BENCHMARK ********\n"
+#define BENCH_MSG_BASELINE_PRIV "********* BASELINE BENCHMARK APP IS PRIVILEGED ********\n"
+#define BENCH_MSG_BASELINE_UNPRIV "********* BASELINE BENCHMARK APP IS UNPRIVILEGED ********\n"
 #define BENCH_MSG_WITNESS "********* WITNESS ONLY **************\n"
 #define BENCH_MSG_INIT                     \
     "\r\n\n"                               \
@@ -102,6 +104,7 @@ void start_cycles_counting();
 void run_benchmark();
 void print_benchmark_msg();
 void BENCHMARK_SINK();
+void benchmark_results();
 
 /*!
  * \brief Launches the benchmark init sequence procedure
@@ -118,10 +121,17 @@ void BENCHMARK_SINK();
 /*!
  * \brief System call that triggers the benchmark end sequence procedure
  */
+#if defined BENCHMARK_BASELINE_PRIV
+#define END_BENCHMARK() \
+    benchmark_results();
+#else
 #define END_BENCHMARK() \
     __DMB();            \
     __ISB();            \
     __DSB();            \
     asm volatile(" svc #129       \n");
+#endif
 
 #endif /* __BENCHMARK_H__ */
+
+#endif /* BENCHMARK */
