@@ -109,13 +109,15 @@ def static_metrics(bench_dir, benchmarks, sequence):
 
         pipcore = [services, internal, yield_c, pip_interrupt_calls]
         pip = [svc, exceptions]
-        mal = [mal, malinternal, malinit, mpu]
+        mal = [mal, malinternal, mpu]
+        pipinit = [malinit]
 
         static_results["SLOC"] = {}
 
         success = sloc_files(bench_dir, pipcore, "pipcore", static_results)
         success &= sloc_files(bench_dir, pip, "pip", static_results)
         success &= sloc_files(bench_dir, mal, "mal", static_results)
+        success &= sloc_files(bench_dir, pipinit, "pipinit", static_results)
         if success:
             print("OK")
             print(static_results)
@@ -216,7 +218,7 @@ def static_metrics(bench_dir, benchmarks, sequence):
 
     # invoke BenchIoT ROP gadgets and indirect calls
     #exec(open("benchmarks/benchiot_measure_static_flash_and_ram.py").read())
-    benchiot_measure_static_flash_and_ram.measure_static(benchmarks)
+    #benchiot_measure_static_flash_and_ram.measure_static(benchmarks)
 
     # Collect data
     for bench in benchmarks:
