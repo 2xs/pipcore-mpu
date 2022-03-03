@@ -164,8 +164,9 @@ void mal_init_root_part(paddr part)
 	// Map 4 blocks -> flash, 2 ram blocks + peripherals
   	enableBlockInMPU(part, blockentryaddr_flash, 0); // Entire Flash
   	enableBlockInMPU(part, blockentryaddr_ram0, 1); // RW region containing the data+bss
-  	enableBlockInMPU(part, blockentryaddr_ram2, 2); // Stack: !never touch!, should always be enabled in MPU
-	enableBlockInMPU(part, blockentryaddr_periph, 3); // Peripherals
+  	enableBlockInMPU(part, blockentryaddr_ram1, 2);
+  	enableBlockInMPU(part, blockentryaddr_ram2, 3); // Stack: !never touch!, should always be enabled in MPU
+	enableBlockInMPU(part, blockentryaddr_periph, 4); // Peripherals
 
 	dump_mpu();
 
