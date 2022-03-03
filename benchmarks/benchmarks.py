@@ -54,10 +54,76 @@ from benchmark_size import ALL_METRICS
 
 import benchiot_measure_static_flash_and_ram
 
+def sloc_files(bench_dir, files, category_name, static_results):
+    static_results["SLOC"][category_name] = {}
+    print(files)
+    for file in files:
+            try:
+                filename = os.path.basename(file)
+                print(filename)
+                shrinked_file_path = os.path.join(bench_dir, f'results_static_pip-only_shrinked_{filename}')
+                shrinked_file = open(shrinked_file_path, 'w')
+                res = subprocess.run(
+                    ["arm-none-eabi-gcc", "-fpreprocessed",
+                        "-dD", "-E", "-P", file],
+                    stdout=shrinked_file
+                )
+                shrinked_file.close()
+                shrinked_file = open(shrinked_file_path, 'r')
+
+                if res.returncode != 0:
+                    print("***NOK***")
+                    print(f'Investigate with command: arm-none-eabi-gcc -fpreprocessed -dD -E {file}')
+                    return 0
+                else:
+                    static_results[f'SLOC'][category_name] |= { filename: sum(1 for _ in shrinked_file) }
+
+            except subprocess.TimeoutExpired:
+                log.warning('Warning: computing SLOC timed out')
+                return 0
+    return 1
+
 def static_metrics(bench_dir, benchmarks, sequence):
     print("\nCollecting static data:\n")
 
-    # TODO: report Pip size: code, bss, rodata, data
+    static_results = {}
+
+    # Pip SLOC (Source Lines of Code = same code without comments and blank lines)
+    pip_static_result_filename = os.path.join(bench_dir, 'results_static_pip-only.txt')
+    with open(pip_static_result_filename, 'w') as fout:
+        print("Computing Pip's SLOC", end='...')
+        # Careful -fpreprocessed does not capture comments splitted with \
+        boot_dir = "src/arch/dwm1001/boot"
+        exceptions = os.path.join(boot_dir, 'exception_handlers.c')
+        svc = os.path.join(boot_dir, 'svc_handler.c')
+        yield_c = os.path.join(boot_dir, 'yield_c.c')
+        pip_interrupt_calls = os.path.join(boot_dir, 'pip_interrupt_calls.c')
+        mpu = os.path.join(boot_dir, 'mpu.c')
+        mal_dir = "src/arch/dwm1001/MAL"
+        malinit = os.path.join(mal_dir, 'malinit.c')
+        mal = os.path.join(mal_dir, 'mal.c')
+        malinternal = os.path.join(mal_dir, 'malinternal.c')
+        generated_dir = "generated"
+        services = os.path.join(generated_dir, 'Services.c')
+        internal = os.path.join(generated_dir, 'Internal.c')
+
+        pipcore = [services, internal, yield_c, pip_interrupt_calls]
+        pip = [svc, exceptions]
+        mal = [mal, malinternal, malinit, mpu]
+
+        static_results["SLOC"] = {}
+
+        success = sloc_files(bench_dir, pipcore, "pipcore", static_results)
+        success &= sloc_files(bench_dir, pip, "pip", static_results)
+        success &= sloc_files(bench_dir, mal, "mal", static_results)
+        if success:
+            print("OK")
+            print(static_results)
+        else:
+            print("***ERROR in SLOC")
+
+
+    # Report Pip size: code, bss, rodata, data
     succeeded = True
     try:
         print("Configuring pip-only", end='...')
@@ -105,14 +171,12 @@ def static_metrics(bench_dir, benchmarks, sequence):
             log.warning('Warning: link of pip-only timed out')
             succeeded = False
 
-        static_results = {}
-
         if succeeded:
             log.info('Compilation of pip-only successful')
             print("Compiling static metrics for pip-only", end='...')
             try:
                 pip_static_result_filename = os.path.join(bench_dir, 'results_static_pip-only.txt')
-                size_out_fd = open(pip_static_result_filename, 'w')
+                size_out_fd = open(pip_static_result_filename, 'w+')
                 res = subprocess.run(
                     ["size", "-A", "pip.elf"],
                     stdout=size_out_fd,
@@ -510,7 +574,7 @@ def compare_baseline(results_dir, sequence):
                                                             "data_overhead": sequence_data - base_data,
                                                             "rodata_overhead": sequence_rodata - base_rodata,
                                                             "text_overhead": sequence_text - base_text,
-                                                            "binsize_overhead" : sequence_binsize - base_binsize
+                                                            "binsize_overhead" : sequence_binsize - base_binsize,
                                                         }
                                             }
                 if "Cycles_rel_total_mean" not in rel_total_recap_mean \
