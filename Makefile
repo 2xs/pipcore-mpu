@@ -232,9 +232,6 @@ JSONS:=$(addprefix $(GENERATED_FILES_DIR)/, $(JSONS))
 
 all: pip.bin
 
-pip.bin: pip.elf
-	$(BI) -O binary $< $@
-
 #####################################################################
 ##                    Code compilation targets                     ##
 #####################################################################
@@ -454,13 +451,13 @@ $(C_TARGET_MAL_OBJ):\
 ######################### Pip + Partition ELF #######################
 
 # $(AS_TARGET_BOOT_OBJ) must be the first object file arg to the linker
-pip.elf: $(C_SRC_TARGET_DIR)/link.ld\
+pip.bin: $(C_SRC_TARGET_DIR)/link.ld\
          $(C_TARGET_BOOT_OBJ) $(AS_TARGET_BOOT_OBJ)\
          $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
          $(C_TARGET_DEBUG_OBJ) $(C_TARGET_MDK_OBJ)\
          $(C_TARGET_NEWLIB_OBJ) $(C_TARGET_UART_OBJ)\
          $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)
-	$(LD) \
+	$(LD) -r \
          $(C_TARGET_BOOT_OBJ) $(AS_TARGET_BOOT_OBJ)\
          $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
          $(C_TARGET_DEBUG_OBJ) $(C_TARGET_MDK_OBJ)\
