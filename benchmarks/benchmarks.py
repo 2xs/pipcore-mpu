@@ -56,11 +56,10 @@ import benchiot_measure_static_flash_and_ram
 
 def sloc_files(bench_dir, files, category_name, static_results):
     static_results["SLOC"][category_name] = {}
-    print(files)
+    tot_sloc = 0
     for file in files:
             try:
                 filename = os.path.basename(file)
-                print(filename)
                 shrinked_file_path = os.path.join(bench_dir, f'results_static_pip-only_shrinked_{filename}')
                 shrinked_file = open(shrinked_file_path, 'w')
                 res = subprocess.run(
@@ -76,11 +75,14 @@ def sloc_files(bench_dir, files, category_name, static_results):
                     print(f'Investigate with command: arm-none-eabi-gcc -fpreprocessed -dD -E {file}')
                     return 0
                 else:
-                    static_results[f'SLOC'][category_name] |= { filename: sum(1 for _ in shrinked_file) }
+                    sloc = sum(1 for _ in shrinked_file)
+                    static_results["SLOC"][category_name] |= { filename: sloc }
+                    tot_sloc += sloc
 
             except subprocess.TimeoutExpired:
                 log.warning('Warning: computing SLOC timed out')
                 return 0
+    static_results["SLOC"]["Total"] += tot_sloc
     return 1
 
 def static_metrics(bench_dir, benchmarks, sequence):
@@ -113,6 +115,7 @@ def static_metrics(bench_dir, benchmarks, sequence):
         pipinit = [malinit]
 
         static_results["SLOC"] = {}
+        static_results["SLOC"]["Total"] = 0
 
         success = sloc_files(bench_dir, pipcore, "pipcore", static_results)
         success &= sloc_files(bench_dir, pip, "pip", static_results)
@@ -120,7 +123,6 @@ def static_metrics(bench_dir, benchmarks, sequence):
         success &= sloc_files(bench_dir, pipinit, "pipinit", static_results)
         if success:
             print("OK")
-            print(static_results)
         else:
             print("***ERROR in SLOC")
 
@@ -194,6 +196,7 @@ def static_metrics(bench_dir, benchmarks, sequence):
                     log.debug('Compilation of static metrics for pip-only successful')
                     size_out_fd.close()
                     static_results["Pip_size"] = {}
+                    tot_pip_size = 0
                     size_out_fd = open(pip_static_result_filename, 'r')
                     lines = size_out_fd.readlines()
                     for line in lines:
@@ -201,8 +204,13 @@ def static_metrics(bench_dir, benchmarks, sequence):
                             " ".join(line.split())
                             words = line.split()
                             static_results["Pip_size"] |= { words[0] : words[1] }
-
+                            tot_pip_size += int(words[1])
+                    static_results["Pip_size"]["Total"] = tot_pip_size
                     print("OK")
+                    print(tot_pip_size)
+
+                    print(static_results)
+
 
             except subprocess.TimeoutExpired:
                 log.warning('Warning: link of benchmark pip-only timed out')
