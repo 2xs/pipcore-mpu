@@ -171,8 +171,7 @@ void mal_init_root_part(paddr part)
 
 
 #endif // UNIT_TESTS
-	//DEBUG(TRACE, "mal_init_root_part( part=%08x) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
-	printf("mal_init_root_part( part=%p) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
+	debug_printf("mal_init_root_part( part=%p) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
 
 	// Map stack and VIDT
 /*
@@ -223,6 +222,5 @@ void mal_init(void)
 	// Prepare the root partition and give it all user memory
 	mal_init_root_part(part);
 
-	//DEBUG(TRACE, "mal_init( part=%08x) : root is initialized\r\n", part);
-	printf("mal_init( part=%p) : root is initialized\r\n", part);
+	debug_printf("mal_init( part=%p) : root is initialized\r\n", part);
 }
