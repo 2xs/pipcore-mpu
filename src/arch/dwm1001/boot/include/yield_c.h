@@ -34,8 +34,6 @@
 #ifndef __YIELD_C_H__
 #define __YIELD_C_H__
 
-#pragma GCC push_options
-#pragma GCC optimize("O0")
 
 #include <stdint.h>
 
@@ -339,6 +337,5 @@ switchContextCont(
 	int_mask_t flagsOnYield,
 	user_context_t *ctx);
 
-#pragma GCC pop_options
 
 #endif /* __YIELD_C_H__ */

@@ -42,8 +42,6 @@
 
 #include <stddef.h>
 
-#pragma GCC push_options
-#pragma GCC optimize("O0")
 /* Activate */
 void __attribute__((section(".text_pip_mal"))) activate(paddr descriptor); //!< Sets up the Partition Descriptor's memory space (MPU configuration)
 
@@ -186,5 +184,4 @@ void __attribute__((section(".text_pip_mal"))) configure_LUT_entry(uint32_t* LUT
 void __attribute__((section(".text_pip_mal"))) clear_LUT(uint32_t* LUT); //! Defaults all LUT entries
 int __attribute__((section(".text_pip_mal"))) checkMPU(); //! Checks the MPU
 int __attribute__((section(".text_pip_mal"))) initMPU(); //! Inits the MPU
-#pragma GCC pop_options
 #endif

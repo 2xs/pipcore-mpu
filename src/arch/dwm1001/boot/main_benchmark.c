@@ -40,6 +40,11 @@
 #include "benchmark.h"
 #include "nrf_gpio.h"
 #include "allocator.h"
+#include "scs.h"
+
+cycles_t cycles;
+uint32_t main_stack_top;
+uint32_t app_stack_top;
 
 void shutoff(){
 	__WFE();
@@ -85,6 +90,10 @@ void print_benchmark_msg(){
 	printf(BENCH_MSG_BASELINE_UNPRIV);
 #elif defined BENCHMARK_WITNESS_ONLY
 	printf(BENCH_MSG_WITNESS);
+#elif defined BENCHMARK_PIP_ROOT
+	printf(BENCH_MSG_PIP_ROOT);
+#elif defined BENCHMARK_PIP_CHILD
+	printf(BENCH_MSG_PIP_CHILD);
 #endif
 }
 
@@ -149,6 +158,35 @@ start_cycles_counting()
 	nrf_gpio_pin_write(LED_2, 0); // 0 = Light the LED
 	nrf_gpio_pin_dir_set(LED_3, NRF_GPIO_PIN_DIR_OUTPUT);
 	nrf_gpio_pin_write(LED_3, 0); // 0 = Light the LED*/
+	/*
+	int j = 0, i = 0;
+	for (int k = 0 ; k < 5 ; k++){
+		for (i = 0; i < 10000000; i++)
+			j += i;
+		nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
+		nrf_gpio_pin_write(13, 1);
+		nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
+		nrf_gpio_pin_write(LED_0, 0); // 0 = Light the LED
+		nrf_gpio_pin_dir_set(LED_1, NRF_GPIO_PIN_DIR_OUTPUT);
+		nrf_gpio_pin_write(LED_1, 0); // 0 = Light the LED
+		nrf_gpio_pin_dir_set(LED_2, NRF_GPIO_PIN_DIR_OUTPUT);
+		nrf_gpio_pin_write(LED_2, 0); // 0 = Light the LED
+		nrf_gpio_pin_dir_set(LED_3, NRF_GPIO_PIN_DIR_OUTPUT);
+		nrf_gpio_pin_write(LED_3, 0); // 0 = Light the LED
+		j = 0;
+		for(i = 0 ; i<10000000;i++)
+			j += i;
+		nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
+		nrf_gpio_pin_write(13, j&1);
+		nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
+		nrf_gpio_pin_write(LED_0, 1); // 0 = Light the LED
+		nrf_gpio_pin_dir_set(LED_1, NRF_GPIO_PIN_DIR_OUTPUT);
+		nrf_gpio_pin_write(LED_1, 1); // 0 = Light the LED
+		nrf_gpio_pin_dir_set(LED_2, NRF_GPIO_PIN_DIR_OUTPUT);
+		nrf_gpio_pin_write(LED_2, 1); // 0 = Light the LED
+		nrf_gpio_pin_dir_set(LED_3, NRF_GPIO_PIN_DIR_OUTPUT);
+		nrf_gpio_pin_write(LED_3, 1); // 0 = Light the LED
+	}*/
 	EnableCycleCounter(); // start counting
 }
 
@@ -159,7 +197,7 @@ start_cycles_counting()
  *
  * \brief Size of a partition descriptor block.
  */
-#define PD_BLOCK_SIZE 120
+#define PD_BLOCK_SIZE 128
 
 /*!
  * \def KS_BLOCK_SIZE
@@ -395,9 +433,6 @@ void child_main(int argc, uint32_t **argv)
 		return 0;
 	}
 
-	childStackBlockStart = childStackBlock.address;
-	childStackBlockEnd = childStackBlock.address + childStackBlock.size;
-
 	block_t childVidtBlock;
 
 	if (!allocatorAllocateBlock(&childVidtBlock, VIDT_BLOCK_SIZE, 1))
@@ -542,6 +577,9 @@ void child_main(int argc, uint32_t **argv)
 	childArgv[6].id = ram0BlockIdInChild;
 	childArgv[6].address = 0;
 	childArgv[6].size = 0;
+
+	childStackBlockStart = childStackBlock.address;
+	childStackBlockEnd = (uint32_t*) childArgv - 16; /* the arguments pushed by loadContext*/
 
 	/*
 	 * Add the block containing the child's VIDT and the block
@@ -945,10 +983,11 @@ void BENCHMARK_FINALISE()
 // Child tear down
 void run_benchmark()
 {
+	register int RSP __asm("sp");
+	app_stack_top = RSP; // Could be main for privileged app
 	volatile int result = 0;
 	int correct;
-	for (int i= 0 ; i<4 ; i++){
-		printf("Run %d\n", i);
+	for (int i= 0 ; i<RUNS ; i++){
 		result = result | benchmark();
 	}
 
@@ -961,12 +1000,14 @@ void run_benchmark()
 
 void BENCHMARK_RUN()
 {
+	END_INITIALISATION();
 #if defined BENCHMARK_PIP_ROOT
 	/*
 	 * Enable interrupts.
 	 */
 	Pip_setIntState(ENABLE_INTERRUPTS);
 	run_benchmark();
+	//Pip_yield(rootid, DEFAULT_INDEX, DEFAULT_INDEX, 1, 1); // run_benchmark is not prepared here
 
 #elif defined BENCHMARK_PIP_CHILD
 	/*
@@ -977,7 +1018,43 @@ void BENCHMARK_RUN()
 #else
 	run_benchmark();
 #endif /* BENCHMARK_PIP_ROOT  BENCHMARK_PIP_CHILD */
-	printf("Benchmark ended\n");
+}
+
+void benchmark_results()
+{
+	cycles.global_counter = GetCycleCounter(); // get cycle counter
+	DisableCycleCounter();	// disable counting if not used
+	uint32_t priv_counter = cycles.global_privileged_counter;
+	uint32_t priv_counter_after_init = cycles.init_end_privileged_counter;
+	// Stack usage measurements
+	uint32_t main_stack_usage = finish_stack_usage_measurement(&__StackLimit, main_stack_top); /* main (Pip) stack */
+#if defined BENCHMARK_BASELINE_UNPRIV
+	uint32_t app_stack_usage = finish_stack_usage_measurement(&user_stack_limit, app_stack_top); /* app stack */
+#elif defined BENCHMARK_PIP_ROOT
+	uint32_t app_stack_usage = finish_stack_usage_measurement(0x20008000, app_stack_top); /* app stack */
+#elif defined BENCHMARK_PIP_CHILD
+	uint32_t app_stack_usage = finish_stack_usage_measurement(childStackBlockStart, app_stack_top); /* app stack */
+#else // stack is priv, only main stack exists and all ticks are privileged
+	uint32_t app_stack_usage = finish_stack_usage_measurement(&__StackLimit, app_stack_top); /* app stack */
+	main_stack_usage = app_stack_usage;
+	priv_counter = cycles.global_counter;
+	priv_counter_after_init = cycles.init_end_timestamp;
+#endif
+	printf("Benchmark results after %d runs:\n", RUNS);
+	printf("Ticks:%d\n", cycles.global_counter);
+	printf("Init end counter:%d\n", cycles.init_end_timestamp);
+	printf("Privileged counter:%d\n", priv_counter);
+	printf("Privileged counter after init:%d\n", priv_counter_after_init);
+	printf("Main stack usage:%d\n", main_stack_usage);
+	printf("App stack usage:%d\n", app_stack_usage);
+	// Trigger External benchmark end
+	nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
+	nrf_gpio_pin_write(13, 0);
+	nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
+	nrf_gpio_pin_write(LED_0, 1); // 0 = Light the LED
+	dump_partition(rootid);
+	dump_partition(child1PartDescBlock.address);
+	BENCHMARK_SINK();
 }
 
 /*!

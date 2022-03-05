@@ -21,9 +21,6 @@
 #ifndef MPU_H
 #define MPU_H
 
-#pragma GCC push_options
-#pragma GCC optimize("O0")
-
 #include "nrf52.h"
 #include "core_cm4.h"
 #include "trace.h"
@@ -199,6 +196,5 @@ uint32_t __attribute__((section(".text_pip_mal"))) readPhysicalMPURegionEnable(u
 }
 #endif
 
-#pragma GCC pop_options
 
 #endif /* MPU_H */

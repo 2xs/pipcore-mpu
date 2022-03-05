@@ -69,6 +69,7 @@ boot_sequence='default'
 res=
 release_mode='no'
 opt_cflags=' -O2' # Optimisation level 2 by default
+runs=1
 
 # Print the script usage
 usage() {
@@ -358,6 +359,9 @@ parse_arguments() {
 			--release)
 				release_mode='' # no debug flags -g -Og
 				opt_cflags=' -Os'
+				;;
+			--runs)
+				runs=$value
 				;;
 		esac
 	done
@@ -687,6 +691,7 @@ configure_global_variables() {
 			then
 				arch_cflags="$arch_cflags"' -DDUMP'
 			fi
+			arch_cflags="$arch_cflags"' -DRUNS='"$runs"
 			arch_cflags="$arch_cflags"' -DNRF52832_XXAA'
 
 			### LDFLAGS for the selected architecture

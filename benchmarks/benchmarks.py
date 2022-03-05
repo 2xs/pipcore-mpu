@@ -54,13 +54,13 @@ from benchmark_size import ALL_METRICS
 
 import benchiot_measure_static_flash_and_ram
 
-def sloc_files(bench_dir, files, category_name, static_results):
+def sloc_files(results_pip_dir, files, category_name, static_results):
     static_results["SLOC"][category_name] = {}
     tot_sloc = 0
     for file in files:
             try:
                 filename = os.path.basename(file)
-                shrinked_file_path = os.path.join(bench_dir, f'results_static_pip-only_shrinked_{filename}')
+                shrinked_file_path = os.path.join(results_pip_dir, f'results_static_pip-only_shrinked_{filename}')
                 shrinked_file = open(shrinked_file_path, 'w')
                 res = subprocess.run(
                     ["arm-none-eabi-gcc", "-fpreprocessed",
@@ -85,115 +85,121 @@ def sloc_files(bench_dir, files, category_name, static_results):
     static_results["SLOC"]["Total"] += tot_sloc
     return 1
 
-def static_metrics(bench_dir, benchmarks, sequence):
-    print("\nCollecting static data:\n")
+def pip_static_metrics(results_pip_dir, bench_dir, benchmarks, sequences):
+    print("\n-----> Collecting Pip's static data:\n")
 
     static_results = {}
 
     # Pip SLOC (Source Lines of Code = same code without comments and blank lines)
-    pip_static_result_filename = os.path.join(bench_dir, 'results_static_pip-only.txt')
-    with open(pip_static_result_filename, 'w') as fout:
-        print("Computing Pip's SLOC", end='...')
-        # Careful -fpreprocessed does not capture comments splitted with \
-        boot_dir = "src/arch/dwm1001/boot"
-        exceptions = os.path.join(boot_dir, 'exception_handlers.c')
-        svc = os.path.join(boot_dir, 'svc_handler.c')
-        yield_c = os.path.join(boot_dir, 'yield_c.c')
-        pip_interrupt_calls = os.path.join(boot_dir, 'pip_interrupt_calls.c')
-        mpu = os.path.join(boot_dir, 'mpu.c')
-        mal_dir = "src/arch/dwm1001/MAL"
-        malinit = os.path.join(mal_dir, 'malinit.c')
-        mal = os.path.join(mal_dir, 'mal.c')
-        malinternal = os.path.join(mal_dir, 'malinternal.c')
-        generated_dir = "generated"
-        services = os.path.join(generated_dir, 'Services.c')
-        internal = os.path.join(generated_dir, 'Internal.c')
+    print("Computing Pip's SLOC", end='...')
+    # Careful -fpreprocessed does not capture comments splitted with \
+    boot_dir = "src/arch/dwm1001/boot"
+    exceptions = os.path.join(boot_dir, 'exception_handlers.c')
+    svc = os.path.join(boot_dir, 'svc_handler.c')
+    yield_c = os.path.join(boot_dir, 'yield_c.c')
+    pip_interrupt_calls = os.path.join(boot_dir, 'pip_interrupt_calls.c')
+    mpu = os.path.join(boot_dir, 'mpu.c')
+    mal_dir = "src/arch/dwm1001/MAL"
+    malinit = os.path.join(mal_dir, 'malinit.c')
+    mal = os.path.join(mal_dir, 'mal.c')
+    malinternal = os.path.join(mal_dir, 'malinternal.c')
+    generated_dir = "generated"
+    services = os.path.join(generated_dir, 'Services.c')
+    internal = os.path.join(generated_dir, 'Internal.c')
 
-        pipcore = [services, internal, yield_c, pip_interrupt_calls]
-        pip = [svc, exceptions]
-        mal = [mal, malinternal, mpu]
-        pipinit = [malinit]
+    pipcore = [services, internal, yield_c, pip_interrupt_calls]
+    pip = [svc, exceptions]
+    mal = [mal, malinternal, mpu]
+    pipinit = [malinit]
 
-        static_results["SLOC"] = {}
-        static_results["SLOC"]["Total"] = 0
+    static_results["SLOC"] = {}
+    static_results["SLOC"]["Total"] = 0
 
-        success = sloc_files(bench_dir, pipcore, "pipcore", static_results)
-        success &= sloc_files(bench_dir, pip, "pip", static_results)
-        success &= sloc_files(bench_dir, mal, "mal", static_results)
-        success &= sloc_files(bench_dir, pipinit, "pipinit", static_results)
-        if success:
-            print("OK")
-        else:
-            print("***ERROR in SLOC")
+    success = sloc_files(results_pip_dir, pipcore, "pipcore", static_results)
+    success &= sloc_files(results_pip_dir, pip, "pip", static_results)
+    success &= sloc_files(results_pip_dir, mal, "mal", static_results)
+    success &= sloc_files(results_pip_dir, pipinit, "pipinit", static_results)
+    if success:
+        print("OK")
+    else:
+        print("***ERROR in SLOC")
 
 
     # Report Pip size: code, bss, rodata, data
     succeeded = True
+    first_bench = benchmarks[0] if benchmarks[0] != None else "pip"
+    pip_root_scenario = "bench-pip-root" if "bench-pip-root" in sequences else "pip-only"
     try:
-        print("Configuring pip-only", end='...')
+        print(f'Configuring {first_bench} in release mode', end='...')
         res = subprocess.run(
-            ["./configure.sh", "--architecture=dwm1001",
-                f'--boot-sequence=pip-only', "--release"],
+            ["./configure.sh", "--architecture=dwm1001", "--debugging-mode=semihosting",
+                f'--boot-sequence={pip_root_scenario}', "--release"],
             capture_output=True,
         )
         if res.returncode != 0:
             print("***NOK***")
-            print("Investigate with command: ./configure.sh --architecture=dwm1001--boot-sequence=pip-only --release")
+            print(f'Investigate with command: ./configure.sh --architecture=dwm1001--boot-sequence={pip_root_scenario} --release')
             succeeded = False
 
         else:
-            log.debug('Configuration of pip-only successful')
+            log.debug(f'Configuration of {pip_root_scenario} successful')
             print("OK")
 
     except subprocess.TimeoutExpired:
-        log.warning('Warning: link of pip-only timed out')
+        log.warning(f'Warning: link of {pip_root_scenario} timed out')
         succeeded = False
 
     if succeeded:
-        print("Building pip-only", end='...')
+        print(f'Building {first_bench}', end='...')
         try:
             '''resclean = subprocess.run(
                 ["rm", "-f", "pip.elf"],
                 capture_output=True,
             )
             '''
+            if "pip" in first_bench :
+                make_cmd = ["make", "-B", "-s"]
+                elf_dir = "."
+            else :
+                make_cmd = ["make", "-B", "-s", "bench", f'BENCH_NAME={first_bench}']
+                elf_dir = os.path.join(bench_dir, f'{first_bench}')
             res = subprocess.run(
-                ["make", "-B", "-s"],
+                make_cmd,
                 capture_output=True,
             )
             if res.returncode != 0:
                 print("***NOK***")
-                print("--> Investigate with shell command: make -B")
-                log.warning('Warning: Compilation of pip-only failed')
+                print(f'--> Investigate with shell command: {make_cmd}')
+                log.warning(f'Warning: Compilation of {first_bench} failed')
                 succeeded = False
 
             else:
-                log.debug('Compilation of pip-only successful')
+                log.debug(f'Compilation of {first_bench} successful')
                 print("OK")
 
         except subprocess.TimeoutExpired:
-            log.warning('Warning: link of pip-only timed out')
+            log.warning(f'Warning: link of {first_bench}y timed out')
             succeeded = False
 
         if succeeded:
-            log.info('Compilation of pip-only successful')
-            print("Compiling static metrics for pip-only", end='...')
+            print(f'Compiling Pip\'s static metrics using {first_bench}', end='...')
             try:
-                pip_static_result_filename = os.path.join(bench_dir, 'results_static_pip-only.txt')
+                pip_static_result_filename = os.path.join(bench_dir, f'results_static_pip_{first_bench}.txt')
                 size_out_fd = open(pip_static_result_filename, 'w+')
+                elf_path = os.path.join(elf_dir, f'{first_bench}.elf')
                 res = subprocess.run(
-                    ["size", "-A", "pip.elf"],
+                    ["size", "-A", elf_path],
                     stdout=size_out_fd,
                     timeout=20
                 )
                 if res.returncode != 0:
                     print("***NOK***")
-                    print("--> Investigate with shell command: size -A pip.elf > %s" % pip_static_result_filename)
-                    log.warning('Warning: Compilation of static metrics for pip-only failed')
+                    print(f'--> Investigate with shell command: size -A {elf_path}')
+                    log.warning('Warning: Compilation of static metrics for pip failed')
                     succeeded = False
 
                 else:
-                    log.debug('Compilation of static metrics for pip-only successful')
+                    log.debug('Compilation of static metrics for pip successful')
                     size_out_fd.close()
                     static_results["Pip_size"] = {}
                     tot_pip_size = 0
@@ -206,11 +212,12 @@ def static_metrics(bench_dir, benchmarks, sequence):
                             static_results["Pip_size"] |= { words[0] : words[1] }
                             tot_pip_size += int(words[1])
                     static_results["Pip_size"]["Total"] = tot_pip_size
-                    print("OK")
-                    print(tot_pip_size)
-
-                    print(static_results)
-
+                    # Write Pip's static metrics in file
+                    pip_static_result_filename = os.path.join(results_pip_dir, 'results_static_pip.txt')
+                    with open(pip_static_result_filename, 'w+') as fout:
+                        json.dump(static_results, fout, indent=4, sort_keys=True)
+                        fout.close()
+                    print("OK -> written in %s" % pip_static_result_filename)
 
             except subprocess.TimeoutExpired:
                 log.warning('Warning: link of benchmark pip-only timed out')
@@ -218,15 +225,16 @@ def static_metrics(bench_dir, benchmarks, sequence):
         else:
                 print('ERROR: Not all benchmarks built successfully')
 
+def static_metrics(results_dir, bench_dir, benchmarks, sequence):
     successful = True
     raw_section_data = {}
     raw_totals = {}
     rel_data = {}
-
+    static_results = {}
 
     # invoke BenchIoT ROP gadgets and indirect calls
     #exec(open("benchmarks/benchiot_measure_static_flash_and_ram.py").read())
-    #benchiot_measure_static_flash_and_ram.measure_static(benchmarks)
+    benchiot_measure_static_flash_and_ram.measure_static(benchmarks)
 
     # Collect data
     for bench in benchmarks:
@@ -247,7 +255,7 @@ def static_metrics(bench_dir, benchmarks, sequence):
                 if file_extension == ".bin":
                     static_results[bench] |= {"binsize" : (os.path.getsize(file_path))}
     res_rec_filename = 'results_static_' + str(sequence) + '.json'
-    static_metrics_file = os.path.join(bench_dir, 'results', res_rec_filename)
+    static_metrics_file = os.path.join(results_dir, res_rec_filename)
     with open(static_metrics_file, "w") as outfile:
         json.dump(static_results, outfile, indent=4, sort_keys=True)
 
@@ -263,15 +271,21 @@ def decode_results(file_str):
     cycles = re.search('Ticks:(\d+)', file_str, re.S)
     if cycles:
         results["Cycles"] = cycles.group(1)
+    priv_cycles = re.search('Privileged counter:(\d+)', file_str, re.S)
+    if priv_cycles:
+        results["Privileged_cycles_tot"] = priv_cycles.group(1)
+    priv_cycles_test = re.search('Privileged counter after init:(\d+)', file_str, re.S)
+    if priv_cycles_test:
+        results["Privileged_cycles_test"] = priv_cycles.group(1)
+    init_end_cycles = re.search('Init end counter:(\d+)', file_str, re.S)
+    if init_end_cycles:
+        results["Init_end_cycles"] = init_end_cycles.group(1)
     main_stack_usage = re.search('Main stack usage:(\d+)', file_str, re.S)
     if main_stack_usage:
         results["Main_stack_usage"] = main_stack_usage.group(1)
     app_stack_usage = re.search('App stack usage:(\d+)', file_str, re.S)
     if app_stack_usage:
         results["App_stack_usage"] = app_stack_usage.group(1)
-    systick_stack_usage = re.search('Systick stack usage:(\d+)', file_str, re.S)
-    if systick_stack_usage:
-        results["Systick_stack_usage"] = systick_stack_usage.group(1)
     return results
 
 """ Join the static and the dynamic results """
@@ -298,7 +312,10 @@ def produce_recap(results_dir, benchmarks, sequence, runs):
                     # Average, min, max
                     for bench in dynamic_data_all:
                         recap_tot[bench] = {}
-                        systick_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
+                        deployment_time_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
+                        test_cycles_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
+                        priv_cycles_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
+                        priv_cycles_test_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
                         cycles_average = 0
                         cycles_min = sys.maxsize
                         cycles_max = 0
@@ -330,28 +347,57 @@ def produce_recap(results_dir, benchmarks, sequence, runs):
                                 app_stack_max = run_app_stack
                             if app_stack_min > run_app_stack:
                                 app_stack_min = run_app_stack
+                            deployment_time = run["Deployment_time_sec"]
+                            deployment_time_data["average"] += deployment_time
+                            if deployment_time_data["max"] < deployment_time:
+                                deployment_time_data["max"] = deployment_time
+                            if deployment_time_data["min"] > deployment_time:
+                                deployment_time_data["min"] = deployment_time
+                            test_cycles = run["Test_cycles"]
+                            test_cycles_data["average"] += test_cycles
+                            if test_cycles_data["max"] < test_cycles:
+                                test_cycles_data["max"] = test_cycles
+                            if test_cycles_data["min"] > test_cycles:
+                                test_cycles_data["min"] = test_cycles
                             if "pip" in sequence:
-                                run_systick_stack = run["Systick_stack_usage"]
-                                systick_data["average"] += run_systick_stack
-                                if systick_data["max"] < run_systick_stack:
-                                    systick_data["max"] = run_systick_stack
-                                if systick_data["min"] > run_systick_stack:
-                                    systick_data["min"] = run_systick_stack
+                                # privileged cycles tot
+                                priv_cycles = run["Privileged_cycles_tot_ratio"]
+                                priv_cycles_data["average"] += priv_cycles
+                                if priv_cycles_data["max"] < priv_cycles:
+                                    priv_cycles_data["max"] = priv_cycles
+                                if priv_cycles_data["min"] > priv_cycles:
+                                    priv_cycles_data["min"] = priv_cycles
+                                # privileged cycles after init
+                                priv_cycles_test = run["Privileged_cycles_test_ratio"]
+                                priv_cycles_test_data["average"] += priv_cycles_test
+                                if priv_cycles_test_data["max"] < priv_cycles_test:
+                                    priv_cycles_test_data["max"] = priv_cycles_test
+                                if priv_cycles_test_data["min"] > priv_cycles_test:
+                                    priv_cycles_test_data["min"] = priv_cycles_test
                         cycles_average /= runs
                         main_stack_average /= runs
                         app_stack_average /= runs
-                        systick_data["average"] /= runs
+                        deployment_time_data["average"] /= runs
+                        test_cycles_data["average"] /= runs
+                        priv_cycles_data["average"] /= runs
+                        priv_cycles_test_data["average"] /= runs
                         # Variance
                         for run in dynamic_data_all[bench]:
                             cycles_var += (run["Cycles"]-cycles_average)**2
                             main_stack_var += (run["Main_stack_usage"]-main_stack_average)**2
                             app_stack_var += (run["App_stack_usage"]-app_stack_average)**2
+                            deployment_time_data["var"] += (run["Deployment_time_sec"]-deployment_time_data["average"])**2
+                            test_cycles_data["var"] += (run["Test_cycles"]-test_cycles_data["average"])**2
                             if "pip" in sequence:
-                                systick_data["var"] += (run["Systick_stack_usage"]-systick_data["average"])**2
+                                priv_cycles_data["var"] += (run["Privileged_cycles_tot_ratio"]-priv_cycles_data["average"])**2
+                                priv_cycles_test_data["var"] += (run["Privileged_cycles_test_ratio"]-priv_cycles_test_data["average"])**2
                         cycles_var /= runs
                         main_stack_var /= runs
                         app_stack_var /= runs
-                        systick_data["var"] /= runs
+                        priv_cycles_data["var"] /= runs
+                        priv_cycles_test_data["var"] /= runs
+                        deployment_time_data["var"] /= runs
+                        test_cycles_data["var"] /= runs
                         # Full results
                         dynamic_data[bench] = { 'Cycles_average': cycles_average,
                                                 'Cycles_min': cycles_min,
@@ -365,13 +411,27 @@ def produce_recap(results_dir, benchmarks, sequence, runs):
                                                 'App_stack_average': app_stack_average,
                                                 'App_stack_min': app_stack_min,
                                                 'App_stack_max': app_stack_max,
-                                                'App_stack_var': app_stack_var
+                                                'App_stack_var': app_stack_var,
+                                                'Deployment_time_sec_average': deployment_time_data["average"],
+                                                'Deployment_time_sec_min': deployment_time_data["min"],
+                                                'Deployment_time_sec_max': deployment_time_data["max"],
+                                                'Deployment_time_sec_var': deployment_time_data["var"],
+                                                'Test_cycles_average': test_cycles_data["average"],
+                                                'Test_cycles_min': test_cycles_data["min"],
+                                                'Test_cycles_max': test_cycles_data["max"],
+                                                'Test_cycles_var': test_cycles_data["var"]
                                              }
                         if "pip" in sequence:
-                            dynamic_data[bench] |= {'Systick_stack_average': systick_data["average"],
-                                                    'Systick_stack_min': systick_data["min"],
-                                                    'Systick_stack_max': systick_data["max"],
-                                                    'Systick_stack_var': systick_data["var"]}
+                            dynamic_data[bench] |= {
+                                                    'Privileged_cycles_tot_ratio_average': priv_cycles_data["average"],
+                                                    'Privileged_cycles_tot_ratio_min': priv_cycles_data["min"],
+                                                    'Privileged_cycles_tot_ratio_max': priv_cycles_data["max"],
+                                                    'Privileged_cycles_tot_ratio_var': priv_cycles_data["var"],
+                                                    'Privileged_cycles_test_ratio_average': priv_cycles_test_data["average"],
+                                                    'Privileged_cycles_test_ratio_min': priv_cycles_test_data["min"],
+                                                    'Privileged_cycles_test_ratio_max': priv_cycles_test_data["max"],
+                                                    'Privileged_cycles_test_ratio_var': priv_cycles_test_data["var"]
+                                                    }
     for bench in benchmarks:
         recap_tot[bench]["Static"] = static_data[bench]
         recap_tot[bench]["Dynamic"] = dynamic_data[bench]
@@ -437,21 +497,27 @@ def init_telnet(bench_name, run, sequence):
             fileh.close()
 
 """ Flash and launch """
-def init_gdb(bench_name):
+def init_gdb(bench_name, results):
     try:
         res = subprocess.run(
-            ["arm-none-eabi-gdb", "--batch", "-ex", f'py arg0 = "{bench}"', "-x", "benchmarks/gdb_connect_flash_run.py"],
-            capture_output=True,
-        )
+                    ["arm-none-eabi-gdb", "--batch", "-ex", f'py arg0 = "{bench_name}"', "-x", "benchmarks/gdb_connect_flash_run.py"],
+                    timeout=20,
+                    capture_output=True,
+                )
     except subprocess.TimeoutExpired:
-        print(f'Warning: Run of {bench} timed out.')
+        print(f'Warning: Run of GDB {bench_name} timed out.')
         print("NOK***")
+        results = 0
     except BaseException:
-        print(f'GDB error: {bench_name} failed')
+        print(f'GDB error: {bench_name} failed. Investigate with command: arm-none-eabi-gdb --batch -ex \'py arg0="{bench_name}"\' -x benchmarks/gdb_connect_flash_run.py ')
         print("NOK***")
+        results = 0
+    print("OK")
+    results = 1
+
 
 def run_dynamic_metrics(benchmarks, sequence, runs):
-    print("\nCollecting dynamic data:")
+    print("\n-----> Collecting dynamic data:")
 
     for bench in benchmarks:
         print(f'\n***Launching {sequence} benchmark for {bench}***')
@@ -465,11 +531,10 @@ def run_dynamic_metrics(benchmarks, sequence, runs):
             time.sleep(0.5) # wait GDBServer is up
             tn = start_process(init_telnet, args=[bench, run, sequence])
             print("OK")
-            print("Flashing and running %s..." % bench)
-            gdb = start_process(init_gdb, args=[bench])
-            time.sleep(20)
-            print("Wake up")
-            gdb.terminate()
+            print("Flashing and running %s" % bench, end="...")
+            results = 0
+            gdb = start_process(init_gdb, args=[bench, results])
+            gdb.join()
             tn.join()
             gdbs.join()
             end_run = time.time()
@@ -490,16 +555,30 @@ def analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence):
                         read_data = fdata.read()
                         data = decode_results(read_data)
                         cycles = int(data["Cycles"])
+                        init_end_cycles = int(data["Init_end_cycles"])
+                        test_cycles = cycles - init_end_cycles
+                        priv_cycles = int(data["Privileged_cycles_tot"])
+                        priv_cycles_test = int(data["Privileged_cycles_test"])
                         file_name = re.search('.*_(\D+\d*)_(\d+).*$', f, re.S)
                         if file_name:
                             run_res_out = { 'Run': int(file_name.group(2)),
                                             'Cycles': cycles,
-                                            'Time_sec': float(int(cycles)) / float(64000000), # TODO: set real cpu frequency
+                                            'Time_sec': float(cycles) / float(64000000), # TODO: set real cpu frequency
                                             'Main_stack_usage': int(data["Main_stack_usage"]),
-                                            'App_stack_usage': int(data["App_stack_usage"])
+                                            'App_stack_usage': int(data["App_stack_usage"]),
+                                            'Privileged_cycles_tot' : priv_cycles,
+                                            'Privileged_cycles_test' : priv_cycles_test,
+                                            'Deployment_time_sec' : float(init_end_cycles) / float(64000000), # TODO: set real cpu frequency
+                                            'Test_cycles' : test_cycles,
+                                            'Privileged_cycles_tot_ratio' : float(priv_cycles)/float(cycles),
+                                            'Privileged_cycles_test_ratio' : float(priv_cycles_test)/float(test_cycles)
                                         }
-                            if "pip" in sequence:
-                                run_res_out |= {'Systick_stack_usage': int(data["Systick_stack_usage"])}
+                            '''if "pip" in sequence:
+                                run_res_out |= {
+                                    'Privileged_cycles_tot_ratio' : float(priv_cycles)/float(cycles),
+                                    'Privileged_cycles_test_ratio' : float(priv_cycles_test)/float(cycles-init_end_cycles)
+                                }
+                            '''
                             if file_name.group(1) not in dynamic_results:
                                 dynamic_results[file_name.group(1)] = []
                             dynamic_results[file_name.group(1)].append(run_res_out)
@@ -511,7 +590,7 @@ def analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence):
     with open(baseline_file, "w") as outfile:
         json.dump(dynamic_results, outfile, indent=4, sort_keys=True)
 
-def compare_baseline(results_dir, sequence):
+def compare_baseline(results_dir, sequence, baseline_name):
     # TODO: check variance is small
     if "bench-baseline" in sequence: # reject "bench-baseline-w-systick" and "bench-baseline-wo-systick":
         return
@@ -519,7 +598,7 @@ def compare_baseline(results_dir, sequence):
     rel_baseline_data = {}
     rel_total_recap_mean = {}
     # Open baseline file
-    res_recap_baseline_filename = 'results_recap_bench-baseline-w-systick.json'
+    res_recap_baseline_filename = f'results_recap_{baseline_name}.json'
     recap_file = os.path.join(results_dir, res_recap_baseline_filename)
     with open(recap_file) as frecapbase:
         b_data = json.load(frecapbase)
@@ -539,31 +618,24 @@ def compare_baseline(results_dir, sequence):
                 sequence_cycles = data[bench]["Dynamic"]["Cycles_average"]
                 base_time = b_data[bench]["Dynamic"]["Time_sec_average"]
                 sequence_time = data[bench]["Dynamic"]["Time_sec_average"]
+                base_test_cycles = b_data[bench]["Dynamic"]["Test_cycles_average"]
+                sequence_test_cycles = data[bench]["Dynamic"]["Test_cycles_average"]
                 base_main_stack = b_data[bench]["Dynamic"]["Main_stack_average"]
                 sequence_main_stack = data[bench]["Dynamic"]["Main_stack_average"]
                 base_app_stack = b_data[bench]["Dynamic"]["App_stack_average"]
                 sequence_app_stack = data[bench]["Dynamic"]["App_stack_average"]
-                #base_systick_stack = b_data[bench]["Dynamic"]["Main_stack_average"] - b_wo_systick_data[bench]["Dynamic"]["Main_stack_average"]
-                #sequence_systick_stack = data[bench]["Dynamic"]["Systick_stack_average"]
+                #base_privileged_cycles = b_data[bench]["Dynamic"]["Privileged_cycles_test"] # 100% we don't care
+                sequence_privileged_cycles_tot_ratio = data[bench]["Dynamic"]["Privileged_cycles_tot_ratio_average"]
+                sequence_privileged_cycles_test_ratio = data[bench]["Dynamic"]["Privileged_cycles_test_ratio_average"]
                 base_indirect_calls = b_data[bench]["Static"]["Indirect_calls"]
                 sequence_indirect_calls = data[bench]["Static"]["Indirect_calls"]
                 base_gadgets = b_data[bench]["Static"]["ROP_gadgets"]
                 sequence_gadgets = data[bench]["Static"]["ROP_gadgets"]
-                base_bss = b_data[bench]["Static"]["bss"]
-                sequence_bss = data[bench]["Static"]["bss"]
-                base_data = b_data[bench]["Static"]["data"]
-                sequence_data = data[bench]["Static"]["data"]
-                base_rodata = b_data[bench]["Static"]["rodata"]
-                sequence_rodata = data[bench]["Static"]["rodata"]
-                base_text = b_data[bench]["Static"]["text"]
-                sequence_text = data[bench]["Static"]["text"]
-                base_binsize = b_data[bench]["Static"]["binsize"]
-                sequence_binsize = data[bench]["Static"]["binsize"]
                 rel_baseline_data[bench] = {"Dynamic" : {
                                                             "Cycles_rel_average" : sequence_cycles*100/base_cycles if base_cycles != 0 else sequence_cycles,
                                                             "Cycles_base_var" : b_data[bench]["Dynamic"]["Cycles_var"],
                                                             f'Cycles_{sequence}_var' : int(data[bench]["Dynamic"]["Cycles_var"]),
-                                                            "Time_sec_rel_average" : sequence_time*100/base_time if base_times != 0 else sequence_times,
+                                                            "Time_sec_rel_average" : sequence_time*100/base_time if base_time != 0 else sequence_time,
                                                             #"Time_ms_base_var" : b_data[bench]["Dynamic"]["Time_ms_var"],
                                                             #f'Time_ms_{sequence}_var' : data[bench]["Dynamic"]["Time_ms_var"],
                                                             "Main_stack_base": base_main_stack,
@@ -573,29 +645,33 @@ def compare_baseline(results_dir, sequence):
                                                             "App_stack_rel_average": sequence_app_stack*100/base_app_stack if base_app_stack != 0 else sequence_app_stack,
                                                             "App_stack_base_var": b_data[bench]["Dynamic"]["App_stack_var"],
                                                             f'App_stack_{sequence}_var' : data[bench]["Dynamic"]["App_stack_var"],
-                                                            #"Systick_stack_rel_average":  sequence_systick_stack*100/base_systick_stack if base_systick_stack != 0 else sequence_systick_stack,
-                                                            #"Systick_stack_base_var": b_data[bench]["Dynamic"]["Main_stack_var"],
-                                                            #f'Systick_stack_{sequence}_var' : data[bench]["Dynamic"]["Systick_stack_var"],
+                                                            "Privileged_cycles_tot_ratio_rel_average":  sequence_privileged_cycles_tot_ratio,
+                                                            "Privileged_cycles_tot_ratio_base_var": 0, # baseline is privileged so 100% during the benchmark time
+                                                            f'Privileged_cycles_tot_ratio_{sequence}_var' : data[bench]["Dynamic"]["Privileged_cycles_tot_ratio_var"],
+                                                            "Privileged_cycles_test_ratio_rel_average":  sequence_privileged_cycles_test_ratio,
+                                                            "Privileged_cycles_test_ratio_base_var": 0, # baseline is privileged so 100% during the benchmark time
+                                                            f'Privileged_cycles_test_ratio_{sequence}_var' : data[bench]["Dynamic"]["Privileged_cycles_test_ratio_var"],
+                                                            "Test_cycles_rel_average":  sequence_test_cycles*100/base_test_cycles if base_test_cycles != 0 else sequence_test_cycles,
+                                                            "Test_cycles_base_var" : b_data[bench]["Dynamic"]["Test_cycles_var"],
+                                                            f'Test_cycles_{sequence}_var' : int(data[bench]["Dynamic"]["Test_cycles_var"]),
                                                         },
                                             "Static" : {
                                                             "Indirect_calls_overhead" : sequence_indirect_calls - base_indirect_calls,
-                                                            "ROP_gadgets_overhead": sequence_gadgets - base_gadgets,
-                                                            "bss_overhead":  pocsequence_bss - base_bss,
-                                                            "data_overhead": sequence_data - base_data,
-                                                            "rodata_overhead": sequence_rodata - base_rodata,
-                                                            "text_overhead": sequence_text - base_text,
-                                                            "binsize_overhead" : sequence_binsize - base_binsize,
+                                                            "ROP_gadgets_overhead": sequence_gadgets - base_gadgets
                                                         }
                                             }
                 if "Cycles_rel_total_mean" not in rel_total_recap_mean \
+                    or "Test_cycles_rel_total_mean" not in rel_total_recap_mean \
+                    or "Privileged_cycles_tot_ratio_rel_total_mean" not in rel_total_recap_mean \
+                    or "Privileged_cycles_test_ratio_rel_total_mean" not in rel_total_recap_mean \
                     or "Time_sec_rel_average" not in rel_total_recap_mean \
                     or "Indirect_calls_overhead" not in rel_total_recap_mean \
                     or "ROP_gadgets_overhead" not in rel_total_recap_mean :
                     rel_total_recap_mean["Cycles_rel_total_mean"] = []
+                    rel_total_recap_mean["Test_cycles_rel_total_mean"] = []
+                    rel_total_recap_mean["Privileged_cycles_tot_ratio_rel_total_mean"] = []
+                    rel_total_recap_mean["Privileged_cycles_test_ratio_rel_total_mean"] = []
                     rel_total_recap_mean["Time_sec_rel_total_mean"] = []
-                    #rel_total_recap_mean["Main_stack_rel_total_mean"] = []
-                    #rel_total_recap_mean["App_stack_rel_total_mean"] = []
-                    #rel_total_recap_mean["Systick_stack_rel_total_mean"] = []
                     rel_total_recap_mean["Indirect_calls_overhead_total_mean"] = []
                     rel_total_recap_mean["ROP_gadgets_overhead_total_mean"] = []
                     #rel_total_recap_mean["bss_rel_total_mean"] = []
@@ -604,11 +680,13 @@ def compare_baseline(results_dir, sequence):
                     #rel_total_recap_mean["text_rel_total_mean"] = []
                     #rel_total_recap_mean["binsize_rel_total_mean"] = []
                 rel_total_recap_mean["Cycles_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Cycles_rel_average"])
+                rel_total_recap_mean["Test_cycles_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Test_cycles_rel_average"])
+                rel_total_recap_mean["Privileged_cycles_tot_ratio_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Privileged_cycles_tot_ratio_rel_average"])
+                rel_total_recap_mean["Privileged_cycles_test_ratio_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Privileged_cycles_test_ratio_rel_average"])
                 rel_total_recap_mean["Time_sec_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Time_sec_rel_average"])
                 #rel_total_recap_mean["Main_stack_base_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Main_stack_base"])
                 #rel_total_recap_mean["Main_stack_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Main_stack_rel_average"])
                 #rel_total_recap_mean["App_stack_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["App_stack_rel_average"])
-                #rel_total_recap_mean["Systick_stack_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Systick_stack_rel_average"])
                 rel_total_recap_mean["Indirect_calls_overhead_total_mean"].append(rel_baseline_data[bench]["Static"]["Indirect_calls_overhead"])
                 rel_total_recap_mean["ROP_gadgets_overhead_total_mean"].append(rel_baseline_data[bench]["Static"]["ROP_gadgets_overhead"])
                 #rel_total_recap_mean["bss_rel_total_mean"].append(rel_baseline_data[bench]["Static"]["bss_rel"])
@@ -618,16 +696,13 @@ def compare_baseline(results_dir, sequence):
                 #rel_total_recap_mean["binsize_rel_total_mean"].append(rel_baseline_data[bench]["Static"]["binsize_rel"])
     # relative mean for each metric
     rel_baseline_data["Total"] = { "Cycles_rel_average_tot" :  mean(rel_total_recap_mean["Cycles_rel_total_mean"]),
+                                    "Test_cycles_rel_average_tot" :  mean(rel_total_recap_mean["Test_cycles_rel_total_mean"]),
                                     #"Main_stack_rel_average_tot" :  mean(rel_total_recap_mean["Main_stack_rel_total_mean"]),
                                     #"App_stack_rel_average_tot" :  mean(rel_total_recap_mean["App_stack_rel_total_mean"]),
-                                    #"Systick_stack_rel_average_tot" :  mean(rel_total_recap_mean["Systick_stack_rel_total_mean"]),
-                                    "Indirect_calls_rel_average_tot" :  mean(rel_total_recap_mean["Indirect_calls_rel_total_mean"]),
-                                    "ROP_gadgets_rel_average_tot" :  mean(rel_total_recap_mean["ROP_gadgets_rel_total_mean"]),
-                                    #"bss_rel_average_tot" :  mean(rel_total_recap_mean["bss_rel_total_mean"]),
-                                    #"data_rel_average_tot" :  mean(rel_total_recap_mean["data_rel_total_mean"]),
-                                    #"rodata_rel_average_tot" :  mean(rel_total_recap_mean["rodata_rel_total_mean"]),
-                                    #"text_rel_average_tot" :  mean(rel_total_recap_mean["text_rel_total_mean"]),
-                                    #"binsize_rel_average_tot" :  mean(rel_total_recap_mean["binsize_rel_total_mean"]),
+                                    "Indirect_calls_rel_average_tot" :  mean(rel_total_recap_mean["Indirect_calls_overhead_total_mean"]),
+                                    "ROP_gadgets_rel_average_tot" :  mean(rel_total_recap_mean["ROP_gadgets_overhead_total_mean"]),
+                                    "Privileged_cycles_tot_ratio_rel_average_tot" :  mean(rel_total_recap_mean["Privileged_cycles_tot_ratio_rel_total_mean"]),
+                                    "Privileged_cycles_test_rel_average_tot" :  mean(rel_total_recap_mean["Privileged_cycles_test_ratio_rel_total_mean"])
                                     }
     res_compare_filename = 'results_baseline_compare_' + str(sequence) + '.json'
     compare_file = os.path.join(results_dir, res_compare_filename)
@@ -644,17 +719,18 @@ def main():
     # in that directory.
     gp['rootdir'] = os.path.abspath(os.path.dirname(__file__))
 
-    results_dir = "generated/benchmarks/results"
-
     bench_dir = "generated/benchmarks"
+    results_dir = os.path.join(bench_dir,"results_sequences")
+    results_pip_dir = os.path.join(bench_dir,"results_pip")
 
-    runs = 1
+    runs = 5
 
     do_all = False
     build_only= False
     dynamic_analysis_only = False
     dynamic_analysis_only_no_run = False
     static_analysis_only = False
+    pip_static_analysis_only = False
     recap_only = False
     baseline_compare_only = False
 
@@ -673,6 +749,8 @@ def main():
                     dynamic_analysis_only = True
             if "static" in arg:
                 static_analysis_only = True
+            if "pip-metrics" in arg:
+                pip_static_analysis_only = True
             if "recap" in arg:
                 recap_only = True
             if "compare" in arg:
@@ -682,10 +760,14 @@ def main():
         if(os.path.isdir(results_dir)):
             shutil.rmtree(results_dir) # erase dir
         Path(results_dir).mkdir(parents=True, exist_ok=True) # create dir
+        if(os.path.isdir(results_pip_dir)):
+            shutil.rmtree(results_pip_dir) # erase dir
+        Path(results_pip_dir).mkdir(parents=True, exist_ok=True) # create dir
 
+    baseline_name = "bench-baseline-priv-w-systick"
     # Find the benchmarks
-    benchmarks = []
-    '''benchmarks = find_benchmarks()
+    #benchmarks = []
+    benchmarks = find_benchmarks()
 
     benchmarks.remove('matmult-int')
 
@@ -701,10 +783,11 @@ def main():
     benchmarks.remove('wikisort')
 
     # not working with bench-pip-child
-    '''
+
     '''
     # working
     benchmarks.remove('aha-mont64')
+
     benchmarks.remove('crc32')
     benchmarks.remove('cubic')
     benchmarks.remove('edn')
@@ -715,11 +798,11 @@ def main():
     benchmarks.remove('primecount')
     benchmarks.remove('qrduino')
     benchmarks.remove('statemate')
-
+    '''
 
     benchmarks.remove('slre')
     benchmarks.remove('sglib-combined')
-    '''
+
 
     #not working
 
@@ -732,8 +815,8 @@ def main():
 
     # Launch the benchmark batch in different scenarios (baseline, without the systick interrupt, with Pip...)
     # Always keep the baseline scenarios at first
-    boot_sequence = ["bench-baseline-priv-w-systick"] #, "bench-pip-root"] # ["bench-baseline-priv-w-systick", "bench-pip-root", "bench-pip-child"] # ["bench-pip-child"] # "bench-baseline-wo-systick",
-    for sequence in boot_sequence:
+    boot_sequences = [baseline_name, "bench-pip-root", "bench-pip-child"]# ["bench-baseline-priv-w-systick"] #, "bench-pip-root"]  # ["bench-pip-child"] # "bench-baseline-wo-systick",
+    for sequence in boot_sequences:
         print("\n\n-----> Configuring sequence %s" % sequence, end="...")
         try:
             res = subprocess.run(
@@ -796,13 +879,16 @@ def main():
             analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence)
 
         if do_all or static_analysis_only:
-            static_metrics(bench_dir, benchmarks, sequence)
+            static_metrics(results_dir, bench_dir, benchmarks, sequence)
 
         if do_all or recap_only:
             produce_recap(results_dir, benchmarks, sequence, runs)
 
         if do_all or baseline_compare_only:
-            compare_baseline(results_dir, sequence)
+            compare_baseline(results_dir, sequence, baseline_name)
+
+    if do_all or pip_static_analysis_only:
+        pip_static_metrics(results_pip_dir, bench_dir, benchmarks, boot_sequences)
     end = time.time()
     print("\n\nDONE in %s (HH:MM:SS): Nothing to do left" % str(datetime.timedelta(seconds=(end-start))))
 

@@ -43,6 +43,7 @@ extern uint32_t user_stack_limit;
 extern uint32_t user_stack_top;
 extern uint32_t user_mem_start;
 extern uint32_t user_mem_end;
+extern uint32_t main_stack_top;
 
 #if defined BENCHMARK_PIP
 extern uint32_t rootSysTickStackBlockStart;
@@ -83,6 +84,17 @@ extern uint32_t rootSysTickStackBlockEnd;
     DWT_CYCCNT
 /*!< Read cycle counter register */
 
+typedef struct cycles
+{
+    uint32_t init_end_timestamp;
+    uint32_t handler_start_timestamp;
+    uint32_t global_privileged_counter;
+    uint32_t init_end_privileged_counter;
+    uint32_t global_counter;
+} cycles_t;
+
+extern cycles_t cycles;
+
 // User LEDs
 #define LED_0 30 // Green
 #define LED_1 31 // Blue
@@ -92,6 +104,8 @@ extern uint32_t rootSysTickStackBlockEnd;
 #define BENCH_MSG_BASELINE_PRIV "********* BASELINE BENCHMARK APP IS PRIVILEGED ********\n"
 #define BENCH_MSG_BASELINE_UNPRIV "********* BASELINE BENCHMARK APP IS UNPRIVILEGED ********\n"
 #define BENCH_MSG_WITNESS "********* WITNESS ONLY **************\n"
+#define BENCH_MSG_PIP_ROOT "********* PIP ROOT **************\n"
+#define BENCH_MSG_PIP_CHILD "********* PIP CHILD **************\n"
 #define BENCH_MSG_INIT                     \
     "\r\n\n"                               \
     "App   :  Pip-MPU\n\r"                 \
@@ -109,28 +123,33 @@ void benchmark_results();
 /*!
  * \brief Launches the benchmark init sequence procedure
  */
-#define START_BENCHMARK()                                                                    \
-    print_benchmark_msg();                                                                   \
-    prepare_stack_usage_measurement(&__StackLimit, &__StackTop);         /* pip stack */     \
-    prepare_stack_usage_measurement(&user_mem_start, &user_mem_end);    /* mark RAM */       \
-    __DMB();                                                                                 \
-    __ISB();                                                                                 \
-    __DSB();                                                                                 \
+#define START_BENCHMARK()  \
+    print_benchmark_msg(); \
+    register int RSP __asm("sp"); \
+    main_stack_top = RSP; \
+    prepare_stack_usage_measurement(&__StackLimit, main_stack_top);     /* pip stack: don't erase previous stacked values */ \
+    prepare_stack_usage_measurement(&user_mem_start, &user_mem_end); /* mark RAM */ \
+    __DMB(); \
+    __ISB(); \
+    __DSB(); \
     start_cycles_counting();
 
 /*!
  * \brief System call that triggers the benchmark end sequence procedure
  */
-#if defined BENCHMARK_BASELINE_PRIV
-#define END_BENCHMARK() \
-    benchmark_results();
-#else
+// no SVC when privileged
 #define END_BENCHMARK() \
     __DMB();            \
     __ISB();            \
     __DSB();            \
     asm volatile(" svc #129       \n");
-#endif
+
+// no SVC when privileged
+#define END_INITIALISATION() \
+    __DMB();                 \
+    __ISB();                 \
+    __DSB();                 \
+    asm volatile(" svc #130       \n");
 
 #endif /* __BENCHMARK_H__ */
 

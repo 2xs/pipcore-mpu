@@ -30,8 +30,6 @@
 /*  The fact that you are presently reading this means that you have had       */
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
-#pragma GCC push_options
-#pragma GCC optimize("O0")
 
 #include <stdint.h>
 
@@ -42,6 +40,9 @@
 #include "nrf52.h"
 #include "mal.h"
 #include "scs.h"
+#if defined(BENCHMARK)
+#include "benchmark.h"
+#endif // BENCHMARK
 
 /* Check that an address does not exceed the end of a block. */
 #define IS_BLOCK_END_EXCEEDED(address, blockEnd) \
@@ -703,6 +704,10 @@ static void loadContext(
 		__set_BASEPRI(0);
 	}
 
+#if defined BENCHMARK
+	cycles.global_privileged_counter += GetCycleCounter() - cycles.handler_start_timestamp;
+#endif
+
 	asm volatile
 	(
 		/* Restore registers R4 to R11 from the
@@ -744,4 +749,3 @@ static void loadContext(
 	__builtin_unreachable();
 }
 
-#pragma GCC pop_options

@@ -265,9 +265,7 @@ DIGGERFLAGS += --ignore coq_N
 $(GENERATED_FILES_DIR)/Internal.h: $(GENERATED_FILES_DIR)/Internal.json $(JSONS)\
                                  | $(GENERATED_FILES_DIR) $(DIGGER)
 	$(DIGGER) $(DIGGERFLAGS) --header\
-		                 $< -o $@ && sed -i 's/extern/extern __attribute__((section(".text_pipcore")))/g' generated/Internal.h\
-                                && sed -i -e '1 i\#pragma GCC push_options\n#pragma GCC optimize("O0")' -e '$$a #pragma GCC pop_options' generated/Internal.h
-#                                && echo "#pragma GCC pop_options" >> generated/Internal.h
+		                 $< -o $@ && sed -i 's/extern/extern __attribute__((section(".text_pipcore")))/g' generated/Internal.h
 
 $(GENERATED_FILES_DIR)/Internal.c: $(GENERATED_FILES_DIR)/Internal.json $(JSONS)\
 	                           $(GENERATED_FILES_DIR)/Internal.h\
@@ -278,8 +276,8 @@ $(GENERATED_FILES_DIR)/Internal.c: $(GENERATED_FILES_DIR)/Internal.json $(JSONS)
 $(GENERATED_FILES_DIR)/Services.h: $(GENERATED_FILES_DIR)/Services.json $(JSONS)\
                                  | $(GENERATED_FILES_DIR) $(DIGGER)
 	$(DIGGER) $(DIGGERFLAGS) --header\
-		                 $< -o $@ && sed -i 's/extern/extern __attribute__((section(".text_pipcore")))/g' generated/Services.h \
-                                && sed -i -e '1 i\#pragma GCC push_options\n#pragma GCC optimize("O0")' -e '$$a #pragma GCC pop_options' generated/Services.h
+		                 $< -o $@ && sed -i 's/extern/extern __attribute__((section(".text_pipcore")))/g' generated/Services.h
+
 $(GENERATED_FILES_DIR)/Services.c: $(GENERATED_FILES_DIR)/Services.json $(JSONS)\
 	                           $(GENERATED_FILES_DIR)/Services.h\
 	                           $(GENERATED_FILES_DIR)/Internal.json\

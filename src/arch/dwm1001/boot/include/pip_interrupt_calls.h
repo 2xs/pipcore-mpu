@@ -34,8 +34,6 @@
 #ifndef __PIP_INTERRUPT_CALLS__
 #define __PIP_INTERRUPT_CALLS__
 
-#pragma GCC push_options
-#pragma GCC optimize("O0")
 
 #include <stdint.h>
 
@@ -90,7 +88,5 @@ setIntState(
 void __attribute__((section(".text_pipcore")))
 kernel_set_int_state(
 	int_mask_t interruptState);
-
-#pragma GCC pop_options
 
 #endif /* __PIP_INTERRUPT_CALLS__ */

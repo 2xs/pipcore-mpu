@@ -30,8 +30,6 @@
 /*  The fact that you are presently reading this means that you have had       */
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
-#pragma GCC push_options
-#pragma GCC optimize("O0")
 
 #include <stdio.h>
 #include "Services.h"
@@ -46,6 +44,7 @@
 #include "benchmark.h"
 extern uint32_t childStackBlockStart;
 extern uint32_t childStackBlockEnd;
+extern uint32_t rootid;
 #endif // BENCHMARK
 
 	/*!
@@ -78,6 +77,10 @@ extern uint32_t childStackBlockEnd;
 __attribute__((section(".text_pip")))
 void SVC_Handler_C(stacked_context_t *stackedContext)
 {
+#if defined BENCHMARK
+	cycles.handler_start_timestamp = GetCycleCounter();
+	//dump_partition(rootid);
+#endif
 	/* Retrieve the SVC number encoded on the second byte of the
 	 * SVC instruction. */
 	uint32_t pc = stackedContext->registers[PC];
@@ -180,9 +183,8 @@ void SVC_Handler_C(stacked_context_t *stackedContext)
 
 		case SVC_NUMBER_SET_VIDT:
 			stackedContext->registers[R0] = setVIDT(
-				(paddr) stackedContext->registers[R0],
-				(paddr) stackedContext->registers[R1]
-			);
+				(paddr)stackedContext->registers[R0],
+				(paddr)stackedContext->registers[R1]);
 			break;
 
 		case SVC_NUMBER_YIELD:
@@ -225,42 +227,18 @@ void SVC_Handler_C(stacked_context_t *stackedContext)
     case 129:          // Stop benchmark (end_cycles_counting)
 		benchmark_results();
 		break;
+	case 130: // benchmark initialisation phase ended
+		cycles.init_end_timestamp = GetCycleCounter(); // get cycle counter
+		// keep privileged counter value after init (global + time in this handler)
+		cycles.init_end_privileged_counter = cycles.global_privileged_counter + (GetCycleCounter() - cycles.handler_start_timestamp);
+		break;
 #endif // BENCHMARK
     default:
 			/* Unknown SVC */
       break;
 	}
-
+#if defined BENCHMARK
+	cycles.global_privileged_counter += GetCycleCounter() - cycles.handler_start_timestamp;
+#endif
 	__enable_irq();
 }
-
-#ifdef BENCHMARK
-void benchmark_results(){
-	uint32_t cycles;			// number of cycles
-	cycles = GetCycleCounter(); // get cycle counter
-	DisableCycleCounter();		// disable counting if not used
-	// Stack usage measurements
-	uint32_t main_stack_usage = finish_stack_usage_measurement(&__StackLimit, &__StackTop); /* main (Pip) stack */
-	printf("Benchmark results:\n");
-	printf("Ticks:%d\n", cycles);
-	printf("Main stack usage:%d\n", main_stack_usage);
-#if defined BENCHMARK_BASELINE_UNPRIV
-	uint32_t app_stack_usage = finish_stack_usage_measurement(&user_stack_limit, &user_stack_top); /* app stack */
-#elif defined BENCHMARK_PIP_ROOT
-	uint32_t app_stack_usage = finish_stack_usage_measurement(0x20008000, &user_stack_top); /* app stack */
-#elif defined BENCHMARK_PIP_CHILD
-	uint32_t app_stack_usage = finish_stack_usage_measurement(childStackBlockStart, childStackBlockEnd); /* app stack */
-#else // stack is priv, only main stack exists
-	uint32_t app_stack_usage = 0;
-#endif
-	printf("App stack usage:%d\n", app_stack_usage);
-	// Trigger External benchmark end
-	nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
-	nrf_gpio_pin_write(13, 0);
-	nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
-	nrf_gpio_pin_write(LED_0, 1); // 0 = Light the LED
-	BENCHMARK_SINK();
-}
-#endif
-
-#pragma GCC pop_options

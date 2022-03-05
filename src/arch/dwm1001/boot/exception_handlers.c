@@ -43,6 +43,9 @@
 #include "scs.h"
 #include "mpu.h"
 #include "pip_debug.h"
+#if defined(BENCHMARK)
+#include "benchmark.h"
+#endif  // BENCHMARK
 
 /*!
  * \def UNREACHABLE_ADDRESS
@@ -71,6 +74,9 @@ void /*__attribute__((section(".after_vectors"), noreturn))*/
 	__attribute__((section(".text_pip"), noreturn))
 	Interrupt_Handler_C(stacked_context_t *stackedContext)
 {
+#if defined BENCHMARK
+	cycles.handler_start_timestamp = GetCycleCounter();
+#endif
 	user_context_t context;
 
 	/* Copy of the context stacked by the entry point. */
@@ -293,8 +299,8 @@ void /*__attribute__((section(".after_vectors"), noreturn))*/
  * \see The calling code is in the exception_entry.S file.
  */
 void /*__attribute__((section(".after_vectors"), noreturn))*/
-	__attribute__((section(".text_pip"), noreturn))
-	Fault_Handler_C(stacked_context_t *stackedContext)
+__attribute__((section(".text_pip"), noreturn))
+Fault_Handler_C(stacked_context_t *stackedContext)
 {
 	user_context_t context;
 
@@ -350,6 +356,9 @@ void /*__attribute__((section(".after_vectors")))*/
 	__attribute__((section(".text_pip")))
 	MemManage_Handler_C(stacked_context_t *stackedContext)
 {
+#if defined BENCHMARK
+	cycles.handler_start_timestamp = GetCycleCounter();
+#endif
 	uint32_t* mmfar = MMFAR.ADDRESS; // MemManage Fault Address
 	debug_printf("\n[MemManage_Handler] Faulted Address: %x\n", *mmfar);
 	uint32_t faultedAddress;
@@ -448,6 +457,10 @@ void /*__attribute__((section(".after_vectors")))*/
 				mpu_configure_from_LUT(currentPartDesc->LUT);
 
 				__enable_irq();
+
+#if defined BENCHMARK
+				cycles.global_privileged_counter += GetCycleCounter() - cycles.handler_start_timestamp;
+#endif
 
 				/* Return to the instruction that
 				 * caused the fault. */
