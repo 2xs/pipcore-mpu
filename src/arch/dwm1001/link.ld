@@ -49,7 +49,7 @@ ENTRY(_start)
  * for the different modes.
  */
 
-__Main_Stack_Size = 1024 ;
+__Main_Stack_Size = 1024*2 ;
 __Heap_Size = 1024 ;
 __User_Stack_Size = 1024 ; /* must be a power of two else will be ceiled to be so */
 
@@ -185,9 +185,11 @@ SECTIONS
     /* Set the user stack at end of RAM with MPU alignment constraints */
     ASSERT(32 <= __User_Stack_Size, "stack size too small")
 
-    _user_stack_size_aligned = (1 << (LOG2CEIL(__User_Stack_Size)-1)); /* 2^(log2(stack size not aligned)-1) */
-    user_stack_limit = ALIGN(_eram - 2*_user_stack_size_aligned + 1, _user_stack_size_aligned); /* be sure to align at end of RAM */
-    user_stack_top = user_stack_limit + _user_stack_size_aligned;
+    /*_user_stack_size_aligned = (1 << (LOG2CEIL(__User_Stack_Size)-1)); /* 2^(log2(stack size not aligned)-1) */
+    /*user_stack_limit = ALIGN(_eram - (_user_stack_size_aligned << 1) + 1, _user_stack_size_aligned); /* be sure to align at end of RAM */
+    user_stack_limit = ALIGN(_eram - 2*__User_Stack_Size + 1, __User_Stack_Size);
+    /*user_stack_top = user_stack_limit + _user_stack_size_aligned;*/
+    user_stack_top = user_stack_limit + __User_Stack_Size;
 
 
     ASSERT(user_mem_start <= user_stack_limit, "stack limit before start of RAM")
