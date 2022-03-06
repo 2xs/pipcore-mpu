@@ -100,13 +100,35 @@ SECTIONS
 	 * The program code is stored in the .text section,
 	 * which goes to FLASH.
 	 */
+
+    .text_pip : ALIGN(4)
+    {
+        _stext = .;
+        *(.text_pip)
+    } > FLASH
+
+    .text_pipcore : ALIGN(4)
+    {
+        *(.text_pipcore)
+    } > FLASH
+
+    .text_pip_init : ALIGN(4)
+    {
+        *(.text_pip_init)
+    } > FLASH
+
+    .text_pip_mal : ALIGN(4)
+    {
+        *(.text_pip_mal)
+    } > FLASH
+
 	.text : ALIGN(4)
 	{
-		_stext = .;
+		/*_stext = .;*/
 		*(.text .text.*) /* all remaining code */
 
  		/* read-only data (constants) */
-		*(.rodata .rodata.*)
+		*(.rodata .rodata.* .rodata_pip)
 
 		/*
 		 *
@@ -154,10 +176,19 @@ SECTIONS
      * the "section `.bss' type changed to PROGBITS" warning
      */
     /* .bss section which is used for uninitialized data */
-    .bss (NOLOAD) :
+    .bss_pip (NOLOAD) :
     {
         . = ALIGN(4);
         _sbss = .;
+        *(.bss_pip)
+        *(COMMON)
+        . = ALIGN(4);
+    } > RAM
+
+    .bss (NOLOAD) :
+    {
+        . = ALIGN(4);
+        /*_sbss = .;*/
         *(.bss .bss.*)
         *(COMMON)
         . = ALIGN(4);

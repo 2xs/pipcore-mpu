@@ -235,7 +235,7 @@ JSONS:=$(addprefix $(GENERATED_FILES_DIR)/, $(JSONS))
 ifneq (,$(filter -DBENCHMARK,$(CFLAGS)))
 ### Benchmarks makefile prevails
 	include benchmarks/Makefile
-else
+endif
 #####################################################################
 ##                    Default Makefile target                      ##
 #####################################################################

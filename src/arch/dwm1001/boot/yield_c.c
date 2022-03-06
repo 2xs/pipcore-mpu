@@ -129,6 +129,9 @@ loadContext(
 	user_context_t *ctx,
 	unsigned enforce_interrupts) __attribute__((noreturn));
 
+#if defined BENCHMARK
+extern uint32_t nbinterrupts;
+#endif
 
 __attribute__((section(".text_pipcore")))
 yield_return_code_t yieldGlue(
@@ -146,9 +149,13 @@ yield_return_code_t yieldGlue(
 	{
 		ctx.registers[i] = svc_ctx->registers[i];
 	}
+	//SYST_CSR.ENABLE = 0;
+	#if defined BENCHMARK
+	printf("I:%d:%d\n", nbinterrupts++, GetCycleCounter());
+	#endif
 
-	/* Save the value of the stack before the SVC interrupt. */
-	uint32_t forceAlign = CCR.STKALIGN;
+		/* Save the value of the stack before the SVC interrupt. */
+		uint32_t forceAlign = CCR.STKALIGN;
 	uint32_t spMask     = ((ctx.registers[XPSR] >> 9) & forceAlign) << 2;
 	ctx.registers[SP]   = (ctx.registers[SP] + FRAME_SIZE) | spMask;
 	ctx.valid           = CONTEXT_VALID_VALUE;
@@ -671,6 +678,7 @@ static void loadContext(
 	user_context_t *ctx,
 	unsigned enforce_interrupts
 ) {
+	//printf("Bye\n");
 	/* Forces the callee's stack to be aligned to 8 bytes when the
 	 * STKALIGN bit is set to 1. */
 	uint32_t forceAlign    = CCR.STKALIGN;
@@ -706,6 +714,8 @@ static void loadContext(
 
 #if defined BENCHMARK
 	cycles.global_privileged_counter += GetCycleCounter() - cycles.handler_start_timestamp;
+	//SYST_RVR.RELOAD = 64000000;
+	//SYST_CSR.ENABLE = 1;
 #endif
 
 	asm volatile
