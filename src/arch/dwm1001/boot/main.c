@@ -58,11 +58,10 @@ extern void main_benchmark();//int argc, uint32_t **argv);
  *
  * \brief The system clock frequency in Hertz.
  */
-#ifdef BENCHMARK
-#define SYSTEM_CLOCK_SOURCE_HZ 64000000 /* 8MHz */
-#else
-#define SYSTEM_CLOCK_SOURCE_HZ 8000000 /* 8MHz */
-#endif /* BENCHMARK */
+#ifndef BENCHMARK
+#define CPU_MHZ 8 /* 8MHz */
+#endif			  /* BENCHMARK */
+#define SYSTEM_CLOCK_SOURCE_HZ CPU_MHZ*1000000
 
 /*!
  * \def SYSTICK_DELAY_SECOND
@@ -130,16 +129,12 @@ void pip_main (void)
 	init_uart();
 #endif // UART_DEBUG
 
-#if !defined BENCHMARK_WO_SYSTICK
-	/* Enable the SysTick timer. */
-	systick_timer_enable();
-#endif
-
 #if defined BENCHMARK
 	START_BENCHMARK();
 #endif // BENCHMARK
 
 #if defined BENCHMARK_BASELINE_PRIV
+	systick_timer_enable();
 	main_benchmark();
 	/* We should never end up here because the benchmark ended */
 	__builtin_unreachable();
@@ -179,6 +174,11 @@ void PendSV_Handler(void)
 	{
 		NVIC_SetPriority(irq, 1);
 	}
+
+#if !defined BENCHMARK_WO_SYSTICK
+	/* Enable the SysTick timer. */
+	systick_timer_enable();
+#endif
 
 	/* Get the top of the PSP */
 uint8_t *sp = (uint8_t *)&user_stack_top;
