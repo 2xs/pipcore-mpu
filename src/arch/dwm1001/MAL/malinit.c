@@ -222,5 +222,8 @@ void mal_init(void)
 	// Prepare the root partition and give it all user memory
 	mal_init_root_part(part);
 
+	// Set root partition as the current partition
+	updateCurPartition(part);
+
 	debug_printf("mal_init( part=%p) : root is initialized\r\n", part);
 }
