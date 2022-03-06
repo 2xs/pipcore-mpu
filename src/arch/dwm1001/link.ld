@@ -33,9 +33,8 @@
 
 MEMORY
 {
-  FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 512K
-  RAM (xrw)  : ORIGIN = 0x20000000, LENGTH = 64K
-  /* CODE_RAM (rwx) : ORIGIN = 0x800000, LENGTH = 0x10000*/
+	FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 512K
+	RAM (xrw)  : ORIGIN = 0x20000000, LENGTH = 64K
 }
 
 
@@ -56,6 +55,10 @@ __User_Stack_Size = 1024 ; /* must be a power of two else will be ceiled to be s
 /* Populate information about ram size */
 _sram = ORIGIN(RAM);
 _eram = ORIGIN(RAM) + LENGTH(RAM);
+
+/* Populate information about rom size */
+_srom = ORIGIN(FLASH);
+_erom = ORIGIN(FLASH) + LENGTH(FLASH);
 
 /* Section Definitions */
 SECTIONS
@@ -93,22 +96,30 @@ SECTIONS
 
     } >FLASH
 
-    /*
-     * The program code is stored in the .text section,
-     * which goes to FLASH.
-     */
-    .text : ALIGN(4)
-    {
-        _stext = .;
-        *(.text .text.*)	/* all remaining code */
+	/*
+	 * The program code is stored in the .text section,
+	 * which goes to FLASH.
+	 */
+	.text : ALIGN(4)
+	{
+		_stext = .;
+		*(.text .text.*) /* all remaining code */
 
  		/* read-only data (constants) */
-        *(.rodata .rodata.*)
+		*(.rodata .rodata.*)
 
-        . = ALIGN(4);
-        _etext = .;
+		/*
+		 *
+		 */
 
-    } >FLASH
+		. = ALIGN(32);
+
+		_smultiplexer = . ;
+		*(.multiplexer*)
+		_emultiplexer = . ;
+
+		_etext = .;
+	} > FLASH
 
 	/*
      * This address is used by the startup code to
@@ -178,9 +189,12 @@ SECTIONS
     } > RAM
 
     /* USER SECTION */
-    . = ALIGN(32); /* Align to MPU region grain */
-    user_mem_start = .;
-    user_mem_end = _eram;
+    .userland (NOLOAD) :
+    {
+        . = ALIGN(32); /* Align to MPU region grain */
+        user_mem_start = .;
+        user_mem_end = _eram;
+    } > RAM
 
     /* Set the user stack at end of RAM with MPU alignment constraints */
     ASSERT(32 <= __User_Stack_Size, "stack size too small")

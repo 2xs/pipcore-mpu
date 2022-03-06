@@ -81,6 +81,9 @@ extern void main_benchmark();//int argc, uint32_t **argv);
 // Stack end address for the user section; defined in linker script
 extern uint32_t user_stack_top;
 
+extern void *__multiplexer;
+extern void *user_alloc_pos;
+
 extern paddr blockentryaddr_flash;
 extern paddr blockentryaddr_ram0;
 extern paddr blockentryaddr_ram1;
@@ -245,16 +248,18 @@ uint8_t *sp = (uint8_t *)&user_stack_top;
 	}
 
 	/* Initialize the root partition context. */
-	rootPartitionContext.registers[R0] = argc;
-	rootPartitionContext.registers[R1] = (uint32_t) argv;
+	rootPartitionContext.registers[R0]  = argc;
+	rootPartitionContext.registers[R1]  = (uint32_t) argv;
+	rootPartitionContext.registers[R9]  = (uint32_t) &__multiplexer;
+	rootPartitionContext.registers[R10] = (uint32_t) user_alloc_pos;
 #if defined BENCHMARK_PIP
-	rootPartitionContext.registers[PC] = (uint32_t)main_benchmark;
+	rootPartitionContext.registers[PC] = (uint32_t) main_benchmark;
 #else
-	rootPartitionContext.registers[PC] = (uint32_t) main_yield;
+	rootPartitionContext.registers[PC]  = (uint32_t) &__multiplexer;
 #endif // BENCHMARK_PIP
-	rootPartitionContext.pipflags = 0;
-	rootPartitionContext.registers[SP] = (uint32_t) argv;
-	rootPartitionContext.valid         = CONTEXT_VALID_VALUE;
+	rootPartitionContext.registers[SP]  = (uint32_t) argv;
+	rootPartitionContext.pipflags       = 0;
+	rootPartitionContext.valid          = CONTEXT_VALID_VALUE;
 
 	/* Switch to unprivileged Thread mode. */
 	__set_CONTROL(__get_CONTROL() | CONTROL_nPRIV_Msk );
