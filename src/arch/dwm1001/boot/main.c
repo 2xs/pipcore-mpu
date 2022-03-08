@@ -33,12 +33,15 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+
 #include "maldefines.h"
 #include "nrf52.h"
 #include "pip_debug.h"
 #include "context.h"
 #include "yield_c.h"
 #include "scs.h"
+#include "pip_interface.h"
+#include "userconstants.h"
 
 #if defined(UART_DEBUG)
 #include "uart_debug_init.h"
@@ -75,12 +78,8 @@ extern uint32_t user_stack_top;
 
 extern void *__multiplexer;
 extern void *user_alloc_pos;
-
-extern paddr blockentryaddr_flash;
-extern paddr blockentryaddr_ram0;
-extern paddr blockentryaddr_ram1;
-extern paddr blockentryaddr_ram2;
-extern paddr blockentryaddr_periph;
+extern void *_erom;
+extern void *_eram;
 
 extern void main_yield(int argc, uint32_t **argv);
 
@@ -152,48 +151,74 @@ void PendSV_Handler(void)
 	}
 
 	/* Get the top of the PSP */
-	uint32_t *sp  = (uint32_t *) &user_stack_top;
+	uint32_t sp  = (uint32_t) &user_stack_top;
 
-	/* Reserve on the stack the space necessary for the
-	 * arguments. */
-	uint32_t  argc = 6;
-	uint32_t *argv = sp - argc;
+	/* Reserve on the stack the space necessary for structure. */
+	sp -= sizeof(pip_interface_t);
 
-	/* Copy arguments onto the stack */
-	argv[0] = (uint32_t) getRootPartition();
-	argv[1] = (uint32_t) blockentryaddr_flash;
-	argv[2] = (uint32_t) blockentryaddr_ram0;
-	argv[3] = (uint32_t) blockentryaddr_ram1;
-	argv[4] = (uint32_t) blockentryaddr_ram2;
-	argv[5] = (uint32_t) blockentryaddr_periph;
+	/* Retrive the root partition descriptor structure. */
+	PDTable_t *rootPartitionDescriptor = getRootPartition();
 
-	/* Declare the context of the root partition on the MSP in order
-	 * to start it. This context is not stored in a VIDT. */
-	user_context_t rootPartitionContext;
+	/* Copy the ID of the block containing the partition descriptor
+	 * of the root partition. */
+	pip_interface_t *pip_interface = (pip_interface_t *) sp;
+	pip_interface->partDescId = (uint32_t *) rootPartitionDescriptor;
+
+	/* Copy the block attributes of the block entries. */
+	for (size_t i = 0; i < MPU_REGIONS_NB; i++)
+	{
+		BlockEntry_t *currentBlockEntry = rootPartitionDescriptor->mpu[i];
+
+		if (currentBlockEntry != NULL)
+		{
+			pip_interface->mpu[i].blockentryaddr = (uint32_t *) currentBlockEntry;
+			pip_interface->mpu[i].blockrange.startAddr = currentBlockEntry->blockrange.startAddr;
+			pip_interface->mpu[i].blockrange.endAddr = currentBlockEntry->blockrange.endAddr;
+			pip_interface->mpu[i].read = currentBlockEntry->read;
+			pip_interface->mpu[i].write = currentBlockEntry->write;
+			pip_interface->mpu[i].exec = currentBlockEntry->exec;
+			pip_interface->mpu[i].accessible = currentBlockEntry->accessible;
+		}
+		else
+		{
+			pip_interface->mpu[i].blockentryaddr = NULL;
+			pip_interface->mpu[i].blockrange.startAddr = 0;
+			pip_interface->mpu[i].blockrange.endAddr = 0;
+			pip_interface->mpu[i].read = 0;
+			pip_interface->mpu[i].write = 0;
+			pip_interface->mpu[i].exec = 0;
+			pip_interface->mpu[i].accessible = 0;
+		}
+	}
+
+	/* Copy the start and end address of the ROM. */
+	pip_interface->romUnusedStart = (uint32_t) &__multiplexer;
+	pip_interface->romEnd = (uint32_t) &_erom;
+
+	/* Copy the start and end address of the RAM. */
+	pip_interface->ramUnusedStart = (uint32_t) user_alloc_pos;
+	pip_interface->ramEnd = (uint32_t) &_eram;
 
 	/* Reset the structure to ensure that the restored registers do
 	 * not contain undefined value */
 	for (size_t i = 0; i < CONTEXT_REGISTER_NUMBER; i++)
 	{
-		rootPartitionContext.registers[i] = 0;
+		pip_interface->context.registers[i] = 0;
 	}
 
 	/* Initialize the root partition context. */
-	rootPartitionContext.registers[R0]  = argc;
-	rootPartitionContext.registers[R1]  = (uint32_t) argv;
-	rootPartitionContext.registers[R9]  = (uint32_t) &__multiplexer;
-	rootPartitionContext.registers[R10] = (uint32_t) user_alloc_pos;
-	rootPartitionContext.registers[PC]  = (uint32_t) &__multiplexer;
-	rootPartitionContext.registers[SP]  = (uint32_t) argv;
-	rootPartitionContext.pipflags       = 0;
-	rootPartitionContext.valid          = CONTEXT_VALID_VALUE;
+	pip_interface->context.registers[R0]  = sp;
+	pip_interface->context.registers[PC]  = (uint32_t) &__multiplexer;
+	pip_interface->context.registers[SP]  = sp;
+	pip_interface->context.pipflags       = 0;
+	pip_interface->context.valid          = CONTEXT_VALID_VALUE;
 
 	/* Switch to unprivileged Thread mode. */
 	__set_CONTROL(__get_CONTROL() | CONTROL_nPRIV_Msk );
 	__DMB(); __ISB(); __DSB();
 
 	/* Yield to the root partition. */
-	switchContextCont(getRootPartition(), 0, &rootPartitionContext);
+	switchContextCont(getRootPartition(), 0, &pip_interface->context);
 
 	/* We should never end up here because the switchContextCont
 	 * function never returns to the caller. */
