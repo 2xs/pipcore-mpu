@@ -224,8 +224,8 @@ SECTIONS
     {
         . = ALIGN(32); /* Align to MPU region grain */
         user_mem_start = .;
-        user_mem_end = _eram;
     } > RAM
+    user_mem_end = _eram;
 
     /* Set the user stack at end of RAM with MPU alignment constraints */
     ASSERT(32 <= __User_Stack_Size, "stack size too small")
@@ -239,6 +239,7 @@ SECTIONS
 
     ASSERT(user_mem_start <= user_stack_limit, "stack limit before start of RAM")
     ASSERT(user_stack_top <= _eram , "stack top higher than end of RAM")
+    ASSERT(user_mem_end >= _eram , "User memory stretches over end of RAM")
 
     /*_end = . ;*/
 
