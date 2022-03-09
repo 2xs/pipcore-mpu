@@ -41,10 +41,7 @@
 #include "pip_interrupt_calls.h"
 #include "ADT.h"
 #ifdef BENCHMARK
-#include "benchmark.h"
-extern uint32_t childStackBlockStart;
-extern uint32_t childStackBlockEnd;
-extern uint32_t rootid;
+#include "benchmark_helpers.h"
 #endif // BENCHMARK
 
 	/*!
@@ -224,13 +221,22 @@ void SVC_Handler_C(stacked_context_t *stackedContext)
 #endif // UNIT_TESTS
 
 #ifdef BENCHMARK
-    case 129:          // Stop benchmark (end_cycles_counting)
-		benchmark_results();
+    case 129: // Stop benchmark (end_cycles_counting)
+		cycles.global_counter = GetCycleCounter(); // get cycle counter
+		DisableCycleCounter();			   // disable counting if not used
+		benchmark_results(stackedContext->registers[R0], stackedContext->registers[R1]);
 		break;
 	case 130: // benchmark initialisation phase ended
+		printf("Init ended:%d\n", GetCycleCounter());
 		cycles.init_end_timestamp = GetCycleCounter(); // get cycle counter
 		// keep privileged counter value after init (global + time in this handler)
 		cycles.init_end_privileged_counter = cycles.global_privileged_counter + (GetCycleCounter() - cycles.handler_start_timestamp);
+		break;
+	case 131: // Print cycles
+		printf("%d\n", GetCycleCounter());
+		break;
+	case 132: // Printf number
+		printf("%d\n", stackedContext->registers[R0]);
 		break;
 #endif // BENCHMARK
     default:

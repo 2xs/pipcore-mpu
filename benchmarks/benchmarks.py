@@ -161,7 +161,7 @@ def pip_static_metrics(results_pip_dir, bench_dir, benchmarks, sequences):
                 make_cmd = ["make", "-B", "-s"]
                 elf_dir = "."
             else :
-                make_cmd = ["make", "-B", "-s", "bench", f'BENCH_NAME={first_bench}']
+                make_cmd = ["make", "-B", "-s", f'BENCH_NAME={first_bench}']
                 elf_dir = os.path.join(bench_dir, f'{first_bench}')
             res = subprocess.run(
                 make_cmd,
@@ -469,7 +469,8 @@ def init_telnet(bench_name, run, sequence):
     succeeded = True
     output = ""
     try:
-        tn = telnetlib.Telnet("localhost", 2333, timeout=20)
+        tn = telnetlib.Telnet("localhost", 2333)
+        #tn.set_debuglevel(1)
         output = tn.read_all()
         tn.close()
     except ConnectionRefusedError:
@@ -488,6 +489,7 @@ def init_telnet(bench_name, run, sequence):
                 fileh.writelines(line)
                 linecount=linecount+1
             fileh.close()
+            print("Result written in %s" % outfile)
             if linecount == 1:
                 print("***ERROR: " + bench_name + " failed, check gdbserver connection (is the device up and running? or try to augment sleep delay?)")
     else:
@@ -499,19 +501,24 @@ def init_telnet(bench_name, run, sequence):
 """ Flash and launch """
 def init_gdb(bench_name, results):
     try:
+        pyscript_cmd = f' py arg0 = \"{bench_name}\"'
+        #print("Using %s" % pyscript_cmd)
         res = subprocess.run(
-                    ["arm-none-eabi-gdb", "--batch", "-ex", f'py arg0 = "{bench_name}"', "-x", "benchmarks/gdb_connect_flash_run.py"],
-                    timeout=20,
+                    ["arm-none-eabi-gdb", "--batch", "-ex", pyscript_cmd, "-x", "benchmarks/gdb_connect_flash_run.py"],
+                    #timeout=10,
                     capture_output=True,
                 )
+        #print("the commandline is {}".format(res.args))
     except subprocess.TimeoutExpired:
         print(f'Warning: Run of GDB {bench_name} timed out.')
         print("NOK***")
         results = 0
+        return
     except BaseException:
         print(f'GDB error: {bench_name} failed. Investigate with command: arm-none-eabi-gdb --batch -ex \'py arg0="{bench_name}"\' -x benchmarks/gdb_connect_flash_run.py ')
         print("NOK***")
         results = 0
+        return
     print("OK")
     results = 1
 
@@ -723,7 +730,7 @@ def main():
     results_dir = os.path.join(bench_dir,"results_sequences")
     results_pip_dir = os.path.join(bench_dir,"results_pip")
 
-    runs = 5
+    runs = 1
 
     do_all = False
     build_only= False
@@ -765,6 +772,7 @@ def main():
         Path(results_pip_dir).mkdir(parents=True, exist_ok=True) # create dir
 
     baseline_name = "bench-baseline-priv-w-systick"
+    benchmark_directory = "../pip-mpu-benchmark"
     # Find the benchmarks
     #benchmarks = []
     benchmarks = find_benchmarks()
@@ -787,7 +795,7 @@ def main():
     '''
     # working
     benchmarks.remove('aha-mont64')
-
+    '''
     benchmarks.remove('crc32')
     benchmarks.remove('cubic')
     benchmarks.remove('edn')
@@ -798,7 +806,7 @@ def main():
     benchmarks.remove('primecount')
     benchmarks.remove('qrduino')
     benchmarks.remove('statemate')
-    '''
+
 
     benchmarks.remove('slre')
     benchmarks.remove('sglib-combined')
@@ -824,13 +832,9 @@ def main():
                     f'--boot-sequence={sequence}'],
                 capture_output=True,
             )
-            res_clean = subprocess.run(
-                ["make", "cleanbench-soft"],
-                capture_output=True,
-            )
-            if res_clean.returncode != 0 or res.returncode != 0:
+            if res.returncode != 0:
                 print("***NOK***")
-                print("Investigate with commands: 1) make cleanbench-soft 2) ./configure.sh --architecture=dwm1001 --debugging-mode=semihosting --boot-sequence=%s" % sequence)
+                print("Investigate with commands: ./configure.sh --architecture=dwm1001 --debugging-mode=semihosting --boot-sequence=%s" % sequence)
                 succeeded = False
 
             else:
@@ -838,7 +842,7 @@ def main():
                 print("OK")
 
         except subprocess.TimeoutExpired:
-            log.warning('Warning: link of benchmark "{sequence}" timed out'.format(sequence=sequence))
+            log.warning('Warning: configuration of benchmark "{sequence}" timed out'.format(sequence=sequence))
             succeeded = False
 
         if do_all or build_only:
@@ -847,20 +851,67 @@ def main():
             for bench in benchmarks:
                 print("Building " + bench, end='...')
                 try:
-                    res = subprocess.run(
-                            ["make", "-s", "bench", "BENCH_NAME=" + bench],
-                            capture_output=True,
-                        )
-                    if res.returncode != 0:
-                        print("***NOK***")
-                        print("--> Investigate with shell command: make bench BENCH_NAME=" + bench)
-                        log.warning('Warning: Compilation of benchmark "{bench}" failed'.format(bench=bench))
-                        succeeded = False
+                    if baseline_name in sequence:
+                        # already compiled in bench_dir
+                        res_clean = subprocess.run(
+                                ["make", "cleanbench-soft", "-s", "BENCH_NAME=" + bench],
+                                capture_output=True,
+                            )
+                        res = subprocess.run(
+                                ["make", "-s", "all", "BENCH_NAME=" + bench],
+                                capture_output=True,
+                            )
+                        if res_clean.returncode != 0 or res.returncode != 0:
+                            print("***NOK***")
+                            print("the commandline is {}".format(res.args))
+                            print("the commandline is {}".format(res_clean.args))
+                            print(f'--> Investigate with shell command: 1) make cleanbench-soft BENCH_NAME={bench} 2) make all BENCH_NAME={bench}')
+                            log.warning('Warning: Compilation of benchmark "{bench}" failed'.format(bench=bench))
+                            succeeded = False
 
+                        else:
+                            log.debug('Compilation of benchmark "{bench}" successful'.format(bench=bench))
+                            log.info(bench)
+                            print("OK")
                     else:
-                        log.debug('Compilation of benchmark "{bench}" successful'.format(bench=bench))
-                        log.info(bench)
-                        print("OK")
+                        # Split compilation of Pip and benchmark app
+                        # Compile benchmark app
+                        res_bench_clean = subprocess.run(
+                                ["make", "-s", "-C", benchmark_directory, "cleanbench-soft"],
+                                capture_output=True,
+                            )
+                        res_bench = subprocess.run(
+                                ["make", "-s", "-C", benchmark_directory, "BENCH_NAME=" + bench],
+                                capture_output=True,
+                            )
+                        # Compile Pip and link with benchmark app
+                        res_pip_clean = subprocess.run(
+                                ["make", "-s", "clean-soft"],
+                                capture_output=True,
+                            )
+                        res_pip = subprocess.run(
+                                ["make", "-s", "all"],
+                                capture_output=True,
+                            )
+                        res_link = subprocess.run(
+                                ["./root-partition-linker.sh", "pip.bin" , f'{benchmark_directory}/gen_benchmarks/{bench}/{bench}.bin',
+                                 f'{bench_dir}/{bench}/{bench}.elf'],
+                                capture_output=True,
+                            )
+                        if res_bench_clean.returncode != 0 or res_bench.returncode != 0\
+                            or res_pip_clean.returncode != 0 or res_pip.returncode != 0 or res_link.returncode != 0:
+                            print("***NOK***")
+                            print(f'--> Investigate with shell commands: 1) make -C {benchmark_directory} BENCH_NAME={bench} \
+                                    2) make clean-soft\
+                                    3) make all\
+                                 4) ./root-partition-linker.sh pip.bin {benchmark_directory}/gen_benchmarks/{bench}/{bench}.bin {bench_dir}/{bench}/{bench}.elf')
+                            log.warning('Warning: Compilation of benchmark "{bench}" failed'.format(bench=bench))
+                            succeeded = False
+
+                        else:
+                            log.debug('Compilation of benchmark "{bench}" successful'.format(bench=bench))
+                            log.info(bench)
+                            print("OK")
 
                 except subprocess.TimeoutExpired:
                     log.warning('Warning: link of benchmark "{bench}" timed out'.format(bench=bench))

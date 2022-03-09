@@ -112,6 +112,19 @@ C_TARGET_UART_INCLUDE_DIR=$(C_TARGET_UART_DIR)/include
 C_GENERATED_SRC_DIR=$(GENERATED_FILES_DIR)
 C_GENERATED_HEADERS_DIR=$(GENERATED_FILES_DIR)
 
+C_BENCHMARK_HELPERS_DIR=benchmarks
+
+H_INCLUDE_DIR = -I $(C_GENERATED_HEADERS_DIR)
+H_INCLUDE_DIR+= -I $(C_MODEL_INTERFACE_INCLUDE_DIR)
+H_INCLUDE_DIR+= -I $(C_TARGET_MAL_INCLUDE_DIR)
+H_INCLUDE_DIR+= -I $(C_TARGET_BOOT_INCLUDE_DIR)
+H_INCLUDE_DIR+= -I $(C_TARGET_CMSIS_INCLUDE_DIR)
+H_INCLUDE_DIR+= -I $(C_TARGET_DEBUG_INCLUDE_DIR)
+H_INCLUDE_DIR+= -I $(C_TARGET_MDK_INCLUDE_DIR)
+H_INCLUDE_DIR+= -I $(C_TARGET_NEWLIB_INCLUDE_DIR)
+H_INCLUDE_DIR+= -I $(C_TARGET_UART_INCLUDE_DIR)
+H_INCLUDE_DIR+= -I $(C_BENCHMARK_HELPERS_DIR)
+
 #####################################################################
 ##                        Files variables                          ##
 #####################################################################
@@ -126,6 +139,7 @@ C_TARGET_MDK_SRC=$(wildcard $(C_TARGET_MDK_DIR)/*.c)
 C_TARGET_NEWLIB_SRC=$(wildcard $(C_TARGET_NEWLIB_DIR)/*.c)
 C_TARGET_UART_SRC=$(wildcard $(C_TARGET_UART_DIR)/*.c)
 C_TARGET_MAL_SRC=$(wildcard $(C_TARGET_MAL_DIR)/*.c)
+C_BENCHMARK_HELPERS_SRC = $(wildcard $(C_BENCHMARK_HELPERS_DIR)/*.c)
 AS_TARGET_BOOT_SRC=$(wildcard $(C_TARGET_BOOT_DIR)/*.s)
 GAS_TARGET_BOOT_SRC=$(wildcard $(C_TARGET_BOOT_DIR)/*.S)
 
@@ -138,6 +152,13 @@ C_TARGET_DEBUG_HEADERS=$(wildcard $(C_TARGET_DEBUG_INCLUDE_DIR)/*.h)
 C_TARGET_MDK_HEADERS=$(wildcard $(C_TARGET_MDK_INCLUDE_DIR)/*.h)
 C_TARGET_NEWLIB_HEADERS=$(wildcard $(C_TARGET_NEWLIB_INCLUDE_DIR)/*.h)
 C_TARGET_UART_HEADERS=$(wildcard $(C_TARGET_UART_INCLUDE_DIR)/*.h)
+C_BENCHMARK_HELPERS_HEADERS=$(wildcard $(C_BENCHMARK_HELPERS_DIR)/*.h)
+
+C_HEADERS =   $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
+              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
+              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
+              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
+              $(C_TARGET_UART_HEADERS) $(C_BENCHMARK_HELPERS_HEADERS)
 
 C_GENERATED_OBJ=$(C_GENERATED_SRC:.c=.o)
 C_TARGET_BOOT_OBJ=$(C_TARGET_BOOT_SRC:.c=.o)
@@ -149,6 +170,7 @@ C_TARGET_DEBUG_OBJ=$(C_TARGET_DEBUG_SRC:.c=.o)
 C_TARGET_MDK_OBJ=$(C_TARGET_MDK_SRC:.c=.o)
 C_TARGET_NEWLIB_OBJ=$(C_TARGET_NEWLIB_SRC:.c=.o)
 C_TARGET_UART_OBJ=$(C_TARGET_UART_SRC:.c=.o)
+C_BENCHMARK_HELPERS_OBJ=$(C_BENCHMARK_HELPERS_SRC:.c=.o)
 
 ########################### Coq files ###############################
 
@@ -223,7 +245,8 @@ OBJECT_FILES=$(C_TARGET_MAL_OBJ) $(C_TARGET_BOOT_OBJ)\
              $(C_TARGET_CMSIS_OBJ) $(C_TARGET_DEBUG_OBJ)\
              $(C_TARGET_MDK_OBJ) $(C_TARGET_NEWLIB_OBJ)\
              $(C_TARGET_UART_OBJ) $(C_GENERATED_OBJ)\
-	     	 $(AS_TARGET_BOOT_OBJ) $(GAS_TARGET_BOOT_OBJ)
+	     	 $(AS_TARGET_BOOT_OBJ) $(GAS_TARGET_BOOT_OBJ) \
+             $(C_BENCHMARK_HELPERS_OBJ)
 
 # Jsons (Coq extracted AST)
 JSONS=Internal.json MAL.json MALInternal.json Services.json
@@ -232,16 +255,15 @@ JSONS:=$(addprefix $(GENERATED_FILES_DIR)/, $(JSONS))
 
 ######################## Include benchmarks ########################
 
-ifneq (,$(filter -DBENCHMARK,$(CFLAGS)))
+ifneq (,$(filter -DBENCHMARK_BASELINE,$(CFLAGS)))
 ### Benchmarks makefile prevails
 	include benchmarks/Makefile
-endif
+else
 #####################################################################
 ##                    Default Makefile target                      ##
 #####################################################################
-
 all: pip.bin
-
+endif
 #####################################################################
 ##                    Code compilation targets                     ##
 #####################################################################
@@ -310,126 +332,57 @@ $(JSONS): src/extraction/Extraction.vo | $(GENERATED_FILES_DIR)
 endif
 
 ########################### C object rules ##########################
+#-I $(C_GENERATED_HEADERS_DIR)\
+                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
+                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
+                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
+                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
+                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
+                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
+                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
+                        -I $(C_TARGET_UART_INCLUDE_DIR)\
+$(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
+              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
+              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
+              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
+              $(C_TARGET_UART_HEADERS)
 
 # Static pattern rule for constructing object files from generated C files
 $(C_GENERATED_OBJ):\
-    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
-              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
-              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
-              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
-              $(C_TARGET_UART_HEADERS)
-	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
-                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
-                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
-                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
-                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
-                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
-                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
-                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
-                        -I $(C_TARGET_UART_INCLUDE_DIR)\
+    %.o : %.c $(C_HEADERS)
+	$(CC) $(CFLAGS) $(H_INCLUDE_DIR) \
                         -c -o $@ $<
+
 
 # Static pattern rule for constructing object files from target boot C files
 $(C_TARGET_BOOT_OBJ):\
-    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
-              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
-              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
-              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
-              $(C_TARGET_UART_HEADERS)
-	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
-                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
-                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
-                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
-                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
-                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
-                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
-                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
-                        -I $(C_TARGET_UART_INCLUDE_DIR)\
+    %.o : %.c $(C_HEADERS)
+	$(CC) $(CFLAGS) $(H_INCLUDE_DIR) \
                         -c -o $@ $<
 
 $(C_TARGET_CMSIS_OBJ):\
-    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
-              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
-              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
-              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
-              $(C_TARGET_UART_HEADERS)
-	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
-                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
-                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
-                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
-                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
-                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
-                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
-                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
-                        -I $(C_TARGET_UART_INCLUDE_DIR)\
+    %.o : %.c $(C_HEADERS)
+	$(CC) $(CFLAGS) $(H_INCLUDE_DIR) \
                         -c -o $@ $<
 
 $(C_TARGET_DEBUG_OBJ):\
-    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
-              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
-              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
-              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
-              $(C_TARGET_UART_HEADERS)
-	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
-                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
-                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
-                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
-                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
-                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
-                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
-                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
-                        -I $(C_TARGET_UART_INCLUDE_DIR)\
+    %.o : %.c $(C_HEADERS)
+	$(CC) $(CFLAGS) $(H_INCLUDE_DIR) \
                         -c -o $@ $<
 
 $(C_TARGET_MDK_OBJ):\
-    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
-              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
-              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
-              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
-              $(C_TARGET_UART_HEADERS)
-	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
-                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
-                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
-                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
-                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
-                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
-                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
-                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
-                        -I $(C_TARGET_UART_INCLUDE_DIR)\
+    %.o : %.c $(C_HEADERS)
+	$(CC) $(CFLAGS) $(H_INCLUDE_DIR) \
                         -c -o $@ $<
 
 $(C_TARGET_NEWLIB_OBJ):\
-    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
-              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
-              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
-              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
-              $(C_TARGET_UART_HEADERS)
-	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
-                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
-                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
-                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
-                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
-                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
-                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
-                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
-                        -I $(C_TARGET_UART_INCLUDE_DIR)\
+    %.o : %.c $(C_HEADERS)
+	$(CC) $(CFLAGS) $(H_INCLUDE_DIR) \
                         -c -o $@ $<
 
 $(C_TARGET_UART_OBJ):\
-    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
-              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
-              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
-              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
-              $(C_TARGET_UART_HEADERS)
-	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
-                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
-                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
-                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
-                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
-                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
-                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
-                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
-                        -I $(C_TARGET_UART_INCLUDE_DIR)\
+    %.o : %.c $(C_HEADERS)
+	$(CC) $(CFLAGS) $(H_INCLUDE_DIR) \
                         -c -o $@ $<
 
 
@@ -444,20 +397,13 @@ $(GAS_TARGET_BOOT_OBJ):\
 
 # Static pattern rule for constructing object files from target MAL C files
 $(C_TARGET_MAL_OBJ):\
-    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
-              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
-              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
-              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
-              $(C_TARGET_UART_HEADERS)
-	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
-                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
-                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
-                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
-                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
-                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
-                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
-                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
-                        -I $(C_TARGET_UART_INCLUDE_DIR)\
+    %.o : %.c $(C_HEADERS)
+	$(CC) $(CFLAGS) $(H_INCLUDE_DIR) \
+                        -c -o $@ $<
+
+$(C_BENCHMARK_HELPERS_OBJ): \
+    %.o : %.c $(C_HEADERS)
+	$(CC) $(CFLAGS) -I $(H_INCLUDE_DIR) \
                         -c -o $@ $<
 
 ######################### Pip + Partition ELF #######################
@@ -468,13 +414,15 @@ pip.bin: $(C_SRC_TARGET_DIR)/link.ld\
          $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
          $(C_TARGET_DEBUG_OBJ) $(C_TARGET_MDK_OBJ)\
          $(C_TARGET_NEWLIB_OBJ) $(C_TARGET_UART_OBJ)\
-         $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)
+         $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ) \
+         $(C_BENCHMARK_HELPERS_OBJ)
 	$(LD) -r \
          $(C_TARGET_BOOT_OBJ) $(AS_TARGET_BOOT_OBJ)\
          $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
          $(C_TARGET_DEBUG_OBJ) $(C_TARGET_MDK_OBJ)\
          $(C_TARGET_NEWLIB_OBJ) $(C_TARGET_UART_OBJ)\
          $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)\
+         $(C_BENCHMARK_HELPERS_OBJ) \
          -T $< -o $@ $(LDFLAGS)
 
 #####################################################################
@@ -528,4 +476,6 @@ clean:
 	rm -f pip.elf
 	rm -f pip.bin
 
+clean-soft:
+	rm -f $(OBJECT_FILES)
 .PHONY: all doc doc-c doc-coq gettingstarted realclean clean

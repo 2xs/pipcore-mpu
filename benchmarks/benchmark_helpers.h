@@ -31,9 +31,9 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
-#if defined BENCHMARK
-#ifndef __BENCHMARK_H__
-#define __BENCHMARK_H__
+//#if defined BENCHMARK
+#ifndef __BENCHMARK_HELPERS_H__
+#define __BENCHMARK_HELPERS_H__
 
 #include "nrf_gpio.h"
 
@@ -44,11 +44,21 @@ extern uint32_t user_stack_top;
 extern uint32_t user_mem_start;
 extern uint32_t user_mem_end;
 extern uint32_t main_stack_top;
+extern uint32_t app_stack_top;
+
 
 #if defined BENCHMARK_PIP
 extern uint32_t rootSysTickStackBlockStart;
 extern uint32_t rootSysTickStackBlockEnd;
+extern uint32_t* rootid;
 #endif
+
+#if defined BENCHMARK_PIP_CHILD
+extern uint32_t *childStackBlockStart;
+extern uint32_t *childStackBlockEnd;
+#endif
+
+static uint32_t nbinterrupts = 0;
 
 #define STACK_INIT_MARK 0xcafebeef
 
@@ -110,29 +120,24 @@ extern cycles_t cycles;
     "\r\n\n"                               \
     "App   :  Pip-MPU\n\r"                 \
     "Built :  " __DATE__ " " __TIME__ "\n" \
-    "\r\n"
+    "CPU   :  %d MHz\n"                        \
+    "\n"                                   \
+    "\r\n",                                \
+    CPU_MHZ
 
-int32_t prepare_stack_usage_measurement(uint32_t *lower_addr, uint32_t *upper_addr);
+    int32_t
+    prepare_stack_usage_measurement(uint32_t *lower_addr, uint32_t *upper_addr);
 uint32_t finish_stack_usage_measurement(uint32_t *lower_addr, uint32_t *upper_addr);
 void start_cycles_counting();
 void run_benchmark();
 void print_benchmark_msg();
 void BENCHMARK_SINK();
-void benchmark_results();
+void benchmark_results(uint32_t benchmark_data1, uint32_t benchmark_data2);
 
 /*!
  * \brief Launches the benchmark init sequence procedure
- */
-#define START_BENCHMARK()  \
-    print_benchmark_msg(); \
-    register int RSP __asm("sp"); \
-    main_stack_top = RSP; \
-    prepare_stack_usage_measurement(&__StackLimit, main_stack_top);     /* pip stack: don't erase previous stacked values */ \
-    prepare_stack_usage_measurement(&user_mem_start, &user_mem_end); /* mark RAM */ \
-    __DMB(); \
-    __ISB(); \
-    __DSB(); \
-    start_cycles_counting();
+*/
+void START_BENCHMARK();
 
 /*!
  * \brief System call that triggers the benchmark end sequence procedure
@@ -151,6 +156,6 @@ void benchmark_results();
     __DSB();                 \
     asm volatile(" svc #130       \n");
 
-#endif /* __BENCHMARK_H__ */
+#endif /* __BENCHMARK_HELPERS_H__ */
 
-#endif /* BENCHMARK */
+//#endif /* BENCHMARK */

@@ -44,9 +44,8 @@
 #include "mpu.h"
 #include "pip_debug.h"
 #if defined(BENCHMARK)
-#include "benchmark.h"
+#include "benchmark_helpers.h"
 #endif  // BENCHMARK
-
 /*!
  * \def UNREACHABLE_ADDRESS
  *
@@ -71,8 +70,8 @@
  * \see The calling code is in the exception_entry.S file.
  */
 void /*__attribute__((section(".after_vectors"), noreturn))*/
-	__attribute__((section(".text_pip"), noreturn))
-	Interrupt_Handler_C(stacked_context_t *stackedContext)
+__attribute__((section(".text_pip"), noreturn))
+Interrupt_Handler_C(stacked_context_t *stackedContext)
 {
 #if defined BENCHMARK
 	cycles.handler_start_timestamp = GetCycleCounter();
@@ -253,8 +252,9 @@ void /*__attribute__((section(".after_vectors"), noreturn))*/
 			 * or that one of its children has faulted and
 			 * could not handle the fault. */
 			printf("PIP: The root partition has faulted!\n");
+			dump_partition(getRootPartition());
 
-			break;
+				break;
 		}
 		default:
 		{
@@ -330,10 +330,11 @@ Fault_Handler_C(stacked_context_t *stackedContext)
 	}
 
 	printf("The current partition (%p) has faulted...\n", currentPartDesc);
+	dump_partition(currentPartDesc);
 
 	/* Propagate the fault to the parent of the faulted partition. */
 	propagateFault(currentPartDesc, ICSR.VECTACTIVE, saveIndex,
-		interruptedPartIntState, interruptedPartIntState, &context);
+									interruptedPartIntState, interruptedPartIntState, &context);
 
 	/* We should never end up here because the propagateFault never
 	 * return to the caller. */
@@ -360,6 +361,7 @@ void /*__attribute__((section(".after_vectors")))*/
 	cycles.handler_start_timestamp = GetCycleCounter();
 #endif
 	uint32_t* mmfar = MMFAR.ADDRESS; // MemManage Fault Address
+	uint32_t mmarvalid = CFSR.MMFSR.MMARVALID;
 	debug_printf("\n[MemManage_Handler] Faulted Address: %x\n", *mmfar);
 	uint32_t faultedAddress;
 
@@ -450,6 +452,7 @@ void /*__attribute__((section(".after_vectors")))*/
 				 * not in a physical MPU block. We must
 				 * reconfigure the MPU regions to allow
 				 * access to the faulty address. */
+				debug_printf("\n[MemManage_Handler] Reconfiguring MPU region %d with block %x: %x - %x\n", i, currentBlock, (uint32_t) currentBlockRange->startAddr, (uint32_t)currentBlockRange->endAddr);
 
 				configure_LUT_entry(currentPartDesc->LUT, i,
 					currentBlock, (uint32_t *) faultedAddress);
@@ -472,7 +475,8 @@ void /*__attribute__((section(".after_vectors")))*/
 #if !defined(UNIT_TESTS)
 	//dump_ancestors(getCurPartition());
 
-	debug_printf("DEBUG: MemManage_Handler] Fault at address:%x MMARVALID=%d\n", faultedAddress, CFSR.MMFSR.MMARVALID);
+	debug_printf("\n[MemManage_Handler] Fault at address:%x MMARVALID=%d\n", faultedAddress, CFSR.MMFSR.MMARVALID);
+	dump_partition(getCurPartition());
 
 	/* Call the fault handler if it is a real MemManage fault. */
 	Fault_Handler_C(stackedContext);
@@ -732,12 +736,14 @@ int isSemihosting(ExceptionStackFrame *frame, uint16_t opCode)
 #endif
 
 #if defined BENCHMARK_BASELINE
+extern uint32_t nbinterrupts;
 // Assumes a fixed clock rate
 void __attribute__((section(".after_vectors"), weak))
 SysTick_Handler(void)
 {
 	// Just return.
 	debug_printf("[SysTick_Handler]\nCurrent SysTick value: % d\n", SysTick->VAL);
+	printf("I:%d:%d\n", nbinterrupts++, GetCycleCounter());
 	;
 }
 #endif /* BENCHMARK_BASELINE */

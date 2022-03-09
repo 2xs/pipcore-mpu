@@ -108,7 +108,7 @@
 		* PSP. */
 		mrsne r0, psp
 
-#if !defined(UNIT_TESTS)
+#if !defined(UNIT_TESTS) && !defined(BENCHMARK_BASELINE_PRIV)
 
 		/* If we don't run the unit tests and the
 		 * current frame was stored on the MSP, it means

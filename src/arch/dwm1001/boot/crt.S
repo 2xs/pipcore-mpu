@@ -53,12 +53,12 @@ __isr_vector:
     .long   SVC_Handler        /* SVCall */
     .long   Fault_Handler      /* DebugMonitor */
     .long   0                  /* Reserved */
-#if defined BENCHMARK_BASELINE
+#if defined BENCHMARK_BASELINE_PRIV
     .long   0                  /* PendSV */
 #else
     .long   PendSV_Handler     /* PendSV */
 
-#endif /* BENCHMARK_BASELINE_UNPRIV */
+#endif /* BENCHMARK_BASELINE_PRIV */
 #if defined BENCHMARK_BASELINE
     .long   SysTick_Handler    /* Systick */
 #else

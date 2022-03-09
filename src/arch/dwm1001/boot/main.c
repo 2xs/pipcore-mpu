@@ -49,7 +49,7 @@
 #endif // TRACE
 
 #if defined(BENCHMARK)
-#include "benchmark.h"
+#include "benchmark_helpers.h"
 extern void main_benchmark();//int argc, uint32_t **argv);
 #endif // BENCHMARK
 
@@ -132,6 +132,9 @@ void pip_main (void)
 	init_uart();
 #endif // UART_DEBUG
 
+	trace_printf("Test1\n");
+	puts("Test2\n");
+	printf("Test3\n");
 #if defined BENCHMARK
 	START_BENCHMARK();
 #endif // BENCHMARK
@@ -251,12 +254,8 @@ uint8_t *sp = (uint8_t *)&user_stack_top;
 	rootPartitionContext.registers[R0]  = argc;
 	rootPartitionContext.registers[R1]  = (uint32_t) argv;
 	rootPartitionContext.registers[R9]  = (uint32_t) &__multiplexer;
-	rootPartitionContext.registers[R10] = (uint32_t) user_alloc_pos;
-#if defined BENCHMARK_PIP
-	rootPartitionContext.registers[PC] = (uint32_t) main_benchmark;
-#else
+	rootPartitionContext.registers[R10] = (uint32_t) /*user_alloc_pos*/ 0x20002600;
 	rootPartitionContext.registers[PC]  = (uint32_t) &__multiplexer;
-#endif // BENCHMARK_PIP
 	rootPartitionContext.registers[SP]  = (uint32_t) argv;
 	rootPartitionContext.pipflags       = 0;
 	rootPartitionContext.valid          = CONTEXT_VALID_VALUE;

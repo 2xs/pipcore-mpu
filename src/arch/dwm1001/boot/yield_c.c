@@ -40,8 +40,9 @@
 #include "nrf52.h"
 #include "mal.h"
 #include "scs.h"
-#if defined(BENCHMARK)
-#include "benchmark.h"
+#if defined (BENCHMARK)
+#include "benchmark_helpers.h"
+extern uint32_t nbinterrupts;
 #endif // BENCHMARK
 
 /* Check that an address does not exceed the end of a block. */
@@ -73,7 +74,8 @@ static yield_return_code_t checkIntLevelCont(
 	uservalue_t userCallerContextSaveIndex,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext);
+	user_context_t *callerInterruptedContext
+);
 
 __attribute__((section(".text_pipcore")))
 static yield_return_code_t checkCtxSaveIdxCont(
@@ -119,19 +121,18 @@ static yield_return_code_t saveSourcePartCtxCont(
 	user_context_t *targetContext
 );
 
-__attribute__((section(".text_pipcore"))) static void writeContext(
+__attribute__((section(".text_pipcore")))
+static void writeContext(
 	user_context_t *ctx,
 	paddr ctxSaveVAddr,
-	int_mask_t flagsOnWake);
+	int_mask_t flagsOnWake
+);
 
-__attribute__((section(".text_pipcore")))static void
-loadContext(
+__attribute__((section(".text_pipcore")))
+static void loadContext(
 	user_context_t *ctx,
-	unsigned enforce_interrupts) __attribute__((noreturn));
-
-#if defined BENCHMARK
-extern uint32_t nbinterrupts;
-#endif
+	unsigned enforce_interrupts
+) __attribute__((noreturn));
 
 __attribute__((section(".text_pipcore")))
 yield_return_code_t yieldGlue(
@@ -149,13 +150,13 @@ yield_return_code_t yieldGlue(
 	{
 		ctx.registers[i] = svc_ctx->registers[i];
 	}
-	//SYST_CSR.ENABLE = 0;
-	#if defined BENCHMARK
-	printf("I:%d:%d\n", nbinterrupts++, GetCycleCounter());
-	#endif
 
-		/* Save the value of the stack before the SVC interrupt. */
-		uint32_t forceAlign = CCR.STKALIGN;
+#if defined BENCHMARK
+	printf("I:%d:%d\n", nbinterrupts++, GetCycleCounter());
+#endif
+
+	/* Save the value of the stack before the SVC interrupt. */
+	uint32_t forceAlign = CCR.STKALIGN;
 	uint32_t spMask     = ((ctx.registers[XPSR] >> 9) & forceAlign) << 2;
 	ctx.registers[SP]   = (ctx.registers[SP] + FRAME_SIZE) | spMask;
 	ctx.valid           = CONTEXT_VALID_VALUE;
@@ -678,7 +679,6 @@ static void loadContext(
 	user_context_t *ctx,
 	unsigned enforce_interrupts
 ) {
-	//printf("Bye\n");
 	/* Forces the callee's stack to be aligned to 8 bytes when the
 	 * STKALIGN bit is set to 1. */
 	uint32_t forceAlign    = CCR.STKALIGN;
@@ -714,48 +714,43 @@ static void loadContext(
 
 #if defined BENCHMARK
 	cycles.global_privileged_counter += GetCycleCounter() - cycles.handler_start_timestamp;
-	//SYST_RVR.RELOAD = 64000000;
-	//SYST_CSR.ENABLE = 1;
 #endif
 
-	asm volatile
-	(
-		/* Restore registers R4 to R11 from the
-		 * context. */
-		"ldmia   %0!, {r4-r11};"
+		asm volatile(
+			/* Restore registers R4 to R11 from the
+			 * context. */
+			"ldmia   %0!, {r4-r11};"
 
-		/* Reset the MSP to its top of stack. */
-		"msr     msp, %1;"
+			/* Reset the MSP to its top of stack. */
+			"msr     msp, %1;"
 
-		/* Set the PSP to the stacked frame.  */
-		"msr     psp, %2;"
+			/* Set the PSP to the stacked frame.  */
+			"msr     psp, %2;"
 
-		/* Enable interrupts by setting the PRIMASK
-                 * register to 0. */
-		"cpsie   i;"
+			/* Enable interrupts by setting the PRIMASK
+			 * register to 0. */
+			"cpsie   i;"
 
-		/* The exception returns to Thread mode and uses
-		 * the PSP. */
-		"bx      %3;"
+			/* The exception returns to Thread mode and uses
+			 * the PSP. */
+			"bx      %3;"
 
-		/* Output operands */
-		:
+			/* Output operands */
+			:
 
-		/* Input operands */
-		: "r" (&(ctx->registers[R4])),
-		  "r" (&__StackTop),
-		  "r" (frame),
-		  "r" (EXC_RETURN_THREAD_MODE_PSP)
+			/* Input operands */
+			: "r"(&(ctx->registers[R4])),
+			  "r"(&__StackTop),
+			  "r"(frame),
+			  "r"(EXC_RETURN_THREAD_MODE_PSP)
 
-		/* Clobbers */
-		: "r4", "r5", "r6",
-		  /*"r7",*/ "r8", "r9",
-		  "r10", "r11", "memory"
-	);
+			/* Clobbers */
+			: "r4", "r5", "r6",
+			  "r7", "r8", "r9",
+			  "r10", "r11", "memory");
 
 	/* We should never end up here because we are in Handler mode
 	 * and we have executed the BX instruction with the special
 	 * value EXC_RETURN_THREAD_MODE_PSP. */
 	__builtin_unreachable();
 }
-

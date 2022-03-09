@@ -68,7 +68,7 @@ debugging_mode='none'
 boot_sequence='default'
 res=
 release_mode='no'
-opt_cflags=' -O2' # Optimisation level 2 by default
+opt_cflags=' -Og -ggdb -g3' # All debug flags by default
 runs=1
 
 # Print the script usage
@@ -227,7 +227,8 @@ ARCH_ASFLAGS  = $arch_asflags
 
 # Debug related options
 DEBUG_CFLAGS  = -g3
-DEBUG_CFLAGS += -Og
+DEBUG_CFLAGS  += -ggdb
+DEBUG_CFLAGS  += -Og
 
 # If the RELEASE variable is set, the output binary will
 # be in debug mode. Otherwise, if the RELEASE variable is
@@ -551,8 +552,8 @@ configure_global_variables() {
 
 			# The boot sequence performing the unit tests of the
 			# dwm1001 only works in semihosting mode
-
-			if [[ "$debugging_mode" != "semihosting" ]] && [[ "$boot_sequence" == "test" || "$boot_sequence" == "bench-baseline-w-systick" || "$boot_sequence" == "bench-baseline-wo-systick" || "$boot_sequence" == "bench-pip-root" || "$boot_sequence" == "bench-pip-child" ]]
+#|| "$boot_sequence" == "bench-baseline-w-systick" || "$boot_sequence" == "bench-baseline-wo-systick" || "$boot_sequence" == "bench-pip-root" || "$boot_sequence" == "bench-pip-child"
+			if [[ "$debugging_mode" != "semihosting" ]] && [[ "$boot_sequence" == "test"  ]]
 			then
 				print_error 'The unit tests and the benchmarks of the dwm1001 only work in semihosting mode (if desired, add --debugging-mode=semihosting )...\n'
 				return 1

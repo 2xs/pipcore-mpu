@@ -38,10 +38,18 @@ usage() {
 	printf 'Usage: %s <pip-bin-path> <root-bin-path>\n' "$0"
 }
 
+# Test minimum 2 arguments for bin paths
 if [ "$#" -lt 2 ]
 then
 	usage
 	exit 1
+fi
+
+# Optional: specifiy location of final elf
+elf="pip.elf"
+if [ ! -z "$3" ]
+then
+	elf="$3"
 fi
 
 cat <<EOF > root_partition.S
@@ -53,7 +61,8 @@ __multiplexer:
 EOF
 
 arm-none-eabi-gcc -o root_partition.o -c root_partition.S
-arm-none-eabi-ld -o pip.elf "$1" root_partition.o -T "$link_script"
+arm-none-eabi-ld -o "$elf" "$1" root_partition.o -T "$link_script"
 rm -f root_partition.S root_partition.o
+printf 'Created elf file: %s\n' "$elf"
 
 exit 0

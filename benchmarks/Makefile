@@ -34,6 +34,12 @@
 # For debug purposes, add the following as rules
 #	@echo $<
 #	$(info $$C_BENCHMARK_OBJ is [${C_BENCHMARK_OBJ}])
+# like
+#print: $(C_BENCHMARK_HELPERS_OBJ)
+#	$(info $$C_BENCHMARK_HELPERS_OBJ is [${C_BENCHMARK_HELPERS_OBJ}])
+
+# Important notice: this Makefile is included in the main Makefile.
+# The base repository is thus the main repository.
 
 #####################################################################
 ##                      Directory variables                        ##
@@ -46,6 +52,7 @@ BENCH_DIR=generated/benchmarks
 # Architecture agnostic C dirs
 C_BENCHMARK_DIR=../embench-iot/src/$(BENCH_NAME)
 C_TARGET_BENCHMARK_INCLUDE_DIR=../embench-iot/support
+C_MAIN_BENCHMARK_DIR=../pip-mpu-benchmark
 
 #####################################################################
 ##                        Files variables                          ##
@@ -54,69 +61,51 @@ C_TARGET_BENCHMARK_INCLUDE_DIR=../embench-iot/support
 ############################ C files ################################
 
 C_BENCHMARK_SRC=$(wildcard $(C_BENCHMARK_DIR)/*.c)
+C_MAIN_BENCHMARK_SRC := $(filter-out $(C_MAIN_BENCHMARK_DIR)/crt0.c, $(wildcard $(C_MAIN_BENCHMARK_DIR)/*.c))
 C_BENCHMARK_COMMON_SRC=$(C_TARGET_BENCHMARK_INCLUDE_DIR)/beebsc.c
 
 C_BENCHMARK_OBJ=$(addprefix $(BENCH_DIR)/$(BENCH_NAME)/,$(notdir $(C_BENCHMARK_SRC:.c=.o)))
+C_MAIN_BENCHMARK_OBJ=$(addprefix $(BENCH_DIR)/$(BENCH_NAME)/,$(notdir $(C_MAIN_BENCHMARK_SRC:.c=.o)))
 C_BENCHMARK_COMMON_OBJ=$(addprefix $(BENCH_DIR)/$(BENCH_NAME)/, $(notdir $(C_BENCHMARK_COMMON_SRC:.c=.o)))
 
 OBJECT_FILES+=$(C_BENCHMARK_OBJ)
+OBJECT_FILES+=$(C_MAIN_BENCHMARK_OBJ)
+
+OBJECT_FILES+=$(C_BENCHMARK_COMMON_OBJ)
 
 #####################################################################
 ##                    Code compilation targets                     ##
 #####################################################################
-
 $(C_BENCHMARK_COMMON_OBJ): \
-    $(BENCH_DIR)/$(BENCH_NAME)/%.o : $(C_TARGET_BENCHMARK_INCLUDE_DIR)/%.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
-              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
-              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
-              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
-              $(C_TARGET_UART_HEADERS)\
-              $(BENCH_DIR)/$(BENCH_NAME)
-	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
-                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
-                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
-                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
-                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
-                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
-                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
-                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
-                        -I $(C_TARGET_UART_INCLUDE_DIR)\
-                        -I $(C_TARGET_BENCHMARK_INCLUDE_DIR)\
+    $(BENCH_DIR)/$(BENCH_NAME)/%.o : $(C_TARGET_BENCHMARK_INCLUDE_DIR)/%.c \
+                                    $(BENCH_DIR)/$(BENCH_NAME)
+	$(CC) $(CFLAGS) \
+                    -I $(C_TARGET_BENCHMARK_INCLUDE_DIR)\
                         -c -o $@ $<
-
 $(C_BENCHMARK_OBJ): \
-    $(BENCH_DIR)/$(BENCH_NAME)/%.o : $(C_BENCHMARK_DIR)/%.c   $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
-              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
-              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
-              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
-              $(C_TARGET_UART_HEADERS)\
+    $(BENCH_DIR)/$(BENCH_NAME)/%.o : $(C_BENCHMARK_DIR)/%.c \
               $(BENCH_DIR)/$(BENCH_NAME)
-	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
-                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
-                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
-                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
-                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
-                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
-                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
-                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
-                        -I $(C_TARGET_UART_INCLUDE_DIR)\
-                        -I $(C_TARGET_BENCHMARK_INCLUDE_DIR)\
+	$(CC) $(CFLAGS) \
+                    -I $(C_TARGET_BENCHMARK_INCLUDE_DIR)\
+                    -c -o $@ $<
+
+
+$(C_MAIN_BENCHMARK_OBJ): \
+    $(BENCH_DIR)/$(BENCH_NAME)/%.o : $(C_MAIN_BENCHMARK_DIR)/%.c\
+              $(BENCH_DIR)/$(BENCH_NAME)
+	$(CC) $(CFLAGS) -I.\
+                    -I $(C_MAIN_BENCHMARK_DIR)\
+                    -I $(C_TARGET_BENCHMARK_INCLUDE_DIR)\
                         -c -o $@ $<
 
 ######################### ELF #######################
 
-all:
-	$(error No rule named "all", use "bench" instead)
-
 ifndef BENCH_NAME
-bench:
+all:
 	$(error BENCH_NAME not set)
 else
-bench: $(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).bin
+all: $(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).elf
 endif
-
-$(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).bin: $(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).elf
-	$(BI) -O binary $< $@
 
 $(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).elf: $(C_SRC_TARGET_DIR)/link.ld\
          $(C_TARGET_BOOT_OBJ) $(AS_TARGET_BOOT_OBJ)\
@@ -124,7 +113,8 @@ $(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).elf: $(C_SRC_TARGET_DIR)/link.ld\
          $(C_TARGET_DEBUG_OBJ) $(C_TARGET_MDK_OBJ)\
          $(C_TARGET_NEWLIB_OBJ) $(C_TARGET_UART_OBJ)\
          $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)\
-         $(C_BENCHMARK_COMMON_OBJ) $(C_BENCHMARK_OBJ)
+         $(C_BENCHMARK_COMMON_OBJ) $(C_BENCHMARK_OBJ)\
+         $(C_MAIN_BENCHMARK_OBJ) $(C_BENCHMARK_HELPERS_OBJ)
 	$(LD) \
          $(C_TARGET_BOOT_OBJ) $(AS_TARGET_BOOT_OBJ)\
          $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
@@ -132,6 +122,7 @@ $(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).elf: $(C_SRC_TARGET_DIR)/link.ld\
          $(C_TARGET_NEWLIB_OBJ) $(C_TARGET_UART_OBJ)\
          $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)\
          $(C_BENCHMARK_COMMON_OBJ) $(C_BENCHMARK_OBJ)\
+         $(C_MAIN_BENCHMARK_OBJ) $(C_BENCHMARK_HELPERS_OBJ)\
          -T $< -o $@ $(LDFLAGS)
 
 ####################################################################

@@ -156,8 +156,8 @@ void mal_init_root_part(paddr part)
 
 	// One FLASH block + three RAM block (RW data + available memory + stack) + peripheral block -> not separated compilation
 	blockentryaddr_flash = insertNewEntry(part, (paddr)0, (paddr)0x00080000, (paddr)0, true, false, true, readPDNbFreeSlots(part));
-	blockentryaddr_ram0 = insertNewEntry(part, (paddr)0x20000000, user_alloc_pos - 1, (paddr)0x20000000, true, true, false, readPDNbFreeSlots(part));
-	blockentryaddr_ram1 = insertNewEntry(part, user_alloc_pos, (paddr)0x20007FFF, (paddr)0x20000000, true, true, false, readPDNbFreeSlots(part));
+	blockentryaddr_ram0 = insertNewEntry(part, (paddr)0x20000000, /*user_alloc_pos*/0x20002600 - 1, (paddr)0x20000000, true, true, false, readPDNbFreeSlots(part));
+	blockentryaddr_ram1 = insertNewEntry(part, /*user_alloc_pos*/ 0x20002600, (paddr)0x20007FFF, (paddr)0x20000000, true, true, false, readPDNbFreeSlots(part));
 	blockentryaddr_ram2 = insertNewEntry(part, (paddr)0x20008000, &user_stack_top, (paddr)0x20008000, true, true, false, readPDNbFreeSlots(part));
 	blockentryaddr_periph = insertNewEntry(part, (paddr)0x40000000, (paddr)0x5FFFFFFF, (paddr)0x40000000, true, true, false, readPDNbFreeSlots(part));
 
