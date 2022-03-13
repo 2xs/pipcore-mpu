@@ -33,7 +33,11 @@
 
 #include <stdio.h>
 
+#if defined(NRF52840_XXAA)
+#include "nrf52840.h"
+#else
 #include "nrf52.h"
+#endif
 #include "semihosting.h"
 #include "trace.h"
 #include "context.h"
@@ -521,7 +525,7 @@ typedef struct
 						  uint32_t lr)
   {
 #if defined(TRACE)
-#if defined(DUMP)
+//#if defined(DUMP)
 	trace_printf("Stack frame:\n");
 	trace_printf(" R0 =  %08X\n", frame->r0);
 	trace_printf(" R1 =  %08X\n", frame->r1);
@@ -551,7 +555,7 @@ typedef struct
 	}
 	trace_printf("Misc\n");
 	trace_printf(" LR/EXC_RETURN= %08X\n", lr);
-#endif
+//#endif
 #endif
 }
 
@@ -743,7 +747,7 @@ SysTick_Handler(void)
 {
 	// Just return.
 	debug_printf("[SysTick_Handler]\nCurrent SysTick value: % d\n", SysTick->VAL);
-	printf("I:%d:%d\n", nbinterrupts++, GetCycleCounter());
+	debug_printf("I:%d:%d\n", nbinterrupts++, GetCycleCounter());
 	;
 }
 #endif /* BENCHMARK_BASELINE */

@@ -33,26 +33,87 @@
 
 #if defined BENCHMARK
 #include <stdio.h>
+#if defined(NRF52840_XXAA)
+#include "pca10056.h"
+#else
 #include "nrf52.h"
-#include "benchmark_helpers.h"
 #include "nrf_gpio.h"
-#include "scs.h"
+#endif
+#include "benchmark_helpers.h"
+#include "pip_debug.h"
 
 cycles_t cycles = {.init_end_timestamp = 0, .handler_start_timestamp = 0, .global_privileged_counter = 0, .init_end_privileged_counter = 0, .global_counter = 0};
 uint32_t main_stack_top;
 uint32_t app_stack_top;
-/* TODO: these variables are not accepted as extern */
-#if defined BENCHMARK_PIP_CHILD
-uint32_t *childStackBlockStart;
-uint32_t *childStackBlockEnd;
-#endif
+static const uint8_t m_board_led_list[LEDS_NUMBER] = LEDS_LIST;
 
-void START_BENCHMARK(){
+void init_timer0(void)
+{
+	NRF_TIMER0->TASKS_STOP = 1;
+	NRF_TIMER0->MODE = TIMER_MODE_MODE_Timer;
+	NRF_TIMER0->BITMODE = TIMER_BITMODE_BITMODE_24Bit; // Set counter to 16 bit resolution, e.g. > 16M
+	NRF_TIMER0->PRESCALER = 0; // Set prescaler. Higher number gives slower timer. Prescaler = 0 gives 16MHz timer
+
+	NRF_TIMER0->TASKS_CLEAR = 1;		 // clear the task first to be usable for later
+	NRF_TIMER0->CC[0] = 16 * 1000000; // 1 s compare event
+
+	// Enable interrupt on Timer 0
+	NRF_TIMER0->INTENSET = (TIMER_INTENSET_COMPARE0_Enabled << TIMER_INTENSET_COMPARE0_Pos);
+	NVIC_ClearPendingIRQ(TIMER0_IRQn);
+	NVIC_EnableIRQ(TIMER0_IRQn);
+	NRF_TIMER0->TASKS_START = 1; // Start Timer0
+}
+
+void TIMER0_IRQHandler(void){
+	debug_printf("TIMER0\n");
+	NRF_TIMER0->TASKS_CLEAR = 1;
+	NRF_TIMER0->TASKS_STOP = 1; // One shot
+	NRF_TIMER0->EVENTS_COMPARE[0] = 0;
+}
+
+void flash_leds(){
+	uint32_t i;
+	// LED ON
+	for (i = 0; i < LEDS_NUMBER; i++)
+	{
+		nrf_gpio_pin_write(m_board_led_list[i], LEDS_ACTIVE_STATE ? 1 : 0);
+	}
+	for (volatile int i = 0; i < 1000000; i++);
+	//LED OFF
+	for (i = 0; i < LEDS_NUMBER; ++i)
+	{
+		nrf_gpio_pin_write(m_board_led_list[i], LEDS_ACTIVE_STATE ? 0 : 1);
+	}
+	for (volatile int i = 0; i < 1000000; i++);
+}
+
+void START_BENCHMARK()
+{
 	print_benchmark_msg();
 	register int RSP __asm("sp");
 	main_stack_top = RSP;
 	prepare_stack_usage_measurement(&__StackLimit, main_stack_top);	 /* pip stack: don't erase previous stacked values */
 	prepare_stack_usage_measurement(&user_mem_start, &user_mem_end); /* mark RAM */
+	debug_printf("Slack time for PPK -> ");
+
+	for (int i = 0; i < LEDS_NUMBER; i++)
+	{
+		nrf_gpio_cfg_output(m_board_led_list[i]);
+	}
+	for (int j=0; j < 2; j++){
+		flash_leds();
+		for (volatile int i = 0; i < 10000000; i++);
+	}
+	debug_printf("ready\n");
+
+	flash_leds();
+	flash_leds();
+
+	// start benchmark sleep phase
+	init_timer0();
+
+	__WFI(); // Wait for Timer0 IRQ to wake up
+
 	__DMB();
 	__ISB();
 	__DSB();
@@ -65,6 +126,9 @@ void shutoff(){
 }
 
 void BENCHMARK_SINK(){
+	flash_leds();
+	//for (volatile int i = 0; i < 1000000; i++);
+	flash_leds();
 	//__WFE();
 	//NRF_POWER->SYSTEMOFF = 1;
 	//NRF_POWER->TASKS_LOWPWR = 1;
@@ -152,7 +216,7 @@ start_cycles_counting()
 	InitCycleCounter();	 // enable DWT
 	ResetCycleCounter(); // reset DWT cycle counter
 	// Trigger External benchmark start
-	nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
+	/*nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
 	nrf_gpio_pin_write(13, 1);
 	nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
 	nrf_gpio_pin_write(LED_0, 0); // 0 = Light the LED
@@ -194,6 +258,18 @@ start_cycles_counting()
 	EnableCycleCounter(); // start counting
 }
 
+void END_BENCHMARK(uint32_t benchmark_data1, uint32_t benchmark_data2)
+{
+	debug_printf("End benchmark phase\n");
+	// end benchmark sleep phase
+	init_timer0();
+	__WFI(); // Wait for Timer0 IRQ to wake up
+
+	// UART set up
+
+	benchmark_results(benchmark_data1, benchmark_data2);
+}
+
 void benchmark_results(uint32_t benchmark_data1, uint32_t benchmark_data2)
 {
 	uint32_t priv_counter = cycles.global_privileged_counter;
@@ -206,7 +282,7 @@ void benchmark_results(uint32_t benchmark_data1, uint32_t benchmark_data2)
 #elif defined BENCHMARK_PIP_ROOT
 	uint32_t app_stack_usage = finish_stack_usage_measurement(0x20008000, app_stack_top); /* app stack */
 #elif defined BENCHMARK_PIP_CHILD
-	childStackBlockStart = benchmark_data2;
+	uint32_t childStackBlockStart = benchmark_data2;
 	uint32_t app_stack_usage = finish_stack_usage_measurement(childStackBlockStart, app_stack_top); /* app stack */
 #else // stack is priv, only main stack exists and all ticks are privileged
 	uint32_t app_stack_usage = finish_stack_usage_measurement(&__StackLimit, app_stack_top); /* app stack */
@@ -222,10 +298,10 @@ void benchmark_results(uint32_t benchmark_data1, uint32_t benchmark_data2)
 	printf("Main stack usage:%d\n", main_stack_usage);
 	printf("App stack usage:%d\n", app_stack_usage);
 	// Trigger External benchmark end
-	nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
-	nrf_gpio_pin_write(13, 0);
-	nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
-	nrf_gpio_pin_write(LED_0, 1); // 0 = Light the LED
+	//nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
+	//nrf_gpio_pin_write(13, 0);
+	//nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
+	//nrf_gpio_pin_write(LED_0, 1); // 0 = Light the LED
 	//dump_partition(rootid);
 	//dump_partition(child1PartDescBlock.address);
 	BENCHMARK_SINK();

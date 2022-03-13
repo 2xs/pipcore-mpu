@@ -104,10 +104,10 @@ ifndef BENCH_NAME
 all:
 	$(error BENCH_NAME not set)
 else
-all: $(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).elf
+all: $(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).elf print_elf
 endif
 
-$(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).elf: $(C_SRC_TARGET_DIR)/link.ld\
+$(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).elf: $(ARCH_DEPENDENT_DIR)/$(BOARD)/link.ld\
          $(C_TARGET_BOOT_OBJ) $(AS_TARGET_BOOT_OBJ)\
          $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
          $(C_TARGET_DEBUG_OBJ) $(C_TARGET_MDK_OBJ)\
@@ -115,7 +115,7 @@ $(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).elf: $(C_SRC_TARGET_DIR)/link.ld\
          $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)\
          $(C_BENCHMARK_COMMON_OBJ) $(C_BENCHMARK_OBJ)\
          $(C_MAIN_BENCHMARK_OBJ) $(C_BENCHMARK_HELPERS_OBJ)
-	$(LD) \
+	$(LD) -L $(C_SRC_TARGET_DIR)\
          $(C_TARGET_BOOT_OBJ) $(AS_TARGET_BOOT_OBJ)\
          $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
          $(C_TARGET_DEBUG_OBJ) $(C_TARGET_MDK_OBJ)\
@@ -124,6 +124,9 @@ $(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).elf: $(C_SRC_TARGET_DIR)/link.ld\
          $(C_BENCHMARK_COMMON_OBJ) $(C_BENCHMARK_OBJ)\
          $(C_MAIN_BENCHMARK_OBJ) $(C_BENCHMARK_HELPERS_OBJ)\
          -T $< -o $@ $(LDFLAGS)
+
+print_elf: $(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).elf
+	@echo '-> Created' $<
 
 ####################################################################
 

@@ -34,7 +34,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "maldefines.h"
+#if defined(NRF52840_XXAA)
+#include "nrf52840.h"
+#else
 #include "nrf52.h"
+#endif
 #include "pip_debug.h"
 #include "context.h"
 #include "yield_c.h"
@@ -137,6 +141,7 @@ void pip_main (void)
 	printf("Test3\n");
 #if defined BENCHMARK
 	START_BENCHMARK();
+
 #endif // BENCHMARK
 
 #if defined BENCHMARK_BASELINE_PRIV
@@ -171,6 +176,7 @@ void pip_main (void)
 __attribute__((section(".text_pip_init"), noreturn))
 void PendSV_Handler(void)
 {
+
 	int externalIrqNumber = 32 * (SCnSCB->ICTR + 1);
 
 	/* At reset, all priorities are equal to zero. Here, we want to mask

@@ -93,6 +93,7 @@ C_TARGET_BOOT_DIR=$(C_SRC_TARGET_DIR)/boot
 C_TARGET_BOOT_INCLUDE_DIR=$(C_TARGET_BOOT_DIR)/include
 
 C_TARGET_THIRDPARTY_DIR=$(C_TARGET_BOOT_DIR)/thirdparty
+C_TARGET_THIRDPARTY_INCLUDE_SPECIFIC_DIR=$(ARCH_DEPENDENT_DIR)/$(BOARD)/thirdparty
 
 C_TARGET_CMSIS_DIR=$(C_TARGET_THIRDPARTY_DIR)/cmsis
 C_TARGET_CMSIS_INCLUDE_DIR=$(C_TARGET_CMSIS_DIR)/include
@@ -123,6 +124,7 @@ H_INCLUDE_DIR+= -I $(C_TARGET_DEBUG_INCLUDE_DIR)
 H_INCLUDE_DIR+= -I $(C_TARGET_MDK_INCLUDE_DIR)
 H_INCLUDE_DIR+= -I $(C_TARGET_NEWLIB_INCLUDE_DIR)
 H_INCLUDE_DIR+= -I $(C_TARGET_UART_INCLUDE_DIR)
+H_INCLUDE_DIR+= -I $(C_TARGET_THIRDPARTY_INCLUDE_SPECIFIC_DIR)
 H_INCLUDE_DIR+= -I $(C_BENCHMARK_HELPERS_DIR)
 
 #####################################################################
@@ -259,10 +261,13 @@ ifneq (,$(filter -DBENCHMARK_BASELINE,$(CFLAGS)))
 ### Benchmarks makefile prevails
 	include benchmarks/Makefile
 else
+ifdef BENCH_NAME
+    $(error No BENCH_NAME expected)
+endif
 #####################################################################
 ##                    Default Makefile target                      ##
 #####################################################################
-all: pip.bin
+all: pip.bin print_bin
 endif
 #####################################################################
 ##                    Code compilation targets                     ##
@@ -332,20 +337,6 @@ $(JSONS): src/extraction/Extraction.vo | $(GENERATED_FILES_DIR)
 endif
 
 ########################### C object rules ##########################
-#-I $(C_GENERATED_HEADERS_DIR)\
-                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
-                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
-                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
-                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
-                        -I $(C_TARGET_DEBUG_INCLUDE_DIR)\
-                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
-                        -I $(C_TARGET_NEWLIB_INCLUDE_DIR)\
-                        -I $(C_TARGET_UART_INCLUDE_DIR)\
-$(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
-              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
-              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_DEBUG_HEADERS)\
-              $(C_TARGET_MDK_HEADERS) $(C_TARGET_NEWLIB_HEADERS)\
-              $(C_TARGET_UART_HEADERS)
 
 # Static pattern rule for constructing object files from generated C files
 $(C_GENERATED_OBJ):\
@@ -409,21 +400,24 @@ $(C_BENCHMARK_HELPERS_OBJ): \
 ######################### Pip + Partition ELF #######################
 
 # $(AS_TARGET_BOOT_OBJ) must be the first object file arg to the linker
-pip.bin: $(C_SRC_TARGET_DIR)/link.ld\
+pip.bin: $(ARCH_DEPENDENT_DIR)/$(BOARD)/link.ld\
          $(C_TARGET_BOOT_OBJ) $(AS_TARGET_BOOT_OBJ)\
          $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
          $(C_TARGET_DEBUG_OBJ) $(C_TARGET_MDK_OBJ)\
          $(C_TARGET_NEWLIB_OBJ) $(C_TARGET_UART_OBJ)\
          $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ) \
          $(C_BENCHMARK_HELPERS_OBJ)
-	$(LD) -r \
+	$(LD) -r -L $(C_SRC_TARGET_DIR)\
          $(C_TARGET_BOOT_OBJ) $(AS_TARGET_BOOT_OBJ)\
          $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
          $(C_TARGET_DEBUG_OBJ) $(C_TARGET_MDK_OBJ)\
          $(C_TARGET_NEWLIB_OBJ) $(C_TARGET_UART_OBJ)\
          $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)\
-         $(C_BENCHMARK_HELPERS_OBJ) \
+         $(C_BENCHMARK_HELPERS_OBJ)\
          -T $< -o $@ $(LDFLAGS)
+
+print_bin: pip.bin
+	@echo '-> Created' $<
 
 #####################################################################
 ##                      Proof related targets                      ##

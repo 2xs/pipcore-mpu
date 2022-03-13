@@ -42,10 +42,10 @@ __isr_vector:
     .long   __StackTop         /* Top of Stack */
     .long   Reset_Handler      /* Reset        */
     .long   Interrupt_Handler  /* NMI          */
-    .long   Fault_Handler      /* HardFault    */
+    .long   HardFault_Handler      /* HardFault    */
     .long   MemManage_Handler  /* MemManage */
-    .long   Fault_Handler      /* BusFault */
-    .long   Fault_Handler      /* UsageFault */
+    .long   BusFault_Handler      /* BusFault */
+    .long   UsageFault_Handler      /* UsageFault */
     .long   0                  /* Reserved */
     .long   0                  /* Reserved */
     .long   0                  /* Reserved */
@@ -74,7 +74,11 @@ __isr_vector:
     .long   Interrupt_Handler  /* NFCT_IRQHandler */
     .long   Interrupt_Handler  /* GPIOTE_IRQHandler */
     .long   Interrupt_Handler  /* SAADC_IRQHandler */
+#if defined BENCHMARK
+    .long   TIMER0_IRQHandler  /* TIMER0_IRQHandler */
+#else
     .long   Interrupt_Handler  /* TIMER0_IRQHandler */
+#endif
     .long   Interrupt_Handler  /* TIMER1_IRQHandler */
     .long   Interrupt_Handler  /* TIMER2_IRQHandler */
     .long   Interrupt_Handler  /* RTC0_IRQHandler */

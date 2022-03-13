@@ -145,8 +145,6 @@ int mpu_configure_from_LUT(uint32_t* LUT)
         MPU->RBAR = LUT[i*2];
         MPU->RASR = LUT[i*2+1];
     }
-    // Enable MPU with PRIVDEFENA
-	mpu_enable();
 #endif
 #if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__)
     return -1;

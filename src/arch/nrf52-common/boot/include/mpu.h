@@ -21,7 +21,11 @@
 #ifndef MPU_H
 #define MPU_H
 
+#if defined(NRF52840_XXAA)
+#include "nrf52840.h"
+#else
 #include "nrf52.h"
+#endif
 #include "core_cm4.h"
 #include "trace.h"
 #include "mal.h"

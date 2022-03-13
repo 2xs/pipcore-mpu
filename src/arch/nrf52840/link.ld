@@ -31,72 +31,10 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
-#include "pip_interrupt_calls.h"
-#include "Internal.h"
-#include "nrf52.h"
-#include "mal.h"
-
-int_mask_t getIntState(
-	void *childPartDescBlockLocalId
-) {
-	/* Retrieve the current partition descriptor block. */
-	paddr currentPartDescBlockGlobalId = getCurPartition();
-
-	/* Check that the child is a child of the current partition. */
-	if (!(checkChildOfCurrPart(currentPartDescBlockGlobalId, childPartDescBlockLocalId)))
-	{
-		return ~0;
-	}
-
-	/* Return the interrupt state of the child partition. */
-	return ((PDTable_t *) childPartDescBlockLocalId)->interruptState;
+MEMORY
+{
+	FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 0x100000 /* 1MB */
+	RAM (xrw)  : ORIGIN = 0x20000000, LENGTH = 0x40000 /* 256KB */
 }
 
-int_mask_t getSelfIntState(
-	void
-) {
-	/* Retrieve the current partition descriptor block. */
-	paddr currentPartDescBlockGlobalId = getCurPartition();
-
-	/* Return the interrupt state of the current partition. */
-	return ((PDTable_t *) currentPartDescBlockGlobalId)->interruptState;
-}
-
-void kernel_set_int_state(
-	int_mask_t interruptState
-) {
-	/* Retrieve the current partition descriptor block. */
-	paddr currentPartDescBlockGlobalId = getCurPartition();
-
-	/* Set the interrupt state of the current partition. */
-	((PDTable_t *) currentPartDescBlockGlobalId)->interruptState
-		= interruptState;
-}
-
-void setIntState(
-	int_mask_t interruptState
-) {
-	/* Retrieve the current partition descriptor block. */
-	paddr currentPartDescBlockGlobalId = getCurPartition();
-
-	/* Set the interrupt state of the current partition. */
-	((PDTable_t *) currentPartDescBlockGlobalId)->interruptState
-		= interruptState;
-
-	if (getCurPartition() == getRootPartition())
-	{
-		if (interruptState == 0)
-		{
-			/* Enable BASEPRI masking. All interrupts lower
-			 * or equal to the priority 1, i.e. interrupts
-			 * below the SVCall in the vector table, are
-			 * disabled. */
-			__set_BASEPRI(1 << (8 - __NVIC_PRIO_BITS));
-		}
-		else
-		{
-			/* Disable BASEPRI masking. */
-			__set_BASEPRI(0);
-		}
-	}
-}
+INCLUDE link-common.ld

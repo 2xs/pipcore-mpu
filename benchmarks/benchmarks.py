@@ -790,14 +790,15 @@ def main():
     # Not working with bench-pip-child
     benchmarks.remove('wikisort')
 
-    # not working with bench-pip-child
+    # not working with bench-pip-root
+    benchmarks.remove('cubic')
 
     '''
     # working
     benchmarks.remove('aha-mont64')
-    '''
+
     benchmarks.remove('crc32')
-    benchmarks.remove('cubic')
+
     benchmarks.remove('edn')
     benchmarks.remove('minver')
     benchmarks.remove('nbody')
@@ -806,16 +807,13 @@ def main():
     benchmarks.remove('primecount')
     benchmarks.remove('qrduino')
     benchmarks.remove('statemate')
-
+    '''
 
     benchmarks.remove('slre')
     benchmarks.remove('sglib-combined')
 
 
     #not working
-
-
-
 
     #benchmarks = ['aha-mont64', 'crc32', 'cubic', 'edn', 'huffbench']
     print("benchmarks.py: Considered benchmarks: %s " % benchmarks)

@@ -217,6 +217,7 @@ GDB := $gdb
 ################# Compilation options #################
 
 TARGET    = $target
+BOARD     = $board
 PARTITION = $partition_name
 
 # Arch related options
@@ -544,11 +545,12 @@ validate_command_path_version_wrapper() {
 # Configure the global variables according to the specified architecture
 configure_global_variables() {
 	case "$architecture" in
-		dwm1001)
+		dwm1001 | nrf52840)
 
 			### Directory name of the target
 
-			target='dwm1001'
+			target='nrf52-common'
+			board="$architecture"
 
 			# The boot sequence performing the unit tests of the
 			# dwm1001 only works in semihosting mode
@@ -693,7 +695,15 @@ configure_global_variables() {
 				arch_cflags="$arch_cflags"' -DDUMP'
 			fi
 			arch_cflags="$arch_cflags"' -DRUNS='"$runs"
-			arch_cflags="$arch_cflags"' -DNRF52832_XXAA'
+
+			if [ "$architecture" == dwm1001 ]
+			then
+				printf 'Configured for nRF52832\n'
+				arch_cflags="$arch_cflags"' -DNRF52832_XXAA'
+			else
+				printf 'Configured for nRF52840\n'
+				arch_cflags="$arch_cflags"' -DNRF52840_XXAA'
+			fi
 
 			### LDFLAGS for the selected architecture
 

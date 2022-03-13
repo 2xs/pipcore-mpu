@@ -42,6 +42,7 @@
 #include "mal.h"
 #include <stddef.h>
 #include "mpu.h"
+#include "pip_debug.h"
 
  uint32_t min_mpu_region;
 
@@ -509,6 +510,7 @@ void configure_LUT_entry(uint32_t* LUT, uint32_t entryindex, paddr blockentryadd
 		// else configure the whole block
 		block_t covering_block = blockentry->blockrange;
 		#endif
+		debug_printf("Configuring MPU entry %d with block:%x - %x", entryindex, (uint32_t)covering_block.startAddr, (uint32_t)covering_block.endAddr - 1);
 
 		// MPU region size = 2^(regionsize +1) on 5 bits
 		uint32_t size =  (uint32_t) covering_block.endAddr - (uint32_t)covering_block.startAddr;

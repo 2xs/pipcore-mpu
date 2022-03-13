@@ -53,11 +53,6 @@ extern uint32_t rootSysTickStackBlockEnd;
 extern uint32_t* rootid;
 #endif
 
-#if defined BENCHMARK_PIP_CHILD
-extern uint32_t *childStackBlockStart;
-extern uint32_t *childStackBlockEnd;
-#endif
-
 static uint32_t nbinterrupts = 0;
 
 #define STACK_INIT_MARK 0xcafebeef
@@ -105,11 +100,13 @@ typedef struct cycles
 
 extern cycles_t cycles;
 
-// User LEDs
+// DWM1001 User LEDs
+#ifndef NRF52840_XXAA
 #define LED_0 30 // Green
 #define LED_1 31 // Blue
 #define LED_2 22 // Red
 #define LED_3 14 // Red
+#endif
 
 #define BENCH_MSG_BASELINE_PRIV "********* BASELINE BENCHMARK APP IS PRIVILEGED ********\n"
 #define BENCH_MSG_BASELINE_UNPRIV "********* BASELINE BENCHMARK APP IS UNPRIVILEGED ********\n"
@@ -134,6 +131,8 @@ void print_benchmark_msg();
 void BENCHMARK_SINK();
 void benchmark_results(uint32_t benchmark_data1, uint32_t benchmark_data2);
 
+void init_timer0();
+
 /*!
  * \brief Launches the benchmark init sequence procedure
 */
@@ -143,18 +142,7 @@ void START_BENCHMARK();
  * \brief System call that triggers the benchmark end sequence procedure
  */
 // no SVC when privileged
-#define END_BENCHMARK() \
-    __DMB();            \
-    __ISB();            \
-    __DSB();            \
-    asm volatile(" svc #129       \n");
-
-// no SVC when privileged
-#define END_INITIALISATION() \
-    __DMB();                 \
-    __ISB();                 \
-    __DSB();                 \
-    asm volatile(" svc #130       \n");
+void END_BENCHMARK();
 
 #endif /* __BENCHMARK_HELPERS_H__ */
 

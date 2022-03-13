@@ -33,7 +33,11 @@
 
 #include <stdio.h>
 #include "Services.h"
+#if defined(NRF52840_XXAA)
+#include "nrf52840.h"
+#else
 #include "nrf52.h"
+#endif
 #include "core_cm4.h"
 #include "pip_debug.h"
 #include "context.h"
@@ -41,6 +45,7 @@
 #include "pip_interrupt_calls.h"
 #include "ADT.h"
 #ifdef BENCHMARK
+#include "scs.h"
 #include "benchmark_helpers.h"
 #endif // BENCHMARK
 
@@ -224,10 +229,57 @@ void SVC_Handler_C(stacked_context_t *stackedContext)
     case 129: // Stop benchmark (end_cycles_counting)
 		cycles.global_counter = GetCycleCounter(); // get cycle counter
 		DisableCycleCounter();			   // disable counting if not used
-		benchmark_results(stackedContext->registers[R0], stackedContext->registers[R1]);
+		// end benchmark phase in privileged thread mode with irq enabled
+
+		// prepare stack frame on the MSP to not pollute PSP
+		// However, since the MSP is used to check Pip corruption and would
+		// stop the program in exception_entrypoints, we are moving
+		// the PSP pointer to MSP. Also, the PSP points to the top of MSP
+		// since this part has already been used and thus the benchmark stack
+		// won't add any length -> MSP and PSP are not usuable to retrieve information
+		// after this operation
+		uint32_t forceAlign = CCR.STKALIGN; // align to 8 bytes if necessary
+		uint32_t spMask = ~(forceAlign << 2);
+		uint32_t msp_top = &__StackTop;
+		uint32_t framePtrAlign = (msp_top >> 2) & forceAlign;
+		uint32_t frame = (msp_top - FRAME_SIZE) & spMask;
+
+		uint32_t *framePtr = (uint32_t *)frame;
+		framePtr[0] = stackedContext->registers[R0]; // retrieve r0 parameter
+		framePtr[1] = stackedContext->registers[R1]; // retrieve r1 parameter
+		framePtr[2] = 0;
+		framePtr[3] = 0;
+		framePtr[4] = 0;
+		framePtr[5] = 0;
+		framePtr[6] = END_BENCHMARK;
+		framePtr[7] = 0 | (framePtrAlign << 9) | (1 << 24);
+
+		// Remove interrupts masking to allow Timer0
+		__set_BASEPRI(0);
+
+		// Stop SysTick
+		SYST_CSR.ENABLE = 0;
+		NVIC_ClearPendingIRQ(SysTick_IRQn);
+
+		// Switch to Thread mode PRIV (0)
+		__set_CONTROL(__get_CONTROL() & (0 << CONTROL_nPRIV_Pos));
+
+		asm volatile("cpsie   i;"
+					 "msr     psp, %0;" // set PSP to MSP top
+					 //"msr msp, %1;"
+					 "bx      %1;"
+					 /* Output operands */
+					 :
+
+					 /* Input operands */
+					 : "r"(frame),
+					"r"(0xFFFFFFFD) // Use PSP
+
+					 /* Clobbers */
+					 : "memory");
 		break;
 	case 130: // benchmark initialisation phase ended
-		printf("Init ended:%d\n", GetCycleCounter());
+		debug_printf("Init ended:%d\n", GetCycleCounter());
 		cycles.init_end_timestamp = GetCycleCounter(); // get cycle counter
 		// keep privileged counter value after init (global + time in this handler)
 		cycles.init_end_privileged_counter = cycles.global_privileged_counter + (GetCycleCounter() - cycles.handler_start_timestamp);

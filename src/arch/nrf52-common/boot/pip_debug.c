@@ -11,7 +11,7 @@
  */
 void dump_PD_structure(paddr pd)
 {
-#if defined DUMP
+//#if defined DUMP
     PDTable_t* pdt = (PDTable_t*) pd;
     printf("\r\n----------PD %p (size: %zu/%ld)------------\r\n", (void *) pdt, sizeof(PDTable_t), PDSTRUCTURETOTALLENGTH());
     printf("%p:PD\t%p\r\n", (void *) &(pdt->structure), (void *) pdt->structure);
@@ -31,7 +31,7 @@ void dump_PD_structure(paddr pd)
         printf(" %lx ", (pdt->LUT[i*2+1]));
     }
     printf("\r\n");
-#endif // DUMP
+//#endif // DUMP
 }
 
 /*!
@@ -42,7 +42,7 @@ void dump_PD_structure(paddr pd)
  */
 void dump_kernel_structure(paddr kernel_structure_start_addr)
 {
-#if defined DUMP
+//#if defined DUMP
     KStructure_t* ks = (KStructure_t*) kernel_structure_start_addr;
     printf("\r\n----------Kernel structure %p (size: %ld)----\r\n", kernel_structure_start_addr,
                                                                 KERNELSTRUCTURETOTALLENGTH());
@@ -98,7 +98,7 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
     }
 
     printf("\r\n----------next = %p----------------------\r\n", (void *) ks->next);
-#endif // DUMP
+//#endif // DUMP
 }
 
 /*!
@@ -109,7 +109,7 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
  */
 void dump_partition(paddr part)
 {
-#if defined DUMP
+//#if defined DUMP
     dump_PD_structure(part);
     PDTable_t* pdt = (PDTable_t*) part;
     paddr kernel_structure = pdt->structure;
@@ -118,7 +118,7 @@ void dump_partition(paddr part)
         dump_kernel_structure(kernel_structure);
         kernel_structure = readNextFromKernelStructureStart(kernel_structure);
     }
-#endif // DUMP
+//#endif // DUMP
 }
 
 /*!

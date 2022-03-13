@@ -1,0 +1,2 @@
+src/arch/dwm1001/boot/thirdparty/newlib/_exit.c:59:1:_exit	0	static
+/usr/arm-none-eabi/include/stdlib.h:69:6:abort	8	static

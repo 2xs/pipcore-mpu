@@ -33,9 +33,9 @@ size_t strlen(char *str)
 
 	return (s - str);
 }
-
+/*
 void vsnprintf(void)
 {
-	/* TODO */
+	// TODO
 	return;
-}
+}*/

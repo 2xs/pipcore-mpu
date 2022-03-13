@@ -37,11 +37,16 @@
 #include "context.h"
 #include "yield_c.h"
 #include "pip_interrupt_calls.h"
+#if defined(NRF52840_XXAA)
+#include "nrf52840.h"
+#else
 #include "nrf52.h"
+#endif
 #include "mal.h"
 #include "scs.h"
 #if defined (BENCHMARK)
 #include "benchmark_helpers.h"
+#include "pip_debug.h"
 extern uint32_t nbinterrupts;
 #endif // BENCHMARK
 
@@ -152,7 +157,7 @@ yield_return_code_t yieldGlue(
 	}
 
 #if defined BENCHMARK
-	printf("I:%d:%d\n", nbinterrupts++, GetCycleCounter());
+	debug_printf("I:%d:%d\n", nbinterrupts++, GetCycleCounter());
 #endif
 
 	/* Save the value of the stack before the SVC interrupt. */
