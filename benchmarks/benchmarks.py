@@ -132,13 +132,13 @@ def pip_static_metrics(results_pip_dir, bench_dir, benchmarks, sequences):
     try:
         print(f'Configuring {first_bench} in release mode', end='...')
         res = subprocess.run(
-            ["./configure.sh", "--architecture=dwm1001", "--debugging-mode=semihosting",
+            ["./configure.sh", "--architecture=nrf52840", "--debugging-mode=semihosting",
                 f'--boot-sequence={pip_root_scenario}', "--release"],
             capture_output=True,
         )
         if res.returncode != 0:
             print("***NOK***")
-            print(f'Investigate with command: ./configure.sh --architecture=dwm1001--boot-sequence={pip_root_scenario} --release')
+            print(f'Investigate with command: ./configure.sh --architecture=nrf52840--boot-sequence={pip_root_scenario} --release')
             succeeded = False
 
         else:
@@ -451,7 +451,8 @@ def start_process(func, name=None, args = []):
 def init_gdbserver(bench_name):
     try:
         process = subprocess.Popen(
-                    ["/opt/SEGGER/JLink/JLinkGDBServer", "-if", "swd", "-device", "nRF52832_xxAA",
+                    ["/opt/SEGGER/JLink/JLinkGDBServer", "-if", "swd", "-device", "nRF52840_xxAA", #"nRF52832_xxAA",
+                    "-select", "USB=683957092",
                     "-endian", "little", "-speed", "1000", "-port", "2331", "-swoport", "2332",
                     "-telnetport", "2333", "-vd", "-ir", "-localhostonly", "1", "-singlerun", "-strict",
                     "-timeout", "0", "-nogui"],
@@ -522,6 +523,17 @@ def init_gdb(bench_name, results):
     print("OK")
     results = 1
 
+from threading import Timer
+
+class RepeatTimer(Timer):
+    def run(self):
+        while not self.finished.wait(self.interval):
+            self.function(*self.args, **self.kwargs)
+
+def repeat_func(start):
+    #print("-%s" % (str(datetime.timedelta(seconds=(time.time()-start)))))
+    print(".", end='',flush=True)
+
 
 def run_dynamic_metrics(benchmarks, sequence, runs):
     print("\n-----> Collecting dynamic data:")
@@ -529,7 +541,12 @@ def run_dynamic_metrics(benchmarks, sequence, runs):
     for bench in benchmarks:
         print(f'\n***Launching {sequence} benchmark for {bench}***')
         for run in range(1, runs+1):
+            # Start timer thread
             start_run = time.time()
+
+            timer = RepeatTimer(3, repeat_func, args=[time.time()])
+            timer.start()
+
             print("***RUN "+ str(run) + "/" + str(runs) + "***")
             print("Starting GDBServer", end='...')
             gdbs = start_process(init_gdbserver, args=[bench])
@@ -544,6 +561,7 @@ def run_dynamic_metrics(benchmarks, sequence, runs):
             gdb.join()
             tn.join()
             gdbs.join()
+            timer.cancel()
             end_run = time.time()
             print("Run %s ended in %s (HH:MM:SS)" % (run, str(datetime.timedelta(seconds=(end_run-start_run)))))
             # All threads have returned
@@ -792,6 +810,12 @@ def main():
 
     # not working with bench-pip-root
     benchmarks.remove('cubic')
+    benchmarks.remove('edn')
+    benchmarks.remove('minver')
+    benchmarks.remove('nbody')
+    benchmarks.remove('nettle-sha256')
+    benchmarks.remove('qrduino')
+    benchmarks.remove('statemate')
 
     '''
     # working
@@ -799,14 +823,14 @@ def main():
 
     benchmarks.remove('crc32')
 
-    benchmarks.remove('edn')
-    benchmarks.remove('minver')
-    benchmarks.remove('nbody')
-    benchmarks.remove('nettle-sha256')
+
+
+
+
     benchmarks.remove('nsichneu')
     benchmarks.remove('primecount')
-    benchmarks.remove('qrduino')
-    benchmarks.remove('statemate')
+
+
     '''
 
     benchmarks.remove('slre')
@@ -826,13 +850,13 @@ def main():
         print("\n\n-----> Configuring sequence %s" % sequence, end="...")
         try:
             res = subprocess.run(
-                ["./configure.sh", "--architecture=dwm1001", "--debugging-mode=semihosting",
+                ["./configure.sh", "--architecture=nrf52840", "--debugging-mode=semihosting",
                     f'--boot-sequence={sequence}'],
                 capture_output=True,
             )
             if res.returncode != 0:
                 print("***NOK***")
-                print("Investigate with commands: ./configure.sh --architecture=dwm1001 --debugging-mode=semihosting --boot-sequence=%s" % sequence)
+                print("Investigate with commands: ./configure.sh --architecture=nrf52840 --debugging-mode=semihosting --boot-sequence=%s" % sequence)
                 succeeded = False
 
             else:
