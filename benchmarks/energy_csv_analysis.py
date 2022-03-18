@@ -25,7 +25,7 @@ for filename in args.file:
   testphases = []
   df['diffcurrent'] = df['Current (uA)'] - df['Current (uA)'].shift(1) # dataframe of the difference between one period
 
-  testphases = df.index[abs(df['diffcurrent']) > 4000].tolist()
+  testphases = df.index[abs(df['diffcurrent']) > 2000].tolist()
   #print(testphases)
 
 
@@ -38,7 +38,6 @@ for filename in args.file:
 
   plt.plot(df['Current (uA)'])
   plt.plot(df.iloc[testphases_filtered]['Current (uA)'], marker='o', markersize=3, color="red")
-
 
   # The second and the third markers are the test phase start and end
   # remove the first and last points if extrema too avoid overshoot

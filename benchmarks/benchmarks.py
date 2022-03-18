@@ -32,6 +32,8 @@ import shutil
 import json
 from statistics import mean
 import multiprocessing
+import pynrfjprog
+from pynrfjprog import HighLevel
 
 sys.path.append(
     os.path.join(os.path.abspath(os.path.dirname(__file__)), '../../embench-iot')
@@ -85,7 +87,7 @@ def sloc_files(results_pip_dir, files, category_name, static_results):
     static_results["SLOC"]["Total"] += tot_sloc
     return 1
 
-def pip_static_metrics(results_pip_dir, bench_dir, benchmarks, sequences):
+def pip_static_metrics(results_pip_dir, bench_dir, pip_app_dir, benchmarks, sequences):
     print("\n-----> Collecting Pip's static data:\n")
 
     static_results = {}
@@ -93,13 +95,13 @@ def pip_static_metrics(results_pip_dir, bench_dir, benchmarks, sequences):
     # Pip SLOC (Source Lines of Code = same code without comments and blank lines)
     print("Computing Pip's SLOC", end='...')
     # Careful -fpreprocessed does not capture comments splitted with \
-    boot_dir = "src/arch/dwm1001/boot"
+    boot_dir = "src/arch/nrf52-common/boot"
     exceptions = os.path.join(boot_dir, 'exception_handlers.c')
     svc = os.path.join(boot_dir, 'svc_handler.c')
     yield_c = os.path.join(boot_dir, 'yield_c.c')
     pip_interrupt_calls = os.path.join(boot_dir, 'pip_interrupt_calls.c')
     mpu = os.path.join(boot_dir, 'mpu.c')
-    mal_dir = "src/arch/dwm1001/MAL"
+    mal_dir = "src/arch/nrf52-common/MAL"
     malinit = os.path.join(mal_dir, 'malinit.c')
     mal = os.path.join(mal_dir, 'mal.c')
     malinternal = os.path.join(mal_dir, 'malinternal.c')
@@ -152,31 +154,62 @@ def pip_static_metrics(results_pip_dir, bench_dir, benchmarks, sequences):
     if succeeded:
         print(f'Building {first_bench}', end='...')
         try:
-            '''resclean = subprocess.run(
-                ["rm", "-f", "pip.elf"],
-                capture_output=True,
-            )
-            '''
             if "pip" in first_bench :
                 make_cmd = ["make", "-B", "-s"]
                 elf_dir = "."
+                elf_path = "pip.elf"
+                res = subprocess.run(
+                    make_cmd,
+                    capture_output=True,
+                )
+                if res.returncode != 0:
+                    print("***NOK***")
+                    print(f'--> Investigate with shell command: {make_cmd}')
+                    log.warning(f'Warning: Compilation of {first_bench} failed')
+                    succeeded = False
+                else:
+                    log.debug(f'Compilation of {first_bench} successful')
+                    print("OK")
             else :
-                make_cmd = ["make", "-B", "-s", f'BENCH_NAME={first_bench}']
-                elf_dir = os.path.join(bench_dir, f'{first_bench}')
-            res = subprocess.run(
-                make_cmd,
-                capture_output=True,
-            )
-            if res.returncode != 0:
-                print("***NOK***")
-                print(f'--> Investigate with shell command: {make_cmd}')
-                log.warning(f'Warning: Compilation of {first_bench} failed')
-                succeeded = False
+                # Split compilation of Pip and benchmark app
+                # Compile benchmark app
+                res_bench_clean = subprocess.run(
+                        ["make", "-s", "-C", pip_app_dir, "cleanbench-soft"],
+                        capture_output=True,
+                    )
+                res_bench = subprocess.run(
+                        ["make", "-s", "-C", pip_app_dir, f'BENCH_NAME={first_bench}'],
+                        capture_output=True,
+                    )
+                # Compile Pip and link with benchmark app
+                res_pip_clean = subprocess.run(
+                        ["make", "-s", "clean-soft"],
+                        capture_output=True,
+                    )
+                res_pip = subprocess.run(
+                        ["make", "-s", "all"],
+                        capture_output=True,
+                    )
+                res_link = subprocess.run(
+                        ["./root-partition-linker.sh", "pip.bin" , f'{pip_app_dir}/gen_benchmarks/{first_bench}/{first_bench}.bin'],
+                        capture_output=True,
+                    )
+                if res_bench_clean.returncode != 0 or res_bench.returncode != 0\
+                    or res_pip_clean.returncode != 0 or res_pip.returncode != 0 or res_link.returncode != 0:
+                    print("***NOK***")
+                    print(f'--> Investigate with shell commands: 1) make -C {pip_app_dir} BENCH_NAME={first_bench} \
+                            2) make clean-soft\
+                            3) make all\
+                            4) ./root-partition-linker.sh pip.bin {pip_app_dir}/gen_benchmarks/{first_bench}/{first_bench}.bin')
+                    log.warning('Warning: Compilation of benchmark "{first_bench}" failed'.format(bench=first_bench))
+                    succeeded = False
 
-            else:
-                log.debug(f'Compilation of {first_bench} successful')
-                print("OK")
-
+                else:
+                    log.debug(f'Compilation of benchmark {first_bench} successful')
+                    log.info(first_bench)
+                    print("OK")
+                    elf_dir = "."
+                    elf_path = "pip.elf"
         except subprocess.TimeoutExpired:
             log.warning(f'Warning: link of {first_bench}y timed out')
             succeeded = False
@@ -186,7 +219,6 @@ def pip_static_metrics(results_pip_dir, bench_dir, benchmarks, sequences):
             try:
                 pip_static_result_filename = os.path.join(bench_dir, f'results_static_pip_{first_bench}.txt')
                 size_out_fd = open(pip_static_result_filename, 'w+')
-                elf_path = os.path.join(elf_dir, f'{first_bench}.elf')
                 res = subprocess.run(
                     ["size", "-A", elf_path],
                     stdout=size_out_fd,
@@ -223,7 +255,7 @@ def pip_static_metrics(results_pip_dir, bench_dir, benchmarks, sequences):
                 log.warning('Warning: link of benchmark pip-only timed out')
                 succeeded = False
         else:
-                print('ERROR: Not all benchmarks built successfully')
+            print('ERROR: Not all benchmarks built successfully')
 
 def static_metrics(results_dir, bench_dir, benchmarks, sequence):
     successful = True
@@ -288,7 +320,32 @@ def decode_results(file_str):
         results["App_stack_usage"] = app_stack_usage.group(1)
     return results
 
-""" Join the static and the dynamic results """
+def decode_results_energy(file_str):
+    results = {}
+    current_avg = re.search('Average current: (\d+\.\d+) uA', file_str, re.S)
+    if current_avg:
+        results["Current_mean"] = current_avg.group(1)
+    current_max = re.search('Max current: (\d+\.\d+) uA', file_str, re.S)
+    if current_max:
+        results["Current_max"] = current_max.group(1)
+    current_min = re.search('Min current: (\d+\.\d+) uA', file_str, re.S)
+    if current_min:
+        results["Current_min"] = current_min.group(1)
+    current_std = re.search('Std current: (\d+\.\d+) uA', file_str, re.S)
+    if current_std:
+        results["Current_std"] = current_std.group(1)
+    power_avg = re.search('Average power: (\d+\.\d+) mW', file_str, re.S)
+    if power_avg:
+        results["Power_mean"] = power_avg.group(1)
+    energy_tot = re.search('Total energy consumption: (\d+\.\d+|\d+) mWs \(mJ\)', file_str, re.S)
+    if energy_tot:
+        results["Energy_tot"] = energy_tot.group(1)
+    time = re.search('Total test duration: (\d+\.\d+) s', file_str, re.S)
+    if time:
+        results["Time_sec_energy"] = time.group(1)
+    return results
+
+""" Join the static and the dynamic results taking into account all runs """
 def produce_recap(results_dir, benchmarks, sequence, runs):
     # Compute the baseline data we need
     baseline = {}
@@ -316,6 +373,9 @@ def produce_recap(results_dir, benchmarks, sequence, runs):
                         test_cycles_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
                         priv_cycles_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
                         priv_cycles_test_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
+                        current_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
+                        power_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
+                        energy_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
                         cycles_average = 0
                         cycles_min = sys.maxsize
                         cycles_max = 0
@@ -328,7 +388,8 @@ def produce_recap(results_dir, benchmarks, sequence, runs):
                         app_stack_min = sys.maxsize
                         app_stack_max = 0
                         app_stack_var = 0
-                        for run in dynamic_data_all[bench]:
+                        for run_nb in dynamic_data_all[bench]:
+                            run = dynamic_data_all[bench][run_nb]
                             run_cycles = run["Cycles"]
                             cycles_average += run_cycles
                             if cycles_max < run_cycles:
@@ -359,6 +420,24 @@ def produce_recap(results_dir, benchmarks, sequence, runs):
                                 test_cycles_data["max"] = test_cycles
                             if test_cycles_data["min"] > test_cycles:
                                 test_cycles_data["min"] = test_cycles
+                            current = run["Current_mean"]
+                            current_data["average"] += current
+                            if current_data["max"] < current:
+                                current_data["max"] = current
+                            if current_data["min"] > current:
+                                current_data["min"] = current
+                            power = run["Power_mean"]
+                            power_data["average"] += power
+                            if power_data["max"] < power:
+                                power_data["max"] = power
+                            if power_data["min"] > power:
+                                power_data["min"] = power
+                            energy = run["Energy_tot"]
+                            energy_data["average"] += energy
+                            if energy_data["max"] < energy:
+                                energy_data["max"] = energy
+                            if energy_data["min"] > energy:
+                                energy_data["min"] = energy
                             if "pip" in sequence:
                                 # privileged cycles tot
                                 priv_cycles = run["Privileged_cycles_tot_ratio"]
@@ -381,13 +460,20 @@ def produce_recap(results_dir, benchmarks, sequence, runs):
                         test_cycles_data["average"] /= runs
                         priv_cycles_data["average"] /= runs
                         priv_cycles_test_data["average"] /= runs
+                        current_data["average"] /= runs
+                        power_data["average"] /= runs
+                        energy_data["average"] /= runs
                         # Variance
-                        for run in dynamic_data_all[bench]:
+                        for run_nb in dynamic_data_all[bench]:
+                            run = dynamic_data_all[bench][run_nb]
                             cycles_var += (run["Cycles"]-cycles_average)**2
                             main_stack_var += (run["Main_stack_usage"]-main_stack_average)**2
                             app_stack_var += (run["App_stack_usage"]-app_stack_average)**2
                             deployment_time_data["var"] += (run["Deployment_time_sec"]-deployment_time_data["average"])**2
                             test_cycles_data["var"] += (run["Test_cycles"]-test_cycles_data["average"])**2
+                            current_data["var"] += (run["Current_mean"]-current_data["average"])**2
+                            power_data["var"] += (run["Power_mean"]-power_data["average"])**2
+                            energy_data["var"] += (run["Energy_tot"]-energy_data["average"])**2
                             if "pip" in sequence:
                                 priv_cycles_data["var"] += (run["Privileged_cycles_tot_ratio"]-priv_cycles_data["average"])**2
                                 priv_cycles_test_data["var"] += (run["Privileged_cycles_test_ratio"]-priv_cycles_test_data["average"])**2
@@ -398,6 +484,9 @@ def produce_recap(results_dir, benchmarks, sequence, runs):
                         priv_cycles_test_data["var"] /= runs
                         deployment_time_data["var"] /= runs
                         test_cycles_data["var"] /= runs
+                        current_data["var"] /= runs
+                        power_data["var"] /= runs
+                        energy_data["var"] /= runs
                         # Full results
                         dynamic_data[bench] = { 'Cycles_average': cycles_average,
                                                 'Cycles_min': cycles_min,
@@ -419,7 +508,19 @@ def produce_recap(results_dir, benchmarks, sequence, runs):
                                                 'Test_cycles_average': test_cycles_data["average"],
                                                 'Test_cycles_min': test_cycles_data["min"],
                                                 'Test_cycles_max': test_cycles_data["max"],
-                                                'Test_cycles_var': test_cycles_data["var"]
+                                                'Test_cycles_var': test_cycles_data["var"],
+                                                'Current_average': current_data["average"],
+                                                'Current_min': current_data["min"],
+                                                'Current_max': current_data["max"],
+                                                'Current_var': current_data["var"],
+                                                'Power_average': power_data["average"],
+                                                'Power_min': power_data["min"],
+                                                'Power_max': power_data["max"],
+                                                'Power_var': power_data["var"],
+                                                'Energy_tot_average': energy_data["average"],
+                                                'Energy_tot_min': energy_data["min"],
+                                                'Energy_tot_max': energy_data["max"],
+                                                'Energy_tot_var': energy_data["var"]
                                              }
                         if "pip" in sequence:
                             dynamic_data[bench] |= {
@@ -523,6 +624,26 @@ def init_gdb(bench_name, results):
     print("OK")
     results = 1
 
+def energy_monitoring(bench_name, run, sequence, time):
+    try:
+        outfile = os.path.join("generated/benchmarks", bench_name, f'{sequence}_{bench_name}_{run}_energy.csv')
+        res = subprocess.run(
+                    ["../../nRFConnect/ppk_api/ppk/bin/python3", # run in virtual env with pynrfjprog version 9.8.1
+                    "../../nRFConnect/ppk_api/main.py",
+                    "-s", "683926732", # connect to ppk
+                     "-p", # reset board
+                     "-a", f'{time}', # benchmark time
+                     "-o", f'{outfile}', "-z", "-v"], # output csv + graph with same name
+                    #timeout=10,
+                    capture_output=False,
+                )
+
+    except BaseException:
+        print(f'PPK error: {bench_name} failed. Investigate with command: ~/nRFConnect/ppk_api/ppk/bin/python3 ~/nRFConnect/ppk_api/main.py -s 683926732 -p -a 30 -o trig_data.csv -z -v')
+        print("NOK***")
+        return
+    print("OK")
+
 from threading import Timer
 
 class RepeatTimer(Timer):
@@ -535,7 +656,7 @@ def repeat_func(start):
     print(".", end='',flush=True)
 
 
-def run_dynamic_metrics(benchmarks, sequence, runs):
+def run_dynamic_metrics(benchmarks, sequence, runs, energy_analysis):
     print("\n-----> Collecting dynamic data:")
 
     for bench in benchmarks:
@@ -543,7 +664,6 @@ def run_dynamic_metrics(benchmarks, sequence, runs):
         for run in range(1, runs+1):
             # Start timer thread
             start_run = time.time()
-
             timer = RepeatTimer(3, repeat_func, args=[time.time()])
             timer.start()
 
@@ -561,9 +681,14 @@ def run_dynamic_metrics(benchmarks, sequence, runs):
             gdb.join()
             tn.join()
             gdbs.join()
-            timer.cancel()
             end_run = time.time()
-            print("Run %s ended in %s (HH:MM:SS)" % (run, str(datetime.timedelta(seconds=(end_run-start_run)))))
+            delta = end_run-start_run
+            print("Run %s ended in %s (HH:MM:SS)" % (run, str(datetime.timedelta(seconds=(delta)))))
+            if energy_analysis:
+                # Start an energy analysis on the flashed firmware (can't monitor at the same time because of debugger)
+                ppk = start_process(energy_monitoring, args=[bench, run, sequence, round(delta)])
+                ppk.join()
+            timer.cancel()
             # All threads have returned
 
 def analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence):
@@ -575,7 +700,7 @@ def analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence):
             file_path = os.path.join(dir_path, f)
             if os.path.isfile(file_path):
                 filename, file_extension = os.path.splitext(file_path)
-                if file_extension == ".txt" and sequence in filename:
+                if file_extension == ".txt" and sequence in filename and "energy" not in filename:
                     with open(file_path) as fdata:
                         read_data = fdata.read()
                         data = decode_results(read_data)
@@ -586,8 +711,7 @@ def analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence):
                         priv_cycles_test = int(data["Privileged_cycles_test"])
                         file_name = re.search('.*_(\D+\d*)_(\d+).*$', f, re.S)
                         if file_name:
-                            run_res_out = { 'Run': int(file_name.group(2)),
-                                            'Cycles': cycles,
+                            run_res_out = { 'Cycles': cycles,
                                             'Time_sec': float(cycles) / float(64000000), # TODO: set real cpu frequency
                                             'Main_stack_usage': int(data["Main_stack_usage"]),
                                             'App_stack_usage': int(data["App_stack_usage"]),
@@ -604,12 +728,55 @@ def analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence):
                                     'Privileged_cycles_test_ratio' : float(priv_cycles_test)/float(cycles-init_end_cycles)
                                 }
                             '''
+                            run_nb = int(file_name.group(2))
                             if file_name.group(1) not in dynamic_results:
-                                dynamic_results[file_name.group(1)] = []
-                            dynamic_results[file_name.group(1)].append(run_res_out)
+                                dynamic_results[file_name.group(1)] = {}
+                            if run_nb not in dynamic_results[file_name.group(1)]:
+                                dynamic_results[file_name.group(1)][run_nb] = {}
+                            dynamic_results[file_name.group(1)][run_nb] |= run_res_out
                         else:
                             print("***Error: Didn't find any output for " + f)
                             sys.exit(1)
+                if file_extension == ".csv" and sequence in filename:
+                    out_energy_file_path = f'{filename}_analysis.txt'
+                    out_energy_file = open(out_energy_file_path, 'w')
+                    res = subprocess.run(
+                                ["python3",
+                                "benchmarks/energy_csv_analysis.py",
+                                f'{file_path}'],
+                                #timeout=10,
+                                stdout=out_energy_file,
+                            )
+                    out_energy_file.close()
+
+                    if res.returncode != 0:
+                        print("***NOK***")
+                        print(f'Investigate with command: python3 benchmarks/energy_csv_analysis.py {file_path}')
+                        return 0
+                    else:
+                        out_energy_file = open(out_energy_file_path, 'r')
+                        with open(out_energy_file_path, 'r') as fdata:
+                            read_data = fdata.read()
+                            data = decode_results_energy(read_data)
+                            file_name = re.search('.*_(\D+\d*)_(\d+).*$', f, re.S)
+                            if file_name:
+                                run_res_out = { 'Time_test_sec': float(data["Time_sec_energy"]),
+                                                'Current_mean': float(data["Current_mean"]),
+                                                'Current_max' : float(data["Current_max"]),
+                                                'Current_min' : float(data["Current_min"]),
+                                                'Current_std' : float(data["Current_std"]),
+                                                'Power_mean' : float(data["Power_mean"]),
+                                                'Energy_tot' : float(data["Energy_tot"])
+                                            }
+                                run_nb = int(file_name.group(2))
+                                if file_name.group(1) not in dynamic_results:
+                                    dynamic_results[file_name.group(1)] = {}
+                                if run_nb not in dynamic_results[file_name.group(1)]:
+                                    dynamic_results[file_name.group(1)][run_nb] = {}
+                                dynamic_results[file_name.group(1)][run_nb] |= run_res_out
+                            else:
+                                print("***Error: Didn't find any output for " + f)
+                                sys.exit(1)
     res_dyn_filename = 'results_dynamic_' + str(sequence) + '.json'
     baseline_file = os.path.join(results_dir, res_dyn_filename)
     with open(baseline_file, "w") as outfile:
@@ -639,6 +806,7 @@ def compare_baseline(results_dir, sequence, baseline_name):
         with open(recap_file) as frecap:
             data = json.load(frecap)
             for bench in data:
+                # Load average on ALL benchmark runs
                 base_cycles = b_data[bench]["Dynamic"]["Cycles_average"]
                 sequence_cycles = data[bench]["Dynamic"]["Cycles_average"]
                 base_time = b_data[bench]["Dynamic"]["Time_sec_average"]
@@ -652,10 +820,17 @@ def compare_baseline(results_dir, sequence, baseline_name):
                 #base_privileged_cycles = b_data[bench]["Dynamic"]["Privileged_cycles_test"] # 100% we don't care
                 sequence_privileged_cycles_tot_ratio = data[bench]["Dynamic"]["Privileged_cycles_tot_ratio_average"]
                 sequence_privileged_cycles_test_ratio = data[bench]["Dynamic"]["Privileged_cycles_test_ratio_average"]
+                base_current = b_data[bench]["Dynamic"]["Current_average"]
+                sequence_current = data[bench]["Dynamic"]["Current_average"]
+                base_power = b_data[bench]["Dynamic"]["Power_average"]
+                sequence_power = data[bench]["Dynamic"]["Power_average"]
+                base_energy = b_data[bench]["Dynamic"]["Energy_tot_average"]
+                sequence_energy = data[bench]["Dynamic"]["Energy_tot_average"]
                 base_indirect_calls = b_data[bench]["Static"]["Indirect_calls"]
                 sequence_indirect_calls = data[bench]["Static"]["Indirect_calls"]
                 base_gadgets = b_data[bench]["Static"]["ROP_gadgets"]
                 sequence_gadgets = data[bench]["Static"]["ROP_gadgets"]
+                # Compute relative compared to baseline
                 rel_baseline_data[bench] = {"Dynamic" : {
                                                             "Cycles_rel_average" : sequence_cycles*100/base_cycles if base_cycles != 0 else sequence_cycles,
                                                             "Cycles_base_var" : b_data[bench]["Dynamic"]["Cycles_var"],
@@ -679,19 +854,32 @@ def compare_baseline(results_dir, sequence, baseline_name):
                                                             "Test_cycles_rel_average":  sequence_test_cycles*100/base_test_cycles if base_test_cycles != 0 else sequence_test_cycles,
                                                             "Test_cycles_base_var" : b_data[bench]["Dynamic"]["Test_cycles_var"],
                                                             f'Test_cycles_{sequence}_var' : int(data[bench]["Dynamic"]["Test_cycles_var"]),
+                                                            "Current_rel_average" : sequence_current*100/base_current if base_current != 0 else sequence_current,
+                                                            "Current_base_var" : b_data[bench]["Dynamic"]["Current_var"],
+                                                            f'Current_{sequence}_var' : int(data[bench]["Dynamic"]["Current_var"]),
+                                                            "Power_rel_average" : sequence_power*100/base_power if base_power != 0 else sequence_power,
+                                                            "Power_base_var" : b_data[bench]["Dynamic"]["Power_var"],
+                                                            f'Power_{sequence}_var' : int(data[bench]["Dynamic"]["Power_var"]),
+                                                            "Energy_tot_rel" : sequence_energy*100/base_energy if base_energy != 0 else sequence_energy,
+                                                            "Energy_tot_base_var" : b_data[bench]["Dynamic"]["Energy_tot_var"],
+                                                            f'Energy_tot_{sequence}_var' : int(data[bench]["Dynamic"]["Energy_tot_var"]),
                                                         },
                                             "Static" : {
                                                             "Indirect_calls_overhead" : sequence_indirect_calls - base_indirect_calls,
                                                             "ROP_gadgets_overhead": sequence_gadgets - base_gadgets
                                                         }
                                             }
+                # Compute global stats on ALL benchmarks of all benchmark runs
                 if "Cycles_rel_total_mean" not in rel_total_recap_mean \
                     or "Test_cycles_rel_total_mean" not in rel_total_recap_mean \
                     or "Privileged_cycles_tot_ratio_rel_total_mean" not in rel_total_recap_mean \
                     or "Privileged_cycles_test_ratio_rel_total_mean" not in rel_total_recap_mean \
                     or "Time_sec_rel_average" not in rel_total_recap_mean \
                     or "Indirect_calls_overhead" not in rel_total_recap_mean \
-                    or "ROP_gadgets_overhead" not in rel_total_recap_mean :
+                    or "ROP_gadgets_overhead" not in rel_total_recap_mean \
+                    or "Current_rel_total_mean" not in rel_total_recap_mean \
+                    or "Power_rel_total_mean" not in rel_total_recap_mean \
+                    or "Energy_tot_rel_total_mean" not in rel_total_recap_mean :
                     rel_total_recap_mean["Cycles_rel_total_mean"] = []
                     rel_total_recap_mean["Test_cycles_rel_total_mean"] = []
                     rel_total_recap_mean["Privileged_cycles_tot_ratio_rel_total_mean"] = []
@@ -699,6 +887,9 @@ def compare_baseline(results_dir, sequence, baseline_name):
                     rel_total_recap_mean["Time_sec_rel_total_mean"] = []
                     rel_total_recap_mean["Indirect_calls_overhead_total_mean"] = []
                     rel_total_recap_mean["ROP_gadgets_overhead_total_mean"] = []
+                    rel_total_recap_mean["Current_rel_total_mean"] = []
+                    rel_total_recap_mean["Power_rel_total_mean"] = []
+                    rel_total_recap_mean["Energy_tot_rel_total_mean"] = []
                     #rel_total_recap_mean["bss_rel_total_mean"] = []
                     #rel_total_recap_mean["data_rel_total_mean"] = []
                     #rel_total_recap_mean["rodata_rel_total_mean"] = []
@@ -709,6 +900,9 @@ def compare_baseline(results_dir, sequence, baseline_name):
                 rel_total_recap_mean["Privileged_cycles_tot_ratio_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Privileged_cycles_tot_ratio_rel_average"])
                 rel_total_recap_mean["Privileged_cycles_test_ratio_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Privileged_cycles_test_ratio_rel_average"])
                 rel_total_recap_mean["Time_sec_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Time_sec_rel_average"])
+                rel_total_recap_mean["Current_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Current_rel_average"])
+                rel_total_recap_mean["Power_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Power_rel_average"])
+                rel_total_recap_mean["Energy_tot_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Energy_tot_rel"])
                 #rel_total_recap_mean["Main_stack_base_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Main_stack_base"])
                 #rel_total_recap_mean["Main_stack_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Main_stack_rel_average"])
                 #rel_total_recap_mean["App_stack_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["App_stack_rel_average"])
@@ -724,6 +918,9 @@ def compare_baseline(results_dir, sequence, baseline_name):
                                     "Test_cycles_rel_average_tot" :  mean(rel_total_recap_mean["Test_cycles_rel_total_mean"]),
                                     #"Main_stack_rel_average_tot" :  mean(rel_total_recap_mean["Main_stack_rel_total_mean"]),
                                     #"App_stack_rel_average_tot" :  mean(rel_total_recap_mean["App_stack_rel_total_mean"]),
+                                    "Current_rel_average_tot" :  mean(rel_total_recap_mean["Current_rel_total_mean"]),
+                                    "Power_rel_average_tot" :  mean(rel_total_recap_mean["Power_rel_total_mean"]),
+                                    "Energy_tot_rel_average_tot" :  mean(rel_total_recap_mean["Energy_tot_rel_total_mean"]),
                                     "Indirect_calls_rel_average_tot" :  mean(rel_total_recap_mean["Indirect_calls_overhead_total_mean"]),
                                     "ROP_gadgets_rel_average_tot" :  mean(rel_total_recap_mean["ROP_gadgets_overhead_total_mean"]),
                                     "Privileged_cycles_tot_ratio_rel_average_tot" :  mean(rel_total_recap_mean["Privileged_cycles_tot_ratio_rel_total_mean"]),
@@ -750,7 +947,7 @@ def main():
 
     runs = 1
 
-    do_all = False
+    do_all = False # do not include energy analysis
     build_only= False
     dynamic_analysis_only = False
     dynamic_analysis_only_no_run = False
@@ -758,11 +955,14 @@ def main():
     pip_static_analysis_only = False
     recap_only = False
     baseline_compare_only = False
+    energy_analysis = False
 
     args = sys.argv[1:]
 
-    if(len(sys.argv)==1):
+    if(len(sys.argv)==1 or (len(sys.argv)==2 and "energy" in args)):
         do_all = True
+        if "energy" in args:
+            energy_analysis = True
     else:
         for arg in args:
             if "build" in arg:
@@ -780,6 +980,8 @@ def main():
                 recap_only = True
             if "compare" in arg:
                 baseline_compare_only = True
+            if "energy" in arg:
+                energy_analysis = True
 
     if do_all:
         if(os.path.isdir(results_dir)):
@@ -790,7 +992,7 @@ def main():
         Path(results_pip_dir).mkdir(parents=True, exist_ok=True) # create dir
 
     baseline_name = "bench-baseline-priv-w-systick"
-    benchmark_directory = "../pip-mpu-benchmark"
+    pip_app_dir = "../pip-mpu-benchmark"
     # Find the benchmarks
     #benchmarks = []
     benchmarks = find_benchmarks()
@@ -838,6 +1040,23 @@ def main():
 
 
     #not working
+
+    # snrs can be checked with the command "nrfjprog -i"
+    with HighLevel.API('NRF52') as api:
+        snrs = api.get_connected_probes()
+        print(f'Connected boards SN: {snrs}')
+        if len(snrs) == 1 and 683957092 in snrs:
+            if energy_analysis:
+                print("***ERROR: PPK not connected, energy analysis cannot be performed, stop")
+                sys.exit(0)
+        if len(snrs) == 1 and 683926732 in snrs:
+            if energy_analysis:
+                print("***ERROR: Board not detected, energy analysis cannot be performed, stop")
+                sys.exit(0)
+        if len(snrs) == 2 and not energy_analysis:
+            # With the two boards connected, there is a risk of erasing the PPK HW by the benchmark FW
+            # -> no issue if the boards are identified in the segger commands used later
+            print("***Warning: risk of erasing connected PPK FW")
 
     #benchmarks = ['aha-mont64', 'crc32', 'cubic', 'edn', 'huffbench']
     print("benchmarks.py: Considered benchmarks: %s " % benchmarks)
@@ -899,11 +1118,11 @@ def main():
                         # Split compilation of Pip and benchmark app
                         # Compile benchmark app
                         res_bench_clean = subprocess.run(
-                                ["make", "-s", "-C", benchmark_directory, "cleanbench-soft"],
+                                ["make", "-s", "-C", pip_app_dir, "cleanbench-soft"],
                                 capture_output=True,
                             )
                         res_bench = subprocess.run(
-                                ["make", "-s", "-C", benchmark_directory, "BENCH_NAME=" + bench],
+                                ["make", "-s", "-C", pip_app_dir, "BENCH_NAME=" + bench],
                                 capture_output=True,
                             )
                         # Compile Pip and link with benchmark app
@@ -916,17 +1135,17 @@ def main():
                                 capture_output=True,
                             )
                         res_link = subprocess.run(
-                                ["./root-partition-linker.sh", "pip.bin" , f'{benchmark_directory}/gen_benchmarks/{bench}/{bench}.bin',
+                                ["./root-partition-linker.sh", "pip.bin" , f'{pip_app_dir}/gen_benchmarks/{bench}/{bench}.bin',
                                  f'{bench_dir}/{bench}/{bench}.elf'],
                                 capture_output=True,
                             )
                         if res_bench_clean.returncode != 0 or res_bench.returncode != 0\
                             or res_pip_clean.returncode != 0 or res_pip.returncode != 0 or res_link.returncode != 0:
                             print("***NOK***")
-                            print(f'--> Investigate with shell commands: 1) make -C {benchmark_directory} BENCH_NAME={bench} \
+                            print(f'--> Investigate with shell commands: 1) make -C {pip_app_dir} BENCH_NAME={bench} \
                                     2) make clean-soft\
                                     3) make all\
-                                 4) ./root-partition-linker.sh pip.bin {benchmark_directory}/gen_benchmarks/{bench}/{bench}.bin {bench_dir}/{bench}/{bench}.elf')
+                                 4) ./root-partition-linker.sh pip.bin {pip_app_dir}/gen_benchmarks/{bench}/{bench}.bin {bench_dir}/{bench}/{bench}.elf')
                             log.warning('Warning: Compilation of benchmark "{bench}" failed'.format(bench=bench))
                             succeeded = False
 
@@ -946,7 +1165,7 @@ def main():
                 sys.exit(1)
 
         if do_all or dynamic_analysis_only:
-            run_dynamic_metrics(benchmarks, sequence, runs)
+            run_dynamic_metrics(benchmarks, sequence, runs, energy_analysis)
 
         if do_all or dynamic_analysis_only or dynamic_analysis_only_no_run:
             analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence)
@@ -961,7 +1180,7 @@ def main():
             compare_baseline(results_dir, sequence, baseline_name)
 
     if do_all or pip_static_analysis_only:
-        pip_static_metrics(results_pip_dir, bench_dir, benchmarks, boot_sequences)
+        pip_static_metrics(results_pip_dir, bench_dir, pip_app_dir, benchmarks, boot_sequences)
     end = time.time()
     print("\n\nDONE in %s (HH:MM:SS): Nothing to do left" % str(datetime.timedelta(seconds=(end-start))))
 
