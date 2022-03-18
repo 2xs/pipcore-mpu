@@ -37,6 +37,10 @@
 
 #include "nrf_gpio.h"
 
+#if defined(NRF52840_XXAA)
+#include "pca10056.h"
+#endif
+
 extern uint32_t __StackTop;
 extern uint32_t __StackLimit;
 extern uint32_t user_stack_limit;
@@ -106,6 +110,15 @@ extern cycles_t cycles;
 #define LED_1 31 // Blue
 #define LED_2 22 // Red
 #define LED_3 14 // Red
+
+#define LEDS_NUMBER 4
+
+#define LEDS_ACTIVE_STATE 0
+
+#define LEDS_LIST                  \
+    {                              \
+        LED_0, LED_1, LED_2, LED_3 \
+    }
 #endif
 
 #define BENCH_MSG_BASELINE_PRIV "********* BASELINE BENCHMARK APP IS PRIVILEGED ********\n"

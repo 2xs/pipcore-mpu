@@ -288,7 +288,7 @@ void SVC_Handler_C(stacked_context_t *stackedContext)
 		printf("%d\n", GetCycleCounter());
 		break;
 	case 132: // Printf number
-		printf("%d\n", stackedContext->registers[R0]);
+		printf("%d %d\n", stackedContext->registers[R0], GetCycleCounter());
 		break;
 #endif // BENCHMARK
     default:

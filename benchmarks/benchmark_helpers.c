@@ -45,6 +45,7 @@
 cycles_t cycles = {.init_end_timestamp = 0, .handler_start_timestamp = 0, .global_privileged_counter = 0, .init_end_privileged_counter = 0, .global_counter = 0};
 uint32_t main_stack_top;
 uint32_t app_stack_top;
+
 static const uint8_t m_board_led_list[LEDS_NUMBER] = LEDS_LIST;
 
 void init_timer0(void)
@@ -85,6 +86,41 @@ void flash_leds(){
 		nrf_gpio_pin_write(m_board_led_list[i], LEDS_ACTIVE_STATE ? 0 : 1);
 	}
 	for (volatile int i = 0; i < 1000000; i++);
+
+	// Trigger External benchmark start
+#if defined(NRF52832_XXAA)
+	nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
+	nrf_gpio_pin_write(13, 1);
+	/*
+		int j = 0, i = 0;
+		for (int k = 0 ; k < 5 ; k++){
+			for (i = 0; i < 10000000; i++)
+				j += i;
+			nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
+			nrf_gpio_pin_write(13, 1);
+			nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
+			nrf_gpio_pin_write(LED_0, 0); // 0 = Light the LED
+			nrf_gpio_pin_dir_set(LED_1, NRF_GPIO_PIN_DIR_OUTPUT);
+			nrf_gpio_pin_write(LED_1, 0); // 0 = Light the LED
+			nrf_gpio_pin_dir_set(LED_2, NRF_GPIO_PIN_DIR_OUTPUT);
+			nrf_gpio_pin_write(LED_2, 0); // 0 = Light the LED
+			nrf_gpio_pin_dir_set(LED_3, NRF_GPIO_PIN_DIR_OUTPUT);
+			nrf_gpio_pin_write(LED_3, 0); // 0 = Light the LED
+			j = 0;
+			for(i = 0 ; i<10000000;i++)
+				j += i;
+			nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
+			nrf_gpio_pin_write(13, j&1);
+			nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
+			nrf_gpio_pin_write(LED_0, 1); // 0 = Light the LED
+			nrf_gpio_pin_dir_set(LED_1, NRF_GPIO_PIN_DIR_OUTPUT);
+			nrf_gpio_pin_write(LED_1, 1); // 0 = Light the LED
+			nrf_gpio_pin_dir_set(LED_2, NRF_GPIO_PIN_DIR_OUTPUT);
+			nrf_gpio_pin_write(LED_2, 1); // 0 = Light the LED
+			nrf_gpio_pin_dir_set(LED_3, NRF_GPIO_PIN_DIR_OUTPUT);
+			nrf_gpio_pin_write(LED_3, 1); // 0 = Light the LED
+		}*/
+#endif
 }
 
 void START_BENCHMARK()
@@ -96,10 +132,21 @@ void START_BENCHMARK()
 	prepare_stack_usage_measurement(&user_mem_start, &user_mem_end); /* mark RAM */
 	debug_printf("Slack time for PPK -> ");
 
+#if defined(NRF52832_XXAA)
+	nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
+	nrf_gpio_pin_write(LED_0, 0); // 0 = Light the LED
+	nrf_gpio_pin_dir_set(LED_1, NRF_GPIO_PIN_DIR_OUTPUT);
+	nrf_gpio_pin_write(LED_1, 0); // 0 = Light the LED
+	nrf_gpio_pin_dir_set(LED_2, NRF_GPIO_PIN_DIR_OUTPUT);
+	nrf_gpio_pin_write(LED_2, 0); // 0 = Light the LED
+	nrf_gpio_pin_dir_set(LED_3, NRF_GPIO_PIN_DIR_OUTPUT);
+	nrf_gpio_pin_write(LED_3, 0); // 0 = Light the LED
+#else
 	for (int i = 0; i < LEDS_NUMBER; i++)
 	{
 		nrf_gpio_cfg_output(m_board_led_list[i]);
 	}
+#endif
 	for (int j=0; j < 2; j++){
 		flash_leds();
 		for (volatile int i = 0; i < 10000000; i++);
@@ -215,46 +262,6 @@ start_cycles_counting()
 	// Enable cycle counting
 	InitCycleCounter();	 // enable DWT
 	ResetCycleCounter(); // reset DWT cycle counter
-	// Trigger External benchmark start
-	/*nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
-	nrf_gpio_pin_write(13, 1);
-	nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
-	nrf_gpio_pin_write(LED_0, 0); // 0 = Light the LED
-	nrf_gpio_pin_dir_set(LED_1, NRF_GPIO_PIN_DIR_OUTPUT);
-	nrf_gpio_pin_write(LED_1, 0); // 0 = Light the LED
-	nrf_gpio_pin_dir_set(LED_2, NRF_GPIO_PIN_DIR_OUTPUT);
-	nrf_gpio_pin_write(LED_2, 0); // 0 = Light the LED
-	nrf_gpio_pin_dir_set(LED_3, NRF_GPIO_PIN_DIR_OUTPUT);
-	nrf_gpio_pin_write(LED_3, 0); // 0 = Light the LED*/
-	/*
-	int j = 0, i = 0;
-	for (int k = 0 ; k < 5 ; k++){
-		for (i = 0; i < 10000000; i++)
-			j += i;
-		nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
-		nrf_gpio_pin_write(13, 1);
-		nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
-		nrf_gpio_pin_write(LED_0, 0); // 0 = Light the LED
-		nrf_gpio_pin_dir_set(LED_1, NRF_GPIO_PIN_DIR_OUTPUT);
-		nrf_gpio_pin_write(LED_1, 0); // 0 = Light the LED
-		nrf_gpio_pin_dir_set(LED_2, NRF_GPIO_PIN_DIR_OUTPUT);
-		nrf_gpio_pin_write(LED_2, 0); // 0 = Light the LED
-		nrf_gpio_pin_dir_set(LED_3, NRF_GPIO_PIN_DIR_OUTPUT);
-		nrf_gpio_pin_write(LED_3, 0); // 0 = Light the LED
-		j = 0;
-		for(i = 0 ; i<10000000;i++)
-			j += i;
-		nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
-		nrf_gpio_pin_write(13, j&1);
-		nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
-		nrf_gpio_pin_write(LED_0, 1); // 0 = Light the LED
-		nrf_gpio_pin_dir_set(LED_1, NRF_GPIO_PIN_DIR_OUTPUT);
-		nrf_gpio_pin_write(LED_1, 1); // 0 = Light the LED
-		nrf_gpio_pin_dir_set(LED_2, NRF_GPIO_PIN_DIR_OUTPUT);
-		nrf_gpio_pin_write(LED_2, 1); // 0 = Light the LED
-		nrf_gpio_pin_dir_set(LED_3, NRF_GPIO_PIN_DIR_OUTPUT);
-		nrf_gpio_pin_write(LED_3, 1); // 0 = Light the LED
-	}*/
 	EnableCycleCounter(); // start counting
 }
 
