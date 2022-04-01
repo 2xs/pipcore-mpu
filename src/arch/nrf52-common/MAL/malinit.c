@@ -86,6 +86,8 @@ extern uint32_t _sram;
 
 void *user_alloc_pos = NULL;
 
+uint32_t unused_RAM_start;
+
 paddr __attribute__((section(".bss_pip"))) blockentryaddr_flash = NULL;
 paddr __attribute__((section(".bss_pip"))) blockentryaddr_ram0 = NULL;
 paddr __attribute__((section(".bss_pip"))) blockentryaddr_ram1 = NULL;
@@ -154,19 +156,24 @@ void mal_init_root_part(paddr part)
 	enableBlockInMPU(part, blockentryaddr_ram, 1);
 	enableBlockInMPU(part, blockentryaddr_periph, 2);*/
 
+	uint32_t unused_RAM_size = next_pow2(user_alloc_pos - 0x20000000);
+	unused_RAM_start = 0x20000000 + unused_RAM_size;
+
+	debug_printf("Unused RAM : %x %d", unused_RAM_start, unused_RAM_size);
+
 	// One FLASH block + three RAM block (RW data + available memory + stack) + peripheral block -> not separated compilation
 	blockentryaddr_flash = insertNewEntry(part, (paddr)0, (paddr)0x00080000, (paddr)0, true, false, true, readPDNbFreeSlots(part));
-	blockentryaddr_ram0 = insertNewEntry(part, (paddr)0x20000000, /*user_alloc_pos*/0x20002600 - 1, (paddr)0x20000000, true, true, false, readPDNbFreeSlots(part));
-	blockentryaddr_ram1 = insertNewEntry(part, /*user_alloc_pos*/ 0x20002600, (paddr)0x20007FFF, (paddr)0x20000000, true, true, false, readPDNbFreeSlots(part));
+	//blockentryaddr_ram0 = insertNewEntry(part, (paddr)0x20000000 /*user_alloc_pos*/ /*0x20002600*/ (paddr)0x20007FFF, (paddr)0x20000000, true, true, false, readPDNbFreeSlots(part));
+	blockentryaddr_ram1 = insertNewEntry(part, /*user_alloc_pos*/ /*0x20002600*/ (paddr)unused_RAM_start, (paddr)0x20007FFF, (paddr)/*0x20000000*/ unused_RAM_start, true, true, false, readPDNbFreeSlots(part));
 	blockentryaddr_ram2 = insertNewEntry(part, (paddr)0x20008000, &user_stack_top, (paddr)0x20008000, true, true, false, readPDNbFreeSlots(part));
-	blockentryaddr_periph = insertNewEntry(part, (paddr)0x40000000, (paddr)0x5FFFFFFF, (paddr)0x40000000, true, true, false, readPDNbFreeSlots(part));
+	//blockentryaddr_periph = insertNewEntry(part, (paddr)0x40000000, (paddr)0x5FFFFFFF, (paddr)0x40000000, true, true, false, readPDNbFreeSlots(part));
 
 	// Map 4 blocks -> flash, 2 ram blocks + peripherals
   	enableBlockInMPU(part, blockentryaddr_flash, 0); // Entire Flash
-  	enableBlockInMPU(part, blockentryaddr_ram0, 1); // RW region containing the data+bss
-  	enableBlockInMPU(part, blockentryaddr_ram1, 2);
-  	enableBlockInMPU(part, blockentryaddr_ram2, 3); // Stack: !never touch!, should always be enabled in MPU
-	enableBlockInMPU(part, blockentryaddr_periph, 4); // Peripherals
+  	//enableBlockInMPU(part, blockentryaddr_ram0, 1);
+	enableBlockInMPU(part, blockentryaddr_ram1, 2); // RW region containing the data+bss -> must be enabled for initial copy
+	enableBlockInMPU(part, blockentryaddr_ram2, 3); // Stack: !never touch!, should always be enabled in MPU
+	//enableBlockInMPU(part, blockentryaddr_periph, 4); // Peripherals
 
 	//dump_mpu();
 

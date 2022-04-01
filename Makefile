@@ -47,6 +47,7 @@ SED := sed
 
 CFLAGS=-Wall -Wextra
 CFLAGS+=-std=gnu99
+CFLAGS+= -mfloat-abi=softfp
 
 CFLAGS+=$(ARCH_CFLAGS)
 ASFLAGS=$(ARCH_ASFLAGS)

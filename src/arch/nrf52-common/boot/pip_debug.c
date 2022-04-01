@@ -131,12 +131,14 @@ void dump_partition(paddr part)
 void dump_ancestors(paddr base_child_PD)
 {
 #if defined DUMP
+    paddr global_pd = readBlockStartFromBlockEntryAddr(base_child_PD);
     paddr root_partition = getRootPartition();
-    while(base_child_PD != root_partition){
-        dump_partition(base_child_PD);
-        base_child_PD = readPDParent(base_child_PD);
+    while (global_pd != root_partition)
+    {
+        dump_partition(global_pd);
+        global_pd = readPDParent(global_pd);
     }
-    if(base_child_PD == root_partition)
+    if (global_pd == root_partition)
         dump_partition(root_partition);
 #endif // DUMP
 }

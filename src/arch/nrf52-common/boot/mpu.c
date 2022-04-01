@@ -39,6 +39,7 @@ int mpu_disable(void) {
 #endif
 }
 
+#if !defined(WO_MPU)
 /*!
  * \fn int mpu_enable(void)
  * \brief Enable the physical MPU with the PRIVDEFENA flag
@@ -76,6 +77,18 @@ int mpu_enabled(void) {
     return 0;
 #endif
 }
+
+#else
+/* MPU is disabled in reality = mock */
+int mpu_enable(void)
+{
+    return 0;
+}
+int mpu_enabled(void)
+{
+    return 1;
+}
+#endif // WO_MPU
 
 /*!
  * \fn int mpu_init(void)

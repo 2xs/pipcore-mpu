@@ -65,7 +65,8 @@ arm-none-eabi-ld -o "$elf" "$1" root_partition.o -L "src/arch/nrf52-common" -T "
 rm -f root_partition.S root_partition.o
 printf 'Created elf file: %s\n' "$elf"
 printf 'For debuging:\n'
-printf 'arm-none-eabi-objdump -x pip.elf | grep smultiplexer\n'
-printf 'add-symbol-file ../pip-mpu-benchmark/gen_benchmarks/aha-mont64/aha-mont64.elf 0xccc0\n'
+printf 'arm-none-eabi-objdump -x pip.elf | grep smultiplexer -> '
+arm-none-eabi-objdump -x pip.elf | grep smultiplexer
+printf '\nadd-symbol-file ../pip-mpu-benchmark/gen_benchmarks/aha-mont64/aha-mont64.elf 0xccc0\n'
 printf '\nWARNING: using %s\n' "$link_script"
 exit 0

@@ -88,6 +88,8 @@ extern uint32_t user_stack_top;
 extern void *__multiplexer;
 extern void *user_alloc_pos;
 
+extern uint32_t unused_RAM_start;
+
 extern paddr blockentryaddr_flash;
 extern paddr blockentryaddr_ram0;
 extern paddr blockentryaddr_ram1;
@@ -240,10 +242,10 @@ uint8_t *sp = (uint8_t *)&user_stack_top;
 	/* Copy arguments onto the stack */
 	argv[0] = (uint32_t) getRootPartition();
 	argv[1] = (uint32_t) blockentryaddr_flash;
-	argv[2] = (uint32_t) blockentryaddr_ram0;
+	//argv[2] = (uint32_t) blockentryaddr_ram0;
 	argv[3] = (uint32_t) blockentryaddr_ram1;
 	argv[4] = (uint32_t) blockentryaddr_ram2;
-	argv[5] = (uint32_t) blockentryaddr_periph;
+	//argv[5] = (uint32_t) blockentryaddr_periph;
 
 	/* Declare the context of the root partition on the MSP in order
 	 * to start it. This context is not stored in a VIDT. */
@@ -260,7 +262,7 @@ uint8_t *sp = (uint8_t *)&user_stack_top;
 	rootPartitionContext.registers[R0]  = argc;
 	rootPartitionContext.registers[R1]  = (uint32_t) argv;
 	rootPartitionContext.registers[R9]  = (uint32_t) &__multiplexer;
-	rootPartitionContext.registers[R10] = (uint32_t) /*user_alloc_pos*/ 0x20002600;
+	rootPartitionContext.registers[R10] = (uint32_t) /*user_alloc_pos*/ /*0x20002600*/ unused_RAM_start;
 	rootPartitionContext.registers[PC]  = (uint32_t) &__multiplexer;
 	rootPartitionContext.registers[SP]  = (uint32_t) argv;
 	rootPartitionContext.pipflags       = 0;

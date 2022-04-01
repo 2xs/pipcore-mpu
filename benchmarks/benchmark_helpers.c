@@ -66,7 +66,7 @@ void init_timer0(void)
 }
 
 void TIMER0_IRQHandler(void){
-	debug_printf("TIMER0\n");
+	debug_printf("TIMER0 %c\n", ' ');
 	NRF_TIMER0->TASKS_CLEAR = 1;
 	NRF_TIMER0->TASKS_STOP = 1; // One shot
 	NRF_TIMER0->EVENTS_COMPARE[0] = 0;
@@ -130,7 +130,7 @@ void START_BENCHMARK()
 	main_stack_top = RSP;
 	prepare_stack_usage_measurement(&__StackLimit, main_stack_top);	 /* pip stack: don't erase previous stacked values */
 	prepare_stack_usage_measurement(&user_mem_start, &user_mem_end); /* mark RAM */
-	debug_printf("Slack time for PPK -> ");
+	debug_printf("Slack time for PPK -> %c", ' ');
 
 #if defined(NRF52832_XXAA)
 	nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
@@ -141,17 +141,17 @@ void START_BENCHMARK()
 	nrf_gpio_pin_write(LED_2, 0); // 0 = Light the LED
 	nrf_gpio_pin_dir_set(LED_3, NRF_GPIO_PIN_DIR_OUTPUT);
 	nrf_gpio_pin_write(LED_3, 0); // 0 = Light the LED
-#else
+#else // NRF52840_XXAA
 	for (int i = 0; i < LEDS_NUMBER; i++)
 	{
 		nrf_gpio_cfg_output(m_board_led_list[i]);
 	}
-#endif
+#endif // NRF52832_XXAA
 	for (int j=0; j < 2; j++){
 		flash_leds();
 		for (volatile int i = 0; i < 10000000; i++);
 	}
-	debug_printf("ready\n");
+	debug_printf("ready %c\n", ' ');
 
 	flash_leds();
 	flash_leds();
@@ -174,25 +174,13 @@ void shutoff(){
 
 void BENCHMARK_SINK(){
 	flash_leds();
-	//for (volatile int i = 0; i < 1000000; i++);
 	flash_leds();
-	//__WFE();
-	//NRF_POWER->SYSTEMOFF = 1;
-	//NRF_POWER->TASKS_LOWPWR = 1;
-	// Enter System ON sleep mode
-	//nrf_pwr_mgmt_shutdown(NRF_PWR_MGMT_SHUTDOWN_GOTO_DFU);
-	/*__WFI();
-	__SEV();
-	__WFI();
-	__DSB();*/
 
-	/* Solution for simulated System OFF in debug mode */
+	// System off
 	while (true)
 	{
 		shutoff();
 	}
-	// sd_power_system_off() ;
-	while (1);
 }
 
 void print_benchmark_msg(){
@@ -265,16 +253,14 @@ start_cycles_counting()
 	EnableCycleCounter(); // start counting
 }
 
-void END_BENCHMARK(uint32_t benchmark_data1, uint32_t benchmark_data2)
+void END_BENCHMARK(uint32_t user_stack_top, uint32_t childStackBlockStart, uint32_t child_partition_id)
 {
-	debug_printf("End benchmark phase\n");
+	debug_printf("End benchmark phase %c\n", ' ');
 	// end benchmark sleep phase
 	init_timer0();
 	__WFI(); // Wait for Timer0 IRQ to wake up
 
-	// UART set up
-
-	benchmark_results(benchmark_data1, benchmark_data2);
+	benchmark_results(user_stack_top, childStackBlockStart);
 }
 
 void benchmark_results(uint32_t benchmark_data1, uint32_t benchmark_data2)
@@ -304,11 +290,13 @@ void benchmark_results(uint32_t benchmark_data1, uint32_t benchmark_data2)
 	printf("Privileged counter after init:%d\n", priv_counter_after_init);
 	printf("Main stack usage:%d\n", main_stack_usage);
 	printf("App stack usage:%d\n", app_stack_usage);
+#if defined(NRF52832_XXAA)
 	// Trigger External benchmark end
 	//nrf_gpio_pin_dir_set(13, NRF_GPIO_PIN_DIR_OUTPUT);
 	//nrf_gpio_pin_write(13, 0);
 	//nrf_gpio_pin_dir_set(LED_0, NRF_GPIO_PIN_DIR_OUTPUT);
 	//nrf_gpio_pin_write(LED_0, 1); // 0 = Light the LED
+#endif // NRF52832_XXAA
 	//dump_partition(rootid);
 	//dump_partition(child1PartDescBlock.address);
 	BENCHMARK_SINK();

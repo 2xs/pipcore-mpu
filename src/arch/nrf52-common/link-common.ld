@@ -117,8 +117,9 @@ SECTIONS
 
 	.text : ALIGN(4)
 	{
-		/*_stext = .;*/
+		_stext = .;
 		*(.text .text.*) /* all remaining code */
+        _epiptext = .;
 
  		/* read-only data (constants) */
 		*(.rodata .rodata.* .rodata_pip)
@@ -215,7 +216,7 @@ SECTIONS
     /* USER SECTION */
     .userland (NOLOAD) :
     {
-        . = ALIGN(32); /* Align to MPU region grain */
+        . = ALIGN(1024); /* Align to MPU region grain */
         user_mem_start = .;
     } > RAM
     user_mem_end = _eram;

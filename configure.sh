@@ -631,6 +631,7 @@ configure_global_variables() {
 					#arch_ldflags="$arch_ldflags"' -ffunction-sections -fdata-sections'
 					# Some other interesting flags : -Wshadow -Wformat -Wformat-security -Wundef -fno-common -fstack-usage
 					;;
+				# Baseline scenarios
 				bench-baseline-priv-w-systick)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE'
@@ -671,6 +672,7 @@ configure_global_variables() {
 					arch_cflags="$arch_cflags"' -DBENCHMARK_WO_SYSTICK'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
 					;;
+				# Pip scenarios
 				bench-pip-root)
 					arch_cflags="$arch_cflags"' -DBENCHMARK'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP'
@@ -682,6 +684,28 @@ configure_global_variables() {
 					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP'
 					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP_CHILD'
 					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
+					;;
+				# Without MPU scenarios
+				bench-baseline-priv-w-systick-wo-mpu)
+					arch_cflags="$arch_cflags"' -DBENCHMARK'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_BASELINE_PRIV'
+					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
+					arch_cflags="$arch_cflags"' -DWO_MPU'
+					;;
+				bench-pip-root-wo-mpu)
+					arch_cflags="$arch_cflags"' -DBENCHMARK'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP_ROOT'
+					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
+					arch_cflags="$arch_cflags"' -DWO_MPU'
+					;;
+				bench-pip-child-wo-mpu)
+					arch_cflags="$arch_cflags"' -DBENCHMARK'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP'
+					arch_cflags="$arch_cflags"' -DBENCHMARK_PIP_CHILD'
+					arch_cflags="$arch_cflags"' -DCPU_MHZ=64'
+					arch_cflags="$arch_cflags"' -DWO_MPU'
 					;;
 				default)
 					;;

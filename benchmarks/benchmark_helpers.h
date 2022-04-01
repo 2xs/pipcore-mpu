@@ -31,7 +31,6 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
-//#if defined BENCHMARK
 #ifndef __BENCHMARK_HELPERS_H__
 #define __BENCHMARK_HELPERS_H__
 
@@ -155,8 +154,6 @@ void START_BENCHMARK();
  * \brief System call that triggers the benchmark end sequence procedure
  */
 // no SVC when privileged
-void END_BENCHMARK();
+void END_BENCHMARK(uint32_t user_stack_top, uint32_t childStackBlockStart, uint32_t child_partition_id);
 
 #endif /* __BENCHMARK_HELPERS_H__ */
-
-//#endif /* BENCHMARK */

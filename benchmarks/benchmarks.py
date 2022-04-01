@@ -1,24 +1,55 @@
 #!/usr/bin/env python3
-
-# Script to build all benchmarks
-
+"""
+/*******************************************************************************/
+/*  © Université de Lille, The Pip Development Team (2015-2022)                */
+/*                                                                             */
+/*  This software is a computer program whose purpose is to run a minimal,     */
+/*  hypervisor relying on proven properties such as memory isolation.          */
+/*                                                                             */
+/*  This software is governed by the CeCILL license under French law and       */
+/*  abiding by the rules of distribution of free software.  You can  use,      */
+/*  modify and/ or redistribute the software under the terms of the CeCILL     */
+/*  license as circulated by CEA, CNRS and INRIA at the following URL          */
+/*  "http://www.cecill.info".                                                  */
+/*                                                                             */
+/*  As a counterpart to the access to the source code and  rights to copy,     */
+/*  modify and redistribute granted by the license, users are provided only    */
+/*  with a limited warranty  and the software's author,  the holder of the     */
+/*  economic rights,  and the successive licensors  have only  limited         */
+/*  liability.                                                                 */
+/*                                                                             */
+/*  In this respect, the user's attention is drawn to the risks associated     */
+/*  with loading,  using,  modifying and/or developing or reproducing the      */
+/*  software by the user in light of its specific status of free software,     */
+/*  that may mean  that it is complicated to manipulate,  and  that  also      */
+/*  therefore means  that it is reserved for developers  and  experienced      */
+/*  professionals having in-depth computer knowledge. Users are therefore      */
+/*  encouraged to load and test the software's suitability as regards their    */
+/*  requirements in conditions enabling the security of their systems and/or   */
+/*  data to be ensured and,  more generally, to use and operate it in the      */
+/*  same conditions as regards security.                                       */
+/*                                                                             */
+/*  The fact that you are presently reading this means that you have had       */
+/*  knowledge of the CeCILL license and that you accept its terms.             */
+/*******************************************************************************/
+"""
+# Script to build all benchmarks, inspired by Embench
+#
 # Copyright (C) 2017, 2019 Embecosm Limited
 #
 # Contributor: Graham Markall <graham.markall@embecosm.com>
 # Contributor: Jeremy Bennett <jeremy.bennett@embecosm.com>
 #
-# This file is part of Embench.
 
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """
-Build all Embench programs.
+Drive Pip's benchmarks
 """
 
 
 import argparse
 import os
-import shutil
 import subprocess
 import sys
 import telnetlib
@@ -30,7 +61,7 @@ import datetime
 from pathlib import Path
 import shutil
 import json
-from statistics import mean
+from statistics import mean, variance, geometric_mean, stdev
 import multiprocessing
 import pynrfjprog
 from pynrfjprog import HighLevel
@@ -57,6 +88,7 @@ from benchmark_size import ALL_METRICS
 import benchiot_measure_static_flash_and_ram
 
 def sloc_files(results_pip_dir, files, category_name, static_results):
+    """Compute the number of source code lines after removing the comments and the empty lines"""
     static_results["SLOC"][category_name] = {}
     tot_sloc = 0
     for file in files:
@@ -88,6 +120,7 @@ def sloc_files(results_pip_dir, files, category_name, static_results):
     return 1
 
 def pip_static_metrics(results_pip_dir, bench_dir, pip_app_dir, benchmarks, sequences):
+    """"Get Pip static metrics: SLOC and size of Pip's layers (Pipcore, MAL, svc handler) """
     print("\n-----> Collecting Pip's static data:\n")
 
     static_results = {}
@@ -101,6 +134,15 @@ def pip_static_metrics(results_pip_dir, bench_dir, pip_app_dir, benchmarks, sequ
     yield_c = os.path.join(boot_dir, 'yield_c.c')
     pip_interrupt_calls = os.path.join(boot_dir, 'pip_interrupt_calls.c')
     mpu = os.path.join(boot_dir, 'mpu.c')
+    init_hw = os.path.join(boot_dir, 'initialize_hardware.c')
+    kernel = os.path.join(boot_dir, 'kernel.c')
+    mdk_dir = "src/arch/nrf52-common/boot/thirdparty/mdk"
+    mdk = os.path.join(mdk_dir, 'system_nrf52.c')
+    newlib_dir = "src/arch/nrf52-common/boot/thirdparty/newlib"
+    nl_exit = os.path.join(newlib_dir, '_exit.c')
+    nl_sbrk = os.path.join(newlib_dir, '_sbrk.c')
+    nl_syscalls = os.path.join(newlib_dir, '_syscalls.c')
+    nl_write = os.path.join(newlib_dir, '_write.c')
     mal_dir = "src/arch/nrf52-common/MAL"
     malinit = os.path.join(mal_dir, 'malinit.c')
     mal = os.path.join(mal_dir, 'mal.c')
@@ -113,6 +155,7 @@ def pip_static_metrics(results_pip_dir, bench_dir, pip_app_dir, benchmarks, sequ
     pip = [svc, exceptions]
     mal = [mal, malinternal, mpu]
     pipinit = [malinit]
+    other = [init_hw, kernel, mdk, nl_exit, nl_sbrk, nl_syscalls, nl_write]
 
     static_results["SLOC"] = {}
     static_results["SLOC"]["Total"] = 0
@@ -121,6 +164,7 @@ def pip_static_metrics(results_pip_dir, bench_dir, pip_app_dir, benchmarks, sequ
     success &= sloc_files(results_pip_dir, pip, "pip", static_results)
     success &= sloc_files(results_pip_dir, mal, "mal", static_results)
     success &= sloc_files(results_pip_dir, pipinit, "pipinit", static_results)
+    success &= sloc_files(results_pip_dir, other, "other", static_results)
     if success:
         print("OK")
     else:
@@ -258,6 +302,7 @@ def pip_static_metrics(results_pip_dir, bench_dir, pip_app_dir, benchmarks, sequ
             print('ERROR: Not all benchmarks built successfully')
 
 def static_metrics(results_dir, bench_dir, benchmarks, sequence):
+    """Compute static metrics """
     successful = True
     raw_section_data = {}
     raw_totals = {}
@@ -265,7 +310,6 @@ def static_metrics(results_dir, bench_dir, benchmarks, sequence):
     static_results = {}
 
     # invoke BenchIoT ROP gadgets and indirect calls
-    #exec(open("benchmarks/benchiot_measure_static_flash_and_ram.py").read())
     benchiot_measure_static_flash_and_ram.measure_static(benchmarks)
 
     # Collect data
@@ -297,8 +341,9 @@ def static_metrics(results_dir, bench_dir, benchmarks, sequence):
     # Otherwise failure return
     return [], []
 
-""" Retrieve the dynamic analysis results is in the output string """
+
 def decode_results(file_str):
+    """ Retrieve the dynamic analysis results from the output stream """
     results = {}
     cycles = re.search('Ticks:(\d+)', file_str, re.S)
     if cycles:
@@ -321,6 +366,7 @@ def decode_results(file_str):
     return results
 
 def decode_results_energy(file_str):
+    """ Retrieve the energy analysis results from the script output """
     results = {}
     current_avg = re.search('Average current: (\d+\.\d+) uA', file_str, re.S)
     if current_avg:
@@ -345,211 +391,291 @@ def decode_results_energy(file_str):
         results["Time_sec_energy"] = time.group(1)
     return results
 
-""" Join the static and the dynamic results taking into account all runs """
+
 def produce_recap(results_dir, benchmarks, sequence, runs):
+    """ Join the static and the dynamic results taking into account all runs """
     # Compute the baseline data we need
     baseline = {}
-
     recap_tot = {}
-    for f in os.listdir(results_dir):
-        file_path = os.path.join(results_dir, f)
-        if os.path.isfile(file_path):
-            filename, file_extension = os.path.splitext(file_path)
-            # read static
-            res_static_filename = "results_static_" + str(sequence)
-            if file_extension == ".json" and os.path.basename(filename) == res_static_filename:
-                with open(file_path) as fstatics:
-                    static_data = json.load(fstatics)
+    if "wo-mpu" not in sequence:
+        """MPU enabled in these sequences"""
+        for f in os.listdir(results_dir):
+            file_path = os.path.join(results_dir, f)
+            if os.path.isfile(file_path):
+                filename, file_extension = os.path.splitext(file_path)
+                # read static
+                res_static_filename = "results_static_" + str(sequence)
+                if file_extension == ".json" and os.path.basename(filename) == res_static_filename:
+                    with open(file_path) as fstatics:
+                        static_data = json.load(fstatics)
 
-            res_dyn_filename = "results_dynamic_" + str(sequence)
-            if file_extension == ".json" and os.path.basename(filename) == res_dyn_filename:
-                with open(file_path) as fdynamics:
-                    dynamic_data_all = json.load(fdynamics)
-                    dynamic_data = {}
-                    # Average, min, max
-                    for bench in dynamic_data_all:
-                        recap_tot[bench] = {}
-                        deployment_time_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
-                        test_cycles_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
-                        priv_cycles_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
-                        priv_cycles_test_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
-                        current_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
-                        power_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
-                        energy_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
-                        cycles_average = 0
-                        cycles_min = sys.maxsize
-                        cycles_max = 0
-                        cycles_var = 0
-                        main_stack_average = 0
-                        main_stack_min = sys.maxsize
-                        main_stack_max = 0
-                        main_stack_var = 0
-                        app_stack_average = 0
-                        app_stack_min = sys.maxsize
-                        app_stack_max = 0
-                        app_stack_var = 0
-                        for run_nb in dynamic_data_all[bench]:
-                            run = dynamic_data_all[bench][run_nb]
-                            run_cycles = run["Cycles"]
-                            cycles_average += run_cycles
-                            if cycles_max < run_cycles:
-                                cycles_max = run_cycles
-                            if cycles_min > run_cycles:
-                                cycles_min = run_cycles
-                            run_main_stack = run["Main_stack_usage"]
-                            main_stack_average += run_main_stack
-                            if main_stack_max < run_main_stack:
-                                main_stack_max = run_main_stack
-                            if main_stack_min > run_main_stack:
-                                main_stack_min = run_main_stack
-                            run_app_stack = run["App_stack_usage"]
-                            app_stack_average += run_app_stack
-                            if app_stack_max < run_app_stack:
-                                app_stack_max = run_app_stack
-                            if app_stack_min > run_app_stack:
-                                app_stack_min = run_app_stack
-                            deployment_time = run["Deployment_time_sec"]
-                            deployment_time_data["average"] += deployment_time
-                            if deployment_time_data["max"] < deployment_time:
-                                deployment_time_data["max"] = deployment_time
-                            if deployment_time_data["min"] > deployment_time:
-                                deployment_time_data["min"] = deployment_time
-                            test_cycles = run["Test_cycles"]
-                            test_cycles_data["average"] += test_cycles
-                            if test_cycles_data["max"] < test_cycles:
-                                test_cycles_data["max"] = test_cycles
-                            if test_cycles_data["min"] > test_cycles:
-                                test_cycles_data["min"] = test_cycles
-                            current = run["Current_mean"]
-                            current_data["average"] += current
-                            if current_data["max"] < current:
-                                current_data["max"] = current
-                            if current_data["min"] > current:
-                                current_data["min"] = current
-                            power = run["Power_mean"]
-                            power_data["average"] += power
-                            if power_data["max"] < power:
-                                power_data["max"] = power
-                            if power_data["min"] > power:
-                                power_data["min"] = power
-                            energy = run["Energy_tot"]
-                            energy_data["average"] += energy
-                            if energy_data["max"] < energy:
-                                energy_data["max"] = energy
-                            if energy_data["min"] > energy:
-                                energy_data["min"] = energy
+                res_dyn_filename = "results_dynamic_" + str(sequence)
+                if file_extension == ".json" and os.path.basename(filename) == res_dyn_filename:
+                    with open(file_path) as fdynamics:
+                        dynamic_data_all = json.load(fdynamics)
+                        dynamic_data = {}
+                        # Average, min, max
+                        for bench in dynamic_data_all:
+                            recap_tot[bench] = {}
+                            deployment_time_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
+                            deployment_cycles_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
+                            test_cycles_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
+                            priv_cycles_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
+                            priv_cycles_test_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
+                            current_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
+                            power_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
+                            energy_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
+                            cycles_average = 0
+                            cycles_min = sys.maxsize
+                            cycles_max = 0
+                            cycles_var = 0
+                            main_stack_average = 0
+                            main_stack_min = sys.maxsize
+                            main_stack_max = 0
+                            main_stack_var = 0
+                            app_stack_average = 0
+                            app_stack_min = sys.maxsize
+                            app_stack_max = 0
+                            app_stack_var = 0
+                            for run_nb in dynamic_data_all[bench]:
+                                run = dynamic_data_all[bench][run_nb]
+                                run_cycles = run["Cycles"]
+                                cycles_average += run_cycles
+                                if cycles_max < run_cycles:
+                                    cycles_max = run_cycles
+                                if cycles_min > run_cycles:
+                                    cycles_min = run_cycles
+                                run_main_stack = run["Main_stack_usage"]
+                                main_stack_average += run_main_stack
+                                if main_stack_max < run_main_stack:
+                                    main_stack_max = run_main_stack
+                                if main_stack_min > run_main_stack:
+                                    main_stack_min = run_main_stack
+                                run_app_stack = run["App_stack_usage"]
+                                app_stack_average += run_app_stack
+                                if app_stack_max < run_app_stack:
+                                    app_stack_max = run_app_stack
+                                if app_stack_min > run_app_stack:
+                                    app_stack_min = run_app_stack
+                                deployment_time = run["Deployment_time_sec"]
+                                deployment_time_data["average"] += deployment_time
+                                if deployment_time_data["max"] < deployment_time:
+                                    deployment_time_data["max"] = deployment_time
+                                if deployment_time_data["min"] > deployment_time:
+                                    deployment_time_data["min"] = deployment_time
+                                deployment_cycles = run["Deployment_cycles"]
+                                deployment_cycles_data["average"] += deployment_cycles
+                                if deployment_cycles_data["max"] < deployment_cycles:
+                                    deployment_cycles_data["max"] = deployment_cycles
+                                if deployment_cycles_data["min"] > deployment_cycles:
+                                    deployment_cycles_data["min"] = deployment_cycles
+                                test_cycles = run["Test_cycles"]
+                                test_cycles_data["average"] += test_cycles
+                                if test_cycles_data["max"] < test_cycles:
+                                    test_cycles_data["max"] = test_cycles
+                                if test_cycles_data["min"] > test_cycles:
+                                    test_cycles_data["min"] = test_cycles
+                                current = run["Current_mean"]
+                                current_data["average"] += current
+                                if current_data["max"] < current:
+                                    current_data["max"] = current
+                                if current_data["min"] > current:
+                                    current_data["min"] = current
+                                power = run["Power_mean"]
+                                power_data["average"] += power
+                                if power_data["max"] < power:
+                                    power_data["max"] = power
+                                if power_data["min"] > power:
+                                    power_data["min"] = power
+                                energy = run["Energy_tot"]
+                                energy_data["average"] += energy
+                                if energy_data["max"] < energy:
+                                    energy_data["max"] = energy
+                                if energy_data["min"] > energy:
+                                    energy_data["min"] = energy
+                                if "pip" in sequence:
+                                    # privileged cycles tot
+                                    priv_cycles = run["Privileged_cycles_tot_ratio"]
+                                    priv_cycles_data["average"] += priv_cycles
+                                    if priv_cycles_data["max"] < priv_cycles:
+                                        priv_cycles_data["max"] = priv_cycles
+                                    if priv_cycles_data["min"] > priv_cycles:
+                                        priv_cycles_data["min"] = priv_cycles
+                                    # privileged cycles after init
+                                    priv_cycles_test = run["Privileged_cycles_test_ratio"]
+                                    priv_cycles_test_data["average"] += priv_cycles_test
+                                    if priv_cycles_test_data["max"] < priv_cycles_test:
+                                        priv_cycles_test_data["max"] = priv_cycles_test
+                                    if priv_cycles_test_data["min"] > priv_cycles_test:
+                                        priv_cycles_test_data["min"] = priv_cycles_test
+                            cycles_average /= runs
+                            main_stack_average /= runs
+                            app_stack_average /= runs
+                            deployment_time_data["average"] /= runs
+                            deployment_cycles_data["average"] /= runs
+                            test_cycles_data["average"] /= runs
+                            priv_cycles_data["average"] /= runs
+                            priv_cycles_test_data["average"] /= runs
+                            current_data["average"] /= runs
+                            power_data["average"] /= runs
+                            energy_data["average"] /= runs
+                            # Variance
+                            for run_nb in dynamic_data_all[bench]:
+                                run = dynamic_data_all[bench][run_nb]
+                                cycles_var += (run["Cycles"]-cycles_average)**2
+                                main_stack_var += (run["Main_stack_usage"]-main_stack_average)**2
+                                app_stack_var += (run["App_stack_usage"]-app_stack_average)**2
+                                deployment_time_data["var"] += (run["Deployment_time_sec"]-deployment_time_data["average"])**2
+                                deployment_cycles_data["var"] += (run["Deployment_cycles"]-deployment_cycles_data["average"])**2
+                                test_cycles_data["var"] += (run["Test_cycles"]-test_cycles_data["average"])**2
+                                current_data["var"] += (run["Current_mean"]-current_data["average"])**2
+                                power_data["var"] += (run["Power_mean"]-power_data["average"])**2
+                                energy_data["var"] += (run["Energy_tot"]-energy_data["average"])**2
+                                if "pip" in sequence:
+                                    priv_cycles_data["var"] += (run["Privileged_cycles_tot_ratio"]-priv_cycles_data["average"])**2
+                                    priv_cycles_test_data["var"] += (run["Privileged_cycles_test_ratio"]-priv_cycles_test_data["average"])**2
+                            cycles_var /= runs
+                            main_stack_var /= runs
+                            app_stack_var /= runs
+                            priv_cycles_data["var"] /= runs
+                            priv_cycles_test_data["var"] /= runs
+                            deployment_time_data["var"] /= runs
+                            deployment_cycles_data["var"] /= runs
+                            test_cycles_data["var"] /= runs
+                            current_data["var"] /= runs
+                            power_data["var"] /= runs
+                            energy_data["var"] /= runs
+                            # Full results
+                            dynamic_data[bench] = { 'Cycles_average': cycles_average,
+                                                    'Cycles_min': cycles_min,
+                                                    'Cycles_max': cycles_max,
+                                                    'Cycles_var': cycles_var,
+                                                    'Time_sec_average': float(int(cycles_average)) / float(64000000), # TODO: set real cpu frequency
+                                                    'Main_stack_average': main_stack_average,
+                                                    'Main_stack_min': main_stack_min,
+                                                    'Main_stack_max': main_stack_max,
+                                                    'Main_stack_var': main_stack_var,
+                                                    'App_stack_average': app_stack_average,
+                                                    'App_stack_min': app_stack_min,
+                                                    'App_stack_max': app_stack_max,
+                                                    'App_stack_var': app_stack_var,
+                                                    'Deployment_time_sec_average': deployment_time_data["average"],
+                                                    'Deployment_time_sec_min': deployment_time_data["min"],
+                                                    'Deployment_time_sec_max': deployment_time_data["max"],
+                                                    'Deployment_time_sec_var': deployment_time_data["var"],
+                                                    'Deployment_cycles_average': deployment_cycles_data["average"],
+                                                    'Deployment_cycles_min': deployment_cycles_data["min"],
+                                                    'Deployment_cycles_max': deployment_cycles_data["max"],
+                                                    'Deployment_cycles_var': deployment_cycles_data["var"],
+                                                    'Test_cycles_average': test_cycles_data["average"],
+                                                    'Test_cycles_min': test_cycles_data["min"],
+                                                    'Test_cycles_max': test_cycles_data["max"],
+                                                    'Test_cycles_var': test_cycles_data["var"],
+                                                    'Current_average': current_data["average"],
+                                                    'Current_min': current_data["min"],
+                                                    'Current_max': current_data["max"],
+                                                    'Current_var': current_data["var"],
+                                                    'Power_average': power_data["average"],
+                                                    'Power_min': power_data["min"],
+                                                    'Power_max': power_data["max"],
+                                                    'Power_var': power_data["var"],
+                                                    'Energy_tot_average': energy_data["average"],
+                                                    'Energy_tot_min': energy_data["min"],
+                                                    'Energy_tot_max': energy_data["max"],
+                                                    'Energy_tot_var': energy_data["var"]
+                                                }
                             if "pip" in sequence:
-                                # privileged cycles tot
-                                priv_cycles = run["Privileged_cycles_tot_ratio"]
-                                priv_cycles_data["average"] += priv_cycles
-                                if priv_cycles_data["max"] < priv_cycles:
-                                    priv_cycles_data["max"] = priv_cycles
-                                if priv_cycles_data["min"] > priv_cycles:
-                                    priv_cycles_data["min"] = priv_cycles
-                                # privileged cycles after init
-                                priv_cycles_test = run["Privileged_cycles_test_ratio"]
-                                priv_cycles_test_data["average"] += priv_cycles_test
-                                if priv_cycles_test_data["max"] < priv_cycles_test:
-                                    priv_cycles_test_data["max"] = priv_cycles_test
-                                if priv_cycles_test_data["min"] > priv_cycles_test:
-                                    priv_cycles_test_data["min"] = priv_cycles_test
-                        cycles_average /= runs
-                        main_stack_average /= runs
-                        app_stack_average /= runs
-                        deployment_time_data["average"] /= runs
-                        test_cycles_data["average"] /= runs
-                        priv_cycles_data["average"] /= runs
-                        priv_cycles_test_data["average"] /= runs
-                        current_data["average"] /= runs
-                        power_data["average"] /= runs
-                        energy_data["average"] /= runs
-                        # Variance
-                        for run_nb in dynamic_data_all[bench]:
-                            run = dynamic_data_all[bench][run_nb]
-                            cycles_var += (run["Cycles"]-cycles_average)**2
-                            main_stack_var += (run["Main_stack_usage"]-main_stack_average)**2
-                            app_stack_var += (run["App_stack_usage"]-app_stack_average)**2
-                            deployment_time_data["var"] += (run["Deployment_time_sec"]-deployment_time_data["average"])**2
-                            test_cycles_data["var"] += (run["Test_cycles"]-test_cycles_data["average"])**2
-                            current_data["var"] += (run["Current_mean"]-current_data["average"])**2
-                            power_data["var"] += (run["Power_mean"]-power_data["average"])**2
-                            energy_data["var"] += (run["Energy_tot"]-energy_data["average"])**2
-                            if "pip" in sequence:
-                                priv_cycles_data["var"] += (run["Privileged_cycles_tot_ratio"]-priv_cycles_data["average"])**2
-                                priv_cycles_test_data["var"] += (run["Privileged_cycles_test_ratio"]-priv_cycles_test_data["average"])**2
-                        cycles_var /= runs
-                        main_stack_var /= runs
-                        app_stack_var /= runs
-                        priv_cycles_data["var"] /= runs
-                        priv_cycles_test_data["var"] /= runs
-                        deployment_time_data["var"] /= runs
-                        test_cycles_data["var"] /= runs
-                        current_data["var"] /= runs
-                        power_data["var"] /= runs
-                        energy_data["var"] /= runs
-                        # Full results
-                        dynamic_data[bench] = { 'Cycles_average': cycles_average,
-                                                'Cycles_min': cycles_min,
-                                                'Cycles_max': cycles_max,
-                                                'Cycles_var': cycles_var,
-                                                'Time_sec_average': float(int(cycles_average)) / float(64000000), # TODO: set real cpu frequency
-                                                'Main_stack_average': main_stack_average,
-                                                'Main_stack_min': main_stack_min,
-                                                'Main_stack_max': main_stack_max,
-                                                'Main_stack_var': main_stack_var,
-                                                'App_stack_average': app_stack_average,
-                                                'App_stack_min': app_stack_min,
-                                                'App_stack_max': app_stack_max,
-                                                'App_stack_var': app_stack_var,
-                                                'Deployment_time_sec_average': deployment_time_data["average"],
-                                                'Deployment_time_sec_min': deployment_time_data["min"],
-                                                'Deployment_time_sec_max': deployment_time_data["max"],
-                                                'Deployment_time_sec_var': deployment_time_data["var"],
-                                                'Test_cycles_average': test_cycles_data["average"],
-                                                'Test_cycles_min': test_cycles_data["min"],
-                                                'Test_cycles_max': test_cycles_data["max"],
-                                                'Test_cycles_var': test_cycles_data["var"],
-                                                'Current_average': current_data["average"],
-                                                'Current_min': current_data["min"],
-                                                'Current_max': current_data["max"],
-                                                'Current_var': current_data["var"],
-                                                'Power_average': power_data["average"],
-                                                'Power_min': power_data["min"],
-                                                'Power_max': power_data["max"],
-                                                'Power_var': power_data["var"],
-                                                'Energy_tot_average': energy_data["average"],
-                                                'Energy_tot_min': energy_data["min"],
-                                                'Energy_tot_max': energy_data["max"],
-                                                'Energy_tot_var': energy_data["var"]
-                                             }
-                        if "pip" in sequence:
-                            dynamic_data[bench] |= {
-                                                    'Privileged_cycles_tot_ratio_average': priv_cycles_data["average"],
-                                                    'Privileged_cycles_tot_ratio_min': priv_cycles_data["min"],
-                                                    'Privileged_cycles_tot_ratio_max': priv_cycles_data["max"],
-                                                    'Privileged_cycles_tot_ratio_var': priv_cycles_data["var"],
-                                                    'Privileged_cycles_test_ratio_average': priv_cycles_test_data["average"],
-                                                    'Privileged_cycles_test_ratio_min': priv_cycles_test_data["min"],
-                                                    'Privileged_cycles_test_ratio_max': priv_cycles_test_data["max"],
-                                                    'Privileged_cycles_test_ratio_var': priv_cycles_test_data["var"]
-                                                    }
-    for bench in benchmarks:
-        recap_tot[bench]["Static"] = static_data[bench]
-        recap_tot[bench]["Dynamic"] = dynamic_data[bench]
+                                dynamic_data[bench] |= {
+                                                        'Privileged_cycles_tot_ratio_average': priv_cycles_data["average"],
+                                                        'Privileged_cycles_tot_ratio_min': priv_cycles_data["min"],
+                                                        'Privileged_cycles_tot_ratio_max': priv_cycles_data["max"],
+                                                        'Privileged_cycles_tot_ratio_var': priv_cycles_data["var"],
+                                                        'Privileged_cycles_test_ratio_average': priv_cycles_test_data["average"],
+                                                        'Privileged_cycles_test_ratio_min': priv_cycles_test_data["min"],
+                                                        'Privileged_cycles_test_ratio_max': priv_cycles_test_data["max"],
+                                                        'Privileged_cycles_test_ratio_var': priv_cycles_test_data["var"]
+                                                        }
+
+        for bench in benchmarks:
+            recap_tot[bench]["Static"] = static_data[bench]
+            recap_tot[bench]["Dynamic"] = dynamic_data[bench]
+    else:
+        # Without MPU energy comparison
+        res_dyn_filename = "results_dynamic_" + str(sequence) + ".json"
+        res_dyn_file_path = os.path.join(results_dir, res_dyn_filename)
+        with open(res_dyn_file_path) as fdynamics:
+            dynamic_data_all = json.load(fdynamics)
+            dynamic_data = {}
+            # Average, min, max
+            for bench in dynamic_data_all:
+                recap_tot[bench] = {}
+                current_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
+                power_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
+                energy_data = {"average" : 0, "min" : sys.maxsize, "max" : 0 , "var" : 0}
+                for run_nb in dynamic_data_all[bench]:
+                    run = dynamic_data_all[bench][run_nb]
+                    current = run["Current_mean"]
+                    current_data["average"] += current
+                    if current_data["max"] < current:
+                        current_data["max"] = current
+                    if current_data["min"] > current:
+                        current_data["min"] = current
+                    power = run["Power_mean"]
+                    power_data["average"] += power
+                    if power_data["max"] < power:
+                        power_data["max"] = power
+                    if power_data["min"] > power:
+                        power_data["min"] = power
+                    energy = run["Energy_tot"]
+                    energy_data["average"] += energy
+                    if energy_data["max"] < energy:
+                        energy_data["max"] = energy
+                    if energy_data["min"] > energy:
+                        energy_data["min"] = energy
+                current_data["average"] /= runs
+                power_data["average"] /= runs
+                energy_data["average"] /= runs
+                # Variance
+                for run_nb in dynamic_data_all[bench]:
+                    run = dynamic_data_all[bench][run_nb]
+                    current_data["var"] += (run["Current_mean"]-current_data["average"])**2
+                    power_data["var"] += (run["Power_mean"]-power_data["average"])**2
+                    energy_data["var"] += (run["Energy_tot"]-energy_data["average"])**2
+                current_data["var"] /= runs
+                power_data["var"] /= runs
+                energy_data["var"] /= runs
+                # Full results
+                dynamic_data[bench] = { 'Current_average': current_data["average"],
+                                        'Current_min': current_data["min"],
+                                        'Current_max': current_data["max"],
+                                        'Current_var': current_data["var"],
+                                        'Power_average': power_data["average"],
+                                        'Power_min': power_data["min"],
+                                        'Power_max': power_data["max"],
+                                        'Power_var': power_data["var"],
+                                        'Energy_tot_average': energy_data["average"],
+                                        'Energy_tot_min': energy_data["min"],
+                                        'Energy_tot_max': energy_data["max"],
+                                        'Energy_tot_var': energy_data["var"]
+                                    }
+        for bench in benchmarks:
+                recap_tot[bench]["Dynamic"] = dynamic_data[bench]
+
     res_rec_filename = 'results_recap_' + str(sequence) + '.json'
     recap_file = os.path.join(results_dir, res_rec_filename)
     with open(recap_file, "w") as outfile:
         json.dump(recap_tot, outfile, indent=4, sort_keys=True)
 
 
-""" Generic function to start a process"""
+
 def start_process(func, name=None, args = []):
+    """ Generic function to start a process"""
     proc = multiprocessing.Process(target=func, name=name, args=args)
     proc.start()
     return proc
 
-""" Start a JLinkGDBServer """
 def init_gdbserver(bench_name):
+    """ Start a JLinkGDBServer """
     try:
         process = subprocess.Popen(
                     ["/opt/SEGGER/JLink/JLinkGDBServer", "-if", "swd", "-device", "nRF52840_xxAA", #"nRF52832_xxAA",
@@ -561,13 +687,13 @@ def init_gdbserver(bench_name):
                     stdin=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     stdout=subprocess.DEVNULL
-                    #timeout=gp['timeout'],
                 )
     except BaseException:
         print("Error in init_gdbserver")
 
-""" Start a telnet to retrive the semihosting output"""
+
 def init_telnet(bench_name, run, sequence):
+    """ Start a telnet to retreive the semihosting output"""
     succeeded = True
     output = ""
     try:
@@ -600,8 +726,9 @@ def init_telnet(bench_name, run, sequence):
             fileh.write("NOK")
             fileh.close()
 
-""" Flash and launch """
+
 def init_gdb(bench_name, results):
+    """ Flash and launch program with GDB """
     try:
         pyscript_cmd = f' py arg0 = \"{bench_name}\"'
         #print("Using %s" % pyscript_cmd)
@@ -625,6 +752,7 @@ def init_gdb(bench_name, results):
     results = 1
 
 def energy_monitoring(bench_name, run, sequence, time):
+    """Run PPK analysis with loaded program"""
     try:
         outfile = os.path.join("generated/benchmarks", bench_name, f'{sequence}_{bench_name}_{run}_energy.csv')
         res = subprocess.run(
@@ -646,17 +774,23 @@ def energy_monitoring(bench_name, run, sequence, time):
 
 from threading import Timer
 
+
 class RepeatTimer(Timer):
+    """Timer class"""
     def run(self):
         while not self.finished.wait(self.interval):
             self.function(*self.args, **self.kwargs)
 
+
 def repeat_func(start):
-    #print("-%s" % (str(datetime.timedelta(seconds=(time.time()-start)))))
+    """Print a dot. Used in timer"""
     print(".", end='',flush=True)
 
 
 def run_dynamic_metrics(benchmarks, sequence, runs, energy_analysis):
+    """Launch each benchmark of the given sequence.
+        Analyse the energy consumption in a second step.
+    """
     print("\n-----> Collecting dynamic data:")
 
     for bench in benchmarks:
@@ -718,16 +852,11 @@ def analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence):
                                             'Privileged_cycles_tot' : priv_cycles,
                                             'Privileged_cycles_test' : priv_cycles_test,
                                             'Deployment_time_sec' : float(init_end_cycles) / float(64000000), # TODO: set real cpu frequency
+                                            'Deployment_cycles' : init_end_cycles,
                                             'Test_cycles' : test_cycles,
                                             'Privileged_cycles_tot_ratio' : float(priv_cycles)/float(cycles),
                                             'Privileged_cycles_test_ratio' : float(priv_cycles_test)/float(test_cycles)
                                         }
-                            '''if "pip" in sequence:
-                                run_res_out |= {
-                                    'Privileged_cycles_tot_ratio' : float(priv_cycles)/float(cycles),
-                                    'Privileged_cycles_test_ratio' : float(priv_cycles_test)/float(cycles-init_end_cycles)
-                                }
-                            '''
                             run_nb = int(file_name.group(2))
                             if file_name.group(1) not in dynamic_results:
                                 dynamic_results[file_name.group(1)] = {}
@@ -744,7 +873,6 @@ def analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence):
                                 ["python3",
                                 "benchmarks/energy_csv_analysis.py",
                                 f'{file_path}'],
-                                #timeout=10,
                                 stdout=out_energy_file,
                             )
                     out_energy_file.close()
@@ -782,7 +910,7 @@ def analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence):
     with open(baseline_file, "w") as outfile:
         json.dump(dynamic_results, outfile, indent=4, sort_keys=True)
 
-def compare_baseline(results_dir, sequence, baseline_name):
+def compare_baseline(results_dir, sequence, baseline_name, runs_nb):
     # TODO: check variance is small
     if "bench-baseline" in sequence: # reject "bench-baseline-w-systick" and "bench-baseline-wo-systick":
         return
@@ -794,12 +922,6 @@ def compare_baseline(results_dir, sequence, baseline_name):
     recap_file = os.path.join(results_dir, res_recap_baseline_filename)
     with open(recap_file) as frecapbase:
         b_data = json.load(frecapbase)
-        # Open baseline file
-        '''res_recap_baseline_wo_systick_filename = 'results_recap_bench-baseline-wo-systick.json'
-        recap_file = os.path.join(results_dir, res_recap_baseline_wo_systick_filename)
-        with open(recap_file) as frecapbase:
-            b_wo_systick_data = json.load(frecapbase)
-        '''
         # open sequence file
         res_recap_filename = 'results_recap_' + str(sequence) + '.json'
         recap_file = os.path.join(results_dir, res_recap_filename)
@@ -811,6 +933,8 @@ def compare_baseline(results_dir, sequence, baseline_name):
                 sequence_cycles = data[bench]["Dynamic"]["Cycles_average"]
                 base_time = b_data[bench]["Dynamic"]["Time_sec_average"]
                 sequence_time = data[bench]["Dynamic"]["Time_sec_average"]
+                base_dep_cycles = b_data[bench]["Dynamic"]["Deployment_cycles_average"]
+                sequence_dep_cycles = data[bench]["Dynamic"]["Deployment_cycles_average"]
                 base_test_cycles = b_data[bench]["Dynamic"]["Test_cycles_average"]
                 sequence_test_cycles = data[bench]["Dynamic"]["Test_cycles_average"]
                 base_main_stack = b_data[bench]["Dynamic"]["Main_stack_average"]
@@ -835,9 +959,13 @@ def compare_baseline(results_dir, sequence, baseline_name):
                                                             "Cycles_rel_average" : sequence_cycles*100/base_cycles if base_cycles != 0 else sequence_cycles,
                                                             "Cycles_base_var" : b_data[bench]["Dynamic"]["Cycles_var"],
                                                             f'Cycles_{sequence}_var' : int(data[bench]["Dynamic"]["Cycles_var"]),
+                                                            "Cycles_overhead_average" : sequence_cycles - base_cycles,
                                                             "Time_sec_rel_average" : sequence_time*100/base_time if base_time != 0 else sequence_time,
                                                             #"Time_ms_base_var" : b_data[bench]["Dynamic"]["Time_ms_var"],
                                                             #f'Time_ms_{sequence}_var' : data[bench]["Dynamic"]["Time_ms_var"],
+                                                            "Deployment_cycles_overhead_average" : sequence_dep_cycles - base_dep_cycles,
+                                                            "Deployment_cycles_base_var" : b_data[bench]["Dynamic"]["Deployment_cycles_var"],
+                                                            f'Deployment_cycles_{sequence}_var' : data[bench]["Dynamic"]["Deployment_cycles_var"],
                                                             "Main_stack_base": base_main_stack,
                                                             "Main_stack_base_var": b_data[bench]["Dynamic"]["Main_stack_var"],
                                                             f'Main_stack_{sequence}_var' : data[bench]["Dynamic"]["Main_stack_var"],
@@ -853,6 +981,7 @@ def compare_baseline(results_dir, sequence, baseline_name):
                                                             f'Privileged_cycles_test_ratio_{sequence}_var' : data[bench]["Dynamic"]["Privileged_cycles_test_ratio_var"],
                                                             "Test_cycles_rel_average":  sequence_test_cycles*100/base_test_cycles if base_test_cycles != 0 else sequence_test_cycles,
                                                             "Test_cycles_base_var" : b_data[bench]["Dynamic"]["Test_cycles_var"],
+                                                            "Test_cycles_overhead_average" : sequence_test_cycles - base_test_cycles,
                                                             f'Test_cycles_{sequence}_var' : int(data[bench]["Dynamic"]["Test_cycles_var"]),
                                                             "Current_rel_average" : sequence_current*100/base_current if base_current != 0 else sequence_current,
                                                             "Current_base_var" : b_data[bench]["Dynamic"]["Current_var"],
@@ -860,6 +989,7 @@ def compare_baseline(results_dir, sequence, baseline_name):
                                                             "Power_rel_average" : sequence_power*100/base_power if base_power != 0 else sequence_power,
                                                             "Power_base_var" : b_data[bench]["Dynamic"]["Power_var"],
                                                             f'Power_{sequence}_var' : int(data[bench]["Dynamic"]["Power_var"]),
+                                                            f'Energy_tot_overhead' : sequence_energy - base_energy,
                                                             "Energy_tot_rel" : sequence_energy*100/base_energy if base_energy != 0 else sequence_energy,
                                                             "Energy_tot_base_var" : b_data[bench]["Dynamic"]["Energy_tot_var"],
                                                             f'Energy_tot_{sequence}_var' : int(data[bench]["Dynamic"]["Energy_tot_var"]),
@@ -870,18 +1000,12 @@ def compare_baseline(results_dir, sequence, baseline_name):
                                                         }
                                             }
                 # Compute global stats on ALL benchmarks of all benchmark runs
-                if "Cycles_rel_total_mean" not in rel_total_recap_mean \
-                    or "Test_cycles_rel_total_mean" not in rel_total_recap_mean \
-                    or "Privileged_cycles_tot_ratio_rel_total_mean" not in rel_total_recap_mean \
-                    or "Privileged_cycles_test_ratio_rel_total_mean" not in rel_total_recap_mean \
-                    or "Time_sec_rel_average" not in rel_total_recap_mean \
-                    or "Indirect_calls_overhead" not in rel_total_recap_mean \
-                    or "ROP_gadgets_overhead" not in rel_total_recap_mean \
-                    or "Current_rel_total_mean" not in rel_total_recap_mean \
-                    or "Power_rel_total_mean" not in rel_total_recap_mean \
-                    or "Energy_tot_rel_total_mean" not in rel_total_recap_mean :
+                # do not include energy_tot_sequence because no sense to compare them, however the relative overhead yes
+                if "Cycles_rel_total_mean" not in rel_total_recap_mean:
                     rel_total_recap_mean["Cycles_rel_total_mean"] = []
+                    rel_total_recap_mean["Cycles_overhead_total_mean"] = []
                     rel_total_recap_mean["Test_cycles_rel_total_mean"] = []
+                    rel_total_recap_mean["Test_cycles_overhead_total_mean"] = []
                     rel_total_recap_mean["Privileged_cycles_tot_ratio_rel_total_mean"] = []
                     rel_total_recap_mean["Privileged_cycles_test_ratio_rel_total_mean"] = []
                     rel_total_recap_mean["Time_sec_rel_total_mean"] = []
@@ -890,50 +1014,159 @@ def compare_baseline(results_dir, sequence, baseline_name):
                     rel_total_recap_mean["Current_rel_total_mean"] = []
                     rel_total_recap_mean["Power_rel_total_mean"] = []
                     rel_total_recap_mean["Energy_tot_rel_total_mean"] = []
-                    #rel_total_recap_mean["bss_rel_total_mean"] = []
-                    #rel_total_recap_mean["data_rel_total_mean"] = []
-                    #rel_total_recap_mean["rodata_rel_total_mean"] = []
-                    #rel_total_recap_mean["text_rel_total_mean"] = []
-                    #rel_total_recap_mean["binsize_rel_total_mean"] = []
+                    rel_total_recap_mean["Energy_tot_overhead_total_mean"] = []
+                    rel_total_recap_mean["Deployment_cycles_rel_overhead_mean"] = []
                 rel_total_recap_mean["Cycles_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Cycles_rel_average"])
+                rel_total_recap_mean["Cycles_overhead_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Cycles_overhead_average"])
                 rel_total_recap_mean["Test_cycles_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Test_cycles_rel_average"])
+                rel_total_recap_mean["Test_cycles_overhead_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Test_cycles_overhead_average"])
                 rel_total_recap_mean["Privileged_cycles_tot_ratio_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Privileged_cycles_tot_ratio_rel_average"])
                 rel_total_recap_mean["Privileged_cycles_test_ratio_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Privileged_cycles_test_ratio_rel_average"])
                 rel_total_recap_mean["Time_sec_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Time_sec_rel_average"])
                 rel_total_recap_mean["Current_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Current_rel_average"])
                 rel_total_recap_mean["Power_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Power_rel_average"])
                 rel_total_recap_mean["Energy_tot_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Energy_tot_rel"])
-                #rel_total_recap_mean["Main_stack_base_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Main_stack_base"])
-                #rel_total_recap_mean["Main_stack_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Main_stack_rel_average"])
-                #rel_total_recap_mean["App_stack_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["App_stack_rel_average"])
+                rel_total_recap_mean["Energy_tot_overhead_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Energy_tot_overhead"])
+                rel_total_recap_mean["Deployment_cycles_rel_overhead_mean"].append(rel_baseline_data[bench]["Dynamic"]["Deployment_cycles_overhead_average"])
                 rel_total_recap_mean["Indirect_calls_overhead_total_mean"].append(rel_baseline_data[bench]["Static"]["Indirect_calls_overhead"])
                 rel_total_recap_mean["ROP_gadgets_overhead_total_mean"].append(rel_baseline_data[bench]["Static"]["ROP_gadgets_overhead"])
-                #rel_total_recap_mean["bss_rel_total_mean"].append(rel_baseline_data[bench]["Static"]["bss_rel"])
-                #rel_total_recap_mean["data_rel_total_mean"].append(rel_baseline_data[bench]["Static"]["data_rel"])
-                #rel_total_recap_mean["rodata_rel_total_mean"].append(rel_baseline_data[bench]["Static"]["rodata_rel"])
-                #rel_total_recap_mean["text_rel_total_mean"].append(rel_baseline_data[bench]["Static"]["text_rel"])
-                #rel_total_recap_mean["binsize_rel_total_mean"].append(rel_baseline_data[bench]["Static"]["binsize_rel"])
     # relative mean for each metric
     rel_baseline_data["Total"] = { "Cycles_rel_average_tot" :  mean(rel_total_recap_mean["Cycles_rel_total_mean"]),
+                                    "Cycles_overhead_average_tot" :  mean(rel_total_recap_mean["Cycles_overhead_total_mean"]),
                                     "Test_cycles_rel_average_tot" :  mean(rel_total_recap_mean["Test_cycles_rel_total_mean"]),
-                                    #"Main_stack_rel_average_tot" :  mean(rel_total_recap_mean["Main_stack_rel_total_mean"]),
-                                    #"App_stack_rel_average_tot" :  mean(rel_total_recap_mean["App_stack_rel_total_mean"]),
+                                    "Test_cycles_overhead_average_tot" :  mean(rel_total_recap_mean["Test_cycles_overhead_total_mean"]),
                                     "Current_rel_average_tot" :  mean(rel_total_recap_mean["Current_rel_total_mean"]),
                                     "Power_rel_average_tot" :  mean(rel_total_recap_mean["Power_rel_total_mean"]),
                                     "Energy_tot_rel_average_tot" :  mean(rel_total_recap_mean["Energy_tot_rel_total_mean"]),
+                                    "Energy_tot_overhead_average_tot" :  mean(rel_total_recap_mean["Energy_tot_overhead_total_mean"]),
                                     "Indirect_calls_rel_average_tot" :  mean(rel_total_recap_mean["Indirect_calls_overhead_total_mean"]),
                                     "ROP_gadgets_rel_average_tot" :  mean(rel_total_recap_mean["ROP_gadgets_overhead_total_mean"]),
                                     "Privileged_cycles_tot_ratio_rel_average_tot" :  mean(rel_total_recap_mean["Privileged_cycles_tot_ratio_rel_total_mean"]),
-                                    "Privileged_cycles_test_rel_average_tot" :  mean(rel_total_recap_mean["Privileged_cycles_test_ratio_rel_total_mean"])
+                                    "Privileged_cycles_test_rel_average_tot" :  mean(rel_total_recap_mean["Privileged_cycles_test_ratio_rel_total_mean"]),
+                                    "Deployment_cycles_rel_overhead_average_tot" :  mean(rel_total_recap_mean["Deployment_cycles_rel_overhead_mean"])
                                     }
+    if (len(rel_baseline_data) - 1) == 1: # includes Total field
+        # variance is 0 with one data point
+        rel_baseline_data["Total"] |= {
+            "Cycles_rel_average_tot_std" : 0,
+            "Cycles_overhead_average_tot_std" : 0,
+            "Test_cycles_rel_average_tot_std" :  0,
+            "Test_cycles_overhead_average_tot_std" :  0,
+            "Current_rel_average_tot_std" :  0,
+            "Power_rel_average_tot_std" :  0,
+            "Energy_tot_rel_average_tot_std" :  0,
+            "Energy_tot_overhead_average_tot_std" :  0,
+            "Indirect_calls_rel_average_tot" : 0,
+            "ROP_gadgets_rel_average_tot" : 0,
+            "Privileged_cycles_tot_ratio_rel_average_tot_std" : 0,
+            "Privileged_cycles_test_rel_average_tot_std" : 0
+
+        }
+    else:
+        rel_baseline_data["Total"] |= {
+            "Cycles_rel_average_tot_std" :  stdev(rel_total_recap_mean["Cycles_rel_total_mean"]),
+            "Cycles_overhead_average_tot_std" :  stdev(rel_total_recap_mean["Cycles_overhead_total_mean"]),
+            "Test_cycles_rel_average_tot_std" :  stdev(rel_total_recap_mean["Test_cycles_rel_total_mean"]),
+            "Test_cycles_overhead_average_tot_std" :  stdev(rel_total_recap_mean["Test_cycles_overhead_total_mean"]),
+            "Current_rel_average_tot_std" :  stdev(rel_total_recap_mean["Current_rel_total_mean"]),
+            "Power_rel_average_tot_std" :  stdev(rel_total_recap_mean["Power_rel_total_mean"]),
+            "Energy_tot_rel_average_tot_std" :  stdev(rel_total_recap_mean["Energy_tot_rel_total_mean"]),
+            "Energy_tot_overhead_average_tot_std" :  stdev(rel_total_recap_mean["Energy_tot_overhead_total_mean"]),
+            "Indirect_calls_rel_average_tot_std" :  stdev(rel_total_recap_mean["Indirect_calls_overhead_total_mean"]),
+            "ROP_gadgets_rel_average_tot_std" :  stdev(rel_total_recap_mean["ROP_gadgets_overhead_total_mean"]),
+            "Privileged_cycles_tot_ratio_rel_average_tot_std" :  stdev(rel_total_recap_mean["Privileged_cycles_tot_ratio_rel_total_mean"]),
+            "Privileged_cycles_test_rel_average_tot_std" :  stdev(rel_total_recap_mean["Privileged_cycles_test_ratio_rel_total_mean"]),
+            "Deployment_cycles_rel_overhead_average_tot_std" :  stdev(rel_total_recap_mean["Deployment_cycles_rel_overhead_mean"])
+
+        }
+
     res_compare_filename = 'results_baseline_compare_' + str(sequence) + '.json'
     compare_file = os.path.join(results_dir, res_compare_filename)
     with open(compare_file, "w") as outfile:
         json.dump(rel_baseline_data, outfile, indent=4, sort_keys=True)
     print("OK -> written in %s" % compare_file)
 
+def compare_mpu_energy(results_dir, sequence, runs_nb):
+    # TODO: check variance is small
+    print("Producing comparison report for %s" % sequence, end="...")
+    rel_baseline_data = {}
+    rel_total_recap_mean = {}
+    # Open sequence without mpu file -> base
+    res_recap_wo_mpu_filename = 'results_recap_' + str(sequence) + '.json'
+    recap_file = os.path.join(results_dir, res_recap_wo_mpu_filename)
+    with open(recap_file) as frecapbase:
+        b_data = json.load(frecapbase)
+        # open sequence with mpu file
+        sequence_w_mpu = sequence.replace("-wo-mpu", "")
+        res_recap_filename = f'results_recap_{sequence_w_mpu}.json'
+        recap_file = os.path.join(results_dir, res_recap_filename)
+        with open(recap_file) as frecap:
+            data = json.load(frecap)
+            for bench in data:
+                # Load average on ALL benchmark runs
+                base_current = b_data[bench]["Dynamic"]["Current_average"]
+                sequence_current = data[bench]["Dynamic"]["Current_average"]
+                base_power = b_data[bench]["Dynamic"]["Power_average"]
+                sequence_power = data[bench]["Dynamic"]["Power_average"]
+                base_energy = b_data[bench]["Dynamic"]["Energy_tot_average"]
+                sequence_energy = data[bench]["Dynamic"]["Energy_tot_average"]
+                # Compute relative compared to baseline
+                rel_baseline_data[bench] = {"Dynamic" : {
+                                                            "Current_rel_average" : sequence_current*100/base_current if base_current != 0 else sequence_current,
+                                                            "Current_base_var" : b_data[bench]["Dynamic"]["Current_var"],
+                                                            f'Current_{sequence}_var' : int(data[bench]["Dynamic"]["Current_var"]),
+                                                            "Power_rel_average" : sequence_power*100/base_power if base_power != 0 else sequence_power,
+                                                            "Power_base_var" : b_data[bench]["Dynamic"]["Power_var"],
+                                                            f'Power_{sequence}_var' : int(data[bench]["Dynamic"]["Power_var"]),
+                                                            "Energy_tot_overhead" : sequence_energy - base_energy,
+                                                            "Energy_tot_rel" : sequence_energy*100/base_energy if base_energy != 0 else sequence_energy,
+                                                            "Energy_tot_base_var" : b_data[bench]["Dynamic"]["Energy_tot_var"],
+                                                            f'Energy_tot_{sequence}_var' : int(data[bench]["Dynamic"]["Energy_tot_var"]),
+                                                        }
+                                            }
+                # Compute global stats on ALL benchmarks of all benchmark runs
+                if "Current_rel_total_mean" not in rel_total_recap_mean \
+                    or "Power_rel_total_mean" not in rel_total_recap_mean \
+                    or "Energy_tot_rel_total_mean" not in rel_total_recap_mean :
+                    rel_total_recap_mean["Current_rel_total_mean"] = []
+                    rel_total_recap_mean["Power_rel_total_mean"] = []
+                    rel_total_recap_mean["Energy_tot_rel_total_mean"] = []
+                    rel_total_recap_mean["Energy_tot_overhead_total_mean"] = []
+                rel_total_recap_mean["Current_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Current_rel_average"])
+                rel_total_recap_mean["Power_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Power_rel_average"])
+                rel_total_recap_mean["Energy_tot_rel_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Energy_tot_rel"])
+                rel_total_recap_mean["Energy_tot_overhead_total_mean"].append(rel_baseline_data[bench]["Dynamic"]["Energy_tot_overhead"])
+    # relative mean for each metric
+    rel_baseline_data["Total"] = { "Current_rel_average_tot" :  mean(rel_total_recap_mean["Current_rel_total_mean"]),
+                                    "Power_rel_average_tot" :  mean(rel_total_recap_mean["Power_rel_total_mean"]),
+                                    "Energy_tot_rel_average_tot" :  mean(rel_total_recap_mean["Energy_tot_rel_total_mean"]),
+                                    "Energy_tot_overhead_average_tot" :  mean(rel_total_recap_mean["Energy_tot_overhead_total_mean"]),
+                                    }
+    if runs_nb == 1:
+        # variance is 0 with one data point
+        rel_baseline_data["Total"] |= {
+            "Current_rel_average_tot_std" :  0,
+            "Power_rel_average_tot_std" :  0,
+            "Energy_tot_rel_average_tot_std" :  0,
+            "Energy_tot_overhead_average_tot_std" :  0,
 
-""" Build and run the benchmarks, then analyse the results"""
+        }
+    else:
+        rel_baseline_data["Total"] |= {
+            "Current_rel_average_tot_std" :  stdev(rel_total_recap_mean["Current_rel_total_mean"]),
+            "Power_rel_average_tot_std" :  stdev(rel_total_recap_mean["Power_rel_total_mean"]),
+            "Energy_tot_rel_average_tot_std" :  stdev(rel_total_recap_mean["Energy_tot_rel_total_mean"]),
+            "Energy_tot_overhead_average_tot_std" :  stdev(rel_total_recap_mean["Energy_tot_overhead_total_mean"]),
+        }
+
+    res_compare_filename = 'results_baseline_compare_' + str(sequence) + '_w_vs_wo_mpu.json'
+    compare_file = os.path.join(results_dir, res_compare_filename)
+    with open(compare_file, "w") as outfile:
+        json.dump(rel_baseline_data, outfile, indent=4, sort_keys=True)
+    print("OK -> written in %s" % compare_file)
+
+
+""" Build and run the benchmarks, finally analyse the results"""
 def main():
     # Start benchmark time measurement
     start = time.time()
@@ -945,7 +1178,7 @@ def main():
     results_dir = os.path.join(bench_dir,"results_sequences")
     results_pip_dir = os.path.join(bench_dir,"results_pip")
 
-    runs = 1
+    runs = 5
 
     do_all = False # do not include energy analysis
     build_only= False
@@ -1012,53 +1245,52 @@ def main():
 
     # not working with bench-pip-root
     benchmarks.remove('cubic')
+
+
+    '''
+    # working without pip
+    benchmarks.remove('aha-mont64')
+
+    benchmarks.remove('crc32')
+    benchmarks.remove('nsichneu')
+    benchmarks.remove('primecount')
+
+    # not working <ith pip
+
     benchmarks.remove('edn')
     benchmarks.remove('minver')
     benchmarks.remove('nbody')
     benchmarks.remove('nettle-sha256')
     benchmarks.remove('qrduino')
     benchmarks.remove('statemate')
-
-    '''
-    # working
-    benchmarks.remove('aha-mont64')
-
-    benchmarks.remove('crc32')
-
-
-
-
-
-    benchmarks.remove('nsichneu')
-    benchmarks.remove('primecount')
-
-
     '''
 
     benchmarks.remove('slre')
     benchmarks.remove('sglib-combined')
 
 
-    #not working
-
     # snrs can be checked with the command "nrfjprog -i"
-    with HighLevel.API('NRF52') as api:
-        snrs = api.get_connected_probes()
-        print(f'Connected boards SN: {snrs}')
-        if len(snrs) == 1 and 683957092 in snrs:
-            if energy_analysis:
-                print("***ERROR: PPK not connected, energy analysis cannot be performed, stop")
-                sys.exit(0)
-        if len(snrs) == 1 and 683926732 in snrs:
-            if energy_analysis:
-                print("***ERROR: Board not detected, energy analysis cannot be performed, stop")
-                sys.exit(0)
-        if len(snrs) == 2 and not energy_analysis:
-            # With the two boards connected, there is a risk of erasing the PPK HW by the benchmark FW
-            # -> no issue if the boards are identified in the segger commands used later
-            print("***Warning: risk of erasing connected PPK FW")
+    try:
+        with HighLevel.API('NRF52') as api:
+            snrs = api.get_connected_probes()
+            print(f'Connected boards SN: {snrs}')
+            if len(snrs) == 1 and 683957092 in snrs:
+                if energy_analysis:
+                    print("***ERROR: PPK not connected, energy analysis cannot be performed, stop")
+                    sys.exit(0)
+            if len(snrs) == 1 and 683926732 in snrs:
+                if energy_analysis:
+                    print("***ERROR: Board not detected, energy analysis cannot be performed, stop")
+                    sys.exit(0)
+            if len(snrs) == 2 and not energy_analysis:
+                # With the two boards connected, there is a risk of erasing the PPK HW by the benchmark FW
+                # -> no issue if the boards are identified in the segger commands used later
+                print("***Warning: risk of erasing connected PPK FW")
+    except BaseException:
+        print("Failed to find USB devices")
 
-    #benchmarks = ['aha-mont64', 'crc32', 'cubic', 'edn', 'huffbench']
+
+    benchmarks = ['aha-mont64', 'crc32', 'nsichneu', 'primecount']
     print("benchmarks.py: Considered benchmarks: %s " % benchmarks)
     log_benchmarks(benchmarks)
 
@@ -1067,10 +1299,18 @@ def main():
     boot_sequences = [baseline_name, "bench-pip-root", "bench-pip-child"]# ["bench-baseline-priv-w-systick"] #, "bench-pip-root"]  # ["bench-pip-child"] # "bench-baseline-wo-systick",
     for sequence in boot_sequences:
         print("\n\n-----> Configuring sequence %s" % sequence, end="...")
+        mpu_enabled =  True
+        if "wo-mpu" in sequence:
+            mpu_enabled = False
+        else:
+            if energy_analysis:
+                 # add without mpu sequence if energy is monitored
+                boot_sequences.append(f'{sequence}-wo-mpu')
+
         try:
             res = subprocess.run(
                 ["./configure.sh", "--architecture=nrf52840", "--debugging-mode=semihosting",
-                    f'--boot-sequence={sequence}'],
+                    f'--boot-sequence={sequence}', '--runs=3'],
                 capture_output=True,
             )
             if res.returncode != 0:
@@ -1171,13 +1411,20 @@ def main():
             analyse_dynamic_metrics(results_dir, bench_dir, benchmarks, sequence)
 
         if do_all or static_analysis_only:
-            static_metrics(results_dir, bench_dir, benchmarks, sequence)
+            if mpu_enabled == True:
+                # don't do static metrics for MPU evaluation
+                static_metrics(results_dir, bench_dir, benchmarks, sequence)
 
         if do_all or recap_only:
             produce_recap(results_dir, benchmarks, sequence, runs)
 
         if do_all or baseline_compare_only:
-            compare_baseline(results_dir, sequence, baseline_name)
+            if "wo-mpu" not in sequence:
+                # Compare data between sequence and baseline
+                compare_baseline(results_dir, sequence, baseline_name, runs)
+            else:
+                # without MPU: just compare energy with equivalent sequence to appreciate MPU cost
+                compare_mpu_energy(results_dir, sequence, runs)
 
     if do_all or pip_static_analysis_only:
         pip_static_metrics(results_pip_dir, bench_dir, pip_app_dir, benchmarks, boot_sequences)
