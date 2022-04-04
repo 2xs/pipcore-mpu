@@ -54,6 +54,18 @@ C_BENCHMARK_DIR=../embench-iot/src/$(BENCH_NAME)
 C_TARGET_BENCHMARK_INCLUDE_DIR=../embench-iot/support
 C_MAIN_BENCHMARK_DIR=../pip-mpu-benchmark
 
+ALLOCATOR_DIR   = $(C_MAIN_BENCHMARK_DIR)/allocator
+SEMIHOSTING_DIR = $(C_MAIN_BENCHMARK_DIR)/semihosting
+STDIO_DIR       = $(C_MAIN_BENCHMARK_DIR)/stdio
+SVC_DIR         = $(C_MAIN_BENCHMARK_DIR)/svc
+
+INCLUDE_DIRS = -I $(C_MAIN_BENCHMARK_DIR)/include
+INCLUDE_DIRS += -I $(ALLOCATOR_DIR)
+INCLUDE_DIRS += -I $(SEMIHOSTING_DIR)
+INCLUDE_DIRS += -I $(STDIO_DIR)
+INCLUDE_DIRS += -I $(SVC_DIR)
+
+
 #####################################################################
 ##                        Files variables                          ##
 #####################################################################
@@ -61,16 +73,39 @@ C_MAIN_BENCHMARK_DIR=../pip-mpu-benchmark
 ############################ C files ################################
 
 C_BENCHMARK_SRC=$(wildcard $(C_BENCHMARK_DIR)/*.c)
+
 C_MAIN_BENCHMARK_SRC := $(filter-out $(C_MAIN_BENCHMARK_DIR)/crt0.c, $(wildcard $(C_MAIN_BENCHMARK_DIR)/*.c))
+C_MAIN_BENCHMARK_OBJ  = $(addprefix $(BENCH_DIR)/$(BENCH_NAME)/,$(notdir $(C_MAIN_BENCHMARK_SRC:.c=.o)))
+
+C_ALLOCATOR_SRC = $(wildcard $(ALLOCATOR_DIR)/*.c)
+#C_MAIN_BENCHMARK_OBJ += $(addprefix $(BENCH_DIR)/$(BENCH_NAME)/allocator/,$(notdir $(C_SRC:.c=.o)))
+C_SEMIHOSTING_SRC = $(wildcard $(SEMIHOSTING_DIR)/*.c)
+#C_MAIN_BENCHMARK_OBJ += $(addprefix $(BENCH_DIR)/$(BENCH_NAME)/semihosting/,$(notdir $(C_SRC:.c=.o)))
+C_STDIO_SRC = $(wildcard $(STDIO_DIR)/*.c)
+#C_MAIN_BENCHMARK_OBJ += $(addprefix $(BENCH_DIR)/$(BENCH_NAME)/stdio/,$(notdir $(C_SRC:.c=.o)))
+C_SVC_SRC = $(wildcard $(SVC_DIR)/*.c)
+#C_MAIN_BENCHMARK_OBJ += $(addprefix $(BENCH_DIR)/$(BENCH_NAME)/svc/,$(notdir $(C_SRC:.c=.o)))
+
 C_BENCHMARK_COMMON_SRC=$(C_TARGET_BENCHMARK_INCLUDE_DIR)/beebsc.c
 
-C_BENCHMARK_OBJ=$(addprefix $(BENCH_DIR)/$(BENCH_NAME)/,$(notdir $(C_BENCHMARK_SRC:.c=.o)))
-C_MAIN_BENCHMARK_OBJ=$(addprefix $(BENCH_DIR)/$(BENCH_NAME)/,$(notdir $(C_MAIN_BENCHMARK_SRC:.c=.o)))
+C_BENCHMARK_OBJ  = $(addprefix $(BENCH_DIR)/$(BENCH_NAME)/,$(notdir $(C_BENCHMARK_SRC:.c=.o)))
+C_OTHER_BENCHMARK_OBJ  = $(C_ALLOCATOR_SRC:.c=.o)
+C_OTHER_BENCHMARK_OBJ += $(C_SEMIHOSTING_SRC:.c=.o)
+C_OTHER_BENCHMARK_OBJ += $(C_STDIO_SRC:.c=.o)
+C_OTHER_BENCHMARK_OBJ += $(C_SVC_SRC:.c=.o)
+
+
+
+#C_OTHER_BENCHMARK_OBJ  = $(addprefix $(BENCH_DIR)/$(BENCH_NAME)/allocator/,$(notdir $(C_ALLOCATOR_SRC:.c=.o)))
+#C_OTHER_BENCHMARK_OBJ += $(addprefix $(BENCH_DIR)/$(BENCH_NAME)/semihosting/,$(notdir $(C_SEMIHOSTING_SRC:.c=.o)))
+#C_OTHER_BENCHMARK_OBJ += $(addprefix $(BENCH_DIR)/$(BENCH_NAME)/stdio/,$(notdir $(C_STDIO_SRC:.c=.o)))
+#C_OTHER_BENCHMARK_OBJ += $(addprefix $(BENCH_DIR)/$(BENCH_NAME)/svc/,$(notdir $(C_SVC_SRC:.c=.o)))
+
 C_BENCHMARK_COMMON_OBJ=$(addprefix $(BENCH_DIR)/$(BENCH_NAME)/, $(notdir $(C_BENCHMARK_COMMON_SRC:.c=.o)))
 
-OBJECT_FILES+=$(C_BENCHMARK_OBJ)
-OBJECT_FILES+=$(C_MAIN_BENCHMARK_OBJ)
-
+OBJECT_FILES += $(C_BENCHMARK_OBJ)
+OBJECT_FILES += $(C_MAIN_BENCHMARK_OBJ)
+OBJECT_FILES += $(C_OTHER_BENCHMARK_OBJ)
 OBJECT_FILES+=$(C_BENCHMARK_COMMON_OBJ)
 
 #####################################################################
@@ -86,6 +121,7 @@ $(C_BENCHMARK_OBJ): \
     $(BENCH_DIR)/$(BENCH_NAME)/%.o : $(C_BENCHMARK_DIR)/%.c \
               $(BENCH_DIR)/$(BENCH_NAME)
 	$(CC) $(CFLAGS) \
+                    $(INCLUDE_DIRS)\
                     -I $(C_TARGET_BENCHMARK_INCLUDE_DIR)\
                     -c -o $@ $<
 
@@ -93,10 +129,20 @@ $(C_BENCHMARK_OBJ): \
 $(C_MAIN_BENCHMARK_OBJ): \
     $(BENCH_DIR)/$(BENCH_NAME)/%.o : $(C_MAIN_BENCHMARK_DIR)/%.c\
               $(BENCH_DIR)/$(BENCH_NAME)
-	$(CC) $(CFLAGS) -I.\
-                    -I $(C_MAIN_BENCHMARK_DIR)\
+	@echo $<
+	$(info $$C_MAIN_BENCHMARK_OBJ is [${C_MAIN_BENCHMARK_OBJ}])
+	$(info $$C_MAIN_BENCHMARK_SRC is [${C_MAIN_BENCHMARK_SRC}])
+	$(info $$C_SRC is [${C_SRC}])
+	$(CC) $(CFLAGS) -I .\
+                    $(INCLUDE_DIRS)\
                     -I $(C_TARGET_BENCHMARK_INCLUDE_DIR)\
                         -c -o $@ $<
+
+%.o: %.c
+	$(info $$C_OTHER_BENCHMARK_OBJ is [${C_OTHER_BENCHMARK_OBJ}])
+	$(CC) $(CFLAGS)\
+	    $(INCLUDE_DIRS)\
+	    -c $< -o $@
 
 ######################### ELF #######################
 
@@ -114,7 +160,8 @@ $(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).elf: $(ARCH_DEPENDENT_DIR)/$(BOARD)/lin
          $(C_TARGET_NEWLIB_OBJ) $(C_TARGET_UART_OBJ)\
          $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)\
          $(C_BENCHMARK_COMMON_OBJ) $(C_BENCHMARK_OBJ)\
-         $(C_MAIN_BENCHMARK_OBJ) $(C_BENCHMARK_HELPERS_OBJ)
+         $(C_MAIN_BENCHMARK_OBJ) $(C_BENCHMARK_HELPERS_OBJ)\
+         $(C_OTHER_BENCHMARK_OBJ)
 	$(LD) -L $(C_SRC_TARGET_DIR)\
          $(C_TARGET_BOOT_OBJ) $(AS_TARGET_BOOT_OBJ)\
          $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
@@ -123,6 +170,7 @@ $(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).elf: $(ARCH_DEPENDENT_DIR)/$(BOARD)/lin
          $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)\
          $(C_BENCHMARK_COMMON_OBJ) $(C_BENCHMARK_OBJ)\
          $(C_MAIN_BENCHMARK_OBJ) $(C_BENCHMARK_HELPERS_OBJ)\
+         $(C_OTHER_BENCHMARK_OBJ)\
          -T $< -o $@ $(LDFLAGS)
 
 print_elf: $(BENCH_DIR)/$(BENCH_NAME)/$(BENCH_NAME).elf

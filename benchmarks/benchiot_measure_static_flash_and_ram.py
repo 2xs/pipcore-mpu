@@ -1,3 +1,6 @@
+# BenchIOT
+# Modified from https://github.com/embedded-sec/BenchIoT/IoT2/IoT2_bench_drivers/iot2_measure_static_flash_and_ram
+
 import os
 import sys
 import argparse
@@ -5,8 +8,6 @@ import numpy
 import json
 import subprocess
 import errno
-#import iot2_settings
-from embench_core import find_benchmarks
 
 #######################################################################
 #                              GLOBALS                                #
@@ -14,12 +15,12 @@ from embench_core import find_benchmarks
 
 
 CURR_PATH = os.path.dirname(os.path.realpath(__file__))
-PROJ_ROOT_DIR = os.path.abspath('../')
+PROJ_ROOT_DIR = os.path.abspath('./')
 STATIC_FLASH_RAM_METRICS_FILENAME = "FLASH_STATIC_RAM_METRICS.csv"
 
 SIZE_CMD = 'arm-none-eabi-size -A -x '
 
-ROP_GADGETS_COMPILER = PROJ_ROOT_DIR + "/BenchIoT/tools/ROPgadget/ROPgadget.py"
+ROP_GADGETS_COMPILER = PROJ_ROOT_DIR + "/tools/ROPgadget/ROPgadget.py"
 ROP_GADGETS_COMPILER_OPTIONS = " --thumb --binary "
 ROP_GADGETS_CMD = "python3 " + ROP_GADGETS_COMPILER + ROP_GADGETS_COMPILER_OPTIONS
 ROP_EXT = '.ROPresiliency'
@@ -369,8 +370,6 @@ def get_num_indirect_calls(size_file):
                     # reset check flag
                     check_regs_flag = False
     # return the final number of indirect calls
-    #print("indirect calls = %d" % num_indrect_calls)
-    #print("*"*80)
     return num_indrect_calls
 
 #######################################################################
@@ -474,44 +473,9 @@ RAM_END = 0x20010000
 #######################################################################
 
 def measure_static(benchmarks):
-    '''
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-b', '--binpath', dest='BIN_PATH', type=str,
-                        help="Flag to set the path of the binaries directory", required=False)
-
-    parser.add_argument('-a', '--analysispath', dest='ANALYSIS_PATH', type=str,
-                        help="Flag to set the output path of the analysis directory", required=False)
-
-    parser.add_argument('-r', '--metricspath', dest='METRICS_PATH', type=str,
-                        help="Flag to set the path of the metric results directory", required=False)
-    parser.add_argument('-bc', '--benchmark-config', dest='benchmark_configuration', type=str,
-                        help="Flag to set the benchmark configuration to use from iot2_settings.BUILD_OPTIONS. if"
-                             "not set, then all configurations are built."
-                        , default='all')
-    parser.add_argument('-o', '--objdump', dest='dump_objdump', default=False,
-                        action='store_true', help="Flag dump binaries of the benchmarks to get the # of indirect calls")
-
-    args = parser.parse_args()
-    '''
-
     metrics_path = "generated/benchmarks/"
-    #analysis_path = str(iot2_settings.RESULTS_DIR_PATH +
-    #                    iot2_settings.BUILD_OPTIONS[args.benchmark_configuration][iot2_settings.BENCH_TYPE] +
-    #                    iot2_settings.BUILD_OPTIONS[args.benchmark_configuration][iot2_settings.BENCH_CONFIG_RES_DIR] +
-    #                    iot2_settings.ANALYSIS_FILES_DIR)
     analysis_path = "generated/benchmarks/"
-    #bins_path = str(iot2_settings.RESULTS_DIR_PATH +
-    #                    iot2_settings.BUILD_OPTIONS[args.benchmark_configuration][iot2_settings.BENCH_TYPE] +
-    #                    iot2_settings.BUILD_OPTIONS[args.benchmark_configuration][iot2_settings.BENCH_CONFIG_RES_DIR] +
-    #                    iot2_settings.BINS_DIR)
-
     bins_path = "generated/benchmarks/"
-
-
-    '''
-    EXEC_CODE_REGS = metric_config["EXEC_CODE_REGIONS"]
-    ISOLATED_DATA_REGIONS = metric_config["ISOLATED_DATA_REGIONS"]
-    '''
 
     # generate a list of the binary files to analyze
     bin_filelist = []
@@ -522,7 +486,6 @@ def measure_static(benchmarks):
     # dump rop gadgets analysis files
     dump_analysis_files(bin_filelist, analysis_path, ROP_GADGETS_CMD, ROP_EXT)
     # dump objdump of binaries
-    #if args.dump_objdump:
     dump_analysis_files(bin_filelist, analysis_path, OBJDUMP_CMD, OBJDUMP_EXT)
 
     # get a list of size files
