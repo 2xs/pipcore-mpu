@@ -62,8 +62,8 @@ typedef int32_t Coq_index;
  */
 typedef struct block
 {
-	uint32_t* startAddr ; //!< The block's start address
-	uint32_t* endAddr   ; //!< The block's end address (or pointer to the next free slot if it is one)
+	void* startAddr ; //!< The block's start address
+	void* endAddr   ; //!< The block's end address (or pointer to the next free slot if it is one)
 }__attribute__((packed)) block_t;
 
 

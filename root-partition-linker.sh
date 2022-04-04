@@ -45,10 +45,10 @@ then
 fi
 
 cat <<EOF > root_partition.S
-.section .multiplexer
-.global  __multiplexer
+.section .root_binary
+.global  __rootBinaryEntryPoint
 
-__multiplexer:
+__rootBinaryEntryPoint:
 	.incbin "$2"
 EOF
 

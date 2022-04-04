@@ -31,199 +31,219 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
-/**
+/*!
  * \file malinit.c
- * \brief ARM memory abstraction layer initializer
+ *
+ * \brief ARM memory abstraction layer initializer.
  */
 
 #include <stdint.h>
-/*#include <lib/string.h>
-#include <mm/mmu.h>
-#include <mm/memlayout.h>
-#include <sys/coproc.h>
-#include <sys/context.h>
-#include <pipcore/debug.h>
-#include <pipcore/fpinfo.h>*/
-//#include <pipcore/mal.h>
-/*#include <sys/elf.h>
-#include <sys/defs.h>*/
-//#include "ADT.h"
-//#include "Services.h"
 #include <stdio.h>
 
 #include "Internal.h"
+#include "memlayout.h"
 #include "mal.h"
-#include "pip_debug.h"
 
-/* TODO: implement self debug */
-/**
- * \brief Strings for debugging output.
+/*!
+ * \def __SECTION
+ *
+ * \brief Wrapper of the GCC section attribute.
  */
-/*#define CRITICAL 0 //!< Critical output
-#define	ERROR 1 //!< Error output
-#define WARNING	2 //!< Warning output
-#define	INFO 3 //!< Information output
-#define LOG	4 //!< Log output
-//#define TRACE 5 //!< Annoying, verbose output
+#define __SECTION(x) \
+	__attribute__((section(x)))
 
-#ifndef LOGLEVEL
-#define LOGLEVEL CRITICAL
-#endif*/
-
-/**
- * \brief Defines the appropriate DEBUG behavior.
+/*!
+ * \def PANIC
+ *
+ * \brief Print a message and loop forever.
  */
-//#define DEBUG(loglvl,msg,...) if(loglvl<=LOGLEVEL){ printf(#loglvl " [%s:%d] " msg, __FILE__, __LINE__, ##__VA_ARGS__);}
+#define PANIC(...)                   \
+	do                           \
+	{                            \
+		printf(__VA_ARGS__); \
+		for (;;);            \
+	} while (0)
 
-// Start address for the user section; defined in linker script
-extern uint32_t user_mem_start;
-// End address for the user section; defined in linker script
-extern uint32_t user_mem_end;
-// Stack end address for the user section; defined in linker script
-extern uint32_t user_stack_top;
-
-extern uint32_t _sram;
-
-void* user_alloc_pos = NULL;
-
-paddr blockentryaddr_flash = NULL;
-paddr blockentryaddr_ram0 = NULL;
-paddr blockentryaddr_ram1 = NULL;
-paddr blockentryaddr_ram2 = NULL;
-paddr blockentryaddr_periph = NULL;
-
-/* Root partition initialisation.
- * All this code will run at startup.
+/*!
+ * \brief Returns the address passed as argument minus one.
+ *
+ * \param address The address from which to subtract one.
+ *
+ * \return The address passed as argument minus one.
  */
-static paddr mal_create_root_part(void)
+static inline void *
+addressMinusOne(void *address)
 {
-	uint32_t PD_SIZE = PDSTRUCTURETOTALLENGTH();//already MPU sized, in bytes
-	paddr part = user_alloc_pos;
-	//  # init PD root partition: zero the block + fill in [0; PD length]
-	user_alloc_pos = user_alloc_pos + PD_SIZE; // PD_SIZE is in bytes
-	eraseBlock(part, user_alloc_pos);
-
-	// Cast to PDTable_t structure
-	PDTable_t* pdtable = (PDTable_t*) part;
-	*pdtable = getEmptyPDTable();
-
-	return part;
+	return ((void *)(((uintptr_t) address) - 1));
 }
 
-/* mal_init_root_part: Map the root partition code, give it all user memory.
-*/
-void mal_init_root_part(paddr part)
+/*!
+ * \brief Initialize the root partition descriptor structure.
+ *
+ * \param rootPartDesc The root partition structure to initialize.
+ */
+static inline void
+initializeRootPartitionDescriptor(paddr rootPartDesc)
 {
-	uint32_t KS_SIZE = KERNELSTRUCTURETOTALLENGTH();//already MPU sized, in bytes
-	paddr kstructure = user_alloc_pos;
-	user_alloc_pos = user_alloc_pos + KS_SIZE; // KS_SIZE is in bytes
+	paddr rootPartDescEndAddr = ((PDTable_t *) rootPartDesc) + 1;
 
-	//  # init structure kernel of root partition: zero the block + fill in [0; kernel length]
-	/*while (user_alloc_pos < (kstructure + KS_SIZE))// TODO: defined as bigger than minimal MPU region size
-		*user_alloc_pos++ = 0;*/
-
-	//*kstructure = getEmptyKernelStructure();
-
-	/*bool isRootPrepared = initStructure(kstructure, user_alloc_pos);// TODO: defined as bigger than minimal MPU region size)
-
-	if (!isRootPrepared)
-		PANIC("Root partition kernel structure init failed!\r\n");*/
-
-	//  init structure kernel of root partition: zero the block + fill in [0; kernel length]
-	if (!initStructure(kstructure, user_alloc_pos))// TODO: defined as bigger than minimal MPU region size)
+	if (!eraseBlock(rootPartDesc, rootPartDescEndAddr))
 	{
-		printf("mal_init_root_part( part=%p) : couldn't initialise structure\r\n", part);
-		while(1);
-	}
-	// TODO change ed of kernel structure param ?
-
-	// prepare the root partition with the intialized structure
-	writePDStructurePointer(part, kstructure);
-	writePDFirstFreeSlotPointer(part, kstructure);
-	writePDNbFreeSlots(part, KERNELSTRUCTUREENTRIESNB);
-	writePDNbPrepare(part, 1);
-
-	// add user memory block(s)
-#if !defined UNIT_TESTS // unit tests are prepared differently
-	// One FLASH block + one RAM block + one peripheral block -> seperated compilation
-	/*paddr blockentryaddr_flash = insertNewEntry(part, 0,  0x00080000, 0, true, false, true,readPDNbFreeSlots(part)); // idpartition, start, end, origin, RWX
-	paddr blockentryaddr_ram = insertNewEntry(part, user_alloc_pos, &user_mem_end, user_alloc_pos, true, true, false, readPDNbFreeSlots(part));
-	paddr blockentryaddr_periph = insertNewEntry(part, 0x40000000, 0x5FFFFFFF, 0x40000000, true, true, false, readPDNbFreeSlots(part));
-	// Pre-configure the MPU LUT with inserted block(s)
-	enableBlockInMPU(part, blockentryaddr_flash, 0);
-	enableBlockInMPU(part, blockentryaddr_ram, 1);
-	enableBlockInMPU(part, blockentryaddr_periph, 2);*/
-
-	// One FLASH block + three RAM block (RW data + available memory + stack) + peripheral block -> not separated compilation
-	blockentryaddr_flash = insertNewEntry(part, (paddr)0, (paddr)0x00080000, (paddr)0, true, false, true, readPDNbFreeSlots(part));
-	blockentryaddr_ram0 = insertNewEntry(part, (paddr)0x20000000, user_alloc_pos - 1, (paddr)0x20000000, true, true, false, readPDNbFreeSlots(part));
-	blockentryaddr_ram1 = insertNewEntry(part, user_alloc_pos, (paddr)0x20007FFF, (paddr)0x20000000, true, true, false, readPDNbFreeSlots(part));
-	blockentryaddr_ram2 = insertNewEntry(part, (paddr)0x20008000, &user_stack_top, (paddr)0x20008000, true, true, false, readPDNbFreeSlots(part));
-	blockentryaddr_periph = insertNewEntry(part, (paddr)0x40000000, (paddr)0x5FFFFFFF, (paddr)0x40000000, true, true, false, readPDNbFreeSlots(part));
-
-	// Map 4 blocks -> flash, 2 ram blocks + peripherals
-  	enableBlockInMPU(part, blockentryaddr_flash, 0); // Entire Flash
-  	enableBlockInMPU(part, blockentryaddr_ram0, 1); // RW region containing the data+bss
-  	enableBlockInMPU(part, blockentryaddr_ram1, 2);
-  	enableBlockInMPU(part, blockentryaddr_ram2, 3); // Stack: !never touch!, should always be enabled in MPU
-	enableBlockInMPU(part, blockentryaddr_periph, 4); // Peripherals
-
-	dump_mpu();
-
-
-#endif // UNIT_TESTS
-	//DEBUG(TRACE, "mal_init_root_part( part=%08x) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
-	printf("mal_init_root_part( part=%p) : kstructure=%p, first entry=%p\r\n", part,kstructure,user_alloc_pos);
-
-	// Map stack and VIDT
-/*
-	arm_ctx_t *init_ctx;
-	// Create first context on the stack
-	init_ctx = (arm_ctx_t*)(stack + 0x1000 - sizeof(*init_ctx));
-	init_ctx->reg[CTX_SP] = (unsigned)STACK_VADDR + 0x1000 - sizeof(*init_ctx);
-	init_ctx->reg[CTX_PC] = (unsigned)entry_point;
-	init_ctx->reg[CTX_R0] = (unsigned)FPINFO_VADDR;
-	init_ctx->pipflags = 1;
-
-	// Prepare vidt with first context address & vcli set
-	vidt[0] = init_ctx->reg[CTX_SP];
-
-	DEBUG(TRACE, "Filled vidt with &ctx=%p, pc=%08x\r\n", vidt[0], init_ctx->reg[CTX_PC]);
-	*/
-
- 	// Invalidate user page allocator (FIXME: debug purpose only)
-	//user_alloc_pos = &user_mem_end;
-
-	// Register created root partition to Pip
-	updateRootPartition(part);
-}
-
-void mal_init_global_var(void)
-{
-	user_alloc_pos = &user_mem_start;
-	min_mpu_region = MINBLOCKSIZE() << 2; // block is in words
-}
-
-void mal_init(void)
-{
-	// Check and clear the physical MPU
-	if (checkMPU()<0 || initMPU()<0)
-	{
-		// the check did not pass, panic since Pip relies on the MPU
-		printf("DEBUG: (kernel) MPU ERROR");
-		while(1);
+		PANIC("PIP: Failed to erase the root partition "
+			"descriptor structure...\n");
 	}
 
-	mal_init_global_var();
-	//unsigned *part;
-	paddr part;
+	*((PDTable_t *) rootPartDesc) = getEmptyPDTable();
+}
 
-	// Initialize root partition
-	part = mal_create_root_part();
+/*!
+ * \brief Initialize the root kernel structure.
+ *
+ * \param rootKernStruct The root kernel structure to initialize.
+ */
+static inline void
+initializeRootKernelStructure(paddr rootKernStruct)
+{
+	paddr rootKernStructEndAddr = ((KStructure_t *) rootKernStruct) + 1;
 
-	// Prepare the root partition and give it all user memory
-	mal_init_root_part(part);
+	if (!initStructure(rootKernStruct, rootKernStructEndAddr))
+	{
+		PANIC("PIP: Failed to initialize the root partition "
+			"kernel structure...\n");
+	}
+}
 
-	//DEBUG(TRACE, "mal_init( part=%08x) : root is initialized\r\n", part);
-	printf("mal_init( part=%p) : root is initialized\r\n", part);
+/*!
+ * \brief Prepare the root partition with a kernel structure.
+ *
+ * \param rootPartDesc The root partition to prepare.
+ *
+ * \param rootKernStruct The root kernel structure.
+ */
+static inline void
+prepareRootPartition(paddr rootPartDesc, paddr rootKernStruct)
+{
+	writePDStructurePointer(rootPartDesc, rootKernStruct);
+	writePDFirstFreeSlotPointer(rootPartDesc, rootKernStruct);
+	writePDNbFreeSlots(rootPartDesc, KERNELSTRUCTUREENTRIESNB);
+	writePDNbPrepare(rootPartDesc, 1);
+}
+
+/*!
+ * \brief Create a new partition and register it as the root partition.
+ */
+static inline void
+createAndRegisterRootPartition(void)
+{
+	/* Allocate a space in the .root_kern_struct section for the
+	 * root partition descriptor structure. */
+	static PDTable_t rootPartDesc __SECTION(".root_kern_struct");
+
+	/* Allocate a space in the .root_kern_struct section for the
+	 * root kernel structure. */
+	static KStructure_t rootKernStruct __SECTION(".root_kern_struct");
+
+	/* Initialize the root partition structures. */
+	initializeRootPartitionDescriptor(&rootPartDesc);
+	initializeRootKernelStructure(&rootKernStruct);
+	prepareRootPartition(&rootPartDesc, &rootKernStruct);
+
+#if !defined UNIT_TESTS
+
+	/* Insertion of a new MPU block for the root partition's
+	 * ROM in the kernel structure. */
+	paddr rootPartRomBlockId = insertNewEntry(
+		(paddr) &rootPartDesc,
+		(paddr) &__rootBinaryStart,
+		(paddr) addressMinusOne(&__romEnd),
+		(paddr) &__rootBinaryStart,
+		true,
+		false,
+		true,
+		readPDNbFreeSlots(&rootPartDesc)
+	);
+
+	/* Insertion of a new MPU block for the root partition's
+	 * stack in the kernel structure. */
+	paddr rootPartStackBlockId = insertNewEntry(
+		(paddr) &rootPartDesc,
+		(paddr) &__rootStackLimit,
+		(paddr) addressMinusOne(&__rootStackTop),
+		(paddr) &__rootStackLimit,
+		true,
+		true,
+		false,
+		readPDNbFreeSlots(&rootPartDesc)
+	);
+
+	/* Insertion of a new MPU block for the root partition's
+	 * RAM in the kernel structure. */
+	paddr rootPartRamBLockId = insertNewEntry(
+		(paddr) &rootPartDesc,
+		(paddr) &__unusedRamStart,
+		(paddr) addressMinusOne(&__ramEnd),
+		(paddr) &__unusedRamStart,
+		true,
+		true,
+		false,
+		readPDNbFreeSlots(&rootPartDesc)
+	);
+
+	/* Insertion of a new MPU block for the root partition's
+	 * peripherals in the kernel structure. */
+	paddr rootPartPeriphBlockId = insertNewEntry(
+		(paddr) &rootPartDesc,
+		(paddr) &__periphStart,
+		(paddr) addressMinusOne(&__periphEnd),
+		(paddr) &__periphStart,
+		true,
+		true,
+		false,
+		readPDNbFreeSlots(&rootPartDesc)
+	);
+
+	/* Map all blocks previously inserted into the kernel
+	 * structure to the physical MPU.
+	 *
+	 * WARNING: The stack block MUST always be mapped to the
+	 * physical MPU because, in ARMv7-M, the hardware pushes
+	 * registers onto the stack. */
+	enableBlockInMPU(&rootPartDesc, rootPartRomBlockId, 0);
+	enableBlockInMPU(&rootPartDesc, rootPartStackBlockId, 1);
+	enableBlockInMPU(&rootPartDesc, rootPartRamBLockId, 2);
+	enableBlockInMPU(&rootPartDesc, rootPartPeriphBlockId, 3);
+
+#endif /* UNIT_TESTS */
+
+	/* Register the root partition to PIP. */
+	updateRootPartition(&rootPartDesc);
+}
+
+/*!
+ * \brief Initialize the MAL global variables.
+ */
+static inline void
+initializeMalGlobalVariables(void)
+{
+	min_mpu_region = MINBLOCKSIZE() << 2;
+}
+
+/*!
+ * \brief Initialize the Memory Abstraction Layer (MAL).
+ */
+extern void
+malInit(void)
+{
+	if (checkMPU() < 0)
+	{
+		PANIC("PIP: No MPU found...\n");
+	}
+
+	if (initMPU() < 0)
+	{
+		PANIC("PIP: Failed to clear the MPU...\n");
+	}
+
+	initializeMalGlobalVariables();
+	createAndRegisterRootPartition();
 }

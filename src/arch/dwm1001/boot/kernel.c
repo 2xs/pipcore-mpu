@@ -1,5 +1,7 @@
 #include <stdint.h>
 #include <sys/types.h>
+
+#include "memlayout.h"
 #include "mpu.h"
 #include "mal.h"
 #include "pip_debug.h"
@@ -59,19 +61,6 @@ __initialize_args (int*, char***);
 // the startup sequence (-nostartfiles).
 
 // ----------------------------------------------------------------------------
-
-// Begin address for the initialisation values of the .data section.
-// defined in linker script
-extern uint32_t _sidata;
-// Begin address for the .data section; defined in linker script
-extern uint32_t _sdata;
-// End address for the .data section; defined in linker script
-extern uint32_t _edata;
-
-// Begin address for the .bss section; defined in linker script
-extern uint32_t _sbss;
-// End address for the .bss section; defined in linker script
-extern uint32_t _ebss;
 
 // main() is the entry point for newlib based applications.
 // By default, there are no arguments, but this can be customised
@@ -133,7 +122,7 @@ __initialize_bss (uint32_t* region_begin, uint32_t* region_end)
 // For the call to work, and for the call to __initialize_hardware_early()
 // to work, the reset stack must point to a valid internal RAM area.
 
-void __attribute__ ((section(".after_vectors"),noreturn,weak))
+void __attribute__ ((noreturn, weak))
 _start (void)
 {
 
@@ -152,10 +141,17 @@ _start (void)
   // that will manage a single BSS sections.
 
   // Copy the DATA segment from Flash to RAM (inlined).
-  __initialize_data(&_sidata, &_sdata, &_edata);
+  __initialize_data(
+  	(uint32_t *) &__pipDataRomStart,
+	(uint32_t *) &__pipDataStart,
+	(uint32_t *) &__pipDataEnd
+  );
 
   // Zero fill the BSS section (inlined).
-  __initialize_bss(&_sbss, &_ebss);
+  __initialize_bss(
+  	(uint32_t *) &__pipBssStart,
+	(uint32_t *) &__pipBssEnd
+  );
 
   // Hook to continue the initialisations. Usually compute and store the
   // clock frequency in the global CMSIS variable, cleared above.

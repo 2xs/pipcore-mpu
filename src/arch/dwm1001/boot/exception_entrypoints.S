@@ -52,7 +52,7 @@
 
 	.global   \entrypointName
 	.type     \entrypointName, %function
-	.section  .after_vectors
+	.section  .text
 
 	/* The frame of information pushed onto the stack on
 	 * exception entry is the following:
@@ -153,7 +153,7 @@
 
 .global   Reset_Handler
 .type     Reset_Handler, %function
-.section  .after_vectors
+.section  .text
 Reset_Handler:
     bl _start
 

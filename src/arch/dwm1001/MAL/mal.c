@@ -36,21 +36,13 @@
  * \brief ARM memory abstraction layer
  */
 
-#include <stdint.h>
-#include "mal.h"
-#include <stddef.h>
-#include "mpu.h"
-//#include "debug.h"
-
-/*#ifdef DEBUG_MAL
-#define MALDBG(fmt,...) DEBUG(ERROR, fmt, ##__VA_ARGS__)
-#else
-#define MALDBG(...)
-#endif*/
 #include <stdio.h>
+#include <stddef.h>
+#include <stdint.h>
 
-extern uint32_t _sram; // RAM start address; defined in linker script
-extern uint32_t _eram; // RAM end address; defined in linker script
+#include "mal.h"
+#include "memlayout.h"
+#include "mpu.h"
 
 paddr current_partition = NULL; /* Current partition, default root */
 paddr root_partition = NULL; /* Multiplexer's partition descriptor, default 0*/
@@ -1228,8 +1220,8 @@ bool checkBlockInRAM(paddr blockentryaddr)
 {
 	// blockentryaddr checked before and lies within the kernel structure
 	BlockEntry_t* block = (BlockEntry_t*) blockentryaddr;
-	int startInRAM = &_sram <= block->blockrange.startAddr;
-	int endInRAM = block->blockrange.endAddr <=  &_eram;
+	int startInRAM = ((void *) &__ramStart) <= block->blockrange.startAddr;
+	int endInRAM = block->blockrange.endAddr <=  ((void *) &__ramEnd);
 	return (startInRAM && endInRAM);
 }
 

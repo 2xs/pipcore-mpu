@@ -73,7 +73,7 @@ uint32_t dec(uint32_t val); //!< Decrement an integer
 uint32_t zero(); //!< Zero. That's it.
 uint32_t one(); //!< One.
 
-void mal_init(void);
+void malInit(void);
 
 /* ARM */
 /* MALInternal */

@@ -34,12 +34,12 @@
 .cpu cortex-m4
 .thumb
 
-    .section .isr_vector, "ax"
+    .section .vector_table, "ax"
     .align 2
     .globl __isr_vector
 
 __isr_vector:
-    .long   __StackTop         /* Top of Stack */
+    .long   __pipStackTop      /* Top of Stack */
     .long   Reset_Handler      /* Reset        */
     .long   Interrupt_Handler  /* NMI          */
     .long   Fault_Handler      /* HardFault    */

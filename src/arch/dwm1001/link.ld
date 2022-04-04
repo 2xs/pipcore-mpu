@@ -31,190 +31,214 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
+/* Memory layout:
+ *
+ *                              ROM                      RAM
+ *    0x00000000 +--> +--------------------+   +--------------------+ <--+ 0x20000000
+ *               |    |                    |   |                    |    |
+ *               |    |   .vector_table    |   |       .data        |    |
+ *               |    |                    |   |                    |    |
+ *               |    +--------------------+   +--------------------+    |
+ *               |    |                    |   |                    |    |
+ *         PIP --+    |       .text        |   |        .bss        |    |
+ *               |    |                    |   |                    |    |
+ *               |    +--------------------+   +--------------------+    |
+ *               |    |                    |   |                    |    |
+ *               |    |       .data        |   |        .heap       |    +-- PIP
+ *               |    |                    |   |                    |    |
+ *               +--> +--------------------+   +--------------------+    |
+ *               |    |                    |   |                    |    |
+ *               |    |    .root_binary    |   |       .stack       |    |
+ *               |    |                    |   |                    |    |
+ *               |    +--------------------+   +--------------------+    |
+ *               |    |                    |   |                    |    |
+ *               |    |                    |   |  .root_kern_struct |    |
+ *               |    |                    |   |                    |    |
+ *               |    |                    |   +--------------------+ <--+
+ *      MPU R0 --+    |                    |   |                    |    |
+ *               |    |                    |   |     .root_stack    |    +-- MPU R1
+ *               |    |         ...        |   |                    |    |
+ *               |    |                    |   +--------------------+ <--+
+ *               |    |                    |   |                    |    |
+ *               |    |                    |   |                    |    |
+ *               |    |                    |   |         ...        |    +-- MPU R2
+ *               |    |                    |   |                    |    |
+ *               |    |                    |   |                    |    |
+ *    0x00080000 +--> +--------------------+   +--------------------+ <--+ 0x20010000
+ *
+ * MPU regions:
+ *
+ *   - MPU R0: MPU region containing the ROM accessible to the root partition.
+ *   - MPU R1: MPU region containing the stack of the root partition.
+ *   - MPU R2: MPU region containing the RAM accessible to the root partition.
+ *   - MPU R3: MPU region containing the on-chip peripherals accessible to
+ *             the root partition.
+ */
+
+/*
+ * The stack size of PIP in bytes.
+ */
+__pipStackSize = 1024 ;
+
+/*
+ * The heap size of PIP in bytes.
+ */
+__pipHeapSize = 1024 ;
+
+/* The stack size of the root partition in bytes.
+ *
+ * WARNING: Must be a power of 2 greater than or equal to 32 which is
+ * the minimum valid MPU region size for ARMv7-M.
+ */
+__rootStackSize = 1024 ;
+
+/*
+ * Start address of the on-chip peripherals.
+ */
+__periphStart = 0x40000000 ;
+
+/*
+ * End address of the on-chip peripherals.
+ */
+__periphEnd = 0x60000000 ;
+
 MEMORY
 {
-	FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 512K
-	RAM (xrw)  : ORIGIN = 0x20000000, LENGTH = 64K
+	ROM (rx)  : ORIGIN = 0x00000000, LENGTH = 512K
+	RAM (xrw) : ORIGIN = 0x20000000, LENGTH = 64K
 }
 
+OUTPUT_FORMAT(
+	"elf32-littlearm",
+	"elf32-littlearm",
+	"elf32-littlearm"
+)
 
-OUTPUT_FORMAT("elf32-littlearm")
 OUTPUT_ARCH(arm)
 
 ENTRY(_start)
+
 /*
- * Default stack sizes.
- * These are used by the startup in order to allocate stacks
- * for the different modes.
+ * The start address of the RAM.
  */
+__ramStart = ORIGIN(RAM);
 
-__Main_Stack_Size = 1024 ;
-__Heap_Size = 1024 ;
-__User_Stack_Size = 1024 ; /* must be a power of two else will be ceiled to be so */
+/*
+ * The end address of the RAM.
+ */
+__ramEnd = ORIGIN(RAM) + LENGTH(RAM);
 
-/* Populate information about ram size */
-_sram = ORIGIN(RAM);
-_eram = ORIGIN(RAM) + LENGTH(RAM);
+/*
+ * The start address of the ROM.
+ */
+__romStart = ORIGIN(ROM);
 
-/* Populate information about rom size */
-_srom = ORIGIN(FLASH);
-_erom = ORIGIN(FLASH) + LENGTH(FLASH);
+/*
+ * The end address of the ROM.
+ */
+__romEnd = ORIGIN(ROM) + LENGTH(ROM);
 
-/* Section Definitions */
 SECTIONS
 {
-  /*
-     * For Cortex-M devices, the beginning of the startup code is stored in
-     * the .isr_vector section, which goes to FLASH.
-     */
-    .isr_vector : ALIGN(4)
-    {
-        FILL(0xFF)
-
-        __vectors_start = ABSOLUTE(.) ;
-        __vectors_start__ = ABSOLUTE(.) ; /* STM specific definition */
-        KEEP(*(.isr_vector))     	/* Interrupt vectors */
-
-        /*
-          * This section is here for convenience, to store the
-          * startup code at the beginning of the flash area, hoping that
-          * this will increase the readability of the listing.
-          */
-        *(.after_vectors .after_vectors.*)	/* Startup code and ISR */
-
-        KEEP(*(.eh_frame*))
-
-        /*
-		 * Stub sections generated by the linker, to glue together
-		 * ARM and Thumb code. .glue_7 is used for ARM code calling
-		 * Thumb code, and .glue_7t is used for Thumb code calling
-		 * ARM code. Apparently always generated by the linker, for some
-		 * architectures, so better leave them here.
-		 */
-        *(.glue_7)
-        *(.glue_7t)
-
-    } >FLASH
-
-	/*
-	 * The program code is stored in the .text section,
-	 * which goes to FLASH.
-	 */
-	.text : ALIGN(4)
+	.vector_table :
 	{
-		_stext = .;
-		*(.text .text.*) /* all remaining code */
+		. = ALIGN( 4 ) ;
+		__vectorTableStart = . ;
+		KEEP( *(.vector_table*) )
+		. = ALIGN( 4 ) ;
+		__vectorTableEnd = . ;
+	} > ROM
 
- 		/* read-only data (constants) */
-		*(.rodata .rodata.*)
+	.text :
+	{
+		. = ALIGN( 4 ) ;
+		__pipTextStart = . ;
+		*(.text*)
+		*(.rodata*)
+		. = ALIGN( 4 ) ;
+		__pipTextEnd = . ;
+	} > ROM
 
-		/*
-		 *
-		 */
+	.data :
+	{
+		. = ALIGN( 4 ) ;
+		__pipDataStart = . ;
+		*(.data*)
+		. = ALIGN( 4 ) ;
+		__pipDataEnd = . ;
+	} > RAM AT > ROM
 
-		. = ALIGN(32);
+	__pipDataRomStart = LOADADDR(.data) ;
+	__pipDataRomEnd = __pipDataRomStart +
+		( __pipDataEnd - __pipDataStart ) ;
 
-		_smultiplexer = . ;
-		*(.multiplexer*)
-		_emultiplexer = . ;
+	.root_binary :
+	{
+		. = ALIGN( 32 ) ;
+		__rootBinaryStart = . ;
+		*(.root_binary*)
+		__rootBinaryEnd = . ;
+		. = ALIGN( 32 ) ;
+		__unusedRomStart = . ;
+	} > ROM
 
-		_etext = .;
-	} > FLASH
+	.bss (NOLOAD) :
+	{
+		. = ALIGN( 4 ) ;
+		__pipBssStart = . ;
+		*(.bss*)
+		*(COMMON)
+		. = ALIGN( 4 ) ;
+		__pipBssEnd = . ;
+	} > RAM
 
-	/*
-     * This address is used by the startup code to
-     * initialise the .data section.
-     */
-    _sidata = LOADADDR(.data);
-    /*
-     * The initialised data section.
-     *
-     * The program executes knowing that the data is in the RAM
-     * but the loader puts the initial values in the FLASH (inidata).
-     * It is one task of the startup to copy the initial values from
-     * FLASH to RAM.
-     */
-    .data : ALIGN(4)
-    {
-        FILL(0xFF)
-        /* This is used by the startup code to initialise the .data section */
-        _sdata = . ;        	/* STM specific definition */
+	.heap (NOLOAD) :
+	{
+		. = ALIGN( 4 ) ;
+		__HeapBase = . ;
+		_Heap_Begin = __HeapBase ;
+		KEEP( *(.heap*) )
+		. += __pipHeapSize ;
+		. = ALIGN( 4 ) ;
+		__HeapLimit = . ;
+		_Heap_Limit = __HeapLimit ;
+	} > RAM
 
-        *(.data .data.*)
+	.stack (NOLOAD) :
+	{
+		. = ALIGN( 8 ) ;
+		__pipStackLimit = . ;
+		. += __pipStackSize ;
+		. = ALIGN( 8 ) ;
+		__pipStackTop = . ;
+	} > RAM
 
-        . = ALIGN(4);
+	.root_kern_struct (NOLOAD) :
+	{
+		. = ALIGN( 4 ) ;
+		__rootKernStructStart = . ;
+		*(.root_kern_struct*)
+		. = ALIGN( 4 ) ;
+		__rootKernStructEnd = . ;
+	} > RAM
 
-	      /* This is used by the startup code to initialise the .data section */
-        _edata = . ;        	/* STM specific definition */
+	.root_stack (NOLOAD) :
+	{
+		. = ALIGN( __rootStackSize ) ;
+		__rootStackLimit = . ;
+		. += __rootStackSize ;
+		__rootStackTop = . ;
+		. = ALIGN( 32 ) ;
+		__unusedRamStart = . ;
+	} > RAM
 
-    } >RAM AT>FLASH
-
-    /*
-     * The uninitialised data sections. NOLOAD is used to avoid
-     * the "section `.bss' type changed to PROGBITS" warning
-     */
-    /* .bss section which is used for uninitialized data */
-    .bss (NOLOAD) :
-    {
-        . = ALIGN(4);
-        _sbss = .;
-        *(.bss .bss.*)
-        *(COMMON)
-        . = ALIGN(4);
-        _ebss = .;
-    } > RAM
-
-    .heap (NOLOAD) :
-    {
-        __HeapBase = .;
-        _Heap_Begin = __HeapBase;
-        KEEP(*(.heap*))
-        . = . + __Heap_Size;
-        __HeapLimit = .;
-        _Heap_Limit = __HeapLimit ;
-    } > RAM
-
-    /* stack section */
-
-    .stack (NOLOAD):
-    {
-        . = ALIGN(8);
-        __StackLimit = .;
-        . = . + __Main_Stack_Size;
-        . = ALIGN(8);
-        __StackTop = .;
-      /* Check if data + heap + stack exceeds RAM limit */
-      ASSERT(__HeapLimit <= __StackLimit, "region RAM overflowed");
-
-    } > RAM
-
-    /* USER SECTION */
-    .userland (NOLOAD) :
-    {
-        . = ALIGN(32); /* Align to MPU region grain */
-        user_mem_start = .;
-        user_mem_end = _eram;
-    } > RAM
-
-    /* Set the user stack at end of RAM with MPU alignment constraints */
-    ASSERT(32 <= __User_Stack_Size, "stack size too small")
-
-    _user_stack_size_aligned = (1 << (LOG2CEIL(__User_Stack_Size)-1)); /* 2^(log2(stack size not aligned)-1) */
-    user_stack_limit = ALIGN(_eram - 2*_user_stack_size_aligned + 1, _user_stack_size_aligned); /* be sure to align at end of RAM */
-    user_stack_top = user_stack_limit + _user_stack_size_aligned;
-
-
-    ASSERT(user_mem_start <= user_stack_limit, "stack limit before start of RAM")
-    ASSERT(user_stack_top <= _eram , "stack top higher than end of RAM")
-
-    /*_end = . ;*/
-
-    /* Set stack top to end of RAM, and stack limit move down by
-	 * size of stack_dummy section */
-
-/* Check if text sections + data exceeds FLASH limit */
-    DataInitFlashUsed = _sbss - _sdata;
-    CodeFlashUsed = _etext - ORIGIN(FLASH);
-    TotalFlashUsed = CodeFlashUsed + DataInitFlashUsed;
-    ASSERT(TotalFlashUsed <= LENGTH(FLASH), "region FLASH overflowed with .data and user data")
+	/* Assert that the following values are true before linking.
+	 *
+	 * WARNING: We check that the start address of the unused RAM
+	 * plus 32 does not overflow the RAM because it is the smallest
+	 * valid MPU region for ARMv7-M.
+	 */
+	ASSERT( ( __rootStackSize  & 31 ) ==        0, "The root partition stack size is not a power of two greater than or equal to 32..." )
+	ASSERT( ( __unusedRomStart      ) <= __romEnd, "The sections overflow the ROM..." )
+	ASSERT( ( __unusedRamStart + 32 ) <= __ramEnd, "The sections overflow the RAM..." )
 }

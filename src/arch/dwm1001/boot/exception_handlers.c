@@ -66,7 +66,7 @@
  *
  * \see The calling code is in the exception_entry.S file.
  */
-void __attribute__((section(".after_vectors"), noreturn))
+extern void __attribute__((noreturn))
 Interrupt_Handler_C(stacked_context_t *stackedContext)
 {
 	user_context_t context;
@@ -177,7 +177,7 @@ Interrupt_Handler_C(stacked_context_t *stackedContext)
  *
  * \param context The context of the faulted partition.
  */
-void __attribute__((section(".after_vectors"), noreturn))
+extern void __attribute__((noreturn))
 propagateFault(
 	paddr          currentPartDesc,
 	unsigned       targetInterrupt,
@@ -287,7 +287,7 @@ propagateFault(
  *
  * \see The calling code is in the exception_entry.S file.
  */
-void __attribute__((section(".after_vectors"), noreturn))
+extern void __attribute__((noreturn))
 Fault_Handler_C(stacked_context_t *stackedContext)
 {
 	user_context_t context;
@@ -340,7 +340,7 @@ Fault_Handler_C(stacked_context_t *stackedContext)
  *
  * \see The calling code is in the exception_entry.S file.
  */
-void __attribute__((section(".after_vectors")))
+extern void
 MemManage_Handler_C(stacked_context_t *stackedContext)
 {
 	uint32_t faultedAddress;

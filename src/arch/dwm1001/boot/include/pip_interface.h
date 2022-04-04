@@ -34,9 +34,6 @@
 #ifndef __PIP_INTERFACE_H__
 #define __PIP_INTERFACE_H__
 
-#include <stdint.h>
-#include <stddef.h>
-
 #include "userconstants.h"
 #include "context.h"
 #include "ADT.h"
@@ -51,37 +48,62 @@ typedef struct pip_interface_s
 	 * \brief The ID of the block containing the partition
 	 *        descriptor of the root partition.
 	 */
-	uint32_t *partDescId;
+	void *rootPartDescBlockId;
 
 	/*!
 	 * \brief The initial context of the root partition.
 	 */
-	user_context_t context;
+	user_context_t rootPartContext;
 
 	/*!
 	 * \brief List containing the attributes of the MPU blocks.
 	 */
-	blockAttr_t mpu[MPU_REGIONS_NB];
+	blockAttr_t mpuBlockAttributes[MPU_REGIONS_NB];
 
 	/*!
-	 * \brief The start of the unused ROM.
+	 * \brief The limit address of the stack of the root partition.
 	 */
-	uint32_t romUnusedStart;
+	void *rootStackLimit;
 
 	/*!
-	 * \brief The end of the ROM.
+	 * \brief The stack top address of the root partition.
 	 */
-	uint32_t romEnd;
+	void *rootStackTop;
 
 	/*!
-	 * \brief The start of the unused RAM.
+	 * \brief The start address of the root partition binary.
 	 */
-	uint32_t ramUnusedStart;
+	void *rootBinaryStart;
 
 	/*!
-	 * \brief The end of the RAM.
+	 * \brief The entry point address of the root partition.
 	 */
-	uint32_t ramEnd;
+	void *rootBinaryEntryPoint;
+
+	/*!
+	 * \brief The end address of the root partition binary.
+	 */
+	void *rootBinaryEnd;
+
+	/*!
+	 * \brief The start address of the unused ROM.
+	 */
+	void *unusedRomStart;
+
+	/*!
+	 * \brief The end address of the ROM.
+	 */
+	void *romEnd;
+
+	/*!
+	 * \brief The start address of the unused RAM.
+	 */
+	void *unusedRamStart;
+
+	/*!
+	 * \brief The end address of the RAM.
+	 */
+	void *ramEnd;
 
 } pip_interface_t;
 

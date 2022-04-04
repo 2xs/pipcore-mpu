@@ -40,6 +40,7 @@
 #include "nrf52.h"
 #include "mal.h"
 #include "scs.h"
+#include "memlayout.h"
 
 /* Check that an address does not exceed the end of a block. */
 #define IS_BLOCK_END_EXCEEDED(address, blockEnd) \
@@ -59,9 +60,6 @@
 /* This EXC_RETURN value allows to return to Thread mode with
  * the PSP stack. */
 #define EXC_RETURN_THREAD_MODE_PSP 0xFFFFFFFD
-
-/* The MSP top of stack defined in the link script. */
-extern uint32_t __StackTop;
 
 static yield_return_code_t checkIntLevelCont(
 	paddr calleePartDescAddr,
@@ -721,7 +719,7 @@ static void loadContext(
 
 		/* Input operands */
 		: "r" (&(ctx->registers[R4])),
-		  "r" (&__StackTop),
+		  "r" (&__pipStackTop),
 		  "r" (frame),
 		  "r" (EXC_RETURN_THREAD_MODE_PSP)
 
