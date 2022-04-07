@@ -344,23 +344,75 @@ extern void
 MemManage_Handler_C(stacked_context_t *stackedContext)
 {
 	uint32_t faultedAddress;
+	uint32_t isDaccviol = 0;
 
 	if (CFSR.MMFSR.DACCVIOL && CFSR.MMFSR.MMARVALID)
 	{
-		/* The MemManage fault was triggered because of an MPU
-		 * violation or fault caused by an explicit memory
-		 * access. The faulted address is stored in the MMFAR
-		 * register because the MMARVALID bit is set. */
+		/* Armv7-M Architecture - Reference Manual
+		 * B1.5.14 Fault behavior
+		 *
+		 * ``
+		 * MPU violation or fault caused by an explicit memory
+		 * access. The processor writes the data address of the
+		 * load or store to the MemManage Address Register.
+		 * ``
+		 *
+		 * The faulted address is stored in the MMFAR register
+		 * because the MMARVALID bit is set.
+		 */
 		faultedAddress = MMFAR.ADDRESS;
+
+		isDaccviol = 1;
 	}
 	else if (CFSR.MMFSR.IACCVIOL)
 	{
-		/* The MemManage fault was triggered because of an MPU
-		 * violation or fault caused by an instruction fetch,
-		 * or an instruction fetch from XN memory when there is
-		 * no MPU. The faulted address is stored in the PC
-		 * register of the stacked context. */
-		faultedAddress = stackedContext->registers[PC];
+		/* Armv7-M Architecture - Reference Manual
+		 * B1.5.14 Fault behavior
+		 *
+		 * ``
+		 * MemManage fault on instruction access:
+		 *
+		 * MPU violation or fault caused by an instruction
+		 * fetch, or an instruction fetch from XN memory when
+		 * there is no MPU. The fault occurs only if the
+		 * processor attempts to execute the instruction. The
+		 * processor does not update the MemManage Address
+		 * Register.
+		 * ``
+		 *
+		 * The faulted address is the address of the instruction
+		 * stored in the PC register, saved in the stacked
+		 * context, plus the size of this instruction.
+		 */
+
+		/* Retrieve the instruction address. */
+		uint32_t instructionAddress =
+			stackedContext->registers[PC];
+
+		/* Retrieve instruction from the its address. */
+		uint16_t instruction =
+			*((uint16_t *) instructionAddress);
+
+		/* Armv7-M Architecture - Reference Manual
+		 * A5.1 Thumb instruction set encoding
+		 *
+		 * ``
+		 * If bits [15:11] of the halfword being decoded take
+		 * any of the following values, the halfword is the
+		 * first halfword of a 32-bit instruction: 0b11101,
+		 * 0b11110, 0b11111.
+		 * ``
+		 */
+		uint8_t bits = (instruction >> 11) & 0x1f;
+
+		if (bits == 0x1d || bits == 0x1e || bits == 0x1f)
+		{
+			faultedAddress = instructionAddress + 2;
+		}
+		else
+		{
+			faultedAddress = instructionAddress;
+		}
 	}
 	else
 	{
@@ -378,9 +430,16 @@ MemManage_Handler_C(stacked_context_t *stackedContext)
 	{
 		PDTable_t *currentPartDesc = (PDTable_t *) getCurPartition();
 
-		for (size_t i = 0; i < MPU_NUM_REGIONS; i++)
+		for (size_t mpuIndex = 0; mpuIndex < MPU_NUM_REGIONS - 2; mpuIndex++)
 		{
-			BlockEntry_t *currentBlock = currentPartDesc->mpu[i];
+			BlockEntry_t *currentBlock = currentPartDesc->mpu[mpuIndex];
+
+			if (currentBlock == NULL)
+			{
+				/* We go to the next MPU block if the
+				 * current block is NULL. */
+				continue;
+			}
 
 			if (!currentBlock->present)
 			{
@@ -413,10 +472,10 @@ MemManage_Handler_C(stacked_context_t *stackedContext)
 			}
 
 			uint32_t physicalMpuStartAddress =
-					(uint32_t) readPhysicalMPUStartAddr(i);
+					(uint32_t) readPhysicalMPUStartAddr(mpuIndex);
 
 			uint32_t physicalMpuEndAddress =
-					(uint32_t) readPhysicalMPUEndAddr(i);
+					(uint32_t) readPhysicalMPUEndAddr(mpuIndex);
 
 			if (physicalMpuStartAddress <= faultedAddress &&
 				faultedAddress <= physicalMpuEndAddress)
@@ -433,7 +492,23 @@ MemManage_Handler_C(stacked_context_t *stackedContext)
 				 * reconfigure the MPU regions to allow
 				 * access to the faulty address. */
 
-				configure_LUT_entry(currentPartDesc->LUT, i,
+				static uint32_t flag = 0;
+
+				if (flag)
+				{
+					if (isDaccviol)
+					{
+						mpuIndex = MPU_NUM_REGIONS - 1;
+					}
+					else
+					{
+						mpuIndex = MPU_NUM_REGIONS - 2;
+					}
+				}
+
+				flag ^= 1;
+
+				configure_LUT_entry(currentPartDesc->LUT, mpuIndex,
 					currentBlock, (uint32_t *) faultedAddress);
 
 				mpu_configure_from_LUT(currentPartDesc->LUT);
