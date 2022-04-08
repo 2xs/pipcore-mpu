@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <stdarg.h>
 
 void *memcpy(void *dest, const void *src, size_t len)
 {
@@ -25,7 +26,7 @@ void *memset(void *dest, int val, size_t len)
 	return dest;
 }
 
-size_t strlen(char *str)
+size_t strlen(const char *str)
 {
 	const char *s;
 
@@ -34,8 +35,12 @@ size_t strlen(char *str)
 	return (s - str);
 }
 
-void vsnprintf(void)
+int vsnprintf(char * s, size_t n, const char * format, va_list arg)
 {
 	/* TODO */
-	return;
+	(void) s;
+	(void) n;
+	(void) format;
+	(void) arg;
+	return 0;
 }
