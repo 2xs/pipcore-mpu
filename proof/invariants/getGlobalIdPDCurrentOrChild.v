@@ -89,11 +89,13 @@ case_eq isCurrentPart.
 		simpl. intros. intuition.
 		destruct H6. unfold consistency in *. unfold PDTIfPDFlag in *.
 		intuition. unfold entryPDT in *. destruct H10. intuition.
-		specialize (H6 idPDToCheck x H2).
+		destruct H26. destruct H10.
+		assert(Hconj := conj H2 H10). Search sh1entryAddr.
+		specialize (H6 idPDToCheck x Hconj).
 		destruct H6. intuition.
-		unfold bentryStartAddr in *. rewrite H10 in *. subst.
+		unfold bentryStartAddr in *. rewrite H24 in *. subst.
 		unfold isPDT.
-		destruct (lookup (startAddr (blockrange x1)) (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
+		destruct (lookup (startAddr (blockrange x0)) (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
 		destruct v eqn:Hv ; try (exfalso ; congruence) ; trivial.
 		}
 	+ (* case_eq isChildCurrPart = false *)

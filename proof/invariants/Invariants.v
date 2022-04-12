@@ -1230,7 +1230,8 @@ Lemma readSh1PDFlagFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Pr
 MAL.readSh1PDFlagFromBlockEntryAddr blockentryaddr
 {{fun pdflag s => Q s
 										/\ exists sh1entry : Sh1Entry, exists sh1entryaddr : paddr, lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry)
-										/\ sh1entryPDflag sh1entryaddr pdflag s}}.
+										/\ sh1entryPDflag sh1entryaddr pdflag s
+										/\ sh1entryAddr blockentryaddr sh1entryaddr s }}.
 Proof.
 unfold MAL.readSh1PDFlagFromBlockEntryAddr.
 eapply WP.bindRev.
@@ -1244,7 +1245,8 @@ eapply WP.bindRev.
 	intros. simpl. destruct H. destruct H0. exists x.
 	split. intuition. split. apply H.
 	exists x. exists sh1entryaddr. split. apply H0.
-	apply lookupSh1EntryPDflag. apply H0.
+	split. apply lookupSh1EntryPDflag. apply H0.
+	intuition.
 Qed.
 
 (* DUP with deeper changes because of lookupSh1EntryInChildLocation *)

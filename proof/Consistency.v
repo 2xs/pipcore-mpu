@@ -52,10 +52,15 @@ exists scentryaddr : paddr, isSCE scentryaddr s
 /\ scentryaddr = CPaddr (pa + scoffset).
 
 Definition PDTIfPDFlag s :=
-forall idPDchild sh1entryaddr,
+(*forall idPDchild sh1entryaddr,
 true = StateLib.checkChild idPDchild s sh1entryaddr ->
 (exists entry, lookup idPDchild s.(memory) beqAddr = Some (BE entry)
-/\ entryPDT idPDchild entry.(blockrange).(startAddr) s).
+/\ entryPDT idPDchild entry.(blockrange).(startAddr) s).*)
+forall idPDchild sh1entryaddr,
+true = StateLib.checkChild idPDchild s sh1entryaddr /\
+sh1entryAddr idPDchild sh1entryaddr s ->
+exists startaddr, bentryStartAddr idPDchild startaddr s /\
+ entryPDT idPDchild startaddr s.
 
 Definition nullAddrExists s :=
 (*forall n,
