@@ -5,6 +5,7 @@
 #include "mpu.h"
 #include "mal.h"
 #include "pip_debug.h"
+#include "scs.h"
 
 /*
  * This file is part of the µOS++ distribution.
@@ -66,7 +67,6 @@ __initialize_args (int*, char***);
 // By default, there are no arguments, but this can be customised
 // by redefining __initialize_args(), which is done when the
 // semihosting configurations are used.
-extern void pip_main (void);
 
 extern void main_test (void);
 
@@ -160,7 +160,19 @@ _start (void)
 #if defined UNIT_TESTS
   main_test(); // Pip test main
 #else
-  pip_main(); // Pip main
+
+	/* Set the PendSV exception as pending by writing 1 to the
+	 * PENDSVSET bit. */
+	ICSR.PENDSVSET = 1;
+
+	/* Trigger the PendSV exception immediately by synchronizing the
+	 * execution stream with memory accesses. */
+	__DSB();
+
+	/* We should never end up here because the DSB instruction must
+	 * immediately trigger the PendSV exception. */
+	__builtin_unreachable();
+
 #endif // UNIT_TESTS
 
   while (1) {}

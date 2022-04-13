@@ -57,6 +57,13 @@
  */
 #define MMFSR_CLEAR_MASK 0xbb
 
+extern void __attribute__((noreturn))
+Kernel_Panic(stacked_context_t *stackedContext)
+{
+	(void) stackedContext;
+	for (;;);
+}
+
 /*!
  * \brief The generic interrupt handler propagates an interrupt to the
  *        root partition.

@@ -44,11 +44,10 @@
  *        handler corresponding to the exception raised.
  *
  * \param entrypointName The name of the assembler entry point.
- *
- * \note The name of the C handler called from the entry point is the
- *       concatenation of the entry point name with "_C".
+ * \param mspHandlerName The name of the MSP C handler.
+ * \param pspHandlerName The name of the PSP C handler.
  */
-.macro EXCEPTION_ENTRYPOINT entrypointName
+.macro EXCEPTION_ENTRYPOINT entrypointName mspHandlerName pspHandlerName
 
 	.global   \entrypointName
 	.type     \entrypointName, %function
@@ -95,40 +94,42 @@
 		 * the frame was pushed. */
 		tst lr, #4
 
-		/* Execute the first instruction below if the
-		 * third bit of the EXC_RETURN value is not 0,
-		 * otherwise executes the second instruction. */
-		ite ne
+		/* Branch to 1f if the third bit of the
+		 * EXC_RETURN value is set. */
+		bne 1f
+
+		/* If the frame has been saved on the MSP, it
+		 * means that the fault occurred when we were in
+		 * the code of PIP. The value of the stack is
+		 * saved in register R0 because its value before
+		 * the exception was saved on the MSP. */
+		mrs r0, msp
+
+		/* We have to copy the value of R0 into R3,
+		 * otherwise we cannot use the writeback when
+		 * R0 is both in rn and reglist. */
+		mov r3, r0
+
+		/* Push the initial value of the MSP and
+		 * registers R3 to R11 to the MSP. */
+		stmdb r0!, {r3-r11}
+
+		/* Without storing the return address in the
+		 * register LR, we branch to the MSP C handler
+		 * corresponding to the exception with the
+		 * pointer in R0 to the context stored on the
+		 * stack as a parameter. */
+		b \mspHandlerName
+
+		1:
 
 		/* If the frame has been saved on the PSP, it
-		* means that the fault occurred when we were in
-		* the code of a child partition. The value of
-		* the stack is saved in register R0 because its
-		* value before the exception was saved on the
-		* PSP. */
-		mrsne r0, psp
-
-#if !defined(UNIT_TESTS)
-
-		/* If we don't run the unit tests and the
-		 * current frame was stored on the MSP, it means
-		 * that PIP made a fault since the fault could
-		 * only occur in an exception handler, as we
-		 * only use the PSP in thread mode for the child
-		 * partition code. It is very likely a bug of
-		 * PIP so we go through an infinite loop. */
-		beq .
-
-#else
-
-		/* If we run the unit tests and the frame has
-		 * been saved on the MSP, we save the value of
-		 * the stack in the register R0, because its
+		 * means that the fault occurred when we were in
+		 * the code of a child partition. The value of
+		 * the stack is saved in register R0 because its
 		 * value before the exception was saved on the
-		 * MSP. */
-		mrseq r0, msp
-
-#endif
+		 * PSP. */
+		mrs r0, psp
 
 		/* We have to copy the value of R0 into R3,
 		 * otherwise we cannot use the writeback when
@@ -140,11 +141,12 @@
 		stmdb r0!, {r3-r11}
 
 		/* Without storing the return address in the
-		 * register LR, we branch to the C handler
+		 * register LR, we branch to the PSP C handler
 		 * corresponding to the exception with the
 		 * pointer in R0 to the context stored on the
 		 * stack as a parameter. */
-		b \entrypointName\()_C
+		b \pspHandlerName
+
 .endm
 
 /*
@@ -157,12 +159,14 @@
 Reset_Handler:
     bl _start
 
-EXCEPTION_ENTRYPOINT Interrupt_Handler
+EXCEPTION_ENTRYPOINT PendSV_Handler     Boot_Handler  Interrupt_Handler_C
 
-EXCEPTION_ENTRYPOINT MemManage_Handler
+EXCEPTION_ENTRYPOINT Interrupt_Handler  Kernel_Panic  Interrupt_Handler_C
 
-EXCEPTION_ENTRYPOINT Fault_Handler
+EXCEPTION_ENTRYPOINT MemManage_Handler  Kernel_Panic  MemManage_Handler_C
 
-EXCEPTION_ENTRYPOINT SVC_Handler
+EXCEPTION_ENTRYPOINT Fault_Handler      Kernel_Panic  Fault_Handler_C
+
+EXCEPTION_ENTRYPOINT SVC_Handler        Kernel_Panic  SVC_Handler_C
 
 .end

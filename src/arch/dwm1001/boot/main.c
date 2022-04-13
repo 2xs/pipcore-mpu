@@ -97,13 +97,8 @@ systick_timer_enable(void)
 	SYST_CSR.ENABLE = 1;
 }
 
-/**
- * Main entry point.
- * If UART_DEBUG, sends printf messages on UART
- * If -DTRACE -DOS_USE_TRACE_SEMIHOSTING_DEBUG flags are set, send printf messages on the semihosting debug channel
- */
-__attribute__((noreturn))
-void pip_main (void)
+extern void __attribute__((noreturn))
+Boot_Handler(void)
 {
 #if defined(UART_DEBUG)
 	init_uart();
@@ -115,22 +110,6 @@ void pip_main (void)
 	/* Enable the SysTick timer. */
 	systick_timer_enable();
 
-	/* Set the PendSV exception as pending by writing 1 to the
-	 * PENDSVSET bit. */
-	ICSR.PENDSVSET = 1;
-
-	/* Trigger the PendSV exception immediately by synchronizing the
-	 * execution stream with memory accesses. */
-	__DSB();
-
-	/* We should never end up here because the DSB instruction must
-	 * immediately trigger the PendSV exception. */
-	__builtin_unreachable();
-}
-
-__attribute__((noreturn))
-void PendSV_Handler(void)
-{
 	int externalIrqNumber = 32 * (SCnSCB->ICTR + 1);
 
 	/* At reset, all priorities are equal to zero. Here, we want to mask
@@ -140,6 +119,7 @@ void PendSV_Handler(void)
 	{
 		NVIC_SetPriority(irq, 1);
 	}
+
 	/* Retrive the root partition descriptor structure. */
 	PDTable_t *rootPartitionDescriptor = getRootPartition();
 
