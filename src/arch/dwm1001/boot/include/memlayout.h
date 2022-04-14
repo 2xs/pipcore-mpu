@@ -56,20 +56,6 @@ extern void *__pipHeapSize;
 extern void *__rootStackSize;
 
 /*!
- * \brief The start address of the on-chip peripherals.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__periphStart;
-
-/*!
- * \brief The end address of the on-chip peripherals.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__periphEnd;
-
-/*!
  * \brief The start address of the RAM.
  *
  * \see The definition in the link.ld file.

@@ -71,8 +71,6 @@
  *   - MPU R0: MPU region containing the ROM accessible to the root partition.
  *   - MPU R1: MPU region containing the stack of the root partition.
  *   - MPU R2: MPU region containing the RAM accessible to the root partition.
- *   - MPU R3: MPU region containing the on-chip peripherals accessible to
- *             the root partition.
  */
 
 /*
@@ -91,16 +89,6 @@ __pipHeapSize = 1024 ;
  * the minimum valid MPU region size for ARMv7-M.
  */
 __rootStackSize = 1024 ;
-
-/*
- * Start address of the on-chip peripherals.
- */
-__periphStart = 0x40000000 ;
-
-/*
- * End address of the on-chip peripherals.
- */
-__periphEnd = 0x60000000 ;
 
 MEMORY
 {

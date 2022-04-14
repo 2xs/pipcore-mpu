@@ -189,19 +189,6 @@ createAndRegisterRootPartition(void)
 		readPDNbFreeSlots(&rootPartDesc)
 	);
 
-	/* Insertion of a new MPU block for the root partition's
-	 * peripherals in the kernel structure. */
-	paddr rootPartPeriphBlockId = insertNewEntry(
-		(paddr) &rootPartDesc,
-		(paddr) &__periphStart,
-		(paddr) addressMinusOne(&__periphEnd),
-		(paddr) &__periphStart,
-		true,
-		true,
-		false,
-		readPDNbFreeSlots(&rootPartDesc)
-	);
-
 	/* Map all blocks previously inserted into the kernel
 	 * structure to the physical MPU.
 	 *
@@ -211,7 +198,6 @@ createAndRegisterRootPartition(void)
 	enableBlockInMPU(&rootPartDesc, rootPartRomBlockId, 0);
 	enableBlockInMPU(&rootPartDesc, rootPartStackBlockId, 1);
 	enableBlockInMPU(&rootPartDesc, rootPartRamBLockId, 2);
-	enableBlockInMPU(&rootPartDesc, rootPartPeriphBlockId, 3);
 
 #endif /* UNIT_TESTS */
 

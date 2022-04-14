@@ -40,6 +40,7 @@
 #include "yield_c.h"
 #include "pip_interrupt_calls.h"
 #include "ADT.h"
+#include "accessor.h"
 
 /*!
  * \brief Enumeration of the SVC numbers
@@ -60,7 +61,9 @@ typedef enum svc_number_e
 	SVC_NUMBER_SET_VIDT            = 11, /*!< The setVIDT SVC number. */
 	SVC_NUMBER_YIELD               = 12, /*!< The yield SVC number. */
 	SVC_NUMBER_GET_INT_STATE       = 13, /*!< The getIntState SVC number. */
-	SVC_NUMBER_SET_INT_STATE       = 14  /*!< The setIntState SVC number. */
+	SVC_NUMBER_SET_INT_STATE       = 14, /*!< The setIntState SVC number. */
+	SVC_NUMBER_IN                  = 15, /*!< The in SVC number. */
+	SVC_NUMBER_OUT                 = 16  /*!< The out SVC number. */
 } svc_number_t;
 
 /*!
@@ -79,36 +82,45 @@ void SVC_Handler_C(stacked_context_t *stackedContext)
 	switch (svc_number)
 	{
 		case SVC_NUMBER_CREATE_PARTITION:
+		{
 			stackedContext->registers[R0] = (uint32_t) createPartition(
 				(paddr) stackedContext->registers[R0]
 			);
-			break;
 
+			break;
+		}
 		case SVC_NUMBER_CUT_MEMORY_BLOCK:
+		{
 			stackedContext->registers[R0] = (uint32_t) cutMemoryBlock(
 				(paddr) stackedContext->registers[R0],
 				(paddr) stackedContext->registers[R1],
 				(Coq_index) stackedContext->registers[R2]
 			);
-			break;
 
+			break;
+		}
 		case SVC_NUMBER_MERGE_MEMORY_BLOCK:
+		{
 			stackedContext->registers[R0] = (uint32_t) mergeMemoryBlocks(
 				(paddr) stackedContext->registers[R0],
 				(paddr) stackedContext->registers[R1],
 				(Coq_index) stackedContext->registers[R2]
 			);
-			break;
 
+			break;
+		}
 		case SVC_NUMBER_PREPARE:
+		{
 			stackedContext->registers[R0] = (uint32_t) prepare(
 				(paddr) stackedContext->registers[R0],
 				(Coq_index) stackedContext->registers[R1],
 				(paddr) stackedContext->registers[R2]
 			);
-			break;
 
+			break;
+		}
 		case SVC_NUMBER_ADD_MEMORY_BLOCK:
+		{
 			stackedContext->registers[R0] = (uint32_t) addMemoryBlock(
 				(paddr) stackedContext->registers[R0],
 				(paddr) stackedContext->registers[R1],
@@ -116,41 +128,52 @@ void SVC_Handler_C(stacked_context_t *stackedContext)
 				(bool) ((stackedContext->registers[R2] >> 1) & 1),
 				(bool) stackedContext->registers[R2] & 1
 			);
-			break;
 
+			break;
+		}
 		case SVC_NUMBER_REMOVE_MEMORY_BLOCK:
+		{
 			stackedContext->registers[R0] = (uint32_t) removeMemoryBlock(
 				(paddr) stackedContext->registers[R0]
 			);
-			break;
 
+			break;
+		}
 		case SVC_NUMBER_DELETE_PARTITION:
+		{
 			stackedContext->registers[R0] = (uint32_t) deletePartition(
 				(paddr) stackedContext->registers[R0]
 			);
-			break;
 
+			break;
+		}
 		case SVC_NUMBER_COLLECT:
+		{
 			stackedContext->registers[R0] = (uint32_t) collect(
 				(paddr) stackedContext->registers[R0]
 			);
-			break;
 
+			break;
+		}
 		case SVC_NUMBER_MAP_MPU:
+		{
 			stackedContext->registers[R0] = (uint32_t) mapMPU(
 				(paddr) stackedContext->registers[R0],
 				(paddr) stackedContext->registers[R1],
 				(Coq_index) stackedContext->registers[R2]
 			);
-			break;
 
+			break;
+		}
 		case SVC_NUMBER_READ_MPU:
+		{
 			stackedContext->registers[R0] = (uint32_t) readMPU(
 				(paddr) stackedContext->registers[R0],
 				(Coq_index) stackedContext->registers[R1]
 			);
-			break;
 
+			break;
+		}
 		case SVC_NUMBER_FIND_BLOCK:
 		{
 			// Note as the result is in memory, the parameters are passed with R1 and R2, not RO
@@ -169,15 +192,17 @@ void SVC_Handler_C(stacked_context_t *stackedContext)
 						 (uint32_t) block_found.blockAttr.accessible << 3;
 			break;
 		}
-
 		case SVC_NUMBER_SET_VIDT:
+		{
 			stackedContext->registers[R0] = setVIDT(
 				(paddr) stackedContext->registers[R0],
 				(paddr) stackedContext->registers[R1]
 			);
-			break;
 
+			break;
+		}
 		case SVC_NUMBER_YIELD:
+		{
 			stackedContext->registers[R0] = (uint32_t) yieldGlue(
 				stackedContext,
 				(paddr) stackedContext->registers[R0],
@@ -186,36 +211,65 @@ void SVC_Handler_C(stacked_context_t *stackedContext)
 				stackedContext->registers[R3],
 				stackedContext->registers[R4]
 			);
-			break;
 
+			break;
+		}
 		case SVC_NUMBER_GET_INT_STATE:
+		{
 			stackedContext->registers[R0] = (uint32_t) getIntState(
 				(paddr) stackedContext->registers[R0]
 			);
-			break;
 
+			break;
+		}
 		case SVC_NUMBER_SET_INT_STATE:
+		{
 			setIntState(
 				stackedContext->registers[R0]
 			);
-			break;
 
+			break;
+		}
+		case SVC_NUMBER_IN:
+		{
+			stackedContext->registers[R0] = in(
+				stackedContext->registers[R0],
+				&stackedContext->registers[R1]
+			);
+
+			break;
+		}
+		case SVC_NUMBER_OUT:
+		{
+			stackedContext->registers[R0] = out(
+				stackedContext->registers[R0],
+				&stackedContext->registers[R1]
+			);
+
+			break;
+		}
 #ifdef UNIT_TESTS
 		case 127: // Enable Privileged mode !TODO!: to remove with system calls in SVC instead
+		{
 			__set_CONTROL( __get_CONTROL( ) & ~CONTROL_nPRIV_Msk ) ;
-			break;
 
+			break;
+		}
 		case 128: // Disable Privileged mode !TODO!: to remove with system calls in SVC instead
+		{
 			__set_CONTROL(__get_CONTROL() | CONTROL_nPRIV_Msk ); // switch to unprivileged Thread Mode
 			__DMB();
 			__ISB();
 			__DSB();
-			break;
-#endif // UNIT_TESTS
 
+			break;
+		}
+#endif /* UNIT_TESTS */
 		default:
+		{
 			/* Unknown SVC */
 			break;
+		}
 	}
 
 	__enable_irq();
