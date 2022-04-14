@@ -41,6 +41,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+
 #include "pip_interrupt_calls.h"
 #include "userconstants.h"
 
@@ -56,16 +57,18 @@ typedef void* paddr;
 /* index */
 typedef int32_t Coq_index;
 
+/* Require for the Sh1Entry_t structure. */
+struct PDTable;
+
 /**
  * \struct block
  * \brief Block structure
  */
 typedef struct block
 {
-	void* startAddr ; //!< The block's start address
-	void* endAddr   ; //!< The block's end address (or pointer to the next free slot if it is one)
+	void *startAddr ; //!< The block's start address
+	void *endAddr   ; //!< The block's end address (or pointer to the next free slot if it is one)
 }__attribute__((packed)) block_t;
-
 
 /**
  * \struct BlockIndex
@@ -82,14 +85,15 @@ typedef struct BlockIndex
  */
 typedef struct BlockEntry
 {
-    block_t blockrange        ;   //!< Block present in memory
-    BlockIndex_t blockindex     ;   //!< Slot index in its kernel structure
-    bool read               ;   //!< Read permission
-    bool write              ;   //!< Write permission
-    bool exec               ;   //!< Exec permission
-    bool present            ;   //!< Block present
-    bool accessible         ;   //!< block accessible
+	block_t blockrange      ;   //!< Block present in memory
+	BlockIndex_t blockindex ;   //!< Slot index in its kernel structure
+	bool read               ;   //!< Read permission
+	bool write              ;   //!< Write permission
+	bool exec               ;   //!< Exec permission
+	bool present            ;   //!< Block present
+	bool accessible         ;   //!< block accessible
 } BlockEntry_t;
+
 
 /**
  * \struct Sh1Entry
@@ -97,9 +101,9 @@ typedef struct BlockEntry
  */
 typedef struct Sh1Entry
 {
-    uint32_t* PDchild          ;   //!< Pointer to the child the block is shared with // TODO: PDTable_t ?
-    uint32_t* inChildLocation  ;   //!< Pointer to the slot where the block lies in the child partition
-    bool PDflag                ;   //!< Block content is a PD
+	struct PDTable *PDchild    ;   //!< Pointer to the child the block is shared with
+	uint32_t *inChildLocation  ;   //!< Pointer to the slot where the block lies in the child partition
+	bool PDflag                ;   //!< Block content is a PD
 }__attribute__((packed)) Sh1Entry_t;
 
 /**
@@ -108,26 +112,9 @@ typedef struct Sh1Entry
  */
 typedef struct SCEntry
 {
-    uint32_t* origin  ;   //!< Pointer to the original (sub)block // TODO: BlockEntry_t
-    uint32_t* next    ;   //!< Pointer to the next subblock // TODO: BlockEntry_t
+	struct BlockEntry *origin  ;   //!< Pointer to the original (sub)block
+	struct BlockEntry *next    ;   //!< Pointer to the next subblock
 }__attribute__((packed)) SCEntry_t;
-
-/**
- * \struct PDTable
- * \brief PDTable structure
- */
-typedef struct PDTable
-{
-    uint32_t* structure                 ;   //!< Pointer to the first kernel structure of the structure linked list
-    uint32_t* firstfreeslot             ;   //!< Pointer to the first free slot in one of the kernel structures (if any)
-    uint32_t nbfreeslots                ;   //!< Number of free slots left
-    uint32_t nbprepare                  ;   //!< Number of Prepare done on this partition
-    uint32_t* parent                    ;   //!< Pointer to the parent partition
-    BlockEntry_t* mpu[MPU_REGIONS_NB]   ;   //!< List of pointers to enabled blocks
-    uint32_t LUT[MPU_REGIONS_NB*2]      ;   //!< MPU registers' configuration sequence
-    BlockEntry_t *vidtBlock             ;   //!< Pointer to the block containing the VIDT.
-    int_mask_t interruptState           ;   //!< The interrupt state of the partition.
-} PDTable_t;
 
 /**
  * \struct KStructure
@@ -135,12 +122,28 @@ typedef struct PDTable
  */
 typedef struct KStructure
 {
-    BlockEntry_t blocks[KERNELSTRUCTUREENTRIESNB]   ;  //!< BLK structure
-    Sh1Entry_t sh1[KERNELSTRUCTUREENTRIESNB]        ;  //!< Sh1 structure
-    SCEntry_t sc[KERNELSTRUCTUREENTRIESNB]          ;  //!< SC structure
-    uint32_t* next                                  ;  //!< Pointer to the next kernel structure
+	BlockEntry_t blocks[KERNELSTRUCTUREENTRIESNB]   ;  //!< BLK structure
+	Sh1Entry_t sh1[KERNELSTRUCTUREENTRIESNB]        ;  //!< Sh1 structure
+	SCEntry_t sc[KERNELSTRUCTUREENTRIESNB]          ;  //!< SC structure
+	struct KStructure *next                         ;  //!< Pointer to the next kernel structure
 } KStructure_t;
 
+/**
+ * \struct PDTable
+ * \brief PDTable structure
+ */
+typedef struct PDTable
+{
+	struct KStructure *structure        ;   //!< Pointer to the first kernel structure of the structure linked list
+	void* firstfreeslot                 ;   //!< Pointer to the first free slot in one of the kernel structures (if any)
+	uint32_t nbfreeslots                ;   //!< Number of free slots left
+	uint32_t nbprepare                  ;   //!< Number of Prepare done on this partition
+	struct PDTable *parent              ;   //!< Pointer to the parent partition
+	BlockEntry_t *mpu[MPU_REGIONS_NB]   ;   //!< List of pointers to enabled blocks
+	uint32_t LUT[MPU_REGIONS_NB*2]      ;   //!< MPU registers' configuration sequence
+	BlockEntry_t *vidtBlock             ;   //!< Pointer to the block containing the VIDT.
+	int_mask_t interruptState           ;   //!< The interrupt state of the partition.
+} PDTable_t;
 
 /**
  * \struct blockAttr
@@ -148,14 +151,13 @@ typedef struct KStructure
  */
 typedef struct blockAttr
 {
-    uint32_t* blockentryaddr    ;   //!< Pointer to the block's address
-    block_t blockrange          ;   //!< Block present in memory
-    bool read                   ;   //!< Read permission
-    bool write                  ;   //!< Write permission
-    bool exec                   ;   //!< Exec permission
-    bool accessible             ;   //!< block accessible
+	uint32_t *blockentryaddr    ;   //!< Pointer to the block's address
+	block_t blockrange          ;   //!< Block present in memory
+	bool read                   ;   //!< Read permission
+	bool write                  ;   //!< Write permission
+	bool exec                   ;   //!< Exec permission
+	bool accessible             ;   //!< block accessible
 }__attribute__((packed)) blockAttr_t;
-
 
 /**
  * \struct blockOrError
@@ -165,8 +167,8 @@ typedef struct blockAttr
  */
 typedef union blockOrError_t
 {
-    int32_t error              ;   //!< Error -1 for an empty block
-    blockAttr_t blockAttr       ;   //!< A block's publicly exposed attributes
+	int32_t error               ;   //!< Error -1 for an empty block
+	blockAttr_t blockAttr       ;   //!< A block's publicly exposed attributes
 }__attribute__((packed)) blockOrError;
 
 #endif /* ADT_H */
