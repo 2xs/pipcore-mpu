@@ -231,13 +231,7 @@ typedef enum yield_return_code_e
 	 * \brief The address at which the callee's context should be
 	 *        read is not aligned on a 4-byte boundary.
 	 */
-	CALLEE_CONTEXT_MISALIGNED = 24,
-
-	/*!
-	 * \brief The valid field of the context structure does not
-	 *        contain a valid context value.
-	 */
-	CALLEE_CONTEXT_INVALID = 25
+	CALLEE_CONTEXT_MISALIGNED = 24
 
 } yield_return_code_t;
 
@@ -271,7 +265,7 @@ typedef uint32_t uservalue_t;
  *         restored, the return value should be ignored.
  */
 yield_return_code_t yieldGlue(
-	stacked_context_t *svc_ctx,
+	stackedContext_t *context,
 	paddr calleePartDescAddr,
 	uservalue_t userTargetInterrupt,
 	uservalue_t userCallerContextSaveIndex,
@@ -286,7 +280,7 @@ yield_return_code_t getSourcePartVidtCont(
         unsigned callerContextSaveIndex,
         int_mask_t flagsOnYield,
         int_mask_t flagsOnWake,
-        user_context_t *callerInterruptedContext
+        stackedContext_t *callerInterruptedContext
 );
 
 yield_return_code_t getTargetPartVidtCont(
@@ -296,7 +290,7 @@ yield_return_code_t getTargetPartVidtCont(
         unsigned targetInterrupt,
         int_mask_t flagsOnYield,
         int_mask_t flagsOnWake,
-        user_context_t *callerInterruptedContext
+        stackedContext_t *callerInterruptedContext
 );
 
 yield_return_code_t getParentPartDescCont(
@@ -305,7 +299,7 @@ yield_return_code_t getParentPartDescCont(
 	unsigned callerContextSaveIndex,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext
+	stackedContext_t *callerInterruptedContext
 );
 
 /*!
@@ -328,7 +322,7 @@ yield_return_code_t getParentPartDescCont(
 yield_return_code_t switchContextCont(
 	paddr calleePartDesc,
 	int_mask_t flagsOnYield,
-	user_context_t *ctx
+	stackedContext_t *ctx
 );
 
 #endif /* __YIELD_C_H__ */

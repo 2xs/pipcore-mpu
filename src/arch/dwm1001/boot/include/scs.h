@@ -699,4 +699,86 @@ typedef union scs_syst_calib_u
  */
 #define SYST_CALIB (*((scs_syst_calib_t *) 0xe000e01c))
 
+/*!
+ * Structure representing the CPACR register.
+ */
+typedef union scs_cpacr_u
+{
+	/*!
+	 * \brief Read or write the CPACR register as a 32-bit
+	 *        value.
+	 */
+	uint32_t as_uint32_t;
+
+	struct
+	{
+		/*!
+		 * \brief Access privileges for coprocessor 0.
+		 */
+		uint32_t CP0 : 2;
+
+		/*!
+		 * \brief Access privileges for coprocessor 1.
+		 */
+		uint32_t CP1 : 2;
+
+		/*!
+		 * \brief Access privileges for coprocessor 2.
+		 */
+		uint32_t CP2 : 2;
+
+		/*!
+		 * \brief Access privileges for coprocessor 3.
+		 */
+		uint32_t CP3 : 2;
+
+		/*!
+		 * \brief Access privileges for coprocessor 4.
+		 */
+		uint32_t CP4 : 2;
+
+		/*!
+		 * \brief Access privileges for coprocessor 5.
+		 */
+		uint32_t CP5 : 2;
+
+		/*!
+		 * \brief Access privileges for coprocessor 6.
+		 */
+		uint32_t CP6 : 2;
+
+		/*!
+		 * \brief Access privileges for coprocessor 7.
+		 */
+		uint32_t CP7 : 2;
+
+		/*!
+		 * \brief Reserved.
+		 */
+		uint32_t RESERVED_0 : 4;
+
+		/*!
+		 * \brief Access privileges for coprocessor 10.
+		 */
+		uint32_t CP10 : 2;
+
+		/*!
+		 * \brief Access privileges for coprocessor 11.
+		 */
+		uint32_t CP11 : 2;
+
+		/*!
+		 * \brief Reserved.
+		 */
+		uint32_t RESERVED_1 : 8;
+	};
+} scs_cpacr_t;
+
+/*!
+ * \def CPACR
+ *
+ * \brief Specifies the access privileges for coprocessors.
+ */
+#define CPACR (*((scs_cpacr_t *) 0xe000ed88))
+
 #endif /* __SCS_H__ */

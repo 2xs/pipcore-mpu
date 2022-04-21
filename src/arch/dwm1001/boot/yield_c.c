@@ -41,10 +41,7 @@
 #include "mal.h"
 #include "scs.h"
 #include "memlayout.h"
-
-/* Check that an address does not exceed the end of a block. */
-#define IS_BLOCK_END_EXCEEDED(address, blockEnd) \
-	(((blockEnd) - (address)) < sizeof(user_context_t))
+#include "stack.h"
 
 /* Check that an address is aligned on a 4-byte boundary. */
 #define IS_MISALIGNED(address) ((address) & 0x3)
@@ -61,13 +58,23 @@
  * the PSP stack. */
 #define EXC_RETURN_THREAD_MODE_PSP 0xFFFFFFFD
 
+#define EXC_RETURN_THREAD_MODE_PSP_EXTENDED 0xFFFFFFED
+
+/*!
+ * \brief Specifies whether the interrupted context is an FPU context.
+ *
+ *        Its initial value is 0 because the context executed after
+ *        the initialization of PIP is always a context without FPU.
+ */
+static uint32_t previousContextUseFpu = 0;
+
 static yield_return_code_t checkIntLevelCont(
 	paddr calleePartDescAddr,
 	uservalue_t userTargetInterrupt,
 	uservalue_t userCallerContextSaveIndex,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext
+	stackedContext_t *callerInterruptedContext
 );
 
 static yield_return_code_t checkCtxSaveIdxCont(
@@ -76,7 +83,7 @@ static yield_return_code_t checkCtxSaveIdxCont(
 	uservalue_t userCallerContextSaveIndex,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext
+	stackedContext_t *callerInterruptedContext
 );
 
 static yield_return_code_t getChildPartDescCont(
@@ -86,7 +93,7 @@ static yield_return_code_t getChildPartDescCont(
 	unsigned callerContextSaveIndex,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext
+	stackedContext_t *callerInterruptedContext
 );
 
 static yield_return_code_t getTargetPartCtxCont(
@@ -97,7 +104,7 @@ static yield_return_code_t getTargetPartCtxCont(
 	unsigned targetInterrupt,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext
+	stackedContext_t *callerInterruptedContext
 );
 
 static yield_return_code_t saveSourcePartCtxCont(
@@ -106,42 +113,68 @@ static yield_return_code_t saveSourcePartCtxCont(
 	paddr callerContextSaveAddr,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext,
-	user_context_t *targetContext
+	stackedContext_t *callerInterruptedContext,
+	stackedContext_t *targetContext
 );
 
 static void writeContext(
-	user_context_t *ctx,
-	paddr ctxSaveVAddr,
+	stackedContext_t *ctx,
+	paddr ctxSaveAddr,
 	int_mask_t flagsOnWake
 );
 
 static void loadContext(
-	user_context_t *ctx,
-	unsigned enforce_interrupts
+	stackedContext_t *context,
+	uint32_t enforce_interrupts
 ) __attribute__((noreturn));
 
+static inline uint32_t
+isNotEnoughSpace(void *start, void *end, size_t size)
+{
+	return ((uintptr_t) end) - ((uintptr_t) start) < size;
+}
+
+/*!
+ * \brief Clear the FPSCR and all the 32-bit FPU registers.
+ */
+static inline void
+clearFpuRegs(void)
+{
+	/*
+	 * This memory area initialized to zero allows to quickly
+	 * clear all the 32-bit FPU registers.
+	 */
+	static const uint32_t zeros[32] =
+	{
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0
+	};
+
+	/*
+	 * Clear the FPSCR and all the 32-bit FPU registers.
+	 */
+	__asm__
+	(
+		"vmsr fpscr, %0\n"
+		"vldmia %1!, {s0-s31}\n"
+		:
+		: "r" (0),
+		  "r" (zeros)
+		:
+	);
+}
+
 yield_return_code_t yieldGlue(
-	stacked_context_t *svc_ctx,
+	stackedContext_t *context,
 	paddr calleePartDescLocalId,
 	uservalue_t userTargetInterrupt,
 	uservalue_t userCallerContextSaveIndex,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake
 ) {
-	user_context_t ctx;
-
-	/* Copy of the context stacked by the SVC handler. */
-	for (size_t i = 0; i < CONTEXT_REGISTER_NUMBER; i++)
-	{
-		ctx.registers[i] = svc_ctx->registers[i];
-	}
-
-	/* Save the value of the stack before the SVC interrupt. */
-	uint32_t forceAlign = CCR.STKALIGN;
-	uint32_t spMask     = ((ctx.registers[XPSR] >> 9) & forceAlign) << 2;
-	ctx.registers[SP]   = (ctx.registers[SP] + FRAME_SIZE) | spMask;
-	ctx.valid           = CONTEXT_VALID_VALUE;
+	resetInitialSp(context);
 
 	return checkIntLevelCont(
 		calleePartDescLocalId,
@@ -149,7 +182,7 @@ yield_return_code_t yieldGlue(
 		userCallerContextSaveIndex,
 		flagsOnYield,
 		flagsOnWake,
-		&ctx
+		context
 	);
 }
 
@@ -159,7 +192,7 @@ static yield_return_code_t checkIntLevelCont(
 	uservalue_t userCallerContextSaveIndex,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext
+	stackedContext_t *callerInterruptedContext
 ) {
 	if (!(userTargetInterrupt < VIDT_MAX_INDEX))
 	{
@@ -185,7 +218,7 @@ static yield_return_code_t checkCtxSaveIdxCont(
 	uservalue_t userCallerContextSaveIndex,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext
+	stackedContext_t *callerInterruptedContext
 ) {
 	if (!(userCallerContextSaveIndex < VIDT_MAX_INDEX))
 	{
@@ -247,7 +280,7 @@ static yield_return_code_t getChildPartDescCont(
 	unsigned callerContextSaveIndex,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext
+	stackedContext_t *callerInterruptedContext
 ) {
 	/* Check that the callee is a child of the caller. */
 	if (!(checkChildOfCurrPart(callerPartDescGlobalId, calleePartDescLocalId)))
@@ -275,7 +308,7 @@ yield_return_code_t getParentPartDescCont(
 	unsigned callerContextSaveIndex,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext
+	stackedContext_t *callerInterruptedContext
 ) {
 	paddr rootPartDescGlobalId = getRootPartition();
 
@@ -306,7 +339,7 @@ yield_return_code_t getSourcePartVidtCont(
 	unsigned callerContextSaveIndex,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext
+	stackedContext_t *callerInterruptedContext
 ) {
 	paddr callerVidtBlockEntryAddr = readPDVidt(callerPartDescGlobalId);
 
@@ -351,7 +384,7 @@ yield_return_code_t getSourcePartVidtCont(
 		readBlockStartFromBlockEntryAddr(callerVidtBlockEntryAddr);
 
 	paddr callerContextSaveAddr =
-		((user_context_t **) callerVidtAddr)[callerContextSaveIndex];
+		((stackedContext_t **) callerVidtAddr)[callerContextSaveIndex];
 
 	return getTargetPartVidtCont(
 		calleePartDescGlobalId,
@@ -371,7 +404,7 @@ yield_return_code_t getTargetPartVidtCont(
 	unsigned targetInterrupt,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext
+	stackedContext_t *callerInterruptedContext
 ) {
 	paddr calleeVidtBlockEntryAddr = readPDVidt(calleePartDescGlobalId);
 
@@ -435,10 +468,10 @@ static yield_return_code_t getTargetPartCtxCont(
 	unsigned targetInterrupt,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext
+	stackedContext_t *callerInterruptedContext
 ) {
 	paddr calleeContextAddr =
-		((user_context_t **) calleeVidtAddr)[targetInterrupt];
+		((stackedContext_t **) calleeVidtAddr)[targetInterrupt];
 
 	paddr calleeContextBlockLocalId =
 		findBelongingBlock(calleePartDescGlobalId, calleeContextAddr);
@@ -473,38 +506,68 @@ static yield_return_code_t getTargetPartCtxCont(
 		return CALLEE_CONTEXT_BLOCK_IS_NOT_READABLE;
 	}
 
-	uintptr_t calleeContextBlockEndAddress =
-		(uintptr_t) readBlockEndFromBlockEntryAddr(calleeContextBlockLocalId);
-
-	int isCalleeContextExceedBlockEnd =
-		IS_BLOCK_END_EXCEEDED((uintptr_t) calleeContextAddr,
-			calleeContextBlockEndAddress);
-
-	/* Check that the address of the callee's context, added to the
-	 * size of a context, does not exceed the end of the block. */
-	if (isCalleeContextExceedBlockEnd)
-	{
-		return CALLEE_CONTEXT_EXCEED_BLOCK_END;
-	}
-
 	int isCalleeContextMisaligned =
 			IS_MISALIGNED((uintptr_t) calleeContextAddr);
 
-	/* Check that the address at which the callee's context should
-	 * be read is aligned on a 4-byte boundary. */
+	/* Check that the address where to load the context of the
+	 * callee is aligned. */
 	if (isCalleeContextMisaligned)
 	{
 		return CALLEE_CONTEXT_MISALIGNED;
 	}
 
-	user_context_t *targetContext = (user_context_t *) calleeContextAddr;
+	stackedContext_t *targetContext =
+		(stackedContext_t *) calleeContextAddr;
 
-	/* Check that the target context has a valid context value in
-	 * the valid field of the structure. */
-	if (targetContext->valid != CONTEXT_VALID_VALUE)
+	paddr calleeContextBlockEndAddress =
+		readBlockEndFromBlockEntryAddr(calleeContextBlockLocalId);
+
+	/* Check that there is enough space between the address of
+	 * the context of the callee and the end of the MPU region
+	 * to read isBasicFrame. */
+	if (isNotEnoughSpace(
+		calleeContextAddr,
+		calleeContextBlockEndAddress,
+		sizeof(targetContext->isBasicFrame)))
 	{
-		return CALLEE_CONTEXT_INVALID;
+		return CALLEE_CONTEXT_EXCEED_BLOCK_END;
 	}
+
+	if (targetContext->isBasicFrame == 1)
+	{
+		/* Check that there is enough space between the
+		 * address of the context of the callee and the end
+		 * of the MPU region to read a basic context. */
+		if (isNotEnoughSpace(
+			calleeContextAddr,
+			calleeContextBlockEndAddress,
+			sizeof(basicContext_t)))
+		{
+			return CALLEE_CONTEXT_EXCEED_BLOCK_END;
+		}
+	}
+	else if (targetContext->isBasicFrame == 0)
+	{
+		/* Check that there is enough space between the
+		 * address of the context of the callee and the end
+		 * of the MPU region to read an extended context. */
+		if (isNotEnoughSpace(
+			calleeContextAddr,
+			calleeContextBlockEndAddress,
+			sizeof(extendedContext_t)))
+		{
+			return CALLEE_CONTEXT_EXCEED_BLOCK_END;
+		}
+	}
+	else
+	{
+		/* Unknown value. */
+		return CALLEE_CONTEXT_EXCEED_BLOCK_END;
+	}
+
+	/* Sets the type of the interrupted context. */
+	previousContextUseFpu =
+		callerInterruptedContext->isBasicFrame == 0;
 
 	if (!(callerContextSaveAddr == NULL))
 	{
@@ -534,8 +597,8 @@ static yield_return_code_t saveSourcePartCtxCont(
 	paddr callerContextSaveAddr,
 	int_mask_t flagsOnYield,
 	int_mask_t flagsOnWake,
-	user_context_t *callerInterruptedContext,
-	user_context_t *targetContext
+	stackedContext_t *callerInterruptedContext,
+	stackedContext_t *targetContext
 ) {
 	paddr callerContextBlockLocalId =
 		findBelongingBlock(callerPartDescGlobalId, callerContextSaveAddr);
@@ -571,28 +634,51 @@ static yield_return_code_t saveSourcePartCtxCont(
 		return CALLER_CONTEXT_BLOCK_IS_NOT_WRITABLE;
 	}
 
-	uintptr_t callerContextBlockEndAddress =
-		(uintptr_t) readBlockEndFromBlockEntryAddr(callerContextBlockLocalId);
-
-	int isCallerContextExceedBlockEnd =
-		IS_BLOCK_END_EXCEEDED((uintptr_t) callerContextSaveAddr,
-			callerContextBlockEndAddress);
-
-	/* Check that the address of the caller's context, added to the
-	 * size of a context, does not exceed the end of the block. */
-	if (isCallerContextExceedBlockEnd)
-	{
-		return CALLER_CONTEXT_EXCEED_BLOCK_END;
-	}
-
 	int isCallerContextMisaligned =
-		IS_MISALIGNED((uintptr_t) callerContextSaveAddr);
+			IS_MISALIGNED((uintptr_t) callerContextSaveAddr);
 
-	/* Check that the address to which the caller's context should
-	 * be written is aligned on a 4-byte boundary. */
+	/* Check that the address where to save the caller context
+	 * is aligned. */
 	if (isCallerContextMisaligned)
 	{
-		return CALLER_CONTEXT_MISALIGNED;
+		return CALLEE_CONTEXT_MISALIGNED;
+	}
+
+	paddr callerContextBlockEndAddress =
+		readBlockEndFromBlockEntryAddr(callerContextBlockLocalId);
+
+	if (callerInterruptedContext->isBasicFrame == 1)
+	{
+		/* Check that there is enough space between the
+		 * address where to save the context of the caller
+		 * and the end of the MPU region to write a basic
+		 * context. */
+		if (isNotEnoughSpace(
+			callerContextSaveAddr,
+			callerContextBlockEndAddress,
+			sizeof(basicContext_t)))
+		{
+			return CALLER_CONTEXT_EXCEED_BLOCK_END;
+		}
+	}
+	else if (callerInterruptedContext->isBasicFrame == 0)
+	{
+		/* Check that there is enough space between the
+		 * address where to save the context of the caller
+		 * and the end of the MPU region to write an
+		 * extended context. */
+		if (isNotEnoughSpace(
+			callerContextSaveAddr,
+			callerContextBlockEndAddress,
+			sizeof(extendedContext_t)))
+		{
+			return CALLER_CONTEXT_EXCEED_BLOCK_END;
+		}
+	}
+	else
+	{
+		/* Unknown value. */
+		return CALLER_CONTEXT_EXCEED_BLOCK_END;
 	}
 
 	writeContext(
@@ -608,26 +694,68 @@ static yield_return_code_t saveSourcePartCtxCont(
 	);
 }
 
-static void writeContext(
-	user_context_t *ctx,
-	paddr ctxSaveAddr,
-	int_mask_t flagsOnWake
+static inline void
+writeBasicContext(
+	basicContext_t *srcContext,
+	basicContext_t *dstContext,
+	int_mask_t     flagsOnWake
 ) {
-	user_context_t *userland_save_ptr = (user_context_t *) ctxSaveAddr;
-
-	/* Copy the context of the caller to the write address. */
-	for (size_t i = 0; i < CONTEXT_REGISTER_NUMBER; i++)
+	for (size_t i = 0; i < BASIC_FRAME_SIZE; i++)
 	{
-		userland_save_ptr->registers[i] = ctx->registers[i];
+		dstContext->frame.registers[i] =
+			srcContext->frame.registers[i];
 	}
-	userland_save_ptr->pipflags = flagsOnWake;
-	userland_save_ptr->valid = CONTEXT_VALID_VALUE;
+
+	dstContext->isBasicFrame = 1;
+	dstContext->pipflags     = flagsOnWake;
+}
+
+static inline void
+writeExtendedContext(
+	extendedContext_t *srcContext,
+	extendedContext_t *dstContext,
+	int_mask_t        flagsOnWake
+) {
+	for (size_t i = 0; i < EXTENDED_FRAME_SIZE; i++)
+	{
+		dstContext->frame.registers[i] =
+			srcContext->frame.registers[i];
+	}
+
+	dstContext->isBasicFrame = 0;
+	dstContext->pipflags     = flagsOnWake;
+}
+
+static inline void
+writeContext(
+	stackedContext_t *context,
+	paddr             ctxSaveAddr,
+	int_mask_t        flagsOnWake
+) {
+	if (context->isBasicFrame)
+	{
+		writeBasicContext
+		(
+			(basicContext_t *) context,
+			(basicContext_t *) ctxSaveAddr,
+			flagsOnWake
+		);
+	}
+	else
+	{
+		writeExtendedContext
+		(
+			(extendedContext_t *) context,
+			(extendedContext_t *) ctxSaveAddr,
+			flagsOnWake
+		);
+	}
 }
 
 yield_return_code_t switchContextCont(
 	paddr calleePartDescGlobalId,
 	int_mask_t flagsOnYield,
-	user_context_t *ctx
+	stackedContext_t *ctx
 ) {
 	/* Set the interrupt state of the caller before activating the
 	 * callee's address space. */
@@ -656,29 +784,127 @@ yield_return_code_t switchContextCont(
 	return YIELD_SUCCESS;
 }
 
-__attribute__((noreturn))
-static void loadContext(
-	user_context_t *ctx,
-	unsigned enforce_interrupts
+static void __attribute__((noreturn))
+loadBasicContext(
+	basicContext_t *context,
+	uint32_t enforce_interrupts
 ) {
-	/* Forces the callee's stack to be aligned to 8 bytes when the
-	 * STKALIGN bit is set to 1. */
-	uint32_t forceAlign    = CCR.STKALIGN;
-	uint32_t spMask        = ~(forceAlign << 2);
-	uint32_t framePtrAlign = (ctx->registers[SP] >> 2) & forceAlign;
-	uint32_t frame         = (ctx->registers[SP] - FRAME_SIZE) & spMask;
+		uint32_t forceAlign    = CCR.STKALIGN;
+		uint32_t frameSize     = 0x20;
+		uint32_t spMask        = ~(forceAlign << 2);
+		uint32_t framePtrAlign = (context->frame.sp >> 2) & forceAlign;
+		uint32_t frame         = (context->frame.sp - frameSize) & spMask;
+		uint32_t *framePtr     = (uint32_t *) frame;
 
-	/* Copy registers R0 to R3, R12, LR, PC and xPSR to the stack of
-	 * the callee. */
-	uint32_t *framePtr = (uint32_t *) frame;
-	framePtr[0]        = ctx->registers[R0];
-	framePtr[1]        = ctx->registers[R1];
-	framePtr[2]        = ctx->registers[R2];
-	framePtr[3]        = ctx->registers[R3];
-	framePtr[4]        = ctx->registers[R12];
-	framePtr[5]        = ctx->registers[LR];
-	framePtr[6]        = ctx->registers[PC];
-	framePtr[7]        = ctx->registers[XPSR] | (framePtrAlign << 9) | (1 << 24);
+		framePtr[0]  = context->frame.r0;
+		framePtr[1]  = context->frame.r1;
+		framePtr[2]  = context->frame.r2;
+		framePtr[3]  = context->frame.r3;
+		framePtr[4]  = context->frame.r12;
+		framePtr[5]  = context->frame.lr;
+		framePtr[6]  = context->frame.pc;
+		framePtr[7]  = context->frame.xpsr | (framePtrAlign << 9) | (1 << 24);
+
+		if (!enforce_interrupts)
+		{
+			/* Enable BASEPRI masking. All interrupts lower
+			 * or equal to the priority 1, i.e. interrupts
+			 * below the SVCall in the vector table, are
+			 * disabled. */
+			__set_BASEPRI(1 << (8 - __NVIC_PRIO_BITS));
+		}
+		else
+		{
+			/* Disable BASEPRI masking. */
+			__set_BASEPRI(0);
+		}
+
+		if (previousContextUseFpu)
+		{
+			/* If the interrupted context has used FPU
+			 * registers, clear it in order to avoid data
+			 * leakage. */
+			clearFpuRegs();
+		}
+
+		asm volatile
+		(
+			/* Restore registers R4 to R11 from the
+			 * context. */
+			"ldmia %0!, {r4-r11};"
+
+			/* Reset the MSP to its top of stack. */
+			"msr msp, %1;"
+
+			/* Set the PSP to the stacked frame.  */
+			"msr psp, %2;"
+
+			/* Enable interrupts by setting the PRIMASK
+			 * register to 0. */
+			"cpsie i;"
+
+			/* The exception returns to Thread mode and uses
+			 * the PSP. */
+			"bx %3;"
+
+			/* Output operands */
+			:
+
+			/* Input operands */
+			: "r" (&context->frame.r4),
+			  "r" (&__pipStackTop),
+			  "r" (frame),
+			  "r" (EXC_RETURN_THREAD_MODE_PSP)
+
+			/* Clobbers */
+			: "r4", "r5", "r6",
+			  "r7", "r8", "r9",
+			  "r10", "r11", "memory"
+		);
+
+	/* We should never end up here because we are in Handler mode
+	 * and we have executed the BX instruction with the special
+	 * value EXC_RETURN_THREAD_MODE_PSP. */
+	__builtin_unreachable();
+}
+
+static void __attribute__((noreturn))
+loadExtendedContext(
+	extendedContext_t *context,
+	uint32_t enforce_interrupts
+) {
+	uint32_t forceAlign    = 1;
+	uint32_t frameSize     = 0x68;
+	uint32_t spMask        = ~(forceAlign << 2);
+	uint32_t framePtrAlign = (context->frame.sp >> 2) & forceAlign;
+	uint32_t frame         = (context->frame.sp - frameSize) & spMask;
+	uint32_t *framePtr     = (uint32_t *) frame;
+
+	framePtr[0]  = context->frame.r0;
+	framePtr[1]  = context->frame.r1;
+	framePtr[2]  = context->frame.r2;
+	framePtr[3]  = context->frame.r3;
+	framePtr[4]  = context->frame.r12;
+	framePtr[5]  = context->frame.lr;
+	framePtr[6]  = context->frame.pc;
+	framePtr[7]  = context->frame.xpsr | (framePtrAlign << 9) | (1 << 24);
+	framePtr[8]  = context->frame.s0;
+	framePtr[9]  = context->frame.s1;
+	framePtr[10] = context->frame.s2;
+	framePtr[11] = context->frame.s3;
+	framePtr[12] = context->frame.s4;
+	framePtr[13] = context->frame.s5;
+	framePtr[14] = context->frame.s6;
+	framePtr[15] = context->frame.s7;
+	framePtr[16] = context->frame.s8;
+	framePtr[17] = context->frame.s9;
+	framePtr[18] = context->frame.s10;
+	framePtr[19] = context->frame.s11;
+	framePtr[20] = context->frame.s12;
+	framePtr[21] = context->frame.s13;
+	framePtr[22] = context->frame.s14;
+	framePtr[23] = context->frame.s15;
+	framePtr[24] = context->frame.fpscr;
 
 	if (!enforce_interrupts)
 	{
@@ -696,41 +922,77 @@ static void loadContext(
 
 	asm volatile
 	(
+		/* Restore registers s16 to s31 from the
+		 * context. */
+		"vldmia %0!, {s16-s31};"
+
 		/* Restore registers R4 to R11 from the
 		 * context. */
-		"ldmia   %0!, {r4-r11};"
+		"ldmia %1!, {r4-r11};"
 
 		/* Reset the MSP to its top of stack. */
-		"msr     msp, %1;"
+		"msr msp, %2;"
 
 		/* Set the PSP to the stacked frame.  */
-		"msr     psp, %2;"
+		"msr psp, %3;"
 
 		/* Enable interrupts by setting the PRIMASK
-                 * register to 0. */
-		"cpsie   i;"
+		 * register to 0. */
+		"cpsie i;"
 
 		/* The exception returns to Thread mode and uses
 		 * the PSP. */
-		"bx      %3;"
+		"bx %4;"
 
 		/* Output operands */
 		:
 
 		/* Input operands */
-		: "r" (&(ctx->registers[R4])),
+		: "r" (&context->frame.s16),
+		  "r" (&context->frame.r4),
 		  "r" (&__pipStackTop),
 		  "r" (frame),
-		  "r" (EXC_RETURN_THREAD_MODE_PSP)
+		  "r" (EXC_RETURN_THREAD_MODE_PSP_EXTENDED)
 
 		/* Clobbers */
 		: "r4", "r5", "r6",
 		  "r7", "r8", "r9",
-		  "r10", "r11", "memory"
+		  "r10", "r11", "s16",
+		  "s17", "s18", "s19",
+		  "s20", "s21", "s22",
+		  "s23", "s24", "s25",
+		  "s26", "s27", "s28",
+		  "s29", "s30", "s31",
+		  "memory"
 	);
 
 	/* We should never end up here because we are in Handler mode
 	 * and we have executed the BX instruction with the special
-	 * value EXC_RETURN_THREAD_MODE_PSP. */
+	 * value EXC_RETURN_THREAD_MODE_PSP_EXTENDED. */
+	__builtin_unreachable();
+}
+
+static void __attribute__((noreturn))
+loadContext(
+	stackedContext_t *context,
+	uint32_t          enforce_interrupts
+) {
+	if (context->isBasicFrame)
+	{
+		loadBasicContext
+		(
+			(basicContext_t *) context,
+			enforce_interrupts
+		);
+	}
+	else
+	{
+		loadExtendedContext
+		(
+			(extendedContext_t *) context,
+			enforce_interrupts
+		);
+	}
+
 	__builtin_unreachable();
 }

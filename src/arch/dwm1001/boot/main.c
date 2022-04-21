@@ -110,6 +110,9 @@ Boot_Handler(void)
 	/* Enable the SysTick timer. */
 	systick_timer_enable();
 
+	/* Enable full access to the FPU. */
+	CPACR.as_uint32_t |= 0x00f00000;
+
 	int externalIrqNumber = 32 * (SCnSCB->ICTR + 1);
 
 	/* At reset, all priorities are equal to zero. Here, we want to mask
@@ -172,19 +175,20 @@ Boot_Handler(void)
 	pip_interface->unusedRamStart       = &__unusedRamStart;
 	pip_interface->romEnd               = &__romEnd;
 
+	pip_interface->rootPartContext.isBasicFrame = 1;
+
 	/* Reset the structure to ensure that the restored registers do
 	 * not contain undefined value */
-	for (size_t i = 0; i < CONTEXT_REGISTER_NUMBER; i++)
+	for (size_t i = 0; i < BASIC_FRAME_SIZE; i++)
 	{
-		pip_interface->rootPartContext.registers[i] = 0;
+		pip_interface->rootPartContext.basicFrame.registers[i] = 0;
 	}
 
 	/* Initialize the root partition context. */
-	pip_interface->rootPartContext.registers[R0]  = sp;
-	pip_interface->rootPartContext.registers[PC]  = (uint32_t) &__rootBinaryEntryPoint;
-	pip_interface->rootPartContext.registers[SP]  = sp;
-	pip_interface->rootPartContext.pipflags       = 0;
-	pip_interface->rootPartContext.valid          = CONTEXT_VALID_VALUE;
+	pip_interface->rootPartContext.basicFrame.r0 = sp;
+	pip_interface->rootPartContext.basicFrame.pc = (uint32_t) &__rootBinaryEntryPoint;
+	pip_interface->rootPartContext.basicFrame.sp = sp;
+	pip_interface->rootPartContext.pipflags      = 0;
 
 	/* Switch to unprivileged Thread mode. */
 	__set_CONTROL(__get_CONTROL() | CONTROL_nPRIV_Msk );

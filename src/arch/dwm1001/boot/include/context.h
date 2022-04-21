@@ -36,81 +36,146 @@
 
 #include <stdint.h>
 
-/*!
- * \def CONTEXT_REGISTER_NUMBER
- *
- * \brief The register number of a context.
- */
-#define CONTEXT_REGISTER_NUMBER 17
+#define BASIC_FRAME_SIZE     17
+
+#define EXTENDED_FRAME_SIZE  50
 
 /*!
- * \def CONTEXT_VALID_VALUE
- *
- * \brief An arbitrary value used to identify a valid context.
+ * \brief Union representing a basic frame as saved by the
+ *        exception entry point.
  */
-#define CONTEXT_VALID_VALUE 0x41b06b8a
-
-/*!
- * \brief Enumeration of registers to be stored for a context.
- *
- * \warning Do not change the register number in the enumeration.
- */
-typedef enum context_register_e
+typedef union basicFrame_u
 {
-	SP   = 0  , /*!< PSP register  */
-	R4   = 1  , /*!< R4 register   */
-	R5   = 2  , /*!< R5 register   */
-	R6   = 3  , /*!< R6 register   */
-	R7   = 4  , /*!< R7 register   */
-	R8   = 5  , /*!< R8 register   */
-	R9   = 6  , /*!< R9 register   */
-	R10  = 7  , /*!< R10 register  */
-	R11  = 8  , /*!< R11 register  */
-	R0   = 9  , /*!< R0 register   */
-	R1   = 10 , /*!< R1 register   */
-	R2   = 11 , /*!< R2 register   */
-	R3   = 12 , /*!< R3 register   */
-	R12  = 13 , /*!< R12 register  */
-	LR   = 14 , /*!< LR register   */
-	PC   = 15 , /*!< PC register   */
-	XPSR = 16   /*!< xPSR register */
-} context_register_t;
+	struct
+	{
+		uint32_t sp;   /*!< SP register   */
+		uint32_t r4;   /*!< R4 register   */
+		uint32_t r5;   /*!< R5 register   */
+		uint32_t r6;   /*!< R6 register   */
+		uint32_t r7;   /*!< R7 register   */
+		uint32_t r8;   /*!< R8 register   */
+		uint32_t r9;   /*!< R9 register   */
+		uint32_t r10;  /*!< R10 register  */
+		uint32_t r11;  /*!< R11 register  */
+		uint32_t r0;   /*!< R0 register   */
+		uint32_t r1;   /*!< R1 register   */
+		uint32_t r2;   /*!< R2 register   */
+		uint32_t r3;   /*!< R3 register   */
+		uint32_t r12;  /*!< R12 register  */
+		uint32_t lr;   /*!< LR register   */
+		uint32_t pc;   /*!< PC register   */
+		uint32_t xpsr; /*!< xPSR register */
+	};
+
+	uint32_t registers[BASIC_FRAME_SIZE];
+
+} basicFrame_t;
 
 /*!
- * \brief Structure representing a context as stacked by an assembly
- *        entry point.
+ * \brief Union representing an extended frame as saved by the
+ *        exception entry point.
  */
-typedef struct stacked_context_s
+typedef union extendedFrame_u
 {
-	/*!
-	 * \brief Registers stacked by an assembly entry point.
-	 */
-	uint32_t registers[CONTEXT_REGISTER_NUMBER];
-} stacked_context_t;
+	struct
+	{
+		uint32_t s16;   /*!< S16 register   */
+		uint32_t s17;   /*!< S17 register   */
+		uint32_t s18;   /*!< S18 register   */
+		uint32_t s19;   /*!< S19 register   */
+		uint32_t s20;   /*!< S20 register   */
+		uint32_t s21;   /*!< S21 register   */
+		uint32_t s22;   /*!< S22 register   */
+		uint32_t s23;   /*!< S23 register   */
+		uint32_t s24;   /*!< S24 register   */
+		uint32_t s25;   /*!< S25 register   */
+		uint32_t s26;   /*!< S26 register   */
+		uint32_t s27;   /*!< S27 register   */
+		uint32_t s28;   /*!< S28 register   */
+		uint32_t s29;   /*!< S29 register   */
+		uint32_t s30;   /*!< S30 register   */
+		uint32_t s31;   /*!< S31 register   */
+		uint32_t sp;    /*!< SP register    */
+		uint32_t r4;    /*!< R4 register    */
+		uint32_t r5;    /*!< R5 register    */
+		uint32_t r6;    /*!< R6 register    */
+		uint32_t r7;    /*!< R7 register    */
+		uint32_t r8;    /*!< R8 register    */
+		uint32_t r9;    /*!< R9 register    */
+		uint32_t r10;   /*!< R10 register   */
+		uint32_t r11;   /*!< R11 register   */
+		uint32_t r0;    /*!< R0 register    */
+		uint32_t r1;    /*!< R1 register    */
+		uint32_t r2;    /*!< R2 register    */
+		uint32_t r3;    /*!< R3 register    */
+		uint32_t r12;   /*!< R12 register   */
+		uint32_t lr;    /*!< LR register    */
+		uint32_t pc;    /*!< PC register    */
+		uint32_t xpsr;  /*!< xPSR register  */
+		uint32_t s0;    /*!< S0 register    */
+		uint32_t s1;    /*!< S1 register    */
+		uint32_t s2;    /*!< S2 register    */
+		uint32_t s3;    /*!< S3 register    */
+		uint32_t s4;    /*!< S4 register    */
+		uint32_t s5;    /*!< S5 register    */
+		uint32_t s6;    /*!< S6 register    */
+		uint32_t s7;    /*!< S7 register    */
+		uint32_t s8;    /*!< S8 register    */
+		uint32_t s9;    /*!< S9 register    */
+		uint32_t s10;   /*!< S10 register   */
+		uint32_t s11;   /*!< S11 register   */
+		uint32_t s12;   /*!< S12 register   */
+		uint32_t s13;   /*!< S13 register   */
+		uint32_t s14;   /*!< S14 register   */
+		uint32_t s15;   /*!< S15 register   */
+		uint32_t fpscr; /*!< FPSCR register */
+	};
+
+	uint32_t registers[EXTENDED_FRAME_SIZE];
+
+} extendedFrame_t;
 
 /*!
- * \brief Structure representing a context as stored by the yield
- *        system call.
+ *
  */
-typedef struct user_context_s
+typedef struct basicContext_s
 {
-	/*!
-	 * \brief The validity of the structure: a zero value indicates
-	 *        an invalid structure, a non-zero value indicates a
-	 *        valid structure.
-	 */
-	uint32_t valid;
+	uint32_t isBasicFrame;
 
-	/*!
-	 * \brief The state in which the partition wishes to be at the
-	 *        next yield.
-	 */
 	uint32_t pipflags;
 
-	/*!
-	 * \brief All stored registers by the SVC handler.
-	 */
-	uint32_t registers[CONTEXT_REGISTER_NUMBER];
-} user_context_t;
+	basicFrame_t frame;
+
+} basicContext_t;
+
+/*!
+ *
+ */
+typedef struct extendedContext_s
+{
+	uint32_t isBasicFrame;
+
+	uint32_t pipflags;
+
+	extendedFrame_t frame;
+
+} extendedContext_t;
+
+/*!
+ *
+ */
+typedef struct stackedContext_s
+{
+	uint32_t isBasicFrame;
+
+	uint32_t pipflags;
+
+	union
+	{
+		basicFrame_t basicFrame;
+		extendedFrame_t extendedFrame;
+	};
+
+} stackedContext_t;
 
 #endif /* __CONTEXT_H__ */

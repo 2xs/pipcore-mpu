@@ -31,80 +31,46 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
-#ifndef __PIP_INTERFACE_H__
-#define __PIP_INTERFACE_H__
+#ifndef __STACK_H__
+#define __STACK_H__
 
-#include "userconstants.h"
+#include <stdint.h>
+
 #include "context.h"
-#include "ADT.h"
+#include "scs.h"
 
 /*!
- * \brief This structure defines the interface that PIP provides to the
- *        root partition.
+ * \brief Resets the context stack pointer register to the stack
+ *        address before an exception.
+ *
+ * \param context A stacked context in which to reset the stack
+ *        pointer register.
+ *
+ * \warning After calling this function, the interrupt handler
+ *          cannot return from an exception.
+ *
+ * \see Armv7-M Architecture - Reference Manual
+ *      B1.5.8 Exception return behavior
  */
-typedef struct pip_interface_s
+static inline void
+resetInitialSp(stackedContext_t *context)
 {
-	/*!
-	 * \brief The ID of the block containing the partition
-	 *        descriptor of the root partition.
-	 */
-	void *rootPartDescBlockId;
+	if (context->isBasicFrame)
+	{
+		basicFrame_t *frame = &context->basicFrame;
+		uint32_t frameSize = 0x20;
+		uint32_t forceAlign = CCR.STKALIGN;
+		uint32_t spMask = ((frame->xpsr >> 9) & forceAlign) << 2;
+		frame->sp = (frame->sp + frameSize) | spMask;
+	}
+	else
+	{
+		extendedFrame_t *frame = &context->extendedFrame;
+		uint32_t frameSize = 0x68;
+		uint32_t forceAlign = 1;
+		uint32_t spMask = ((frame->xpsr >> 9) & forceAlign) << 2;
+		frame->sp = (frame->sp + frameSize) | spMask;
+	}
+}
 
-	/*!
-	 * \brief The initial context of the root partition.
-	 */
-	stackedContext_t rootPartContext;
-
-	/*!
-	 * \brief List containing the attributes of the MPU blocks.
-	 */
-	blockAttr_t mpuBlockAttributes[MPU_REGIONS_NB];
-
-	/*!
-	 * \brief The limit address of the stack of the root partition.
-	 */
-	void *rootStackLimit;
-
-	/*!
-	 * \brief The stack top address of the root partition.
-	 */
-	void *rootStackTop;
-
-	/*!
-	 * \brief The start address of the root partition binary.
-	 */
-	void *rootBinaryStart;
-
-	/*!
-	 * \brief The entry point address of the root partition.
-	 */
-	void *rootBinaryEntryPoint;
-
-	/*!
-	 * \brief The end address of the root partition binary.
-	 */
-	void *rootBinaryEnd;
-
-	/*!
-	 * \brief The start address of the unused ROM.
-	 */
-	void *unusedRomStart;
-
-	/*!
-	 * \brief The end address of the ROM.
-	 */
-	void *romEnd;
-
-	/*!
-	 * \brief The start address of the unused RAM.
-	 */
-	void *unusedRamStart;
-
-	/*!
-	 * \brief The end address of the RAM.
-	 */
-	void *ramEnd;
-
-} pip_interface_t;
-
-#endif /* __PIP_INTERFACE_H__ */
+#endif /* __STACK_H__ */

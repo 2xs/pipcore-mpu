@@ -42,6 +42,7 @@
 #include "mal.h"
 #include "scs.h"
 #include "mpu.h"
+#include "stack.h"
 
 /*!
  * \def UNREACHABLE_ADDRESS
@@ -58,9 +59,9 @@
 #define MMFSR_CLEAR_MASK 0xbb
 
 extern void __attribute__((noreturn))
-Kernel_Panic(stacked_context_t *stackedContext)
+Kernel_Panic(stackedContext_t *context)
 {
-	(void) stackedContext;
+	(void) context;
 	for (;;);
 }
 
@@ -74,22 +75,8 @@ Kernel_Panic(stacked_context_t *stackedContext)
  * \see The calling code is in the exception_entry.S file.
  */
 extern void __attribute__((noreturn))
-Interrupt_Handler_C(stacked_context_t *stackedContext)
+Interrupt_Handler_C(stackedContext_t *context)
 {
-	user_context_t context;
-
-	/* Copy of the context stacked by the entry point. */
-	for (size_t i = 0; i < CONTEXT_REGISTER_NUMBER; i++)
-	{
-		context.registers[i] = stackedContext->registers[i];
-	}
-
-	/* Save the value of the stack before the interrupt. */
-	uint32_t forceAlign   = CCR.STKALIGN;
-	uint32_t spMask       = ((context.registers[XPSR] >> 9) & forceAlign) << 2;
-	context.registers[SP] = (context.registers[SP] + FRAME_SIZE) | spMask;
-	context.valid         = CONTEXT_VALID_VALUE;
-
 	paddr rootPartDesc = getRootPartition();
 	paddr interruptedPartDesc = getCurPartition();
 	int_mask_t interruptedPartIntState = getSelfIntState();
@@ -104,6 +91,8 @@ Interrupt_Handler_C(stacked_context_t *stackedContext)
 		saveIndex = STI_SAVE_INDEX;
 	}
 
+	resetInitialSp(context);
+
 	/* We try to propagate the interrupt to the root partition by
 	 * saving the context of the interrupted partition at the address
 	 * found at the saveIndex in its VIDT. Then, we restore the
@@ -117,7 +106,7 @@ Interrupt_Handler_C(stacked_context_t *stackedContext)
 		saveIndex,
 		interruptedPartIntState,
 		interruptedPartIntState,
-		&context
+		context
 	);
 
 	switch (yieldErrorCode)
@@ -161,7 +150,8 @@ Interrupt_Handler_C(stacked_context_t *stackedContext)
 
 	/* We end up here if PIP is in an unrecoverable state. */
 	printf("PIP: UNRECOVERABLE ERROR!\n");
-	for (;;);
+
+	Kernel_Panic(context);
 }
 
 /*!
@@ -191,7 +181,7 @@ propagateFault(
 	unsigned       saveIndex,
 	int_mask_t     flagOnYield,
 	int_mask_t     flagOnWake,
-	user_context_t *context
+	stackedContext_t *context
 ) {
 	/* We try to propagate the fault to the parent partition of the
 	 * one that has faulted by saving its context at the address
@@ -278,7 +268,8 @@ propagateFault(
 
 	/* We end up here if PIP is in an unrecoverable state. */
 	printf("PIP: UNRECOVERABLE ERROR!\n");
-	for (;;);
+
+	Kernel_Panic(context);
 }
 
 /*!
@@ -295,22 +286,8 @@ propagateFault(
  * \see The calling code is in the exception_entry.S file.
  */
 extern void __attribute__((noreturn))
-Fault_Handler_C(stacked_context_t *stackedContext)
+Fault_Handler_C(stackedContext_t *context)
 {
-	user_context_t context;
-
-	/* Copy of the context stacked by the entry point. */
-	for (size_t i = 0; i < CONTEXT_REGISTER_NUMBER; i++)
-	{
-		context.registers[i] = stackedContext->registers[i];
-	}
-
-	/* Save the value of the stack before the fault. */
-	uint32_t forceAlign   = CCR.STKALIGN;
-	uint32_t spMask       = ((context.registers[XPSR] >> 9) & forceAlign) << 2;
-	context.registers[SP] = (context.registers[SP] + FRAME_SIZE) | spMask;
-	context.valid         = CONTEXT_VALID_VALUE;
-
 	paddr currentPartDesc = getCurPartition();
 	int_mask_t interruptedPartIntState = getSelfIntState();
 	uint32_t saveIndex;
@@ -324,11 +301,13 @@ Fault_Handler_C(stacked_context_t *stackedContext)
 		saveIndex = STI_SAVE_INDEX;
 	}
 
+	resetInitialSp(context);
+
 	printf("The current partition (%p) has faulted...\n", currentPartDesc);
 
 	/* Propagate the fault to the parent of the faulted partition. */
 	propagateFault(currentPartDesc, ICSR.VECTACTIVE, saveIndex,
-		interruptedPartIntState, interruptedPartIntState, &context);
+		interruptedPartIntState, interruptedPartIntState, context);
 
 	/* We should never end up here because the propagateFault never
 	 * return to the caller. */
@@ -348,7 +327,7 @@ Fault_Handler_C(stacked_context_t *stackedContext)
  * \see The calling code is in the exception_entry.S file.
  */
 extern void
-MemManage_Handler_C(stacked_context_t *stackedContext)
+MemManage_Handler_C(stackedContext_t *context)
 {
 	uint32_t faultedAddress;
 	uint32_t isDaccviol = 0;
@@ -392,9 +371,17 @@ MemManage_Handler_C(stacked_context_t *stackedContext)
 		 * context, plus the size of this instruction.
 		 */
 
+		uint32_t instructionAddress;
+
 		/* Retrieve the instruction address. */
-		uint32_t instructionAddress =
-			stackedContext->registers[PC];
+		if (context->isBasicFrame)
+		{
+			instructionAddress = context->basicFrame.pc;
+		}
+		else
+		{
+			instructionAddress = context->extendedFrame.pc;
+		}
 
 		/* Retrieve instruction from the its address. */
 		uint16_t instruction =
@@ -532,7 +519,7 @@ MemManage_Handler_C(stacked_context_t *stackedContext)
 #if !defined(UNIT_TESTS)
 
 	/* Call the fault handler if it is a real MemManage fault. */
-	Fault_Handler_C(stackedContext);
+	Fault_Handler_C(context);
 
 	/* We should never end up here because the Fault_Handler_C never
 	 * return to the caller. */
@@ -546,9 +533,9 @@ MemManage_Handler_C(stacked_context_t *stackedContext)
 
 	printf("\r\nNew canary=%x\n", *canary);
 
-	stackedContext->registers[PC] += 2;
+	stackedContext->pc += 2;
 
-	printf("\r\nBranch to PC=%x\r\n", stackedContext->registers[PC]);
+	printf("\r\nBranch to PC=%x\r\n", stackedContext->pc);
 
 #endif
 }

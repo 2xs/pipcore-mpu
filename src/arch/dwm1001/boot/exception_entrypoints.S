@@ -43,18 +43,18 @@
  * \brief An assembler macro to prepare the call to the C
  *        handler corresponding to the exception raised.
  *
- * \param entrypointName The name of the assembler entry point.
- * \param mspHandlerName The name of the MSP C handler.
- * \param pspHandlerName The name of the PSP C handler.
+ * \param entrypointLabel The label of the assembler entry point.
+ * \param mspHandlerLabel The label of the MSP C handler.
+ * \param pspHandlerLabel The label of the PSP C handler.
  */
-.macro EXCEPTION_ENTRYPOINT entrypointName mspHandlerName pspHandlerName
+.macro EXCEPTION_ENTRYPOINT entryPointLabel mspHandlerLabel pspHandlerLabel
 
-	.global   \entrypointName
-	.type     \entrypointName, %function
+	.global   \entryPointLabel
+	.type     \entryPointLabel, %function
 	.section  .text
 
-	/* The frame of information pushed onto the stack on
-	 * exception entry is the following:
+	/* The basic frame, stacked on exception entry, is the
+	 * following:
 	 *
 	 *     +----------------+
 	 *     |                | <- Original SP
@@ -77,75 +77,143 @@
 	 *     +----------------+
 	 *     |       R0       | <- New 8-byte aligned SP
 	 *     +----------------+
+	 *
+	 * The extended frame, stacked on exception entry, is
+	 * the following:
+	 *
+	 *     +----------------+
+	 *     |                | <- Original SP
+	 *     +----------------+
+	 *     |    Reserved    | <- Only if original SP is not
+	 *     +----------------+    8-byte aligned
+	 *     |    Reserved    |
+	 *     +----------------+
+	 *     |      FPSCR     |
+	 *     +----------------+
+	 *     |       S15      |
+	 *     +----------------+
+	 *     |       S14      |
+	 *     +----------------+
+	 *     |       ...      |
+	 *     +----------------+
+	 *     |       S0       |
+	 *     +----------------+
+	 *     |      xPSR      |
+	 *     +----------------+
+	 *     |  ReturnAddress |
+	 *     +----------------+
+	 *     |       LR       |
+	 *     +----------------+
+	 *     |       R12      |
+	 *     +----------------+
+	 *     |       R3       |
+	 *     +----------------+
+	 *     |       R2       |
+	 *     +----------------+
+	 *     |       R1       |
+	 *     +----------------+
+	 *     |       R0       | <- New 8-byte aligned SP
+	 *     +----------------+
 	 */
-	\entrypointName:
+	\entryPointLabel:
 
 #if !defined(UNIT_TESTS)
 
-		/* If we don't run the unit tests, we disable
-		 * interrupts by setting the PRIMASK register
-		 * to 1. */
+		/* Disable interrupts, by setting the PRIMASK
+		 * register to 1, if unit tests are not
+		 * executed. */
 		cpsid i
 
 #endif
 
-		/* Test the third bit of the EXC_RETURN value in
-		 * the register LR, to find out on which stack
-		 * the frame was pushed. */
+		/* Test the SPSEL bit of the EXC_RETURN value,
+		 * stored in the register LR, to find out on
+		 * which stack the frame was stacked. */
 		tst lr, #4
 
-		/* Branch to 1f if the third bit of the
-		 * EXC_RETURN value is set. */
-		bne 1f
+		/* Execute either the first two instructions of
+		 * the IT block if the frame was stacked on the
+		 * MSP, or the last two instructions of the IT
+		 * block if the frame was stacked on the PSP. */
+		ittee eq
 
-		/* If the frame has been saved on the MSP, it
-		 * means that the fault occurred when we were in
-		 * the code of PIP. The value of the stack is
-		 * saved in register R0 because its value before
-		 * the exception was saved on the MSP. */
-		mrs r0, msp
+		/* If the frame was stacked on the MSP, it means
+		 * that the fault occurred when we were in the
+		 * code of PIP. The value of the stack is saved
+		 * in register R0 because its value before the
+		 * exception was saved on the exception frame. */
+		mrseq r0, msp
 
-		/* We have to copy the value of R0 into R3,
-		 * otherwise we cannot use the writeback when
-		 * R0 is both in rn and reglist. */
-		mov r3, r0
+		/* Load the address of the MSP C handler into
+		 * the register R1. The address of the handler
+		 * is saved in register R1 because its value
+		 * before the exception was saved on the
+		 * exception frame. */
+		ldreq r1, =\mspHandlerLabel
 
-		/* Push the initial value of the MSP and
-		 * registers R3 to R11 to the MSP. */
-		stmdb r0!, {r3-r11}
+		/* If the frame was stacked on the PSP, it means
+		 * that the fault occurred when we were in the
+		 * code of a partition. The value of the stack
+		 * is saved in register R0 because its value
+		 * before the exception was saved on the
+		 * exception frame. */
+		mrsne r0, psp
 
-		/* Without storing the return address in the
-		 * register LR, we branch to the MSP C handler
-		 * corresponding to the exception with the
-		 * pointer in R0 to the context stored on the
-		 * stack as a parameter. */
-		b \mspHandlerName
+		/* Load the address of the PSP C handler into
+		 * the register R1. The address of the handler
+		 * is saved in register R1 because its value
+		 * before the exception was saved on the
+		 * exception frame. */
+		ldrne r1, =\pspHandlerLabel
 
-		1:
+		/* Copy the stack pointer, stored in the
+		 * register R0, into the register R2. Otherwise,
+		 * the stmdb writeback cannot be used when R0 is
+		 * both in rn and reglist. The value of the
+		 * stack pointer is saved in register R2 because
+		 * its value before the exception was saved on
+		 * the exception frame. */
+		mov r2, r0
 
-		/* If the frame has been saved on the PSP, it
-		 * means that the fault occurred when we were in
-		 * the code of a child partition. The value of
-		 * the stack is saved in register R0 because its
-		 * value before the exception was saved on the
-		 * PSP. */
-		mrs r0, psp
+		/* Push the remaining registers R4 to R11, as
+		 * well as the top of the stack, saved in the
+		 * register R2. */
+		stmdb r0!, {r2, r4-r11}
 
-		/* We have to copy the value of R0 into R3,
-		 * otherwise we cannot use the writeback when
-		 * R0 is both in rn and reglist. */
-		mov r3, r0
+		/* Extract the FPCA bit of the EXC_RETURN value,
+		 * stored in the register LR, to find out if the
+		 * stacked frame is a basic frame or an extended
+		 * frame. */
+		ubfx r2, lr, #4, #1
 
-		/* Push the initial value of the PSP and
-		 * registers R3 to R11 to the PSP. */
-		stmdb r0!, {r3-r11}
+		/* Test if the FPCA bit, stored in the register
+		 * R2, is equal to zero. */
+		cmp r2, #0
 
-		/* Without storing the return address in the
-		 * register LR, we branch to the PSP C handler
-		 * corresponding to the exception with the
-		 * pointer in R0 to the context stored on the
-		 * stack as a parameter. */
-		b \pspHandlerName
+		/* Execute the next instruction only if the FPCA
+		 * bit is equal to zero. */
+		it eq
+
+		/* Push the remaining registers S16 to S31 if
+		 * the FPCA bit is equal to zero. */
+		vstmdbeq r0!, {s16-s31}
+
+		/* Store zero to the register R3 in order to
+		 * fill the pipflags field of the structure. */
+		movs r3, #0
+
+		/* Fill the isBasicFrame and pipflags fields of
+		 * the structure with the value contained in the
+		 * registers R2 and R3. */
+		strd r2, r3, [r0, #-8]!
+
+		/* Branch to the C handler. The register R0
+		 * contains the address of the context stacked
+		 * on the MSP or PSP. The register LR contains
+		 * the value EXC_RETURN so that the current
+		 * context can be restored if the C handler
+		 * returns. */
+		mov pc, r1
 
 .endm
 
@@ -157,7 +225,7 @@
 .type     Reset_Handler, %function
 .section  .text
 Reset_Handler:
-    bl _start
+	b _start
 
 EXCEPTION_ENTRYPOINT PendSV_Handler     Boot_Handler  Interrupt_Handler_C
 

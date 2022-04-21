@@ -580,6 +580,8 @@ configure_global_variables() {
 
 			arch_cflags='-mthumb'
 			arch_cflags="$arch_cflags"' -mcpu=cortex-m4'
+			arch_cflags="$arch_cflags"' -mfloat-abi=hard'
+			arch_cflags="$arch_cflags"' -mfpu=fpv4-sp-d16'
 			case $debugging_mode in
 				semihosting)
 					arch_cflags="$arch_cflags"' -DTRACE'
@@ -608,6 +610,8 @@ configure_global_variables() {
 			arch_ldflags="$arch_ldflags"' -ffreestanding'
 			arch_ldflags="$arch_ldflags"' -mthumb'
 			arch_ldflags="$arch_ldflags"' -mcpu=cortex-m4'
+			arch_ldflags="$arch_ldflags"' -mfloat-abi=hard'
+			arch_ldflags="$arch_ldflags"' -mfpu=fpv4-sp-d16'
 
 			### ASFLAGS for the selected architecture
 
