@@ -575,13 +575,14 @@ end.
 (*DUP*)
 (** The [isSHE] proposition reutrns True if the entry at position [idx]
     into the given page [table] is type of [PE] *)
-Definition isFreeSlot paddr s: Prop := 
+(*Definition isFreeSlot paddr s: Prop := 
 match lookup paddr s.(memory) beqAddr with 
 |Some (BE entry) => match lookup (CPaddr (paddr + sh1offset)) s.(memory) beqAddr with
 									 	|Some (SHE sh1entry) =>
 												match lookup (CPaddr (paddr + scoffset)) s.(memory) beqAddr with 
 												|Some (SCE scentry) => entry.(blockrange).(startAddr) = nullAddr /\
-																							entry.(blockrange).(endAddr) <> nullAddr /\
+																							(* no cycles for same slot -> replace by general property on chained free slots if necessary*)
+																							(entry.(blockrange).(endAddr) <> nullAddr -> entry.(blockrange).(endAddr) <> paddr /\ isBE entry.(blockrange).(endAddr) s)  /\
 																							sh1entry.(PDchild) = nullAddr /\ sh1entry.(PDflag) = false /\ sh1entry.(inChildLocation) = nullAddr /\
 																							scentry.(origin) = nullAddr /\ scentry.(next) = nullAddr
 									 			|_ => False
@@ -589,7 +590,38 @@ match lookup paddr s.(memory) beqAddr with
 										|_ => False
 										end
 |_ => False
+end.*)
+
+Definition isFreeSlotChain (count : nat) f paddr (s : state) : Prop := 
+match count with
+| O => True
+| S n => match lookup paddr s.(memory) beqAddr with 
+				|Some (BE entry) => match lookup (CPaddr (paddr + sh1offset)) s.(memory) beqAddr with
+													 	|Some (SHE sh1entry) =>
+																match lookup (CPaddr (paddr + scoffset)) s.(memory) beqAddr with 
+																|Some (SCE scentry) => entry.(blockrange).(startAddr) = nullAddr /\
+																											(* no cycles for same slot -> replace by general property on chained free slots if necessary*)
+																											(entry.(blockrange).(endAddr) <> nullAddr -> entry.(blockrange).(endAddr) <> paddr /\ f n entry.(blockrange).(endAddr) s)  /\
+																											sh1entry.(PDchild) = nullAddr /\ sh1entry.(PDflag) = false /\ sh1entry.(inChildLocation) = nullAddr /\
+																											scentry.(origin) = nullAddr /\ scentry.(next) = nullAddr
+													 			|_ => False
+																end
+														|_ => False
+													end
+			|_ => False
+			end
 end.
+
+Fixpoint isFreeSlotAux (count : nat) paddr s: Prop := 
+isFreeSlotChain count isFreeSlotAux paddr s.
+
+Lemma funroll  :forall x paddr s, isFreeSlotAux x paddr s = isFreeSlotChain x isFreeSlotAux paddr s.
+destruct x ; simpl ; reflexivity.
+Qed.
+
+Definition isFreeSlot paddr (s : state) : Prop := 
+isFreeSlotAux N paddr s.
+
 
 (** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
     into the given physical page [table] is type of [VE] and the user flag stored into 
