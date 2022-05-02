@@ -1398,6 +1398,19 @@ apply Nat.eqb_neq. apply Nat.eqb_neq in H. unfold not in *.
 intros. intuition. 
 Qed.
 
+Lemma paddrEqId :
+forall p : paddr, CPaddr p = p.
+Proof.
+intros.
+unfold CPaddr.
+destruct p.
+simpl.
+case_eq(le_dec p maxAddr); intros.
+assert(ADT.CPaddr_obligation_1 p l = Hp) by apply proof_irrelevance.
+subst. reflexivity.
+now contradict Hp.
+Qed.
+
 (*
 Require Import List Classical_Prop.
 Lemma listIndexDecOrNot :

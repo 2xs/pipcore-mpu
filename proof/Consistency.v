@@ -68,18 +68,25 @@ getNullAddr s = Some n.*)
 isPADDR nullAddr s.
 
 Definition FirstFreeSlotPointerIsBEAndFreeSlot s :=
-forall entryaddr entry,
-lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
-entry.(firstfreeslot) <> nullAddr ->
-isBE entry.(firstfreeslot) s /\
+forall pdentryaddr pdentry,
+lookup pdentryaddr (memory s) beqAddr = Some (PDT pdentry) ->
+pdentry.(firstfreeslot) <> nullAddr ->
+isBE pdentry.(firstfreeslot) s /\
 (*exists slotentry, lookup entry.(firstfreeslot) s.(memory) beqAddr = Some (BE slotentry) /\*)
-isFreeSlot entry.(firstfreeslot) s.
+isFreeSlot pdentry.(firstfreeslot) s.
 
 Definition FirstFreeSlotPointerNotNullEq s :=
 forall pdinsertion currnbfreeslots,
 pdentryNbFreeSlots pdinsertion currnbfreeslots s /\ currnbfreeslots > 0 <->
 exists freeslotpointer, pdentryFirstFreeSlot pdinsertion freeslotpointer s /\
 freeslotpointer <> nullAddr.
+
+Definition NoDupInFreeSlotsList s :=
+forall pd pdentry,
+lookup pd (memory s) beqAddr = Some (PDT pdentry) ->
+exists optionfreeslotslist, optionfreeslotslist = getFreeSlotsList pd s /\
+wellFormedFreeSlotsList optionfreeslotslist s <> False /\ (* to get rid of false induction bound constraints *)
+NoDup (filterOption (optionfreeslotslist)).
 
 Definition StructurePointerIsBE s :=
 forall entryaddr entry,
@@ -158,12 +165,13 @@ lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
 sh1entry.(inChildLocation) <> nullAddr ->
 isBE sh1entry.(inChildLocation) s.
 
+(* TODO: remove and replace if necessary by chained free slots without cycles*)
 Definition chainedFreeSlots s :=
 forall entry nextfreeslotentry,
 isFreeSlot entry s ->
 nextfreeslotentry <> nullAddr ->
 bentryEndAddr entry nextfreeslotentry s ->
-(isBE nextfreeslotentry s /\ isFreeSlot nextfreeslotentry s).
+((*isBE nextfreeslotentry s /\ *) isFreeSlot nextfreeslotentry s).
 
 (** ** Conjunction of all consistency properties *)
 Definition consistency s := 
@@ -183,4 +191,6 @@ StructurePointerIsKS s /\
 NextKSIsKS s /\
 NextKSOffsetIsPADDR s /\
 KSIsBE s /\
-FirstFreeSlotPointerNotNullEq s.
+FirstFreeSlotPointerNotNullEq s /\
+NoDupInFreeSlotsList s /\
+chainedFreeSlots s.
