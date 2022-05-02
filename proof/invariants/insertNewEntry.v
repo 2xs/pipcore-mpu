@@ -4539,6 +4539,64 @@ split.
 																			intuition.
 } (* end of FirstFreeSlotPointerIsBEAndFreeSlot *)
 split.
+{ (* CurrentPartIsPDT s *)
+	assert(Hcons0 : CurrentPartIsPDT s0) by (unfold consistency in * ; intuition).
+	unfold CurrentPartIsPDT in Hcons0.
+
+	intros entryaddrpd HcurrentPart.
+	rewrite Hs in HcurrentPart.
+	cbn in HcurrentPart.
+	unfold isPDT.
+
+	(* check all possible values for entryaddrpd in the modified state s
+			-> only possible is pdinsertion
+		1) if entryaddrpd == pdinsertion :
+				- pdinsertion could be the current partition and insert in itself
+				- we know isPDT pdinsertion s -> OK
+		2) if entryaddrpd <> pdinsertion :
+				- could be another partition inserting in pdinsertion
+				- -> leads to s0 -> OK
+*)
+	specialize(Hcons0 entryaddrpd HcurrentPart).
+	(* DUP *)
+	(* Check all values except pdinsertion *)
+	destruct (beqAddr sceaddr entryaddrpd) eqn:beqsceentry; try(exfalso ; congruence).
+	-	(* sceaddr = entryaddrpd *)
+		rewrite <- DependentTypeLemmas.beqAddrTrue in beqsceentry.
+		rewrite <- beqsceentry in *.
+		unfold isSCE in *.
+		unfold isPDT in Hcons0.
+		destruct (lookup sceaddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+		destruct v ; try(exfalso ; congruence).
+	-	(* sceaddr <> entryaddrpd *)
+		destruct (beqAddr newBlockEntryAddr entryaddrpd) eqn:beqnewblockentry; try(exfalso ; congruence).
+		-- (* newBlockEntryAddr = entryaddrpd *)
+			rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewblockentry.
+			rewrite <- beqnewblockentry in *.
+			unfold isBE in *.
+			unfold isPDT in Hcons0.
+			destruct (lookup newBlockEntryAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+			destruct v ; try(exfalso ; congruence).
+		-- (* newBlockEntryAddr <> entryaddrpd *)
+			rewrite Hs.
+			cbn. rewrite beqAddrTrue.
+			destruct (beqAddr sceaddr entryaddrpd) eqn:sceentrypd ; try(exfalso ; congruence).
+			destruct (beqAddr newBlockEntryAddr sceaddr) eqn:newsce ; try(exfalso ; congruence).
+			rewrite beqAddrTrue.
+			cbn.
+			destruct (beqAddr newBlockEntryAddr entryaddrpd) eqn:newentrypd ; try(exfalso ; congruence).
+			destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:pdnew ; try(exfalso ; congruence).
+			rewrite <- beqAddrFalse in *.
+			repeat rewrite removeDupIdentity ; intuition.
+			cbn.
+			destruct (beqAddr pdinsertion entryaddrpd) eqn:pdentrypd ; try(exfalso ; congruence).
+			--- (* pdinsertion = entryaddrpd *)
+					trivial.
+			---	(* pdinsertion <> entryaddrpd *)
+					rewrite <- beqAddrFalse in *.
+					repeat rewrite removeDupIdentity ; intuition.
+} (* end of CurrentPartIsPDT *)
+split.
 
 	- (* Final state *)
 		exists newpd. intuition. exists s0. exists pdentry. exists pdentry0.
