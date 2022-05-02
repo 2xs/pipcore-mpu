@@ -92,9 +92,13 @@ if (le_dec p maxIdx) then Build_index p _ else  index_d.
 Record paddr := { 
   p :> nat;
   Hp : p <= maxAddr }.
-Parameter paddr_d : paddr. (* default paddr : NULL *)
+(*Parameter paddr_d : paddr.*) (* default paddr : NULL *)
 Program Definition CPaddr (p : nat) : paddr := 
-if (le_dec p maxAddr) then Build_paddr p _ else  paddr_d.
+if (le_dec p maxAddr) then Build_paddr p _ else  Build_paddr 0 _. (*paddr_d*)
+Next Obligation.
+intuition.
+Qed.
+
 Axiom RAMStartAddr: paddr.
 Axiom RAMEndAddr: paddr.
 

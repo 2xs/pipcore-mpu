@@ -81,6 +81,19 @@ pdentryNbFreeSlots pdinsertion currnbfreeslots s /\ currnbfreeslots > 0 <->
 exists freeslotpointer, pdentryFirstFreeSlot pdinsertion freeslotpointer s /\
 freeslotpointer <> nullAddr.
 
+Definition DisjointFreeSlotsLists s :=
+forall pd1 pd2,
+isPDT pd1 s ->
+isPDT pd2 s ->
+pd1 <> pd2 ->
+exists optionfreeslotslist1 optionfreeslotslist2,
+optionfreeslotslist1 = getFreeSlotsList pd1 s /\
+wellFormedFreeSlotsList optionfreeslotslist1 s <> False /\ (* to get rid of false induction bound constraints *)
+optionfreeslotslist2 = getFreeSlotsList pd2 s /\
+wellFormedFreeSlotsList optionfreeslotslist2 s <> False /\ (* to get rid of false induction bound constraints *)
+disjoint (filterOption (optionfreeslotslist1))(filterOption (optionfreeslotslist2)).
+
+
 Definition NoDupInFreeSlotsList s :=
 forall pd pdentry,
 lookup pd (memory s) beqAddr = Some (PDT pdentry) ->
@@ -193,4 +206,5 @@ NextKSOffsetIsPADDR s /\
 KSIsBE s /\
 FirstFreeSlotPointerNotNullEq s /\
 NoDupInFreeSlotsList s /\
-chainedFreeSlots s.
+chainedFreeSlots s /\
+DisjointFreeSlotsLists s.

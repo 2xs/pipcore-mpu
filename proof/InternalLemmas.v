@@ -8154,6 +8154,12 @@ destruct (le_dec addr1 maxAddr) eqn: Hj ; try congruence.
 destruct (le_dec addr2 maxAddr) eqn: Hk ; try congruence.
 Qed.*)
 
+Lemma nullAddrIs0 :
+nullAddr = CPaddr 0.
+Proof.
+intuition.
+Qed.
+
 Lemma CPaddrInjection3 addr1 :
 forall value1 s,
 lookup addr1 (memory s) beqAddr = value1 ->
@@ -8181,21 +8187,6 @@ addr1nat = addr2nat ->
 CPaddr addr1nat = CPaddr addr2nat.
 Proof.
 intros. rewrite H in *. reflexivity.
-Qed.
-
-
-Lemma CPaddrInjectionNat2 (addr1nat addr2nat : nat) :
-CPaddr addr1nat <> paddr_d -> CPaddr addr2nat <> paddr_d ->
-CPaddr addr1nat = CPaddr addr2nat ->
-addr1nat = addr2nat.
-Proof.
-intros.
-unfold CPaddr in * |-.
-destruct(le_dec addr1nat maxAddr) eqn:Hj.
-* destruct (le_dec addr2nat maxAddr) eqn:Hk.
-	** injection H1. intuition.
-	** congruence.
-* congruence.
 Qed.
 
 Lemma CPaddrInjection4 (addr1 : paddr):
