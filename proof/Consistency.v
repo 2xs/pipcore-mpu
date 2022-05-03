@@ -139,8 +139,7 @@ isPDT pdaddr s.
 
 (* TODO: To remove *)
 Definition KernelStartIsBE s :=
-forall blockentryaddr,
-exists blockentry : BlockEntry,
+forall (blockentryaddr : paddr) (blockentry : BlockEntry),
 lookup blockentryaddr (memory s) beqAddr = Some (BE blockentry) ->
 exists kernelstartaddr : paddr,
 StateLib.Paddr.subPaddrIdx blockentryaddr blockentry.(blockindex) = Some kernelstartaddr
