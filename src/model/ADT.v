@@ -31,13 +31,13 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(**  * Summary 
+(**  * Summary
       The Abstraction Data Type :
 				In this file we define elementary types representing hardware dependent types
 				as well as enriched datatypes used by the Services
 *)
 
-Require Import List Bool Arith Omega Model.UserConstants.
+Require Import List Bool Arith Model.UserConstants.
 Import List.ListNotations.
 
 (*******************************************************************************)
@@ -89,11 +89,11 @@ Program Definition CIndex  (p : nat) : index :=
 if (le_dec p maxIdx) then Build_index p _ else  index_d.
 
 (* paddr corresponds to a physical address *)
-Record paddr := { 
+Record paddr := {
   p :> nat;
   Hp : p <= maxAddr }.
 Parameter paddr_d : paddr. (* default paddr : NULL *)
-Program Definition CPaddr (p : nat) : paddr := 
+Program Definition CPaddr (p : nat) : paddr :=
 if (le_dec p maxAddr) then Build_paddr p _ else  paddr_d.
 Axiom RAMStartAddr: paddr.
 Axiom RAMEndAddr: paddr.
@@ -136,8 +136,8 @@ Record BlockEntry : Type:=
 }.
 Parameter blockentry_d : BlockEntry.
 
-Program Definition CBlockEntry (R W X P A: bool) (blockindex : index) (blockrange : block) := 
-if lt_dec blockindex kernelStructureEntriesNb then Build_BlockEntry R W X P A blockindex blockrange _ 
+Program Definition CBlockEntry (R W X P A: bool) (blockindex : index) (blockrange : block) :=
+if lt_dec blockindex kernelStructureEntriesNb then Build_BlockEntry R W X P A blockindex blockrange _
 else blockentry_d .
 
 Record Sh1Entry : Type:=
@@ -160,7 +160,9 @@ Record PDTable :=
  nbfreeslots : index ;
  nbprepare : index ;
  parent : paddr ;
- MPU : list paddr (*;
+ MPU : list paddr ;
+ vidtBlock : paddr
+ (*;
  HMPU : length MPU = MPURegionsNb*)
 
 (*;
