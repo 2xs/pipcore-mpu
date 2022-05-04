@@ -32,21 +32,21 @@
 (*******************************************************************************)
 
 
-(** * Summary 
-    This file contains the formalization of the consistency properties : 
+(** * Summary
+    This file contains the formalization of the consistency properties :
 for each one we summarize the description of its definition *)
-Require Import Model.ADT Model.Monad Model.MAL Model.Lib Lib (*Isolation*) 
+Require Import Model.ADT Model.Monad Model.MAL Model.Lib Lib (*Isolation*)
 StateLib.
-Require Import  Omega List Coq.Logic.ProofIrrelevance.
+Require Import List Coq.Logic.ProofIrrelevance.
 Import List.ListNotations.
 
 Definition wellFormedFstShadowIfBlockEntry s :=
-forall pa, 
+forall pa,
 isBE pa s ->
 isSHE (CPaddr (pa + sh1offset)) s.
 
 Definition wellFormedShadowCutIfBlockEntry s :=
-forall pa, 
+forall pa,
 isBE pa s ->
 exists scentryaddr : paddr, isSCE scentryaddr s
 /\ scentryaddr = CPaddr (pa + scoffset).
@@ -186,7 +186,7 @@ bentryEndAddr entry nextfreeslotentry s ->
 ((*isBE nextfreeslotentry s /\ *) isFreeSlot nextfreeslotentry s).
 
 (** ** Conjunction of all consistency properties *)
-Definition consistency s := 
+Definition consistency s :=
 wellFormedFstShadowIfBlockEntry s /\
 PDTIfPDFlag s /\
 nullAddrExists s /\

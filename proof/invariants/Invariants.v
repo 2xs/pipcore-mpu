@@ -1093,6 +1093,7 @@ eapply bindRev.
 { (** MALInternal.Paddr.subPaddrIdx *)
 	eapply weaken. apply Paddr.subPaddrIdx.
 	intros. simpl. split. apply H. intuition.
+	lia.
 }
 intro kernelStartAddr. simpl.
 { (** ret *)

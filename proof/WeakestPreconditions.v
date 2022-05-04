@@ -36,7 +36,7 @@
     MAL and MALInternal functions *)
 
 Require Import Model.ADT Model.Monad Model.MAL Model.Lib Proof.Consistency Model.MALInternal
-Omega List StateLib Hoare.
+Lia List StateLib Hoare Compare_dec.
 Lemma ret  (A : Type) (a : A) (P : A -> state -> Prop) : {{ P a }} ret a {{ P }}.
 Proof.
 intros s H; trivial.
@@ -144,12 +144,13 @@ unfold MALInternal.Index.pred.
 destruct n.
 destruct i.
 simpl.
-eapply weaken. apply ret. intros. omega.
+eapply weaken. apply ret. intros. lia.
 simpl.
 case_eq (le_dec (i - 0) maxIdx).
 intros. simpl. eapply weaken. apply ret.
 intros. simpl. intuition.
 intros. eapply weaken. apply undefined. intros. simpl. intuition.
+lia.
 Qed.
 
 
@@ -169,7 +170,7 @@ eapply undefined .
 simpl. intros.
 destruct idx. simpl in *.
 destruct H0.
-omega.
+lia.
 Qed.
 
 End Index.
@@ -222,7 +223,7 @@ intros. intuition.
 intros. eapply weaken.
 eapply undefined .
 simpl. intros.
-omega.
+lia.
 Qed.
 
 (* DUP *)
@@ -236,12 +237,11 @@ unfold MALInternal.Paddr.pred.
 destruct n.
 destruct p.
 simpl.
-intros. eapply weaken. apply ret. intros. omega.
+intros. eapply weaken. apply ret. intros. lia.
 simpl.
 case_eq (le_dec (p - 0) maxAddr).
 intros. simpl. eapply weaken. apply ret.
-intros. simpl. intuition.
-intros. eapply weaken. apply undefined. intros. simpl. intuition.
+intros. simpl. intuition. lia.
 Qed.
 
 End Paddr.

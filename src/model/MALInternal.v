@@ -36,7 +36,7 @@
     and the module definition of each abstract data type in which we define required
     monadic functions  *)
 Require Import Model.ADT Model.Monad.
-Require Import List Arith Omega.
+Require Import List Arith.
 
 Open Scope mpu_state_scope.
 
