@@ -31,8 +31,9 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(**  * Summary 
-    In this file we formalize and prove all invariants of the MAL and MALInternal functions *)
+(** * Summary 
+    This file contains the invariant of [checkChildOfCurrPart].
+*)
 Require Import Model.Monad Model.Lib Model.MAL.
 Require Import Core.Internal.
 Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
@@ -42,7 +43,7 @@ Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
 Lemma checkChildOfCurrPart (currentPartition idPDchild : paddr) P :
 {{ fun s => P s /\ consistency s /\ isPDT currentPartition s}}
 Internal.checkChildOfCurrPart  currentPartition idPDchild
-{{fun isChild s => P s /\ consistency s
+{{fun isChild s => P s
 /\ (isChild = true -> exists sh1entryaddr, isChild = StateLib.checkChild idPDchild s sh1entryaddr
 										/\ exists entry, lookup idPDchild s.(memory) beqAddr = Some (BE entry)
 										/\ exists sh1entry, lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry))
@@ -66,9 +67,10 @@ intro addrIsNull0.
 simpl.
 case_eq addrIsNull0.
 - (* case_eq addrIsNull0 = true*)
-	(** ret *)
-	intros. eapply WP.weaken. apply WP.ret.
-	intros. simpl. intuition.
+	{ (** ret *)
+		intros. eapply WP.weaken. apply WP.ret.
+		intros. simpl. intuition.
+	}
 - (* case_eq addrIsNull0 = false *)
 	intros.
 	eapply bindRev.
@@ -101,7 +103,7 @@ case_eq addrIsNull0.
 			simpl. intros.
 			{ (** ret *)
 				eapply weaken. apply WP.ret.
-				intros. simpl. split. apply H1. split. apply H1.
+				intros. simpl. split. apply H1.
 				intuition.
 			}
 Qed.

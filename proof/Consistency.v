@@ -35,8 +35,9 @@
 (** * Summary
     This file contains the formalization of the consistency properties :
 for each one we summarize the description of its definition *)
-Require Import Model.ADT Model.Monad Model.MAL Model.Lib Lib (*Isolation*) StateLib.
-Require Import  Omega List Coq.Logic.ProofIrrelevance.
+Require Import Model.ADT Model.Monad Model.MAL Model.Lib Lib (*Isolation*)
+StateLib.
+Require Import List Coq.Logic.ProofIrrelevance.
 Import List.ListNotations.
 
 
@@ -114,12 +115,11 @@ exists kernelstartaddr : paddr,
 StateLib.Paddr.subPaddrIdx blockentryaddr blockentry.(blockindex) = Some kernelstartaddr
 /\ isBE kernelstartaddr s.
 
-(* TODO : check if needed *)
-(*Definition BlockEntryAddrInBlocksRangeIsBE s :=
-forall blockentryaddr : paddr, forall blockidx : index, forall entry : BlockEntry,
-lookup blockentryaddr (memory s) beqAddr = Some (BE entry) ->
+Definition BlockEntryAddrInBlocksRangeIsBE s :=
+forall blockentryaddr : paddr, forall blockidx : index,
+isBE blockentryaddr s ->
 blockidx < kernelStructureEntriesNb ->
-isBE (CPaddr (blockentryaddr + blockidx)) s.*)
+isBE (CPaddr (blockentryaddr + blkoffset + blockidx)) s.
 
 Definition KernelStructureStartFromBlockEntryAddrIsBE s :=
 forall blockentryaddr : paddr, forall entry : BlockEntry,
@@ -153,7 +153,7 @@ FirstFreeSlotPointerIsBE s /\
 CurrentPartIsPDT s /\
 KernelStartIsBE s /\
 wellFormedShadowCutIfBlockEntry s /\
-(*BlockEntryAddrInBlocksRangeIsBE s /\*)
+BlockEntryAddrInBlocksRangeIsBE s /\
 KernelStructureStartFromBlockEntryAddrIsBE s /\
 PDchildIsBE s /\
 sh1InChildLocationIsBE s /\

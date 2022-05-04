@@ -706,7 +706,28 @@ unfold CIndex.
 case_eq(lt_dec 0 tableSize);intros;simpl;try lia.
 now contradict H1.
 Qed.
+*)
 
+Lemma CIndex0ltKSEntriesNb zeroI:
+zeroI = CIndex 0 -> zeroI < kernelStructureEntriesNb.
+Proof.
+intros.
+rewrite H. unfold CIndex. destruct (lt_dec 0 maxIdx).
+simpl. apply KSEntriesNbNotZero.
+contradict n. apply maxIdxNotZero.
+Qed.
+
+Lemma CIndex0ltMaxIdx zeroI:
+zeroI = CIndex 0 ->
+zeroI < maxIdx - 1.
+Proof.
+intros.
+rewrite <- KSEntriesNbLessThanMaxIdx.
+apply CIndex0ltKSEntriesNb.
+assumption.
+Qed.
+
+(*
 Lemma indexEqbTrue : 
 forall idx1 idx2 : index, true = StateLib.Index.eqb idx1 idx2 -> 
 idx1 = idx2.
@@ -1371,7 +1392,6 @@ beqAddr addr1 addr2 = beqAddr addr2 addr1.
 Proof.
 intros. unfold beqAddr.
 case_eq ((addr1 =? addr2)). intuition.
-Search ((?x =? ?y) = true).
 apply beq_nat_true in H. rewrite H. apply eq_sym. apply Nat.eqb_refl.
 intros. apply eq_sym.
 apply Nat.eqb_neq. apply Nat.eqb_neq in H. unfold not in *.

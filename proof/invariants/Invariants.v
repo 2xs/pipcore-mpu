@@ -57,32 +57,6 @@ intuition.
 Qed.
 
 Module Index. 
-(*Lemma eqb index1 index2 (P : state -> Prop):
-{{ fun s : state => P s }} MALInternal.Index.eqb index1 index2 
-{{ fun b s => P s /\ b = StateLib.Index.eqb index1 index2}}.
-Proof.
-eapply WP.weaken.
-eapply WeakestPreconditions.Index.eqb .
-intros. simpl. split;trivial.
-Qed.
-
-Lemma gtb index1 index2 (P : state -> Prop):
-{{ fun s : state => P s }} MALInternal.Index.gtb index1 index2
-{{ fun b s => P s /\ b = StateLib.Index.gtb index1 index2 }}.
-Proof.
-eapply WP.weaken.
-eapply WeakestPreconditions.Index.gtb .
-intros. simpl. split;trivial.
-Qed.
-
-Lemma ltb index1 index2 (P : state -> Prop):
-{{ fun s : state => P s }} MALInternal.Index.ltb index1 index2 
-{{ fun b s => P s /\ b = StateLib.Index.ltb index1 index2}}.
-Proof.
-eapply WP.weaken.
-eapply  WeakestPreconditions.Index.ltb.
-intros. simpl. split;trivial.
-Qed.*)
 (* COPY*)
 Lemma ltb index1 index2 (P : state -> Prop):
 {{ fun s : state => P s }} MALInternal.Index.ltb index1 index2 
@@ -93,16 +67,6 @@ eapply  WeakestPreconditions.Index.ltb.
 intros. simpl. split;trivial.
 Qed.
 
-(*
-Lemma leb index1 index2 (P : state -> Prop):
-{{ fun s : state => P s }} MALInternal.Index.leb index1 index2 
-{{ fun b s => P s /\ b = StateLib.Index.leb index1 index2}}.
-Proof.
-eapply WP.weaken.
-eapply  WeakestPreconditions.Index.leb.
-intros. simpl. split;trivial.
-Qed.*)
-
 (*COPY *)
 Lemma leb index1 index2 (P : state -> Prop):
 {{ fun s : state => P s }} MALInternal.Index.leb index1 index2 
@@ -112,33 +76,6 @@ eapply WP.weaken.
 eapply  WeakestPreconditions.Index.leb.
 intros. simpl. split;trivial.
 Qed.
-
-(*
-Lemma geb index1 index2 (P : state -> Prop):
-{{ fun s : state => P  s }} MALInternal.Index.geb index1 index2 
-{{ fun b s => P s /\ b = StateLib.Index.geb index1 index2}}.
-Proof.
-eapply WP.weaken.
-eapply  WeakestPreconditions.Index.geb.
-intros. simpl. split;trivial.
-Qed.
-
-Lemma zero P :
-{{fun s => P s }} MALInternal.Index.zero 
-{{fun (idx0 : index) (s : state) => P s  /\ idx0 = CIndex 0 }}.
-Proof.
-unfold MALInternal.Index.zero.
-eapply WP.weaken.
-eapply WP.ret .
-intros. simpl.
-intuition.
-unfold CIndex.
-case_eq (lt_dec 0 tableSize).
-intros. f_equal. apply proof_irrelevance.
-intuition. assert (tableSize > tableSizeLowerBound). apply tableSizeBigEnough.
-unfold  tableSizeLowerBound in * . contradict H1. lia.
-Qed.
-*)
 
 (* partial DUP *)
 Lemma zero P :
@@ -152,10 +89,9 @@ intros. simpl.
 intuition.
 Qed.
 
-(*
-
+(* COPY *)
 Lemma succ (idx : index ) P :
-{{fun s => P s  /\ idx < tableSize - 1}} MALInternal.Index.succ idx 
+{{fun s => P s  /\ idx + 1 <= maxIdx }} MALInternal.Index.succ idx
 {{fun (idxsuc : index) (s : state) => P s  /\ StateLib.Index.succ idx = Some idxsuc }}.
 Proof.
 eapply WP.weaken. 
@@ -164,17 +100,16 @@ cbn.
 intros.
 split.  
 intuition.
-intros.
 split. intuition.
 unfold StateLib.Index.succ.
 subst.
-destruct (lt_dec (idx + 1) tableSize). assert (l=l0).
+destruct (le_dec (idx + 1) maxIdx). assert (l=l0).
 apply proof_irrelevance.
 subst. reflexivity.
-intuition. 
+intuition.
 Qed.
-*)
 
+(* COPY *)
 Lemma pred (idx : index ) P :
 {{fun s => P s  /\ idx > 0}} MALInternal.Index.pred idx 
 {{fun (idxpred : index) (s : state) => P s  /\ StateLib.Index.pred idx = Some idxpred }}.
@@ -209,16 +144,6 @@ eapply  WeakestPreconditions.Paddr.leb.
 intros. simpl. split;trivial.
 Qed.
 
-(* DUP *)
-(*Lemma subPaddr addr1 addr2 (P : state -> Prop):
-{{ fun s : state => P s }} MALInternal.Paddr.subPaddr addr1 addr2
-{{ fun b s => P s /\ b = StateLib.Paddr.subPaddr addr1 addr2}}.
-Proof.
-eapply WP.weaken.
-eapply  WeakestPreconditions.Paddr.subPaddr.
-intros. simpl. split;trivial.
-Qed.*)
-
 (* DUP de pred *)
 Lemma subPaddr  (addr1 addr2 : paddr ) P :
 {{fun s => P s  /\ addr1 >= 0 /\ addr2 >= 0 /\ addr1 - addr2 < maxIdx}}
@@ -235,7 +160,7 @@ intros.
 split. intuition.
 unfold StateLib.Paddr.subPaddr.
 subst.
-destruct (lt_dec (addr1 - addr2) maxIdx).
+destruct (le_dec (addr1 - addr2) maxIdx).
 split. intuition. intuition. 
 f_equal.
 f_equal.
@@ -246,28 +171,12 @@ Qed.
 
 (* DUP*)
 Lemma subPaddrIdx  (addr : paddr) (idx: index) (P: state -> Prop) :
-{{ fun s : state => P s /\ addr >= 0 /\ idx >= 0 /\ addr - idx < maxAddr (*/\ forall Hp : n - m < maxAddr,  
+{{ fun s : state => P s /\ addr >= 0 /\ idx >= 0 /\ addr - idx <= maxAddr (*/\ forall Hp : n - m < maxAddr,
                    P {| p := n -m; Hp := Hp |} s*) }}
 MALInternal.Paddr.subPaddrIdx addr idx
 {{fun (paddrsub : paddr) (s : state) => P s  (*/\ StateLib.Paddr.subPaddrIdx addr idx = Some paddrsub *)
 /\ CPaddr (addr - idx) = paddrsub}}.
 Proof.
-(*eapply WP.weaken. 
-eapply  WeakestPreconditions.Paddr.subPaddrIdx.
-cbn.
-intros.
-split.  
-intuition.
-intros.
-split. intuition.
-intros. split. apply H.
-unfold StateLib.Paddr.subPaddrIdx.
-destruct (lt_dec (addr - idx) maxAddr). intuition.
-f_equal.
-f_equal.
-apply proof_irrelevance.
-subst.
-intuition.*)
 eapply WP.weaken. 
 eapply  WeakestPreconditions.Paddr.subPaddrIdx.
 cbn.
@@ -278,7 +187,7 @@ intros.
 split. intuition.
 intros. split. apply H.
 unfold CPaddr.
-destruct (lt_dec (addr - idx) maxAddr). intuition.
+destruct (le_dec (addr - idx) maxAddr). intuition.
 f_equal.
 f_equal.
 apply proof_irrelevance.
@@ -323,154 +232,6 @@ split.
 intuition.
 intros. reflexivity.
 Qed.
-(*
-
-Module Level.
-Lemma gtb level1 level2 (P : state -> Prop):
-{{ fun s : state => P s }} MALInternal.Level.gtb level1 level2 
-{{ fun b s => P s /\ b = StateLib.Level.gtb level1 level2}}.
-Proof.
-eapply WP.weaken.
-eapply  WeakestPreconditions.Level.gtb.
-intros. simpl. split;trivial.
-Qed.
-
-Lemma pred (level1 : level ) P :
-{{fun s => P s  /\ level1 > 0 }} MALInternal.Level.pred level1
-{{fun (levelpred : level) (s : state) => P s  /\ StateLib.Level.pred level1 = Some levelpred }}.
-Proof.
-eapply WP.weaken. 
-eapply WeakestPreconditions.Level.pred . cbn.
-intros.
-split.  
-intuition.
-intros.
-split. intuition.
-unfold StateLib.Level.pred.
-unfold runvalue. subst. 
-destruct (gt_dec level1 0).
-intros. assert (Hl =  StateLib.Level.pred_obligation_1 level1 g ).
-apply proof_irrelevance.
-subst. reflexivity.
-intuition. 
-Qed.
-
-Lemma eqb level1 level2 (P : state -> Prop):
-{{ fun s : state => P s }} MALInternal.Level.eqb level1 level2 
-{{ fun b s => P s /\  b = StateLib.Level.eqb level1 level2 }}.
-Proof.
-eapply WP.weaken.
-eapply WeakestPreconditions.Level.eqb .
-intros; simpl; split;trivial.
-Qed.
-End Level.
-
-Module Page. 
-Lemma eqb page1 page2 (P : state -> Prop):
-{{ fun s : state => P s }} MALInternal.Page.eqb page1 page2 
-{{ fun b s => P s /\ b = StateLib.Page.eqb page1 page2}}.
-Proof.
-eapply WP.weaken.
-eapply WP.Page.eqb .
-intros. simpl. split;trivial.
-Qed.
-End Page.
-
-Module VAddr. 
-Lemma eqbList vaddr1 vaddr2 (P : state -> Prop):
-{{ fun s : state => P s }} MALInternal.VAddr.eqbList vaddr1 vaddr2 
-{{ fun b s => P s /\ b = StateLib.VAddr.eqbList vaddr1 vaddr2}}.
-Proof.
-eapply WP.weaken.
-eapply WP.VAddr.eqbList .
-intros. simpl. split;trivial.
-Qed.
-End VAddr.
-
-Lemma ret (A : Type) (a : A)  P :
-{{fun s => P s }} Hardware.ret a
-{{fun (v : A) (s : state) => P s  /\ v = a }}.
-Proof.
-eapply WP.weaken. 
-eapply WP.ret . cbn.
-intros. 
-auto.
-Qed.
-
-Lemma getMaxIndex P : 
-{{ fun s => P s }} MAL.getMaxIndex 
-{{ fun idx s => P s /\ idx = CIndex (tableSize -1) }}.
-Proof.
-unfold MAL.getMaxIndex.
-case_eq (gt_dec tableSize 0);
-intros.
-eapply WP.weaken.
-eapply WP.ret . intros.
-simpl. split. assumption.
-unfold CIndex.
-case_eq ( lt_dec (tableSize - 1) tableSize ).
-intros.     
-f_equal. apply proof_irrelevance.
-intuition.
-assert (tableSize > tableSizeLowerBound).
-apply tableSizeBigEnough.
-unfold  tableSizeLowerBound in * .
-contradict H0. lia.
-Qed.
-
-
-
-Lemma readPhyEntry (table : page) (idx : index) (P : state -> Prop):
-{{fun s => P s /\  isPE table idx s}} MAL.readPhyEntry table idx 
-{{fun (page1 : page) (s : state) => P s /\ isEntryPage table idx page1 s}}.
-Proof.
-eapply WP.weaken.
-eapply WeakestPreconditions.readPhyEntry .
-simpl. intros.
-destruct H as (H & Hpage).
-unfold isPE, isEntryPage in *.
-destruct (lookup table idx (memory s) beqPage beqIndex); try now contradict Hpage.
-destruct v; try now contradict Hpage.
-eexists;repeat split;trivial.
-Qed.
-
-Lemma readIndex (table : page) (idx : index) (P : state -> Prop):
-{{fun s => P s /\  isI table idx s}} MAL.readIndex table idx 
-{{fun (ivalue : index) (s : state) => P s /\ isIndexValue table idx ivalue s}}.
-Proof.
-eapply WP.weaken.
-eapply WP.readIndex .
-simpl. intros.
-destruct H as (H & Hpage).
-unfold isI, isIndexValue in *.
-destruct (lookup table idx (memory s) beqPage beqIndex); try now contradict Hpage.
-destruct v; try now contradict Hpage.
-eexists;repeat split;trivial.
-Qed.
-
-
-Lemma getDefaultPage P : 
-{{fun s => P s}} MALInternal.getDefaultPage 
-{{fun nullp s => P s /\ nullp = defaultPage}}.
-Proof.
-unfold MALInternal.getDefaultPage.
-eapply WP.weaken.
-eapply WP.ret .
-intros.
-simpl. intuition.
-Qed.  
-
-Lemma getDefaultVAddr P : 
-{{fun s => P s}} MALInternal.getDefaultVAddr 
-{{fun nullv s => P s /\ nullv = defaultVAddr }}.
-Proof.
-unfold MALInternal.getDefaultVAddr.
-eapply WP.weaken.
-eapply WP.ret .
-intros.
-simpl. intuition.
-Qed.
-*)
 
 (* DUP of getDefaultVaddr *)
 Lemma getMinBlockSize P : 
@@ -478,6 +239,56 @@ Lemma getMinBlockSize P :
 {{fun minsize s => P s /\ minsize = Constants.minBlockSize }}.
 Proof.
 unfold MALInternal.getMinBlockSize.
+eapply WP.weaken.
+eapply WP.ret .
+intros.
+simpl. intuition.
+Qed.
+
+(* DUP *)
+Lemma getKernelStructureEntriesNb P : 
+{{fun s => P s}} MALInternal.getKernelStructureEntriesNb
+{{fun entriesnb s => P s /\ entriesnb = (CIndex kernelStructureEntriesNb) }}.
+Proof.
+unfold MALInternal.getKernelStructureEntriesNb.
+eapply WP.weaken.
+eapply WP.ret .
+intros.
+simpl. intuition.
+Qed.
+
+(* DUP *)
+Lemma getMPURegionsNb P :
+{{fun s => P s}} MALInternal.getMPURegionsNb
+{{fun mpuregionsnb s => P s /\ mpuregionsnb = (CIndex MPURegionsNb) }}.
+Proof.
+unfold MALInternal.getMPURegionsNb.
+eapply WP.weaken.
+eapply WP.ret .
+intros.
+simpl. intuition.
+Qed.
+
+
+(* DUP *)
+Lemma getKernelStructureTotalLength P :
+{{fun s => P s}} MALInternal.getKernelStructureTotalLength
+{{fun totallength s => P s /\ totallength = Constants.kernelStructureTotalLength }}.
+Proof.
+unfold MALInternal.getKernelStructureTotalLength.
+eapply WP.weaken.
+eapply WP.ret .
+intros.
+simpl. intuition.
+Qed.
+
+
+(* DUP *)
+Lemma getPDStructurePointerAddrFromPD (paddr : paddr) (P : state -> Prop) :
+{{ fun s => P s /\ isPDT paddr s  }} MAL.getPDStructurePointerAddrFromPD paddr
+{{ fun (pointerToKS : ADT.paddr) (s : state) => P s /\ pointerToKS = CPaddr (paddr + Constants.kernelstructureidx) }}.
+Proof.
+unfold MAL.getPDStructurePointerAddrFromPD.
 eapply WP.weaken.
 eapply WP.ret .
 intros.
@@ -552,38 +363,42 @@ Qed.
 
 (* DUP *)
 Lemma isBELookupEq (blockentryaddr : paddr) s : 
-isBE blockentryaddr s -> exists entry : BlockEntry,
+isBE blockentryaddr s <-> exists entry : BlockEntry,
   lookup blockentryaddr (memory s) beqAddr = Some (BE entry).
 Proof.
-intros.  
+intros. split.
+- intros.
 unfold isBE in H.
 destruct (lookup blockentryaddr (memory s) beqAddr); try now contradict H.
 destruct v; try now contradict H.
 eexists;repeat split;trivial.
+- intros. unfold isBE. destruct H. rewrite H ; trivial.
 Qed.
 
 (* DUP *)
 Lemma isSHELookupEq (sh1entryaddr : paddr) s : 
-isSHE sh1entryaddr s -> exists entry : Sh1Entry,
+isSHE sh1entryaddr s <-> exists entry : Sh1Entry,
   lookup sh1entryaddr (memory s) beqAddr = Some (SHE entry).
 Proof.
-intros.  
-unfold isSHE in H.
-destruct (lookup sh1entryaddr (memory s) beqAddr); try now contradict H.
-destruct v; try now contradict H.
-eexists;repeat split;trivial.
+intros. split.
+- intros. unfold isSHE in H.
+	destruct (lookup sh1entryaddr (memory s) beqAddr); try now contradict H.
+	destruct v; try now contradict H.
+	eexists;repeat split;trivial.
+- intros. unfold isSHE. destruct H. rewrite H ; trivial.
 Qed.
 
 (* DUP *)
 Lemma isSCELookupEq (scentryaddr : paddr) s : 
-isSCE scentryaddr s -> exists entry : SCEntry,
+isSCE scentryaddr s <-> exists entry : SCEntry,
   lookup scentryaddr (memory s) beqAddr = Some (SCE entry).
 Proof.
-intros.
-unfold isSCE in H.
+intros. split.
+- intros. unfold isSCE in H.
 destruct (lookup scentryaddr (memory s) beqAddr); try now contradict H.
 destruct v; try now contradict H.
 eexists;repeat split;trivial.
+- intros. unfold isSCE. destruct H. rewrite H ; trivial.
 Qed.
 
 (* DUP *)
@@ -601,7 +416,7 @@ Qed.
 (* DUP*)
 Lemma lookupBEntryAccessibleFlag entryaddr s : 
 forall entry , lookup entryaddr (memory s) beqAddr = Some (BE entry) -> 
-bentryAFlag entryaddr (accessible entry) s. 
+bentryAFlag entryaddr (accessible entry) s.
 Proof.
 intros.
 unfold bentryAFlag.
@@ -611,7 +426,7 @@ Qed.
 (* DUP*)
 Lemma lookupBEntryPresentFlag entryaddr s : 
 forall entry , lookup entryaddr (memory s) beqAddr = Some (BE entry) -> 
-bentryPFlag entryaddr (present entry) s. 
+bentryPFlag entryaddr (present entry) s.
 Proof.
 intros.
 unfold bentryPFlag.
@@ -650,7 +465,7 @@ Qed.
 
 Lemma lookupBEntryBlockIndex entryaddr s : 
 forall entry , lookup entryaddr (memory s) beqAddr = Some (BE entry) -> 
-bentryBlockIndex entryaddr (blockindex entry) s. 
+bentryBlockIndex entryaddr (blockindex entry) s.  
 Proof.
 intros.
 unfold bentryBlockIndex.
@@ -709,7 +524,7 @@ unfold sh1entryInChildLocation.
 rewrite H;trivial.
 intuition.
 unfold consistency in *. unfold sh1InChildLocationIsBE in *. intuition.
-specialize (H10 paddr entry H H1). trivial.
+eauto. (* specialize (H10 paddr entry H H1). trivial. *)
 Qed.
 
 Lemma lookupSCEntryOrigin paddr s : 
@@ -766,6 +581,16 @@ specialize (H11 entryaddr entry H). trivial.*)
 Qed.
 
 (*DUP*)
+Lemma lookupPDEntryNbPrepare entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
+pdentryNbPrepare entryaddr (nbprepare entry) s.
+Proof.
+intros.
+unfold pdentryNbPrepare.
+rewrite H;trivial.
+Qed.
+
+(*DUP*)
 Lemma lookupPDEntryMPU entryaddr s : 
 forall entry , lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
 pdentryMPU entryaddr (MPU entry) s.
@@ -800,23 +625,33 @@ Qed.
 Lemma lookupPDStructurePointer entryaddr s : 
 forall entry , lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
 (*consistency s ->*)
-pdentryPDStructurePointer entryaddr (structure entry) s.
+pdentryStructurePointer entryaddr (structure entry) s.
 Proof.
 intros.
-unfold pdentryPDStructurePointer.
+unfold pdentryStructurePointer.
 rewrite H;trivial.
 (*intuition.
 unfold consistency in *. unfold StructurePointerIsBE in *. intuition.
 specialize (H11 entryaddr entry H). trivial.*)
 Qed.
 
+(*DUP*)
+Lemma lookupPDMPU entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
+pdentryMPU entryaddr (MPU entry) s.
+Proof.
+intros.
+unfold pdentryMPU.
+rewrite H;trivial.
+Qed.
 
+(*
 (* DUP *)
 Lemma readBlockStartFromBlockEntryAddr (paddr : paddr) (P : state -> Prop) : 
 {{ fun s => P s /\ isBE paddr s  }} MAL.readBlockStartFromBlockEntryAddr paddr
 {{ fun (start : ADT.paddr) (s : state) => P s /\ bentryStartAddr paddr start s }}.
 Proof.
-eapply WP.weaken. 
+eapply WP.weaken.
 apply WP.getBlockRecordField.
 simpl.
 intros.
@@ -827,26 +662,6 @@ exists entry. repeat split;trivial.
 apply lookupBEntryStartAddr;trivial.
 Qed.
 
-(*
-(* DUP *)
-Lemma readBlockStartFromBlockEntryAddrUndecided (addr : paddr) (P : state -> Prop) : 
-{{ fun s => P s /\ exists entry : value, lookup addr s.(memory) beqAddr = Some entry }} MAL.readBlockStartFromBlockEntryAddr addr
-{{ fun (start : paddr) (s : state) => P s /\ entryStartAddr addr start s }}.
-Proof.
-eapply WP.weaken.
-<<<<<<< Updated upstream
-unfold MAL.readBlockStartFromBlockEntryAddr.
-eapply bind.
-- intros. destruct (lookup addr (memory a) beqAddr) eqn:Hlookup.
-	destruct v eqn:Hv.
-	eapply weaken. apply ret.
-	intros. simpl. split. exact H.
-	apply lookupEntryStartAddr. simpl in *. intuition. assumption. unfold entryStartAddr.
-	destruct (lookup addr (memory s) beqAddr).
-	destruct v0.
-
-
-Qed.*)
 
 Lemma readBlockEndFromBlockEntryAddr (paddr : paddr) (P : state -> Prop) : 
 {{ fun s => P s /\ isBE paddr s  }} MAL.readBlockEndFromBlockEntryAddr paddr
@@ -856,6 +671,47 @@ eapply WP.weaken.
 apply WP.getBlockRecordField.
 simpl.
 intros.
+destruct H as (H & Hentry).
+apply isBELookupEq in Hentry ;trivial.
+destruct Hentry as (entry & Hentry). 
+exists entry. repeat split;trivial.
+apply lookupBEntryEndAddr;trivial.
+Qed.*)
+
+Lemma readBlockStartFromBlockEntryAddr (paddr : paddr) (P : state -> Prop) : 
+{{ fun s => P s /\ isBE paddr s  }} MAL.readBlockStartFromBlockEntryAddr paddr
+{{ fun (start : ADT.paddr) (s : state) => P s /\ bentryStartAddr paddr start s }}.
+Proof.
+eapply WP.weaken.
+unfold readBlockStartFromBlockEntryAddr.
+eapply bindRev.
+apply WP.getBlockRecordField.
+simpl.
+intros.
+eapply weaken. apply ret.
+intros. simpl. apply H.
+intros. simpl.
+destruct H as (H & Hentry).
+apply isBELookupEq in Hentry ;trivial.
+destruct Hentry as (entry & Hentry). 
+exists entry. repeat split;trivial.
+apply lookupBEntryStartAddr;trivial.
+Qed.
+
+
+Lemma readBlockEndFromBlockEntryAddr (paddr : paddr) (P : state -> Prop) : 
+{{ fun s => P s /\ isBE paddr s  }} MAL.readBlockEndFromBlockEntryAddr paddr
+{{ fun (endaddr : ADT.paddr) (s : state) => P s /\ bentryEndAddr paddr endaddr s }}.
+Proof.
+eapply WP.weaken.
+unfold readBlockEndFromBlockEntryAddr.
+eapply bindRev.
+apply WP.getBlockRecordField.
+simpl.
+intros.
+eapply weaken. apply ret.
+intros. simpl. apply H.
+intros. simpl.
 destruct H as (H & Hentry).
 apply isBELookupEq in Hentry ;trivial.
 destruct Hentry as (entry & Hentry). 
@@ -961,9 +817,26 @@ apply lookupBEntryBlockIndex;trivial.
 Qed.
 
 (* DUP *)
+Lemma readBlockEntryFromBlockEntryAddr (paddr : paddr) (P : state -> Prop) : 
+{{ fun s => P s /\ isBE paddr s  }} MAL.readBlockEntryFromBlockEntryAddr paddr
+{{ fun (be : BlockEntry) (s : state) => P s /\ isBE paddr s /\ entryBE paddr be s }}.
+Proof.
+eapply WP.weaken.
+apply WP.readBlockEntryFromBlockEntryAddr.
+simpl.
+intros.
+destruct H as (H & Hentry).
+apply isBELookupEq in Hentry ;trivial.
+destruct Hentry as (entry & Hentry). 
+exists entry. repeat split;trivial.
+unfold isBE. rewrite Hentry ; trivial.
+unfold entryBE. rewrite Hentry;trivial.
+Qed.
+
+(* DUP *)
 Lemma readPDFirstFreeSlotPointer (paddr : paddr) (P : state -> Prop) : 
 {{ fun s => P s /\ isPDT paddr s  }} MAL.readPDFirstFreeSlotPointer paddr
-{{ fun (firstfreeslotaddr : ADT.paddr) (s : state) => P s /\ pdentryFirstFreeSlot paddr firstfreeslotaddr s }}.
+{{ fun (firstfreeslotaddr : ADT.paddr) (s : state) => P s /\ pdentryFirstFreeSlot paddr firstfreeslotaddr s}}.
 Proof.
 eapply WP.weaken.
 apply WP.getPDTRecordField.
@@ -995,7 +868,7 @@ Qed.
 (* DUP *)
 Lemma readPDStructurePointer (pdpaddr : paddr) (P : state -> Prop) : 
 {{ fun s => P s /\ isPDT pdpaddr s  }} MAL.readPDStructurePointer pdpaddr
-{{ fun (structurepointer : paddr) (s : state) => P s /\ pdentryPDStructurePointer pdpaddr structurepointer s }}.
+{{ fun (structurepointer : paddr) (s : state) => P s /\ pdentryStructurePointer pdpaddr structurepointer s }}.
 Proof.
 eapply WP.weaken. 
 apply WP.getPDTRecordField.
@@ -1005,9 +878,62 @@ destruct H as (H & Hentry).
 apply isPDTLookupEq in Hentry ;trivial.
 destruct Hentry as (entry & Hentry).
 exists entry. intuition.
-apply lookupPDStructurePointer;trivial.
+apply lookupPDEntryStructurePointer;trivial.
 Qed.
 
+(* DUP *)
+Lemma readPDMPU (pdpaddr : paddr) (P : state -> Prop) :
+{{ fun s => P s /\ isPDT pdpaddr s  }} MAL.readPDMPU pdpaddr
+{{ fun (MPU : list paddr) (s : state) => P s /\ pdentryMPU pdpaddr MPU s }}.
+Proof.
+eapply WP.weaken.
+apply WP.getPDTRecordField.
+simpl.
+intros.
+destruct H as (H & Hentry).
+apply isPDTLookupEq in Hentry ;trivial.
+destruct Hentry as (entry & Hentry).
+exists entry. repeat split;trivial.
+apply lookupPDEntryMPU;trivial.
+Qed.
+
+(* DUP *)
+Lemma readPDNbPrepare (paddr : paddr) (P : state -> Prop) :
+{{ fun s => P s /\ isPDT paddr s  }} MAL.readPDNbPrepare paddr
+{{ fun (nbprepare : index) (s : state) => P s /\ pdentryNbPrepare paddr nbprepare s }}.
+Proof.
+eapply WP.weaken.
+apply WP.getPDTRecordField.
+simpl.
+intros.
+destruct H as (H & Hentry).
+apply isPDTLookupEq in Hentry ;trivial.
+destruct Hentry as (entry & Hentry).
+exists entry. repeat split;trivial.
+apply lookupPDEntryNbPrepare;trivial.
+Qed.
+
+(* DUP *)
+Lemma readBlockFromPhysicalMPU (pd : paddr) (idx : index) (P : state -> Prop) :
+{{ fun s => P s /\ isPDT pd s  }} MAL.readBlockFromPhysicalMPU pd idx
+{{ fun (block: paddr) (s : state) => P s /\ pdentryMPUblock pd idx block s }}.
+Proof.
+unfold readBlockFromPhysicalMPU.
+eapply bindRev.
+{ (** readPDMPU *)
+	eapply weaken. apply readPDMPU.
+	intros. simpl. split. apply H. intuition.
+}
+intro realMPU.
+{ (** ret *)
+	eapply weaken. apply WeakestPreconditions.ret.
+	intros. simpl. intuition.
+	unfold pdentryMPUblock. unfold isPDT in *. 	unfold pdentryMPU in *.
+	destruct (lookup pd (memory s) beqAddr) ; try (exfalso ; congruence).
+	destruct v ; try (exfalso ; congruence).
+	subst. reflexivity.
+}
+Qed.
 
 (* Partial DUP *)
 Lemma compareAddrToNull (pa : paddr) (P : state -> Prop): 
@@ -1023,13 +949,6 @@ eapply WP.bindRev.
   instantiate (1:= fun nullPa s => P s /\ beqAddr nullAddr nullPa = true ).
   simpl.
   intuition.
-  unfold beqAddr.
-  destruct nullAddr.
-  simpl.
-  clear Hp.
-  induction p. simpl. trivial.
-  simpl.
-	apply IHp. 
 + intro nullPa. simpl.
   unfold MALInternal.getBeqAddr.
   eapply WP.weaken. eapply WP.ret . intros. 
@@ -1038,12 +957,10 @@ eapply WP.bindRev.
 	destruct nullAddr, pa.
   simpl in *.
 	case_eq p. intros. induction p0. subst. simpl. destruct H1.
-	Search PeanoNat.Nat.eqb.
 	apply PeanoNat.Nat.eqb_sym.
-	
 	subst. apply PeanoNat.Nat.eqb_eq in H1.
-rewrite -> H1. trivial.
-intros. apply PeanoNat.Nat.eqb_eq in H1. rewrite <- H1. rewrite ->H. trivial. 
+	rewrite -> H1. trivial.
+	intros. apply PeanoNat.Nat.eqb_eq in H1. rewrite <- H1. rewrite ->H. trivial.
 Qed.
 
 Lemma getBeqAddr (p1 : paddr)  (p2 : paddr) (P : state -> Prop): 
@@ -1056,725 +973,29 @@ Proof.
   simpl. intuition.
 Qed.
 
-(*
-
-(* DUP *)
-Lemma readPDStructurePointer (pdpaddr : paddr) (P : state -> Prop) : 
-{{ fun s => P s /\ isPDT pdpaddr s  }} MAL.readPDStructurePointer pdpaddr
-{{ fun (structurepointer : paddr) (s : state) => P s /\ pdentryStructurePointer pdpaddr structurepointer s }}.
+Lemma getBeqIdx (i1 : index)  (i2 : index) (P : state -> Prop): 
+{{fun s => P s }} getBeqIdx i1 i2
+{{fun (isequal : bool) (s : state) => P s /\ 
+                                       (beqIdx i1 i2) = isequal }}.
 Proof.
-eapply WP.weaken.
-apply WP.getPDTRecordField.
-simpl.
-intros.
-destruct H as (H & Hentry).
-apply isPDTLookupEq in Hentry ;trivial.
-destruct Hentry as (entry & Hentry).
-exists entry. intuition.
-apply lookupPDEntryStructurePointer;trivial.
+	unfold MALInternal.getBeqIdx.
+  eapply WP.weaken. eapply WP.ret . intros. 
+  simpl. intuition.
 Qed.
 
 (* DUP *)
-Lemma readPDMPU (pdtablepaddr: paddr) (P : state -> Prop) : 
-{{ fun s => P s /\ isPDT pdtablepaddr s  }} MAL.readPDMPU pdtablepaddr
-{{ fun (realMPUentries : list paddr) (s : state) => P s /\ pdentryMPU pdtablepaddr realMPUentries s }}.
+Lemma getMaxNbPrepare P :
+{{fun s => P s}} MALInternal.getMaxNbPrepare
+{{fun nbprepare s => P s (*/\ entriesnb = (CIndex kernelStructureEntriesNb)*) }}.
 Proof.
+unfold MALInternal.getMaxNbPrepare.
 eapply WP.weaken.
-apply WP.getPDTRecordField.
-simpl.
+eapply WP.ret.
 intros.
-destruct H as (H & Hentry).
-apply isPDTLookupEq in Hentry ;trivial.
-destruct Hentry as (entry & Hentry). 
-exists entry. repeat split;trivial.
-apply lookupPDEntryMPU;trivial.
-Qed.
-
-(*
-(* DUP *)
-Lemma readBlockAccessibleFromBlockEntryAddr (paddr : paddr) (P : state -> Prop) : 
-{{ fun s => P s /\ isBE paddr s  }} MAL.readBlockAccessibleFromBlockEntryAddr paddr
-{{ fun (isA : bool) (s : state) => P s /\ bentryAFlag paddr isA s }}.
-Proof.
-eapply WP.weaken. 
-apply WP.readBlockAccessibleFromBlockEntryAddr.
-simpl.
-intros.
-destruct H as (H & Hentry).
-apply isBELookupEq in Hentry ;trivial.
-destruct Hentry as (entry & Hentry). 
-exists entry. repeat split;trivial.
-apply lookupBEntryAccessibleFlag;trivial.
-Qed.
-
-(* DUP *)
-Lemma readBlockPresentFromBlockEntryAddr (paddr : paddr) (P : state -> Prop) : 
-{{ fun s => P s /\ isBE paddr s  }} MAL.readBlockPresentFromBlockEntryAddr paddr
-{{ fun (isP : bool) (s : state) => P s /\ bentryPFlag paddr isP s }}.
-Proof.
-eapply WP.weaken. 
-apply WP.readBlockPresentFromBlockEntryAddr.
-simpl.
-intros.
-destruct H as (H & Hentry).
-apply isBELookupEq in Hentry ;trivial.
-destruct Hentry as (entry & Hentry). 
-exists entry. repeat split;trivial.
-apply lookupBEntryPresentFlag;trivial.
+simpl. intuition.
 Qed.
 
 
-(* DUP *)
-Lemma readBlockRFromBlockEntryAddr (paddr : paddr) (P : state -> Prop) : 
-{{ fun s => P s /\ isBE paddr s  }} MAL.readBlockRFromBlockEntryAddr paddr
-{{ fun (isR : bool) (s : state) => P s /\ bentryRFlag paddr isR s }}.
->>>>>>> Stashed changes
-Proof.
-eapply WP.weaken. 
-apply WP.readBlockRFromBlockEntryAddr.
-simpl.
-intros.
-destruct H as (H & Hentry).
-apply isBELookupEq in Hentry ;trivial.
-destruct Hentry as (entry & Hentry). 
-exists entry. repeat split;trivial.
-apply lookupBEntryReadFlag;trivial.
-Qed.
-
-
-(* DUP *)
-Lemma readBlockWFromBlockEntryAddr (paddr : paddr) (P : state -> Prop) : 
-{{ fun s => P s /\ isBE paddr s  }} MAL.readBlockWFromBlockEntryAddr paddr
-{{ fun (isW : bool) (s : state) => P s /\ bentryWFlag paddr isW s }}.
-Proof.
-eapply WP.weaken. 
-apply WP.readBlockWFromBlockEntryAddr.
-simpl.
-intros.
-<<<<<<< Updated upstream
-unfold entryPresentFlag, isPE in *.
-destruct (lookup table idx (memory s) beqPage beqIndex); try now contradict H.
-destruct v; try now contradict H.
-eexists;repeat split;trivial.
-=======
-destruct H as (H & Hentry).
-apply isBELookupEq in Hentry ;trivial.
-destruct Hentry as (entry & Hentry). 
-exists entry. repeat split;trivial.
-apply lookupBEntryWriteFlag;trivial.
-Qed.
-
-(* DUP *)
-Lemma readBlockXFromBlockEntryAddr (paddr : paddr) (P : state -> Prop) : 
-{{ fun s => P s /\ isBE paddr s  }} MAL.readBlockXFromBlockEntryAddr paddr
-{{ fun (isX : bool) (s : state) => P s /\ bentryXFlag paddr isX s }}.
-Proof.
-eapply WP.weaken. 
-apply WP.readBlockXFromBlockEntryAddr.
-simpl.
-intros.
-<<<<<<< Updated upstream
-unfold entryPresentFlag, isPE in *. 
-destruct (lookup table idx (memory s) beqPage beqIndex)
-as [v |]; [ destruct v as [ p |v|p|v|i]; [trivial | now contradict H | 
-now contradict H| now contradict H| now contradict H ] | now contradict H ].
->>>>>>> Stashed changes
-Qed.
-
-Lemma getPd (PR : page) (P : state -> Prop) :
-{{fun s => P s  /\ partitionDescriptorEntry s /\ In PR (getPartitions multiplexer s) }} 
-                      Internal.getPd PR 
-{{fun (pd : page) (s : state) => P s /\ nextEntryIsPP PR PDidx pd s 
-                                             }}.
-Proof.
-unfold Internal.getPd.
-eapply WP.bindRev.
-(** getPDidx **)
-apply getPDidx.
-intro idxPD. 
-simpl. 
-(** MALInternal.Index.succ **)
-eapply WP.bindRev.
-eapply WP.weaken.
-eapply Index.succ.
-intros. simpl.
-split.
-pattern s in H. 
-eapply H.
-destruct H as ((Hp & Hdescr & Hcurpart ) & Hidx). 
-subst.
-unfold partitionDescriptorEntry in *.
-unfold currentPartitionInPartitionsList in *.
-generalize (Hdescr PR Hcurpart); clear Hdescr; intros Hdescr.
-assert (PDidx = PDidx \/ PDidx = sh1idx \/ PDidx = sh2idx 
-\/ PDidx = sh3idx \/ PDidx = PPRidx \/ PDidx = PRidx ) as Htmp by auto.
-generalize (Hdescr PDidx Htmp); clear Hdescr; intros H0.
-destruct H0; trivial.
-(** readPhysical **)
-intro idxsucc. simpl.
-eapply WP.weaken.
-eapply WeakestPreconditions.readPhysical .
-simpl. intros.
-destruct H as (((HP & Hcons & Hcur ) &Hidx) & Hidxsucc).
-subst.
-unfold partitionDescriptorEntry in Hcons.
-unfold currentPartitionInPartitionsList in *.
-generalize (Hcons PR Hcur); clear Hcons; intros Hcons.
-
-generalize (Hcons  PDidx); clear Hcons; intro Hpdtmp.
-assert (PDidx = PDidx \/ PDidx = sh1idx \/ PDidx = sh2idx \/ PDidx = sh3idx  \/ PDidx = PPRidx \/ PDidx = PRidx ) 
-as Hpd by auto.
-apply Hpdtmp in Hpd.
-clear Hpdtmp. 
-unfold partitionDescriptorEntry in Hpd.
-destruct Hpd as (_ & Hva & Hpage).
-destruct Hpage as (page1 & Hpp & Hnotnul).
-exists page1.
-repeat split; try assumption.
-unfold nextEntryIsPP in Hpp; rewrite Hidxsucc in Hpp.
-destruct (lookup PR idxsucc (memory s) beqPage beqIndex); try now contradict Hpp.
-destruct v; try now contradict Hpp.
-rewrite Hpp; trivial.
-Qed.
-
-Lemma readPhysical (table : page) (idx : index) (P : state -> Prop):
-{{fun s => P s /\ isPP table idx s}} MAL.readPhysical table idx 
-{{fun (page1 : page) (s : state) => P s /\ isPP' table idx page1 s}}.
-Proof.
-eapply WP.weaken.
-eapply WeakestPreconditions.readPhysical .
-simpl. intros.
-destruct H as (H & Hpage).
-unfold isPP', isPP in *.
-<<<<<<< Updated upstream
-destruct (lookup table idx (memory s) beqPage beqIndex); try now contradict Hpage.
-destruct v; try now contradict Hpage.
-eexists;repeat split;trivial.
-=======
-destruct (lookup table idx (memory s) beqPage beqIndex)
-       as [v |];  [ destruct v as [ p |v|p|v|i] ; [ now contradict Hpage | now contradict Hpage | 
-       eexists; repeat split;trivial| now contradict Hpage| now contradict Hpage ] | now contradict Hpage].
-=======
-destruct H as (H & Hentry).
-apply isBELookupEq in Hentry ;trivial.
-destruct Hentry as (entry & Hentry). 
-exists entry. repeat split;trivial.
-apply lookupBEntryExecFlag;trivial.
-Qed.
-
-(* DUP *)
-Lemma readBlockIndexFromBlockEntryAddr (paddr : paddr) (P : state -> Prop) : 
-{{ fun s => P s /\ isBE paddr s  }} MAL.readBlockIndexFromBlockEntryAddr paddr
-{{ fun (idx : index) (s : state) => P s /\ isBE paddr s /\ bentryBlockIndex paddr idx s }}.
-Proof.
-eapply WP.weaken. 
-apply WP.readBlockIndexFromBlockEntryAddr.
-simpl.
-intros.
-destruct H as (H & Hentry).
-apply isBELookupEq in Hentry ;trivial.
-destruct Hentry as (entry & Hentry). 
-exists entry. repeat split;trivial.
-unfold isBE. rewrite Hentry ; trivial.
-apply lookupBEntryBlockIndex;trivial.
->>>>>>> Stashed changes
->>>>>>> Stashed changes
-Qed.
-
-(* DUP *)
-Lemma readPDFirstFreeSlotPointer (paddr : paddr) (P : state -> Prop) : 
-{{ fun s => P s /\ isPDT paddr s  }} MAL.readPDFirstFreeSlotPointer paddr
-{{ fun (firstfreeslotaddr : ADT.paddr) (s : state) => P s /\ pdentryFirstFreeSlot paddr firstfreeslotaddr s }}.
-Proof.
-<<<<<<< Updated upstream
-eapply WP.weaken.
-eapply WeakestPreconditions.readVirtual .
-simpl. intros.
-destruct H as (H & Hpage).
-unfold isVA, isVA' in *.
-destruct (lookup table idx (memory s) beqPage beqIndex); try now contradict Hpage.
-destruct v; try now contradict Hpage.
-eexists;repeat split;trivial.
-Qed.
-
-Lemma readVirtualUser (table : page) (idx : index) (P : state -> Prop):
-{{fun s => P s}} MAL.readVirtualUser table idx 
-{{fun (va : vaddr) (s : state) => P s /\ isVAUser table idx va s}}.
-Proof.
-eapply WP.weaken.
-eapply WeakestPreconditions.readVirtualUser .
-simpl. intros.
-unfold isVAUser.
-destruct (lookup table idx (memory s) beqPage beqIndex);
-[destruct v|]; split;trivial.
-Qed.
-
-Lemma getSndShadow (PR : page) (P : state -> Prop) :
-{{fun s => P s  /\ partitionDescriptorEntry s /\ In PR (getPartitions multiplexer s) }} Internal.getSndShadow PR 
-{{fun (sh2 : page) (s : state) => P s /\ nextEntryIsPP PR sh2idx sh2 s }}.
-Proof.
-unfold Internal.getSndShadow.
-eapply WP.bindRev.
-(** getSh2idx **)
-apply getSh2idx.
-intro idxSh2. 
-simpl. 
-(** MALInternal.Index.succ **)
-eapply WP.bindRev.
-eapply WP.weaken.
-eapply Index.succ.
-intros. simpl.
-split.
-pattern s in H. 
-eapply H.
-subst.
-intuition. subst.
-unfold partitionDescriptorEntry in *.
-generalize (H0 PR H3); clear H0; intros H0.
-assert (sh2idx = PDidx \/ sh2idx = sh1idx \/ sh2idx = sh2idx \/ sh2idx = sh3idx 
-\/  sh2idx  = PPRidx \/  sh2idx  = PRidx ) as Htmp by auto.
-generalize (H0 sh2idx Htmp); clear H0; intros H0.
-destruct H0; trivial.
-(** readPhysical **)
-intro idxsucc. simpl.
-eapply WP.weaken.
-eapply WeakestPreconditions.readPhysical .
-simpl. intros.
-destruct H as ( ((HP & Hcons & Hcur ) &Hidx) & Hidxsucc).
-subst.
-unfold partitionDescriptorEntry in Hcons.
-generalize (Hcons PR Hcur ); clear Hcons; intros Hcons.
-generalize (Hcons  sh2idx); clear Hcons; intro Hpdtmp.
-assert (sh2idx = PDidx \/ sh2idx = sh1idx \/ sh2idx = sh2idx \/ sh2idx = sh3idx \/  sh2idx  = PPRidx
- \/  sh2idx  = PRidx)  
-as Hpd by auto.
-apply Hpdtmp in Hpd.
-clear Hpdtmp. 
-unfold partitionDescriptorEntry in Hpd.
-destruct Hpd as (_ & Hva & Hpage).
-destruct Hpage as (page1 & Hpp & Hnotnul).
-subst. exists page1.
-unfold nextEntryIsPP in Hpp.
-repeat split; try assumption.
-unfold nextEntryIsPP in Hpp; rewrite Hidxsucc in Hpp.
-destruct (lookup PR idxsucc (memory s) beqPage beqIndex); try now contradict Hpp.
-destruct v; try now contradict Hpp.
-rewrite Hpp; trivial.
-Qed.
-
-Lemma getFstShadow (PR : page) (P : state -> Prop) :
-{{fun s => P s  /\ partitionDescriptorEntry s /\ currentPartitionInPartitionsList s /\  PR = currentPartition s}} Internal.getFstShadow PR 
-{{fun (sh1 : page) (s : state) => P s /\ nextEntryIsPP PR sh1idx sh1 s }}.
-Proof.
-unfold Internal.getFstShadow.
-eapply WP.bindRev.
-(** getPDidx **)
-apply getSh1idx.
-intro idxSh1. 
-simpl. 
-(** MALInternal.Index.succ **)
-eapply WP.bindRev.
-eapply WP.weaken.
-eapply Index.succ.
-intros. simpl.
-split.
-pattern s in H. 
-eapply H.
-subst.
-intuition. subst.
-unfold partitionDescriptorEntry in *.
-unfold currentPartitionInPartitionsList in *.
-generalize (H0 (currentPartition s) H2); clear H0; intros H0.
-assert (sh1idx = PDidx \/ sh1idx = sh1idx \/ sh1idx = sh2idx \/ sh1idx = sh3idx 
-\/  sh1idx  = PPRidx \/  sh1idx  = PRidx ) as Htmp by auto.
-generalize (H0 sh1idx Htmp); clear H0; intros H0.
-destruct H0; trivial.
-(** readPhysical **)
-intro idxsucc. simpl.
-eapply WP.weaken.
-eapply WeakestPreconditions.readPhysical .
-simpl. intros.
-destruct H as (((HP & Hcons & Hcur & Hpr) &Hidx) & Hidxsucc).
-subst.
-unfold partitionDescriptorEntry in Hcons.
-unfold currentPartitionInPartitionsList in *.
-generalize (Hcons (currentPartition s) Hcur ); clear Hcons; intros Hcons.
-generalize (Hcons  sh1idx); clear Hcons; intro Hpdtmp.
-assert (sh1idx = PDidx \/ sh1idx = sh1idx \/ sh1idx = sh2idx \/ sh1idx = sh3idx
- \/  sh1idx  = PPRidx \/  sh1idx  = PRidx)  
-as Hpd by auto.
-apply Hpdtmp in Hpd.
-clear Hpdtmp. 
-unfold partitionDescriptorEntry in Hpd.
-destruct Hpd as (_ & Hva & Hpage).
-destruct Hpage as (page1 & Hpp & Hnotnul).
-subst. exists page1.
-repeat split; try assumption.
-unfold nextEntryIsPP in Hpp; rewrite Hidxsucc in Hpp.
-destruct (lookup (currentPartition s) idxsucc (memory s) beqPage beqIndex); try now contradict Hpp.
-destruct v; try now contradict Hpp.
-rewrite Hpp; trivial.
-Qed.
-
-Lemma getFstShadow1 (partition : page) (P : state -> Prop) :
-{{fun s => P s  /\ partitionDescriptorEntry s /\ 
-In partition (getPartitions multiplexer s)  }} 
-Internal.getFstShadow partition
-{{fun (sh1 : page) (s : state) => P s /\ nextEntryIsPP partition sh1idx sh1 s }}.
-Proof.
-unfold Internal.getFstShadow.
-eapply WP.bindRev.
-(** getPDidx **)
-apply getSh1idx.
-intro idxSh1. 
-simpl. 
-(** MALInternal.Index.succ **)
-eapply WP.bindRev.
-eapply WP.weaken.
-eapply Index.succ.
-intros. simpl.
-split.
-pattern s in H. 
-eapply H.
-subst.
-intuition. subst.
-unfold partitionDescriptorEntry in *.
-unfold currentPartitionInPartitionsList in *.
-generalize (H0 partition H3); clear H0; intros H0.
-assert (sh1idx = PDidx \/ sh1idx = sh1idx \/ sh1idx = sh2idx \/ sh1idx = sh3idx 
-\/  sh1idx  = PPRidx \/  sh1idx  = PRidx ) as Htmp by auto.
-generalize (H0 sh1idx Htmp); clear H0; intros H0.
-destruct H0; trivial.
-(** readPhysical **)
-intro idxsucc. simpl.
-eapply WP.weaken.
-eapply WeakestPreconditions.readPhysical .
-simpl. intros.
-destruct H as (((HP & Hpde & Hpr) &Hidx) & Hidxsucc).
-subst.
-unfold partitionDescriptorEntry in *.
-apply Hpde with partition sh1idx in Hpr.
-destruct Hpr as (_ & Hva & Hpage).
-destruct Hpage as (page1 & Hpp & Hnotnul).
-subst. exists page1.
-split.
-unfold nextEntryIsPP in Hpp.
-destruct (StateLib.Index.succ sh1idx);inversion Hidxsucc;subst. 
-destruct (lookup partition idxsucc (memory s) beqPage beqIndex);
-try now contradict Hpp.
-destruct v ; try now contradict Hpp.
-destruct page1;destruct p;simpl in *. 
-do 2 f_equal.
-inversion Hpp.
-subst. 
-f_equal.
-apply proof_irrelevance.
-split;trivial.
-right;left;trivial.
-Qed.
-
-Lemma getConfigTablesLinkedList  (partition : page) (P : state -> Prop) :
-{{fun s => P s  /\ partitionDescriptorEntry s /\ 
-In partition (getPartitions multiplexer s)  }} 
-Internal.getConfigTablesLinkedList  partition
-{{fun (LL : page) (s : state) => P s /\ nextEntryIsPP partition sh3idx LL s }}.
-Proof.
-unfold Internal.getConfigTablesLinkedList .
-eapply WP.bindRev.
-(** getPDidx **)
-apply getSh3idx.
-intro idxSh3. 
-simpl. 
-(** MALInternal.Index.succ **)
-eapply WP.bindRev.
-eapply WP.weaken.
-eapply Index.succ.
-intros. simpl.
-split.
-pattern s in H. 
-eapply H.
-subst.
-intuition. subst.
-unfold partitionDescriptorEntry in *.
-unfold currentPartitionInPartitionsList in *.
-generalize (H0 partition H3); clear H0; intros H0.
-assert (sh3idx = PDidx \/ sh3idx = sh1idx \/ sh3idx = sh2idx \/ sh3idx = sh3idx 
-\/  sh3idx  = PPRidx \/  sh3idx  = PRidx ) as Htmp by auto.
-generalize (H0 sh3idx Htmp); clear H0; intros H0.
-destruct H0; trivial.
-(** readPhysical **)
-intro idxsucc. simpl.
-eapply WP.weaken.
-eapply WeakestPreconditions.readPhysical .
-simpl. intros.
-destruct H as (((HP & Hpde & Hpr) &Hidx) & Hidxsucc).
-subst.
-unfold partitionDescriptorEntry in *.
-apply Hpde with partition sh3idx in Hpr.
-destruct Hpr as (_ & Hva & Hpage).
-destruct Hpage as (page1 & Hpp & Hnotnul).
-subst. exists page1.
-split.
-unfold nextEntryIsPP in Hpp.
-destruct (StateLib.Index.succ sh3idx);inversion Hidxsucc;subst. 
-destruct (lookup partition idxsucc (memory s) beqPage beqIndex);
-try now contradict Hpp.
-destruct v ; try now contradict Hpp.
-destruct page1;destruct p;simpl in *. 
-do 2 f_equal.
-inversion Hpp.
-subst. 
-f_equal.
-apply proof_irrelevance.
-split;trivial.
-do 3 right;left;trivial.
-Qed.
-
-
-Lemma checkKernelMap  (va: vaddr) (P : state -> Prop): 
-{{fun s => P s }} checkKernelMap va 
-{{fun isk s => P s /\ (Nat.eqb Kidx (nth (length va - (nbLevel - 1 + 2)) va defaultIndex) ) = isk}}.
-Proof.
-unfold checkKernelMap.
-eapply WP.bindRev.
-eapply getKidx.
-simpl.
-intros kidx.
-eapply WP.bindRev.
-eapply WP.weaken.
-eapply getNbLevel.
-simpl. intros.
-pattern s in H.
-eapply H.
-intro l.
-eapply WP.bindRev.
-eapply WP.weaken.
-eapply getIndexOfAddr.
-intros. simpl.
-pattern s in H.
-eapply H.
-intros idx.
-simpl.
-eapply WP.weaken.
-eapply WP.ret .
-simpl.
-intros.
-unfold StateLib.getIndexOfAddr in *.
-intuition.
-rewrite <- H1.
-unfold StateLib.getNbLevel in H2.
-case_eq (gt_dec nbLevel 0);
-intros; rewrite H in H2.
-inversion H2.
-destruct l.
-simpl in *. subst.  reflexivity.
-assert(0 < nbLevel) by apply nbLevelNotZero.
-now contradict H4.  
-Qed. 
-
-Lemma checkVAddrsEqualityWOOffset (va1 va2 : vaddr) (level1 : level) (P : state -> Prop) : 
-{{fun s => P s }} Internal.checkVAddrsEqualityWOOffset va1 va2 level1 
-{{fun res s => P s /\ res = checkVAddrsEqualityWOOffset nbLevel va1 va2 level1 }}.
-Proof.
-unfold Internal.checkVAddrsEqualityWOOffset.
-revert va1 va2 level1 P.
-induction nbLevel;intros.
-+ simpl. eapply WP.weaken.
-  eapply WP.ret . intros. simpl.  split;trivial.
-+ simpl.
-(** getIndexOfAddr **)
-  eapply WP.bindRev.
-  eapply WP.weaken.
-  eapply getIndexOfAddr.
-  simpl.
-  intros.
-  eassumption.
-  intros idx1.
-(** getIndexOfAddr **)
-  eapply WP.bindRev.
-  eapply WP.weaken.
-  eapply getIndexOfAddr.
-  simpl.
-  intros.
-  pattern s in H. 
-  eassumption.
-  intros idx2.
-(** MALInternal.Level.eqb **)
-  eapply WP.bindRev. 
-  eapply WP.weaken.
-  eapply Level.eqb.
-  simpl. intros.
-  pattern s in H.
-  eassumption.
-(** test *)
-  intros a; simpl.
-  case_eq a;intros.
-  - eapply WP.strengthen.
-    eapply WP.weaken. 
-    eapply Index.eqb.
-    simpl; intros.
-    pattern s in H0.
-    eassumption. simpl.
-    split; intuition.
-    rewrite <- H3, H4.
-    subst.     
-    unfold StateLib.Index.eqb.
-    trivial.
-  - (** MALInternal.Level.pred **) 
-    eapply WP.bindRev.
-    eapply WP.weaken.
-    eapply Level.pred.
-    intros; simpl.
-    split. 
-    pattern s in H0.
-    eassumption.
-    destruct H0.
-    symmetry in H1.
-    apply levelEqBEqNatFalse0  in H1. assumption.
-    intros levelpred.
-(** MALInternal.Index.eqb **)
-    eapply WP.bindRev.
-    eapply WP.weaken.
-    eapply Index.eqb.
-    intros; simpl.
-    pattern s in H0.
-    eapply H0. 
-    simpl in *.
-    intros. 
-    case_eq a0; intros.
-    eapply WP.strengthen.
-    generalize (IHn va1 va2 levelpred (fun s : state => ((((P s /\ StateLib.getIndexOfAddr va1 level1 = idx1) /\ 
-    StateLib.getIndexOfAddr va2 level1 = idx2) /\
-     false = StateLib.Level.eqb level1 fstLevel) /\ StateLib.Level.pred level1 = Some levelpred) /\ 
-   true = StateLib.Index.eqb idx1 idx2 ) ); clear IHn; intros IHn.
-    eapply IHn.
-    simpl.
-    intros; intuition. subst.
-    rewrite <- H6.
-    rewrite H5.
-    unfold StateLib.Index.eqb in H4.   
-    rewrite <- H4. trivial.
-    eapply WP.weaken.
-    eapply WP.ret .
-    simpl.
-    intros.
-    intuition.
-    rewrite <- H5.
-    rewrite H4. 
-    unfold StateLib.Index.eqb in H3.
-    subst.
-    rewrite <- H3; trivial.
-Qed.
-
-Lemma readPDflag (table : page) (idx : index) (P : state -> Prop) : 
-{{ fun s => P s /\ isVE table idx s }} MAL.readPDflag table idx 
-{{ fun (ispd : bool) (s : state) => P s /\  entryPDFlag table idx ispd s }}.
-=======
-eapply WP.weaken. 
-apply WP.readPDFirstFreeSlotPointer.
-simpl.
-intros.
-destruct H as (H & Hentry).
-apply isPDTLookupEq in Hentry ;trivial.
-destruct Hentry as (entry & Hentry). 
-exists entry. repeat split;trivial.
-apply lookupPDEntryFirstFreeSlot;trivial.
-Qed.
-
-(* DUP *)
-Lemma readPDNbFreeSlots (paddr : paddr) (P : state -> Prop) : 
-{{ fun s => P s /\ isPDT paddr s  }} MAL.readPDNbFreeSlots paddr
-{{ fun (nbfreeslots : index) (s : state) => P s /\ pdentryNbFreeSlots paddr nbfreeslots s }}.
-Proof.
-eapply WP.weaken. 
-apply WP.readPDNbFreeSlots.
-simpl.
-intros.
-destruct H as (H & Hentry).
-apply isPDTLookupEq in Hentry ;trivial.
-destruct Hentry as (entry & Hentry). 
-exists entry. repeat split;trivial.
-apply lookupPDEntryNbFreeSlots;trivial.
-Qed.
-
-(* DUP *)
-Lemma readPDStructurePointer (pdpaddr : paddr) (P : state -> Prop) : 
-{{ fun s => P s /\ isPDT pdpaddr s  }} MAL.readPDStructurePointer pdpaddr
-{{ fun (structurepointer : paddr) (s : state) => P s /\ pdentryPDStructurePointer pdpaddr structurepointer s }}.
->>>>>>> Stashed changes
-Proof.
-eapply WP.weaken. 
-apply WP.readPDStructurePointer.
-simpl.
-intros.
-destruct H as (H & Hentry).
-apply isPDTLookupEq in Hentry ;trivial.
-destruct Hentry as (entry & Hentry).
-exists entry. intuition.
-apply lookupPDStructurePointer;trivial.
-Qed.*)
-
-<<<<<<< Updated upstream
-Lemma getParent (PR : page) (P : state -> Prop) :
-{{fun s => P s /\ consistency s /\ In PR (getPartitions multiplexer s) }} Internal.getParent PR 
-{{fun (parent : page) (s : state) => P s /\ nextEntryIsPP PR PPRidx parent s }}.
-Proof.
-unfold Internal.getParent.
-eapply WP.bindRev.
-(** getPDidx **)
-apply getPPRidx.
-intro idxppr. 
-simpl. 
-(** MALInternal.Index.succ **)
-eapply WP.bindRev.
-eapply WP.weaken.
-eapply Index.succ.
-intros. simpl.
-split.
-pattern s in H. 
-eapply H.
-destruct H as ((H1 & H2 & H3) & H4). 
-subst.
-unfold consistency in *.
-unfold partitionDescriptorEntry in *.
-unfold currentPartitionInPartitionsList in *.
-destruct H2. 
-generalize (H PR H3); clear H0; intros H0.
-assert (PPRidx = PDidx \/ PPRidx= sh1idx \/ PPRidx = sh2idx 
-\/ PPRidx = sh3idx \/ PPRidx = PPRidx \/ PPRidx = PRidx) as Htmp.
-right. right. right. right. left. auto.
-generalize (H0 PPRidx Htmp); clear H0; intros H0.
-destruct H0; trivial.
-(** readPhysical **)
-intro idxsucc. simpl.
-eapply WP.weaken.
-eapply WeakestPreconditions.readPhysical .
-simpl. intros.
-destruct H as (((HP & Hcons  & Hpr) &Hidx) & Hidxsucc).
-subst.
-unfold consistency in *.
-unfold partitionDescriptorEntry in Hcons.
-unfold currentPartitionInPartitionsList in *.
-destruct Hcons as (Hcons & _).
-
-generalize (Hcons PR Hpr ); clear Hcons; intros Hcons.
-generalize (Hcons  PPRidx); clear Hcons; intro Hpdtmp.
-assert (PPRidx = PDidx \/ PPRidx= sh1idx \/ PPRidx = sh2idx \/ 
-PPRidx = sh3idx \/ PPRidx = PPRidx \/ PPRidx = PRidx) as Hpd. 
-right. right. right. right. left. auto. 
-apply Hpdtmp in Hpd.
-clear Hpdtmp. 
-unfold partitionDescriptorEntry in Hpd.
-destruct Hpd as (_ & Hva & Hpage).
-destruct Hpage as (page1 & Hpp & Hnotnul).
-subst. exists page1.
-repeat split; try assumption.
-unfold nextEntryIsPP in Hpp; rewrite Hidxsucc in Hpp.
-destruct (lookup PR idxsucc (memory s) beqPage beqIndex); try now contradict Hpp.
-destruct v; try now contradict Hpp.
-rewrite Hpp; trivial.
-Qed.
-*)
 Lemma compatibleRight (originalright newright : bool) (P : state -> Prop) : 
 {{fun s => P s}} Internal.compatibleRight originalright newright {{fun iscompatible s => P s}}.
 Proof.
@@ -1789,6 +1010,21 @@ case_eq newright.
 		eapply WP.weaken.
 		eapply WP.ret.
 		intros.  simpl; trivial.
+Qed.
+
+Lemma getBlockEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (blockidx : index) (P : state -> Prop) : 
+{{ fun s => P s /\ BlockEntryAddrInBlocksRangeIsBE s
+								/\ isBE kernelStartAddr s
+								/\ blockidx < kernelStructureEntriesNb}}
+MAL.getBlockEntryAddrFromKernelStructureStart kernelStartAddr blockidx
+{{ fun (BEAddr : ADT.paddr) (s : state) => P s /\ BEAddr = CPaddr (kernelStartAddr + blkoffset + blockidx)
+																						/\ isBE BEAddr s}}.
+Proof.
+unfold MAL.getBlockEntryAddrFromKernelStructureStart.
+eapply weaken. apply ret.
+intros. simpl. split. apply H. split. reflexivity.
+(* entryaddr is a BE because it's a simple offset from KS start *)
+unfold BlockEntryAddrInBlocksRangeIsBE in *. intuition.
 Qed.
 
 Lemma getSh1EntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (blockidx : index) (P : state -> Prop) : 
@@ -1820,7 +1056,6 @@ unfold MAL.getSh1EntryAddrFromKernelStructureStart.
 	destruct H1. reflexivity. 
 Qed.
 
-
 Lemma getSCEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (blockidx : index) (P : state -> Prop) : 
 {{fun s => 
 					P s /\ wellFormedShadowCutIfBlockEntry s 
@@ -1841,56 +1076,41 @@ unfold MAL.getSCEntryAddrFromKernelStructureStart.
 Qed.
 
 Lemma getKernelStructureStartAddr  (blockentryaddr : paddr) (blockidx : index)  (P : state -> Prop) : 
-{{fun s => (*wellFormedFstShadowIfBlockEntry s /\*)
-					(*/\ P blockentryaddr s /\ *)
-					P s /\ 	KernelStructureStartFromBlockEntryAddrIsBE s /\
-									blockidx < maxIdx /\ blockentryaddr < maxAddr /\
-								exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)
-								/\ bentryBlockIndex blockentryaddr blockidx s
+{{fun s => P s /\ 	KernelStructureStartFromBlockEntryAddrIsBE s 
+					/\	blockidx < kernelStructureEntriesNb
+					/\ blockentryaddr <= maxAddr
+					/\	exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)
+					/\ bentryBlockIndex blockentryaddr blockidx s
 }}
 
 MAL.getKernelStructureStartAddr blockentryaddr blockidx
 {{ fun KSstart s => P s
 									/\ exists entry, lookup KSstart s.(memory) beqAddr = Some (BE entry)
-									/\ KSstart = CPaddr (blockentryaddr - blockidx) (* need for getSCEntryAddrFromblockentryAddr *)
- (*fun (sh1entryaddr : paddr) (s : state) =>
-exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry) /\ 
-Q sh1entryaddr s*)}}.
+									/\ KSstart = CPaddr (blockentryaddr - blockidx) (* need for getSCEntryAddrFromblockentryAddr *)}}.
 Proof.
 unfold MAL.getKernelStructureStartAddr.
-(*eapply bind. intro kernelStartAddr. apply ret.
-eapply weaken.
-apply Paddr.subPaddrIdx. intros. simpl in *. split. destruct H. apply H.
-
-intuition. unfold StateLib.Paddr.subPaddrIdx in H1.*)
-
 eapply bindRev.
-eapply weaken.
-apply Paddr.subPaddrIdx. intros. simpl. split. apply H.
-intuition.
-(*unfold KernelStructureStartFromBlockEntryAddrIsBE in *.
-	destruct H2. specialize (H blockentryaddr x).
-	destruct H1. specialize (H H1). unfold entryBlockIndex in H2.
-	rewrite H1 in H2. destruct H2.
-	subst.
-	apply isBELookupEq in H. destruct H.
-	intuition.*)
-
-
-
-intro kernelStartAddr. simpl. eapply weaken. apply ret.
-intros. simpl. split. apply H.
-intuition. unfold KernelStructureStartFromBlockEntryAddrIsBE in *.
+{ (** MALInternal.Paddr.subPaddrIdx *)
+	eapply weaken. apply Paddr.subPaddrIdx.
+	intros. simpl. split. apply H. intuition.
+	lia.
+}
+intro kernelStartAddr. simpl.
+{ (** ret *)
+	eapply weaken. apply ret.
+	intros. simpl. split. apply H.
+	intuition. unfold KernelStructureStartFromBlockEntryAddrIsBE in *.
 	destruct H5. destruct H4. specialize(H0 blockentryaddr x H4).
-	
 	unfold bentryBlockIndex in H5.
 	rewrite H4 in H5.
 	destruct H5.
 	apply isBELookupEq in H0.
 	destruct H0.
-replace kernelStartAddr with (CPaddr (blockentryaddr - blockidx)).
+	replace kernelStartAddr with (CPaddr (blockentryaddr - blockidx)).
 	exists x0.
 	split. rewrite H5. apply H0. reflexivity.
+	(*unfold bentryBlockIndex. rewrite H4. intuition. rewrite <- H5. intuition.*)
+}
 Qed.
 
 
@@ -1909,34 +1129,36 @@ Q sh1entryaddr s*)}}.
 Proof.
 unfold MAL.getSh1EntryAddrFromBlockEntryAddr.
 eapply bindRev.
-- eapply weaken. apply readBlockIndexFromBlockEntryAddr.
+{ (** MAL.readBlockIndexFromBlockEntryAddr *)
+	eapply weaken. apply readBlockIndexFromBlockEntryAddr.
 	intros. simpl. split. apply H.
-	unfold isBE. destruct (lookup blockentryaddr (memory s) beqAddr).
-	destruct v eqn:V; trivial ; destruct H ; destruct H0 ; destruct H1 ; destruct H2 ; congruence.
-	destruct H. destruct H0. destruct H1. destruct H2. congruence.
-- intro BlockEntryIndex.
-	eapply bindRev. eapply weaken.
-	apply getKernelStructureStartAddr.
+	unfold isBE. intuition. destruct H3. rewrite H2; trivial.
+}
+intro BlockEntryIndex.
+eapply bindRev.
+{ (** getKernelStructureStartAddr *)
+	eapply weaken. apply getKernelStructureStartAddr.
 	intros. simpl. split. exact H.
 	intuition.
-	destruct BlockEntryIndex. simpl. trivial.
+	unfold bentryBlockIndex in *.
+	destruct H5. rewrite H4 in *. intuition.
 	destruct blockentryaddr. simpl. trivial.
-	destruct H5. exists x. split. apply H4.
-	assumption.
-	intro kernelStartAddr.
-	intros.
-	eapply bindRev.
-{ 
+	destruct H5. exists x. intuition.
+}
+intro kernelStartAddr.
+eapply bindRev.
+{ (** MAL.getSh1EntryAddrFromKernelStructureStart *)
 	eapply weaken. apply getSh1EntryAddrFromKernelStructureStart.
-	intros. simpl. split. exact H. split. apply H.
-	intros. split. unfold isBE.
-	intuition. destruct H1. destruct H1. rewrite H1. trivial.
+	intros. simpl. split. exact H. intuition.
+	unfold isBE. destruct H1. destruct H1. rewrite H1. trivial.
 	intuition. unfold bentryBlockIndex in *. destruct H6. rewrite H5 in H4.
 	intuition.
 }
 (* Preuve : kernelStartAddr + blockindex est BE, donc +sh1offset est SHE
 	blockentryindex < kernelstructurenb dans entryBlockIndex*)
-	intro SHEAddr. eapply weaken. apply ret.
+intro SHEAddr.
+{ (** ret *)
+	eapply weaken. apply ret.
 	intros. simpl. split. apply H.
 	intuition.
 	unfold wellFormedFstShadowIfBlockEntry in *.
@@ -1945,18 +1167,25 @@ eapply bindRev.
 	destruct H2.
 	destruct H2.
 	rewrite H6 in H1.
-	assert (CPaddr (CPaddr (blockentryaddr - BlockEntryIndex) + sh1offset + BlockEntryIndex)
-					= CPaddr (blockentryaddr + sh1offset)).
-	{ admit. }
-	rewrite H8 in H1.
-	rewrite <- H1 in H3.
-	destruct (lookup SHEAddr (memory s) beqAddr). destruct v.
-	exfalso ; congruence.
-	exists s0. split. reflexivity. unfold sh1entryAddr. destruct H7. rewrite H7; trivial. 
-	exfalso ; congruence.
-	exfalso ; congruence.
-	exfalso ; congruence.
-	exfalso ; congruence.
+assert (CPaddr (CPaddr (blockentryaddr - BlockEntryIndex) + sh1offset + BlockEntryIndex)
+				= CPaddr (blockentryaddr + sh1offset)).
+{ admit.
+	(*unfold CPaddr.
+ 		destruct (le_dec (blockentryaddr - BlockEntryIndex) maxAddr) ; try (exfalso ; congruence). simpl.
+		destruct (le_dec (blockentryaddr - BlockEntryIndex + sh1offset + BlockEntryIndex) maxAddr) ; try (exfalso ; congruence).
+		simpl.
+		destruct (le_dec (blockentryaddr + sh1offset) maxAddr) ; try (exfalso ; congruence).
+		simpl.
+		assert (blockentryaddr - BlockEntryIndex + sh1offset + BlockEntryIndex = blockentryaddr + sh1offset).
+		destruct BlockEntryIndex. simpl. destruct blockentryaddr,sh1offset. simpl.
+		induction i. simpl. cbn. Search (?x + 0). rewrite Nat.sub_0_r. rewrite Nat.add_0_r.
+		reflexivity. Search (?x - ?y + ?y). *)
+}
+rewrite H8 in H1.
+rewrite <- H1 in H3.
+destruct (lookup SHEAddr (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
+destruct v eqn:Hv ; try (exfalso ; congruence).
+exists s0. split. reflexivity. unfold sh1entryAddr. destruct H7. rewrite H7; trivial. 
 Admitted.
 
 (* DUP *)
@@ -2066,23 +1295,23 @@ unfold isBE. destruct H. destruct H0. destruct H1. destruct H2. rewrite H2. triv
 }
 intro BlockEntryIndex.
 eapply bindRev.
-{ eapply weaken.
-- apply getKernelStructureStartAddr.
-- intros. cbn. split. exact H. intuition.
-	destruct BlockEntryIndex. simpl. trivial.
-	destruct blockentryaddr. simpl. trivial. (* already done in sh1entry*)
+{ (* getKernelStructureStartAddr *)
+	eapply weaken. apply getKernelStructureStartAddr.
+	intros. simpl. split. exact H. intuition.
+	unfold bentryBlockIndex in *. destruct H5. rewrite H4 in *. intuition.
+	destruct blockentryaddr. simpl. trivial. (* already done in sh1entry *)
 	apply isBELookupEq in H0.
 	destruct H0. exists x. intuition.
 }
 intro kernelStartAddr. simpl.
 eapply bindRev.
-{
+{ (* getSCEntryAddrFromKernelStructureStart *)
 	eapply weaken.  apply getSCEntryAddrFromKernelStructureStart.
 	intros. simpl. split. apply H. intuition.
 	intuition. destruct H1. exists x. apply H1.
 }
-
-	intro SCEAddr.
+intro SCEAddr.
+{ (** ret *)
 	eapply weaken. apply ret.
 	intros. simpl.
 	split. apply H.
@@ -2103,6 +1332,7 @@ eapply bindRev.
 	split. subst.
 	rewrite H9. assumption.
 	assumption.
+}
 	
 Admitted.
 
@@ -2178,71 +1408,6 @@ eapply WP.bindRev.
 	eexists. intuition. unfold nextKSAddr. rewrite Hlookup ; trivial.
 Qed.
 
-(*
-(* Partial DUP *)
-Lemma compareAddrToNull (pa : paddr) (P : state -> Prop): 
-{{fun s => P s }} compareAddrToNull pa 
-{{fun (isnull : bool) (s : state) => P s /\ 
-                                       (beqAddr nullAddr pa) = isnull }}. 
-Proof.
-unfold compareAddrToNull.
-eapply WP.bindRev.
-+ unfold MALInternal.getNullAddr.
-  eapply WP.weaken.  
-  eapply WP.ret . intros.
-  instantiate (1:= fun nullPa s => P s /\ beqAddr nullAddr nullPa = true ).
-  simpl.
-  intuition.
-  unfold beqAddr.
-  destruct nullAddr.
-  simpl.
-  clear Hp.
-  induction p. simpl. trivial.
-  simpl.
-	apply IHp. 
-+ intro nullPa. simpl.
-  unfold MALInternal.getBeqAddr.
-  eapply WP.weaken. eapply WP.ret . intros. 
-  simpl. intuition.
-  unfold beqAddr in *.
-	destruct nullAddr, pa.
-  simpl in *.
-	case_eq p. intros. induction p0. subst. simpl. destruct H1.
-	Search PeanoNat.Nat.eqb.
-	apply PeanoNat.Nat.eqb_sym.
-	
-	subst. apply PeanoNat.Nat.eqb_eq in H1.
-rewrite -> H1. trivial.
-intros. apply PeanoNat.Nat.eqb_eq in H1. rewrite <- H1. rewrite ->H. trivial. 
-Qed.
-
-
-Lemma getBeqAddr (p1 : paddr)  (p2 : paddr) (P : state -> Prop): 
-{{fun s => P s }} getBeqAddr p1 p2
-{{fun (isequal : bool) (s : state) => P s /\ 
-                                       (beqAddr p1 p2) = isequal }}.
-Proof.
-	unfold MALInternal.getBeqAddr.
-  eapply WP.weaken. eapply WP.ret . intros. 
-  simpl. intuition.
-Qed.
-
-Lemma compatibleRight (originalright newright : bool) (P : state -> Prop) : 
-{{fun s => P s}} Internal.compatibleRight originalright newright {{fun iscompatible s => P s}}.
-Proof.
-unfold Internal.compatibleRight.
-case_eq newright.
-	- intros.
-		eapply WP.weaken.
-		eapply WP.ret.
-		intros.
- simpl; trivial.
-	- intros.
-		eapply WP.weaken.
-		eapply WP.ret.
-		intros.  simpl; trivial.
-Qed.*)
-
 Lemma checkRights p r w e P : 
 {{ fun s => P s /\ exists entry, lookup p s.(memory) beqAddr = Some (BE entry)}}
 Internal.checkRights  p r w e
@@ -2315,785 +1480,6 @@ trivial. trivial. trivial.
 	exists b. reflexivity. intuition. intuition. intuition. intuition. intuition.
 Qed.
 
-
-
-
-(*
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
->>>>>>> Stashed changes
-Lemma checkRights r w e P : 
-{{ fun s => P s }} checkRights r w e {{ fun rights s => P s  }}.
-Proof. 
-unfold checkRights.
-case_eq (r && w && e );
-intros;
-eapply WP.weaken. 
-eapply WP.ret.
-simpl; trivial.
-intros; simpl.
-eapply WP.ret.
-simpl; trivial.
-Qed.
-<<<<<<< Updated upstream
-=======
-<<<<<<< Updated upstream
-
-
-=======
->>>>>>> Stashed changes
-Lemma checkIndexPropertyLTB (userIndex : userValue) (P : state -> Prop) :
-{{ fun s => P s }} IAL.checkIndexPropertyLTB userIndex {{ fun b s => (P s /\ (Nat.ltb userIndex tableSize) = b)}}.
-Proof.
-eapply WP.weaken.
-apply WP.checkIndexPropertyLTB.
-simpl.
-intros. split;trivial.
-Qed.
-*)
-
-
-(*Lemma getSh1EntryAddrFromBlockEntryAddr  (paddr : paddr) (P : state -> Prop) : 
-{{ fun s => P s /\ isBE paddr s  }} MAL.getSh1EntryAddrFromBlockEntryAddr paddr
-{{ fun (sh1entryaddr : ADT.paddr) (s : state) => P s }}.*)
-(*Proof.
-eapply WP.weaken. 
-Admitted.*)
-
-
-
-(*Lemma readSh1PDFlagFromBlockEntryAddr  (blockentryaddr : paddr) (P : bool -> state -> Prop) : 
-{{fun s  =>  exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry) (* /\ 
-             exists sh1entry, P sh1entry.(PDflag) s*) }}
-MAL.readSh1PDFlagFromBlockEntryAddr blockentryaddr {{fun isPD s => P isPD s}}.
-Proof.
-unfold MAL.readSh1PDFlagFromBlockEntryAddr.
-eapply bindRev.
-- eapply weaken. apply getSh1EntryAddrFromBlockEntryAddr.
-	intros. simpl. destruct H as [HBE]. exists HBE. apply H. (*destruct H as [Hlookup].*) (*split.*)
-	(*+ admit. (*apply (P blockentryaddr s).
-	*)
-	+ now exists HBE.*)
-- intro Sh1EAddr. eapply bindRev. apply get. intro s. simpl.
-	destruct (lookup Sh1EAddr (memory s) beqAddr) eqn:lookup.
-	destruct v eqn:V.
-	eapply undefined.
-	destruct PDflag eqn:flag.
-	eapply weaken. apply ret. (*why False ?*) intros. exfalso ; apply H.
-	eapply weaken. apply ret. intros. exfalso ; apply H.
-	apply undefined. apply undefined. apply undefined. apply undefined.
-Qed.*)
-(*
-Lemma readSh1PDFlagFromBlockEntryAddr (paddr sh1entryaddr : paddr) (P : state -> Prop) : 
-{{ fun s => P s /\ isBE paddr s (*/\ isSHE sh1entryaddr s*) (*/\ wellFormedFstShadowIfBlockEntry s*) }} MAL.readSh1PDFlagFromBlockEntryAddr paddr
-{{ fun (ispd : bool) (s : state) => P s /\  entryPDFlag sh1entryaddr ispd s}}.
-Proof.
-
-eapply WP.weaken.
-apply WP.readSh1PDFlagFromBlockEntryAddr.
-simpl.
-intros.
-destruct H as (H & HBE).
-apply isBELookupEq in HBE.
-destruct HBE.
-exists x. repeat split;trivial.
-(*apply isSHELookupEq in HSHE.
-destruct HSHE.
-exists x0. split. apply H.
-unfold entryPDFlag.
-rewrite H1; trivial.*)
-Qed.*)
-
-(*
-Lemma getKernelStructureStartAddr  (blockentryaddr : paddr) (blockidx : index)  (P : state -> Prop) : 
-{{fun s => (*wellFormedFstShadowIfBlockEntry s /\*)
-					(*/\ P blockentryaddr s /\ *)
-					P s /\ 	KernelStructureStartFromBlockEntryAddrIsBE s /\
-									blockidx < maxIdx /\ blockentryaddr < maxAddr /\
-								exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)
-								/\ bentryBlockIndex blockentryaddr blockidx s
-}}
-
-MAL.getKernelStructureStartAddr blockentryaddr blockidx
-{{ fun KSstart s => P s
-									/\ exists entry, lookup KSstart s.(memory) beqAddr = Some (BE entry)
-									/\ KSstart = CPaddr (blockentryaddr - blockidx) (* need for getSCEntryAddrFromblockentryAddr *)
- (*fun (sh1entryaddr : paddr) (s : state) =>
-exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry) /\ 
-Q sh1entryaddr s*)}}.
-Proof.
-unfold MAL.getKernelStructureStartAddr.
-(*eapply bind. intro kernelStartAddr. apply ret.
-eapply weaken.
-apply Paddr.subPaddrIdx. intros. simpl in *. split. destruct H. apply H.
-
-intuition. unfold StateLib.Paddr.subPaddrIdx in H1.*)
-
-eapply bindRev.
-eapply weaken.
-apply Paddr.subPaddrIdx. intros. simpl. split. apply H.
-intuition.
-(*unfold KernelStructureStartFromBlockEntryAddrIsBE in *.
-	destruct H2. specialize (H blockentryaddr x).
-	destruct H1. specialize (H H1). unfold entryBlockIndex in H2.
-	rewrite H1 in H2. destruct H2.
-	subst.
-	apply isBELookupEq in H. destruct H.
-	intuition.*)
-
-
-
-intro kernelStartAddr. simpl. eapply weaken. apply ret.
-intros. simpl. split. apply H.
-intuition. unfold KernelStructureStartFromBlockEntryAddrIsBE in *.
-	destruct H5. destruct H4. specialize(H0 blockentryaddr x H4).
-	
-	unfold bentryBlockIndex in H5.
-	rewrite H4 in H5.
-	destruct H5.
-	apply isBELookupEq in H0.
-	destruct H0.
-replace kernelStartAddr with (CPaddr (blockentryaddr - blockidx)).
-	exists x0.
-	split. rewrite H5. apply H0. reflexivity.
-Qed.*)
-
-
-(*Lemma CPaddr_add :
-forall a : paddr, forall b c : index, CPaddr (CPaddr (a + c) + b) = CPaddr (a + b + c).
-Proof.
-	intros.
-	assert(forall x : paddr, CPaddr (x) = x).
-	{ intros. unfold CPaddr. destruct (lt_dec x maxAddr). cbn.
-
-Qed.*)
-
-(*
-Lemma getSh1EntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (blockidx : index) (P : state -> Prop) : 
-{{ fun s => P s /\ wellFormedFstShadowIfBlockEntry s 
-								(*/\ BlockEntryAddrInBlocksRangeIsBE s*)
-								/\ isBE kernelStartAddr s
-								/\ blockidx < kernelStructureEntriesNb}}
-MAL.getSh1EntryAddrFromKernelStructureStart kernelStartAddr blockidx
-{{ fun (SHEAddr : ADT.paddr) (s : state) => P s /\ SHEAddr = CPaddr (kernelStartAddr + sh1offset + blockidx)
-																								(*/\ SHEntryAddr (CPaddr (kernelStartAddr + blockidx)) SHEAddr s*) }}.
-Proof.
-	(*unfold MAL.getSh1EntryAddrFromKernelStructureStart.
-	eapply weaken. apply ret.
-	intros. simpl. split. apply H.
-	unfold wellFormedFstShadowIfBlockEntry in H.
-	destruct H. destruct H0.
-	specialize (H0 (CPaddr (kernelStartAddr + blockidx))).
-
-	destruct H1. unfold BlockEntryAddrInBlocksRangeIsBE in H1.
-	specialize (H1 kernelStartAddr blockidx). destruct H2.
-	intuition.*)
-
-unfold MAL.getSh1EntryAddrFromKernelStructureStart.
-	eapply weaken. apply ret.
-	intros. simpl. split. apply H.
-	unfold wellFormedFstShadowIfBlockEntry in H.
-	destruct H. destruct H0.
-	specialize (H0 (CPaddr (kernelStartAddr + blockidx))).
-	destruct H1. reflexivity. 
-Qed.
-
-(*
-	unfold SHEntryAddr.
-	unfold isBE in H1.
-	apply isBELookupEq in H1.
-	destruct H1.
-	rewrite H0.
-	destruct (CPaddr (kernelStartAddr + sh1offset + blockidx)). 
-	destruct (CPaddr (CPaddr (kernelStartAddr + blockidx) + sh1offset)).
-	simpl. cbn.
-simpl.
-
-
-	apply H2 in H1.
-	destruct H2.
-	specialize (H1 H2 H3).
-	unfold isBE in H0.
-	destruct H1.
-unfold SHEntryAddr.
-	unfold isBE in H1.
-	apply isBELookupEq in H1.
-	destruct H1.
-	rewrite H1 in H0. destruct H0 ; trivial.
-	rewrite H1.
-	destruct H0.
-	Search (_=_).
-	assert (forall a : paddr, forall b c : index, CPaddr (CPaddr (a + c) + b) = CPaddr (a + b + c)).
-{
-	intros. 
-}
-	rewrite <- H5. reflexivity.
-Qed.
-
-
-rewrite <- H4.
-	unfold SHEntryAddr.
-	destruct H0. rewrite H1.
-
-destruct (lookup (CPaddr (kernelStartAddr + blockidx)) (memory s) beqAddr ).
-	destruct v. simpl in *.
-	destruct H0 ; trivial.
-	unfold Paddr.addPaddrIdx in H1. 
-	destruct H0. rewrite H1.
-
-	destruct kernelStartAddr.
-	destruct sh1offset.
-	destruct blockidx.
-	simpl.
-	simpl.
-	reflexivity.
- unfold isBE in H2.
-	
- destruct H0.
-	rewrite H1 in H0. destruct H0 ; trivial.
-	unfold SCEntryAddr.
-	rewrite H1. reflexivity.
-Qed.*)
-
-
-Lemma getSCEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (blockidx : index) (P : state -> Prop) : 
-{{fun s => 
-					P s /\ wellFormedShadowCutIfBlockEntry s 
-					/\ exists entry, lookup kernelStartAddr s.(memory) beqAddr = Some (BE entry)
-							 }}
-MAL.getSCEntryAddrFromKernelStructureStart kernelStartAddr blockidx
-{{ fun scentryaddr s => P s /\ scentryaddr = CPaddr (kernelStartAddr + scoffset + blockidx)
-															(* SCEntryAddr (CPaddr (kernelStartAddr + blockidx)) scentryaddr s*) 
-}}.
-Proof.
-unfold MAL.getSCEntryAddrFromKernelStructureStart.
-	eapply weaken. apply ret.
-	intros. simpl. split. apply H.
-	unfold wellFormedShadowCutIfBlockEntry in H.
-	destruct H. destruct H0.
-	specialize (H0 (CPaddr (kernelStartAddr + blockidx))).
-	destruct H1. reflexivity.
-Qed.
-
-Lemma getSh1EntryAddrFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Prop) : 
-{{fun s => Q s /\ wellFormedFstShadowIfBlockEntry s /\
-					(*/\ P blockentryaddr s /\ *)
-					  KernelStructureStartFromBlockEntryAddrIsBE s
-							/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
-MAL.getSh1EntryAddrFromBlockEntryAddr blockentryaddr
-{{ fun sh1entryaddr s => Q s /\ exists sh1entry : Sh1Entry,
-lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry) 
-/\ sh1entryAddr blockentryaddr sh1entryaddr s
- (*fun (sh1entryaddr : paddr) (s : state) =>
-exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry) /\ 
-Q sh1entryaddr s*)}}.
-Proof.
-unfold MAL.getSh1EntryAddrFromBlockEntryAddr.
-eapply bindRev.
-- eapply weaken. apply readBlockIndexFromBlockEntryAddr.
-	intros. simpl. split. apply H.
-	unfold isBE. destruct (lookup blockentryaddr (memory s) beqAddr).
-	destruct v eqn:V; trivial ; destruct H ; destruct H0 ; destruct H1 ; destruct H2 ; congruence.
-	destruct H. destruct H0. destruct H1. destruct H2. congruence.
-- intro BlockEntryIndex.
-	eapply bindRev. eapply weaken.
-	apply getKernelStructureStartAddr.
-	intros. simpl. split. exact H.
-	intuition.
-	destruct BlockEntryIndex. simpl. trivial.
-	destruct blockentryaddr. simpl. trivial.
-	destruct H5. exists x. split. apply H4.
-	assumption.
-	intro kernelStartAddr.
-	intros.
-	eapply bindRev.
-{ 
-	eapply weaken. apply getSh1EntryAddrFromKernelStructureStart.
-	intros. simpl. split. exact H. split. apply H.
-	intros. split. unfold isBE.
-	intuition. destruct H1. destruct H1. rewrite H1. trivial.
-	intuition. unfold bentryBlockIndex in *. destruct H6. rewrite H5 in H4.
-	intuition.
-}
-(* Preuve : kernelStartAddr + blockindex est BE, donc +sh1offset est SHE
-	blockentryindex < kernelstructurenb dans entryBlockIndex*)
-	intro SHEAddr. eapply weaken. apply ret.
-	intros. simpl. split. apply H.
-	intuition.
-	unfold wellFormedFstShadowIfBlockEntry in *.
-	specialize (H3 blockentryaddr H0).
-	unfold isSHE in *.
-	destruct H2.
-	destruct H2.
-	rewrite H6 in H1.
-	assert (CPaddr (CPaddr (blockentryaddr - BlockEntryIndex) + sh1offset + BlockEntryIndex)
-					= CPaddr (blockentryaddr + sh1offset)).
-	{ admit. }
-	rewrite H8 in H1.
-	rewrite <- H1 in H3.
-	destruct (lookup SHEAddr (memory s) beqAddr). destruct v.
-	exfalso ; congruence.
-	exists s0. split. reflexivity. unfold sh1entryAddr. destruct H7. rewrite H7; trivial. 
-	exfalso ; congruence.
-	exfalso ; congruence.
-	exfalso ; congruence.
-	exfalso ; congruence.
-Admitted.
-
-(* DUP *)
-Lemma getNextAddrFromKernelStructureStart  (kernelStartAddr : paddr) (P : state -> Prop) : 
-{{fun s => P s (*/\ wellFormedNextKSAddrIfKernelStructureStart s *)
-					/\ exists entry, lookup kernelStartAddr s.(memory) beqAddr = Some (BE entry)}}
-MAL.getNextAddrFromKernelStructureStart kernelStartAddr
-{{ fun nextaddr s => P s /\ nextaddr = CPaddr (kernelStartAddr + nextoffset) (*/\ exists entry, lookup nextaddr s.(memory) beqAddr = Some (PADDR entry)
-/\ nextKSAddr nextksaddr nextksaddr s
-/\ nextksaddr = CPaddr (kernelStartAddr + nextoffset)*)}}.
-Proof.
-unfold MAL.getNextAddrFromKernelStructureStart.
-eapply weaken. apply ret.
-intros. simpl. intuition. 
-Qed.*)
-
-(*Lemma getSh1EntryAddrFromBlockEntryAddr  (blockentryaddr : paddr) (Q : paddr -> state -> Prop) : 
-{{fun s => (*wellFormedFstShadowIfBlockEntry s*)
-					(*/\ P blockentryaddr s /\ *)
-					exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
-MAL.getSh1EntryAddrFromBlockEntryAddr blockentryaddr
-{{fun (sh1entryaddr : paddr) (s : state) =>
-(*exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry) /\ *)
-Q sh1entryaddr s}}.
-Proof.
-eapply weaken.
-unfold MAL.getSh1EntryAddrFromBlockEntryAddr.
-eapply bindRev.
-- apply readBlockIndexFromBlockEntryAddr.
-- intro BlockEntryIndex.
-	eapply bindRev.
-	apply getKernelStructureStartAddr.
-	intro kernelStartAddr.
-	eapply bindRev.
-	eapply weaken.
-	apply getSh1EntryAddrFromKernelStructureStart.
-	intros. simpl. destruct H. destruct H0. exists x. apply H0.
-	intro SHEAddr.
-	apply ret.
-- intros. simpl. destruct H as (C0 & (Hentry &Hprop)). (*destruct H.*) exists Hentry. split. 
-	apply Hprop.
-	pose (Htrue := P blockentryaddr s). apply Htrue. Hprop.
-Qed.*)
-
-
-(*
->>>>>>> Stashed changes
-Lemma readSh1PDChildFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Prop)  : 
-{{fun s  =>  Q s /\ consistency s /\ exists entry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)  (*/\ 
-             exists sh1entry, P sh1entry.(PDflag) s *)}}
-MAL.readSh1PDChildFromBlockEntryAddr blockentryaddr
-{{fun pdchild s => Q s (*/\ consistency s*) (*/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)*)
-										/\ exists sh1entry : Sh1Entry, exists sh1entryaddr : paddr, lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry)
-										/\ sh1entryPDchild sh1entryaddr pdchild s}}.
-Proof.
-unfold MAL.readSh1PDChildFromBlockEntryAddr.
-eapply WP.bindRev.
-+   eapply WP.weaken. apply getSh1EntryAddrFromBlockEntryAddr.
-	intros. simpl. unfold consistency in H. split. apply H. split. apply H.
-	split. apply H. intuition.
-+
-	intro sh1entryaddr. simpl. eapply bind.
-	intros. apply ret.
-
-
-	eapply weaken. apply readSh1PDChildFromBlockEntryAddr2.
-	intros. simpl. destruct H. destruct H0. exists x.
-	split. intuition. split. apply H.
-	exists x. exists sh1entryaddr. split. apply H0.
-	apply lookupSh1EntryPDchild. apply H0.
-Qed.
-<<<<<<< Updated upstream
-
-
-=======
-*)
-
-(*
->>>>>>> Stashed changes
-(* DUP *)
-Lemma readSh1PDFlagFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Prop)  : 
-{{fun s  =>  Q s /\ consistency s /\ exists entry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)  (*/\ 
-             exists sh1entry, P sh1entry.(PDflag) s *)}}
-MAL.readSh1PDFlagFromBlockEntryAddr blockentryaddr
-{{fun pdflag s => Q s (*/\ consistency s*) (*/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)*)
-										/\ exists sh1entry : Sh1Entry, exists sh1entryaddr : paddr, lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry)
-										/\ sh1entryPDflag sh1entryaddr pdflag s}}.
-Proof.
-unfold MAL.readSh1PDFlagFromBlockEntryAddr.
-eapply WP.bindRev.
-+   eapply WP.weaken. apply getSh1EntryAddrFromBlockEntryAddr.
-	intros. simpl. unfold consistency in H. split. apply H. split. apply H.
-	split. apply H. intuition.
-+
-	intro sh1entryaddr. simpl. eapply bind.
-	intros. apply ret.
-
-
-	eapply weaken. apply readSh1PDFlagFromBlockEntryAddr2.
-	intros. simpl. destruct H. destruct H0. exists x.
-	split. intuition. split. apply H.
-	exists x. exists sh1entryaddr. split. apply H0.
-	apply lookupSh1EntryPDflag. apply H0.
-Qed.
-
-(* DUP with deeper changes because of lookupSh1EntryInChildLocation *)
-Lemma readSh1InChildLocationFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Prop)  : 
-{{fun s  =>  Q s /\ consistency s /\ exists entry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
-MAL.readSh1InChildLocationFromBlockEntryAddr blockentryaddr
-{{fun inchildlocation s => Q s (*/\ consistency s*) (*/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)*)
-										/\ exists sh1entry : Sh1Entry, exists sh1entryaddr : paddr, lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry)
-										/\ sh1entryInChildLocation sh1entryaddr inchildlocation s}}.
-Proof.
-unfold MAL.readSh1InChildLocationFromBlockEntryAddr.
-eapply WP.bindRev.
-+   eapply WP.weaken. apply getSh1EntryAddrFromBlockEntryAddr.
-	intros. simpl. split. apply H. unfold consistency in H. intuition.
-+
-	intro sh1entryaddr. simpl. eapply bind.
-	intros. apply ret.
-
-
-	eapply weaken. apply readSh1InChildLocationFromBlockEntryAddr2.
-	intros. simpl. destruct H. destruct H0. exists x.
-	split. intuition. split. apply H.
-	exists x. exists sh1entryaddr. split. apply H0.
-	apply lookupSh1EntryInChildLocation. apply H0. intuition.
-Qed.
-*)
-
-(*
-Lemma getSCEntryAddrFromBlockEntryAddr  (blockentryaddr : paddr) (P : state -> Prop) : 
-{{fun s => (*wellFormedFstShadowIfBlockEntry s /\*)
-					(*/\ P blockentryaddr s /\ *)
-					P s /\ wellFormedShadowCutIfBlockEntry s /\ KernelStructureStartFromBlockEntryAddrIsBE s
-					/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)
-							 }}
-MAL.getSCEntryAddrFromBlockEntryAddr blockentryaddr
-{{ fun scentryaddr s => P s /\ exists entry, lookup scentryaddr s.(memory) beqAddr = Some (SCE entry)
-																/\ scentryAddr blockentryaddr scentryaddr s 
-(*/\ exists scentry : SCEntry,
-lookup scentryaddr s.(memory) beqAddr = Some (SCE scentry) *)
- (*fun (sh1entryaddr : paddr) (s : state) =>
-exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry) /\ 
-Q sh1entryaddr s*)}}.
-Proof.
-unfold MAL.getSCEntryAddrFromBlockEntryAddr.
-eapply bindRev.
-{ eapply weaken.
-- apply readBlockIndexFromBlockEntryAddr.
-- intros. cbn. split. exact H. (* NOTE : Important to propagate the whole property *)
-unfold isBE. destruct H. destruct H0. destruct H1. destruct H2. rewrite H2. trivial.
-}
-intro BlockEntryIndex.
-eapply bindRev.
-{ eapply weaken.
-- apply getKernelStructureStartAddr.
-- intros. cbn. split. exact H. intuition.
-	destruct BlockEntryIndex. simpl. trivial.
-	destruct blockentryaddr. simpl. trivial. (* already done in sh1entry*)
-	apply isBELookupEq in H0.
-	destruct H0. exists x. intuition.
-}
-intro kernelStartAddr. simpl.
-eapply bindRev.
-{
-	eapply weaken.  apply getSCEntryAddrFromKernelStructureStart.
-	intros. simpl. split. apply H. intuition.
-	intuition. destruct H1. exists x. apply H1.
-}
-
-
-
-(*
-assert(
-{{fun s => (*wellFormedFstShadowIfBlockEntry s /\*)
-					(*/\ P blockentryaddr s /\ *)
-					P s /\ wellFormedShadowCutIfBlockEntry s 
-					/\ exists entry, lookup kernelStartAddr s.(memory) beqAddr = Some (BE entry)
-							 }}
-MAL.getSCEntryAddrFromKernelStructureStart kernelStartAddr
-{{ fun scentryaddr s => P s /\ SCEntryAddr kernelStartAddr scentryaddr s }}).
-{	
-	unfold MAL.getSCEntryAddrFromKernelStructureStart.
-	eapply weaken. apply ret.
-	intros. simpl. split. apply H.
-	unfold wellFormedShadowCutIfBlockEntry in H.
-	destruct H. destruct H0.
-	specialize (H0 kernelStartAddr).
-	unfold isBE in H0. destruct H1.
-	rewrite H1 in H0. destruct H0 ; trivial.
-	unfold SCEntryAddr.
-	rewrite H1. reflexivity.
- }
-
-eapply weaken. apply H.
-
-	intros. simpl. split.  apply H0. split. apply H0.
-	destruct H0. destruct H1. exists x. exact H1.
-}*)
-	intro SCEAddr.
-	eapply weaken. apply ret.
-	intros. simpl.
-	split. apply H.
-	intuition.
-	rewrite H1. destruct H2. destruct H2.
-	unfold scentryAddr.
-	destruct H7.
-	rewrite H7.
-	rewrite H6.
-	unfold wellFormedShadowCutIfBlockEntry in *.
-	specialize (H3 blockentryaddr H0).
-	destruct H3. destruct H3.
-	apply isSCELookupEq in H3.
-	destruct H3. exists x2.
-	assert (CPaddr (CPaddr (blockentryaddr - BlockEntryIndex) + scoffset + BlockEntryIndex)
-					= CPaddr (blockentryaddr + scoffset)).
-	{ admit. }
-	split. subst.
-	rewrite H9. assumption.
-	assumption.
-	
-Admitted.*)
-	
-(*
-	unfold MAL.getSCEntryAddrFromKernelStructureStart.
-		apply ret.
-intros. simpl.
-	intuition.
-	destruct H. apply H. destruct H. destruct H. destruct H2.
-	unfold wellFormedShadowCutIfBlockEntry in *.
-	specialize (H2 kernelStartAddr).
-	unfold isBE in H2.
-	destruct H1.
-	rewrite H1 in H2.
-	destruct H2 ; trivial.
-	destruct H2. rewrite <- H5.
-	apply isSCELookupEq in H2. assumption.
-
-(*
-	eapply bindRev.
-{ eapply weaken.
-	unfold MAL.getSCEntryAddrFromKernelStructureStart.
-		apply ret.
-	intros. simpl.
-	intuition.
-	destruct H3. destruct H2.
-	unfold wellFormedShadowCutIfBlockEntry in *.
-	specialize (H3 kernelStartAddr).
-	unfold isBE in H3.
-	destruct H1.
-	rewrite H1 in H3.
-	destruct H3 ; trivial.
-	destruct H3. rewrite <- H5. exact H3.
-}
-intro SCEAddr.
-	eapply weaken. apply ret.
-	intros. simpl. split. exact (P s). unfold isSCE in *.
-
-
-
-apply getSCEntryAddrFromKernelStructureStart.
-	intros. cbn. destruct H. destruct H0. exists x.
- 	split. assumption.
-
-		unfold wellFormedShadowCutIfBlockEntry in *.
-		specialize H with (entry := x).
-specialize H with (pa := kernelStartAddr).
-	
-	destruct H as ((Hprop&HSCE) & Hidx) eqn:HFull.
-
-
-	
-	destruct HSCE as (be&(HBE&HSCE'')).
-	unfold wellFormedShadowCutIfBlockEntry in HSCE''.
-	specialize (HSCE'' kernelStartAddr).
-	unfold isBE in H3.
-	rewrite H0 in H3. destruct H3. trivial.
-	destruct H3. rewrite <- H5.
-	pose (Hprop := H0 /\ H2 /\ H1 /\ H4 /\ H3 /\ H5).
-
-exact H3.
-}
-	intro SCEAddr.
-	eapply weaken. apply ret.
-	intros. simpl. split. exact P. unfold isSCE in *.
-
-
-
-eapply bind. intro BlockEntryIndex.
-eapply bind. intro kernelStartAddr.
-eapply bind. intro SCEAddr.
-apply ret.
-eapply weaken.
-apply WP.getSCEntryAddrFromKernelStructureStart.
-intros. cbn. exact H.
-eapply weaken. 
- apply WP.getKernelStructureStartAddr.
-
-2 : { intros. exact H. }
-
-
-eapply getKernelStructureStartAddr.
-
-eapply bindRev.
-- eapply weaken. apply readBlockIndexFromBlockEntryAddr.
-	intros. simpl. destruct H. destruct H0. exists x. split. apply H0.
-	apply H.
-	unfold isBE. destruct (lookup blockentryaddr (memory s) beqAddr).
-	destruct v eqn:V; trivial; destruct H ; destruct H0 ;destruct H1 ; congruence.
-	destruct H. destruct H0. destruct H1. congruence.
-- intro BlockEntryIndex.
-	eapply bindRev.
-	apply getKernelStructureStartAddr.
-	intro kernelStartAddr.
-	eapply bind.
-	intros. apply ret.
-	eapply weaken.
-	unfold MAL.getSh1EntryAddrFromKernelStructureStart.
-	apply ret.
-	intros. simpl.
-	split. apply H.
-	intuition.
-	unfold wellFormedFstShadowIfBlockEntry in H0.
-	unfold isBE in H0.
-	unfold isSHE in H0.
-	destruct H1.
-	pose proof (H0 kernelStartAddr). destruct (lookup kernelStartAddr (memory s) beqAddr) eqn:Hlookup in H3.
-	destruct v eqn:Hv in H3. simpl in H3. destruct H3. trivial.
-	destruct H3. destruct (lookup x0 (memory s) beqAddr) eqn:Hlookup' in H3.
-	destruct v0 eqn:Hv' in H3.
-	exfalso ; congruence.
-	exists s0. rewrite <- H5. rewrite -> Hlookup'. rewrite -> Hv'. reflexivity.
-	repeat exfalso ; congruence.
-	exfalso ; congruence.
-	exfalso ; congruence.
-	exfalso ; congruence.
-	exfalso ; congruence.
-	exfalso ; congruence.
-	exfalso ; congruence.
-	exfalso ; congruence.
-	exfalso ; congruence.*)
-Qed.*)
-
-
-(*Lemma writeSCOriginFromBlockEntryAddr  (entryaddr : paddr) (neworigin : ADT.paddr)  (P : state -> Prop) :
-{{fun s => P s /\ exists entry : BlockEntry,
-  lookup entryaddr (memory s) beqAddr = Some (BE entry) /\
-  wellFormedShadowCutIfBlockEntry s}}
-writeSCOriginFromBlockEntryAddr entryaddr neworigin  {{fun _ s => P s}}.
-Proof.
-
-unfold writeSCOriginFromBlockEntryAddr.
-eapply bindRev.
-{ eapply weaken. apply getSCEntryAddrFromBlockEntryAddr.
-	intros. simpl. split. exact H.
-	destruct H. destruct H0. exists x. apply H0.
-}
-	intro SCEAddr.
-{
-	eapply weaken. apply WP.writeSCOriginFromBlockEntryAddr2. apply SCEAddr.
-	intros. simpl. destruct H. destruct H0. exists x.
-
-	apply H3.
-	assumption.
-eapply H2. 
-	specialize (H2 x SCEAddr).
-destruct H2.
-	destruct H2. destruct H2. apply H3.
-	specialize (H2 SCEAddr). intuition.
-}*)
-
-(*
-Lemma readSCOriginFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Prop)  : 
-{{fun s  =>  Q s /\ consistency s /\ exists entry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
-MAL.readSCOriginFromBlockEntryAddr blockentryaddr
-{{fun origin s => Q s (*/\ consistency s*) (*/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)*)
-										/\ exists scentry : SCEntry, exists scentryaddr : paddr, lookup scentryaddr s.(memory) beqAddr = Some (SCE scentry)
-										/\ scentryOrigin scentryaddr origin s}}.
-Proof.
-unfold MAL.readSCOriginFromBlockEntryAddr.
-eapply WP.bindRev.
-+   eapply WP.weaken. apply getSCEntryAddrFromBlockEntryAddr.
-	intros. simpl. unfold consistency in H. split. apply H. split. apply H.
-	split. apply H. intuition.
-+
-	intro scentryaddr. simpl. eapply bind.
-	intros. apply ret.
-	eapply weaken. apply readSCOriginFromBlockEntryAddr2.
-	intros. simpl. destruct H. destruct H0. exists x.
-	split. intuition. split. apply H.
-	exists x. exists scentryaddr. split. apply H0.
-	apply lookupSCEntryOrigin. apply H0.
-Qed.
-*)
-
-Lemma writeSCOriginFromBlockEntryAddr  (entryaddr : paddr) (neworigin : ADT.paddr)  (P : unit -> state -> Prop) :
-{{fun  s => (*exists blockentry , lookup entryaddr s.(memory) beqAddr = Some (BE blockentry) /\*)
-						isBE entryaddr s 
-						/\ wellFormedShadowCutIfBlockEntry s
-						/\ KernelStructureStartFromBlockEntryAddrIsBE s
-						(*exists entry , exists scentryaddr, lookup scentryaddr s.(memory) beqAddr = Some (SCE entry) /\ *)
-/\ exists entry , lookup (CPaddr (entryaddr + scoffset)) s.(memory) beqAddr = Some (SCE entry) /\
-P tt {|
-  currentPartition := currentPartition s;
-  memory := add (CPaddr (entryaddr + scoffset))
-              (SCE {| origin := neworigin ; next := entry.(next) |})
-              (memory s) beqAddr |} }}
-writeSCOriginFromBlockEntryAddr entryaddr neworigin  {{P}}.
-Proof.
-unfold MAL.writeSCOriginFromBlockEntryAddr.
-eapply bindRev.
-{ eapply weaken. apply getSCEntryAddrFromBlockEntryAddr.
-	intros. simpl. split. apply H. intuition.
- apply isBELookupEq in H0 ;trivial.
-}
-	intro SCEAddr.
-{ cbn. eapply weaken. eapply WP.writeSCOriginFromBlockEntryAddr2.
-	cbn.
-	intros. simpl. destruct H.
-	intuition.
-	unfold scentryAddr in H0.
-	apply isBELookupEq in H1. destruct H1.
-	rewrite H1 in H0.
-	destruct H0. destruct H0.
-	subst.
-	assumption.
-}
-Qed.
-
-
-(* DUP with changes in scentryNext + lookupSCEntryNext + changes of function names*)
-(*Lemma readSCNextFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Prop)  : 
-{{fun s  =>  Q s /\ consistency s /\ exists entry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
-MAL.readSCNextFromBlockEntryAddr blockentryaddr
-{{fun next s => Q s (*/\ consistency s*) (*/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)*)
-										/\ exists scentry : SCEntry, exists scentryaddr : paddr, lookup scentryaddr s.(memory) beqAddr = Some (SCE scentry)
-										/\ scentryNext scentryaddr next s}}.
-Proof.
-unfold MAL.readSCNextFromBlockEntryAddr.
-eapply WP.bindRev.
-+   eapply WP.weaken. apply getSCEntryAddrFromBlockEntryAddr.
-	intros. simpl. unfold consistency in H. split. apply H. split. apply H.
-	split. apply H. intuition.
-+
-	intro scentryaddr. simpl. eapply bind.
-	intros. apply ret.
-	eapply weaken. apply readSCNextFromBlockEntryAddr2.
-	intros. simpl. destruct H. destruct H0. exists x.
-	split. intuition. split. apply H.
-	exists x. exists scentryaddr. split. apply H0.
-	apply lookupSCEntryNext. apply H0.
-Qed.*)
-
-
 Lemma writeSh1PDChildFromBlockEntryAddr (blockentryaddr pdchild : paddr)  (P : unit -> state -> Prop) :
 {{fun  s => (*exists blockentry , lookup entryaddr s.(memory) beqAddr = Some (BE blockentry) /\*)
 						 exists entry , lookup (CPaddr (blockentryaddr + sh1offset)) s.(memory) beqAddr = Some (SHE entry) /\
@@ -3129,31 +1515,6 @@ eapply bindRev.
 }
 Qed.
 
-
-(*
-Lemma readSh1PDFlagFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Prop) : 
-{{fun s  =>  Q s /\ consistency s /\ exists entry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)  (*/\ 
-             exists sh1entry, P sh1entry.(PDflag) s *)}}
-MAL.readSh1PDFlagFromBlockEntryAddr blockentryaddr
-{{fun isPD s => Q s (*/\ consistency s*) (*/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)*)
-										/\ exists sh1entry : Sh1Entry, exists sh1entryaddr : paddr, lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry)
-										/\ entryPDFlag sh1entryaddr isPD s}}.
-Proof.
-unfold MAL.readSh1PDFlagFromBlockEntryAddr.
-eapply WP.bindRev.
-+   eapply WP.weaken. apply getSh1EntryAddrFromBlockEntryAddr.
-	intros.  intuition. unfold consistency in H. apply H. apply H0.
-+
-	intro sh1entryaddr. simpl. eapply bind.
-	intros. apply ret.
-
-
-	eapply weaken. apply readSh1PDFlagFromBlockEntryAddr2.
-	intros. simpl. destruct H. destruct H0. exists x.
-	split. intuition. split. apply H.
-	exists x. exists sh1entryaddr. split. apply H0.
-	apply lookupEntryPDFlag. apply H0.
-Qed.*)
 
 (* DUP*)
 Lemma writeSh1InChildLocationFromBlockEntryAddr (blockentryaddr newinchildlocation : paddr)  (P : unit -> state -> Prop) :
@@ -3191,31 +1552,6 @@ eapply bindRev.
 }
 Qed.
 
-
-(*
-Lemma readSCOriginFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Prop)  : 
-{{fun s  =>  Q s /\ consistency s /\ exists entry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
-MAL.readSCOriginFromBlockEntryAddr blockentryaddr
-{{fun origin s => Q s (*/\ consistency s*) (*/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)*)
-										/\ exists scentry : SCEntry, exists scentryaddr : paddr, lookup scentryaddr s.(memory) beqAddr = Some (SCE scentry)
-										/\ scentryOrigin scentryaddr origin s}}.
-Proof.
-unfold MAL.readSCOriginFromBlockEntryAddr.
-eapply WP.bindRev.
-+   eapply WP.weaken. apply getSCEntryAddrFromBlockEntryAddr.
-	intros. simpl. unfold consistency in H. split. apply H. split. apply H.
-	split. apply H. intuition.
-+
-	intro scentryaddr. simpl. eapply bind.
-	intros. apply ret.
-	eapply weaken. apply readSCOriginFromBlockEntryAddr2.
-	intros. simpl. destruct H. destruct H0. exists x.
-	split. intuition. split. apply H.
-	exists x. exists scentryaddr. split. apply H0.
-	apply lookupSCEntryOrigin. apply H0.
-Qed.*)
-
-(*
 Lemma writeSCOriginFromBlockEntryAddr  (entryaddr : paddr) (neworigin : ADT.paddr)  (P : unit -> state -> Prop) :
 {{fun  s => (*exists blockentry , lookup entryaddr s.(memory) beqAddr = Some (BE blockentry) /\*)
 						isBE entryaddr s 
@@ -3248,77 +1584,10 @@ eapply bindRev.
 	subst.
 	assumption.
 }
-Qed.*)
-
-(*
-(* DUP with changes in scentryNext + lookupSCEntryNext + changes of function names*)
-Lemma readSCNextFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Prop)  : 
-{{fun s  =>  Q s /\ consistency s /\ exists entry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
-MAL.readSCNextFromBlockEntryAddr blockentryaddr
-{{fun next s => Q s (*/\ consistency s*) (*/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)*)
-										/\ exists scentry : SCEntry, exists scentryaddr : paddr, lookup scentryaddr s.(memory) beqAddr = Some (SCE scentry)
-										/\ scentryNext scentryaddr next s}}.
-Proof.
-unfold MAL.readSCNextFromBlockEntryAddr.
-eapply WP.bindRev.
-+   eapply WP.weaken. apply getSCEntryAddrFromBlockEntryAddr.
-	intros. simpl. unfold consistency in H. split. apply H. split. apply H.
-	split. apply H. intuition.
-+
-	intro scentryaddr. simpl. eapply bind.
-	intros. apply ret.
-	eapply weaken. apply readSCNextFromBlockEntryAddr2.
-	intros. simpl. destruct H. destruct H0. exists x.
-	split. intuition. split. apply H.
-	exists x. exists scentryaddr. split. apply H0.
-	apply lookupSCEntryNext. apply H0.
-Qed.*)
-
-(*
->>>>>>> Stashed changes
-Lemma readNextFromKernelStructureStart (structurepaddr : paddr) (P : state -> Prop)  : 
-{{fun s  =>  P s (*/\ consistency s /\*) /\ NextKSOffsetIsPADDR s /\
-						isKS structurepaddr s
-						(*isPADDR (CPaddr (structurepaddr + nextoffset)) s*)
-             }}
-MAL.readNextFromKernelStructureStart structurepaddr
-{{fun nextkernelstructure s => P s 
-																/\ exists offset, (offset = CPaddr (structurepaddr + nextoffset)
-																/\ nextKSAddr offset nextkernelstructure s)
- (*/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)*)
-										(*/\ nextKSAddr nextaddr nextkernelstructure s*)}}.
-Proof.
-unfold MAL.readNextFromKernelStructureStart.
-eapply WP.bindRev.
-+   eapply WP.weaken. apply getNextAddrFromKernelStructureStart.
-	intros. simpl. split. apply H. intuition. apply isKSLookupEq in H2.
-	assumption.
-+ intro nextaddr. (*
-	eapply bindRev.
-	{ eapply weaken. apply readNextFromKernelStructureStart2.
-		intros. simpl.*)
-simpl. eapply bind.
-	intros. apply ret.
-
-
-	eapply weaken. apply readNextFromKernelStructureStart2.
-	intros. simpl. intuition. subst.
-	 unfold NextKSOffsetIsPADDR in H0.
-	specialize (H0 structurepaddr (CPaddr (structurepaddr + nextoffset)) H3).
-	intuition. unfold isPADDR in H2.
-
-	destruct (lookup (CPaddr (structurepaddr + nextoffset)) (memory s) beqAddr) eqn:Hlookup ; intuition.
-	destruct v eqn:Hv ; intuition.
-	exists p. intuition. subst. 
-	eexists. intuition. unfold nextKSAddr. rewrite Hlookup ; trivial.
-<<<<<<< Updated upstream
 Qed.
-=======
-Qed.*)
 
 Lemma checkEntry  (kernelstructurestart blockentryaddr : paddr) (P :  state -> Prop) :
 {{fun s => P s
-
 (*/\ exists bentry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE bentry)*) }}
 MAL.checkEntry kernelstructurestart blockentryaddr
 {{fun isValidentry s => P s /\ (isValidentry = true -> isBE blockentryaddr s)}}.
@@ -3329,3 +1598,82 @@ unfold entryExists in *. unfold isBE.
 destruct (lookup blockentryaddr (memory s) beqAddr) eqn:Hlookup.
 destruct v eqn:Hv ; trivial ; intuition. intuition.
 Qed.
+
+Lemma checkBlockInRAM  (blockentryaddr : paddr) (P :  state -> Prop) :
+{{fun s => P s /\ isBE blockentryaddr s}}
+MAL.checkBlockInRAM blockentryaddr
+{{fun isblockinram s => P s /\ isBlockInRAM blockentryaddr isblockinram s}}.
+Proof.
+eapply weaken. apply checkBlockInRAM.
+intros.  simpl. intuition.
+apply isBELookupEq in H1. destruct H1. exists x. intuition.
+unfold isBlockInRAM in *. rewrite H.
+unfold blockInRAM in *. rewrite H.
+reflexivity.
+Qed.
+
+Lemma writePDFirstFreeSlotPointer (pdtablepaddr firstfreeslotpaddr : paddr) :
+{{fun s => isPDT pdtablepaddr s /\
+					partitionsIsolation s   (*/\ kernelDataIsolation s*) /\ verticalSharing s
+					/\ consistency s}}
+MAL.writePDFirstFreeSlotPointer pdtablepaddr firstfreeslotpaddr
+{{fun tt s => (*P s /\ *)
+exists entry , lookup pdtablepaddr s.(memory) beqAddr = Some (PDT entry)
+/\ s = {|
+  currentPartition := currentPartition s;
+  memory := add pdtablepaddr
+              (PDT {| structure := entry.(structure);
+											firstfreeslot := firstfreeslotpaddr;
+											nbfreeslots := entry.(nbfreeslots);
+                     	nbprepare := entry.(nbprepare);
+											parent := entry.(parent);
+											MPU := entry.(MPU) ; vidtBlock := entry.(vidtBlock) |})
+              (memory s) beqAddr |}
+/\ partitionsIsolation s   (*/\ kernelDataIsolation s*) /\ verticalSharing s
+					/\ consistency s  }}.
+Proof.
+admit.
+Admitted.
+
+Lemma writePDNbFreeSlots (pdtablepaddr : paddr) (nbfreeslots : index) :
+{{fun s => isPDT pdtablepaddr s /\
+					partitionsIsolation s   (*/\ kernelDataIsolation s*) /\ verticalSharing s
+					/\ consistency s}}
+MAL.writePDNbFreeSlots pdtablepaddr nbfreeslots
+{{fun tt s => (*P s /\ *)
+exists entry , lookup pdtablepaddr s.(memory) beqAddr = Some (PDT entry)
+/\ s = {|
+  currentPartition := currentPartition s;
+  memory := add pdtablepaddr
+              (PDT {| structure := entry.(structure);
+											firstfreeslot := entry.(firstfreeslot);
+											nbfreeslots := nbfreeslots;
+                    	nbprepare := entry.(nbprepare);
+											parent := entry.(parent);
+											MPU := entry.(MPU) ; vidtBlock := entry.(vidtBlock) |})
+              (memory s) beqAddr |}
+/\ partitionsIsolation s   (*/\ kernelDataIsolation s*) /\ verticalSharing s
+					/\ consistency s  }}.
+Proof.
+admit.
+Admitted.
+
+Lemma writeBlockStartFromBlockEntryAddr (entryaddr newstartaddr : paddr) :
+{{fun s => isBE entryaddr s /\
+					partitionsIsolation s   (*/\ kernelDataIsolation s*) /\ verticalSharing s
+					/\ consistency s}}
+MAL.writeBlockStartFromBlockEntryAddr entryaddr newstartaddr
+{{fun tt s => (*P s /\ *)
+exists entry , lookup entryaddr s.(memory) beqAddr = Some (BE entry)
+/\ s = {|
+  currentPartition := currentPartition s;
+  memory := add entryaddr
+								(BE (CBlockEntry 	entry.(read) entry.(write) entry.(exec)
+																	entry.(present) entry.(accessible)
+																	entry.(blockindex) (CBlock newstartaddr entry.(blockrange).(endAddr))))
+              (memory s) beqAddr |}
+/\ partitionsIsolation s   (*/\ kernelDataIsolation s*) /\ verticalSharing s
+					/\ consistency s  }}.
+Proof.
+admit.
+Admitted.
