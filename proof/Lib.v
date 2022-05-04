@@ -31,24 +31,24 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary 
+(** * Summary
       This file contains some generic lemmas used by invariants **)
-Require Import List Omega Coq.Logic.Classical_Prop Model.Lib.
+Require Import Lia List Coq.Logic.Classical_Prop Model.Lib.
 Import List.ListNotations.
 
 Lemma NoDupSplit (A: Type) :
-forall l l': list A , 
+forall l l': list A ,
 NoDup (l++l') -> NoDup l /\ NoDup l'.
-Proof. 
+Proof.
 intros.
-split. 
- + induction l'. 
+split.
+ + induction l'.
    rewrite app_nil_r in H.
    assumption.
    apply IHl'.
    apply NoDup_remove_1 in H.
    assumption.
- + induction l'. 
+ + induction l'.
    apply NoDup_nil.
    assert (NoDup (l ++ a :: l')). assumption.
    apply NoDup_remove_2 in H.
@@ -61,23 +61,23 @@ split.
    assumption.
 Qed.
 
-Definition disjoint {A : Type} (l1 l2 : list A) : Prop := 
-forall x : A,  In x l1  -> ~ In x l2 . 
+Definition disjoint {A : Type} (l1 l2 : list A) : Prop :=
+forall x : A,  In x l1  -> ~ In x l2 .
 
 Lemma NoDupSplitInclIff (A: Type) :
-forall l l': list A , 
+forall l l': list A ,
 NoDup (l++l') <-> (NoDup l /\ NoDup l') /\ disjoint l l'.
-Proof. 
+Proof.
 intros.
-split.   
+split.
  + intros. split.
    -  apply NoDupSplit; trivial.
    - unfold disjoint. intros.
-     revert x l H H0. 
+     revert x l H H0.
      induction l'; intros.
      unfold not. intros. now contradict H1.
      simpl.
-     apply and_not_or. 
+     apply and_not_or.
      split.
      unfold not. intros. subst.
      unfold not in *.
@@ -105,7 +105,7 @@ split.
      now contradict H0.
      unfold disjoint in *.
      apply NoDup_cons_iff in H.
-     
+
      destruct H.
      contradict H0.
      apply H2.
@@ -116,11 +116,11 @@ split.
      unfold disjoint in *.
      intros.
      apply H1.
-     simpl; right; trivial.          
+     simpl; right; trivial.
 Qed.
-Lemma inclDisjoint (A : Type) (l l' l1 l2 : list A): 
+Lemma inclDisjoint (A : Type) (l l' l1 l2 : list A):
 disjoint l l'  -> incl l1 l -> incl l2 l' -> disjoint l1 l2.
-Proof. 
+Proof.
 intros.
 unfold disjoint in *.
 intros.
@@ -143,7 +143,7 @@ case_eq (eq_dec a0 a);intros.
 subst.
 now contradict H.
 f_equal.
-apply IHl;trivial.  
+apply IHl;trivial.
 Qed.
 
 Lemma removeIncl (A :Type) (eq_dec : forall x y : A, {x = y} + {x <> y}):
@@ -170,7 +170,7 @@ unfold incl in *.
 assert(a = a1 \/ a <> a1).
 { destruct eq_dec with a a1.
   left;trivial.
-  right;trivial. } 
+  right;trivial. }
 destruct H1.
 left;trivial.
 right.
@@ -184,14 +184,14 @@ contradiction.
 trivial.
 Qed.
 
-Lemma removeNoDup 
+Lemma removeNoDup
 (A :Type) (eq_dec : forall x y : A, {x = y} + {x <> y}):
 forall l a,NoDup l ->  NoDup (remove eq_dec a l).
 Proof.
 induction l;simpl;intros.
 + constructor.
 + apply NoDup_cons_iff  in H.
-  destruct H. 
+  destruct H.
   case_eq (eq_dec a0 a);intros.
   subst.
   apply IHl;trivial.
@@ -212,7 +212,7 @@ induction l;simpl;intros.
 + contradiction.
 + f_equal.
   destruct H0.
-  subst. 
+  subst.
   destruct (eq_dec a0 a0);intros.
   assert(~ In a0 l).
    apply NoDup_cons_iff  in H.
@@ -283,7 +283,7 @@ apply IHl';trivial.
 Qed.
 
 Lemma  removeStillInIncl (A :Type) (eq_dec : forall x y : A, {x = y} + {x <> y}):
-forall v a : A , forall l l1 l' : list A, v <> a -> remove eq_dec a l' = l -> 
+forall v a : A , forall l l1 l' : list A, v <> a -> remove eq_dec a l' = l ->
 incl l1 l' -> In v l1 -> In v l.
 Proof.
 intros.
@@ -295,23 +295,23 @@ Qed.
 
 Lemma addLengthIn (A : Type) (eq_dec : forall x y : A, {x = y} + {x <> y}) :
 forall l' l, forall x b : A,
-length l' = S (length l)  -> 
-incl l l' -> 
-x <> b -> 
-In x l' -> 
-~ In x l -> 
+length l' = S (length l)  ->
+incl l l' ->
+x <> b ->
+In x l' ->
+~ In x l ->
 In b l' ->
-NoDup l -> 
-NoDup l' -> 
+NoDup l ->
+NoDup l' ->
 In b l.
 Proof.
 induction l';simpl;intros.
-+ omega.
++ lia.
 + destruct H2;subst;destruct H4;subst.
   - now contradict H1.
   - destruct l. simpl in *.
     * assert(length l' = 0).
-      omega.
+      lia.
       apply length_zero_iff_nil in H4.
       subst.
       now contradict H2.
@@ -323,7 +323,7 @@ induction l';simpl;intros.
         destruct H3.
         assert(x = a \/ In a l').
         apply H0;clear H0.
-        left;trivial. 
+        left;trivial.
         destruct H7.
         subst.
         now contradict H3.
@@ -338,24 +338,24 @@ induction l';simpl;intros.
         assert(a0 <> x).
         unfold not;intros.
         subst.
-        now contradict H4.  
+        now contradict H4.
         assert(x = a0 \/ In a0 l').
         apply H0;trivial.
         right;trivial.
         destruct H9;subst.
         now contradict H7.
         trivial. }
-      subst.  
+      subst.
       simpl.
       assert(a=b \/ a <> b).
       { destruct eq_dec with a b.
         left;trivial.
-        right;trivial. } 
+        right;trivial. }
       destruct H7.
-      left;trivial. 
+      left;trivial.
       right.
       simpl in *.
-      inversion H. 
+      inversion H.
       apply Classical_Prop.not_or_and in H3.
       destruct H3.
       assert (incl l l').
@@ -394,7 +394,7 @@ induction l';simpl;intros.
       intuition. }
     destruct H4 ;trivial.
     contradict H3.
-    assert(incl l l').  
+    assert(incl l l').
     unfold incl in H0.
     unfold incl.
     intros.
@@ -413,7 +413,7 @@ induction l';simpl;intros.
     destruct l.
     { simpl in *.
       assert(length l' = 0).
-      omega.
+      lia.
       apply length_zero_iff_nil in H0.
       subst.
       now contradict H2. }
@@ -430,14 +430,14 @@ induction l';simpl;intros.
       unfold incl in H3.
       apply H3.
       simpl;right;trivial. }
-    subst.  
+    subst.
     simpl.
     assert(a=b \/ a <> b).
     { destruct eq_dec with a b.
       left;trivial.
       right;trivial. }
     destruct H4.
-    left;trivial. 
+    left;trivial.
     right.
     simpl in *.
     inversion H.
@@ -458,9 +458,9 @@ induction l';simpl;intros.
     unfold incl in H0.
     apply H0;simpl;left;trivial.
     apply NoDup_cons_iff  in H5.
-    destruct H5;trivial.  
+    destruct H5;trivial.
     apply NoDup_cons_iff  in H5.
-    destruct H5;trivial. 
+    destruct H5;trivial.
     apply NoDup_cons_iff  in H6.
     destruct H6;trivial.
   - inversion H.
@@ -509,7 +509,7 @@ induction l';simpl;intros.
       unfold incl.
       intros.
       unfold incl in *.
-      simpl in *. 
+      simpl in *.
       assert( a = a0 \/ In a0 l').
       apply H0.
       apply H11;trivial.
@@ -518,7 +518,7 @@ induction l';simpl;intros.
       contradict H12.
       apply remove_In.
       trivial.
-      subst.      
+      subst.
       assert(incl (remove eq_dec a l) l).
       { apply removeIncl. }
       unfold incl in H10.
@@ -535,11 +535,11 @@ induction l';simpl;intros.
       { apply removeIncl. }
       subst.
       unfold incl in H11.
-      apply H11;trivial.  
+      apply H11;trivial.
     * destruct l.
-      simpl in *. 
+      simpl in *.
       assert(length l' = 0).
-      omega.
+      lia.
       apply length_zero_iff_nil in H9.
       subst.
       now contradict H2.
@@ -599,7 +599,7 @@ f_equal.
 Qed.
 
 Lemma disjointPermut(A : Type) :
-forall l1 l2 : list A, 
+forall l1 l2 : list A,
 disjoint l1 l2 -> disjoint l2 l1.
 Proof.
 unfold disjoint.
@@ -624,7 +624,7 @@ apply H.
 right;trivial.
 Qed.
 
- Lemma length_diff (A : Type): 
+ Lemma length_diff (A : Type):
  forall (l1 l2 :list A), length l1 <> length l2 -> l1 <> l2.
  Proof.
  induction l1; simpl.
@@ -637,21 +637,21 @@ Qed.
  unfold not;intros.
  rewrite <- H0 in H.
  simpl in *.
- omega.
+ lia.
  Qed.
- 
+
 Lemma app_cons_not (A : Type) :
 forall (l1 : list A) l2 a, l1 ++ a :: l2 <> l1 ++ l2.
 Proof.
  intros. unfold not;intros.
  assert(l1 ++ [a] ++ l2 = l1 ++ l2).
  simpl. trivial.
- clear H. 
+ clear H.
  assert(length ( l1 ++ [a] ++ l2) =1+ length (l1 ++ l2)).
  do 3 rewrite app_length.
  simpl.
- omega.
+ lia.
  contradict H0.
  apply length_diff.
- omega.
-Qed. 
+ lia.
+Qed.
