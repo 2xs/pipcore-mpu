@@ -31,15 +31,92 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary 
-    This file contains the invariant of [removeVAddr]. 
+(** * Summary
+    This file contains the invariant of [readMPU].
     We prove that this PIP service preserves the isolation property *)
-Require Import Model.ADT Model.Hardware Core.Services Isolation Consistency.
 
-Lemma removeVAddr   (descChild : vaddr) (vaChild : vaddr) :
-{{fun s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }} 
-removeVAddr descChild vaChild 
+Require Import Model.ADT Core.Services.
+Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPreconditions
+Proof.StateLib Proof.DependentTypeLemmas.
+Require Import Invariants getGlobalIdPDCurrentOrChild findBlockInKS.
+Require Import Compare_dec Bool.
+
+Require Import Model.Monad Model.MALInternal Model.Lib (* for visibility *).
+
+Module WP := WeakestPreconditions.
+
+Lemma readMPU (idPD: paddr) (MPURegionNb : index) :
+{{fun s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}
+Services.readMPU idPD MPURegionNb
 {{fun _ s  => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}.
 Proof.
-(** TODO : To be proved *)
-Admitted.
+unfold Services.readMPU.
+eapply bindRev.
+{ (** getCurPartition **)
+	eapply weaken. apply getCurPartition.
+	intros. simpl. split. apply H. intuition.
+}
+intro currentPart.
+eapply bindRev.
+{ (** Internal.getGlobalIdPDCurrentOrChild **)
+	eapply weaken. apply getGlobalIdPDCurrentOrChild.
+	intros. simpl. split. apply H. intuition.
+}
+intro globalIdPD.
+eapply bindRev.
+{ (** compareAddrToNull **)
+	eapply weaken. apply Invariants.compareAddrToNull.
+	intros. simpl. apply H.
+}
+intro addrIsNull.
+case_eq addrIsNull.
+- (* case_eq addrIsNull = true *)
+	intros.
+	{ (** ret *)
+	eapply weaken. apply WP.ret.
+  simpl. intros. intuition.
+	}
+- (* case_eq addrIsNull = false *)
+	intros.
+	eapply bindRev.
+	{ (** zero **)
+		eapply weaken. apply Invariants.Index.zero.
+		intros. simpl. apply H0.
+	}
+	intro zero.
+	eapply bindRev.
+	{ (** ltb **)
+		eapply weaken. apply Invariants.Index.ltb.
+		intros. simpl. apply H0.
+	}
+	intro isBelowZero.
+	eapply bindRev.
+	{ (** getMPURegionsNb **)
+		eapply weaken. apply Invariants.getMPURegionsNb.
+		intros. simpl. apply H0.
+	}
+	intro maxMPURegions.
+	eapply bindRev.
+	{ (** leb **)
+		eapply weaken. apply Invariants.Index.leb.
+		intros. simpl. apply H0.
+	}
+	intro isAboveMPURegionsNb.
+	case_eq (isBelowZero || isAboveMPURegionsNb).
+	+ (* case_eq (isBelowZero || isAboveMPURegionsNb) = true *)
+		intros.
+		{ (** ret *)
+			eapply weaken. apply WP.ret.
+			simpl. intros. apply H1.
+		}
+	+ (* case_eq (isBelowZero || isAboveMPURegionsNb) = false *)
+		intros.
+		(* the invariant to apply has stronger post-condition than required *)
+		eapply strengthen.
+		{ (** MAL.readBlockFromPhysicalMPU **)
+			eapply weaken. apply readBlockFromPhysicalMPU.
+			intros. simpl. split. apply H1. intuition.
+			apply H10. rewrite <- beqAddrFalse in *. congruence.
+		}
+		intros. intuition; intuition.
+Qed.

@@ -32,21 +32,21 @@
 (*******************************************************************************)
 
 
-(** * Summary 
-    This file contains the formalization of the consistency properties : 
+(** * Summary
+    This file contains the formalization of the consistency properties :
 for each one we summarize the description of its definition *)
-Require Import Model.ADT Model.Monad Model.MAL Model.Lib Lib (*Isolation*) 
+Require Import Model.ADT Model.Monad Model.MAL Model.Lib Lib (*Isolation*)
 StateLib.
-Require Import  Omega List Coq.Logic.ProofIrrelevance.
+Require Import List Coq.Logic.ProofIrrelevance.
 Import List.ListNotations.
 
 Definition wellFormedFstShadowIfBlockEntry s :=
-forall pa, 
+forall pa,
 isBE pa s ->
 isSHE (CPaddr (pa + sh1offset)) s.
 
 Definition wellFormedShadowCutIfBlockEntry s :=
-forall pa, 
+forall pa,
 isBE pa s ->
 exists scentryaddr : paddr, isSCE scentryaddr s
 /\ scentryaddr = CPaddr (pa + scoffset).
@@ -112,12 +112,11 @@ exists kernelstartaddr : paddr,
 StateLib.Paddr.subPaddrIdx blockentryaddr blockentry.(blockindex) = Some kernelstartaddr
 /\ isBE kernelstartaddr s.
 
-(* TODO : check if needed *)
-(*Definition BlockEntryAddrInBlocksRangeIsBE s :=
-forall blockentryaddr : paddr, forall blockidx : index, forall entry : BlockEntry,
-lookup blockentryaddr (memory s) beqAddr = Some (BE entry) ->
+Definition BlockEntryAddrInBlocksRangeIsBE s :=
+forall blockentryaddr : paddr, forall blockidx : index,
+isBE blockentryaddr s ->
 blockidx < kernelStructureEntriesNb ->
-isBE (CPaddr (blockentryaddr + blockidx)) s.*)
+isBE (CPaddr (blockentryaddr + blkoffset + blockidx)) s.
 
 Definition KernelStructureStartFromBlockEntryAddrIsBE s :=
 forall blockentryaddr : paddr, forall entry : BlockEntry,
@@ -136,10 +135,8 @@ lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
 sh1entry.(inChildLocation) <> nullAddr ->
 isBE sh1entry.(inChildLocation) s.
 
-
-
 (** ** Conjunction of all consistency properties *)
-Definition consistency s := 
+Definition consistency s :=
 wellFormedFstShadowIfBlockEntry s /\
 PDTIfPDFlag s /\
 nullAddrExists s /\
@@ -147,7 +144,7 @@ FirstFreeSlotPointerIsBE s /\
 CurrentPartIsPDT s /\
 KernelStartIsBE s /\
 wellFormedShadowCutIfBlockEntry s /\
-(*BlockEntryAddrInBlocksRangeIsBE s /\*)
+BlockEntryAddrInBlocksRangeIsBE s /\
 KernelStructureStartFromBlockEntryAddrIsBE s /\
 PDchildIsBE s /\
 sh1InChildLocationIsBE s /\
