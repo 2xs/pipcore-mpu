@@ -168,6 +168,10 @@ COQ_PROOF_FILES=$(foreach dir, $(COQ_PROOF_DIR)\
                              , $(wildcard $(dir)/*.v)\
                  )
 COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/Invariants.v
+COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/findBlockInKSWithAddr.v
+COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/checkChildOfCurrPart.v
+COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/getGlobalIdPDCurrentOrChild.v
+COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/findBlockInKS.v
 
 # TODO: Uncomment the following lines once the proofs are done
 # Group of Coq files written by humans

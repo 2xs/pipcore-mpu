@@ -31,4 +31,76 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
-int main_user_app(int argc, char* argv[]);
+#ifndef __CONTEXT_H__
+#define __CONTEXT_H__
+
+#include <stdint.h>
+
+/*!
+ * \def CONTEXT_REGISTER_NUMBER
+ * \brief The register number of a context.
+ */
+#define CONTEXT_REGISTER_NUMBER 17
+
+/*!
+ * \brief Enumeration of registers to be stored for a context.
+ * \warning Do not change the register number in the enumeration.
+ */
+typedef enum context_register_e
+{
+	SP   = 0  , /*!< PSP register  */
+	R4   = 1  , /*!< R4 register   */
+	R5   = 2  , /*!< R5 register   */
+	R6   = 3  , /*!< R6 register   */
+	R7   = 4  , /*!< R7 register   */
+	R8   = 5  , /*!< R8 register   */
+	R9   = 6  , /*!< R9 register   */
+	R10  = 7  , /*!< R10 register  */
+	R11  = 8  , /*!< R11 register  */
+	R0   = 9  , /*!< R0 register   */
+	R1   = 10 , /*!< R1 register   */
+	R2   = 11 , /*!< R2 register   */
+	R3   = 12 , /*!< R3 register   */
+	R12  = 13 , /*!< R12 register  */
+	LR   = 14 , /*!< LR register   */
+	PC   = 15 , /*!< PC register   */
+	XPSR = 16   /*!< xPSR register */
+} context_register_t;
+
+/*!
+ * \brief Structure representing a context as stored by the SVC handler.
+ */
+typedef struct context_svc_s
+{
+	/*!
+	 * \brief All stored registers by the SVC handler.
+	 */
+	uint32_t registers[CONTEXT_REGISTER_NUMBER];
+} context_svc_t;
+
+/*!
+ * \brief Structure representing a context as stored by the yield
+ *        system call.
+ */
+typedef struct user_context_s
+{
+	/*!
+	 * \brief The validity of the structure: a zero value indicates
+	 *        an invalid structure, a non-zero value indicates a
+	 *        valid structure.
+	 */
+	uint32_t valid;
+
+	/*!
+	 * \brief The state in which the partition wishes to be at the
+	 *        next yield.
+	 */
+	uint32_t pipflags;
+
+	/*!
+	 * \brief All stored registers by the SVC handler.
+	 */
+	uint32_t registers[CONTEXT_REGISTER_NUMBER];
+} user_context_t;
+
+#endif /* __CONTEXT_H__ */
