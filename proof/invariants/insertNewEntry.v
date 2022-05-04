@@ -4977,6 +4977,173 @@ split.
 													}
 													rewrite HSCEeq. assumption.
 } (* end of wellFormedShadowCutIfBlockEntry *)
+split.
+{ (* BlockEntryAddrInBlocksRangeIsBE s*)
+	unfold BlockEntryAddrInBlocksRangeIsBE.
+	intros bentryaddr blockidx HBEs Hblockidx.
+	simpl. rewrite PeanoNat.Nat.add_0_r.
+
+	assert(Hcons0 : BlockEntryAddrInBlocksRangeIsBE s0) by (unfold consistency in * ; intuition).
+	unfold BlockEntryAddrInBlocksRangeIsBE in Hcons0.
+
+	assert(HBEs0 : isBE newBlockEntryAddr s0).
+	{ unfold isBE. rewrite H2. intuition. }
+
+	(* check all possible values for bentryaddr in the modified state s
+	-> only possible is newBlockEntryAddr
+	1) if bentryaddr == newBlockEntryAddr :
+	- show CPaddr (bentryaddr + blockidx) didn't change
+	- = newBlock -> when blockidx = 0 for example
+	-> so isBE at s -> OK
+	- <> newBlock
+	- CPaddr (bentryaddr + blockidx)
+	- = newBlock -> isBE -> OK
+	- <> newBlock -> not modified -> leads to s0 in another structure -> OK
+	2) if bentryaddr <> newBlockEntryAddr :
+	- relates to another bentry than newBlockentryAddr
+	(either in the same structure or another)
+	- CPaddr (bentryaddr + blockidx)
+	- = newBlock -> isBE -> OK
+	- <> newBlock -> not modified -> leads to s0 in another structure -> OK
+	*)
+
+	(* Check all values except newBlockEntryAddr *)
+	destruct (beqAddr sceaddr bentryaddr) eqn:beqscebentry; try(exfalso ; congruence).
+	- (* sceaddr = bentryaddr *)
+		rewrite <- DependentTypeLemmas.beqAddrTrue in beqscebentry.
+		rewrite <- beqscebentry in *.
+		unfold isSCE in *.
+		unfold isBE in *.
+		destruct (lookup sceaddr (memory s) beqAddr) ; try(exfalso ; congruence).
+		destruct v ; try(exfalso ; congruence).
+	- (* sceaddr <> bentryaddr *)
+		destruct (beqAddr pdinsertion bentryaddr) eqn:beqpdbentry; try(exfalso ; congruence).
+		-- (* pdinsertion = bentryaddr *)
+				rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdbentry.
+				rewrite <- beqpdbentry in *.
+				unfold isPDT in *.
+				unfold isBE in *.
+				destruct (lookup pdinsertion (memory s) beqAddr) ; try(exfalso ; congruence).
+				destruct v ; try(exfalso ; congruence).
+		-- (* pdinsertion <> bentryaddr *)
+				destruct (beqAddr newBlockEntryAddr bentryaddr) eqn:newbentry ; try(exfalso ; congruence).
+				--- (* 1) newBlockEntryAddr = bentryaddr *)
+						rewrite <- DependentTypeLemmas.beqAddrTrue in newbentry.
+						rewrite <- newbentry in *.
+						(* specialize for newBlock *)
+						specialize(Hcons0 newBlockEntryAddr blockidx HBEs0 Hblockidx).
+						rewrite PeanoNat.Nat.add_0_r in *.
+						(* check all values *)
+						destruct (beqAddr sceaddr (CPaddr (newBlockEntryAddr + blockidx))) eqn:beqsceidx; try(exfalso ; congruence).
+						+ (* sceaddr = (CPaddr (newBlockEntryAddr + blockidx) *)
+							rewrite <- DependentTypeLemmas.beqAddrTrue in beqsceidx.
+							rewrite <- beqsceidx in *.
+							unfold isSCE in *.
+							unfold isBE in *.
+							destruct (lookup sceaddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+							destruct v ; try(exfalso ; congruence).
+						+ (* sceaddr <> (CPaddr (newBlockEntryAddr + blockidx) *)
+							destruct (beqAddr pdinsertion (CPaddr (newBlockEntryAddr + blockidx))) eqn:beqpdidx; try(exfalso ; congruence).
+							++ (* pdinsertion = (CPaddr (newBlockEntryAddr + blockidx) *)
+									rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdidx.
+									rewrite <- beqpdidx in *.
+									unfold isPDT in *.
+									unfold isBE in *.
+									destruct (lookup pdinsertion (memory s0) beqAddr) ; try(exfalso ; congruence).
+									destruct v ; try(exfalso ; congruence).
+							++ (* pdinsertion <> (CPaddr (newBlockEntryAddr + blockidx) *)
+									destruct (beqAddr newBlockEntryAddr (CPaddr (newBlockEntryAddr + blockidx))) eqn:newidx ; try(exfalso ; congruence).
+									+++ (* newBlockEntryAddr = (CPaddr (newBlockEntryAddr + blockidx) -> blockidx = 0 *)
+											rewrite <- DependentTypeLemmas.beqAddrTrue in newidx.
+											rewrite <- newidx in *.
+											intuition.
+									+++ (* newBlockEntryAddr <> (CPaddr (newBlockEntryAddr + blockidx)) *)
+											unfold isBE.
+											rewrite Hs.
+											cbn. rewrite beqAddrTrue.
+											rewrite beqsceidx.
+											rewrite H26. (* newblock <> sce*)
+											rewrite H24. (* pdinsertion <> newBlock *)
+											cbn.
+											rewrite newidx.
+											rewrite beqAddrTrue.
+											rewrite <- beqAddrFalse in *.
+											repeat rewrite removeDupIdentity ; intuition.
+											destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:Hf ; try(exfalso ; congruence).
+											rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+											cbn.
+											destruct (beqAddr pdinsertion (CPaddr (newBlockEntryAddr + blockidx))) eqn:Hff ; try(exfalso ; congruence).
+											rewrite <- DependentTypeLemmas.beqAddrTrue in Hff. congruence.
+											rewrite <- beqAddrFalse in *.
+											repeat rewrite removeDupIdentity ; intuition.
+			--- (* 2) newBlockEntryAddr <> bentryaddr *)
+					(* COPY previous step and wellFormedShadowCutIfBlockEntry *)
+					assert(HBEeq : isBE bentryaddr s = isBE bentryaddr s0).
+					{
+						unfold isBE.
+						rewrite Hs. cbn.
+						rewrite beqAddrTrue.
+						rewrite beqscebentry. rewrite H26. rewrite H24.
+						cbn in HBEs. rewrite beqAddrTrue. cbn.
+						rewrite newbentry. rewrite H24.
+						rewrite <- beqAddrFalse in *.
+						repeat rewrite removeDupIdentity; intuition.
+						cbn.
+						destruct (beqAddr pdinsertion bentryaddr) eqn:Hf ; try (exfalso ; congruence).
+						rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+						repeat rewrite removeDupIdentity; intuition.
+					}
+					assert(HBEs0' : isBE bentryaddr s0).
+					{ rewrite <- HBEeq. assumption. }
+					specialize(Hcons0 bentryaddr blockidx HBEs0' Hblockidx).
+					simpl in *. rewrite PeanoNat.Nat.add_0_r in *.
+					destruct (beqAddr sceaddr (CPaddr (bentryaddr + blockidx))) eqn:beqsceidx; try(exfalso ; congruence).
+					+ (* sceaddr = (CPaddr (newBlockEntryAddr + blockidx) *)
+						rewrite <- DependentTypeLemmas.beqAddrTrue in beqsceidx.
+						rewrite <- beqsceidx in *.
+						unfold isSCE in *.
+						unfold isBE in *.
+						destruct (lookup sceaddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+						destruct v ; try(exfalso ; congruence).
+					+ (* sceaddr <> (CPaddr (newBlockEntryAddr + blockidx) *)
+						destruct (beqAddr pdinsertion (CPaddr (bentryaddr + blockidx))) eqn:beqpdidx; try(exfalso ; congruence).
+						++ (* pdinsertion = (CPaddr (newBlockEntryAddr + blockidx) *)
+								rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdidx.
+								rewrite <- beqpdidx in *.
+								unfold isPDT in *.
+								unfold isBE in *.
+								destruct (lookup pdinsertion (memory s0) beqAddr) ; try(exfalso ; congruence).
+								destruct v ; try(exfalso ; congruence).
+						++ (* pdinsertion <> (CPaddr (newBlockEntryAddr + blockidx) *)
+							destruct (beqAddr newBlockEntryAddr (CPaddr (bentryaddr + blockidx))) eqn:newidx ; try(exfalso ; congruence).
+							+++ (* newBlockEntryAddr = (CPaddr (newBlockEntryAddr + blockidx) -> blockidx = 0 *)
+									rewrite <- DependentTypeLemmas.beqAddrTrue in newidx.
+									rewrite <- newidx in *.
+									assert(HBEs' : isBE newBlockEntryAddr s).
+									{ unfold isBE. rewrite H4. trivial. }
+									intuition.
+							+++ (* newBlockEntryAddr <> (CPaddr (newBlockEntryAddr + blockidx)) *)
+									(* leads to s0 *)
+									unfold isBE.
+									rewrite Hs.
+									cbn. rewrite beqAddrTrue.
+									rewrite beqsceidx.
+									rewrite H26. (* newblock <> sce*)
+									rewrite H24. (* pdinsertion <> newBlock *)
+									cbn.
+									rewrite newidx.
+									rewrite beqAddrTrue.
+									rewrite <- beqAddrFalse in *.
+									repeat rewrite removeDupIdentity ; intuition.
+									destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:Hf ; try(exfalso ; congruence).
+									rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+									cbn.
+									destruct (beqAddr pdinsertion (CPaddr (bentryaddr + blockidx))) eqn:Hff ; try(exfalso ; congruence).
+									rewrite <- DependentTypeLemmas.beqAddrTrue in Hff. congruence.
+									rewrite <- beqAddrFalse in *.
+									repeat rewrite removeDupIdentity ; intuition.
+} (* end of BlockEntryAddrInBlocksRangeIsBE *)
+
 	- (* Final state *)
 		exists newpd. intuition. exists s0. exists pdentry. exists pdentry0.
 		exists bentry. exists bentry0. exists bentry1. exists bentry2. exists bentry3.
