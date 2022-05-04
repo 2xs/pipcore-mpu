@@ -332,7 +332,7 @@ intro kernelstructurestart.
 { (** Internal.findBlockInKSAux *)
 	eapply weaken. apply findBlockInKSAux.
 	intros. simpl. intuition.
-	unfold pdentryPDStructurePointer in *.
+	unfold pdentryStructurePointer in *.
 	unfold isPDT in *.
 	destruct (lookup idPD (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
 	destruct v eqn:Hv ; try (exfalso ; congruence).
@@ -367,7 +367,7 @@ intro kernelstructurestart.
 { (** Internal.findBlockInKSAux *)
 	eapply weaken. apply findBlockInKSAux.
 	intros. simpl. intuition.
-	unfold pdentryPDStructurePointer in *.
+	unfold pdentryStructurePointer in *.
 	unfold isPDT in *.
 	destruct (lookup idPD (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
 	destruct v eqn:Hv ; try (exfalso ; congruence).

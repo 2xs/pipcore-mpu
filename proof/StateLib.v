@@ -662,10 +662,19 @@ match lookup entryaddr s.(memory) beqAddr with
 end.
 
 (** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into 
+    into the given physical page [table] is type of [VE] and the user flag stored into
     this entry is equal to a given flag [flag] *)
-Definition pdentryPDStructurePointer entryaddr structurepointer s:= 
-match lookup entryaddr s.(memory) beqAddr with 
+Definition pdentryNbPrepare entryaddr nbPrepare s:=
+match lookup entryaddr s.(memory) beqAddr with
+| Some (PDT entry) => nbPrepare =  entry.(nbprepare)
+| _ => False
+end.
+
+(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
+    into the given physical page [table] is type of [VE] and the user flag stored into
+    this entry is equal to a given flag [flag] *)
+Definition pdentryStructurePointer entryaddr structurepointer s:=
+match lookup entryaddr s.(memory) beqAddr with
 | Some (PDT entry) => structurepointer =  entry.(structure) (*/\ isBE structurepointer s*)
 | _ => False
 end.
@@ -673,9 +682,18 @@ end.
 (** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
     into the given physical page [table] is type of [VE] and the user flag stored into
     this entry is equal to a given flag [flag] *)
-Definition pdentryNbPrepare entryaddr nbPrepare s:=
+Definition pdentryMPU entryaddr mpu s:=
 match lookup entryaddr s.(memory) beqAddr with
-| Some (PDT entry) => nbPrepare =  entry.(nbprepare)
+| Some (PDT entry) => mpu =  entry.(MPU)
+| _ => False
+end.
+
+(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
+    into the given physical page [table] is type of [VE] and the user flag stored into
+    this entry is equal to a given flag [flag] *)
+Definition pdentryMPUblock entryaddr index mpublock s:=
+match lookup entryaddr s.(memory) beqAddr with
+| Some (PDT entry) => mpublock =  readElementAt index entry.(MPU) nullAddr
 | _ => False
 end.
 
@@ -831,26 +849,6 @@ end.
     descriptor **)
 Definition getNullAddr s :=
 lookup nullAddr (memory s) beqAddr.
-
-
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
-Definition pdentryStructurePointer entryaddr structurepointer s:=
-match lookup entryaddr s.(memory) beqAddr with
-| Some (PDT entry) => structurepointer =  entry.(structure) (*/\ isBE structurepointer s*)
-| _ => False
-end.
-
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
-Definition pdentryMPU entryaddr mpu s:=
-match lookup entryaddr s.(memory) beqAddr with
-| Some (PDT entry) => mpu =  entry.(MPU)
-| _ => False
-end.
-
 
 Ltac symmetrynot :=
 match goal with
