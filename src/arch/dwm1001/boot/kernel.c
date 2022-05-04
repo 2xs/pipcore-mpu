@@ -1,10 +1,3 @@
-//#include <mm/cache.h>
-//#include <mm/memlayout.h>
-//#include <lib/string.h>
-//#include <pipcore/mal.h>
-//#include <ial/ial.h>
-//#include <drivers/gic.h>
-//#include <drivers/timer.h>
 #include <stdint.h>
 #include <sys/types.h>
 #include "mpu.h"
@@ -84,18 +77,9 @@ extern uint32_t _ebss;
 // By default, there are no arguments, but this can be customised
 // by redefining __initialize_args(), which is done when the
 // semihosting configurations are used.
-extern int
-main (int argc, char* argv[]);
-//void main(void);
+extern void main (void);
 
-extern int
-main_test (int argc, char* argv[]);
-
-// The implementation for the exit routine; for embedded
-// applications, a system reset will be performed.
-/*extern void
-__attribute__((noreturn))
-_exit (int);*/
+extern void main_test (void);
 
 // ----------------------------------------------------------------------------
 
@@ -143,33 +127,6 @@ __initialize_bss (uint32_t* region_begin, uint32_t* region_end)
     *p++ = 0;
 }
 
-/*arm_ctx_t *kernel_start(void)
-{
-	arm_ctx_t *ctx_v, *ctx_p;
-
-	// Clear bss
-	memset(kernel_bss_start, 0, (unsigned)(kernel_bss_end-kernel_bss_start));
-
-	// Enable D/I caches and branch predictor
-	caches_enable();
-	branch_pred_enable();
-
-	// Configure interrupts & timer
-	gic_init();
-	timer_init(1);
-
-	// Configure the mmu
-	mmu_init();
-
-	// Initialize the root partition
-	mal_init();
-
-	// At this point, mmu is still not enabled.
-	ial_get_ctx_addr(0, getRootPartition(), &ctx_p, &ctx_v);
-
-	return ial_prepare_yield(getRootPartition(), ctx_v);
-}*/
-
 // This is the place where Cortex-M core will go immediately after reset,
 // via a call or jump from the Reset_Handler.
 //
@@ -200,40 +157,15 @@ _start (void)
   // Zero fill the BSS section (inlined).
   __initialize_bss(&_sbss, &_ebss);
 
-
   // Hook to continue the initialisations. Usually compute and store the
   // clock frequency in the global CMSIS variable, cleared above.
   __initialize_hardware ();
 
-    // Get the argc/argv (useful in semihosting configurations).
-  /*int argc;
-  char** argv;
-  __initialize_args (&argc, &argv);*/
-
-  // Call the main entry point, and save the exit code.
-  //int code = main (argc, argv);
 #if defined UNIT_TESTS
-  int code = main_test (0, NULL); // Pip test main
+  main_test(); // Pip test main
 #else
-  int code = main (0, NULL); // Pip main
+  main(); // Pip main
 #endif // UNIT_TESTS
-
-  //_exit (code);
-
-  // Should never reach this, _exit() should have already
-  // performed a reset.
-  //for (;;)
-  //  ;
-  #if defined(TRACE)
-    printf("Main exit with %d\r\n", code);
-  #endif // TRACE
 
   while (1) {}
 }
-
-/*NORETURN void core_panic(core_panic_t crash_code, const char *message)
-{
-    (void)crash_code;
-    (void)message;
-    while (1) {}
-}*/

@@ -121,6 +121,7 @@ void dump_partition(paddr part)
 }
 
 /*!
+ * \deprecated This function uses the old API and is no longer functional
  * \fn void dump_ancestors(paddr base_child_PD)
  * \brief Displays all ancestor partitions of <base_child_PD>.
  * \param base_child_PD The address of the base child partition to start from
