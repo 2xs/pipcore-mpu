@@ -582,11 +582,10 @@ configure_global_variables() {
 			arch_cflags="$arch_cflags"' -mcpu=cortex-m4'
 			arch_cflags="$arch_cflags"' -mfloat-abi=hard'
 			arch_cflags="$arch_cflags"' -mfpu=fpv4-sp-d16'
+			arch_cflags="$arch_cflags"' -ffreestanding'
 			case $debugging_mode in
 				semihosting)
 					arch_cflags="$arch_cflags"' -DTRACE'
-					arch_cflags="$arch_cflags"' -Dprintf=trace_printf'
-					arch_cflags="$arch_cflags"' -DOS_USE_TRACE_SEMIHOSTING_DEBUG'
 					;;
 				uart)
 					arch_cflags="$arch_cflags"' -DUART_DEBUG'
@@ -603,11 +602,10 @@ configure_global_variables() {
 			### LDFLAGS for the selected architecture
 
 			arch_ldflags='-nostartfiles'
-			arch_ldflags="$arch_ldflags"' -lc'
+			arch_ldflags="$arch_ldflags"' -nodefaultlibs'
+			arch_ldflags="$arch_ldflags"' -nolibc'
+			arch_ldflags="$arch_ldflags"' -nostdlib'
 			arch_ldflags="$arch_ldflags"' -lgcc'
-			arch_ldflags="$arch_ldflags"' -lm'
-			arch_ldflags="$arch_ldflags"' -std=gnu11'
-			arch_ldflags="$arch_ldflags"' -ffreestanding'
 			arch_ldflags="$arch_ldflags"' -mthumb'
 			arch_ldflags="$arch_ldflags"' -mcpu=cortex-m4'
 			arch_ldflags="$arch_ldflags"' -mfloat-abi=hard'

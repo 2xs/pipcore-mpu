@@ -7,7 +7,7 @@
  *
  */
 
-#include <stdio.h>
+#include "stdio.h"
 
 #if defined(UART_DEBUG)
 

@@ -38,10 +38,10 @@
  */
 
 #include <stdint.h>
-#include <stdio.h>
 
 #include "Internal.h"
 #include "memlayout.h"
+#include "stdio.h"
 #include "mal.h"
 
 /*!

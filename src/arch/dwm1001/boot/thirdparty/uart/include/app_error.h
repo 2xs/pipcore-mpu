@@ -23,12 +23,12 @@
 #define APP_ERROR_H__
 
 #include <stdint.h>
-#include <stdio.h>
 #include <stdbool.h>
 #include "nrf.h"
 #include "sdk_errors.h"
 #include "nordic_common.h"
 #include "app_error_weak.h"
+#include "stdio.h"
 #ifdef ANT_STACK_SUPPORT_REQD
 #include "ant_error.h"
 #endif // ANT_STACK_SUPPORT_REQD

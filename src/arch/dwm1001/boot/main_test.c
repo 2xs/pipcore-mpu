@@ -33,12 +33,12 @@
 
 #if defined UNIT_TESTS // include file only when testing
 
-#include <stdio.h>
 #include "Services.h"
 #include "pip_debug.h"
 #include "nrf52.h"
 #include "Internal.h"
 #include "mpu.h"
+#include "stdio.h"
 
 #include <assert.h>
 

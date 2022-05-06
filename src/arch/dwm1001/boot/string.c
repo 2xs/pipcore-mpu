@@ -34,13 +34,3 @@ size_t strlen(const char *str)
 
 	return (s - str);
 }
-
-int vsnprintf(char * s, size_t n, const char * format, va_list arg)
-{
-	/* TODO */
-	(void) s;
-	(void) n;
-	(void) format;
-	(void) arg;
-	return 0;
-}

@@ -31,11 +31,8 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
-#include <stdio.h>
-
 #include "nrf52.h"
-#include "semihosting.h"
-#include "trace.h"
+#include "stdio.h"
 #include "context.h"
 #include "yield_c.h"
 #include "pip_interrupt_calls.h"

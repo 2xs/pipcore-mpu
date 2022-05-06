@@ -31,7 +31,6 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
-#include <stdio.h>
 #include "Services.h"
 #include "nrf52.h"
 #include "core_cm4.h"
@@ -41,6 +40,7 @@
 #include "pip_interrupt_calls.h"
 #include "ADT.h"
 #include "accessor.h"
+#include "stdio.h"
 
 /*!
  * \brief Enumeration of the SVC numbers

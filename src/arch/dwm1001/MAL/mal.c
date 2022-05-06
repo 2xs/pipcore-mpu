@@ -36,13 +36,13 @@
  * \brief ARM memory abstraction layer
  */
 
-#include <stdio.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include "mal.h"
 #include "memlayout.h"
 #include "mpu.h"
+#include "stdio.h"
 
 paddr current_partition = NULL; /* Current partition, default root */
 paddr root_partition = NULL; /* Multiplexer's partition descriptor, default 0*/

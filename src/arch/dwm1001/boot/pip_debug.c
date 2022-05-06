@@ -1,7 +1,7 @@
 #include "mal.h"
-#include <stdio.h>
 #include <stdint.h>
 #include "mpu.h"
+#include "stdio.h"
 
 /*!
  * \fn void dump_PD_structure(paddr pd)

@@ -23,7 +23,7 @@
 
 #include "nrf52.h"
 #include "core_cm4.h"
-#include "trace.h"
+#include "stdio.h"
 #include "mal.h"
 
 #ifdef __cplusplus

@@ -42,13 +42,6 @@
 extern void *__pipStackSize;
 
 /*!
- * \brief The heap size of PIP in bytes.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__pipHeapSize;
-
-/*!
  * \brief The stack size of the root partition in bytes.
  *
  * \see The definition in the link.ld file.
@@ -180,20 +173,6 @@ extern void *__pipBssStart;
  * \see The definition in the link.ld file.
  */
 extern void *__pipBssEnd;
-
-/*!
- * \brief The base address of the heap of PIP in RAM.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__HeapBase;
-
-/*!
- * \brief The limit address of the heap of PIP in RAM.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__HeapLimit;
 
 /*!
  * \brief The limit address of the stack of PIP in RAM.

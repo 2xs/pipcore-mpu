@@ -21,9 +21,9 @@
 
 #include "mpu.h"
 #include <string.h> // include memcpy
-#include <stdio.h> // include printf
 #include <stdint.h>
 #include "pip_debug.h"
+#include "stdio.h"
 
 /*!
  * \fn int mpu_disable(void)

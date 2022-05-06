@@ -44,24 +44,24 @@
  *               |    |                    |   |                    |    |
  *               |    +--------------------+   +--------------------+    |
  *               |    |                    |   |                    |    |
- *               |    |       .data        |   |        .heap       |    +-- PIP
+ *               |    |       .data        |   |       .stack       |    +-- PIP
  *               |    |                    |   |                    |    |
  *               +--> +--------------------+   +--------------------+    |
  *               |    |                    |   |                    |    |
- *               |    |    .root_binary    |   |       .stack       |    |
+ *               |    |    .root_binary    |   |  .root_kern_struct |    |
  *               |    |                    |   |                    |    |
- *               |    +--------------------+   +--------------------+    |
+ *               |    +--------------------+   +--------------------+ <--+
  *               |    |                    |   |                    |    |
- *               |    |                    |   |  .root_kern_struct |    |
+ *               |    |                    |   |     .root_stack    |    +-- MPU R1
  *               |    |                    |   |                    |    |
  *               |    |                    |   +--------------------+ <--+
  *      MPU R0 --+    |                    |   |                    |    |
- *               |    |                    |   |     .root_stack    |    +-- MPU R1
- *               |    |         ...        |   |                    |    |
- *               |    |                    |   +--------------------+ <--+
  *               |    |                    |   |                    |    |
+ *               |    |         ...        |   |                    |    |
  *               |    |                    |   |                    |    |
  *               |    |                    |   |         ...        |    +-- MPU R2
+ *               |    |                    |   |                    |    |
+ *               |    |                    |   |                    |    |
  *               |    |                    |   |                    |    |
  *               |    |                    |   |                    |    |
  *    0x00080000 +--> +--------------------+   +--------------------+ <--+ 0x20010000
@@ -77,11 +77,6 @@
  * The stack size of PIP in bytes.
  */
 __pipStackSize = 1024 ;
-
-/*
- * The heap size of PIP in bytes.
- */
-__pipHeapSize = 1024 ;
 
 /* The stack size of the root partition in bytes.
  *
@@ -178,18 +173,6 @@ SECTIONS
 		*(COMMON)
 		. = ALIGN( 4 ) ;
 		__pipBssEnd = . ;
-	} > RAM
-
-	.heap (NOLOAD) :
-	{
-		. = ALIGN( 4 ) ;
-		__HeapBase = . ;
-		_Heap_Begin = __HeapBase ;
-		KEEP( *(.heap*) )
-		. += __pipHeapSize ;
-		. = ALIGN( 4 ) ;
-		__HeapLimit = . ;
-		_Heap_Limit = __HeapLimit ;
 	} > RAM
 
 	.stack (NOLOAD) :

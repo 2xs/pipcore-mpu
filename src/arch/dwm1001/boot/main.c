@@ -31,7 +31,6 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
-#include <stdio.h>
 #include <stdlib.h>
 
 #include "maldefines.h"
@@ -43,14 +42,7 @@
 #include "pip_interface.h"
 #include "userconstants.h"
 #include "memlayout.h"
-
-#if defined(UART_DEBUG)
-#include "uart_debug_init.h"
-#endif // UART_DEBUG
-
-#if defined(TRACE)
-#include "trace.h"
-#endif // TRACE
+#include "stdio.h"
 
 /*!
  * \def SYSTEM_CLOCK_SOURCE_HZ
