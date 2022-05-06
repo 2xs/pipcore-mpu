@@ -1013,8 +1013,8 @@ case_eq newright.
 Qed.
 
 Lemma getBlockEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (blockidx : index) (P : state -> Prop) :
-{{ fun s => P s /\ BlockEntryAddrInBlocksRangeIsBE s
-								/\ isBE kernelStartAddr s
+{{ fun s => P s /\ BlocksRangeFromKernelStartIsBE s
+								/\ isKS kernelStartAddr s
 								/\ blockidx < kernelStructureEntriesNb}}
 MAL.getBlockEntryAddrFromKernelStructureStart kernelStartAddr blockidx
 {{ fun (BEAddr : ADT.paddr) (s : state) => P s /\ BEAddr = CPaddr (kernelStartAddr + blkoffset + blockidx)
@@ -1024,13 +1024,14 @@ unfold MAL.getBlockEntryAddrFromKernelStructureStart.
 eapply weaken. apply ret.
 intros. simpl. split. apply H. split. reflexivity.
 (* entryaddr is a BE because it's a simple offset from KS start *)
-unfold BlockEntryAddrInBlocksRangeIsBE in *. intuition.
+rewrite PeanoNat.Nat.add_0_r.
+unfold BlocksRangeFromKernelStartIsBE in *. intuition.
 Qed.
 
 Lemma getSh1EntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (blockidx : index) (P : state -> Prop) :
 {{ fun s => P s /\ wellFormedFstShadowIfBlockEntry s
 								(*/\ BlockEntryAddrInBlocksRangeIsBE s*)
-								/\ isBE kernelStartAddr s
+								/\ isKS kernelStartAddr s
 								/\ blockidx < kernelStructureEntriesNb}}
 MAL.getSh1EntryAddrFromKernelStructureStart kernelStartAddr blockidx
 {{ fun (SHEAddr : ADT.paddr) (s : state) => P s /\ SHEAddr = CPaddr (kernelStartAddr + sh1offset + blockidx)
@@ -1076,7 +1077,7 @@ unfold MAL.getSCEntryAddrFromKernelStructureStart.
 Qed.
 
 Lemma getKernelStructureStartAddr  (blockentryaddr : paddr) (blockidx : index)  (P : state -> Prop) :
-{{fun s => P s /\ 	KernelStructureStartFromBlockEntryAddrIsBE s
+{{fun s => P s /\ 	KernelStructureStartFromBlockEntryAddrIsKS s
 					/\	blockidx < kernelStructureEntriesNb
 					/\ blockentryaddr <= maxAddr
 					/\	exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)
@@ -1099,17 +1100,15 @@ intro kernelStartAddr. simpl.
 { (** ret *)
 	eapply weaken. apply ret.
 	intros. simpl. split. apply H.
-	intuition. unfold KernelStructureStartFromBlockEntryAddrIsBE in *.
-	destruct H5. destruct H4. specialize(H0 blockentryaddr x H4).
-	unfold bentryBlockIndex in H5.
-	rewrite H4 in H5.
-	destruct H5.
-	apply isBELookupEq in H0.
-	destruct H0.
+	intuition. unfold KernelStructureStartFromBlockEntryAddrIsKS in *.
+	destruct H5. destruct H4.
+	assert(HBEs : isBE blockentryaddr s).
+	{ unfold isBE. rewrite H4. trivial. }
+	specialize(H0 blockentryaddr blockidx HBEs H5).
 	replace kernelStartAddr with (CPaddr (blockentryaddr - blockidx)).
-	exists x0.
-	split. rewrite H5. apply H0. reflexivity.
-	unfold bentryBlockIndex. rewrite H4. intuition. rewrite <- H5. intuition.
+	apply KSIsBE in H0.
+	apply isBELookupEq in H0. destruct H0. exists x0.
+	intuition.
 }
 Qed.
 
@@ -1117,7 +1116,7 @@ Qed.
 Lemma getSh1EntryAddrFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Prop) :
 {{fun s => Q s /\ wellFormedFstShadowIfBlockEntry s /\
 					(*/\ P blockentryaddr s /\ *)
-					  KernelStructureStartFromBlockEntryAddrIsBE s
+					  KernelStructureStartFromBlockEntryAddrIsKS s
 							/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
 MAL.getSh1EntryAddrFromBlockEntryAddr blockentryaddr
 {{ fun sh1entryaddr s => Q s /\ exists sh1entry : Sh1Entry,
@@ -1150,8 +1149,11 @@ eapply bindRev.
 { (** MAL.getSh1EntryAddrFromKernelStructureStart *)
 	eapply weaken. apply getSh1EntryAddrFromKernelStructureStart.
 	intros. simpl. split. exact H. intuition.
-	unfold isBE. destruct H1. destruct H1. rewrite H1. trivial.
-	intuition. unfold bentryBlockIndex in *. destruct H6. rewrite H5 in H4.
+	- unfold isKS. destruct H1. destruct H1. rewrite H1.
+		unfold KernelStructureStartFromBlockEntryAddrIsKS in *.
+		specialize(H3 blockentryaddr BlockEntryIndex H H4).
+		unfold isKS in *. rewrite <- H5 in *. rewrite H1 in *. intuition.
+	- intuition. unfold bentryBlockIndex in *. destruct H6. rewrite H5 in H4.
 	intuition.
 }
 (* Preuve : kernelStartAddr + blockindex est BE, donc +sh1offset est SHE
@@ -1276,7 +1278,7 @@ Qed.
 Lemma getSCEntryAddrFromBlockEntryAddr  (blockentryaddr : paddr) (P : state -> Prop) :
 {{fun s => (*wellFormedFstShadowIfBlockEntry s /\*)
 					(*/\ P blockentryaddr s /\ *)
-					P s /\ wellFormedShadowCutIfBlockEntry s /\ KernelStructureStartFromBlockEntryAddrIsBE s
+					P s /\ wellFormedShadowCutIfBlockEntry s /\ KernelStructureStartFromBlockEntryAddrIsKS s
 					/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)
 							 }}
 MAL.getSCEntryAddrFromBlockEntryAddr blockentryaddr
@@ -1494,7 +1496,7 @@ P tt {|
               (memory s) beqAddr |}
 /\ isBE blockentryaddr s
 						/\ wellFormedFstShadowIfBlockEntry s
-						/\ KernelStructureStartFromBlockEntryAddrIsBE s
+						/\ KernelStructureStartFromBlockEntryAddrIsKS s
 						(*exists entry , exists scentryaddr, lookup scentryaddr s.(memory) beqAddr = Some (SCE entry) /\ *)
  }}
 MAL.writeSh1PDChildFromBlockEntryAddr blockentryaddr pdchild  {{P}}.
@@ -1531,7 +1533,7 @@ P tt {|
               (memory s) beqAddr |}
 /\ isBE blockentryaddr s
 						/\ wellFormedFstShadowIfBlockEntry s
-						/\ KernelStructureStartFromBlockEntryAddrIsBE s
+						/\ KernelStructureStartFromBlockEntryAddrIsKS s
 						(*exists entry , exists scentryaddr, lookup scentryaddr s.(memory) beqAddr = Some (SCE entry) /\ *)
  }}
 MAL.writeSh1InChildLocationFromBlockEntryAddr blockentryaddr newinchildlocation  {{P}}.
@@ -1558,7 +1560,7 @@ Lemma writeSCOriginFromBlockEntryAddr  (entryaddr : paddr) (neworigin : ADT.padd
 {{fun  s => (*exists blockentry , lookup entryaddr s.(memory) beqAddr = Some (BE blockentry) /\*)
 						isBE entryaddr s
 						/\ wellFormedShadowCutIfBlockEntry s
-						/\ KernelStructureStartFromBlockEntryAddrIsBE s
+						/\ KernelStructureStartFromBlockEntryAddrIsKS s
 						(*exists entry , exists scentryaddr, lookup scentryaddr s.(memory) beqAddr = Some (SCE entry) /\ *)
 /\ exists entry , lookup (CPaddr (entryaddr + scoffset)) s.(memory) beqAddr = Some (SCE entry) /\
 P tt {|

@@ -727,6 +727,20 @@ apply CIndex0ltKSEntriesNb.
 assumption.
 Qed.
 
+
+Lemma KSIsBE s :
+forall addr : paddr,
+isKS addr s ->
+isBE addr s.
+Proof.
+intuition.
+unfold isKS in *.
+unfold isBE.
+destruct (lookup addr (Monad.memory s) beqAddr) ; try(exfalso ; congruence).
+destruct v ; try(exfalso ; congruence).
+trivial.
+Qed.
+
 (*
 Lemma indexEqbTrue : 
 forall idx1 idx2 : index, true = StateLib.Index.eqb idx1 idx2 -> 

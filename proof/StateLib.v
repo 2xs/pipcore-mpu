@@ -610,7 +610,7 @@ end.
 		like readNextFromKernelStructureStart *)
 Definition isKS paddr s: Prop := 
 match lookup paddr s.(memory) beqAddr with 
-             |Some (BE _) => True
+             |Some (BE bentry) => bentry.(blockindex) = zero
              |_ => False
 end.
 
