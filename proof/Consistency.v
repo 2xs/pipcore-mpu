@@ -138,11 +138,12 @@ isBE blockentryaddr s ->
 bentryBlockIndex blockentryaddr blockidx s ->
 isKS (CPaddr (blockentryaddr - blockidx)) s.
 
-Definition PDchildIsBE s :=
+(* To remove if unnecessary *)
+(*Definition PDchildIsPDT s :=
 forall sh1entryaddr sh1entry,
 lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
 sh1entry.(PDchild) <> nullAddr ->
-isBE sh1entry.(PDchild) s.
+isPDT sh1entry.(PDchild) s.*)
 
 Definition sh1InChildLocationIsBE s :=
 forall sh1entryaddr sh1entry,
@@ -168,7 +169,6 @@ CurrentPartIsPDT s /\
 wellFormedShadowCutIfBlockEntry s /\
 BlocksRangeFromKernelStartIsBE s /\
 KernelStructureStartFromBlockEntryAddrIsKS s /\
-PDchildIsBE s /\
 sh1InChildLocationIsBE s /\
 StructurePointerIsKS s /\
 NextKSIsKS s /\
