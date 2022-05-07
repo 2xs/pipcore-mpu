@@ -46,7 +46,9 @@ Internal.checkChildOfCurrPart  currentPartition idPDchild
 {{fun isChild s => P s
 /\ (isChild = true -> exists sh1entryaddr, isChild = StateLib.checkChild idPDchild s sh1entryaddr
 										/\ exists entry, lookup idPDchild s.(memory) beqAddr = Some (BE entry)
-										/\ exists sh1entry, lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry))
+										/\ exists sh1entry, (sh1entryAddr idPDchild sh1entryaddr s
+												/\ lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry))
+										)
 }}.
 Proof.
 unfold Internal.checkChildOfCurrPart.
@@ -98,6 +100,14 @@ case_eq addrIsNull0.
 				unfold sh1entryPDflag in *. rewrite -> H8 in *. assumption.
 				destruct H5. exists x1. split. intuition. subst. assumption.
 				exists x. intuition.
+				subst blockInParentPartAddr.
+
+				unfold sh1entryAddr.
+				rewrite H2.
+				assert (exists x : Sh1Entry, lookup x0 (memory s) beqAddr = Some (SHE x)) as Hsh1.
+				exists x. assumption.
+				apply isSHELookupEq in Hsh1.
+				unfold sh1entryAddr in H11. rewrite H2 in H11. assumption.
 			}
 	 	+ (* ischild = false : sh1entry exists but PDflag = 0 *)
 			simpl. intros.

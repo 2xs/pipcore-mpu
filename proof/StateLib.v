@@ -156,8 +156,6 @@ let entry :=  lookup paddr memory beqAddr  in
   | _ => None
  end.
 
-
-
 (**  The [getPd] function returns the physical page of the page directory of
      a given partition  *)
 Definition getPd (pa : paddr) s : option PDTable :=
@@ -173,13 +171,10 @@ monadToValue(readBlockIndexFromBlockEntryAddr paddr) s.
 Definition getSh1EntryAddr (paddr : paddr) s : option ADT.paddr:=
 monadToValue(getSh1EntryAddrFromBlockEntryAddr paddr) s.
 
-
-
 Inductive optionPaddr : Type:= 
 |SomePaddr : paddr -> optionPaddr
 |NonePaddr : optionPaddr
 .
-
 
 (** The [checkChild] function returns true if the given physical address corresponds 
     to a child of the given partition 
@@ -338,7 +333,6 @@ Definition getOriginalBlocks (partition : paddr) (s : state) : list paddr :=
   | _ => []
   end.
 
-
 (** The [getMappedPages] function Returns all present pages of a given partition that are not config blocks*)
 Definition getMappedBlocks (partition : paddr) (s : state) : list paddr :=
 	let entry :=  lookup partition s.(memory) beqAddr in
@@ -473,7 +467,6 @@ Definition getPresentBlocks (partition : paddr) (s : state) : list paddr :=
 
 
 (** The [getAccessibleMappedPages] function Returns all present and
->>>>>>> Stashed changes
     accessible pages of a given partition *)
 Definition getAccessibleBlocks (partition : paddr) s : list paddr :=
 	let entry :=  lookup partition s.(memory) beqAddr in
@@ -487,7 +480,6 @@ Definition getAccessibleBlocks (partition : paddr) s : list paddr :=
 Definition getUsedBlocks (partition: paddr) s : list paddr :=
   getConfigBlocks partition s ++ getMappedBlocks partition s.
 
-
 (** The [getChildren] function Returns all children of a given partition *)
 Definition getChildren (partition : paddr) s := 
 	let entry :=  lookup partition s.(memory) beqAddr in
@@ -495,6 +487,48 @@ Definition getChildren (partition : paddr) s :=
   | Some (PDT a) => getPDsPAddr partition (getPresentBlocks partition s) s
 	|_ => []
 end.
+
+(** The [geTrdShadows] returns physical pages used to keep informations about
+    configuration pages
+*)
+Definition getFreeSlotsListAux bound FuncAux (blockentryaddr : paddr) s  : list optionPaddr:=
+match bound with
+|0 => [NonePaddr]
+|S bound1 => match lookup blockentryaddr s.(memory) beqAddr with
+						| Some (BE entry) => if entry.(blockrange).(endAddr) =? nullAddr then [SomePaddr blockentryaddr] else SomePaddr blockentryaddr :: FuncAux bound1 entry.(blockrange).(endAddr) s
+            |_ => [NonePaddr]
+           end
+end.
+
+Fixpoint getFreeSlotsListRec (bound : nat) (blockentryaddr : paddr) s {struct bound} := getFreeSlotsListAux bound getFreeSlotsListRec blockentryaddr s.
+
+(*Fixpoint getFreeSlotsListAux (blockentryaddr : paddr) s bound :=
+match bound with
+|0 => []
+|S bound1 => match lookup blockentryaddr s.(memory) beqAddr with
+						| Some (BE entry) => if entry.(blockrange).(endAddr) =? nullAddr then [blockentryaddr] else blockentryaddr :: getFreeSlotsListAux entry.(blockrange).(endAddr) s bound1
+            |_ => []
+           end
+end.*)
+
+Definition getFreeSlotsList (partition : paddr) s :=
+  match lookup partition s.(memory) beqAddr with
+  | Some (PDT pdentry) => getFreeSlotsListRec N pdentry.(firstfreeslot) s
+	|_ => []
+end.
+
+Fixpoint wellFormedFreeSlotsList (l : list optionPaddr) (s : state) :=
+match l with
+| [] => True
+| SomePaddr entryaddr :: l1 => wellFormedFreeSlotsList l1 s
+| _ => (* undef because of recursion *) False
+end.
+
+Lemma FreeSlotsListRec_unroll :
+forall blockentryaddr s bound, getFreeSlotsListRec bound blockentryaddr s = getFreeSlotsListAux bound getFreeSlotsListRec blockentryaddr s.
+destruct bound; simpl;reflexivity.
+Qed.
+
 
 (*
 (** The [getPartitionsAux] function returns all pages marked as descriptor partition *)
@@ -576,8 +610,27 @@ end.
 		like readNextFromKernelStructureStart *)
 Definition isKS paddr s: Prop := 
 match lookup paddr s.(memory) beqAddr with 
-             |Some (BE _) => True
+             |Some (BE bentry) => bentry.(blockindex) = zero
              |_ => False
+end.
+
+(*DUP*)
+(** The [isSHE] proposition reutrns True if the entry at position [idx]
+    into the given page [table] is type of [PE] *)
+Definition isFreeSlot paddr s: Prop :=
+match lookup paddr s.(memory) beqAddr with 
+|Some (BE entry) => match lookup (CPaddr (paddr + sh1offset)) s.(memory) beqAddr with
+									 	|Some (SHE sh1entry) =>
+												match lookup (CPaddr (paddr + scoffset)) s.(memory) beqAddr with 
+												|Some (SCE scentry) => entry.(blockrange).(startAddr) = nullAddr /\
+																							(* no cycles for same slot by general consistency property on chained free slots*)
+																							sh1entry.(PDchild) = nullAddr /\ sh1entry.(PDflag) = false /\ sh1entry.(inChildLocation) = nullAddr /\
+																							scentry.(origin) = nullAddr /\ scentry.(next) = nullAddr
+									 			|_ => False
+												end
+										|_ => False
+										end
+|_ => False
 end.
 
 (** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
@@ -729,33 +782,6 @@ match lookup scentryaddr s.(memory) beqAddr with
 | _ => False
 end.
 
-
-
-(*let sh1entryaddr := monadToValue(getSh1EntryAddrFromBlockEntryAddr paddr) in
-match sh1entryaddr s with
-| Some p => match lookup p s.(memory) beqAddr with 
-| Some (SHE entry) => flag =  entry.(PDflag)
-| _ => False
-end
-| None => False
-end.*)
-
-(*
-=======
-end.
->>>>>>> Stashed changes
-
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
-Definition bentryXFlag entryaddr flag s:=
-match lookup entryaddr s.(memory) beqAddr with
-| Some (BE entry) => flag =  entry.(exec)
-| _ => False
-<<<<<<< Updated upstream
-end. *)
-
-
 (* DUP *)
 (** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
     into the given physical page [table] is type of [VE] and the user flag stored into 
@@ -884,5 +910,3 @@ Definition checkissubblock (subblock block : paddr) (s : state) : Prop :=
 							end
 	| None => True
 	end.
-
-

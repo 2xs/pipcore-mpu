@@ -52,32 +52,60 @@ exists scentryaddr : paddr, isSCE scentryaddr s
 /\ scentryaddr = CPaddr (pa + scoffset).
 
 Definition PDTIfPDFlag s :=
-forall idPDchild sh1entryaddr,
+(*forall idPDchild sh1entryaddr,
 true = StateLib.checkChild idPDchild s sh1entryaddr ->
 (exists entry, lookup idPDchild s.(memory) beqAddr = Some (BE entry)
-/\ entryPDT idPDchild entry.(blockrange).(startAddr) s).
+/\ entryPDT idPDchild entry.(blockrange).(startAddr) s).*)
+forall idPDchild sh1entryaddr,
+true = StateLib.checkChild idPDchild s sh1entryaddr /\
+sh1entryAddr idPDchild sh1entryaddr s ->
+exists startaddr, bentryStartAddr idPDchild startaddr s /\
+ entryPDT idPDchild startaddr s.
 
-(* TODO : check if needed *)
 Definition nullAddrExists s :=
 (*forall n,
 getNullAddr s = Some n.*)
 isPADDR nullAddr s.
 
-Definition FirstFreeSlotPointerIsBE s :=
-forall entryaddr entry,
-lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
-exists slotentry, lookup entry.(firstfreeslot) s.(memory) beqAddr = Some (BE slotentry).
+Definition FirstFreeSlotPointerIsBEAndFreeSlot s :=
+forall pdentryaddr pdentry,
+lookup pdentryaddr (memory s) beqAddr = Some (PDT pdentry) ->
+pdentry.(firstfreeslot) <> nullAddr ->
+isBE pdentry.(firstfreeslot) s /\
+(*exists slotentry, lookup entry.(firstfreeslot) s.(memory) beqAddr = Some (BE slotentry) /\*)
+isFreeSlot pdentry.(firstfreeslot) s.
 
-Definition StructurePointerIsBE s :=
-forall entryaddr entry,
-lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
-isBE entry.(structure) s.
+Definition FirstFreeSlotPointerNotNullEq s :=
+forall pdinsertion currnbfreeslots,
+pdentryNbFreeSlots pdinsertion currnbfreeslots s /\ currnbfreeslots > 0 <->
+exists freeslotpointer, pdentryFirstFreeSlot pdinsertion freeslotpointer s /\
+freeslotpointer <> nullAddr.
 
+Definition DisjointFreeSlotsLists s :=
+forall pd1 pd2,
+isPDT pd1 s ->
+isPDT pd2 s ->
+pd1 <> pd2 ->
+exists optionfreeslotslist1 optionfreeslotslist2,
+optionfreeslotslist1 = getFreeSlotsList pd1 s /\
+wellFormedFreeSlotsList optionfreeslotslist1 s <> False /\ (* to get rid of false induction bound constraints *)
+optionfreeslotslist2 = getFreeSlotsList pd2 s /\
+wellFormedFreeSlotsList optionfreeslotslist2 s <> False /\ (* to get rid of false induction bound constraints *)
+disjoint (filterOption (optionfreeslotslist1))(filterOption (optionfreeslotslist2)).
+
+
+Definition NoDupInFreeSlotsList s :=
+forall pd pdentry,
+lookup pd (memory s) beqAddr = Some (PDT pdentry) ->
+exists optionfreeslotslist, optionfreeslotslist = getFreeSlotsList pd s /\
+wellFormedFreeSlotsList optionfreeslotslist s <> False /\ (* to get rid of false induction bound constraints *)
+NoDup (filterOption (optionfreeslotslist)).
+
+(* TODO : state the blockindexes list constraints *)
 Definition StructurePointerIsKS s :=
 forall entryaddr entry,
 lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
 isKS entry.(structure) s.
-
 
 Definition NextKSOffsetIsPADDR s :=
 forall addr nextksaddr : paddr,
@@ -93,41 +121,29 @@ nextKSAddr nextksaddr nextKS s ->
 nextKS <> nullAddr ->
 isKS nextKS s.
 
-Definition KSIsBE s :=
-forall addr : paddr,
-isKS addr s ->
-isBE addr s.
-
-
 Definition CurrentPartIsPDT s :=
 forall pdaddr,
 currentPartition s = pdaddr ->
 isPDT pdaddr s.
 
-Definition KernelStartIsBE s :=
-forall blockentryaddr,
-exists blockentry : BlockEntry,
-lookup blockentryaddr (memory s) beqAddr = Some (BE blockentry) ->
-exists kernelstartaddr : paddr,
-StateLib.Paddr.subPaddrIdx blockentryaddr blockentry.(blockindex) = Some kernelstartaddr
-/\ isBE kernelstartaddr s.
-
-Definition BlockEntryAddrInBlocksRangeIsBE s :=
-forall blockentryaddr : paddr, forall blockidx : index,
-isBE blockentryaddr s ->
+Definition BlocksRangeFromKernelStartIsBE s :=
+forall kernelentryaddr : paddr, forall blockidx : index,
+isKS kernelentryaddr s ->
 blockidx < kernelStructureEntriesNb ->
-isBE (CPaddr (blockentryaddr + blkoffset + blockidx)) s.
+isBE (CPaddr (kernelentryaddr + blockidx)) s.
 
-Definition KernelStructureStartFromBlockEntryAddrIsBE s :=
-forall blockentryaddr : paddr, forall entry : BlockEntry,
-lookup blockentryaddr (memory s) beqAddr = Some (BE entry) ->
-isBE (CPaddr (blockentryaddr - entry.(blockindex))) s.
+Definition KernelStructureStartFromBlockEntryAddrIsKS s :=
+forall (blockentryaddr : paddr) (blockidx : index),
+isBE blockentryaddr s ->
+bentryBlockIndex blockentryaddr blockidx s ->
+isKS (CPaddr (blockentryaddr - blockidx)) s.
 
-Definition PDchildIsBE s :=
+(* To remove if unnecessary *)
+(*Definition PDchildIsPDT s :=
 forall sh1entryaddr sh1entry,
 lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
 sh1entry.(PDchild) <> nullAddr ->
-isBE sh1entry.(PDchild) s.
+isPDT sh1entry.(PDchild) s.*)
 
 Definition sh1InChildLocationIsBE s :=
 forall sh1entryaddr sh1entry,
@@ -135,21 +151,29 @@ lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
 sh1entry.(inChildLocation) <> nullAddr ->
 isBE sh1entry.(inChildLocation) s.
 
+(* TODO: remove and replace if necessary by chained free slots without cycles*)
+Definition chainedFreeSlots s :=
+forall entry nextfreeslotentry,
+isFreeSlot entry s ->
+nextfreeslotentry <> nullAddr ->
+bentryEndAddr entry nextfreeslotentry s ->
+((*isBE nextfreeslotentry s /\ *) isFreeSlot nextfreeslotentry s).
+
 (** ** Conjunction of all consistency properties *)
 Definition consistency s :=
 wellFormedFstShadowIfBlockEntry s /\
 PDTIfPDFlag s /\
 nullAddrExists s /\
-FirstFreeSlotPointerIsBE s /\
+FirstFreeSlotPointerIsBEAndFreeSlot s /\
 CurrentPartIsPDT s /\
-KernelStartIsBE s /\
 wellFormedShadowCutIfBlockEntry s /\
-BlockEntryAddrInBlocksRangeIsBE s /\
-KernelStructureStartFromBlockEntryAddrIsBE s /\
-PDchildIsBE s /\
+BlocksRangeFromKernelStartIsBE s /\
+KernelStructureStartFromBlockEntryAddrIsKS s /\
 sh1InChildLocationIsBE s /\
-StructurePointerIsBE s /\
 StructurePointerIsKS s /\
 NextKSIsKS s /\
 NextKSOffsetIsPADDR s /\
-KSIsBE s.
+FirstFreeSlotPointerNotNullEq s /\
+NoDupInFreeSlotsList s /\
+chainedFreeSlots s /\
+DisjointFreeSlotsLists s.

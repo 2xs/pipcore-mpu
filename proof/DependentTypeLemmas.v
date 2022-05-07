@@ -727,6 +727,20 @@ apply CIndex0ltKSEntriesNb.
 assumption.
 Qed.
 
+
+Lemma KSIsBE s :
+forall addr : paddr,
+isKS addr s ->
+isBE addr s.
+Proof.
+intuition.
+unfold isKS in *.
+unfold isBE.
+destruct (lookup addr (Monad.memory s) beqAddr) ; try(exfalso ; congruence).
+destruct v ; try(exfalso ; congruence).
+trivial.
+Qed.
+
 (*
 Lemma indexEqbTrue : 
 forall idx1 idx2 : index, true = StateLib.Index.eqb idx1 idx2 -> 
@@ -1396,6 +1410,19 @@ apply beq_nat_true in H. rewrite H. apply eq_sym. apply Nat.eqb_refl.
 intros. apply eq_sym.
 apply Nat.eqb_neq. apply Nat.eqb_neq in H. unfold not in *.
 intros. intuition. 
+Qed.
+
+Lemma paddrEqId :
+forall p : paddr, CPaddr p = p.
+Proof.
+intros.
+unfold CPaddr.
+destruct p.
+simpl.
+case_eq(le_dec p maxAddr); intros.
+assert(ADT.CPaddr_obligation_1 p l = Hp) by apply proof_irrelevance.
+subst. reflexivity.
+now contradict Hp.
 Qed.
 
 (*
