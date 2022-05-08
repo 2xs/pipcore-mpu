@@ -282,13 +282,13 @@ induction n.
 				apply beqAddrFalse in H3.
 				eauto.
 				- (* impossible, foundblock is null *)
-					contradict H9.
+					contradict H10.
 					apply beqAddrTrue in H5. subst.
 					unfold consistency in *.
 					unfold nullAddrExists in *.
 					intuition. unfold isPADDR in *.
-					destruct H.
-					rewrite H in *. congruence.
+					destruct H9.
+					rewrite H9 in *. congruence.
 			}
 	+ (* case_eq foundblockisnull = false *)
 		intros. simpl.
