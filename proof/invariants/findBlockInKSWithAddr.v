@@ -140,12 +140,19 @@ revert kernelstructurestart blockEntryAddr.
 					{ (** induction hypothesis *)
 						intros. eapply weaken. apply IHn.
 						intros. simpl. intuition.
+						apply isKSLookupEq in H10. destruct H10 as [x (H10&Hblockidx)].
+						destruct H4. intuition.
 						assert(HnextKSIsKS : NextKSIsKS s) by (unfold consistency in * ; intuition).
 						unfold NextKSIsKS in *.
-						destruct H4.
-						apply HnextKSIsKS with kernelstructurestart x ; intuition.
+						apply HnextKSIsKS with 	(addr:=kernelstructurestart)
+																		(nextKSaddr:=CPaddr (kernelstructurestart + nextoffset))
+																		(nextKS:=nextKernelStructure) ;
+						intuition.
+						- unfold isKS. rewrite H10 ; trivial.
+						- unfold nextKSAddr. rewrite H10 ; trivial.
+						- unfold nextKSentry in *. subst x0. intuition.
 						(* Prove nextKernelStructure <> nullAddr *)
-						apply beqAddrFalse in H3. intuition.
+						- apply beqAddrFalse in H3. intuition.
 					}
 Qed.
 

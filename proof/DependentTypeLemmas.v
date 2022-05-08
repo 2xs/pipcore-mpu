@@ -1425,6 +1425,15 @@ subst. reflexivity.
 now contradict Hp.
 Qed.
 
+
+Lemma PaddrSym :
+forall addr1 addr2 : paddr,
+addr1 = addr2 -> addr2 = addr1.
+Proof.
+intuition.
+Qed.
+
+
 (*
 Require Import List Classical_Prop.
 Lemma listIndexDecOrNot :

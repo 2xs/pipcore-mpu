@@ -110,14 +110,14 @@ isKS entry.(structure) s.
 Definition NextKSOffsetIsPADDR s :=
 forall addr nextksaddr : paddr,
 isKS addr s ->
-nextksaddr = CPaddr (addr + nextoffset) /\
+nextKSAddr addr nextksaddr s ->
 isPADDR nextksaddr s.
 
 Definition NextKSIsKS s :=
-forall addr nextksaddr nextKS : paddr,
+forall addr nextKSaddr nextKS : paddr,
 isKS addr s ->
-nextksaddr = CPaddr (addr + nextoffset) /\
-nextKSAddr nextksaddr nextKS s ->
+nextKSAddr addr nextKSaddr s ->
+nextKSentry nextKSaddr nextKS s ->
 nextKS <> nullAddr ->
 isKS nextKS s.
 

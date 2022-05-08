@@ -404,10 +404,23 @@ Qed.
 (* DUP *)
 Lemma isKSLookupEq (addr : paddr) s :
 isKS addr s -> exists entry : BlockEntry,
-  lookup addr (memory s) beqAddr = Some (BE entry).
+  lookup addr (memory s) beqAddr = Some (BE entry)
+	/\ entry.(blockindex) = zero.
 Proof.
 intros.
 unfold isKS in H.
+destruct (lookup addr (memory s) beqAddr); try now contradict H.
+destruct v; try now contradict H.
+eexists;repeat split;trivial.
+Qed.
+
+(* DUP *)
+Lemma isPADDRLookupEq (addr : paddr) s :
+isPADDR addr s -> exists addr' : paddr,
+  lookup addr (memory s) beqAddr = Some (PADDR addr').
+Proof.
+intros.
+unfold isPADDR in H.
 destruct (lookup addr (memory s) beqAddr); try now contradict H.
 destruct v; try now contradict H.
 eexists;repeat split;trivial.
@@ -1391,25 +1404,29 @@ Lemma readNextFromKernelStructureStart (structurepaddr : paddr) (P : state -> Pr
 MAL.readNextFromKernelStructureStart structurepaddr
 {{fun nextkernelstructure s => P s
 																/\ exists offset, (offset = CPaddr (structurepaddr + nextoffset)
-																/\ nextKSAddr offset nextkernelstructure s)}}.
+																/\ nextKSAddr structurepaddr offset s)
+																/\ nextKSentry offset nextkernelstructure s}}.
 Proof.
 unfold MAL.readNextFromKernelStructureStart.
 eapply WP.bindRev.
 +   eapply WP.weaken. apply getNextAddrFromKernelStructureStart.
 	intros. simpl. split. apply H. intuition. apply isKSLookupEq in H2.
-	assumption.
+	destruct H2. exists x. intuition.
 + intro nextaddr.
 	simpl. eapply bind.
 	intros. apply ret.
 	eapply weaken. apply WP.readNextFromKernelStructureStart2.
 	intros. simpl. intuition. subst.
-	 unfold NextKSOffsetIsPADDR in H0.
+	unfold NextKSOffsetIsPADDR in H0.
 	specialize (H0 structurepaddr (CPaddr (structurepaddr + nextoffset)) H3).
-	intuition. unfold isPADDR in H2.
-	destruct (lookup (CPaddr (structurepaddr + nextoffset)) (memory s) beqAddr) eqn:Hlookup ; intuition.
+	unfold isKS in *. unfold nextKSAddr in H0.
+	destruct(lookup structurepaddr (memory s) beqAddr) eqn:Hlookup ; intuition.
 	destruct v eqn:Hv ; intuition.
-	exists p. intuition. subst.
-	eexists. intuition. unfold nextKSAddr. rewrite Hlookup ; trivial.
+	apply isPADDRLookupEq in H1. destruct H1.
+	exists x. intuition.
+	exists (CPaddr (structurepaddr + nextoffset)). intuition.
+	unfold nextKSAddr. rewrite Hlookup ; trivial.
+	unfold nextKSentry. subst. rewrite H0 ; trivial.
 Qed.
 
 Lemma checkRights p r w e P :

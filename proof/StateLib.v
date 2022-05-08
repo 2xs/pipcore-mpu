@@ -856,11 +856,18 @@ end.
 (** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
     into the given physical page [table] is type of [VE] and the user flag stored into 
     this entry is equal to a given flag [flag] *)
-Definition nextKSAddr paddr nextKSaddr s:= 
-match lookup paddr s.(memory) beqAddr with 
-| Some (PADDR entry) => nextKSaddr =  entry
+Definition nextKSAddr paddr nextKSaddr s:=
+match lookup paddr s.(memory) beqAddr with
+| Some (BE entry) => nextKSaddr =  CPaddr (paddr + nextoffset)
 | _ => False
 end.
+
+Definition nextKSentry nextKSaddr nextKS s:=
+match lookup nextKSaddr s.(memory) beqAddr with
+| Some (PADDR entry) => nextKS =  entry
+| _ => False
+end.
+
 
 (** The [getPDFlag] checks if the given virtual address corresponds to a partition
     descriptor **)
