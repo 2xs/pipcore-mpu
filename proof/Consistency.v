@@ -75,11 +75,33 @@ isBE pdentry.(firstfreeslot) s /\
 (*exists slotentry, lookup entry.(firstfreeslot) s.(memory) beqAddr = Some (BE slotentry) /\*)
 isFreeSlot pdentry.(firstfreeslot) s.
 
-Definition FirstFreeSlotPointerNotNullEq s :=
-forall pdinsertion currnbfreeslots,
+(*Definition FirstFreeSlotPointerNotNullEq s :=
+(*forall pdinsertion currnbfreeslots,
 pdentryNbFreeSlots pdinsertion currnbfreeslots s /\ currnbfreeslots > 0 <->
 exists freeslotpointer, pdentryFirstFreeSlot pdinsertion freeslotpointer s /\
-freeslotpointer <> nullAddr.
+freeslotpointer <> nullAddr.*)
+forall pdinsertion currnbfreeslots,
+pdentryNbFreeSlots pdinsertion currnbfreeslots s /\ currnbfreeslots > 0 ->
+exists freeslotpointer, pdentryFirstFreeSlot pdinsertion freeslotpointer s /\
+isBE freeslotpointer s.*)
+
+(*forall pdinsertion freeslotpointer currnbfreeslots,
+(pdentryFirstFreeSlot pdinsertion freeslotpointer s ->
+freeslotpointer <> nullAddr) <->
+( exists optionfreeslotslist1,
+optionfreeslotslist1 = getFreeSlotsList pdinsertion s /\
+wellFormedFreeSlotsList optionfreeslotslist1 s <> False ->
+currnbfreeslots = CIndex (length (filterOption (optionfreeslotslist1)))) ->
+pdentryNbFreeSlots pdinsertion currnbfreeslots s
+-> currnbfreeslots > 0.*)
+
+(*Definition FirstFreeSlotPointerNull s :=
+forall pdinsertion freeslotpointer nbFreeSlots,
+pdentryFirstFreeSlot pdinsertion freeslotpointer s ->
+pdentryNbFreeSlots pdinsertion nbFreeSlots s ->
+freeslotpointer = nullAddr ->
+nbFreeSlots = zero.*)
+
 
 Definition DisjointFreeSlotsLists s :=
 forall pd1 pd2,
@@ -173,7 +195,6 @@ sh1InChildLocationIsBE s /\
 StructurePointerIsKS s /\
 NextKSIsKS s /\
 NextKSOffsetIsPADDR s /\
-FirstFreeSlotPointerNotNullEq s /\
 NoDupInFreeSlotsList s /\
 chainedFreeSlots s /\
 DisjointFreeSlotsLists s.

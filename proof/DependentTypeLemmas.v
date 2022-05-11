@@ -727,6 +727,19 @@ apply CIndex0ltKSEntriesNb.
 assumption.
 Qed.
 
+Lemma indexEqId :
+forall i : index, CIndex i = i.
+Proof.
+intros.
+unfold CIndex.
+destruct i.
+simpl.
+case_eq(le_dec i maxIdx); intros.
+assert(ADT.CIndex_obligation_1 i l = Hi) by apply proof_irrelevance.
+subst. reflexivity.
+now contradict Hi.
+Qed.
+
 
 Lemma KSIsBE s :
 forall addr : paddr,
