@@ -36,8 +36,105 @@
 
 #include <stdint.h>
 
-extern uint32_t in(uint32_t registerId, uint32_t *valueAddress);
+#include "register.h"
 
-extern uint32_t out(uint32_t registerId, uint32_t *valueAddress);
+/*!
+ * \brief Read only accessor.
+ *
+ * \param registerAccessType The type of access requested by the
+ *        caller.
+ *
+ * \param registerAddress The address from which to read the
+ *        value to write to valueAddress.
+ *
+ * \param valueAddress The address where to write the value read
+ *        from registerAddress.
+ *
+ * \return 1 if the read or the write succeed, 0 otherwise.
+ */
+extern uint32_t
+registerAccessRead(
+	registerAccessType_t registerAccessType,
+	volatile uint32_t *registerAddress,
+	uint32_t *valueAddress
+);
+
+/*!
+ * \brief Write only accessor.
+ *
+ * \param registerAccessType The type of access requested by the
+ *        caller.
+ *
+ * \param registerAddress The address where to write the value
+ *        read from valueAddress.
+ *
+ * \param valueAddress The address from which to read the value
+ *        to write to registerAddress.
+ *
+ * \return 1 if the read or the write succeed, 0 otherwise.
+ */
+extern uint32_t
+registerAccessWrite(
+	registerAccessType_t registerAccessType,
+	volatile uint32_t *registerAddress,
+	uint32_t *valueAddress
+);
+
+/*!
+ * \brief Read/Write accessor.
+ *
+ * \param registerAccessType The type of access requested by the
+ *        caller.
+ *
+ * \param registerAddress The address where to write the value
+ *        read from valueAddress or the address from which to
+ *        read the value to write to valueAddress.
+ *
+ * \param valueAddress The address where to write the value read
+ *        from registerAddress or the address from which to read
+ *        the value to write to registerAddress.
+ *
+ * \return 1 if the read or the write succeed, 0 otherwise.
+ */
+extern uint32_t
+registerAccessReadWrite(
+	registerAccessType_t registerAccessType,
+	volatile uint32_t *registerAddress,
+	uint32_t *valueAddress
+);
+
+/*!
+ * \brief The in SVC writes the value of the register designated
+ *        by its ID to the valueAddress address.
+ *
+ * \param registerId The ID of the register to read.
+ *
+ * \param valueAddress The address where to write the value
+ *        read.
+ *
+ * \param 1 if the read succeed, 0 otherwise.
+ */
+extern uint32_t
+in(
+	uint32_t registerId,
+	uint32_t *valueAddress
+);
+
+/*!
+ * \brief The out SVC writes the value at valueAddress address
+ *        to the register designated by its ID.
+ *
+ * \param registerId The ID of the register to write.
+ *
+ * \param valueAddress The address where the value to be written
+ *        is located.
+ *
+ * \param 1 if the read succeed, 0 otherwise.
+ */
+extern uint32_t
+out(
+	uint32_t registerId,
+	uint32_t *valueAddress
+);
 
 #endif /* __ACCESSOR_H__ */

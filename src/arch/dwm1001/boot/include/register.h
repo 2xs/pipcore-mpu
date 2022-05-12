@@ -31,42 +31,32 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
-#ifndef __REGISTER_RANGE_H__
-#define __REGISTER_RANGE_H__
+#ifndef __REGISTER_H__
+#define __REGISTER_H__
 
 #include <stdint.h>
 
-#include "register_accessor.h"
+#define REGISTER_ID_TO_ACCESSOR_SIZE 519
 
-/*!
- * \brief The register accessor range structure.
- */
-typedef struct registerAccessorRange_s
+typedef enum registerAccessType_u
 {
-	/*!
-	 * \brief The register accessors.
-	 */
-	registerAccessor_t *registerAccessors;
-	/*!
-	 * \brief The size of the register accessors.
-	 */
-	uint32_t registerAccessorSize;
-	/*!
-	 * \brief The base address of the range.
-	 */
-	uint32_t baseAddress;
-} registerAccessorRange_t;
+	REGISTER_ACCESS_READ,
+	REGISTER_ACCESS_WRITE
+} registerAccessType_t;
 
-/*!
- * \def REGISTER_RANGE_NUMBER
- *
- * \brief The register range number.
- */
-#define REGISTER_RANGE_NUMBER 6
+typedef uint32_t (*registerAccessor_t)
+(
+	registerAccessType_t,
+	volatile uint32_t*,
+	uint32_t*
+);
 
-/*!
- * \brief Pointer to the register range array.
- */
-extern registerAccessorRange_t registerAccessorRanges[REGISTER_RANGE_NUMBER];
+typedef struct registerIdToAccessor_s
+{
+	volatile uint32_t *address;
+	registerAccessor_t accessor;
+} registerIdToAccessor_t;
 
-#endif /* __REGISTER_RANGE_H__ */
+extern const registerIdToAccessor_t REGISTER_ID_TO_ACCESSOR[];
+
+#endif /* __REGISTER_H__ */

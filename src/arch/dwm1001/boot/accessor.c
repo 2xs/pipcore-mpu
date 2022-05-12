@@ -34,67 +34,55 @@
 #include <stdint.h>
 
 #include "accessor.h"
-#include "register_range.h"
+#include "register.h"
 #include "mal.h"
 
-/*!
- * \brief Retrieve the register accessor from the register ID.
- *
- * \param registerId The register ID.
- *
- * \param registerAccessor The retrieved register accessor.
- *
- * \param registerAddress The retrieved register address.
- *
- * \return 1 if the function succeed, 0 otherwise.
- */
-static uint32_t
-retrieveRegisterAccessor(
-	uint32_t           registerId,
-	registerAccessor_t *registerAccessor,
-	volatile uint32_t  **registerAddress
+extern uint32_t
+registerAccessRead(
+	registerAccessType_t registerAccessType,
+	volatile uint32_t *registerAddress,
+	uint32_t *valueAddress
 ) {
-	/* Check that the caller is the root partition. */
-	if (getCurPartition() != getRootPartition())
+	if (registerAccessType != REGISTER_ACCESS_READ)
 	{
 		return 0;
 	}
 
-	/* Retrieve the register range from the register ID. The
-	 * register range is coded on the 16 most significant bits. */
-	uint32_t registerRange = (registerId >> 16) & 0xffff;
+	*valueAddress = *registerAddress;
 
-	/* Check that the register range is not greater than or equal to
-	 * the size of the register accessor ranges. */
-	if (registerRange >= REGISTER_RANGE_NUMBER)
+	return 1;
+}
+
+extern uint32_t
+registerAccessWrite(
+	registerAccessType_t registerAccessType,
+	volatile uint32_t *registerAddress,
+	uint32_t *valueAddress
+) {
+	if (registerAccessType != REGISTER_ACCESS_WRITE)
 	{
 		return 0;
 	}
 
-	/* Retrieve the register accessor range from the register range. */
-	registerAccessorRange_t *registerAccessorRange =
-		&registerAccessorRanges[registerRange];
+	*registerAddress = *valueAddress;
 
-	/* Retrieve the register index from the register ID. The
-	 * register index is coded on the 16 least significant bits. */
-	uint32_t registerIndex = registerId & 0x0000ffff;
+	return 1;
+}
 
-	/* Check that the register index is not greater than or equal to
-	 * the size of the register accessors. */
-	if (registerIndex >= registerAccessorRange->registerAccessorSize)
+extern uint32_t
+registerAccessReadWrite(
+	registerAccessType_t registerAccessType,
+	volatile uint32_t *registerAddress,
+	uint32_t *valueAddress
+) {
+	if (registerAccessType == REGISTER_ACCESS_READ)
 	{
-		return 0;
+		*valueAddress = *registerAddress;
 	}
-
-	/* Calculation of the register address from the base address of
-	 * its range and its index. */
-	*registerAddress = (volatile uint32_t *)(registerAccessorRange->
-		baseAddress + (registerIndex * sizeof(void *)));
-
-	/* Retrieve the register accessor corresponding to the register
-	 * index. */
-	*registerAccessor =
-		registerAccessorRange->registerAccessors[registerIndex];
+	else
+	{
+		*registerAddress = *valueAddress;
+	}
 
 	return 1;
 }
@@ -102,53 +90,37 @@ retrieveRegisterAccessor(
 extern uint32_t
 in(uint32_t registerId, uint32_t *valueAddress)
 {
-	registerAccessor_t registerAccessor;
-	volatile uint32_t  *registerAddress;
-	uint32_t           success;
+	const registerIdToAccessor_t *entry;
 
-	success = retrieveRegisterAccessor
-	(
-		registerId,
-		&registerAccessor,
-		&registerAddress
-	);
-
-	if (!success)
+	if (registerId < REGISTER_ID_TO_ACCESSOR_SIZE)
 	{
-		return 0;
+		entry = &REGISTER_ID_TO_ACCESSOR[registerId];
+
+		return entry->accessor(
+			REGISTER_ACCESS_READ,
+			entry->address,
+			valueAddress
+		);
 	}
 
-	return registerAccessor
-	(
-		REGISTER_ACCESS_READ,
-		registerAddress,
-		valueAddress
-	);
+	return 0;
 }
 
 extern uint32_t
 out(uint32_t registerId, uint32_t *valueAddress)
 {
-	registerAccessor_t registerAccessor;
-	volatile uint32_t  *registerAddress;
-	uint32_t           success;
+	const registerIdToAccessor_t *entry;
 
-	success = retrieveRegisterAccessor
-	(
-		registerId,
-		&registerAccessor,
-		&registerAddress
-	);
-
-	if (!success)
+	if (registerId < REGISTER_ID_TO_ACCESSOR_SIZE)
 	{
-		return 0;
+		entry = &REGISTER_ID_TO_ACCESSOR[registerId];
+
+		return entry->accessor(
+			REGISTER_ACCESS_WRITE,
+			entry->address,
+			valueAddress
+		);
 	}
 
-	return registerAccessor
-	(
-		REGISTER_ACCESS_WRITE,
-		registerAddress,
-		valueAddress
-	);
+	return 0;
 }
