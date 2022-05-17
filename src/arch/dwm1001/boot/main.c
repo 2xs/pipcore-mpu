@@ -44,51 +44,6 @@
 #include "memlayout.h"
 #include "stdio.h"
 
-/*!
- * \def SYSTEM_CLOCK_SOURCE_HZ
- *
- * \brief The system clock frequency in Hertz.
- */
-#define SYSTEM_CLOCK_SOURCE_HZ 8000000 /* 8MHz */
-
-/*!
- * \def SYSTICK_DELAY_SECOND
- *
- * \brief The delay between two SysTick in second.
- */
-#define SYSTICK_DELAY_SECOND 0.01 /* 10 ms */
-
-/*!
- * \def SYST_RVR_RELOAD_VALUE
- *
- * \brief The reload value for the SYST_RVR register.
- */
-#define SYST_RVR_RELOAD_VALUE \
-	(((SYSTEM_CLOCK_SOURCE_HZ) * (SYSTICK_DELAY_SECOND)) - 1)
-
-/*!
- * \brief Enable the SysTick timer.
- */
-static void
-systick_timer_enable(void)
-{
-	/* Reset the SYST_CSR register */
-	SYST_CSR.as_uint32_t = 0;
-
-	/* Set the reload value of the SYST_CVR register. */
-	SYST_RVR.RELOAD = SYST_RVR_RELOAD_VALUE;
-
-	/* SysTick uses the processor clock. */
-	SYST_CSR.CLKSOURCE = 1;
-
-	/* Count to 0 changes the SysTick exception status to
-	 * pending. */
-	SYST_CSR.TICKINT = 1;
-
-	/* Counter is operating. */
-	SYST_CSR.ENABLE = 1;
-}
-
 extern void __attribute__((noreturn))
 Boot_Handler(void)
 {
@@ -98,9 +53,6 @@ Boot_Handler(void)
 
 	// Initialize the root partition and init the MPU
 	malInit();
-
-	/* Enable the SysTick timer. */
-	systick_timer_enable();
 
 	/* Enable full access to the FPU. */
 	CPACR.as_uint32_t |= 0x00f00000;
