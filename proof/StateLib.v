@@ -491,16 +491,25 @@ end.
 (** The [geTrdShadows] returns physical pages used to keep informations about
     configuration pages
 *)
-Definition getFreeSlotsListAux bound FuncAux (blockentryaddr : paddr) s  : list optionPaddr:=
+Definition getFreeSlotsListAux bound FuncAux (blockentryaddr : paddr) s (nbfreeslotsleft : index) : list optionPaddr:=
 match bound with
-|0 => [NonePaddr]
-|S bound1 => match lookup blockentryaddr s.(memory) beqAddr with
-						| Some (BE entry) => if entry.(blockrange).(endAddr) =? nullAddr then [SomePaddr blockentryaddr] else SomePaddr blockentryaddr :: FuncAux bound1 entry.(blockrange).(endAddr) s
-            |_ => [NonePaddr]
-           end
+|0 => (* NOK *) [NonePaddr]
+|S bound1 => if Index.ltb nbfreeslotsleft zero (*<? -> == OK*)
+						then (* NOK, unreachable, should have stopped at NULL if end of list *)[NonePaddr]
+						else
+							match lookup blockentryaddr s.(memory) beqAddr with
+							| Some (BE entry) =>	match Index.pred nbfreeslotsleft with
+								                    |Some p =>  SomePaddr blockentryaddr :: FuncAux bound1 entry.(blockrange).(endAddr) s p
+								                    |None => [NonePaddr]
+								                    end
+							| Some (PADDR entry) => if beqAddr entry nullAddr
+																			then (* OK, end of list *) []
+																			else (* NOK, only acceptable PADDR is NULL *) [NonePaddr]
+		          |_ => (* Wrong entry type, trying to access unexpected entry *) [NonePaddr]
+		         end
 end.
 
-Fixpoint getFreeSlotsListRec (bound : nat) (blockentryaddr : paddr) s {struct bound} := getFreeSlotsListAux bound getFreeSlotsListRec blockentryaddr s.
+Fixpoint getFreeSlotsListRec (bound : nat) (blockentryaddr : paddr) s (nbfreeslotsleft : index) {struct bound} := getFreeSlotsListAux bound getFreeSlotsListRec blockentryaddr s nbfreeslotsleft.
 
 (*Fixpoint getFreeSlotsListAux (blockentryaddr : paddr) s bound :=
 match bound with
@@ -513,19 +522,22 @@ end.*)
 
 Definition getFreeSlotsList (partition : paddr) s :=
   match lookup partition s.(memory) beqAddr with
-  | Some (PDT pdentry) => getFreeSlotsListRec N pdentry.(firstfreeslot) s
+  | Some (PDT pdentry) => if beqAddr pdentry.(firstfreeslot) nullAddr
+													then []
+													else getFreeSlotsListRec (maxIdx+1) pdentry.(firstfreeslot) s pdentry.(nbfreeslots)
+																(* as nbfreeslots is of type index, it must be < maxIdx, so case 0 never reached*)
 	|_ => []
 end.
 
-Fixpoint wellFormedFreeSlotsList (l : list optionPaddr) (s : state) :=
+Fixpoint wellFormedFreeSlotsList (l : list optionPaddr) :=
 match l with
 | [] => True
-| SomePaddr entryaddr :: l1 => wellFormedFreeSlotsList l1 s
+| SomePaddr entryaddr :: l1 => wellFormedFreeSlotsList l1
 | _ => (* undef because of recursion *) False
 end.
 
 Lemma FreeSlotsListRec_unroll :
-forall blockentryaddr s bound, getFreeSlotsListRec bound blockentryaddr s = getFreeSlotsListAux bound getFreeSlotsListRec blockentryaddr s.
+forall blockentryaddr s bound nbfreeslotsleft, getFreeSlotsListRec bound blockentryaddr s nbfreeslotsleft = getFreeSlotsListAux bound getFreeSlotsListRec blockentryaddr s nbfreeslotsleft.
 destruct bound; simpl;reflexivity.
 Qed.
 

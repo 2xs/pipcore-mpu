@@ -754,6 +754,13 @@ destruct v ; try(exfalso ; congruence).
 trivial.
 Qed.
 
+Lemma IdxLtMaxIdx (idx : index) :
+idx <= maxIdx.
+Proof.
+destruct idx. simpl.
+intuition.
+Qed.
+
 (*
 Lemma indexEqbTrue : 
 forall idx1 idx2 : index, true = StateLib.Index.eqb idx1 idx2 -> 
@@ -1445,6 +1452,23 @@ addr1 = addr2 -> addr2 = addr1.
 Proof.
 intuition.
 Qed.
+
+Lemma PaddrNatTrue :
+forall addr1 addr2 : paddr,
+beqAddr addr1 addr2 = true <->
+PeanoNat.Nat.eqb (p addr1) (p addr2) = true.
+Proof.
+intuition.
+Qed.
+
+Lemma PaddrNatFalse :
+forall addr1 addr2 : paddr,
+beqAddr addr1 addr2 = false <->
+PeanoNat.Nat.eqb (p addr1) (p addr2) = false.
+Proof.
+intuition.
+Qed.
+
 
 
 (*

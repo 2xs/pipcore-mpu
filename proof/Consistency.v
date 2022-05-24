@@ -110,9 +110,9 @@ isPDT pd2 s ->
 pd1 <> pd2 ->
 exists optionfreeslotslist1 optionfreeslotslist2,
 optionfreeslotslist1 = getFreeSlotsList pd1 s /\
-wellFormedFreeSlotsList optionfreeslotslist1 s <> False /\ (* to get rid of false induction bound constraints *)
+wellFormedFreeSlotsList optionfreeslotslist1 <> False /\ (* to get rid of false induction bound constraints *)
 optionfreeslotslist2 = getFreeSlotsList pd2 s /\
-wellFormedFreeSlotsList optionfreeslotslist2 s <> False /\ (* to get rid of false induction bound constraints *)
+wellFormedFreeSlotsList optionfreeslotslist2 <> False /\ (* to get rid of false induction bound constraints *)
 disjoint (filterOption (optionfreeslotslist1))(filterOption (optionfreeslotslist2)).
 
 
@@ -120,7 +120,7 @@ Definition NoDupInFreeSlotsList s :=
 forall pd pdentry,
 lookup pd (memory s) beqAddr = Some (PDT pdentry) ->
 exists optionfreeslotslist, optionfreeslotslist = getFreeSlotsList pd s /\
-wellFormedFreeSlotsList optionfreeslotslist s <> False /\ (* to get rid of false induction bound constraints *)
+wellFormedFreeSlotsList optionfreeslotslist <> False /\ (* to get rid of false induction bound constraints *)
 NoDup (filterOption (optionfreeslotslist)).
 
 (* TODO : state the blockindexes list constraints *)

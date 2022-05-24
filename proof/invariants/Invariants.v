@@ -296,60 +296,6 @@ simpl. intuition.
 Qed.
 
 (* DUP *)
-Lemma removeDupIdentity  (l :  list (paddr * value)) :
-forall addr1 addr2 , addr1 <> addr2  ->
-lookup addr1 (removeDup addr2 l  beqAddr) beqAddr =
-lookup addr1 l beqAddr.
-Proof.
-intros.
-induction l.
-simpl. trivial.
-simpl.
-destruct a.
-destruct p.
-+ case_eq (beqAddr {| p := p; Hp := Hp |} addr2).
-  - intros. cbn in *.
-    case_eq (PeanoNat.Nat.eqb p addr1).
-    * intros.
-      apply beq_nat_true in H0.
-      apply beq_nat_true in H1.
-			rewrite H1 in H0.
-			apply beqAddrFalse in H.
-			unfold beqAddr in H.
-			apply beq_nat_false in H.
-			congruence.
-
-		* intros. assumption.
-	- intros. simpl.
-		case_eq (beqAddr {| p := p; Hp := Hp |} addr1).
-		intros. trivial.
-		intros. assumption.
-Qed.
-
-Lemma removeDupDupIdentity  (l :  list (paddr * value)) :
-forall addr1 addr2 , addr1 <> addr2  ->
-lookup addr1
-  (removeDup addr2 (removeDup addr2 l beqAddr) beqAddr)
-	beqAddr
-= lookup addr1 (removeDup addr2 l beqAddr) beqAddr.
-Proof.
-intros.
-induction l.
-simpl. trivial.
-simpl.
-destruct a.
-destruct p.
-+ case_eq (beqAddr {| p := p; Hp := Hp |} addr2).
-  - intros. cbn in *. rewrite removeDupIdentity. reflexivity.
-		assumption.
-	- intros. simpl.
-		rewrite H0. simpl.
-		case_eq (beqAddr {| p := p; Hp := Hp |} addr1).
-		intros. trivial.
-		intros. assumption.
-Qed.
-
-(* DUP *)
 Lemma isPDTLookupEq (pd : paddr) s :
 isPDT pd s -> exists entry : PDTable,
   lookup pd (memory s) beqAddr = Some (PDT entry).
