@@ -42,13 +42,6 @@
 #include "stack.h"
 
 /*!
- * \def UNREACHABLE_ADDRESS
- *
- * \brief An unreachable address in ARMv7-M.
- */
-#define UNREACHABLE_ADDRESS 0xffffffff
-
-/*!
  * \def MMFSR_CLEAR_MASK
  *
  * \brief A mask to clear all flags of the MMFSR register.
@@ -312,22 +305,50 @@ Fault_Handler_C(stackedContext_t *context)
 }
 
 /*!
- * \brief Although the MemManage exception is a fault, it has its own
- *        handler. The reason for this is that a MemManage exception can
- *        be legitimately raised as part of the MPU partial block
- *        configuration. In the case of an illegal access, the
- *        Fault_Handler is called.
- *
- * \param stackedContext The context stacked by the MemManage_Handler
- *        entry point.
- *
- * \see The calling code is in the exception_entry.S file.
+ * \brief The enumeration of all possible MemManage
+ *        exception causes.
  */
-extern void
-MemManage_Handler_C(stackedContext_t *context)
+typedef enum memFaultCause_u
 {
-	uint32_t faultedAddress;
-	uint32_t isDaccviol = 0;
+	/*!
+	 * \brief A MemManage caused by a DACCVIOL.
+	 */
+	DACCVIOL,
+	/*!
+	 * \brief A MemManage caused by a IACCVIOL
+	 *        of a 16-bit instruction.
+	 */
+	IACCVIOL16,
+	/*!
+	 * \brief A MemManage caused by a IACCVIOL
+	 *        of a 32-bit instruction.
+	 */
+	IACCVIOL32,
+	/*!
+	 * \brief A MemManage caused by an unknown
+	 *        cause.
+	 */
+	UNKNOWN
+} memFaultCause_t;
+
+/*!
+ * \brief Retrive both the cause and the address of the
+ *        MemManage exception.
+ *
+ * \param ctx The stacked context of the partition that cause
+ *        the MemManage exception.
+ *
+ * \param cause The address where to store the cause of the
+ *        MemManage exception.
+ *
+ * \param addr The address where to store the address of the
+ *        MemManage exception.
+ */
+static inline void
+getFaultedAddress(stackedContext_t *ctx, void **addr, memFaultCause_t *cause)
+{
+	uint16_t halfword;
+	uint8_t bits;
 
 	if (CFSR.MMFSR.DACCVIOL && CFSR.MMFSR.MMARVALID)
 	{
@@ -335,17 +356,17 @@ MemManage_Handler_C(stackedContext_t *context)
 		 * B1.5.14 Fault behavior
 		 *
 		 * ``
-		 * MPU violation or fault caused by an explicit memory
-		 * access. The processor writes the data address of the
-		 * load or store to the MemManage Address Register.
+		 * MPU violation or fault caused by an explicit
+		 * memory access. The processor writes the data
+		 * address of the load or store to the MemManage
+		 * Address Register.
 		 * ``
 		 *
-		 * The faulted address is stored in the MMFAR register
-		 * because the MMARVALID bit is set.
+		 * The faulted address is stored in the MMFAR
+		 * register because the MMARVALID bit is set.
 		 */
-		faultedAddress = MMFAR.ADDRESS;
-
-		isDaccviol = 1;
+		*addr = (void *) MMFAR.ADDRESS;
+		*cause = DACCVIOL;
 	}
 	else if (CFSR.MMFSR.IACCVIOL)
 	{
@@ -355,184 +376,341 @@ MemManage_Handler_C(stackedContext_t *context)
 		 * ``
 		 * MemManage fault on instruction access:
 		 *
-		 * MPU violation or fault caused by an instruction
-		 * fetch, or an instruction fetch from XN memory when
-		 * there is no MPU. The fault occurs only if the
-		 * processor attempts to execute the instruction. The
-		 * processor does not update the MemManage Address
+		 * MPU violation or fault caused by an
+		 * instruction fetch, or an instruction fetch
+		 * from XN memory when there is no MPU. The
+		 * fault occurs only if the processor attempts
+		 * to execute the instruction. The processor
+		 * does not update the MemManage Address
 		 * Register.
 		 * ``
 		 *
-		 * The faulted address is the address of the instruction
-		 * stored in the PC register, saved in the stacked
-		 * context, plus the size of this instruction.
+		 * The faulted address is the address of the
+		 * instruction stored in the PC register, saved
+		 * in the stacked context.
 		 */
-
-		uint32_t instructionAddress;
-
-		/* Retrieve the instruction address. */
-		if (context->isBasicFrame)
+		if (ctx->isBasicFrame)
 		{
-			instructionAddress = context->basicFrame.pc;
+			*addr = (void *) ctx->basicFrame.pc;
 		}
 		else
 		{
-			instructionAddress = context->extendedFrame.pc;
+			*addr = (void *) ctx->extendedFrame.pc;
 		}
-
-		/* Retrieve instruction from the its address. */
-		uint16_t instruction =
-			*((uint16_t *) instructionAddress);
 
 		/* Armv7-M Architecture - Reference Manual
 		 * A5.1 Thumb instruction set encoding
 		 *
 		 * ``
-		 * If bits [15:11] of the halfword being decoded take
-		 * any of the following values, the halfword is the
-		 * first halfword of a 32-bit instruction: 0b11101,
-		 * 0b11110, 0b11111.
+		 * If bits [15:11] of the halfword being
+		 * decoded take any of the following values,
+		 * the halfword is the first halfword of a
+		 * 32-bit instruction: 0b11101, 0b11110,
+		 * 0b11111.
 		 * ``
 		 */
-		uint8_t bits = (instruction >> 11) & 0x1f;
+		halfword = *((uint16_t *) *addr);
+
+		bits = (halfword >> 11) & 0x1f;
 
 		if (bits == 0x1d || bits == 0x1e || bits == 0x1f)
 		{
-			faultedAddress = instructionAddress + 2;
+			*cause =  IACCVIOL32;
 		}
 		else
 		{
-			faultedAddress = instructionAddress;
+			*cause = IACCVIOL16;
 		}
 	}
 	else
 	{
-		/* All other MemManage faults are not due to partial
-		 * block configuration. We set the faultedAddress to an
-		 * inaccessible address to avoid searching for a valid
-		 * block in the MPU. */
-		faultedAddress = UNREACHABLE_ADDRESS;
+		*addr = (void *) 0;
+		*cause = UNKNOWN;
 	}
+}
+
+/*!
+ * \brief Check that a virtual MPU register contains the
+ *        address that caused a MemManage.
+ *
+ * \param addr The address that caused the MemManage.
+ *
+ * \param idx The index of the virtual MPU register.
+ *
+ * \return 1 if the faulted address is contained, 0 otherwise.
+ */
+static inline int
+isMappedInVirtualMpu(void *addr, size_t idx)
+{
+	void *saddr, *eaddr;
+	BlockEntry_t *block;
+	block_t *range;
+	PDTable_t *pd;
+
+	pd = getCurPartition();
+	block = pd->mpu[idx];
+
+	if (block == NULL)
+	{
+		return 0;
+	}
+
+	if (!block->present)
+	{
+		return 0;
+	}
+
+	range = &block->blockrange;
+	saddr = range->startAddr;
+	eaddr = range->endAddr;
+
+	if (saddr > addr)
+	{
+		return 0;
+	}
+
+	if (addr > eaddr)
+	{
+		return 0;
+	}
+
+	return 1;
+}
+
+/*!
+ * \brief Check that a physical MPU register contains the
+ *        address that caused a MemManage.
+ *
+ * \param addr The address that caused the MemManage.
+ *
+ * \param idx The index of the physical MPU register.
+ *
+ * \return 1 if the faulted address is contained, 0 otherwise.
+ */
+static inline int
+isMappedInPhysicalMpu(void *addr, size_t idx)
+{
+	void *saddr, *eaddr;
+
+	saddr = readPhysicalMPUStartAddr(idx);
+	eaddr = readPhysicalMPUEndAddr(idx);
+
+	return ((saddr <= addr) && (addr <= eaddr));
+}
+
+/*!
+ * \brief Find the virtual MPU index containing the address
+ *        that caused the MemManage.
+ *
+ * \param addr The address that caused the MemManage.
+ *
+ * \param idx The address where to store the virtual MPU
+ *        index found.
+ *
+ * \return 1 if the function succeed, 0 otherwise.
+ */
+static inline int
+findMpuIndex(void *addr, size_t *idx)
+{
+	size_t i;
+
+	for (i = 0; i < MPU_NUM_REGIONS - 2; i++)
+	{
+		if (isMappedInVirtualMpu(addr, i))
+		{
+			*idx = i;
+
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+/*!
+ * \brief Reconfigure the physical MPU in order to allow a
+ *        legitimate address access.
+ *
+ * \param addr The legitimate address to allow.
+ *
+ * \param vidx The virtual MPU index containing the faulted
+ *        address.
+ *
+ * \param pidx The physical MPU index containing the faulted
+ *        the faulted address.
+ */
+static inline void
+reconfigureMpu(void *addr, size_t vidx, size_t pidx)
+{
+	PDTable_t *pd;
+
+	pd = getCurPartition();
+	configure_LUT_entry(pd->LUT, pidx, pd->mpu[vidx], addr);
+	mpu_configure_from_LUT(pd->LUT);
+}
+
+/*!
+ * \brief Although the MemManage exception is a fault, it has
+ *        its own handler. The reason for this is that a
+ *        MemManage exception can be legitimately raised as part
+ *        of the MPU partial block configuration. In the case of
+ *        an illegal access, the Fault_Handler is called.
+ *
+ * \param ctx The context stacked by the MemManage_Handler
+ *        entry point.
+ *
+ * \see The calling code is in the exception_entry.S file.
+ */
+extern void
+MemManage_Handler_C(stackedContext_t *ctx)
+{
+	memFaultCause_t cause;
+	static int flag = 0;
+	int mapped, mapped2;
+	void *addr, *addr2;
+	size_t vidx, pidx;
+
+	getFaultedAddress(ctx, &addr, &cause);
 
 	/* Clear all MMFSR flags by writing ones. */
 	CFSR.MMFSR.as_uint8_t &= MMFSR_CLEAR_MASK;
 
-	if (faultedAddress != UNREACHABLE_ADDRESS)
+	switch (cause)
 	{
-		PDTable_t *currentPartDesc = (PDTable_t *) getCurPartition();
-
-		for (size_t mpuIndex = 0; mpuIndex < MPU_NUM_REGIONS - 2; mpuIndex++)
+		case DACCVIOL:
 		{
-			BlockEntry_t *currentBlock = currentPartDesc->mpu[mpuIndex];
-
-			if (currentBlock == NULL)
+			/* Try to find a virtual MPU region
+			 * containing the faulted address. */
+			if (!findMpuIndex(addr, &vidx))
 			{
-				/* We go to the next MPU block if the
-				 * current block is NULL. */
-				continue;
+				goto error;
 			}
 
-			if (!currentBlock->present)
+			/* Check that the faulted address is
+			 * not already in the physical MPU. */
+			if (isMappedInPhysicalMpu(addr, vidx))
 			{
-				/* We go to the next MPU block if the
-				 * current block has not the present
-				 * flag. */
-				continue;
+				goto error;
 			}
 
-			block_t *currentBlockRange = &currentBlock->blockrange;
-
-			uint32_t startAddress = (uint32_t) currentBlockRange->startAddr;
-			uint32_t endAddress   = (uint32_t) currentBlockRange->endAddr;
-
-			if (startAddress > faultedAddress)
+			if (flag)
 			{
-				/* We go to the next MPU block if the
-				 * current block start address is
-				 * greater than or equal the faulted
-				 * address. */
-				continue;
-			}
-
-			if (faultedAddress > endAddress)
-			{
-				/* We go to the next MPU block if the
-				 * current block end address is less
-				 * than or equal the faulted address. */
-				continue;
-			}
-
-			uint32_t physicalMpuStartAddress =
-					(uint32_t) readPhysicalMPUStartAddr(mpuIndex);
-
-			uint32_t physicalMpuEndAddress =
-					(uint32_t) readPhysicalMPUEndAddr(mpuIndex);
-
-			if (physicalMpuStartAddress <= faultedAddress &&
-				faultedAddress <= physicalMpuEndAddress)
-			{
-				/* The address that caused a fault was
-				 * in a physical MPU block. This is a
-				 * real MPU fault. */
-				break;
+				pidx = MPU_NUM_REGIONS - 1;
 			}
 			else
 			{
-				/* The address that caused a fault was
-				 * not in a physical MPU block. We must
-				 * reconfigure the MPU regions to allow
-				 * access to the faulty address. */
-
-				static uint32_t flag = 0;
-
-				if (flag)
-				{
-					if (isDaccviol)
-					{
-						mpuIndex = MPU_NUM_REGIONS - 1;
-					}
-					else
-					{
-						mpuIndex = MPU_NUM_REGIONS - 2;
-					}
-				}
-
-				flag ^= 1;
-
-				configure_LUT_entry(currentPartDesc->LUT, mpuIndex,
-					currentBlock, (uint32_t *) faultedAddress);
-
-				mpu_configure_from_LUT(currentPartDesc->LUT);
-
-				__enable_irq();
-
-				/* Return to the instruction that
-				 * caused the fault. */
-				return;
+				pidx = vidx;
 			}
+
+			reconfigureMpu(addr, vidx, pidx);
+
+			flag ^= 1;
+
+			break;
+		}
+		case IACCVIOL16:
+		{
+			/* Try to find a virtual MPU region
+			 * containing the faulted address. */
+			if (!findMpuIndex(addr, &vidx))
+			{
+				goto error;
+			}
+
+			/* Check that the faulted address is
+			 * not already in the physical MPU. */
+			if (isMappedInPhysicalMpu(addr, vidx))
+			{
+				goto error;
+			}
+
+			if (flag)
+			{
+				pidx = MPU_NUM_REGIONS - 2;
+			}
+			else
+			{
+				pidx = vidx;
+			}
+
+			reconfigureMpu(addr, vidx, pidx);
+
+			flag ^= 1;
+
+			break;
+		}
+		case IACCVIOL32:
+		{
+			/* Calculate the address of the second
+			 * half word of the instruction. */
+			addr2 = (void *)((uintptr_t) addr + 2);
+
+			/* Try to find a virtual MPU region
+			 * containing the address of the first
+			 * half word of the instruction. */
+			if (!findMpuIndex(addr, &vidx))
+			{
+				goto error;
+			}
+
+			/* Check that the address of the second
+			 * half word of the instruction is
+			 * contained in the virtual block found. */
+			if (!isMappedInVirtualMpu(addr2, vidx))
+			{
+				goto error;
+			}
+
+			pidx = MPU_NUM_REGIONS - 2;
+
+			/* Check that the address of the first
+			 * half word of the instruction is
+			 * mapped into the physical MPU. */
+			mapped = isMappedInPhysicalMpu(addr, vidx);
+
+			/* Check that the address of the second
+			 * half word of the instruction is
+			 * mapped into the physical MPU. */
+			mapped2 = isMappedInPhysicalMpu(addr2, pidx);
+
+			/* Check that the two addresses are
+			 * not already mapped in the physical
+			 * MPU. If this is the case, it is a
+			 * hard fault. */
+			if (mapped && mapped2)
+			{
+				goto error;
+			}
+
+			/* Check that the address of the first
+			 * half word of the instruction is
+			 * mapped. */
+			if (!mapped)
+			{
+				reconfigureMpu(addr, vidx, vidx);
+			}
+
+			/* Check that the address of the second
+			 * half word of the instruction is
+			 * mapped. */
+			if (!mapped2)
+			{
+				reconfigureMpu(addr2, vidx, pidx);
+			}
+
+			break;
+		}
+		default:
+		{
+			goto error;
 		}
 	}
 
-#if !defined(UNIT_TESTS)
+	__enable_irq();
 
-	/* Call the fault handler if it is a real MemManage fault. */
-	Fault_Handler_C(context);
+	/* Returns to the faulted instruction. */
+	return;
 
-	/* We should never end up here because the Fault_Handler_C never
-	 * return to the caller. */
-	__builtin_unreachable();
-
-#else
-
-	uint32_t* canary = (uint32_t*) 0x20001500;
-
-	*canary = 0xDEADBEEF;
-
-	printf("\r\nNew canary=%x\n", *canary);
-
-	stackedContext->pc += 2;
-
-	printf("\r\nBranch to PC=%x\r\n", stackedContext->pc);
-
-#endif
+error:
+	Fault_Handler_C(ctx);
 }

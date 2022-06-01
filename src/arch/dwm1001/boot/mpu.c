@@ -219,10 +219,20 @@ uint32_t* readPhysicalMPUStartAddr(uint32_t MPURegionNb)
  */
 uint32_t* readPhysicalMPUEndAddr(uint32_t MPURegionNb)
 {
-    // Cast in order to offset the start address in bytes not in addresses
-    uint32_t start = (uint32_t) readPhysicalMPUStartAddr(MPURegionNb);
-    uint32_t size = readPhysicalMPUSizeBytes(MPURegionNb);
-    return (uint32_t*) (start + size - 1);
+	uint32_t saddr, eaddr, size;
+
+	saddr = (uint32_t) readPhysicalMPUStartAddr(MPURegionNb);
+	size = readPhysicalMPUSizeBytes(MPURegionNb);
+	eaddr = saddr + size;
+
+	if (eaddr > 0)
+	{
+		return (uint32_t *)(eaddr - 1);
+	}
+	else
+	{
+		return (uint32_t *) eaddr;
+	}
 }
 
 /*!
