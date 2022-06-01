@@ -67,6 +67,7 @@ Definition nullAddrExists s :=
 getNullAddr s = Some n.*)
 isPADDR nullAddr s.
 
+(* TODO : to remove -> consequence of freeSlotsListIsFreeSlot and FreeSlotIsBE *)
 Definition FirstFreeSlotPointerIsBEAndFreeSlot s :=
 forall pdentryaddr pdentry,
 lookup pdentryaddr (memory s) beqAddr = Some (PDT pdentry) ->
@@ -173,13 +174,23 @@ lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
 sh1entry.(inChildLocation) <> nullAddr ->
 isBE sh1entry.(inChildLocation) s.
 
-(* TODO: remove and replace if necessary by chained free slots without cycles*)
+(* TODO: to remove -> consequence of freeSlotsListIsFreeSlot *)
 Definition chainedFreeSlots s :=
 forall entry nextfreeslotentry,
 isFreeSlot entry s ->
 nextfreeslotentry <> nullAddr ->
 bentryEndAddr entry nextfreeslotentry s ->
 ((*isBE nextfreeslotentry s /\ *) isFreeSlot nextfreeslotentry s).
+
+Definition freeSlotsListIsFreeSlot s :=
+forall pd freeslotaddr optionfreeslotslist freeslotslist,
+isPDT pd s ->
+optionfreeslotslist = getFreeSlotsList pd s /\
+wellFormedFreeSlotsList optionfreeslotslist <> False -> (* to get rid of false induction bound constraints *)
+freeslotslist = filterOption(optionfreeslotslist) /\
+In freeslotaddr freeslotslist ->
+freeslotaddr <> nullAddr ->
+isFreeSlot freeslotaddr s.
 
 (** ** Conjunction of all consistency properties *)
 Definition consistency s :=
@@ -196,5 +207,6 @@ StructurePointerIsKS s /\
 NextKSIsKS s /\
 NextKSOffsetIsPADDR s /\
 NoDupInFreeSlotsList s /\
+freeSlotsListIsFreeSlot s /\
 chainedFreeSlots s /\
 DisjointFreeSlotsLists s.

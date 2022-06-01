@@ -38,7 +38,7 @@ Require Import Model.ADT Model.MALInternal Model.Lib.
 
 Require Import Proof.StateLib.
 
-Require Import Coq.Logic.ProofIrrelevance Arith Lia Bool.
+Require Import Coq.Logic.ProofIrrelevance Arith Lia Bool List.
 (*
 (** ADT : level **)
 Lemma levelEqBEqNatTrue :
@@ -753,6 +753,30 @@ destruct (lookup addr (Monad.memory s) beqAddr) ; try(exfalso ; congruence).
 destruct v ; try(exfalso ; congruence).
 trivial.
 Qed.
+
+Lemma FreeSlotIsBE s :
+forall addr : paddr,
+isFreeSlot addr s ->
+isBE addr s.
+Proof.
+intuition.
+unfold isFreeSlot in *.
+unfold isBE.
+destruct (lookup addr (Monad.memory s) beqAddr) ; try(exfalso ; congruence).
+destruct v ; try(exfalso ; congruence).
+trivial.
+Qed.
+
+(*
+Lemma FreeSlotsAreBE s :
+forall pd sceaddr optionfreeslotslist,
+consistency s ->
+optionfreeslotslist = getFreeSlotsList pd s /\
+wellFormedFreeSlotsList optionfreeslotslist <> False ->
+isSCE sceaddr s ->
+~ In sceaddr (filterOption optionfreeslotslist).
+Proof.
+Qed.*)
 
 Lemma IdxLtMaxIdx (idx : index) :
 idx <= maxIdx.

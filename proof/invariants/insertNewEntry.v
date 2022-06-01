@@ -272,7 +272,7 @@ eapply WP.bindRev.
 	assert(x0 = firstfreeslot x).
 	{ unfold pdentryFirstFreeSlot in *. rewrite H3 in *. intuition. }
 	subst x0. destruct H4 as [HpdentryFirst HfirstNotNull].
-	specialize (HfirstfreeslotBEs HfirstNotNull). rewrite H21 in *.
+	specialize (HfirstfreeslotBEs HfirstNotNull). subst newBlockEntryAddr.
 	destruct HfirstfreeslotBEs as [HnewBisBE HnewBisFreeSlot].
 	apply isBELookupEq in HnewBisBE. destruct HnewBisBE. rewrite H4 ; trivial.
 }
@@ -7691,7 +7691,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s8 (nbfreeslots p)).
 											rewrite <- HcurrNb in *. rewrite Hpred. cbn. intuition.
 								* intuition.
 }
-fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7. fold s8. fold s9.
+	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7. fold s8. fold s9.
 	set (s10 := {| currentPartition := currentPartition ?s9; memory := _ |}).
 	simpl in s8. simpl in s9.
 	assert(Hfreeslotss10 : getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s10 (nbfreeslots p) =
@@ -7740,13 +7740,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s9 (nbfreeslots p)).
 						destruct v0 ; try(exfalso ; congruence).
 						intuition.
 }
-fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7. fold s8. fold s9.
-fold s10.
+	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7. fold s8. fold s9.
+	fold s10.
 
-intuition.
-		-- assert(HcurrLtmaxIdx : nbfreeslots p <= maxIdx).
-				{ intuition. apply IdxLtMaxIdx. }
-				lia.
+	intuition.
+	assert(HcurrLtmaxIdx : nbfreeslots p <= maxIdx).
+	{ intuition. apply IdxLtMaxIdx. }
+	lia.
 }
 destruct H34 as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 &
 									(n1 & (nbleft & (Hnbleft & Hstates))))))))))))].
@@ -7775,6 +7775,2103 @@ assert (HfreeslotsEqn1 : getFreeSlotsListRec n1 (firstfreeslot p) s (nbfreeslots
 }
 rewrite <- HfreeslotsEqn1. rewrite HfreeslotsEq. intuition.
 } (* end of NoDupInFreeSlotsList *)
+split.
+{ (* freeSlotsListIsFreeSlot s*)
+	unfold freeSlotsListIsFreeSlot.
+	intros pd freeslotaddr optionfreeslotslist freeslotslist HPDTs.
+	intros (HoptionfreeSlotsList&HwellFormedFreeSlots) (HfreeSlotsList & HfreeSlotInList).
+	intro HfreeSlotNotNull.
+
+	assert(Hcons0 : freeSlotsListIsFreeSlot s0) by (unfold consistency in * ; intuition).
+	unfold freeSlotsListIsFreeSlot in Hcons0.
+
+	(* check all possible values for freeslotaddr in the modified state s
+	-> only possible is newBlockEntryAddr
+	1) if freeslotaddr == newBlockEntryAddr :
+			-> not possible since newBlockEntryAddr doesn't belong to freeslotslist
+	2) if freeslotaddr <> newBlockEntryAddr :
+		- relates to another free slot than newBlockentryAddr
+		(either in the same free slots list or from another pd)
+		-> leads to s0 -> OK
+	*)
+(* Check all values for pd *)
+	destruct (beqAddr sceaddr pd) eqn:beqscepd; try(exfalso ; congruence).
+	-	(* sceaddr = pd *)
+		rewrite <- DependentTypeLemmas.beqAddrTrue in beqscepd.
+		rewrite <- beqscepd in *.
+		unfold isSCE in *.
+		unfold isPDT in *.
+		destruct (lookup sceaddr (memory s) beqAddr) ; try(exfalso ; congruence).
+		destruct v ; try(exfalso ; congruence).
+	-	(* sceaddr <> pd *)
+		destruct (beqAddr newBlockEntryAddr pd) eqn:beqnewpd ; try(exfalso ; congruence).
+		-- (* newBlockEntryAddr = pd *)
+				rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewpd.
+				rewrite <- beqnewpd in *.
+				unfold isBE in *.
+				unfold isPDT in *.
+				destruct (lookup newBlockEntryAddr (memory s) beqAddr) ; try(exfalso ; congruence).
+				destruct v ; try(exfalso ; congruence).
+		-- (* newBlockEntryAddr <> pd *)
+				destruct (beqAddr pdinsertion pd) eqn:beqpdpd; try(exfalso ; congruence).
+				--- (* pdinsertion = pd *)
+						rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdpd.
+						rewrite <- beqpdpd in *.
+						assert(HPDTs0 : isPDT pdinsertion s0) by intuition.
+						assert(HnewB : newBlockEntryAddr = (firstfreeslot pdentry)).
+						{ unfold pdentryFirstFreeSlot in *. rewrite H12 in *. intuition. }
+						assert(Hnewfirst : newFirstFreeSlotAddr = (firstfreeslot pdentry1)).
+						{ subst pdentry1. simpl. subst pdentry0. simpl. intuition. }
+						destruct H30 as [Hoptionlists (olds & (n0 & (n1 & (n2 & (nbleft & Hfreeslotsolds)))))].
+						specialize (Hcons0 pdinsertion freeslotaddr (SomePaddr newBlockEntryAddr :: Hoptionlists) (newBlockEntryAddr::freeslotslist) HPDTs0).
+						assert(HslotslistEqs0 : SomePaddr newBlockEntryAddr :: Hoptionlists = getFreeSlotsList pdinsertion s0 /\
+											 wellFormedFreeSlotsList (SomePaddr newBlockEntryAddr :: Hoptionlists) <> False).
+						{ unfold getFreeSlotsList. rewrite H12.
+							rewrite <- HnewB.
+							destruct (beqAddr newBlockEntryAddr nullAddr) eqn:Hf ; try(exfalso ; congruence).
+							rewrite <- beqAddrFalse in *.
+							rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+							rewrite FreeSlotsListRec_unroll.
+							unfold getFreeSlotsListAux in *.
+							assert(HMaxIdxNext : maxIdx + 1 = S maxIdx).
+							{ lia. }
+							rewrite HMaxIdxNext.
+							assert(Hnbfreeslots : (nbfreeslots pdentry) = currnbfreeslots).
+							{ unfold pdentryNbFreeSlots in *. rewrite H12 in *. intuition. }
+							rewrite Hnbfreeslots.
+							destruct (StateLib.Index.ltb currnbfreeslots zero) eqn:Hltb ; try(exfalso ; congruence).
+							* unfold StateLib.Index.ltb in Hltb.
+								apply PeanoNat.Nat.ltb_lt in Hltb.
+								contradict Hltb. apply PeanoNat.Nat.lt_asymm. intuition.
+							* rewrite H2.
+								destruct (StateLib.Index.pred currnbfreeslots) eqn:Hpred ; try(exfalso ; congruence).
+								split.
+								f_equal. intuition.
+								rewrite H38. (* Hoptionlists = getFreeSlotsListRec n0 newFirstFreeSlotAddr s0 nbleft *)
+								assert(HnewBEndIsNewFirst : (endAddr (blockrange bentry)) = newFirstFreeSlotAddr).
+								{ unfold bentryEndAddr in *. rewrite H2 in *. intuition. }
+								rewrite HnewBEndIsNewFirst.
+								assert(HnbLtmaxIdx : currnbfreeslots - 1 < maxIdx).
+								{
+										unfold pdentryNbFreeSlots in *. rewrite H12 in *.
+										destruct currnbfreeslots.
+										+ simpl. destruct i0.
+											* simpl. apply maxIdxNotZero.
+											* cbn. rewrite PeanoNat.Nat.sub_0_r. intuition.
+								}
+								assert((CIndex (currnbfreeslots - 1)) = i).
+								{ unfold CIndex.
+									destruct (le_dec (currnbfreeslots - 1) maxIdx) ; simpl in * ; intuition ; try(exfalso ; congruence).
+										unfold StateLib.Index.pred in *.
+										destruct (gt_dec currnbfreeslots 0) ; try(exfalso ; congruence).
+										inversion Hpred. f_equal. apply proof_irrelevance.
+								}
+								unfold pdentryNbFreeSlots in *. rewrite H5 in *.
+								rewrite H8 in *.
+								assert(i < maxIdx).
+								{	unfold StateLib.Index.pred in *.
+									destruct (gt_dec currnbfreeslots 0) ; try(exfalso ; congruence).
+									inversion Hpred. simpl. intuition.
+								}
+								assert(HEq : getFreeSlotsListRec maxIdx newFirstFreeSlotAddr s0 i =
+																getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s0 i).
+								{
+									eapply getFreeSlotsListRecEqN ; intuition.
+								}
+								rewrite HEq.
+								subst nbleft. rewrite H48 in *.
+								eapply getFreeSlotsListRecEqN ; intuition.
+								{ lia. }
+								intuition.
+							}
+							specialize (Hcons0 HslotslistEqs0).
+							(* continue to break Hcons0 1) sceaddr and podinsertion -> go to s0 show isFreeSlot @ s0 is false
+																					2) newB -> show not in free slots list so NOK *)
+							assert(HslotsListEqs : newBlockEntryAddr::freeslotslist = filterOption (SomePaddr newBlockEntryAddr :: Hoptionlists) /\
+         														In freeslotaddr freeslotslist).
+							{ intuition. cbn. f_equal. rewrite HfreeSlotsList.
+								rewrite HoptionfreeSlotsList.
+								unfold getFreeSlotsList. rewrite H13.
+								rewrite <- Hnewfirst. rewrite <- H39. (* getFreeSlotsListRec s .. = Hoptionlists *)
+
+								destruct (beqAddr newFirstFreeSlotAddr nullAddr) eqn:HfirstIsNull ; try(exfalso ; congruence).
+								rewrite <- DependentTypeLemmas.beqAddrTrue in HfirstIsNull.
+								rewrite HfirstIsNull.
+								rewrite FreeSlotsListRec_unroll.
+								unfold getFreeSlotsListAux.
+								destruct n2. cbn. reflexivity.
+								destruct (StateLib.Index.ltb nbleft zero) eqn:Hltb ; try(exfalso ; congruence).
+								cbn. reflexivity.
+								unfold nullAddrExists in *. unfold isPADDR in *.
+								destruct (lookup nullAddr (memory s) beqAddr) ; try(exfalso ; congruence).
+								destruct v eqn:Hv ; try(exfalso ; congruence).
+								destruct (beqAddr p nullAddr) eqn:HpNull ; try(cbn ; reflexivity).
+								assert(Hnbleft : nbfreeslots pdentry1 = nbleft).
+								{ subst pdentry1. simpl.
+									rewrite H30. (* nbleft = CIndex (currnbfreeslots - 1)*)
+									destruct predCurrentNbFreeSlots.
+									unfold StateLib.Index.pred in H1.
+									destruct (gt_dec currnbfreeslots 0); try (exfalso ; congruence).
+									unfold CIndex. inversion H1 as [Hpred].
+									rewrite Hpred. destruct (le_dec i maxIdx) ; try(exfalso ; congruence).
+									f_equal. apply proof_irrelevance.
+								}
+								rewrite Hnbleft.
+								assert (HfreeSlotsEq : getFreeSlotsListRec (maxIdx + 1) newFirstFreeSlotAddr s nbleft =
+																getFreeSlotsListRec n2 newFirstFreeSlotAddr s nbleft).
+								{ apply eq_sym.
+									eapply getFreeSlotsListRecEqN ; intuition.
+								}
+								rewrite HfreeSlotsEq. reflexivity.
+							}
+							assert(HInFreeSlotExpand : In freeslotaddr freeslotslist ->
+																					In freeslotaddr (newBlockEntryAddr :: freeslotslist)).
+							{ intuition. }
+							assert(HslotIn : newBlockEntryAddr :: freeslotslist =
+																	filterOption (SomePaddr newBlockEntryAddr :: Hoptionlists) /\
+																	In freeslotaddr (newBlockEntryAddr :: freeslotslist)) by intuition.
+							specialize (Hcons0 HslotIn HfreeSlotNotNull).
+							(* 1) dismiss all impossible values for freeslotaddr except newB *)
+							destruct (beqAddr sceaddr freeslotaddr) eqn:beqfscefree; try(exfalso ; congruence).
+								---- (* sceaddr = freeslotaddr *)
+											rewrite <- DependentTypeLemmas.beqAddrTrue in beqfscefree.
+											rewrite <- beqfscefree in *.
+											unfold isSCE in *.
+											unfold isFreeSlot in *.
+											destruct (lookup sceaddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+											destruct v ; try(exfalso ; congruence).
+								---- (* sceaddr <> freeslotaddr *)
+											destruct (beqAddr pdinsertion freeslotaddr) eqn:beqfpdfree; try(exfalso ; congruence).
+											----- (* pdinsertion = freeslotaddr *)
+														rewrite <- DependentTypeLemmas.beqAddrTrue in beqfpdfree.
+														rewrite <- beqfpdfree in *.
+														unfold isPDT in *.
+														unfold isFreeSlot in *.
+														destruct (lookup pdinsertion (memory s0) beqAddr) ; try(exfalso ; congruence).
+														destruct v ; try(exfalso ; congruence).
+											----- (* pdinsertion <> freeslotaddr *)
+														destruct (beqAddr newBlockEntryAddr freeslotaddr) eqn:beqfnewBfree; try(exfalso ; congruence).
+														------ (* newBlockEntryAddr = freeslotaddr *)
+																		rewrite <- DependentTypeLemmas.beqAddrTrue in beqfnewBfree.
+																		rewrite <- beqfnewBfree in *.
+																		(* 2) we already proved newB is not in the free slots list anymore *)
+																		contradict HfreeSlotInList.
+																		rewrite HfreeSlotsList. rewrite HoptionfreeSlotsList.
+																		unfold getFreeSlotsList. rewrite H13.
+																		rewrite <- Hnewfirst.
+																		destruct (beqAddr newFirstFreeSlotAddr nullAddr) eqn:HnewNotNull ; try(exfalso ; congruence).
+																		cbn. intuition.
+																		assert(Hnbleft : nbfreeslots pdentry1 = nbleft).
+																		{ (* DUP *)
+																			subst pdentry1. simpl. intuition.
+																			rewrite H14. (* nbleft = CIndex (currnbfreeslots - 1)*)
+																			destruct predCurrentNbFreeSlots.
+																			unfold StateLib.Index.pred in H1.
+																			destruct (gt_dec currnbfreeslots 0); try (exfalso ; congruence).
+																			unfold CIndex. inversion H1 as [Hpred].
+																			rewrite Hpred. destruct (le_dec i maxIdx) ; try(exfalso ; congruence).
+																			f_equal. apply proof_irrelevance.
+																		}
+																		rewrite Hnbleft.
+																		assert(HfreeSlotsListEq : Hoptionlists = getFreeSlotsListRec (maxIdx + 1) newFirstFreeSlotAddr s nbleft).
+																		{ intuition.
+																			rewrite <- H43. (* getFreeSlotsList s = Hoptionlists *)
+																			eapply getFreeSlotsListRecEqN ; intuition.
+																		}
+																		rewrite <- HfreeSlotsListEq. intuition.
+														------ (* newBlockEntryAddr <> freeslotaddr *)
+																		(* no entry left to try out -> leads to s0 *)
+																		rewrite Hs. unfold isFreeSlot.
+																		cbn. rewrite beqAddrTrue.
+																		rewrite beqfscefree.
+																		destruct (beqAddr newBlockEntryAddr sceaddr) eqn:newsce ; try(exfalso ; congruence).
+																		rewrite beqAddrTrue.
+																		cbn. rewrite beqfnewBfree.
+																		rewrite <- beqAddrFalse in *.
+																		rewrite removeDupIdentity ; try congruence.
+																		rewrite removeDupIdentity ; try congruence.
+																		rewrite removeDupIdentity ; try congruence.
+																		rewrite removeDupIdentity ; try congruence.
+																		rewrite removeDupIdentity ; try congruence.
+																		rewrite removeDupIdentity ; try congruence.
+																		rewrite removeDupIdentity ; try congruence.
+																		destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:pdnew ; try(exfalso ; congruence).
+																		rewrite <- DependentTypeLemmas.beqAddrTrue in pdnew. congruence.
+																		cbn.
+																		destruct (beqAddr pdinsertion freeslotaddr) eqn:pdffentry; try(exfalso ; congruence).
+																		rewrite <- DependentTypeLemmas.beqAddrTrue in pdffentry. congruence.
+																		rewrite <- beqAddrFalse in *.
+																		rewrite removeDupIdentity ; try congruence.
+																		rewrite removeDupIdentity ; try congruence.
+																		rewrite removeDupIdentity ; try congruence.
+																		unfold isFreeSlot in Hcons0.
+																		destruct (lookup freeslotaddr (memory s0) beqAddr) eqn:HfreeSlots0 ; try(exfalso ; congruence).
+																		destruct v ; try(exfalso ; congruence).
+																		destruct (beqAddr sceaddr (CPaddr (freeslotaddr + sh1offset))) eqn:beqscefreesh1 ; try(exfalso ; congruence).
+																		rewrite <- DependentTypeLemmas.beqAddrTrue in beqscefreesh1.
+																		rewrite <- beqscefreesh1 in *.
+																		unfold isFreeSlot in *.
+																		unfold isSCE in *.
+																		destruct (lookup sceaddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+																		destruct v ; try(exfalso ; congruence).
+																		destruct (beqAddr newBlockEntryAddr (CPaddr (freeslotaddr + sh1offset))) eqn:beqscefreesc ; try(exfalso ; congruence).
+																		rewrite <- DependentTypeLemmas.beqAddrTrue in beqscefreesc.
+																		rewrite <- beqscefreesc in *.
+																		unfold isFreeSlot in *.
+																		unfold isBE in *.
+																		destruct (lookup newBlockEntryAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+																		destruct v ; try(exfalso ; congruence).
+																		rewrite <- beqAddrFalse in *.
+																		rewrite removeDupIdentity ; try congruence.
+																		rewrite removeDupIdentity ; try congruence.
+																		rewrite removeDupIdentity ; try congruence.
+																		rewrite removeDupIdentity ; try congruence.
+																		rewrite removeDupIdentity ; try congruence.
+																		rewrite removeDupIdentity ; try congruence.
+																		destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:pdnewB; try(exfalso ; congruence).
+																		rewrite <- DependentTypeLemmas.beqAddrTrue in pdnewB. congruence.
+																		cbn.
+																		destruct (beqAddr pdinsertion (CPaddr (freeslotaddr + sh1offset))) eqn:beqpdfreesh1 ; try(exfalso ; congruence).
+																		rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdfreesh1.
+																		rewrite <- beqpdfreesh1 in *.
+																		unfold isFreeSlot in *.
+																		unfold isPDT in *.
+																		destruct (lookup pdinsertion (memory s0) beqAddr) ; try(exfalso ; congruence).
+																		destruct v ; try(exfalso ; congruence).
+																		rewrite removeDupIdentity ; try congruence.
+																		rewrite removeDupIdentity ; try congruence.
+																		rewrite removeDupIdentity ; try congruence.
+																		rewrite <- beqAddrFalse in *.
+																		rewrite removeDupIdentity ; try congruence.
+																		destruct (lookup (CPaddr (freeslotaddr + sh1offset)) (memory s0) beqAddr) ; try(exfalso ; congruence).
+																		destruct v ; try(exfalso ; congruence).
+																		destruct (beqAddr sceaddr (CPaddr (freeslotaddr + scoffset))) eqn:beqscefssc ; try(exfalso ; congruence).
+																		(* show sceaddr must be equal to freeslot which is false *)
+																		rewrite <- DependentTypeLemmas.beqAddrTrue in beqscefssc.
+																		assert(HSCEOffset : sceaddr = CPaddr (newBlockEntryAddr + scoffset)) by intuition.
+																		rewrite HSCEOffset in beqscefssc.
+																		contradict beqscefssc.
+																		unfold nullAddrExists in *. unfold isPADDR in *.
+																		unfold CPaddr.
+																		destruct (le_dec (newBlockEntryAddr + scoffset) maxAddr) eqn:Hj.
+																		* destruct (le_dec (freeslotaddr + scoffset) maxAddr) eqn:Hk.
+																			** simpl in *. intro Hfalse.
+																				inversion Hfalse as [Heq].
+																				rewrite PeanoNat.Nat.add_cancel_r in Heq.
+																				apply CPaddrInjectionNat in Heq.
+																				repeat rewrite paddrEqId in Heq.
+																				congruence.
+																			** 	intro Hfalse.
+																					inversion Hfalse as [Heq].
+																					assert(HeqNull : CPaddr(newBlockEntryAddr + scoffset) = nullAddr).
+																					{ rewrite nullAddrIs0.
+																						apply CPaddrInjectionNat in Heq.
+																						intuition.
+																					}
+																					rewrite HeqNull in *.
+																					rewrite HSCEOffset in *.
+																					unfold isSCE in *.
+																					destruct (lookup nullAddr (memory s) beqAddr) ; try(exfalso ; congruence).
+																					destruct v ; try(exfalso ; congruence).
+																		* assert(Heq : CPaddr(newBlockEntryAddr + scoffset) = nullAddr).
+																			{ rewrite nullAddrIs0.
+																				unfold CPaddr. rewrite Hj.
+																				destruct (le_dec 0 maxAddr) ; intuition.
+																				f_equal. apply proof_irrelevance.
+																			}
+																			rewrite Heq in *.
+																			rewrite HSCEOffset in *.
+																			unfold isSCE in *.
+																			destruct (lookup nullAddr (memory s) beqAddr) ; try(exfalso ; congruence).
+																			destruct v ; try(exfalso ; congruence).
+																		* destruct (beqAddr newBlockEntryAddr (CPaddr (freeslotaddr + scoffset))) eqn:beqnewBfssc ; try(exfalso ; congruence).
+																			------- (* newBlockEntryAddr = (CPaddr (freeslotaddr + scoffset)) *)
+																							rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewBfssc.
+																							rewrite <- beqnewBfssc in *.
+																							destruct (lookup newBlockEntryAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+																							destruct v ; try(exfalso ; congruence).
+																			------- (* newBlockEntryAddr <> (CPaddr (freeslotaddr + scoffset)) *)
+ 																							rewrite <- beqAddrFalse in *.
+																							repeat rewrite removeDupIdentity ; try congruence.
+																							destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:Hf; try(exfalso ; congruence).
+																							rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+																							rewrite <- beqAddrFalse in *.
+																							repeat rewrite removeDupIdentity ; try congruence.
+																							cbn.
+																							destruct (beqAddr pdinsertion (CPaddr (freeslotaddr + scoffset))) eqn:beqpdfssc ; try (exfalso ; congruence).
+																							-------- (* pdinsertion = (CPaddr (freeslotaddr + scoffset)) *)
+																												rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdfssc.
+																												rewrite <- beqpdfssc in *.
+																												destruct (lookup pdinsertion (memory s0) beqAddr) ; try(exfalso ; congruence).
+																												destruct v ; try(exfalso ; congruence).
+																							-------- (* pdinsertion <> (CPaddr (freeslotaddr + scoffset)) *)
+																												rewrite <- beqAddrFalse in *.
+																												repeat rewrite removeDupIdentity ; try congruence.
+																												destruct (lookup (CPaddr (freeslotaddr + scoffset)) (memory s0) beqAddr) eqn:Hlookupsc ; try(exfalso ; congruence).
+																												destruct v ; try(exfalso ; congruence).
+																												intuition.
+																		* intro Hf. rewrite <- beqAddrFalse in *. congruence.
+			--- (* pdinsertion <> pd *)
+					(* similarly, we must prove the list has not changed by recomputing each
+							intermediate steps and check at that time *)
+					(* WIP show leads to s0 -> OK *)
+					assert(HlookupEq : lookup pd (memory s) beqAddr = lookup pd (memory s0) beqAddr).
+					{	(* check all values *)
+						destruct (beqAddr sceaddr pd) eqn:beqscepdentry; try(exfalso ; congruence).
+						(* sceaddr <> pd *)
+						destruct (beqAddr newBlockEntryAddr pd) eqn:newpdentry ; try(exfalso ; congruence).
+						(* newBlockEntryAddr <> pd *)
+						destruct (beqAddr pdinsertion pd) eqn:beqpdpdentry; try(exfalso ; congruence).
+						(* pdinsertion <> pd *)
+						rewrite Hs.
+						cbn. rewrite beqAddrTrue.
+						rewrite beqscepdentry.
+						assert(HnewBsceNotEq : beqAddr newBlockEntryAddr sceaddr = false) by intuition.
+						rewrite HnewBsceNotEq. (*newBlock <> sce *)
+						assert(HpdnewBNotEq : beqAddr pdinsertion newBlockEntryAddr = false) by intuition.
+						rewrite HpdnewBNotEq. (*pd <> newblock*)
+						cbn.
+						rewrite newpdentry.
+						rewrite beqAddrTrue.
+						rewrite <- beqAddrFalse in *.
+						repeat rewrite removeDupIdentity ; intuition.
+						destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:Hf ; try(exfalso ; congruence).
+						rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+						cbn.
+						destruct (beqAddr pdinsertion pd) eqn:Hff ; try(exfalso ; congruence).
+						rewrite <- DependentTypeLemmas.beqAddrTrue in Hff. congruence.
+						rewrite <- beqAddrFalse in *.
+						repeat rewrite removeDupIdentity ; intuition.
+					}
+					assert(HPDTpds0: isPDT pd s0).
+					{ unfold isPDT in *. rewrite <- HlookupEq. intuition. }
+					specialize(Hcons0 pd freeslotaddr ). (*optionfreeslotslist freeslotslist HPDTpds0).*)
+					assert(HfreeSlotsListEq : optionfreeslotslist = getFreeSlotsList pd s0 /\
+         						wellFormedFreeSlotsList optionfreeslotslist <> False).
+					{
+						unfold getFreeSlotsList.
+						assert(Hlookups0: isPDT pd s0) by intuition.
+						apply isPDTLookupEq in Hlookups0. destruct Hlookups0 as [p Hlookups0].
+						unfold getFreeSlotsList in *. rewrite HlookupEq in *. rewrite Hlookups0 in *.
+						destruct (beqAddr (firstfreeslot p) nullAddr) eqn: HpNotNull ; try(exfalso ; congruence).
+						---- (* optionfreeslotslist = NIL *)
+									intuition.
+						---- (* optionfreeslotslist <> NIL *)
+									(* show list equality between s0 and s*)
+									assert(Hs' : exists s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 n1 nbleft,
+nbleft = (nbfreeslots p) /\
+s1 = {|
+     currentPartition := currentPartition s0;
+     memory := add pdinsertion
+                (PDT
+                   {|
+                     structure := structure pdentry;
+                     firstfreeslot := newFirstFreeSlotAddr;
+                     nbfreeslots := nbfreeslots pdentry;
+                     nbprepare := nbprepare pdentry;
+                     parent := parent pdentry;
+                     MPU := MPU pdentry;
+                     vidtBlock := vidtBlock pdentry
+                   |}) (memory s0) beqAddr |} /\
+getFreeSlotsListRec n1 (firstfreeslot p) s1 nbleft =
+getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s0 nbleft
+			 /\
+	n1 <= maxIdx+1 /\ nbleft < n1
+/\ s2 = {|
+     currentPartition := currentPartition s1;
+     memory := add pdinsertion
+		           (PDT
+		              {|
+		                structure := structure pdentry0;
+		                firstfreeslot := firstfreeslot pdentry0;
+		                nbfreeslots := predCurrentNbFreeSlots;
+		                nbprepare := nbprepare pdentry0;
+		                parent := parent pdentry0;
+		                MPU := MPU pdentry0;
+		                vidtBlock := vidtBlock pdentry0
+		              |}
+                 ) (memory s1) beqAddr |} /\
+getFreeSlotsListRec n1 (firstfreeslot p) s2 nbleft =
+			getFreeSlotsListRec n1 (firstfreeslot p) s1 nbleft
+/\ s3 = {|
+     currentPartition := currentPartition s2;
+     memory := add newBlockEntryAddr
+	            (BE
+	               (CBlockEntry (read bentry) 
+	                  (write bentry) (exec bentry) 
+	                  (present bentry) (accessible bentry)
+	                  (blockindex bentry)
+	                  (CBlock startaddr (endAddr (blockrange bentry))))
+                 ) (memory s2) beqAddr |} /\
+getFreeSlotsListRec n1 (firstfreeslot p) s3 nbleft =
+			getFreeSlotsListRec n1 (firstfreeslot p) s2 nbleft
+/\ s4 = {|
+     currentPartition := currentPartition s3;
+     memory := add newBlockEntryAddr
+               (BE
+                  (CBlockEntry (read bentry0) 
+                     (write bentry0) (exec bentry0) 
+                     (present bentry0) (accessible bentry0)
+                     (blockindex bentry0)
+                     (CBlock (startAddr (blockrange bentry0)) endaddr))
+                 ) (memory s3) beqAddr |} /\
+getFreeSlotsListRec n1 (firstfreeslot p) s4 nbleft =
+			getFreeSlotsListRec n1 (firstfreeslot p) s3 nbleft
+/\ s5 = {|
+     currentPartition := currentPartition s4;
+     memory := add newBlockEntryAddr
+              (BE
+                 (CBlockEntry (read bentry1) 
+                    (write bentry1) (exec bentry1) 
+                    (present bentry1) true (blockindex bentry1)
+                    (blockrange bentry1))
+                 ) (memory s4) beqAddr |} /\
+getFreeSlotsListRec n1 (firstfreeslot p) s5 nbleft =
+			getFreeSlotsListRec n1 (firstfreeslot p) s4 nbleft
+/\ s6 = {|
+     currentPartition := currentPartition s5;
+     memory := add newBlockEntryAddr
+               (BE
+                  (CBlockEntry (read bentry2) (write bentry2) 
+                     (exec bentry2) true (accessible bentry2)
+                     (blockindex bentry2) (blockrange bentry2))
+                 ) (memory s5) beqAddr |} /\
+getFreeSlotsListRec n1 (firstfreeslot p) s6 nbleft =
+			getFreeSlotsListRec n1 (firstfreeslot p) s5 nbleft
+/\ s7 = {|
+     currentPartition := currentPartition s6;
+     memory := add newBlockEntryAddr
+              (BE
+                 (CBlockEntry r (write bentry3) (exec bentry3)
+                    (present bentry3) (accessible bentry3) 
+                    (blockindex bentry3) (blockrange bentry3))
+                 ) (memory s6) beqAddr |} /\
+getFreeSlotsListRec n1 (firstfreeslot p) s7 nbleft =
+			getFreeSlotsListRec n1 (firstfreeslot p) s6 nbleft
+/\ s8 = {|
+     currentPartition := currentPartition s7;
+     memory := add newBlockEntryAddr
+                 (BE
+                    (CBlockEntry (read bentry4) w (exec bentry4) 
+                       (present bentry4) (accessible bentry4) 
+                       (blockindex bentry4) (blockrange bentry4))
+                 ) (memory s7) beqAddr |} /\
+getFreeSlotsListRec n1(firstfreeslot p) s8 nbleft =
+			getFreeSlotsListRec n1 (firstfreeslot p) s7 nbleft
+/\ s9 = {|
+     currentPartition := currentPartition s8;
+     memory := add newBlockEntryAddr
+              (BE
+                 (CBlockEntry (read bentry5) (write bentry5) e 
+                    (present bentry5) (accessible bentry5) 
+                    (blockindex bentry5) (blockrange bentry5))
+                 ) (memory s8) beqAddr |} /\
+getFreeSlotsListRec n1 (firstfreeslot p) s9 nbleft =
+			getFreeSlotsListRec n1 (firstfreeslot p) s8 nbleft
+/\ s10 = {|
+     currentPartition := currentPartition s9;
+     memory := add sceaddr 
+								(SCE {| origin := origin; next := next scentry |}
+                 ) (memory s9) beqAddr |} /\
+getFreeSlotsListRec n1 (firstfreeslot p) s10 nbleft =
+			getFreeSlotsListRec n1 (firstfreeslot p) s9 nbleft
+).
+{
+	eexists ?[s1]. eexists ?[s2]. eexists ?[s3]. eexists ?[s4]. eexists ?[s5].
+	eexists ?[s6]. eexists ?[s7]. eexists ?[s8]. eexists ?[s9].
+	eexists ?[s10]. eexists ?[n1]. eexists.
+	split. intuition.
+	split. intuition.
+	set (s1 := {| currentPartition := _ |}).
+	(* prove outside *)
+	assert(Hfreeslotss1 : getFreeSlotsListRec ?n1 (firstfreeslot p) s1 (nbfreeslots p) =
+getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s0 (nbfreeslots p)).
+	{
+		apply getFreeSlotsListRecEqPDT.
+		-- 	intro Hfirstpdeq.
+				assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
+					by (unfold consistency in * ; intuition).
+				unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
+				specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd p Hlookups0).
+				destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
+				--- intro HfirstfreeNull.
+						assert(HnullAddrExistss0 : nullAddrExists s0)
+							by (unfold consistency in * ; intuition).
+						unfold nullAddrExists in *.
+						unfold isPADDR in *.
+						rewrite HfirstfreeNull in *. rewrite <- Hfirstpdeq in *.
+						destruct (lookup nullAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+						destruct v ; try(exfalso ; congruence).
+				--- rewrite Hfirstpdeq in *.
+						unfold isBE in *.
+						destruct (lookup pdinsertion (memory s0) beqAddr) ; try (exfalso ; congruence).
+						destruct v ; try(exfalso ; congruence).
+		-- unfold isBE. rewrite H12. intuition.
+		-- unfold isPADDR. rewrite H12. intuition.
+	}
+	set (s2 := {| currentPartition := _ |}).
+	assert(Hfreeslotss2 : getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s2 (nbfreeslots p) =
+getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s1 (nbfreeslots p)).
+	{
+		(*-- set (s' := {|currentPartition := _ |}) at 2. fold s'.*)
+				apply getFreeSlotsListRecEqPDT.
+				--- 	intro Hfirstpdeq.
+						assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
+							by (unfold consistency in * ; intuition).
+						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
+						specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd p Hlookups0).
+						destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
+						---- intro HfirstfreeNull.
+								assert(HnullAddrExistss0 : nullAddrExists s0)
+									by (unfold consistency in * ; intuition).
+								unfold nullAddrExists in *.
+								unfold isPADDR in *.
+								rewrite HfirstfreeNull in *. rewrite <- Hfirstpdeq in *.
+								destruct (lookup nullAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+								destruct v ; try(exfalso ; congruence).
+						---- rewrite Hfirstpdeq in *.
+								unfold isBE in *.
+								destruct (lookup pdinsertion (memory s0) beqAddr) ; try (exfalso ; congruence).
+								destruct v ; try(exfalso ; congruence).
+				--- unfold isBE. unfold s1. cbn. rewrite beqAddrTrue. intuition.
+				--- unfold isPADDR. unfold s1. cbn. rewrite beqAddrTrue. intuition.
+	}
+	set (s3 := {| currentPartition := _ |}).
+	assert(Hfreeslotss3 : getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s3 (nbfreeslots p) =
+getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s2 (nbfreeslots p)).
+	{			assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; intuition).
+				unfold NoDupInFreeSlotsList in *.
+				specialize (HwellFormedNoDup pd p Hlookups0).
+				apply getFreeSlotsListRecEqBE ; intuition.
+				---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
+							assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
+								by (unfold consistency in *; intuition).
+							unfold DisjointFreeSlotsLists in *.
+							assert(Hpdinsertions0 : lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry))
+									by intuition.
+							assert(HPDTs0 : isPDT pdinsertion s0) by (unfold isPDT ; rewrite Hpdinsertions0 ; trivial).
+							assert(HPDTentrypds0 : isPDT pd s0).
+							{ unfold isPDT. rewrite Hlookups0. trivial. }
+							rewrite <- beqAddrFalse in beqpdpd.
+							pose (H_Disjoints0 := Hfreeslotsdisjoints0 pdinsertion pd HPDTs0 HPDTentrypds0 beqpdpd).
+							destruct H_Disjoints0 as [listoption1 (listoption2 & H_Disjoints0)].
+							destruct H_Disjoints0 as [Hlistoption1 (HwellFormedList1 & (Hlistoption2 & (HwellFormedList2 & H_Disjoints0)))].
+							unfold getFreeSlotsList in Hlistoption1.
+							unfold getFreeSlotsList in Hlistoption2.
+							rewrite Hpdinsertions0 in *.
+							rewrite Hlookups0 in *.
+							assert(HnewBFirstFrees0PDT : firstfreeslot pdentry = newBlockEntryAddr).
+							{ unfold pdentryFirstFreeSlot in *. rewrite Hpdinsertions0 in *. intuition. }
+							assert(HnewBFirstFrees0P : firstfreeslot p = newBlockEntryAddr) by intuition.
+								rewrite HnewBFirstFrees0PDT in *.
+								rewrite HnewBFirstFrees0P in *.
+							destruct (beqAddr newBlockEntryAddr nullAddr) eqn:Hf ; try(exfalso ; congruence).
+							(*rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.*)
+								rewrite FreeSlotsListRec_unroll in Hlistoption1.
+								rewrite FreeSlotsListRec_unroll in Hlistoption2.
+								unfold getFreeSlotsListAux in *.
+								induction (maxIdx+1). (* false induction because of fixpoint constraints *)
+								** (* N=0 -> NotWellFormed *)
+									rewrite Hlistoption1 in *.
+									cbn in HwellFormedList1.
+									congruence.
+								** (* N>0 *)
+									clear IHn.
+									cbn in *.
+									rewrite H2 in *.
+									destruct (StateLib.Index.pred (nbfreeslots pdentry)) eqn:Hpred1 ; try(exfalso ; congruence).
+									*** destruct (StateLib.Index.pred (nbfreeslots p)) eqn:Hpred2 ; try(subst listoption2 ; intuition).
+											rewrite Hlistoption1 in *.
+											cbn in *.
+											unfold Lib.disjoint in H_Disjoints0.
+											specialize(H_Disjoints0 newBlockEntryAddr).
+											simpl in H_Disjoints0.
+											intuition.
+									*** rewrite Hlistoption1 in *.
+											cbn in HwellFormedList1.
+											exfalso ; congruence.
+			--- unfold isBE. cbn. unfold s3. cbn.
+					destruct (beqAddr pdinsertion newBlockEntryAddr) ; try(exfalso ; congruence).
+					rewrite beqAddrTrue.
+					cbn.
+					repeat rewrite removeDupIdentity ; intuition.
+			--- destruct HwellFormedNoDup as [Hoptionlist Hfreeslotss0].
+					assert(HFirstFreeSlotEq : getFreeSlotsList pd s0 = getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s0 (nbfreeslots p)).
+					{ unfold getFreeSlotsList. rewrite Hlookups0. rewrite HpNotNull. reflexivity. }
+					rewrite HFirstFreeSlotEq in *.
+					assert(HwellFormed : wellFormedFreeSlotsList Hoptionlist = False -> False) by intuition.
+					apply HwellFormed. intuition. subst Hoptionlist.
+					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *. intuition.
+			--- destruct HwellFormedNoDup as [Hoptionlist Hfreeslotss0].
+					assert(HFirstFreeSlotEq : getFreeSlotsList pd s0 = getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s0 (nbfreeslots p)).
+					{ unfold getFreeSlotsList. rewrite Hlookups0. rewrite HpNotNull. reflexivity. }
+					rewrite HFirstFreeSlotEq in *.
+					assert(HwellFormed : NoDup (filterOption  Hoptionlist)) by intuition.
+					intuition. subst Hoptionlist.
+					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *. intuition.
+			--- rewrite Hfreeslotss2 in *. rewrite Hfreeslotss1 in *.
+					(* newB is in freeslots list of pdinsertion, so can't be in other list
+							because of Disjoint *)
+					(*simpl in s3.*)
+					(* DUP from previous step *)
+					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
+						by (unfold consistency in *; intuition).
+					unfold DisjointFreeSlotsLists in *.
+					assert(Hpdinsertions0 : lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry))
+							by intuition.
+					assert(HPDTs0 : isPDT pdinsertion s0) by (unfold isPDT ; rewrite Hpdinsertions0 ; trivial).
+					assert(HPDTentrypds0 : isPDT pd s0).
+					{ unfold isPDT. rewrite Hlookups0. trivial. }
+					rewrite <- beqAddrFalse in beqpdpd.
+					pose (H_Disjoints0 := Hfreeslotsdisjoints0 pdinsertion pd HPDTs0 HPDTentrypds0 beqpdpd).
+					destruct H_Disjoints0 as [listoption1 (listoption2 & H_Disjoints0)].
+					destruct H_Disjoints0 as [Hlistoption1 (HwellFormedList1 & (Hlistoption2 & (HwellFormedList2 & H_Disjoints0)))].
+					unfold getFreeSlotsList in Hlistoption1.
+					unfold getFreeSlotsList in Hlistoption2.
+					rewrite Hpdinsertions0 in *.
+					rewrite Hlookups0 in *.
+					assert(HnewBFirstFrees0PDT : firstfreeslot pdentry = newBlockEntryAddr).
+					{ unfold pdentryFirstFreeSlot in *. rewrite Hpdinsertions0 in *. intuition. }
+					rewrite HnewBFirstFrees0PDT in *.
+					destruct (beqAddr newBlockEntryAddr nullAddr) eqn:Hf ; try(exfalso ; congruence).
+					rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+					destruct (beqAddr (firstfreeslot p) nullAddr) eqn:HfirstfreeNull ; try(exfalso ; congruence).
+					(* firstfreeslot p <> NULL *)
+					(* if first free of other PD is NOT NULL,
+					then newB can't be in the two lists at s0 because of Disjoint -> False *)
+					subst listoption2. subst listoption1.
+					unfold Lib.disjoint in H_Disjoints0.
+					specialize(H_Disjoints0 newBlockEntryAddr).
+					destruct (H_Disjoints0).
+					* induction (maxIdx+1). (* false induction because of fixpoint constraints *)
+						** (* N=0 -> NotWellFormed *)
+								cbn in *.
+								congruence.
+						** (* N>0 *)
+								clear IHn.
+								simpl. rewrite H2. Search currnbfreeslots.
+								assert(HcurrNb : currnbfreeslots = nbfreeslots pdentry).
+								{ unfold pdentryNbFreeSlots in *. rewrite Hpdinsertions0 in *. intuition. }
+								rewrite <- HcurrNb in *.
+								destruct (StateLib.Index.pred (nbfreeslots pdentry)) eqn:Hpred ; try(exfalso ; congruence).
+								rewrite <- HcurrNb in *. rewrite Hpred. cbn. intuition.
+					* intuition.
+}
+	set (s4 := {| currentPartition := currentPartition ?s3; memory := _ |}). simpl in s4. simpl in s3.
+	assert(Hfreeslotss4 : getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s4 (nbfreeslots p) =
+getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s3 (nbfreeslots p)).
+	{
+		(* DUP *)
+		(*-- set (s' := {|currentPartition := _ |}) at 2. fold s'.*)
+				assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; intuition).
+				unfold NoDupInFreeSlotsList in *.
+				specialize (HwellFormedNoDup pd p Hlookups0).
+				apply getFreeSlotsListRecEqBE ; intuition.
+				---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
+							assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
+								by (unfold consistency in *; intuition).
+							unfold DisjointFreeSlotsLists in *.
+							assert(Hpdinsertions0 : lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry))
+									by intuition.
+							assert(HPDTs0 : isPDT pdinsertion s0) by (unfold isPDT ; rewrite Hpdinsertions0 ; trivial).
+							assert(HPDTentrypds0 : isPDT pd s0).
+							{ unfold isPDT. rewrite Hlookups0. trivial. }
+							rewrite <- beqAddrFalse in beqpdpd.
+							pose (H_Disjoints0 := Hfreeslotsdisjoints0 pdinsertion pd HPDTs0 HPDTentrypds0 beqpdpd).
+							destruct H_Disjoints0 as [listoption1 (listoption2 & H_Disjoints0)].
+							destruct H_Disjoints0 as [Hlistoption1 (HwellFormedList1 & (Hlistoption2 & (HwellFormedList2 & H_Disjoints0)))].
+							unfold getFreeSlotsList in Hlistoption1.
+							unfold getFreeSlotsList in Hlistoption2.
+							rewrite Hpdinsertions0 in *.
+							rewrite Hlookups0 in *.
+							assert(HnewBFirstFrees0PDT : firstfreeslot pdentry = newBlockEntryAddr).
+							{ unfold pdentryFirstFreeSlot in *. rewrite Hpdinsertions0 in *. intuition. }
+							assert(HnewBFirstFrees0P : firstfreeslot p = newBlockEntryAddr) by intuition.
+								rewrite HnewBFirstFrees0PDT in *.
+								rewrite HnewBFirstFrees0P in *.
+							destruct (beqAddr newBlockEntryAddr nullAddr) eqn:Hf ; try(exfalso ; congruence).
+								rewrite FreeSlotsListRec_unroll in Hlistoption1.
+								rewrite FreeSlotsListRec_unroll in Hlistoption2.
+								unfold getFreeSlotsListAux in *.
+								induction (maxIdx+1). (* false induction because of fixpoint constraints *)
+								** (* N=0 -> NotWellFormed *)
+									rewrite Hlistoption1 in *.
+									cbn in HwellFormedList1.
+									congruence.
+								** (* N>0 *)
+									clear IHn.
+									cbn in *.
+									rewrite H2 in *.
+									destruct (StateLib.Index.pred (nbfreeslots pdentry)) eqn:Hpred1 ; try(exfalso ; congruence).
+									*** destruct (StateLib.Index.pred (nbfreeslots p)) eqn:Hpred2 ; try(subst listoption2 ; intuition).
+											rewrite Hlistoption1 in *.
+											cbn in *.
+											unfold Lib.disjoint in H_Disjoints0.
+											specialize(H_Disjoints0 newBlockEntryAddr).
+											simpl in H_Disjoints0.
+											intuition.
+									*** rewrite Hlistoption1 in *.
+											cbn in HwellFormedList1.
+											exfalso ; congruence.
+			--- unfold isBE. unfold s4. cbn.
+					destruct (beqAddr pdinsertion newBlockEntryAddr) ; try(exfalso ; congruence).
+					rewrite beqAddrTrue.
+					cbn.
+					repeat rewrite removeDupIdentity ; intuition.
+			--- destruct HwellFormedNoDup as [Hoptionlist Hfreeslotss0].
+					assert(HFirstFreeSlotEq : getFreeSlotsList pd s0 = getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s0 (nbfreeslots p)).
+					{ unfold getFreeSlotsList. rewrite Hlookups0. rewrite HpNotNull. reflexivity. }
+					rewrite HFirstFreeSlotEq in *.
+					assert(HwellFormed : wellFormedFreeSlotsList Hoptionlist = False -> False) by intuition.
+					apply HwellFormed. intuition. subst Hoptionlist.
+					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
+					rewrite <- Hfreeslotss3 in *. intuition.
+			--- destruct HwellFormedNoDup as [Hoptionlist Hfreeslotss0].
+					assert(HFirstFreeSlotEq : getFreeSlotsList pd s0 = getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s0 (nbfreeslots p)).
+					{ unfold getFreeSlotsList. rewrite Hlookups0. rewrite HpNotNull. reflexivity. }
+					rewrite HFirstFreeSlotEq in *.
+					assert(HwellFormed : NoDup (filterOption  Hoptionlist)) by intuition.
+					intuition. subst Hoptionlist.
+					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
+					rewrite <- Hfreeslotss3 in *. intuition.
+			--- rewrite <- Hfreeslotss3 in *.
+					rewrite Hfreeslotss2 in *. rewrite Hfreeslotss1 in *.
+					(* newB is in freeslots list of pdinsertion, so can't be in other list
+							because of Disjoint *)
+					(*simpl in s3.*)
+					(* DUP from previous step *)
+					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
+						by (unfold consistency in *; intuition).
+					unfold DisjointFreeSlotsLists in *.
+					assert(Hpdinsertions0 : lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry))
+							by intuition.
+					assert(HPDTs0 : isPDT pdinsertion s0) by (unfold isPDT ; rewrite Hpdinsertions0 ; trivial).
+					assert(HPDTentrypds0 : isPDT pd s0).
+					{ unfold isPDT. rewrite Hlookups0. trivial. }
+					rewrite <- beqAddrFalse in beqpdpd.
+					pose (H_Disjoints0 := Hfreeslotsdisjoints0 pdinsertion pd HPDTs0 HPDTentrypds0 beqpdpd).
+					destruct H_Disjoints0 as [listoption1 (listoption2 & H_Disjoints0)].
+					destruct H_Disjoints0 as [Hlistoption1 (HwellFormedList1 & (Hlistoption2 & (HwellFormedList2 & H_Disjoints0)))].
+					unfold getFreeSlotsList in Hlistoption1.
+					unfold getFreeSlotsList in Hlistoption2.
+					rewrite Hpdinsertions0 in *.
+					rewrite Hlookups0 in *.
+					assert(HnewBFirstFrees0PDT : firstfreeslot pdentry = newBlockEntryAddr).
+					{ unfold pdentryFirstFreeSlot in *. rewrite Hpdinsertions0 in *. intuition. }
+					rewrite HnewBFirstFrees0PDT in *.
+					destruct (beqAddr newBlockEntryAddr nullAddr) eqn:Hf ; try(exfalso ; congruence).
+					rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+					destruct (beqAddr (firstfreeslot p) nullAddr) eqn:HfirstfreeNull ; try(exfalso ; congruence).
+					(* firstfreeslot p <> NULL *)
+					(* if first free of other PD is NOT NULL,
+					then newB can't be in the two lists at s0 because of Disjoint -> False *)
+					subst listoption2. subst listoption1.
+					unfold Lib.disjoint in H_Disjoints0.
+					specialize(H_Disjoints0 newBlockEntryAddr).
+					destruct (H_Disjoints0).
+					* induction (maxIdx+1). (* false induction because of fixpoint constraints *)
+						** (* N=0 -> NotWellFormed *)
+								cbn in *.
+								congruence.
+						** (* N>0 *)
+								clear IHn.
+								simpl. rewrite H2. Search currnbfreeslots.
+								assert(HcurrNb : currnbfreeslots = nbfreeslots pdentry).
+								{ unfold pdentryNbFreeSlots in *. rewrite Hpdinsertions0 in *. intuition. }
+								rewrite <- HcurrNb in *.
+								destruct (StateLib.Index.pred (nbfreeslots pdentry)) eqn:Hpred ; try(exfalso ; congruence).
+								rewrite <- HcurrNb in *. rewrite Hpred. cbn. intuition.
+					* intuition.
+} fold s1. fold s2. fold s3. fold s4.
+	set (s5 := {| currentPartition := currentPartition ?s4; memory := _ |}).
+	simpl in s4.
+	assert(Hfreeslotss5 : getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s5 (nbfreeslots p) =
+getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s4 (nbfreeslots p)).
+	{
+		(* DUP *)
+		(*-- set (s' := {|currentPartition := _ |}) at 2. fold s'.*)
+				assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; intuition).
+				unfold NoDupInFreeSlotsList in *.
+				specialize (HwellFormedNoDup pd p Hlookups0).
+				apply getFreeSlotsListRecEqBE ; intuition.
+				---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
+							assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
+								by (unfold consistency in *; intuition).
+							unfold DisjointFreeSlotsLists in *.
+							assert(Hpdinsertions0 : lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry))
+									by intuition.
+							assert(HPDTs0 : isPDT pdinsertion s0) by (unfold isPDT ; rewrite Hpdinsertions0 ; trivial).
+							assert(HPDTentrypds0 : isPDT pd s0).
+							{ unfold isPDT. rewrite Hlookups0. trivial. }
+							rewrite <- beqAddrFalse in beqpdpd.
+							pose (H_Disjoints0 := Hfreeslotsdisjoints0 pdinsertion pd HPDTs0 HPDTentrypds0 beqpdpd).
+							destruct H_Disjoints0 as [listoption1 (listoption2 & H_Disjoints0)].
+							destruct H_Disjoints0 as [Hlistoption1 (HwellFormedList1 & (Hlistoption2 & (HwellFormedList2 & H_Disjoints0)))].
+							unfold getFreeSlotsList in Hlistoption1.
+							unfold getFreeSlotsList in Hlistoption2.
+							rewrite Hpdinsertions0 in *.
+							rewrite Hlookups0 in *.
+							assert(HnewBFirstFrees0PDT : firstfreeslot pdentry = newBlockEntryAddr).
+							{ unfold pdentryFirstFreeSlot in *. rewrite Hpdinsertions0 in *. intuition. }
+							assert(HnewBFirstFrees0P : firstfreeslot p = newBlockEntryAddr) by intuition.
+								rewrite HnewBFirstFrees0PDT in *.
+								rewrite HnewBFirstFrees0P in *.
+							destruct (beqAddr newBlockEntryAddr nullAddr) eqn:Hf ; try(exfalso ; congruence).
+								rewrite FreeSlotsListRec_unroll in Hlistoption1.
+								rewrite FreeSlotsListRec_unroll in Hlistoption2.
+								unfold getFreeSlotsListAux in *.
+								induction (maxIdx+1). (* false induction because of fixpoint constraints *)
+								** (* N=0 -> NotWellFormed *)
+									rewrite Hlistoption1 in *.
+									cbn in HwellFormedList1.
+									congruence.
+								** (* N>0 *)
+									clear IHn.
+									cbn in *.
+									rewrite H2 in *.
+									destruct (StateLib.Index.pred (nbfreeslots pdentry)) eqn:Hpred1 ; try(exfalso ; congruence).
+									*** destruct (StateLib.Index.pred (nbfreeslots p)) eqn:Hpred2 ; try(subst listoption2 ; intuition).
+											rewrite Hlistoption1 in *.
+											cbn in *.
+											unfold Lib.disjoint in H_Disjoints0.
+											specialize(H_Disjoints0 newBlockEntryAddr).
+											simpl in H_Disjoints0.
+											intuition.
+									*** rewrite Hlistoption1 in *.
+											cbn in HwellFormedList1.
+											exfalso ; congruence.
+			--- unfold isBE. unfold s5. cbn.
+					destruct (beqAddr pdinsertion newBlockEntryAddr) ; try(exfalso ; congruence).
+					rewrite beqAddrTrue.
+					cbn.
+					repeat rewrite removeDupIdentity ; intuition.
+			--- destruct HwellFormedNoDup as [Hoptionlist Hfreeslotss0].
+					assert(HFirstFreeSlotEq : getFreeSlotsList pd s0 = getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s0 (nbfreeslots p)).
+					{ unfold getFreeSlotsList. rewrite Hlookups0. rewrite HpNotNull. reflexivity. }
+					rewrite HFirstFreeSlotEq in *.
+					assert(HwellFormed : wellFormedFreeSlotsList Hoptionlist = False -> False) by intuition.
+					apply HwellFormed. intuition. subst Hoptionlist.
+					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
+					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *. intuition.
+			--- destruct HwellFormedNoDup as [Hoptionlist Hfreeslotss0].
+					assert(HFirstFreeSlotEq : getFreeSlotsList pd s0 = getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s0 (nbfreeslots p)).
+					{ unfold getFreeSlotsList. rewrite Hlookups0. rewrite HpNotNull. reflexivity. }
+					rewrite HFirstFreeSlotEq in *.
+					assert(HwellFormed : NoDup (filterOption  Hoptionlist)) by intuition.
+					intuition. subst Hoptionlist.
+					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
+					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *. intuition.
+			--- rewrite <- Hfreeslotss4 in *. rewrite <- Hfreeslotss3 in *.
+					rewrite Hfreeslotss2 in *. rewrite Hfreeslotss1 in *.
+					(* newB is in freeslots list of pdinsertion, so can't be in other list
+							because of Disjoint *)
+					(*simpl in s3.*)
+					(* DUP from previous step *)
+					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
+						by (unfold consistency in *; intuition).
+					unfold DisjointFreeSlotsLists in *.
+					assert(Hpdinsertions0 : lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry))
+							by intuition.
+					assert(HPDTs0 : isPDT pdinsertion s0) by (unfold isPDT ; rewrite Hpdinsertions0 ; trivial).
+					assert(HPDTentrypds0 : isPDT pd s0).
+					{ unfold isPDT. rewrite Hlookups0. trivial. }
+					rewrite <- beqAddrFalse in beqpdpd.
+					pose (H_Disjoints0 := Hfreeslotsdisjoints0 pdinsertion pd HPDTs0 HPDTentrypds0 beqpdpd).
+					destruct H_Disjoints0 as [listoption1 (listoption2 & H_Disjoints0)].
+					destruct H_Disjoints0 as [Hlistoption1 (HwellFormedList1 & (Hlistoption2 & (HwellFormedList2 & H_Disjoints0)))].
+					unfold getFreeSlotsList in Hlistoption1.
+					unfold getFreeSlotsList in Hlistoption2.
+					rewrite Hpdinsertions0 in *.
+					rewrite Hlookups0 in *.
+					assert(HnewBFirstFrees0PDT : firstfreeslot pdentry = newBlockEntryAddr).
+					{ unfold pdentryFirstFreeSlot in *. rewrite Hpdinsertions0 in *. intuition. }
+					rewrite HnewBFirstFrees0PDT in *.
+					destruct (beqAddr newBlockEntryAddr nullAddr) eqn:Hf ; try(exfalso ; congruence).
+					rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+					destruct (beqAddr (firstfreeslot p) nullAddr) eqn:HfirstfreeNull ; try(exfalso ; congruence).
+					(* firstfreeslot p <> NULL *)
+					(* if first free of other PD is NOT NULL,
+					then newB can't be in the two lists at s0 because of Disjoint -> False *)
+					subst listoption2. subst listoption1.
+					unfold Lib.disjoint in H_Disjoints0.
+					specialize(H_Disjoints0 newBlockEntryAddr).
+					destruct (H_Disjoints0).
+					* induction (maxIdx+1). (* false induction because of fixpoint constraints *)
+						** (* N=0 -> NotWellFormed *)
+								cbn in *.
+								congruence.
+						** (* N>0 *)
+								clear IHn.
+								simpl. rewrite H2. Search currnbfreeslots.
+								assert(HcurrNb : currnbfreeslots = nbfreeslots pdentry).
+								{ unfold pdentryNbFreeSlots in *. rewrite Hpdinsertions0 in *. intuition. }
+								rewrite <- HcurrNb in *.
+								destruct (StateLib.Index.pred (nbfreeslots pdentry)) eqn:Hpred ; try(exfalso ; congruence).
+								rewrite <- HcurrNb in *. rewrite Hpred. cbn. intuition.
+					* intuition.
+}
+	fold s1. fold s2. fold s3. fold s4. fold s5.
+	set (s6 := {| currentPartition := currentPartition ?s5; memory := _ |}).
+	simpl in s4.
+	assert(Hfreeslotss6 : getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s6 (nbfreeslots p) =
+getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s5 (nbfreeslots p)).
+	{
+		(* DUP *)
+		(*-- set (s' := {|currentPartition := _ |}) at 2. fold s'.*)
+				assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; intuition).
+				unfold NoDupInFreeSlotsList in *.
+				specialize (HwellFormedNoDup pd p Hlookups0).
+				apply getFreeSlotsListRecEqBE ; intuition.
+				---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
+							assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
+								by (unfold consistency in *; intuition).
+							unfold DisjointFreeSlotsLists in *.
+							assert(Hpdinsertions0 : lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry))
+									by intuition.
+							assert(HPDTs0 : isPDT pdinsertion s0) by (unfold isPDT ; rewrite Hpdinsertions0 ; trivial).
+							assert(HPDTentrypds0 : isPDT pd s0).
+							{ unfold isPDT. rewrite Hlookups0. trivial. }
+							rewrite <- beqAddrFalse in beqpdpd.
+							pose (H_Disjoints0 := Hfreeslotsdisjoints0 pdinsertion pd HPDTs0 HPDTentrypds0 beqpdpd).
+							destruct H_Disjoints0 as [listoption1 (listoption2 & H_Disjoints0)].
+							destruct H_Disjoints0 as [Hlistoption1 (HwellFormedList1 & (Hlistoption2 & (HwellFormedList2 & H_Disjoints0)))].
+							unfold getFreeSlotsList in Hlistoption1.
+							unfold getFreeSlotsList in Hlistoption2.
+							rewrite Hpdinsertions0 in *.
+							rewrite Hlookups0 in *.
+							assert(HnewBFirstFrees0PDT : firstfreeslot pdentry = newBlockEntryAddr).
+							{ unfold pdentryFirstFreeSlot in *. rewrite Hpdinsertions0 in *. intuition. }
+							assert(HnewBFirstFrees0P : firstfreeslot p = newBlockEntryAddr) by intuition.
+								rewrite HnewBFirstFrees0PDT in *.
+								rewrite HnewBFirstFrees0P in *.
+							destruct (beqAddr newBlockEntryAddr nullAddr) eqn:Hf ; try(exfalso ; congruence).
+								rewrite FreeSlotsListRec_unroll in Hlistoption1.
+								rewrite FreeSlotsListRec_unroll in Hlistoption2.
+								unfold getFreeSlotsListAux in *.
+								induction (maxIdx+1). (* false induction because of fixpoint constraints *)
+								** (* N=0 -> NotWellFormed *)
+									rewrite Hlistoption1 in *.
+									cbn in HwellFormedList1.
+									congruence.
+								** (* N>0 *)
+									clear IHn.
+									cbn in *.
+									rewrite H2 in *.
+									destruct (StateLib.Index.pred (nbfreeslots pdentry)) eqn:Hpred1 ; try(exfalso ; congruence).
+									*** destruct (StateLib.Index.pred (nbfreeslots p)) eqn:Hpred2 ; try(subst listoption2 ; intuition).
+											rewrite Hlistoption1 in *.
+											cbn in *.
+											unfold Lib.disjoint in H_Disjoints0.
+											specialize(H_Disjoints0 newBlockEntryAddr).
+											simpl in H_Disjoints0.
+											intuition.
+									*** rewrite Hlistoption1 in *.
+											cbn in HwellFormedList1.
+											exfalso ; congruence.
+			--- unfold isBE. unfold s6. cbn.
+					destruct (beqAddr pdinsertion newBlockEntryAddr) ; try(exfalso ; congruence).
+					rewrite beqAddrTrue.
+					cbn.
+					repeat rewrite removeDupIdentity ; intuition.
+			--- destruct HwellFormedNoDup as [Hoptionlist Hfreeslotss0].
+					assert(HFirstFreeSlotEq : getFreeSlotsList pd s0 = getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s0 (nbfreeslots p)).
+					{ unfold getFreeSlotsList. rewrite Hlookups0. rewrite HpNotNull. reflexivity. }
+					rewrite HFirstFreeSlotEq in *.
+					assert(HwellFormed : wellFormedFreeSlotsList Hoptionlist = False -> False) by intuition.
+					apply HwellFormed. intuition. subst Hoptionlist.
+					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
+					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *.
+					rewrite <- Hfreeslotss5 in *. intuition.
+			--- destruct HwellFormedNoDup as [Hoptionlist Hfreeslotss0].
+					assert(HFirstFreeSlotEq : getFreeSlotsList pd s0 = getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s0 (nbfreeslots p)).
+					{ unfold getFreeSlotsList. rewrite Hlookups0. rewrite HpNotNull. reflexivity. }
+					rewrite HFirstFreeSlotEq in *.
+					assert(HwellFormed : NoDup (filterOption  Hoptionlist)) by intuition.
+					intuition. subst Hoptionlist.
+					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
+					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *.
+					rewrite <- Hfreeslotss5 in *. intuition.
+			--- rewrite <- Hfreeslotss5 in *.
+					rewrite <- Hfreeslotss4 in *. rewrite <- Hfreeslotss3 in *.
+					rewrite Hfreeslotss2 in *. rewrite Hfreeslotss1 in *.
+					(* newB is in freeslots list of pdinsertion, so can't be in other list
+							because of Disjoint *)
+					(*simpl in s3.*)
+					(* DUP from previous step *)
+					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
+						by (unfold consistency in *; intuition).
+					unfold DisjointFreeSlotsLists in *.
+					assert(Hpdinsertions0 : lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry))
+							by intuition.
+					assert(HPDTs0 : isPDT pdinsertion s0) by (unfold isPDT ; rewrite Hpdinsertions0 ; trivial).
+					assert(HPDTentrypds0 : isPDT pd s0).
+					{ unfold isPDT. rewrite Hlookups0. trivial. }
+					rewrite <- beqAddrFalse in beqpdpd.
+					pose (H_Disjoints0 := Hfreeslotsdisjoints0 pdinsertion pd HPDTs0 HPDTentrypds0 beqpdpd).
+					destruct H_Disjoints0 as [listoption1 (listoption2 & H_Disjoints0)].
+					destruct H_Disjoints0 as [Hlistoption1 (HwellFormedList1 & (Hlistoption2 & (HwellFormedList2 & H_Disjoints0)))].
+					unfold getFreeSlotsList in Hlistoption1.
+					unfold getFreeSlotsList in Hlistoption2.
+					rewrite Hpdinsertions0 in *.
+					rewrite Hlookups0 in *.
+					assert(HnewBFirstFrees0PDT : firstfreeslot pdentry = newBlockEntryAddr).
+					{ unfold pdentryFirstFreeSlot in *. rewrite Hpdinsertions0 in *. intuition. }
+					rewrite HnewBFirstFrees0PDT in *.
+					destruct (beqAddr newBlockEntryAddr nullAddr) eqn:Hf ; try(exfalso ; congruence).
+					rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+					destruct (beqAddr (firstfreeslot p) nullAddr) eqn:HfirstfreeNull ; try(exfalso ; congruence).
+					(* firstfreeslot p <> NULL *)
+					(* if first free of other PD is NOT NULL,
+					then newB can't be in the two lists at s0 because of Disjoint -> False *)
+					subst listoption2. subst listoption1.
+					unfold Lib.disjoint in H_Disjoints0.
+					specialize(H_Disjoints0 newBlockEntryAddr).
+					destruct (H_Disjoints0).
+					* induction (maxIdx+1). (* false induction because of fixpoint constraints *)
+						** (* N=0 -> NotWellFormed *)
+								cbn in *.
+								congruence.
+						** (* N>0 *)
+								clear IHn.
+								simpl. rewrite H2. Search currnbfreeslots.
+								assert(HcurrNb : currnbfreeslots = nbfreeslots pdentry).
+								{ unfold pdentryNbFreeSlots in *. rewrite Hpdinsertions0 in *. intuition. }
+								rewrite <- HcurrNb in *.
+								destruct (StateLib.Index.pred (nbfreeslots pdentry)) eqn:Hpred ; try(exfalso ; congruence).
+								rewrite <- HcurrNb in *. rewrite Hpred. cbn. intuition.
+					* intuition.
+}
+	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6.
+	set (s7 := {| currentPartition := currentPartition ?s6; memory := _ |}).
+	simpl in s5. simpl in s6.
+	assert(Hfreeslotss7 : getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s7 (nbfreeslots p) =
+getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s6 (nbfreeslots p)).
+	{
+		(* DUP *)
+		(*-- set (s' := {|currentPartition := _ |}) at 2. fold s'.*)
+				assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; intuition).
+				unfold NoDupInFreeSlotsList in *.
+				specialize (HwellFormedNoDup pd p Hlookups0).
+				apply getFreeSlotsListRecEqBE ; intuition.
+				---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
+							assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
+								by (unfold consistency in *; intuition).
+							unfold DisjointFreeSlotsLists in *.
+							assert(Hpdinsertions0 : lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry))
+									by intuition.
+							assert(HPDTs0 : isPDT pdinsertion s0) by (unfold isPDT ; rewrite Hpdinsertions0 ; trivial).
+							assert(HPDTentrypds0 : isPDT pd s0).
+							{ unfold isPDT. rewrite Hlookups0. trivial. }
+							rewrite <- beqAddrFalse in beqpdpd.
+							pose (H_Disjoints0 := Hfreeslotsdisjoints0 pdinsertion pd HPDTs0 HPDTentrypds0 beqpdpd).
+							destruct H_Disjoints0 as [listoption1 (listoption2 & H_Disjoints0)].
+							destruct H_Disjoints0 as [Hlistoption1 (HwellFormedList1 & (Hlistoption2 & (HwellFormedList2 & H_Disjoints0)))].
+							unfold getFreeSlotsList in Hlistoption1.
+							unfold getFreeSlotsList in Hlistoption2.
+							rewrite Hpdinsertions0 in *.
+							rewrite Hlookups0 in *.
+							assert(HnewBFirstFrees0PDT : firstfreeslot pdentry = newBlockEntryAddr).
+							{ unfold pdentryFirstFreeSlot in *. rewrite Hpdinsertions0 in *. intuition. }
+							assert(HnewBFirstFrees0P : firstfreeslot p = newBlockEntryAddr) by intuition.
+								rewrite HnewBFirstFrees0PDT in *.
+								rewrite HnewBFirstFrees0P in *.
+							destruct (beqAddr newBlockEntryAddr nullAddr) eqn:Hf ; try(exfalso ; congruence).
+								rewrite FreeSlotsListRec_unroll in Hlistoption1.
+								rewrite FreeSlotsListRec_unroll in Hlistoption2.
+								unfold getFreeSlotsListAux in *.
+								induction (maxIdx+1). (* false induction because of fixpoint constraints *)
+								** (* N=0 -> NotWellFormed *)
+									rewrite Hlistoption1 in *.
+									cbn in HwellFormedList1.
+									congruence.
+								** (* N>0 *)
+									clear IHn.
+									cbn in *.
+									rewrite H2 in *.
+									destruct (StateLib.Index.pred (nbfreeslots pdentry)) eqn:Hpred1 ; try(exfalso ; congruence).
+									*** destruct (StateLib.Index.pred (nbfreeslots p)) eqn:Hpred2 ; try(subst listoption2 ; intuition).
+											rewrite Hlistoption1 in *.
+											cbn in *.
+											unfold Lib.disjoint in H_Disjoints0.
+											specialize(H_Disjoints0 newBlockEntryAddr).
+											simpl in H_Disjoints0.
+											intuition.
+									*** rewrite Hlistoption1 in *.
+											cbn in HwellFormedList1.
+											exfalso ; congruence.
+			--- unfold isBE. unfold s7. cbn.
+					destruct (beqAddr pdinsertion newBlockEntryAddr) ; try(exfalso ; congruence).
+					rewrite beqAddrTrue.
+					cbn.
+					repeat rewrite removeDupIdentity ; intuition.
+			--- destruct HwellFormedNoDup as [Hoptionlist Hfreeslotss0].
+					assert(HFirstFreeSlotEq : getFreeSlotsList pd s0 = getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s0 (nbfreeslots p)).
+					{ unfold getFreeSlotsList. rewrite Hlookups0. rewrite HpNotNull. reflexivity. }
+					rewrite HFirstFreeSlotEq in *.
+					assert(HwellFormed : wellFormedFreeSlotsList Hoptionlist = False -> False) by intuition.
+					apply HwellFormed. intuition. subst Hoptionlist.
+					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
+					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *.
+					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *. intuition.
+			--- destruct HwellFormedNoDup as [Hoptionlist Hfreeslotss0].
+					assert(HFirstFreeSlotEq : getFreeSlotsList pd s0 = getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s0 (nbfreeslots p)).
+					{ unfold getFreeSlotsList. rewrite Hlookups0. rewrite HpNotNull. reflexivity. }
+					rewrite HFirstFreeSlotEq in *.
+					assert(HwellFormed : NoDup (filterOption  Hoptionlist)) by intuition.
+					intuition. subst Hoptionlist.
+					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
+					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *.
+					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *. intuition.
+			--- rewrite <- Hfreeslotss6 in *. rewrite <- Hfreeslotss5 in *.
+					rewrite <- Hfreeslotss4 in *. rewrite <- Hfreeslotss3 in *.
+					rewrite Hfreeslotss2 in *. rewrite Hfreeslotss1 in *.
+					(* newB is in freeslots list of pdinsertion, so can't be in other list
+							because of Disjoint *)
+					(*simpl in s3.*)
+					(* DUP from previous step *)
+					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
+						by (unfold consistency in *; intuition).
+					unfold DisjointFreeSlotsLists in *.
+					assert(Hpdinsertions0 : lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry))
+							by intuition.
+					assert(HPDTs0 : isPDT pdinsertion s0) by (unfold isPDT ; rewrite Hpdinsertions0 ; trivial).
+					assert(HPDTentrypds0 : isPDT pd s0).
+					{ unfold isPDT. rewrite Hlookups0. trivial. }
+					rewrite <- beqAddrFalse in beqpdpd.
+					pose (H_Disjoints0 := Hfreeslotsdisjoints0 pdinsertion pd HPDTs0 HPDTentrypds0 beqpdpd).
+					destruct H_Disjoints0 as [listoption1 (listoption2 & H_Disjoints0)].
+					destruct H_Disjoints0 as [Hlistoption1 (HwellFormedList1 & (Hlistoption2 & (HwellFormedList2 & H_Disjoints0)))].
+					unfold getFreeSlotsList in Hlistoption1.
+					unfold getFreeSlotsList in Hlistoption2.
+					rewrite Hpdinsertions0 in *.
+					rewrite Hlookups0 in *.
+					assert(HnewBFirstFrees0PDT : firstfreeslot pdentry = newBlockEntryAddr).
+					{ unfold pdentryFirstFreeSlot in *. rewrite Hpdinsertions0 in *. intuition. }
+					rewrite HnewBFirstFrees0PDT in *.
+					destruct (beqAddr newBlockEntryAddr nullAddr) eqn:Hf ; try(exfalso ; congruence).
+					rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+					destruct (beqAddr (firstfreeslot p) nullAddr) eqn:HfirstfreeNull ; try(exfalso ; congruence).
+					(* firstfreeslot p <> NULL *)
+					(* if first free of other PD is NOT NULL,
+					then newB can't be in the two lists at s0 because of Disjoint -> False *)
+					subst listoption2. subst listoption1.
+					unfold Lib.disjoint in H_Disjoints0.
+					specialize(H_Disjoints0 newBlockEntryAddr).
+					destruct (H_Disjoints0).
+					* induction (maxIdx+1). (* false induction because of fixpoint constraints *)
+						** (* N=0 -> NotWellFormed *)
+								cbn in *.
+								congruence.
+						** (* N>0 *)
+								clear IHn.
+								simpl. rewrite H2. Search currnbfreeslots.
+								assert(HcurrNb : currnbfreeslots = nbfreeslots pdentry).
+								{ unfold pdentryNbFreeSlots in *. rewrite Hpdinsertions0 in *. intuition. }
+								rewrite <- HcurrNb in *.
+								destruct (StateLib.Index.pred (nbfreeslots pdentry)) eqn:Hpred ; try(exfalso ; congruence).
+								rewrite <- HcurrNb in *. rewrite Hpred. cbn. intuition.
+					* intuition.
+}
+	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7.
+	set (s8 := {| currentPartition := currentPartition ?s7; memory := _ |}).
+	simpl in s7.
+	assert(Hfreeslotss8 : getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s8 (nbfreeslots p) =
+getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s7 (nbfreeslots p)).
+	{
+		(* DUP *)
+		(*-- set (s' := {|currentPartition := _ |}) at 2. fold s'.*)
+				assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; intuition).
+				unfold NoDupInFreeSlotsList in *.
+				specialize (HwellFormedNoDup pd p Hlookups0).
+				apply getFreeSlotsListRecEqBE ; intuition.
+				---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
+							assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
+								by (unfold consistency in *; intuition).
+							unfold DisjointFreeSlotsLists in *.
+							assert(Hpdinsertions0 : lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry))
+									by intuition.
+							assert(HPDTs0 : isPDT pdinsertion s0) by (unfold isPDT ; rewrite Hpdinsertions0 ; trivial).
+							assert(HPDTentrypds0 : isPDT pd s0).
+							{ unfold isPDT. rewrite Hlookups0. trivial. }
+							rewrite <- beqAddrFalse in beqpdpd.
+							pose (H_Disjoints0 := Hfreeslotsdisjoints0 pdinsertion pd HPDTs0 HPDTentrypds0 beqpdpd).
+							destruct H_Disjoints0 as [listoption1 (listoption2 & H_Disjoints0)].
+							destruct H_Disjoints0 as [Hlistoption1 (HwellFormedList1 & (Hlistoption2 & (HwellFormedList2 & H_Disjoints0)))].
+							unfold getFreeSlotsList in Hlistoption1.
+							unfold getFreeSlotsList in Hlistoption2.
+							rewrite Hpdinsertions0 in *.
+							rewrite Hlookups0 in *.
+							assert(HnewBFirstFrees0PDT : firstfreeslot pdentry = newBlockEntryAddr).
+							{ unfold pdentryFirstFreeSlot in *. rewrite Hpdinsertions0 in *. intuition. }
+							assert(HnewBFirstFrees0P : firstfreeslot p = newBlockEntryAddr) by intuition.
+								rewrite HnewBFirstFrees0PDT in *.
+								rewrite HnewBFirstFrees0P in *.
+							destruct (beqAddr newBlockEntryAddr nullAddr) eqn:Hf ; try(exfalso ; congruence).
+								rewrite FreeSlotsListRec_unroll in Hlistoption1.
+								rewrite FreeSlotsListRec_unroll in Hlistoption2.
+								unfold getFreeSlotsListAux in *.
+								induction (maxIdx+1). (* false induction because of fixpoint constraints *)
+								** (* N=0 -> NotWellFormed *)
+									rewrite Hlistoption1 in *.
+									cbn in HwellFormedList1.
+									congruence.
+								** (* N>0 *)
+									clear IHn.
+									cbn in *.
+									rewrite H2 in *.
+									destruct (StateLib.Index.pred (nbfreeslots pdentry)) eqn:Hpred1 ; try(exfalso ; congruence).
+									*** destruct (StateLib.Index.pred (nbfreeslots p)) eqn:Hpred2 ; try(subst listoption2 ; intuition).
+											rewrite Hlistoption1 in *.
+											cbn in *.
+											unfold Lib.disjoint in H_Disjoints0.
+											specialize(H_Disjoints0 newBlockEntryAddr).
+											simpl in H_Disjoints0.
+											intuition.
+									*** rewrite Hlistoption1 in *.
+											cbn in HwellFormedList1.
+											exfalso ; congruence.
+			--- unfold isBE. unfold s8. cbn.
+					destruct (beqAddr pdinsertion newBlockEntryAddr) ; try(exfalso ; congruence).
+					rewrite beqAddrTrue.
+					cbn.
+					repeat rewrite removeDupIdentity ; intuition.
+			--- destruct HwellFormedNoDup as [Hoptionlist Hfreeslotss0].
+					assert(HFirstFreeSlotEq : getFreeSlotsList pd s0 = getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s0 (nbfreeslots p)).
+					{ unfold getFreeSlotsList. rewrite Hlookups0. rewrite HpNotNull. reflexivity. }
+					rewrite HFirstFreeSlotEq in *.
+					assert(HwellFormed : wellFormedFreeSlotsList Hoptionlist = False -> False) by intuition.
+					apply HwellFormed. intuition. subst Hoptionlist.
+					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
+					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *.
+					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *.
+					rewrite <- Hfreeslotss7 in *. intuition.
+			--- destruct HwellFormedNoDup as [Hoptionlist Hfreeslotss0].
+					assert(HFirstFreeSlotEq : getFreeSlotsList pd s0 = getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s0 (nbfreeslots p)).
+					{ unfold getFreeSlotsList. rewrite Hlookups0. rewrite HpNotNull. reflexivity. }
+					rewrite HFirstFreeSlotEq in *.
+					assert(HwellFormed : NoDup (filterOption  Hoptionlist)) by intuition.
+					intuition. subst Hoptionlist.
+					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
+					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *.
+					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *.
+					rewrite <- Hfreeslotss7 in *. intuition.
+			--- rewrite <- Hfreeslotss7 in *.
+					rewrite <- Hfreeslotss6 in *. rewrite <- Hfreeslotss5 in *.
+					rewrite <- Hfreeslotss4 in *. rewrite <- Hfreeslotss3 in *.
+					rewrite Hfreeslotss2 in *. rewrite Hfreeslotss1 in *.
+					(* newB is in freeslots list of pdinsertion, so can't be in other list
+							because of Disjoint *)
+					(*simpl in s3.*)
+					(* DUP from previous step *)
+					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
+						by (unfold consistency in *; intuition).
+					unfold DisjointFreeSlotsLists in *.
+					assert(Hpdinsertions0 : lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry))
+							by intuition.
+					assert(HPDTs0 : isPDT pdinsertion s0) by (unfold isPDT ; rewrite Hpdinsertions0 ; trivial).
+					assert(HPDTentrypds0 : isPDT pd s0).
+					{ unfold isPDT. rewrite Hlookups0. trivial. }
+					rewrite <- beqAddrFalse in beqpdpd.
+					pose (H_Disjoints0 := Hfreeslotsdisjoints0 pdinsertion pd HPDTs0 HPDTentrypds0 beqpdpd).
+					destruct H_Disjoints0 as [listoption1 (listoption2 & H_Disjoints0)].
+					destruct H_Disjoints0 as [Hlistoption1 (HwellFormedList1 & (Hlistoption2 & (HwellFormedList2 & H_Disjoints0)))].
+					unfold getFreeSlotsList in Hlistoption1.
+					unfold getFreeSlotsList in Hlistoption2.
+					rewrite Hpdinsertions0 in *.
+					rewrite Hlookups0 in *.
+					assert(HnewBFirstFrees0PDT : firstfreeslot pdentry = newBlockEntryAddr).
+					{ unfold pdentryFirstFreeSlot in *. rewrite Hpdinsertions0 in *. intuition. }
+					rewrite HnewBFirstFrees0PDT in *.
+					destruct (beqAddr newBlockEntryAddr nullAddr) eqn:Hf ; try(exfalso ; congruence).
+					rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+					destruct (beqAddr (firstfreeslot p) nullAddr) eqn:HfirstfreeNull ; try(exfalso ; congruence).
+					(* firstfreeslot p <> NULL *)
+					(* if first free of other PD is NOT NULL,
+					then newB can't be in the two lists at s0 because of Disjoint -> False *)
+					subst listoption2. subst listoption1.
+					unfold Lib.disjoint in H_Disjoints0.
+					specialize(H_Disjoints0 newBlockEntryAddr).
+					destruct (H_Disjoints0).
+					* induction (maxIdx+1). (* false induction because of fixpoint constraints *)
+						** (* N=0 -> NotWellFormed *)
+								cbn in *.
+								congruence.
+						** (* N>0 *)
+								clear IHn.
+								simpl. rewrite H2. Search currnbfreeslots.
+								assert(HcurrNb : currnbfreeslots = nbfreeslots pdentry).
+								{ unfold pdentryNbFreeSlots in *. rewrite Hpdinsertions0 in *. intuition. }
+								rewrite <- HcurrNb in *.
+								destruct (StateLib.Index.pred (nbfreeslots pdentry)) eqn:Hpred ; try(exfalso ; congruence).
+								rewrite <- HcurrNb in *. rewrite Hpred. cbn. intuition.
+					* intuition.
+}
+	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7. fold s8.
+	set (s9 := {| currentPartition := currentPartition ?s8; memory := _ |}).
+	simpl in s7.
+	assert(Hfreeslotss9 : getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s9 (nbfreeslots p) =
+getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s8 (nbfreeslots p)).
+	{
+		(* DUP *)
+		(*-- set (s' := {|currentPartition := _ |}) at 2. fold s'.*)
+				assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; intuition).
+				unfold NoDupInFreeSlotsList in *.
+				specialize (HwellFormedNoDup pd p Hlookups0).
+				apply getFreeSlotsListRecEqBE ; intuition.
+				---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
+							assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
+								by (unfold consistency in *; intuition).
+							unfold DisjointFreeSlotsLists in *.
+							assert(Hpdinsertions0 : lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry))
+									by intuition.
+							assert(HPDTs0 : isPDT pdinsertion s0) by (unfold isPDT ; rewrite Hpdinsertions0 ; trivial).
+							assert(HPDTentrypds0 : isPDT pd s0).
+							{ unfold isPDT. rewrite Hlookups0. trivial. }
+							rewrite <- beqAddrFalse in beqpdpd.
+							pose (H_Disjoints0 := Hfreeslotsdisjoints0 pdinsertion pd HPDTs0 HPDTentrypds0 beqpdpd).
+							destruct H_Disjoints0 as [listoption1 (listoption2 & H_Disjoints0)].
+							destruct H_Disjoints0 as [Hlistoption1 (HwellFormedList1 & (Hlistoption2 & (HwellFormedList2 & H_Disjoints0)))].
+							unfold getFreeSlotsList in Hlistoption1.
+							unfold getFreeSlotsList in Hlistoption2.
+							rewrite Hpdinsertions0 in *.
+							rewrite Hlookups0 in *.
+							assert(HnewBFirstFrees0PDT : firstfreeslot pdentry = newBlockEntryAddr).
+							{ unfold pdentryFirstFreeSlot in *. rewrite Hpdinsertions0 in *. intuition. }
+							assert(HnewBFirstFrees0P : firstfreeslot p = newBlockEntryAddr) by intuition.
+								rewrite HnewBFirstFrees0PDT in *.
+								rewrite HnewBFirstFrees0P in *.
+							destruct (beqAddr newBlockEntryAddr nullAddr) eqn:Hf ; try(exfalso ; congruence).
+								rewrite FreeSlotsListRec_unroll in Hlistoption1.
+								rewrite FreeSlotsListRec_unroll in Hlistoption2.
+								unfold getFreeSlotsListAux in *.
+								induction (maxIdx+1). (* false induction because of fixpoint constraints *)
+								** (* N=0 -> NotWellFormed *)
+									rewrite Hlistoption1 in *.
+									cbn in HwellFormedList1.
+									congruence.
+								** (* N>0 *)
+									clear IHn.
+									cbn in *.
+									rewrite H2 in *.
+									destruct (StateLib.Index.pred (nbfreeslots pdentry)) eqn:Hpred1 ; try(exfalso ; congruence).
+									*** destruct (StateLib.Index.pred (nbfreeslots p)) eqn:Hpred2 ; try(subst listoption2 ; intuition).
+											rewrite Hlistoption1 in *.
+											cbn in *.
+											unfold Lib.disjoint in H_Disjoints0.
+											specialize(H_Disjoints0 newBlockEntryAddr).
+											simpl in H_Disjoints0.
+											intuition.
+									*** rewrite Hlistoption1 in *.
+											cbn in HwellFormedList1.
+											exfalso ; congruence.
+			--- unfold isBE. unfold s9. cbn.
+					destruct (beqAddr pdinsertion newBlockEntryAddr) ; try(exfalso ; congruence).
+					rewrite beqAddrTrue.
+					cbn.
+					repeat rewrite removeDupIdentity ; intuition.
+			--- destruct HwellFormedNoDup as [Hoptionlist Hfreeslotss0].
+					assert(HFirstFreeSlotEq : getFreeSlotsList pd s0 = getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s0 (nbfreeslots p)).
+					{ unfold getFreeSlotsList. rewrite Hlookups0. rewrite HpNotNull. reflexivity. }
+					rewrite HFirstFreeSlotEq in *.
+					assert(HwellFormed : wellFormedFreeSlotsList Hoptionlist = False -> False) by intuition.
+					apply HwellFormed. intuition. subst Hoptionlist.
+					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
+					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *.
+					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *.
+					rewrite <- Hfreeslotss7 in *. rewrite <- Hfreeslotss8 in *. intuition.
+			--- destruct HwellFormedNoDup as [Hoptionlist Hfreeslotss0].
+					assert(HFirstFreeSlotEq : getFreeSlotsList pd s0 = getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s0 (nbfreeslots p)).
+					{ unfold getFreeSlotsList. rewrite Hlookups0. rewrite HpNotNull. reflexivity. }
+					rewrite HFirstFreeSlotEq in *.
+					assert(HwellFormed : NoDup (filterOption  Hoptionlist)) by intuition.
+					intuition. subst Hoptionlist.
+					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
+					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *.
+					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *.
+					rewrite <- Hfreeslotss7 in *. rewrite <- Hfreeslotss8 in *. intuition.
+			--- rewrite <- Hfreeslotss8 in *. rewrite <- Hfreeslotss7 in *.
+					rewrite <- Hfreeslotss6 in *. rewrite <- Hfreeslotss5 in *.
+					rewrite <- Hfreeslotss4 in *. rewrite <- Hfreeslotss3 in *.
+					rewrite Hfreeslotss2 in *. rewrite Hfreeslotss1 in *.
+					(* newB is in freeslots list of pdinsertion, so can't be in other list
+							because of Disjoint *)
+					(*simpl in s3.*)
+					(* DUP from previous step *)
+					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
+						by (unfold consistency in *; intuition).
+					unfold DisjointFreeSlotsLists in *.
+					assert(Hpdinsertions0 : lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry))
+							by intuition.
+					assert(HPDTs0 : isPDT pdinsertion s0) by (unfold isPDT ; rewrite Hpdinsertions0 ; trivial).
+					assert(HPDTentrypds0 : isPDT pd s0).
+					{ unfold isPDT. rewrite Hlookups0. trivial. }
+					rewrite <- beqAddrFalse in beqpdpd.
+					pose (H_Disjoints0 := Hfreeslotsdisjoints0 pdinsertion pd HPDTs0 HPDTentrypds0 beqpdpd).
+					destruct H_Disjoints0 as [listoption1 (listoption2 & H_Disjoints0)].
+					destruct H_Disjoints0 as [Hlistoption1 (HwellFormedList1 & (Hlistoption2 & (HwellFormedList2 & H_Disjoints0)))].
+					unfold getFreeSlotsList in Hlistoption1.
+					unfold getFreeSlotsList in Hlistoption2.
+					rewrite Hpdinsertions0 in *.
+					rewrite Hlookups0 in *.
+					assert(HnewBFirstFrees0PDT : firstfreeslot pdentry = newBlockEntryAddr).
+					{ unfold pdentryFirstFreeSlot in *. rewrite Hpdinsertions0 in *. intuition. }
+					rewrite HnewBFirstFrees0PDT in *.
+					destruct (beqAddr newBlockEntryAddr nullAddr) eqn:Hf ; try(exfalso ; congruence).
+					rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+					destruct (beqAddr (firstfreeslot p) nullAddr) eqn:HfirstfreeNull ; try(exfalso ; congruence).
+					(* firstfreeslot p <> NULL *)
+					(* if first free of other PD is NOT NULL,
+					then newB can't be in the two lists at s0 because of Disjoint -> False *)
+					subst listoption2. subst listoption1.
+					unfold Lib.disjoint in H_Disjoints0.
+					specialize(H_Disjoints0 newBlockEntryAddr).
+					destruct (H_Disjoints0).
+					* induction (maxIdx+1). (* false induction because of fixpoint constraints *)
+						** (* N=0 -> NotWellFormed *)
+								cbn in *.
+								congruence.
+						** (* N>0 *)
+								clear IHn.
+								simpl. rewrite H2. Search currnbfreeslots.
+								assert(HcurrNb : currnbfreeslots = nbfreeslots pdentry).
+								{ unfold pdentryNbFreeSlots in *. rewrite Hpdinsertions0 in *. intuition. }
+								rewrite <- HcurrNb in *.
+								destruct (StateLib.Index.pred (nbfreeslots pdentry)) eqn:Hpred ; try(exfalso ; congruence).
+								rewrite <- HcurrNb in *. rewrite Hpred. cbn. intuition.
+					* intuition.
+}
+	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7. fold s8. fold s9.
+	set (s10 := {| currentPartition := currentPartition ?s9; memory := _ |}).
+	simpl in s8. simpl in s9.
+	assert(Hfreeslotss10 : getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s10 (nbfreeslots p) =
+getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s9 (nbfreeslots p)).
+	{			assert(HSCEs9 : isSCE sceaddr s9).
+						{ unfold isSCE. unfold s9. cbn. rewrite beqAddrTrue.
+							destruct (beqAddr newBlockEntryAddr sceaddr) eqn:Hf ; try(exfalso ; congruence).
+							rewrite <- beqAddrFalse in *.
+							repeat rewrite removeDupIdentity ; intuition.
+							destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:Hff ; try(exfalso ; congruence).
+							rewrite <- DependentTypeLemmas.beqAddrTrue in Hff. congruence.
+							cbn.
+							destruct (beqAddr pdinsertion sceaddr) eqn:Hfff ; try(exfalso ; congruence).
+							rewrite <- DependentTypeLemmas.beqAddrTrue in Hfff. congruence.
+							rewrite beqAddrTrue.
+							rewrite <- beqAddrFalse in *.
+							repeat rewrite removeDupIdentity ; intuition.
+						}
+				apply getFreeSlotsListRecEqSCE.
+				--- 	intro Hfirstsceeq.
+						assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
+							by (unfold consistency in * ; intuition).
+						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
+						specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd p Hlookups0).
+						destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
+						---- intro HfirstfreeNull.
+								assert(HnullAddrExistss0 : nullAddrExists s0)
+									by (unfold consistency in * ; intuition).
+								unfold nullAddrExists in *.
+								unfold isSCE in *.
+								unfold isPADDR in *.
+								rewrite HfirstfreeNull in *. rewrite <- Hfirstsceeq in *.
+								destruct (lookup nullAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+								destruct v ; try(exfalso ; congruence).
+						---- rewrite Hfirstsceeq in *.
+								unfold isSCE in *.
+								unfold isBE in *.
+								destruct (lookup sceaddr (memory s0) beqAddr) ; try (exfalso ; congruence).
+								destruct v ; try(exfalso ; congruence).
+				--- unfold isBE. unfold isSCE in HSCEs9.
+						destruct (lookup sceaddr (memory s9) beqAddr) eqn:Hlookupsces9 ; try(exfalso ; congruence).
+						destruct v ; try(exfalso ; congruence).
+						intuition.
+				--- unfold isPADDR. unfold isSCE in HSCEs9.
+						destruct (lookup sceaddr (memory s9) beqAddr) eqn:Hlookupsces9 ; try(exfalso ; congruence).
+						destruct v ; try(exfalso ; congruence).
+						intuition.
+}
+	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7. fold s8. fold s9.
+	fold s10.
+
+	intuition.
+	assert(HcurrLtmaxIdx : nbfreeslots p <= maxIdx).
+	{ intuition. apply IdxLtMaxIdx. }
+	lia.
+}
+destruct Hs' as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 &
+									(n1 & (nbleft & (Hnbleft & Hstates))))))))))))].
+assert(HsEq : s10 = s).
+{ intuition. subst s1. subst s2. subst s3. subst s4. subst s5. subst s6.
+	subst s7. subst s8. subst s9. subst s10.
+	rewrite Hs. f_equal.
+}
+rewrite HsEq in *.
+assert(HfreeslotsEq : getFreeSlotsListRec n1 (firstfreeslot p) s (nbfreeslots p) =
+											getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s0 (nbfreeslots p)).
+{
+	intuition.
+	subst nbleft.
+	(* rewrite all previous getFreeSlotsListRec equalities *)
+	rewrite <- H36. rewrite <- H39. rewrite <- H41. rewrite <- H43. rewrite <- H45.
+	rewrite <- H47. rewrite <- H49. rewrite <- H51. rewrite <- H53. rewrite <- H56.
+	reflexivity.
+}
+assert (HfreeslotsEqn1 : getFreeSlotsListRec n1 (firstfreeslot p) s (nbfreeslots p)
+													= getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s (nbfreeslots p)).
+{ eapply getFreeSlotsListRecEqN ; intuition.
+	subst nbleft. lia.
+	assert (HnbLtmaxIdx : nbfreeslots p <= maxIdx) by apply IdxLtMaxIdx.
+	lia.
+}
+rewrite <- HfreeslotsEq. rewrite HfreeslotsEqn1. intuition.
+}
+specialize (Hcons0 optionfreeslotslist freeslotslist HPDTpds0 HfreeSlotsListEq).
+assert(HInfreeSlot : freeslotslist = filterOption optionfreeslotslist /\
+         In freeslotaddr freeslotslist) by intuition.
+specialize (Hcons0 HInfreeSlot HfreeSlotNotNull).
+(* dismiss all impossible values for freeslotaddr except newB *)
+destruct (beqAddr sceaddr freeslotaddr) eqn:beqfscefree; try(exfalso ; congruence).
+	---- (* sceaddr = freeslotaddr *)
+				rewrite <- DependentTypeLemmas.beqAddrTrue in beqfscefree.
+				rewrite <- beqfscefree in *.
+				unfold isSCE in *.
+				unfold isFreeSlot in *.
+				destruct (lookup sceaddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+				destruct v ; try(exfalso ; congruence).
+	---- (* sceaddr <> freeslotaddr *)
+				destruct (beqAddr pdinsertion freeslotaddr) eqn:beqfpdfree; try(exfalso ; congruence).
+				----- (* pdinsertion = freeslotaddr *)
+							rewrite <- DependentTypeLemmas.beqAddrTrue in beqfpdfree.
+							rewrite <- beqfpdfree in *.
+							unfold isPDT in *.
+							unfold isFreeSlot in *.
+							destruct (lookup pdinsertion (memory s0) beqAddr) ; try(exfalso ; congruence).
+							destruct v ; try(exfalso ; congruence).
+				----- (* pdinsertion <> freeslotaddr *)
+							destruct (beqAddr newBlockEntryAddr freeslotaddr) eqn:beqfnewBfree; try(exfalso ; congruence).
+							------ (* newBlockEntryAddr = freeslotaddr *)
+											rewrite <- DependentTypeLemmas.beqAddrTrue in beqfnewBfree.
+											rewrite <- beqfnewBfree in *.
+											(* if newB belongs to pd's free slots list, then it was the case at s0
+													but that means newB was at the same time in pd's and pdinsertion's free slots list
+													which is false because they are disjoint -> contradiction *)
+											assert(H_Disjoints0 : DisjointFreeSlotsLists s0)
+																by (unfold consistency in * ; intuition).
+											unfold DisjointFreeSlotsLists in *.
+											assert(HPDTs0 : isPDT pdinsertion s0).
+											{ unfold isPDT. rewrite H12. intuition. }
+											assert(HPDTNotEq : pdinsertion <> pd)
+														by (rewrite <- beqAddrFalse in * ; intuition).
+											specialize (H_Disjoints0 pdinsertion pd HPDTs0 HPDTpds0 HPDTNotEq).
+											destruct H_Disjoints0 as [listoption1 (listoption2 & H_Disjoints0)].
+											destruct H_Disjoints0 as [Hlistoption1 (HwellFormedList1 & (Hlistoption2 & (HwellFormedList2 & H_Disjoints0)))].
+											assert(Hcontra : In newBlockEntryAddr (filterOption listoption1)).
+											{ subst listoption1.
+												unfold getFreeSlotsList in *.
+												rewrite H12 in *.
+												assert(HnewB : (firstfreeslot pdentry) = newBlockEntryAddr).
+												{ unfold pdentryFirstFreeSlot in *.
+													rewrite H12 in *. intuition. }
+												rewrite HnewB in *.
+												destruct (beqAddr newBlockEntryAddr nullAddr) eqn:HnewNotNull ; try(exfalso ; congruence).
+												rewrite <- DependentTypeLemmas.beqAddrTrue in HnewNotNull. congruence.
+												rewrite FreeSlotsListRec_unroll.
+												unfold getFreeSlotsListAux in *.
+												induction (maxIdx+1). (* false induction because of fixpoint constraints *)
+												** (* N=0 -> NotWellFormed *)
+													cbn in *. congruence.
+												** (* N>0 *)
+													clear IHn.
+													cbn in *.
+													rewrite H2 in *.
+													destruct (StateLib.Index.pred (nbfreeslots pdentry)) eqn:Hpred1 ; try(exfalso ; congruence).
+													*** cbn. intuition.
+													*** cbn in *.
+															exfalso ; congruence.
+											}
+											assert(HfreeSlotsListpdEq : getFreeSlotsList pd s0 = getFreeSlotsList pd s).
+											{ subst optionfreeslotslist. intuition. }
+											rewrite <- HfreeSlotsListpdEq in *.
+											assert(Hcontra' : In newBlockEntryAddr (filterOption listoption2)).
+											{ subst listoption2.
+												unfold getFreeSlotsList in *.
+												apply isPDTLookupEq in HPDTpds0. destruct HPDTpds0 as [pdentrys0 Hlookuppds0].
+												rewrite HlookupEq in *. rewrite Hlookuppds0 in *.
+												destruct (beqAddr (firstfreeslot pdentrys0) nullAddr) eqn:HnewNotNull ; try(exfalso ; congruence).
+												rewrite <- DependentTypeLemmas.beqAddrTrue in HnewNotNull.
+												subst optionfreeslotslist. subst freeslotslist. intuition.
+												subst freeslotslist. subst optionfreeslotslist. intuition.
+											}
+											assert(HlistEq : optionfreeslotslist = listoption2).
+											{ subst listoption2. intuition. }
+											rewrite HlistEq in *.
+											contradict H_Disjoints0.
+											unfold Lib.disjoint. intuition.
+											specialize (H34 newBlockEntryAddr Hcontra Hcontra'). congruence.
+							------ (* newBlockEntryAddr <> freeslotaddr *)
+											(* no entry left to try out -> leads to s0 *)
+											rewrite Hs. unfold isFreeSlot.
+											cbn. rewrite beqAddrTrue.
+											rewrite beqfscefree.
+											destruct (beqAddr newBlockEntryAddr sceaddr) eqn:newsce ; try(exfalso ; congruence).
+											rewrite beqAddrTrue.
+											cbn. rewrite beqfnewBfree.
+											rewrite <- beqAddrFalse in *.
+											rewrite removeDupIdentity ; try congruence.
+											rewrite removeDupIdentity ; try congruence.
+											rewrite removeDupIdentity ; try congruence.
+											rewrite removeDupIdentity ; try congruence.
+											rewrite removeDupIdentity ; try congruence.
+											rewrite removeDupIdentity ; try congruence.
+											rewrite removeDupIdentity ; try congruence.
+											destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:pdnew ; try(exfalso ; congruence).
+											rewrite <- DependentTypeLemmas.beqAddrTrue in pdnew. congruence.
+											cbn.
+											destruct (beqAddr pdinsertion freeslotaddr) eqn:pdffentry; try(exfalso ; congruence).
+											rewrite <- DependentTypeLemmas.beqAddrTrue in pdffentry. congruence.
+											rewrite <- beqAddrFalse in *.
+											rewrite removeDupIdentity ; try congruence.
+											rewrite removeDupIdentity ; try congruence.
+											rewrite removeDupIdentity ; try congruence.
+											unfold isFreeSlot in Hcons0.
+											destruct (lookup freeslotaddr (memory s0) beqAddr) eqn:HfreeSlots0 ; try(exfalso ; congruence).
+											destruct v ; try(exfalso ; congruence).
+											destruct (beqAddr sceaddr (CPaddr (freeslotaddr + sh1offset))) eqn:beqscefreesh1 ; try(exfalso ; congruence).
+											rewrite <- DependentTypeLemmas.beqAddrTrue in beqscefreesh1.
+											rewrite <- beqscefreesh1 in *.
+											unfold isFreeSlot in *.
+											unfold isSCE in *.
+											destruct (lookup sceaddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+											destruct v ; try(exfalso ; congruence).
+											destruct (beqAddr newBlockEntryAddr (CPaddr (freeslotaddr + sh1offset))) eqn:beqscefreesc ; try(exfalso ; congruence).
+											rewrite <- DependentTypeLemmas.beqAddrTrue in beqscefreesc.
+											rewrite <- beqscefreesc in *.
+											unfold isFreeSlot in *.
+											unfold isBE in *.
+											destruct (lookup newBlockEntryAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+											destruct v ; try(exfalso ; congruence).
+											rewrite <- beqAddrFalse in *.
+											rewrite removeDupIdentity ; try congruence.
+											rewrite removeDupIdentity ; try congruence.
+											rewrite removeDupIdentity ; try congruence.
+											rewrite removeDupIdentity ; try congruence.
+											rewrite removeDupIdentity ; try congruence.
+											rewrite removeDupIdentity ; try congruence.
+											destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:pdnewB; try(exfalso ; congruence).
+											rewrite <- DependentTypeLemmas.beqAddrTrue in pdnewB. congruence.
+											cbn.
+											destruct (beqAddr pdinsertion (CPaddr (freeslotaddr + sh1offset))) eqn:beqpdfreesh1 ; try(exfalso ; congruence).
+											rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdfreesh1.
+											rewrite <- beqpdfreesh1 in *.
+											unfold isFreeSlot in *.
+											unfold isPDT in *.
+											destruct (lookup pdinsertion (memory s0) beqAddr) ; try(exfalso ; congruence).
+											destruct v ; try(exfalso ; congruence).
+											rewrite removeDupIdentity ; try congruence.
+											rewrite removeDupIdentity ; try congruence.
+											rewrite removeDupIdentity ; try congruence.
+											rewrite <- beqAddrFalse in *.
+											rewrite removeDupIdentity ; try congruence.
+											destruct (lookup (CPaddr (freeslotaddr + sh1offset)) (memory s0) beqAddr) ; try(exfalso ; congruence).
+											destruct v ; try(exfalso ; congruence).
+											destruct (beqAddr sceaddr (CPaddr (freeslotaddr + scoffset))) eqn:beqscefssc ; try(exfalso ; congruence).
+											(* show sceaddr must be equal to freeslot which is false *)
+											rewrite <- DependentTypeLemmas.beqAddrTrue in beqscefssc.
+											assert(HSCEOffset : sceaddr = CPaddr (newBlockEntryAddr + scoffset)) by intuition.
+											rewrite HSCEOffset in beqscefssc.
+											contradict beqscefssc.
+											unfold nullAddrExists in *. unfold isPADDR in *.
+											unfold CPaddr.
+											destruct (le_dec (newBlockEntryAddr + scoffset) maxAddr) eqn:Hj.
+											* destruct (le_dec (freeslotaddr + scoffset) maxAddr) eqn:Hk.
+												** simpl in *. intro Hfalse.
+													inversion Hfalse as [Heq].
+													rewrite PeanoNat.Nat.add_cancel_r in Heq.
+													apply CPaddrInjectionNat in Heq.
+													repeat rewrite paddrEqId in Heq.
+													congruence.
+												** 	intro Hfalse.
+														inversion Hfalse as [Heq].
+														assert(HeqNull : CPaddr(newBlockEntryAddr + scoffset) = nullAddr).
+														{ rewrite nullAddrIs0.
+															apply CPaddrInjectionNat in Heq.
+															intuition.
+														}
+														rewrite HeqNull in *.
+														rewrite HSCEOffset in *.
+														unfold isSCE in *.
+														destruct (lookup nullAddr (memory s) beqAddr) ; try(exfalso ; congruence).
+														destruct v ; try(exfalso ; congruence).
+											* assert(Heq : CPaddr(newBlockEntryAddr + scoffset) = nullAddr).
+												{ rewrite nullAddrIs0.
+													unfold CPaddr. rewrite Hj.
+													destruct (le_dec 0 maxAddr) ; intuition.
+													f_equal. apply proof_irrelevance.
+												}
+												rewrite Heq in *.
+												rewrite HSCEOffset in *.
+												unfold isSCE in *.
+												destruct (lookup nullAddr (memory s) beqAddr) ; try(exfalso ; congruence).
+												destruct v ; try(exfalso ; congruence).
+											* destruct (beqAddr newBlockEntryAddr (CPaddr (freeslotaddr + scoffset))) eqn:beqnewBfssc ; try(exfalso ; congruence).
+												------- (* newBlockEntryAddr = (CPaddr (freeslotaddr + scoffset)) *)
+																rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewBfssc.
+																rewrite <- beqnewBfssc in *.
+																destruct (lookup newBlockEntryAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+																destruct v ; try(exfalso ; congruence).
+												------- (* newBlockEntryAddr <> (CPaddr (freeslotaddr + scoffset)) *)
+																rewrite <- beqAddrFalse in *.
+																repeat rewrite removeDupIdentity ; try congruence.
+																destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:Hf; try(exfalso ; congruence).
+																rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+																rewrite <- beqAddrFalse in *.
+																repeat rewrite removeDupIdentity ; try congruence.
+																cbn.
+																destruct (beqAddr pdinsertion (CPaddr (freeslotaddr + scoffset))) eqn:beqpdfssc ; try (exfalso ; congruence).
+																-------- (* pdinsertion = (CPaddr (freeslotaddr + scoffset)) *)
+																					rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdfssc.
+																					rewrite <- beqpdfssc in *.
+																					destruct (lookup pdinsertion (memory s0) beqAddr) ; try(exfalso ; congruence).
+																					destruct v ; try(exfalso ; congruence).
+																-------- (* pdinsertion <> (CPaddr (freeslotaddr + scoffset)) *)
+																					rewrite <- beqAddrFalse in *.
+																					repeat rewrite removeDupIdentity ; try congruence.
+																					destruct (lookup (CPaddr (freeslotaddr + scoffset)) (memory s0) beqAddr) eqn:Hlookupsc ; try(exfalso ; congruence).
+																					destruct v ; try(exfalso ; congruence).
+																					intuition.
+											* intro Hf. rewrite <- beqAddrFalse in *. congruence.
+} (* end of freeSlotsListIsFreeSlot *)
+split. admit.
+(*{ (* chainedFreeSlots s*)
+	unfold chainedFreeSlots.
+	intros freeslotsentryaddr nextfreeslotsentryaddr
+			HisFreeSlot HnextFreeSlotsNotNull HendAddrIsnext.
+
+	assert(Hcons0 : chainedFreeSlots s0) by (unfold consistency in * ; intuition).
+	unfold chainedFreeSlots in Hcons0.
+
+	(* check all possible values for freeslotsentryaddr in the modified state s
+	-> only possible is newBlockEntryAddr
+	1) if freeslotsentryaddr == newBlockEntryAddr :
+		- show newFirstFirstFreeSlot didn't change
+			-> leads to s0 -> OK
+	2) if freeslotsentryaddr <> newBlockEntryAddr :
+		- relates to another free slot than newBlockentryAddr
+		(either in the same free slots list or from another pd)
+		-> leads to s0 -> OK
+	*)
+
+	assert(HP6 : present bentry6 = true).
+	{
+		assert(HP5 : present bentry6 = present bentry5).
+		{
+			subst bentry6.
+		 	unfold CBlockEntry.
+			destruct(lt_dec (blockindex bentry5) kernelStructureEntriesNb) eqn:Hdec ; try(exfalso ; congruence).
+			intuition. simpl. intuition.
+			destruct blockentry_d. destruct bentry5.
+			intuition.
+		}
+		assert(HP4 : present bentry5 = present bentry4).
+		{
+			subst bentry5.
+		 	unfold CBlockEntry.
+			destruct(lt_dec (blockindex bentry4) kernelStructureEntriesNb) eqn:Hdec ; try(exfalso ; congruence).
+			intuition. simpl. intuition.
+			destruct blockentry_d. destruct bentry4.
+			intuition.
+		}
+		assert(HP3 : present bentry4 = present bentry3).
+		{
+			subst bentry4.
+		 	unfold CBlockEntry.
+			destruct(lt_dec (blockindex bentry3) kernelStructureEntriesNb) eqn:Hdec ; try(exfalso ; congruence).
+			intuition. simpl. intuition.
+			destruct blockentry_d. destruct bentry3.
+			intuition.
+		}
+		rewrite HP5. rewrite HP4. rewrite HP3.
+		subst bentry3.
+	 	unfold CBlockEntry.
+		destruct(lt_dec (blockindex bentry2) kernelStructureEntriesNb) eqn:Hdec ; try(exfalso ; congruence).
+		intuition. simpl. intuition.
+		destruct blockentry_d. destruct bentry2.
+		intuition.
+}
+
+	(* Check all values except newBlockEntryAddr *)
+	destruct (beqAddr sceaddr freeslotsentryaddr) eqn:beqscefsentry; try(exfalso ; congruence).
+	- (* sceaddr = freeslotsentryaddr *)
+		rewrite <- DependentTypeLemmas.beqAddrTrue in beqscefsentry.
+		rewrite <- beqscefsentry in *.
+		unfold isSCE in *.
+		unfold isFreeSlot in *.
+		destruct (lookup sceaddr (memory s) beqAddr) ; try(exfalso ; congruence).
+		destruct v ; try(exfalso ; congruence).
+	- (* sceaddr <> freeslotsentryaddr *)
+		destruct (beqAddr pdinsertion freeslotsentryaddr) eqn:beqpffentry; try(exfalso ; congruence).
+		-- (* pdinsertion = freeslotsentryaddr *)
+				rewrite <- DependentTypeLemmas.beqAddrTrue in beqpffentry.
+				rewrite <- beqpffentry in *.
+				unfold isPDT in *.
+				unfold isFreeSlot in *.
+				destruct (lookup pdinsertion (memory s) beqAddr) ; try(exfalso ; congruence).
+				destruct v ; try(exfalso ; congruence).
+		-- (* pdinsertion <> freeslotsentryaddr *)
+				destruct (beqAddr newBlockEntryAddr freeslotsentryaddr) eqn:newffentry ; try(exfalso ; congruence).
+				--- (* 1) newBlockEntryAddr = freeslotsentryaddr *)
+						rewrite <- DependentTypeLemmas.beqAddrTrue in newffentry.
+						rewrite <- newffentry in *.
+						contradict HisFreeSlot.
+						unfold isFreeSlot.
+						rewrite Hs.
+						cbn. rewrite beqAddrTrue.
+						assert(HnewBsceNotEq : beqAddr newBlockEntryAddr sceaddr = false) by intuition.
+						rewrite HnewBsceNotEq. (*newBlock <> sce *)
+						rewrite beqAddrSym in HnewBsceNotEq.
+						rewrite HnewBsceNotEq.
+						cbn. rewrite beqAddrTrue.
+						(* eliminate impossible values for (CPaddr (newBlockEntryAddr + sh1offset)) *)
+						destruct (beqAddr sceaddr (CPaddr (newBlockEntryAddr + sh1offset))) eqn:beqsceoffset ; try(exfalso ; congruence).
+						++++ (* sceaddr = (CPaddr (newBlockEntryAddr + sh1offset)) *)
+									intuition.
+						++++ (*sceaddr <> (CPaddr (newBlockEntryAddr + sh1offset))*)
+									destruct (beqAddr newBlockEntryAddr (CPaddr (newBlockEntryAddr + sh1offset))) eqn:newblocksh1offset.
+									+++++ (* newBlockEntryAddr = (CPaddr (newBlockEntryAddr + sh1offset))*)
+												intuition.
+									+++++ (* newBlockEntryAddr <> (CPaddr (newBlockEntryAddr + sh1offset))*)
+												cbn.
+												subst sceaddr. rewrite beqAddrTrue.
+												assert(HsceEq : beqAddr (CPaddr (newBlockEntryAddr + scoffset)) (CPaddr (newBlockEntryAddr + scoffset)) = true).
+												apply DependentTypeLemmas.beqAddrTrue. reflexivity.
+												rewrite HsceEq.
+												rewrite <- beqAddrFalse in *. unfold not in *.
+												repeat rewrite removeDupIdentity ; intuition.
+												destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:Hffalse. (*proved before *)
+												rewrite <- DependentTypeLemmas.beqAddrTrue in Hffalse ; congruence.
+												cbn in *.
+												destruct (beqAddr pdinsertion (CPaddr (newBlockEntryAddr + sh1offset))) eqn:pdsh1offset.
+												++++++ (* pdinsertion = (CPaddr (newBlockEntryAddr + sh1offset))*)
+																intuition.
+												++++++ (* pdinsertion <> (CPaddr (newBlockEntryAddr + sh1offset))*)
+																rewrite <- beqAddrFalse in *.
+																contradict H11. (* match lookup (CPaddr (newBlockEntryAddr + sh1offset)) ... *)
+																repeat rewrite removeDupIdentity; intuition.
+																destruct (lookup (CPaddr (newBlockEntryAddr + sh1offset)) (memory s0) beqAddr) ; try (exfalso ; congruence).
+																destruct v ; try(exfalso ; congruence).
+																(* present = false if free slot but is not anymore *)
+																rewrite <- H3 in *.
+																intuition. congruence.
+				--- (* 2) newBlockEntryAddr <> freeslotsentryaddr *)
+												(* DUP *)
+						assert(HLookupFreeSlotEq : lookup freeslotsentryaddr (memory s) beqAddr = lookup freeslotsentryaddr (memory s0) beqAddr).
+						{
+							rewrite Hs.
+							cbn. rewrite beqAddrTrue.
+							rewrite beqscefsentry.
+							destruct (beqAddr newBlockEntryAddr sceaddr) eqn:newsce ; try(exfalso ; congruence).
+							rewrite beqAddrTrue.
+							cbn. rewrite newffentry.
+							rewrite <- beqAddrFalse in *.
+							repeat rewrite removeDupIdentity ; intuition.
+							destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:pdnew ; try(exfalso ; congruence).
+							rewrite <- DependentTypeLemmas.beqAddrTrue in pdnew. congruence.
+							cbn.
+							destruct (beqAddr pdinsertion freeslotsentryaddr) eqn:pdffentry; try(exfalso ; congruence).
+							rewrite <- DependentTypeLemmas.beqAddrTrue in pdffentry. congruence.
+							rewrite <- beqAddrFalse in *.
+							repeat rewrite removeDupIdentity ; intuition.
+						}
+						assert(HFreeSlotBEs0 : isBE freeslotsentryaddr s0).
+						{ apply FreeSlotIsBE in HisFreeSlot.
+							unfold isBE. rewrite <- HLookupFreeSlotEq.
+							apply isBELookupEq in HisFreeSlot. destruct HisFreeSlot as [x Hlookupfreeslot].
+							rewrite Hlookupfreeslot. trivial. }
+						assert(HwellFormedFirstShadows0 : wellFormedFstShadowIfBlockEntry s0)
+								by (unfold consistency in * ; intuition).
+						specialize (HwellFormedFirstShadows0 freeslotsentryaddr HFreeSlotBEs0).
+						destruct (beqAddr sceaddr (CPaddr (freeslotsentryaddr + sh1offset))) eqn:beqscefssh1.
+						+ (* sceaddr = (CPaddr (freeslotsentryaddr + sh1offset)) *)
+							rewrite <- DependentTypeLemmas.beqAddrTrue in beqscefssh1.
+							rewrite <- beqscefssh1 in *.
+							unfold isSCE in *.
+							unfold isSHE in *.
+							destruct (lookup sceaddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+							destruct v ; try(exfalso ; congruence).
+						+ (* sceaddr <> (CPaddr (freeslotsentryaddr + sh1offset)) *)
+							destruct (beqAddr pdinsertion (CPaddr (freeslotsentryaddr + sh1offset))) eqn:beqpdfssh1.
+							++ (* pdinsertion = (CPaddr (freeslotsentryaddr + sh1offset)) *)
+								rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdfssh1.
+								rewrite <- beqpdfssh1 in *.
+								unfold isPDT in *.
+								unfold isSHE in *.
+								destruct (lookup pdinsertion (memory s0) beqAddr) ; try(exfalso ; congruence).
+								destruct v ; try(exfalso ; congruence).
+							++ (* pdinsertion <> (CPaddr (freeslotsentryaddr + sh1offset)) *)
+									destruct (beqAddr newBlockEntryAddr (CPaddr (freeslotsentryaddr + sh1offset))) eqn:beqnewfssh1.
+									+++ (* newBlockEntryAddr = (CPaddr (freeslotsentryaddr + sh1offset)) *)
+										rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewfssh1.
+										rewrite <- beqnewfssh1 in *.
+										unfold isBE in *.
+										unfold isSHE in *.
+										destruct (lookup newBlockEntryAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+										destruct v ; try(exfalso ; congruence).
+									+++ (* newBlockEntryAddr <> (CPaddr (freeslotsentryaddr + sh1offset)) *)
+											assert(HLookupFreeSlotSh1Eq : lookup (CPaddr (freeslotsentryaddr + sh1offset)) (memory s) beqAddr = lookup (CPaddr (freeslotsentryaddr + sh1offset)) (memory s0) beqAddr).
+											{
+												rewrite Hs.
+												cbn. rewrite beqAddrTrue.
+												rewrite beqscefssh1.
+												destruct (beqAddr newBlockEntryAddr sceaddr) eqn:newsce ; try(exfalso ; congruence).
+												rewrite beqAddrTrue.
+												cbn. rewrite beqnewfssh1.
+												rewrite <- beqAddrFalse in *.
+												repeat rewrite removeDupIdentity ; intuition.
+												destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:pdnew ; try(exfalso ; congruence).
+												rewrite <- DependentTypeLemmas.beqAddrTrue in pdnew. congruence.
+												cbn.
+												destruct (beqAddr pdinsertion (CPaddr (freeslotsentryaddr + sh1offset))) eqn:pdffentry; try(exfalso ; congruence).
+												rewrite <- DependentTypeLemmas.beqAddrTrue in pdffentry. congruence.
+												rewrite <- beqAddrFalse in *.
+												repeat rewrite removeDupIdentity ; intuition.
+											}
+											assert(HwellFormedShadowCuts0 : wellFormedShadowCutIfBlockEntry s0)
+												by (unfold consistency in * ; intuition).
+											specialize (HwellFormedShadowCuts0 freeslotsentryaddr HFreeSlotBEs0).
+											destruct HwellFormedShadowCuts0 as [scentryaddr (HisSCEs0 & Hscentryaddr)].
+											subst scentryaddr.
+											destruct (beqAddr sceaddr (CPaddr (freeslotsentryaddr + scoffset))) eqn:beqscefssc.
+											* (* sceaddr = (CPaddr (freeslotsentryaddr + scoffset)) *)
+												rewrite <- DependentTypeLemmas.beqAddrTrue in beqscefssc.
+												rewrite <- beqscefssc in *.
+												unfold isSCE in *.
+												(* DUP *)
+												(* can't discriminate by type, must do by showing it must be equal to newBlockEntryAddr and creates a contradiction *)
+												rewrite H11 in *. (* sceaddr = CPaddr (newBlockEntryAddr + scoffset) *)
+												assert(HnullAddrExistss0 : nullAddrExists s0)
+														by (unfold consistency in *; intuition).
+												unfold nullAddrExists in *. unfold isPADDR in *.
+												unfold CPaddr in beqscefssc.
+												destruct (le_dec (newBlockEntryAddr + scoffset) maxAddr) eqn:Hj.
+												** destruct (le_dec (freeslotsentryaddr + scoffset) maxAddr) eqn:Hk.
+													*** simpl in *.
+															inversion beqscefssc as [Heq].
+															rewrite PeanoNat.Nat.add_cancel_r in Heq.
+															rewrite <- beqAddrFalse in newffentry.
+															apply CPaddrInjectionNat in Heq.
+															repeat rewrite paddrEqId in Heq.
+															congruence.
+													*** inversion beqscefssc as [Heq].
+															rewrite Heq in *.
+															rewrite <- nullAddrIs0 in *.
+															rewrite <- beqAddrFalse in *. (* newBlockEntryAddr <> nullAddr *)
+															apply CPaddrInjectionNat in Heq.
+															repeat rewrite paddrEqId in Heq.
+															rewrite <- nullAddrIs0 in Heq.
+															unfold isSCE in *.
+															destruct (lookup nullAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+															destruct v ; try(exfalso ; congruence).
+												**  assert(Heq : CPaddr(newBlockEntryAddr + scoffset) = nullAddr).
+														{ rewrite nullAddrIs0.
+															unfold CPaddr. rewrite Hj.
+															destruct (le_dec 0 maxAddr) ; intuition.
+															f_equal. apply proof_irrelevance.
+														}
+														rewrite Heq in *.
+														unfold isSCE in *.
+														destruct (lookup nullAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+														destruct v ; try(exfalso ; congruence).
+											* (* sceaddr <> (CPaddr (freeslotsentryaddr + scoffset)) *)
+												destruct (beqAddr pdinsertion (CPaddr (freeslotsentryaddr + scoffset))) eqn:beqpdfssc.
+												** (* pdinsertion = (CPaddr (freeslotsentryaddr + scoffset)) *)
+													rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdfssc.
+													rewrite <- beqpdfssc in *.
+													unfold isPDT in *.
+													unfold isSCE in *.
+													destruct (lookup pdinsertion (memory s0) beqAddr) ; try(exfalso ; congruence).
+													destruct v ; try(exfalso ; congruence).
+												** (* pdinsertion <> (CPaddr (freeslotsentryaddr + scoffset)) *)
+														destruct (beqAddr newBlockEntryAddr (CPaddr (freeslotsentryaddr + scoffset))) eqn:beqnewfssc.
+														*** (* newBlockEntryAddr = (CPaddr (freeslotsentryaddr + scoffset)) *)
+															rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewfssc.
+															rewrite <- beqnewfssc in *.
+															unfold isBE in *.
+															unfold isSCE in *.
+															destruct (lookup newBlockEntryAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+															destruct v ; try(exfalso ; congruence).
+														*** (* newBlockEntryAddr <> (CPaddr (freeslotsentryaddr + scoffset)) *)
+																(* DUP *)
+																assert(HLookupFreeSlotSCEq : lookup (CPaddr (freeslotsentryaddr + scoffset)) (memory s) beqAddr = lookup (CPaddr (freeslotsentryaddr + scoffset)) (memory s0) beqAddr).
+																{ 
+																	rewrite Hs.
+																	cbn. rewrite beqAddrTrue.
+																	rewrite beqscefssc.
+																	destruct (beqAddr newBlockEntryAddr sceaddr) eqn:newsce ; try(exfalso ; congruence).
+																	rewrite beqAddrTrue.
+																	cbn. rewrite beqnewfssc.
+																	rewrite <- beqAddrFalse in *.
+																	repeat rewrite removeDupIdentity ; intuition.
+																	destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:pdnew ; try(exfalso ; congruence).
+																	rewrite <- DependentTypeLemmas.beqAddrTrue in pdnew. congruence.
+																	cbn.
+																	destruct (beqAddr pdinsertion (CPaddr (freeslotsentryaddr + scoffset))) eqn:pdffentry; try(exfalso ; congruence).
+																	rewrite <- DependentTypeLemmas.beqAddrTrue in pdffentry. congruence.
+																	rewrite <- beqAddrFalse in *.
+																	repeat rewrite removeDupIdentity ; intuition.
+																}
+						assert(HFreeSlotEq : isFreeSlot freeslotsentryaddr s = isFreeSlot freeslotsentryaddr s0).
+						{
+							unfold isFreeSlot.
+							rewrite HLookupFreeSlotEq.
+							destruct (lookup freeslotsentryaddr (memory s0) beqAddr) ; intuition.
+							destruct v ; intuition.
+							rewrite HLookupFreeSlotSh1Eq.
+							destruct (lookup (CPaddr (freeslotsentryaddr + sh1offset)) (memory s0) beqAddr) ; intuition.
+							destruct v ; intuition.
+							rewrite HLookupFreeSlotSCEq.
+							destruct (lookup (CPaddr (freeslotsentryaddr + scoffset)) (memory s0) beqAddr) ; intuition.
+						}
+						assert (HisFreeSlots0 : isFreeSlot freeslotsentryaddr s0).
+						{ rewrite <- HFreeSlotEq. intuition. }
+						specialize (Hcons0 freeslotsentryaddr nextfreeslotsentryaddr HisFreeSlots0 HnextFreeSlotsNotNull).
+						assert(HbentryEndAddrFreeSlots0 : bentryEndAddr freeslotsentryaddr nextfreeslotsentryaddr s0).
+						{ unfold bentryEndAddr in *. rewrite <- HLookupFreeSlotEq.
+							destruct (lookup freeslotsentryaddr (memory s) beqAddr) eqn:Hlookup ; try(exfalso ; congruence).
+							destruct v eqn:Hv ; try(exfalso ; congruence).
+							intuition.
+						}
+						specialize (Hcons0 HbentryEndAddrFreeSlots0).
+						(* Check all values for nextfreeslotsentryaddr except newBlockEntryAddr *)
+							destruct (beqAddr sceaddr nextfreeslotsentryaddr) eqn:beqscenextfsentry; try(exfalso ; congruence).
+							---- (* sceaddr = nextfreeslotsentryaddr *)
+										rewrite <- DependentTypeLemmas.beqAddrTrue in beqscenextfsentry.
+										rewrite <- beqscenextfsentry in *.
+										unfold isSCE in *.
+										unfold isFreeSlot in *.
+										destruct (lookup sceaddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+										destruct v ; try(exfalso ; congruence).
+							---- (* sceaddr <> nextfreeslotsentryaddr *)
+										destruct (beqAddr pdinsertion nextfreeslotsentryaddr) eqn:beqpdnextfsentry; try(exfalso ; congruence).
+										----- (* pdinsertion = nextfreeslotsentryaddr *)
+													rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdnextfsentry.
+													rewrite <- beqpdnextfsentry in *.
+													unfold isPDT in *.
+													unfold isFreeSlot in *.
+													destruct (lookup pdinsertion (memory s0) beqAddr) ; try(exfalso ; congruence).
+													destruct v ; try(exfalso ; congruence).
+										----- (* pdinsertion <> nextfreeslotsentryaddr *)
+													destruct (beqAddr newBlockEntryAddr nextfreeslotsentryaddr) eqn:newnextfsentry ; try(exfalso ; congruence).
+													------ (* 1) newBlockEntryAddr = nextfreeslotsentryaddr *)
+																	rewrite <- DependentTypeLemmas.beqAddrTrue in newnextfsentry.
+																	rewrite <- newnextfsentry in *.
+																	(* show newB has not changed, which is false *)
+																	unfold bentryEndAddr in *.
+																	(* WIP prove leads to s0 *)
+																	(* Can't end because no way to state newBlockEntryAddr
+																		was not in the chained list of another free slots lists
+																		at start without breaking the property
+																		-> remove property and use freeSlotsListIsFreeSlot instead *)
+} (* end of chainedFreeSlots *)
+*)
 
 	- (* Final state *)
 		exists newpd. intuition. exists s0. exists pdentry. exists pdentry0.

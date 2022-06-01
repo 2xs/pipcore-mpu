@@ -635,6 +635,11 @@ match lookup paddr s.(memory) beqAddr with
 									 	|Some (SHE sh1entry) =>
 												match lookup (CPaddr (paddr + scoffset)) s.(memory) beqAddr with 
 												|Some (SCE scentry) => entry.(blockrange).(startAddr) = nullAddr /\
+																							entry.(read) = false /\
+																							entry.(write) = false /\
+																							entry.(exec) = false /\
+																							entry.(present) = false /\
+																							entry.(accessible) = false /\
 																							(* no cycles for same slot by general consistency property on chained free slots*)
 																							sh1entry.(PDchild) = nullAddr /\ sh1entry.(PDflag) = false /\ sh1entry.(inChildLocation) = nullAddr /\
 																							scentry.(origin) = nullAddr /\ scentry.(next) = nullAddr
