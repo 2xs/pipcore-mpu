@@ -61,9 +61,10 @@ typedef enum svc_number_e
 	SVC_NUMBER_SET_VIDT            = 11, /*!< The setVIDT SVC number. */
 	SVC_NUMBER_YIELD               = 12, /*!< The yield SVC number. */
 	SVC_NUMBER_GET_INT_STATE       = 13, /*!< The getIntState SVC number. */
-	SVC_NUMBER_SET_INT_STATE       = 14, /*!< The setIntState SVC number. */
-	SVC_NUMBER_IN                  = 15, /*!< The in SVC number. */
-	SVC_NUMBER_OUT                 = 16  /*!< The out SVC number. */
+	SVC_NUMBER_GET_SELF_INT_STATE  = 14, /*!< The getSelfIntState SVC number. */
+	SVC_NUMBER_SET_INT_STATE       = 15, /*!< The setIntState SVC number. */
+	SVC_NUMBER_IN                  = 16, /*!< The in SVC number. */
+	SVC_NUMBER_OUT                 = 17  /*!< The out SVC number. */
 } svc_number_t;
 
 /*!
@@ -240,6 +241,12 @@ void SVC_Handler_C(stackedContext_t *context)
 			*r0 = (uint32_t) getIntState(
 				(paddr) *r0
 			);
+
+			break;
+		}
+		case SVC_NUMBER_GET_SELF_INT_STATE:
+		{
+			*r0 = (uint32_t) getSelfIntState();
 
 			break;
 		}
