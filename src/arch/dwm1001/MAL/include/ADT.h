@@ -44,12 +44,37 @@
 
 #include "pip_interrupt_calls.h"
 #include "userconstants.h"
+#include "context.h"
 
 /* bool */
 typedef uint32_t boolean;
 #define true    1
 #define false   0
 #define bool boolean
+
+/*!
+ * \def ARMV7M_INTERRUPT_NUMBER
+ *
+ * \brief The number of exceptions for the ARMv7-M
+ *        architecture.
+ */
+#define ARMV7M_INTERRUPT_NUMBER 15
+
+/*!
+ * \def NRF52832XXAA_INTERRUPT_NUMBER
+ *
+ * \brief The number of external exceptions for the
+ *        NRF52832XXAA_INTERRUPT_NUMBER SoC.
+ */
+#define NRF52832XXAA_INTERRUPT_NUMBER 39
+
+/*!
+ * \def VIDT_INTERRUPT_NUMBER
+ *
+ * \brief The number of exception entries in the VIDT.
+ */
+#define VIDT_INTERRUPT_NUMBER \
+	ARMV7M_INTERRUPT_NUMBER + NRF52832XXAA_INTERRUPT_NUMBER
 
 /* Paddr */
 typedef void* paddr;
@@ -94,7 +119,6 @@ typedef struct BlockEntry
 	bool accessible         ;   //!< block accessible
 } BlockEntry_t;
 
-
 /**
  * \struct Sh1Entry
  * \brief Sh1 entry structure
@@ -127,6 +151,12 @@ typedef struct KStructure
 	SCEntry_t sc[KERNELSTRUCTUREENTRIESNB]          ;  //!< SC structure
 	struct KStructure *next                         ;  //!< Pointer to the next kernel structure
 } KStructure_t;
+
+typedef struct vidt_s
+{
+	uint32_t currentInterrupt;
+	stackedContext_t *contexts[VIDT_INTERRUPT_NUMBER];
+} vidt_t;
 
 /**
  * \struct PDTable

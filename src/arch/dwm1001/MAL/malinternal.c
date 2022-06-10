@@ -292,14 +292,11 @@ uint32_t MINBLOCKSIZE(void)
 uint32_t MINVIDTBLOCKSIZE(void)
 {
 	/*
-	 * The VIDT is an array of 128 pointers of 4 bytes. This
-	 * requires a block of at least 512 bytes.
+	 * The minimum VIDT block size for the nRF52832.
 	 *
-	 * TODO: Do not hard-code this value because on some
-	 * architectures, a pointer is not necessarily equal to 4
-	 * bytes.
+	 * TODO: Do not hard-code the value.
 	 */
-	return 512;
+	return 224;
 }
 
 /*!

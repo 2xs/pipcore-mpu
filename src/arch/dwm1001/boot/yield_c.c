@@ -46,14 +46,6 @@
 /* Check that an address is aligned on a 4-byte boundary. */
 #define IS_MISALIGNED(address) ((address) & 0x3)
 
-/*!
- * \def VIDT_MAX_INDEX
- *
- * \brief The maximum index of the VIDT.
- */
-#define VIDT_MAX_INDEX \
-	((getMinVidtBlockSize()) / (sizeof(void *)))
-
 /* This EXC_RETURN value allows to return to Thread mode with
  * the PSP stack. */
 #define EXC_RETURN_THREAD_MODE_PSP 0xFFFFFFFD
@@ -194,7 +186,7 @@ static yield_return_code_t checkIntLevelCont(
 	int_mask_t flagsOnWake,
 	stackedContext_t *callerInterruptedContext
 ) {
-	if (!(userTargetInterrupt < VIDT_MAX_INDEX))
+	if (!(userTargetInterrupt < VIDT_INTERRUPT_NUMBER))
 	{
 		return CALLEE_INVALID_VIDT_INDEX;
 	}
@@ -220,7 +212,7 @@ static yield_return_code_t checkCtxSaveIdxCont(
 	int_mask_t flagsOnWake,
 	stackedContext_t *callerInterruptedContext
 ) {
-	if (!(userCallerContextSaveIndex < VIDT_MAX_INDEX))
+	if (!(userCallerContextSaveIndex < VIDT_INTERRUPT_NUMBER))
 	{
 		return CALLER_INVALID_VIDT_INDEX;
 	}
@@ -384,7 +376,7 @@ yield_return_code_t getSourcePartVidtCont(
 		readBlockStartFromBlockEntryAddr(callerVidtBlockEntryAddr);
 
 	paddr callerContextSaveAddr =
-		((stackedContext_t **) callerVidtAddr)[callerContextSaveIndex];
+		((vidt_t *) callerVidtAddr)->contexts[callerContextSaveIndex];
 
 	return getTargetPartVidtCont(
 		calleePartDescGlobalId,
@@ -448,6 +440,9 @@ yield_return_code_t getTargetPartVidtCont(
 	paddr calleeVidtAddr =
 		readBlockStartFromBlockEntryAddr(calleeVidtBlockEntryAddr);
 
+	/* Save the current interrupt number into the callee's VIDT. */
+	((vidt_t *) calleeVidtAddr)->currentInterrupt = targetInterrupt;
+
 	return getTargetPartCtxCont(
 		calleePartDescGlobalId,
 		callerPartDescGlobalId,
@@ -471,7 +466,7 @@ static yield_return_code_t getTargetPartCtxCont(
 	stackedContext_t *callerInterruptedContext
 ) {
 	paddr calleeContextAddr =
-		((stackedContext_t **) calleeVidtAddr)[targetInterrupt];
+		((vidt_t *) calleeVidtAddr)->contexts[targetInterrupt];
 
 	paddr calleeContextBlockLocalId =
 		findBelongingBlock(calleePartDescGlobalId, calleeContextAddr);

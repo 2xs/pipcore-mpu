@@ -67,6 +67,8 @@ Kernel_Panic(stackedContext_t *context)
 extern void __attribute__((noreturn))
 Interrupt_Handler_C(stackedContext_t *context)
 {
+	uint32_t currentInterrupt = ICSR.VECTACTIVE;
+
 	paddr rootPartDesc = getRootPartition();
 	paddr interruptedPartDesc = getCurPartition();
 	int_mask_t interruptedPartIntState = getSelfIntState();
@@ -92,7 +94,7 @@ Interrupt_Handler_C(stackedContext_t *context)
 	yield_return_code_t yieldErrorCode = getSourcePartVidtCont(
 		rootPartDesc,
 		interruptedPartDesc,
-		ICSR.VECTACTIVE,
+		currentInterrupt,
 		saveIndex,
 		interruptedPartIntState,
 		interruptedPartIntState,
@@ -124,7 +126,7 @@ Interrupt_Handler_C(stackedContext_t *context)
 				rootPartDesc,
 				interruptedPartDesc,
 				NULL,
-				ICSR.VECTACTIVE,
+				currentInterrupt,
 				0,
 				0,
 				NULL
@@ -278,6 +280,8 @@ propagateFault(
 extern void __attribute__((noreturn))
 Fault_Handler_C(stackedContext_t *context)
 {
+	uint32_t currentInterrupt = ICSR.VECTACTIVE;
+
 	paddr currentPartDesc = getCurPartition();
 	int_mask_t interruptedPartIntState = getSelfIntState();
 	uint32_t saveIndex;
@@ -296,7 +300,7 @@ Fault_Handler_C(stackedContext_t *context)
 	printf("The current partition (%p) has faulted...\n", currentPartDesc);
 
 	/* Propagate the fault to the parent of the faulted partition. */
-	propagateFault(currentPartDesc, ICSR.VECTACTIVE, saveIndex,
+	propagateFault(currentPartDesc, currentInterrupt, saveIndex,
 		interruptedPartIntState, interruptedPartIntState, context);
 
 	/* We should never end up here because the propagateFault never
