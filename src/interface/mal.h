@@ -108,7 +108,6 @@ paddr getAddr(paddr addr); //!< returns the address //TODO to remove
 
 
 /* MAL */
-PDTable_t readPDTable(paddr pdaddr); //!< Gets the Partition Descriptor (PD)
 paddr readPDStructurePointer(paddr pdaddr); //!< Gets the first kernel structure
 void writePDStructurePointer(paddr pdaddr, paddr value); //!< Sets the first kernel structure
 paddr readPDFirstFreeSlotPointer(paddr pdaddr); //!< Gets the first free slot's address

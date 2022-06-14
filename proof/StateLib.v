@@ -142,18 +142,6 @@ match p s with
 (*Definition getCurPartition s : paddr :=
 currentPartition s. *)
 
-(** The [readPhysical] function returns the physical page stored into a given 
-    page at a given position in physical memory. The table should contain only Physical pages 
-    (The type [PP] is already defined into [Model.ADT]) *)
-Definition readPDTable (paddr : paddr) memory: option PDTable :=
-let entry :=  lookup paddr memory beqAddr  in 
-  match entry with
-  | Some (PDT a) => Some a
-  | _ => None
- end.
-
-
-
 (**  The [getPd] function returns the physical page of the page directory of
      a given partition  *)
 Definition getPd (pa : paddr) s : option PDTable :=

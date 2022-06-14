@@ -107,21 +107,6 @@ paddr getSCEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t blo
 }
 
 /*!
- * \fn PDTable_t readPDTable(paddr pdaddr)
- * \brief Gets the Partition Descriptor (PD).
- * \param pdaddr The address where to find PD
- * \return the PD table
- */
-PDTable_t readPDTable(paddr pdaddr)
-{
-	// Cast it into a PDTable_t structure
-	PDTable_t* pd = (PDTable_t*)pdaddr; // TODO: Exception ? Only called with current partition
-
-	// Return the pd table
-	return *pd;
-}
-
-/*!
  * \fn paddr readPDStructurePointer(paddr pdaddr)
  * \brief Gets the first kernel structure.
  * \param pdaddr The address of the PD

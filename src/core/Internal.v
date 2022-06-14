@@ -41,10 +41,6 @@ Open Scope mpu_state_scope.
 (** Fixed fuel/timeout value to prove function termination *)
 Definition N := 100.
 
-(** The [getPd] function returns the page directory of a given partition *)
-Definition getPd partition :=
-  readPDTable partition.
-
 (** The [compareAddrToNull] returns true if the given addr is equal to the fixed
     default addr (null) *)
 Definition compareAddrToNull (p : paddr) : LLI bool :=
