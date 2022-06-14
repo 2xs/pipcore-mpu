@@ -1,0 +1,20 @@
+image: "coqorg/coq:8.13"
+
+build:
+  stage: build
+  script:
+    # get digger from latest CI artifacts
+    - cd tools/digger
+    - curl -L 'https://gitlab.univ-lille.fr/2xs/digger/-/jobs/artifacts/master/download?job=build' -o digger.zip
+    - unzip -o digger.zip
+    - ./digger --version
+    - cd ../..
+
+    - .ci/apt-get.sh libnewlib-arm-none-eabi gcc-arm-none-eabi
+
+    - ./configure.sh --architecture=dwm1001 --no-command-check
+    - make
+  artifacts:
+    paths:
+      - pip.bin
+    expire_in: 1 hour
