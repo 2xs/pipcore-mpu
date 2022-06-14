@@ -50,7 +50,7 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
     for (int i=0;i<KERNELSTRUCTUREENTRIESNB;i++)
     {
         paddr blockentryadddr = &ks->blocks[i];
-        printf("%p:%-1ld:BLK\t%-10p|%-10p\t|%-1lu|%-1lu|%-1lu%-1lu%-1lu\r\n",    blockentryadddr,
+        printf("%p:%-1ld:BLK\t%-10p|%-10p\t|%-1d|%-1d|%-1d%-1d%-1d\r\n",    blockentryadddr,
                                                             readBlockIndexFromBlockEntryAddr(blockentryadddr),
                                                             readBlockStartFromBlockEntryAddr(blockentryadddr),
                                                             readBlockEndFromBlockEntryAddr(blockentryadddr),
@@ -75,7 +75,7 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
 
         paddr blockentryadddr = &ks->blocks[i];
         paddr sh1entryadddr = &ks->sh1[i];
-        printf("%p:SH1\t%-10p|%-1lu|%p\r\n",  sh1entryadddr,
+        printf("%p:SH1\t%-10p|%-1d|%p\r\n",  sh1entryadddr,
                                                 readSh1PDChildFromBlockEntryAddr(blockentryadddr),
                                                 readSh1PDFlagFromBlockEntryAddr(blockentryadddr),
                                                 readSh1InChildLocationFromBlockEntryAddr(blockentryadddr));

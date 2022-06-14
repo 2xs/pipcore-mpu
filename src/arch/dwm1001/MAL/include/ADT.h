@@ -46,7 +46,7 @@
 #include "userconstants.h"
 
 /* bool */
-typedef uint32_t boolean;
+typedef _Bool boolean;
 #define true    1
 #define false   0
 #define bool boolean
