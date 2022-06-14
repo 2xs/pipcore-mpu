@@ -12,7 +12,7 @@ build:
 
     - .ci/apt-get.sh libnewlib-arm-none-eabi gcc-arm-none-eabi
 
-    - ./configure.sh --architecture=dwm1001
+    - ./configure.sh --architecture=dwm1001 --no-command-check
     - make
   artifacts:
     paths:
