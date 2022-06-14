@@ -39,10 +39,8 @@ Require Import ProofIrrelevance Coq.Program.Equality Arith List Lia Bool.
 Import List.ListNotations.
 
 Module Index.
-Definition geb (a b : index) : bool := b <=? a.
 Definition leb (a b : index) : bool := a <=? b.
 Definition ltb (a b : index) : bool := a <? b.
-Definition gtb (a b : index) : bool := b <? a.
 Definition eqb (a b : index) : bool := a =? b.
 Definition succ (n : index): option index:=
 let isucc := n + 1 in
@@ -67,10 +65,8 @@ End Index.
 
 (* DUP *)
 Module Paddr.
-Definition geb (a b : paddr) : bool := b <=? a.
 Definition leb (a b : paddr) : bool := a <=? b.
 Definition ltb (a b : paddr) : bool := a <? b.
-Definition gtb (a b : paddr) : bool := b <? a.
 Definition eqb (a b : paddr) : bool := a =? b.
 (*Definition succ (n : index): option index:=
 let isucc := n + 1 in
