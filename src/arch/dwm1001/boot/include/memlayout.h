@@ -140,13 +140,6 @@ extern void *__pipDataRomEnd;
 extern void *__rootBinaryStart;
 
 /*!
- * \brief The entry point address of the root partition in ROM.
- *
- * \see The definition in the root-partition-linker.sh file.
- */
-extern void *__rootBinaryEntryPoint;
-
-/*!
  * \brief The end address of the root partition binary in ROM.
  *
  * \see The definition in the link.ld file.

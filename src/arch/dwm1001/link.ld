@@ -48,16 +48,16 @@
  *               |    |                    |   |                    |    |
  *               +--> +--------------------+   +--------------------+    |
  *               |    |                    |   |                    |    |
- *               |    |    .root_binary    |   |  .root_kern_struct |    |
+ *               |    |                    |   |  .root_kern_struct |    |
  *               |    |                    |   |                    |    |
- *               |    +--------------------+   +--------------------+ <--+
+ *               |    |                    |   +--------------------+ <--+
  *               |    |                    |   |                    |    |
  *               |    |                    |   |     .root_stack    |    +-- MPU R1
  *               |    |                    |   |                    |    |
  *               |    |                    |   +--------------------+ <--+
- *      MPU R0 --+    |                    |   |                    |    |
+ *      MPU R0 --+    |        ...         |   |                    |    |
  *               |    |                    |   |                    |    |
- *               |    |         ...        |   |                    |    |
+ *               |    |                    |   |                    |    |
  *               |    |                    |   |                    |    |
  *               |    |                    |   |         ...        |    +-- MPU R2
  *               |    |                    |   |                    |    |
@@ -154,16 +154,7 @@ SECTIONS
 	__pipDataRomStart = LOADADDR(.data) ;
 	__pipDataRomEnd = __pipDataRomStart +
 		( __pipDataEnd - __pipDataStart ) ;
-
-	.root_binary :
-	{
-		. = ALIGN( 32 ) ;
-		__rootBinaryStart = . ;
-		*(.root_binary*)
-		__rootBinaryEnd = . ;
-		. = ALIGN( 32 ) ;
-		__unusedRomStart = . ;
-	} > ROM
+	__unusedRomStart = __pipDataRomEnd ;
 
 	.bss (NOLOAD) :
 	{

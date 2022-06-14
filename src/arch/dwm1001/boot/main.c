@@ -112,12 +112,11 @@ Boot_Handler(void)
 	pip_interface->rootStackLimit       = &__rootStackLimit;
 	pip_interface->rootStackTop         = &__rootStackTop;
 	pip_interface->rootBinaryStart      = &__rootBinaryStart;
-	pip_interface->rootBinaryEntryPoint = &__rootBinaryEntryPoint;
 	pip_interface->rootBinaryEnd        = &__rootBinaryEnd;
 	pip_interface->unusedRomStart       = &__unusedRomStart;
 	pip_interface->romEnd               = &__romEnd;
 	pip_interface->unusedRamStart       = &__unusedRamStart;
-	pip_interface->romEnd               = &__romEnd;
+	pip_interface->ramEnd               = &__ramEnd;
 
 	pip_interface->rootPartContext.isBasicFrame = 1;
 
@@ -130,7 +129,7 @@ Boot_Handler(void)
 
 	/* Initialize the root partition context. */
 	pip_interface->rootPartContext.basicFrame.r0 = sp;
-	pip_interface->rootPartContext.basicFrame.pc = (uint32_t) &__rootBinaryEntryPoint;
+	pip_interface->rootPartContext.basicFrame.pc = (uint32_t) &__rootBinaryStart;
 	pip_interface->rootPartContext.basicFrame.sp = sp;
 	pip_interface->rootPartContext.pipflags      = 0;
 

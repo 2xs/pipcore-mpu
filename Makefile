@@ -217,7 +217,7 @@ JSONS:=$(addprefix $(GENERATED_FILES_DIR)/, $(JSONS))
 ##                    Default Makefile target                      ##
 #####################################################################
 
-all: pip.bin
+all: pip.elf
 
 #####################################################################
 ##                    Code compilation targets                     ##
@@ -386,7 +386,7 @@ $(C_TARGET_MAL_OBJ):\
 ######################### Pip + Partition ELF #######################
 
 # $(AS_TARGET_BOOT_OBJ) must be the first object file arg to the linker
-pip.bin: $(C_SRC_TARGET_DIR)/link.ld\
+pip.elf: $(C_SRC_TARGET_DIR)/link.ld\
          $(C_TARGET_BOOT_OBJ) $(AS_TARGET_BOOT_OBJ)\
          $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
          $(C_TARGET_MDK_OBJ) $(C_TARGET_UART_OBJ)\
@@ -446,6 +446,5 @@ clean:
 	rm -rf $(GENERATED_FILES_DIR)
 	rm -f $(OBJECT_FILES)
 	rm -f pip.elf
-	rm -f pip.bin
 
 .PHONY: all doc doc-c doc-coq gettingstarted realclean clean

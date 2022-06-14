@@ -76,11 +76,6 @@ typedef struct pip_interface_s
 	void *rootBinaryStart;
 
 	/*!
-	 * \brief The entry point address of the root partition.
-	 */
-	void *rootBinaryEntryPoint;
-
-	/*!
 	 * \brief The end address of the root partition binary.
 	 */
 	void *rootBinaryEnd;
