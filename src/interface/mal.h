@@ -62,8 +62,6 @@ void cleanPage(uint32_t paddr); //!< Cleans a given page, filling it with zero
 uint32_t toAddr(uint32_t input); //!< Converts a given uint32_t to an address (only for Haskell FFI purposes)
 
 /* Coq related stuff */
-int geb(const int32_t a, const int32_t b); //!< Greater or equal
-int gtb(const int32_t a, const int32_t b); //!< Greater than
 int leb(const int32_t a, const int32_t b); //!< Lower or equal
 int ltb(const int32_t a, const int32_t b); //!< Lower than
 int eqb(const int32_t a, const int32_t b); //!< Equals
@@ -110,7 +108,6 @@ paddr getAddr(paddr addr); //!< returns the address //TODO to remove
 
 
 /* MAL */
-PDTable_t readPDTable(paddr pdaddr); //!< Gets the Partition Descriptor (PD)
 paddr readPDStructurePointer(paddr pdaddr); //!< Gets the first kernel structure
 void writePDStructurePointer(paddr pdaddr, paddr value); //!< Sets the first kernel structure
 paddr readPDFirstFreeSlotPointer(paddr pdaddr); //!< Gets the first free slot's address

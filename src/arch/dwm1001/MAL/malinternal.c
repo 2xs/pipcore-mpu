@@ -89,26 +89,6 @@ uint32_t addressEquals(uint32_t addr, uint32_t addr2)
 }
 
 /*!
- * \fn int32_t geb()
- * \brief the first parameter is greater than or equal to the second one.
- * \return the comparison.
- */
-int geb(const int32_t a, const int32_t b)
-{
-	return a >= b;
-}
-
-/*!
- * \fn int32_t gtb()
- * \brief the first parameter is greater than the second one.
- * \return the comparison.
- */
-int gtb(const int32_t a, const int32_t b)
-{
-	return a > b;
-}
-
-/*!
  * \fn int32_t leb()
  * \brief the first parameter is less than or equal to the second one.
  * \return the comparison.

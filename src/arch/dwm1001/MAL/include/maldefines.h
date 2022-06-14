@@ -66,8 +66,6 @@ extern uint32_t MINVIDTBLOCKSIZE(void);
 #define Index_eqb       eqb
 #define Index_zero      zero
 #define Index_one       one
-#define Index_geb       geb
-#define Index_gtb       gtb
 #define Index_leb       leb
 #define Index_ltb       ltb
 #define Index_subIdx    sub
