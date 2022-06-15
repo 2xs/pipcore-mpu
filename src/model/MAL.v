@@ -465,6 +465,10 @@ Definition readBlockEntryFromBlockEntryAddr  (paddr : paddr) : LLI BlockEntry :=
   | None => undefined 11
   end.
 
+Definition copyBlock (blockTarget blockSource: paddr) : LLI unit :=
+  (* TODO Check that it does not overwrite Pip data structures *)
+  ret tt.
+
 Definition writeBlockEntryFromBlockEntryAddr (blockentryaddr : paddr) (blockentry : BlockEntry) : LLI unit :=
   writeBlockStartFromBlockEntryAddr blockentryaddr blockentry.(blockrange).(startAddr);;
   writeBlockEndFromBlockEntryAddr blockentryaddr blockentry.(blockrange).(endAddr);;

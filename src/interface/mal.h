@@ -137,6 +137,7 @@ void writeBlockWFromBlockEntryAddr(paddr blockentryaddr, bool value); //!< Sets 
 bool readBlockXFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the exec flag
 void writeBlockXFromBlockEntryAddr(paddr blockentryaddr, bool value); //!< Sets the exec flag
 BlockEntry_t readBlockEntryFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the block entry
+void copyBlock(paddr blockTarget, paddr blockSource); //!< Copies block structures at the given addresses
 void writeBlockEntryFromBlockEntryAddr(paddr blockentryaddr, BlockEntry_t value); //!< Sets the block entry
 void writeBlockEntryWithIndexFromBlockEntryAddr(paddr blockentryaddr, uint32_t index, BlockEntry_t value); //!< Sets the block entry with given index
 paddr getSh1EntryAddrFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the Sh1 entry from the block entry

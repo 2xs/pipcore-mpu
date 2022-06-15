@@ -782,7 +782,7 @@ Definition readMPU (idPD: paddr) (MPURegionNb : index) : LLI paddr :=
     <<idPD>>	the current partition or a child (resp. id = global id or local id)
     <<addrInBlock>>	the address stemming from the block to find
 *)
-Definition findBlock (idPD: paddr) (addrInBlock : paddr) : LLI blockOrError :=
+Definition findBlock (idPD: paddr) (addrInBlock : paddr) (blockResult: paddr) : LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
     perform currentPart := getCurPartition in
 
@@ -792,15 +792,21 @@ Definition findBlock (idPD: paddr) (addrInBlock : paddr) : LLI blockOrError :=
 		perform globalIdPD := getGlobalIdPDCurrentOrChild currentPart idPD in
 		perform addrIsNull := compareAddrToNull	globalIdPD in
 		if addrIsNull
-		then (* idPD is neither itself or a child partition, stop*) ret error
+		then (* idPD is neither itself or a child partition, stop*) ret false
 		else
-		(** Find the block *)
-    perform blockAddr := findBelongingBlock globalIdPD addrInBlock in
+		(* Check that addrInBlock is available in globalIdPD *)
+		perform blockAddr := findBelongingBlock globalIdPD addrInBlock in
 		perform addrIsNull := compareAddrToNull	blockAddr in
-		if addrIsNull then(* no block found, stop *) ret error else
-		(* Return the block's attributes *)
-		perform blockentry := readBlockEntryFromBlockEntryAddr blockAddr in
-		ret (blockAttr blockAddr blockentry).
+		if addrIsNull then(* no block found, stop *) ret false else
+
+		(* Check that blockResult is available in currentPart *)
+                perform blockAddr := findBelongingBlock currentPart blockResult in
+		perform addrIsNull := compareAddrToNull	blockAddr in
+		if addrIsNull then(* no block found, stop *) ret false else
+                (* TODO: Check here that we are allowed to write a full block
+                   at blockResult, not only its first byte *)
+                copyBlock blockResult blockAddr ;;
+		ret true.
 
 (**
  * The setVIDT PIP MPU service.
