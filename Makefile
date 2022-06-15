@@ -465,6 +465,34 @@ pip.bin: $(C_SRC_TARGET_DIR)/link.ld\
          $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)\
          -T $< -o $@ $(LDFLAGS)
 
+PIP_OBJS := $(C_TARGET_BOOT_OBJ) $(AS_TARGET_BOOT_OBJ)
+PIP_OBJS += $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)
+PIP_OBJS += $(C_TARGET_DEBUG_OBJ) $(C_TARGET_MDK_OBJ)
+PIP_OBJS += $(C_TARGET_NEWLIB_OBJ) $(C_TARGET_UART_OBJ)
+PIP_OBJS += $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)
+
+# TODO: move this to toolchain.mk
+AR := arm-none-eabi-ar
+
+pip.a: $(PIP_OBJS)
+	$(AR) rcs $@ $^
+
+# Show a pseudo-command when generating root_partition.s to see what matters
+# without too much noise
+$(GENERATED_FILES_DIR)/root_partition.s: | $(GENERATED_FILES_DIR)
+	@if [ -f "$(abspath $(PARTITION))" ] ; then \
+		printf '.section .root_binary\n.global  __rootBinaryEntryPoint\n\n__rootBinaryEntryPoint:\n\t.incbin "%s"\n' "$(abspath $(PARTITION))" > $@ ; \
+		printf 'gen_incbin %s -o %s\n' "$(abspath $(PARTITION))" "$@" ; \
+	else \
+		printf 'Error: PARTITION must point to the root partition .bin to generate root_partition.s\n' ; \
+		exit 1 ; \
+	fi
+
+# The order of the dependencies matter: in particular the linker script must be
+# the first, to feed it as is to ld -T ...
+pip+root.elf: $(C_SRC_TARGET_DIR)/link.ld pip.a $(GENERATED_FILES_DIR)/root_partition.o
+	$(LD) -T $^ -o $@ $(LDFLAGS)
+
 #####################################################################
 ##                      Proof related targets                      ##
 #####################################################################
