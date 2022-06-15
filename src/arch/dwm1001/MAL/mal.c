@@ -578,6 +578,13 @@ BlockEntry_t readBlockEntryFromBlockEntryAddr(paddr blockentryaddr)
 }
 
 /*!
+ * \brief Copies block structures at the given addresses
+ */
+void copyBlock(paddr blockTarget, paddr blockSource) {
+    *((BlockEntry_t*)blockTarget) = *((BlockEntry_t*)blockSource);
+}
+
+/*!
  * \fn void writeBlockEntryFromBlockEntryAddr(paddr blockentryaddr, BlockEntry_t value)
  * \brief Sets the block entry.
  * \param blockentryaddr The address of the block entry to write in
