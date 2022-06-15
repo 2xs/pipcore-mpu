@@ -46,7 +46,7 @@ typedef struct registerAccessorRange_s
 	/*!
 	 * \brief The register accessors.
 	 */
-	registerAccessor_t *registerAccessors;
+	const registerAccessor_t *registerAccessors;
 	/*!
 	 * \brief The size of the register accessors.
 	 */
@@ -67,6 +67,6 @@ typedef struct registerAccessorRange_s
 /*!
  * \brief Pointer to the register range array.
  */
-extern registerAccessorRange_t registerAccessorRanges[REGISTER_RANGE_NUMBER];
+extern const registerAccessorRange_t registerAccessorRanges[REGISTER_RANGE_NUMBER];
 
 #endif /* __REGISTER_RANGE_H__ */
