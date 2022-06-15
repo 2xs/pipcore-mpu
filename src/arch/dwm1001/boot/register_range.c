@@ -41,7 +41,7 @@
 #define RANGE4_NUMBER 1
 #define RANGE5_NUMBER 4
 
-static registerAccessor_t
+static const registerAccessor_t
 range0[RANGE0_NUMBER]
 __attribute__((section(".rodata"))) =
 {
@@ -79,7 +79,7 @@ __attribute__((section(".rodata"))) =
 	registerAccessReadWrite,
 };
 
-static registerAccessor_t
+static const registerAccessor_t
 range1[RANGE1_NUMBER]
 __attribute__((section(".rodata"))) =
 {
@@ -333,7 +333,7 @@ __attribute__((section(".rodata"))) =
 	registerAccessReadWrite,
 };
 
-static registerAccessor_t
+static const registerAccessor_t
 range2[RANGE2_NUMBER]
 __attribute__((section(".rodata"))) =
 {
@@ -341,7 +341,7 @@ __attribute__((section(".rodata"))) =
 	registerAccessReadWrite,
 };
 
-static registerAccessor_t
+static const registerAccessor_t
 range3[RANGE3_NUMBER]
 __attribute__((section(".rodata"))) =
 {
@@ -357,7 +357,7 @@ __attribute__((section(".rodata"))) =
 	registerAccessReadWrite,
 };
 
-static registerAccessor_t
+static const registerAccessor_t
 range4[RANGE4_NUMBER]
 __attribute__((section(".rodata"))) =
 {
@@ -365,7 +365,7 @@ __attribute__((section(".rodata"))) =
 	registerAccessReadWrite,
 };
 
-static registerAccessor_t
+static const registerAccessor_t
 range5[RANGE5_NUMBER]
 __attribute__((section(".rodata"))) =
 {
@@ -379,7 +379,7 @@ __attribute__((section(".rodata"))) =
 	registerAccessRead,
 };
 
-registerAccessorRange_t
+const registerAccessorRange_t
 registerAccessorRanges[REGISTER_RANGE_NUMBER]
 __attribute__((section(".rodata"))) =
 {

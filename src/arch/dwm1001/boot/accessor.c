@@ -72,7 +72,7 @@ retrieveRegisterAccessor(
 	}
 
 	/* Retrieve the register accessor range from the register range. */
-	registerAccessorRange_t *registerAccessorRange =
+	const registerAccessorRange_t *registerAccessorRange =
 		&registerAccessorRanges[registerRange];
 
 	/* Retrieve the register index from the register ID. The
