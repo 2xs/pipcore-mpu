@@ -606,14 +606,6 @@ Definition sizeOfBlock (blockentryaddr : paddr) : LLI index :=
 	(* last address must be counted *)
 	Index.succ size.
 
-(** The [initPDTable] function initializes the PD table pointed by <pdtableaddr>
-		with the default PD table
-	Returns unit
-*)
-Definition initPDTable (pdtablepaddr : paddr) : LLI unit :=
-	perform emptytable := getEmptyPDTable in
-	writePDTable pdtablepaddr emptytable.
-
 (** The [initBlockEntryRec] function recursively initializes all block entries from
 		<indexCurr> to 0 of kernel structure located at <kernelStructureStartAddr>
 		by constructing a linked list of all entries representing the free slots.

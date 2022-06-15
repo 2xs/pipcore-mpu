@@ -93,7 +93,7 @@ initializeRootPartitionDescriptor(paddr rootPartDesc)
 			"descriptor structure...\n");
 	}
 
-	*((PDTable_t *) rootPartDesc) = getEmptyPDTable();
+	initPDTable(rootPartDesc);
 }
 
 /*!
