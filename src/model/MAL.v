@@ -676,6 +676,14 @@ Definition getEmptyPDTable : LLI PDTable :=
   |} in
     ret emptyPDTable.
 
+(** The [initPDTable] function initializes the PD table pointed by <pdtableaddr>
+		with the default PD table
+	Returns unit
+*)
+Definition initPDTable (pdtablepaddr : paddr) : LLI unit :=
+	perform emptytable := getEmptyPDTable in
+	writePDTable pdtablepaddr emptytable.
+
 Definition getNextAddrFromKernelStructureStart (kernelStartAddr : paddr) : LLI paddr :=
   let nextAddr := CPaddr (kernelStartAddr + nextoffset) in
   ret nextAddr.

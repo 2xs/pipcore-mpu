@@ -930,41 +930,13 @@ bool eraseBlock (paddr startAddr, paddr endAddr)
 }
 
 /*!
- * \fn void writePDTable(paddr addr, PDTable_t newpdtable)
- * \brief Sets a new PD Table at the given address.
- * \param addr The address where to set the PD Table
- * \param newpdtable The new PD Table
- * \return void
+ * \fn void initPDTable(paddr)
+ * \brief Initialises PD table at paddr with a default PD table
  */
-void writePDTable(paddr addr, PDTable_t newpdtable)
-{
-	// Cast it into a PDTable_t structure
-	PDTable_t* pdtable = (PDTable_t*)addr;
-	*pdtable = newpdtable;
-
-	return;
-}
-
-/*!
- * \fn PDTable_t getDefaultPDTable()
- * \brief Returns the default PD Table without LUT initialisation.
- * \return default PD Table
- */
-PDTable_t getDefaultPDTable()
-{
-	return DEFAULT_PD_TABLE;
-}
-
-/*!
- * \fn PDTable_t getEmptyPDTable()
- * \brief Returns the default PD Table with LUT initialisation.
- * \return initialised default PD Table
- */
-PDTable_t getEmptyPDTable()
-{
-	PDTable_t defaultpdt = getDefaultPDTable();
-	clear_LUT(defaultpdt.LUT);
-	return defaultpdt;
+void initPDTable(paddr pdtablepaddr) {
+	PDTable_t* pdtable = (PDTable_t*)pdtablepaddr;
+	*pdtable = DEFAULT_PD_TABLE;
+	clear_LUT(pdtable->LUT);
 }
 
 /*!
