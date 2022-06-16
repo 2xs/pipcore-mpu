@@ -174,14 +174,6 @@ lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
 sh1entry.(inChildLocation) <> nullAddr ->
 isBE sh1entry.(inChildLocation) s.
 
-(* TODO: to remove -> consequence of freeSlotsListIsFreeSlot *)
-Definition chainedFreeSlots s :=
-forall entry nextfreeslotentry,
-isFreeSlot entry s ->
-nextfreeslotentry <> nullAddr ->
-bentryEndAddr entry nextfreeslotentry s ->
-((*isBE nextfreeslotentry s /\ *) isFreeSlot nextfreeslotentry s).
-
 Definition freeSlotsListIsFreeSlot s :=
 forall pd freeslotaddr optionfreeslotslist freeslotslist,
 isPDT pd s ->
@@ -208,5 +200,4 @@ NextKSIsKS s /\
 NextKSOffsetIsPADDR s /\
 NoDupInFreeSlotsList s /\
 freeSlotsListIsFreeSlot s /\
-chainedFreeSlots s /\
 DisjointFreeSlotsLists s.

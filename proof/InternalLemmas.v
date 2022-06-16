@@ -8278,25 +8278,48 @@ consistency s ->
 newFirstFreeSlotAddr <> pdinsertion.
 Proof.
 intros HPDTs HbentryEnd Hfirstfree HfirstNotNull Hcons.
+intro HnewFirstPDEq. (* pdinsertion would be in the free slots list so it would loop -> contradiction *)
 assert(HfirstIsBE : FirstFreeSlotPointerIsBEAndFreeSlot s)
 							by (unfold consistency in * ; intuition).
 unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 specialize(HfirstIsBE pdinsertion x HPDTs).
 destruct HfirstNotNull. unfold pdentryFirstFreeSlot in *.
 rewrite HPDTs in *. intuition. subst.
-specialize(HfirstIsBE H2). destruct (HfirstIsBE) as [_ HfreeNewFirst].
-assert(HchainedFreeSlots : chainedFreeSlots s)
+specialize(HfirstIsBE H1). destruct (HfirstIsBE) as [_ HfreeNewFirst].
+assert(HNoDupInFreeSlotsList : NoDupInFreeSlotsList s)
 	by (unfold consistency in * ; intuition).
-unfold chainedFreeSlots in *.
-specialize(HchainedFreeSlots (firstfreeslot x) pdinsertion HfreeNewFirst).
-destruct (beqAddr pdinsertion nullAddr) eqn:HnewNull ; try(exfalso ; congruence).
-rewrite <- DependentTypeLemmas.beqAddrTrue in HnewNull.
-assert(HnullAddrExistss : nullAddrExists s) by (unfold consistency in * ; intuition).
-unfold nullAddrExists in *. unfold isBE in *. unfold isPADDR in *.
-subst pdinsertion.
-rewrite HPDTs in *. congruence.
-rewrite <- beqAddrFalse in *. specialize(HchainedFreeSlots HnewNull HbentryEnd).
-unfold isFreeSlot in *. rewrite HPDTs in *. congruence.
+unfold NoDupInFreeSlotsList in *.
+specialize(HNoDupInFreeSlotsList pdinsertion x HPDTs).
+destruct HNoDupInFreeSlotsList.
+unfold getFreeSlotsList in *. rewrite HPDTs in *.
+destruct (beqAddr (firstfreeslot x) nullAddr) eqn:Hf.
+rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+assert(Hfreeslots : x0 = getFreeSlotsListRec (maxIdx + 1) (firstfreeslot x) s (nbfreeslots x)) by intuition.
+rewrite FreeSlotsListRec_unroll in Hfreeslots.
+unfold getFreeSlotsListAux in *.
+assert(Hiter1 : maxIdx +1 = S maxIdx). apply PeanoNat.Nat.add_1_r.
+rewrite Hiter1 in *.
+destruct HfirstIsBE as [HfirstIsBE HfirstIsFreeSlot].
+apply isBELookupEq in HfirstIsBE. destruct HfirstIsBE.
+unfold bentryEndAddr in *.
+rewrite H0 in *.
+destruct (StateLib.Index.ltb (nbfreeslots x) zero) eqn:Hff ; try (subst ; cbn in * ; congruence).
+destruct (StateLib.Index.pred (nbfreeslots x) ) eqn:Hfff ; try (exfalso ; intuition ; subst ; cbn in * ; congruence).
+rewrite <- HbentryEnd in *.
+subst x0.
+assert(Hcontra : wellFormedFreeSlotsList
+      (SomePaddr (firstfreeslot x) :: getFreeSlotsListRec maxIdx pdinsertion s i) <>
+    False ) by intuition.
+rewrite FreeSlotsListRec_unroll in Hcontra.
+unfold getFreeSlotsListAux in *.
+assert(Hiter2 : maxIdx = S (maxIdx - 1)).
+{ assert(HEq : S (maxIdx - 1) = S maxIdx -1).
+	{ apply minus_Sn_m. apply PeanoNat.Nat.lt_le_incl. apply maxIdxBigEnough. }
+	rewrite HEq. lia.
+}
+rewrite Hiter2 in *.
+rewrite HPDTs in *.
+destruct (Index.ltb i zero) ; try (cbn in * ; congruence).
 Qed.
 
 Lemma newFirstSCENotEq scentryaddr scentry newBlockEntryAddr newFirstFreeSlotAddr pdinsertion x s :
@@ -8310,26 +8333,47 @@ consistency s ->
 newFirstFreeSlotAddr <> scentryaddr.
 Proof.
 intros HPDTs Hscentrys HbentryEnd Hfirstfree HfirstNotNull Hcons.
+intro HnewFirstSCEEq. (* sceaddr would be in the free slots list so SCE and BE at the same time -> contradiction *)
 assert(HfirstIsBE : FirstFreeSlotPointerIsBEAndFreeSlot s)
 							by (unfold consistency in * ; intuition).
 unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 specialize(HfirstIsBE pdinsertion x HPDTs).
 destruct HfirstNotNull. unfold pdentryFirstFreeSlot in *.
 rewrite HPDTs in *. intuition. subst x0.
-specialize(HfirstIsBE H2). destruct (HfirstIsBE) as [_ HfreeNewFirst].
-assert(HchainedFreeSlots : chainedFreeSlots s)
+specialize(HfirstIsBE H1). destruct (HfirstIsBE) as [_ HfreeNewFirst].
+assert(HNoDupInFreeSlotsList : NoDupInFreeSlotsList s)
 	by (unfold consistency in * ; intuition).
-unfold chainedFreeSlots in *.
-specialize(HchainedFreeSlots (firstfreeslot x) newFirstFreeSlotAddr HfreeNewFirst).
-destruct (beqAddr newFirstFreeSlotAddr nullAddr) eqn:HnewNull ; try(exfalso ; congruence).
-rewrite <- DependentTypeLemmas.beqAddrTrue in HnewNull.
-assert(HnullAddrExistss : nullAddrExists s) by (unfold consistency in * ; intuition).
-unfold nullAddrExists in *. unfold isPADDR in *.
-subst newFirstFreeSlotAddr. subst scentryaddr.
-rewrite Hscentrys in *. congruence.
-rewrite <- beqAddrFalse in *. subst newBlockEntryAddr.
-specialize(HchainedFreeSlots HnewNull HbentryEnd).
-unfold isFreeSlot in *. subst newFirstFreeSlotAddr. rewrite Hscentrys in *. congruence.
+unfold NoDupInFreeSlotsList in *.
+specialize(HNoDupInFreeSlotsList pdinsertion x HPDTs).
+destruct HNoDupInFreeSlotsList.
+assert(Hcontra : wellFormedFreeSlotsList x0 <> False) by intuition.
+contradict Hcontra.
+unfold getFreeSlotsList in *. rewrite HPDTs in *.
+destruct (beqAddr (firstfreeslot x) nullAddr) eqn:Hf.
+rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+assert(Hfreeslots : x0 = getFreeSlotsListRec (maxIdx + 1) (firstfreeslot x) s (nbfreeslots x)) by intuition.
+rewrite FreeSlotsListRec_unroll in Hfreeslots.
+unfold getFreeSlotsListAux in *.
+assert(Hiter1 : maxIdx +1 = S maxIdx). apply PeanoNat.Nat.add_1_r.
+rewrite Hiter1 in *.
+destruct HfirstIsBE as [HfirstIsBE HfirstIsFreeSlot].
+apply isBELookupEq in HfirstIsBE. destruct HfirstIsBE.
+unfold bentryEndAddr in *.
+rewrite H0 in *.
+destruct (StateLib.Index.ltb (nbfreeslots x) zero) eqn:Hff ; try (subst ; cbn in * ; congruence).
+destruct (StateLib.Index.pred (nbfreeslots x) ) eqn:Hfff ; try (exfalso ; intuition ; subst ; cbn in * ; congruence).
+rewrite <- Hfirstfree in *. rewrite H0 in *.
+subst x0. rewrite <- HbentryEnd in *.
+rewrite FreeSlotsListRec_unroll.
+unfold getFreeSlotsListAux in *.
+assert(Hiter2 : maxIdx = S (maxIdx - 1)).
+{ assert(HEq : S (maxIdx - 1) = S maxIdx -1).
+	{ apply minus_Sn_m. apply PeanoNat.Nat.lt_le_incl. apply maxIdxBigEnough. }
+	rewrite HEq. lia.
+}
+rewrite Hiter2 in *.
+destruct (Index.ltb i zero) ; try (cbn in * ; congruence).
+cbn. rewrite HnewFirstSCEEq in *. rewrite Hscentrys. cbn. trivial.
 Qed.
 
 Lemma newFirstnewBlockNotEq newFirstFreeSlotAddr newBlockEntryAddr bentry pdinsertion x s :
@@ -8678,7 +8722,6 @@ destruct i. f_equal. apply proof_irrelevance.
 
 
 					eapply IHi ; intuition. f_equal.
-					Search (?a - 0 = ?a).
 					destruct i. f_equal. apply proof_irrelevance.
 					f_equal. apply proof_irrelevance.
 

@@ -502,7 +502,7 @@ match bound with
 								                    |Some p =>  SomePaddr blockentryaddr :: FuncAux bound1 entry.(blockrange).(endAddr) s p
 								                    |None => [NonePaddr]
 								                    end
-							| Some (PADDR entry) => if beqAddr entry nullAddr
+							| Some (PADDR entry) => if beqAddr blockentryaddr nullAddr
 																			then (* OK, end of list *) []
 																			else (* NOK, only acceptable PADDR is NULL *) [NonePaddr]
 		          |_ => (* Wrong entry type, trying to access unexpected entry *) [NonePaddr]
