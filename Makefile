@@ -391,7 +391,7 @@ pip.elf: $(C_SRC_TARGET_DIR)/link.ld\
          $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
          $(C_TARGET_MDK_OBJ) $(C_TARGET_UART_OBJ)\
          $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)
-	$(LD) -r \
+	$(LD)\
          $(C_TARGET_BOOT_OBJ) $(AS_TARGET_BOOT_OBJ)\
          $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
          $(C_TARGET_MDK_OBJ) $(C_TARGET_UART_OBJ)\

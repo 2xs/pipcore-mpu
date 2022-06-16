@@ -135,11 +135,10 @@ SECTIONS
 	.text :
 	{
 		. = ALIGN( 4 ) ;
-		__pipTextStart = . ;
 		*(.text*)
 		*(.rodata*)
 		. = ALIGN( 4 ) ;
-		__pipTextEnd = . ;
+		__root = . ;
 	} > ROM
 
 	.data :

@@ -73,17 +73,7 @@ typedef struct pip_interface_s
 	/*!
 	 * \brief The start address of the root partition binary.
 	 */
-	void *rootBinaryStart;
-
-	/*!
-	 * \brief The end address of the root partition binary.
-	 */
-	void *rootBinaryEnd;
-
-	/*!
-	 * \brief The start address of the unused ROM.
-	 */
-	void *unusedRomStart;
+	void *root;
 
 	/*!
 	 * \brief The end address of the ROM.

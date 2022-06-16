@@ -154,9 +154,9 @@ createAndRegisterRootPartition(void)
 	 * ROM in the kernel structure. */
 	paddr rootPartRomBlockId = insertNewEntry(
 		(paddr) &rootPartDesc,
-		(paddr) &__rootBinaryStart,
+		(paddr) &__root,
 		(paddr) addressMinusOne(&__romEnd),
-		(paddr) &__rootBinaryStart,
+		(paddr) &__root,
 		true,
 		false,
 		true,

@@ -111,9 +111,7 @@ Boot_Handler(void)
 	/* Copy the start and end address of the ROM. */
 	pip_interface->rootStackLimit       = &__rootStackLimit;
 	pip_interface->rootStackTop         = &__rootStackTop;
-	pip_interface->rootBinaryStart      = &__rootBinaryStart;
-	pip_interface->rootBinaryEnd        = &__rootBinaryEnd;
-	pip_interface->unusedRomStart       = &__unusedRomStart;
+	pip_interface->root                 = &__root;
 	pip_interface->romEnd               = &__romEnd;
 	pip_interface->unusedRamStart       = &__unusedRamStart;
 	pip_interface->ramEnd               = &__ramEnd;
@@ -129,7 +127,7 @@ Boot_Handler(void)
 
 	/* Initialize the root partition context. */
 	pip_interface->rootPartContext.basicFrame.r0 = sp;
-	pip_interface->rootPartContext.basicFrame.pc = (uint32_t) &__rootBinaryStart;
+	pip_interface->rootPartContext.basicFrame.pc = (uint32_t) &__root;
 	pip_interface->rootPartContext.basicFrame.sp = sp;
 	pip_interface->rootPartContext.pipflags      = 0;
 

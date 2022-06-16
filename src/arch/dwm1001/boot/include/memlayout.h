@@ -91,20 +91,6 @@ extern void *__vectorTableStart;
 extern void *__vectorTableEnd;
 
 /*!
- * \brief The start address of the code section of PIP in ROM.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__pipTextStart;
-
-/*!
- * \brief The end address of the code of PIP in ROM.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__pipTextEnd;
-
-/*!
  * \brief The start address of the initialized data of PIP in RAM.
  *
  * \see The definition in the link.ld file.
@@ -137,21 +123,7 @@ extern void *__pipDataRomEnd;
  *
  * \see The definition in the link.ld file.
  */
-extern void *__rootBinaryStart;
-
-/*!
- * \brief The end address of the root partition binary in ROM.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__rootBinaryEnd;
-
-/*!
- * \brief The start address of the unused ROM.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__unusedRomStart;
+extern void *__root;
 
 /*!
  * \brief The start address of the uninitialized data of PIP in RAM.
