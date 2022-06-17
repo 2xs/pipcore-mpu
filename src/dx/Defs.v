@@ -68,9 +68,6 @@ Definition funIndexIndexBoolType :=
     [ PipTypes.indexCompilableType; PipTypes.indexCompilableType ]
     (Some Bool.boolCompilableType).
 
-(* Definition cval n := *)
-(*   Csyntax.Eval (Values.Vint (Integers.Int.repr n)) DataTypes.constantsT. *)
-
 Definition cBinOp o es :=
   match es with
   | [e1;e2] => Ok (Csyntax.Ebinop o e1 e2 Ctypes.type_bool)
@@ -78,23 +75,10 @@ Definition cBinOp o es :=
   end.
 
 Definition cEq := cBinOp Cop.Oeq.
-(* Definition cGe := cBinOp Cop.Oge. *)
-(* Definition cGt := cBinOp Cop.Ogt. *)
-(* Definition cLe := cBinOp Cop.Ole. *)
-(* Definition cLt := cBinOp Cop.Olt. *)
 
 Module PipPrimitives.
   Definition paddrEqPrim := MkPrimitive funPaddrPaddrBoolType MALInternal.beqAddr cEq.
   Definition indexEqPrim := MkPrimitive funIndexIndexBoolType MALInternal.beqIdx cEq.
-
-(*   Definition idxGePrim   := MkPrimitive funIndexIndexBoolType Ops.idxGe   cGe. *)
-(*   Definition idxGtPrim   := MkPrimitive funIndexIndexBoolType Ops.idxGt   cGt. *)
-(*   Definition idxLePrim   := MkPrimitive funIndexIndexBoolType Ops.idxLe   cLe. *)
-(*   Definition idxLtPrim   := MkPrimitive funIndexIndexBoolType Ops.idxLt   cLt. *)
-(*   Definition vaddrEqPrim := MkPrimitive funVAddrVAddrBoolType Ops.vaddrEq cEq. *)
-(*   Definition pageEqPrim  := MkPrimitive funPagePageBoolType   Ops.pageEq  cEq. *)
-(*   Definition levelEqPrim := MkPrimitive funLevelLevelBoolType Ops.levelEq cEq. *)
-(*   Definition levelGtPrim := MkPrimitive funLevelLevelBoolType Ops.levelGt cGt. *)
 End PipPrimitives.
 
 GenerateIntermediateRepresentation
@@ -176,94 +160,3 @@ GenerateIntermediateRepresentation
 
 Definition dxModuleInternal := makeDXModuleWithDefaults InternalIRSyms.
 
-(* GenerateIntermediateRepresentation *)
-(*   ServicesHIRSyms *)
-(*   Monad.LLI Monad.bind Monad.ret *)
-
-(*   Bool.Exports *)
-(*   Nat.Exports *)
-
-(*   DataTypes.Exports *)
-(*   PipPrimitives *)
-
-(*   Constants *)
-
-(*   Ops.idxPredM *)
-(*   Ops.idxSuccM *)
-(*   Ops.levelPredM *)
-(*   Ops.levelSuccM *)
-(*   Ops.countSuccM *)
-(*   Ops.countFromLevelM *)
-
-(*   MAL *)
-
-(*   IAL.setInterruptMask *)
-(*   IAL.getInterruptMaskFromCtx *)
-(*   IAL.noInterruptRequest *)
-(*   IAL.writeContext *)
-(*   IAL.vaddrToContextAddr *)
-(*   IAL.checkIndexPropertyLTB *)
-(*   IAL.userValueToIndex *)
-(*   IAL.updateMMURoot *)
-
-(*   ADT.nbLevel *)
-(*   ADT.tableSize *)
-(*   ADT.nbPage *)
-(*   ADT.maxVint *)
-(*   ADT.contextSize *)
-
-(*   Services *)
-(*   . *)
-
-(* Definition dxModuleServicesH := makeDXModuleWithUserIds DataTypes.composites DataTypes.structIds ServicesHIRSyms. *)
-
-(* GenerateIntermediateRepresentation *)
-(*   ServicesIRSyms *)
-(*   Monad.LLI Monad.bind Monad.ret *)
-
-(*   Bool.Exports *)
-(*   Nat.Exports *)
-
-(*   DataTypes.Exports *)
-(*   PipPrimitives *)
-
-(*   Constants *)
-
-(*   Ops.idxPredM *)
-(*   Ops.idxSuccM *)
-(*   Ops.levelPredM *)
-(*   Ops.levelSuccM *)
-(*   Ops.countSuccM *)
-(*   Ops.countFromLevelM *)
-
-(*   MAL *)
-
-(*   IAL.setInterruptMask *)
-(*   IAL.getInterruptMaskFromCtx *)
-(*   IAL.noInterruptRequest *)
-(*   IAL.writeContext *)
-(*   IAL.vaddrToContextAddr *)
-(*   IAL.checkIndexPropertyLTB *)
-(*   IAL.userValueToIndex *)
-(*   IAL.loadContext *)
-(*   IAL.getNthVAddrFrom *)
-(*   IAL.contextSizeMinusOne *)
-(*   IAL.firstVAddrGreaterThanSecond *)
-(*   IAL.updateMMURoot *)
-
-(*   ADT.nbLevel *)
-(*   ADT.boundNbLevel *)
-(*   ADT.tableSize *)
-(*   ADT.nbPage *)
-(*   ADT.boundNbPages *)
-(*   ADT.maxVint *)
-(*   ADT.contextSize *)
-
-(*   Internal *)
-
-(*   __ *)
-
-(*   Services *)
-(*   . *)
-
-(* Definition dxModuleServices := makeDXModuleWithUserIds DataTypes.composites DataTypes.structIds ServicesIRSyms. *)
