@@ -33,6 +33,6 @@
 
 From dx Require Import DumpAsC.
 
-From Pip.dx Require Import Main.
+From dx Require Import Main.
 
 Extraction Library Main.

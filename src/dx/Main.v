@@ -37,7 +37,7 @@ Open Scope string.
 
 From dx Require Import DumpAsC.
 
-From Pip.dx Require Import Defs.
+From dx Require Import Defs.
 
 Definition main := ltac:(let ms := eval compute in
   [ ("Internal.h", dxModuleInternalH)
@@ -45,4 +45,3 @@ Definition main := ltac:(let ms := eval compute in
   ; ("Services.h", dxModuleServicesH)
   ; ("Services.c", dxModuleServices) ]
   in exact (print_dx_modules ms)).
-
