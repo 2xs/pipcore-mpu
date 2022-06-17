@@ -108,8 +108,16 @@ GenerateIntermediateRepresentation
   MALInternal
   MAL
 
-  (* Cannot be converted by dx, should be moved in another module *)
+  (* Cannot be converted by dx, should be fixed *)
   Internal.N
+  Internal.freeSlot
+  Internal.initBlockEntryRecAux
+  Internal.initBlocksStructure
+  Internal.initSh1EntryRecAux
+  Internal.initSCEntryRecAux
+  Internal.deleteSharedBlocksInStructRecAux
+  Internal.collectStructureRecAux
+
   __
 
   (* Internal.N *)
@@ -126,7 +134,7 @@ GenerateIntermediateRepresentation
   Internal.writeAccessibleRec
   Internal.writeAccessibleToAncestorsIfNotCutRec
   Internal.insertNewEntry
-  Internal.freeSlot
+  (* Internal.freeSlot *)
   Internal.checkChildOfCurrPart
   Internal.removeBlockInDescendantsRecAux
   Internal.removeBlockInDescendantsRec
@@ -136,20 +144,20 @@ GenerateIntermediateRepresentation
   Internal.removeSubblocksRec
   Internal.removeBlockInChildAndDescendants
   Internal.sizeOfBlock
-  Internal.initBlockEntryRecAux
-  Internal.initBlocksStructure
-  Internal.initSh1EntryRecAux
+  (* Internal.initBlockEntryRecAux *)
+  (* Internal.initBlocksStructure *)
+  (* Internal.initSh1EntryRecAux *)
   Internal.initSh1Structure
-  Internal.initSCEntryRecAux
+  (* Internal.initSCEntryRecAux *)
   Internal.initSCStructure
   Internal.initStructure
-  Internal.deleteSharedBlocksInStructRecAux
+  (* Internal.deleteSharedBlocksInStructRecAux *)
   Internal.deleteSharedBlocksRecAux
   Internal.deleteSharedBlocksRec
   Internal.removeStructure
   Internal.checkStructureEmptyRecAux
   Internal.collectFreeSlotsRecAux
-  Internal.collectStructureRecAux
+  (* Internal.collectStructureRecAux *)
   Internal.collectStructureRec
   Internal.enableBlockInMPU
   Internal.removeBlockFromPhysicalMPUIfAlreadyMapped
@@ -160,3 +168,57 @@ GenerateIntermediateRepresentation
 
 Definition dxModuleInternal := makeDXModuleWithDefaults InternalIRSyms.
 
+GenerateIntermediateRepresentation
+  ServicesHIRSyms
+  Monad.LLI Monad.bind Monad.ret
+
+  Bool.Exports
+  Nat.Exports
+
+  PipTypes
+  PipPrimitives
+
+  MALInternal
+  MAL
+
+  Services
+  .
+
+Definition dxModuleServicesH := makeDXModuleWithDefaults ServicesHIRSyms.
+
+GenerateIntermediateRepresentation
+  ServicesIRSyms
+  Monad.LLI Monad.bind Monad.ret
+
+  Bool.Exports
+  Nat.Exports
+
+  PipTypes
+  PipPrimitives
+
+  MALInternal
+  MAL
+
+  Internal
+
+  (* Cannot be converted by dx, should be fixed *)
+  Services.removeMemoryBlock
+  Services.deletePartition
+
+  __
+
+  Services.createPartition
+  Services.cutMemoryBlock
+  Services.mergeMemoryBlocks
+  Services.prepare
+  Services.addMemoryBlock
+  (* Services.removeMemoryBlock *)
+  (* Services.deletePartition *)
+  Services.collect
+  Services.mapMPU
+  Services.readMPU
+  Services.findBlock
+  Services.setVIDT
+  .
+
+Definition dxModuleServices := makeDXModuleWithDefaults ServicesIRSyms.
