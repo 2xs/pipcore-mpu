@@ -41,6 +41,8 @@ include toolchain.mk
 CAT := cat
 SED := sed
 
+OCAMLOPT := ocamlopt
+
 # GALLINA_C should be either digger or dx
 # if DXDIR is set, use dx
 ifeq ($(strip $(DXDIR)),)
