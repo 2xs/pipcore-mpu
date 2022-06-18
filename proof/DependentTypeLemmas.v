@@ -1095,6 +1095,12 @@ destruct idx. simpl.
 intuition.
 Qed.
 
+Lemma MaxIdxNextEq :
+maxIdx + 1 = S maxIdx.
+Proof.
+lia.
+Qed.
+
 (*
 Lemma indexEqbTrue : 
 forall idx1 idx2 : index, true = StateLib.Index.eqb idx1 idx2 -> 
