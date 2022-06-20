@@ -50,11 +50,14 @@ Import UserIdentNotations.
 From Model Require Monad ADT MALInternal MAL.
 From Core  Require Internal Services.
 
+Definition voidStar : Ctypes.type :=
+  Ctypes.Tpointer Ctypes.Tvoid Ctypes.noattr.
+
 Definition uint32 : Ctypes.type :=
   Ctypes.Tint Ctypes.I32 Ctypes.Unsigned Ctypes.noattr.
 
 Module PipTypes.
-  Definition paddrCompilableType := MkCompilableType ADT.paddr uint32.
+  Definition paddrCompilableType := MkCompilableType ADT.paddr voidStar.
   Definition indexCompilableType := MkCompilableType ADT.index uint32.
 End PipTypes.
 
