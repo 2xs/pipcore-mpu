@@ -47,10 +47,18 @@ Definition sh1offset := CIndex (blkoffset + kernelStructureEntriesNb).  (* shado
 Definition scoffset := CIndex (sh1offset + kernelStructureEntriesNb).  (* shadow cut *)
 Definition nextoffset := CIndex (scoffset + kernelStructureEntriesNb).
 
+Definition paddrLe (x y: paddr) : bool := x <=? y.
+Definition paddrLt (x y: paddr) : bool := x <? y.
+
+Notation paddrLeM x y := (ret (paddrLe x y)) (only parsing).
+Notation paddrLtM x y := (ret (paddrLt x y)) (only parsing).
 
 Module Paddr.
-Definition leb (a b : paddr) : LLI bool := ret (a <=? b).
-Definition ltb (a b : paddr) : LLI bool := ret (a <? b).
+(* #[deprecated(note="Use paddrLeM instead.")] *)
+Notation leb x y := (paddrLeM x y) (only parsing).
+(* #[deprecated(note="Use paddrLtM instead.")] *)
+Notation ltb x y := (paddrLtM x y) (only parsing).
+
 Program Definition succ (n : paddr) : LLI paddr :=
 let isucc := n+1 in
 if (le_dec isucc maxAddr )
@@ -87,10 +95,19 @@ then
 else  undefined 72.
 End Paddr.
 
+Definition indexLe (x y: index) : bool := x <=? y.
+Definition indexLt (x y: index) : bool := x <? y.
+
+Notation indexLeM x y := (ret (indexLe x y)) (only parsing).
+Notation indexLtM x y := (ret (indexLt x y)) (only parsing).
 
 Module Index.
-Definition leb (a b : index) : LLI bool := ret (a <=? b).
-Definition ltb (a b : index) : LLI bool := ret (a <? b).
+
+(* #[deprecated(note="Use indexLeM instead.")] *)
+Notation leb x y := (indexLeM x y) (only parsing).
+(* #[deprecated(note="Use indexLtM instead.")] *)
+Notation ltb x y := (indexLtM x y) (only parsing).
+
 Program Definition succ (n : index) : LLI index :=
 let isucc := n+1 in
 if (le_dec isucc maxIdx)
