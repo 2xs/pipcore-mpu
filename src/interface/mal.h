@@ -61,9 +61,10 @@ uint32_t addressEquals(uint32_t addr, uint32_t addr2); //!< Checks whether an ad
 void cleanPage(uint32_t paddr); //!< Cleans a given page, filling it with zero
 uint32_t toAddr(uint32_t input); //!< Converts a given uint32_t to an address (only for Haskell FFI purposes)
 
-/* Coq related stuff */
-int leb(const int32_t a, const int32_t b); //!< Lower or equal
-int ltb(const int32_t a, const int32_t b); //!< Lower than
+#define paddrLe(a,b) ((a)<=(b))
+#define indexLe(a,b) ((a)<=(b))
+#define indexLt(a,b) ((a)<(b))
+
 int eqb(const int32_t a, const int32_t b); //!< Equals
 uint32_t mul3(uint32_t v); //!< Multiply an integer with 3
 uint32_t inc(uint32_t val); //!< Increment an integer
