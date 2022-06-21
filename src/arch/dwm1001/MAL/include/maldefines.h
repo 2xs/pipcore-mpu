@@ -79,7 +79,6 @@ extern paddr nullAddr;
 #define getMaxNbPrepare getMaxNbPrepare
 #define kernelStructureEntriesNb KERNELSTRUCTUREENTRIESNB
 
-/* Astucious defines */
-#define coq_N   1000
+extern uint32_t N;
 
 #endif
