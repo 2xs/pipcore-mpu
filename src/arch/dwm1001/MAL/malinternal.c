@@ -345,11 +345,11 @@ uint32_t subPaddr(paddr a, paddr b)
 }
 
 /*!
- * \fn paddr predPaddrM(paddr a)
+ * \fn paddr paddrPredM(paddr a)
  * \brief decrements the given address.
  * \return the previous address.
  */
-paddr predPaddrM(paddr a)
+paddr paddrPredM(paddr a)
 {
 	return --a;
 }

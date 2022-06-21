@@ -104,7 +104,7 @@ bool beqIdx(uint32_t a, uint32_t b); //!< Compare two indexes
 paddr addPaddrIdxBytes(paddr a, uint32_t b); //!< adds an offset to a paddr
 uint32_t subPaddr(paddr a, paddr b); //!< substracts the first paddr to the second.
 bool lebPaddr(const paddr a, const paddr b); //!< the first parameter is less than or equal to the second one.
-paddr predPaddrM(paddr a); //!< decrements the given address.
+paddr paddrPredM(paddr a); //!< decrements the given address.
 paddr getAddr(paddr addr); //!< returns the address //TODO to remove
 
 
