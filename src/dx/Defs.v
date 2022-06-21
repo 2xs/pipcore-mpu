@@ -117,7 +117,6 @@ GenerateIntermediateRepresentation
   MAL
 
   (* Cannot be converted by dx, should be fixed *)
-  Internal.N
   Internal.freeSlot
   Internal.initBlockEntryRecAux
   Internal.initBlocksStructure
@@ -128,7 +127,6 @@ GenerateIntermediateRepresentation
 
   __
 
-  (* Internal.N *)
   Internal.compareAddrToNull
   Internal.findBlockComp
   Internal.findBlockInKSInStructAux
