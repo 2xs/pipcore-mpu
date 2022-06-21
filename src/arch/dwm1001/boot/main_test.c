@@ -374,7 +374,7 @@ paddr block_to_share_grandchild_address;
  */
 void build_create_child_block_out_of_initial_block()
 { // build block create -> block create = first block already existing
-  child_partition_pd = initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 40;
+  child_partition_pd = initial_block_start + getKernelStructureTotalLength() * 40;
   block_create_child_root_address = cutMemoryBlock(initial_block_root_address, child_partition_pd, -1);
 
   // block_create_child_root_address = readPDStructurePointer(
@@ -387,7 +387,7 @@ void build_create_child_block_out_of_initial_block()
  */
 void build_prepare_child_block_out_of_initial_block()
 { // build block prepare
-  block_prepare_child_id = initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 25;
+  block_prepare_child_id = initial_block_start + getKernelStructureTotalLength() * 25;
   block_prepare_child_root_address = cutMemoryBlock(initial_block_root_address, block_prepare_child_id, -1);
   assert(block_prepare_child_root_address != false);
 }
@@ -395,12 +395,12 @@ void build_prepare_child_block_out_of_initial_block()
 /*!
  * \fn void build_share_block_out_of_initial_block()
  * \brief  Build a block which shall be used to be shared with a child partition
- * Size = (block_create_start + KERNELSTRUCTURETOTALLENGTH()) -> (block_prepare_start = block_create_start + KERNELSTRUCTURETOTALLENGTH() * 30)
+ * Size = (block_create_start + getKernelStructureTotalLength()) -> (block_prepare_start = block_create_start + KERNELSTRUCTURETOTALLENGTH() * 30)
  */
 void build_share_block_out_of_initial_block()
 {
   // build block to share
-  block_to_share_id = initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 15;
+  block_to_share_id = initial_block_start + getKernelStructureTotalLength() * 15;
   block_to_share_root_address = cutMemoryBlock(initial_block_root_address, block_to_share_id, -1);
   assert(block_to_share_root_address != false);
 }
@@ -482,7 +482,7 @@ void init_test_with_create_prepare_share_child(int standalone)
  */
 void build_create_grandchild_block(paddr base_block)
 { // build block grandchild create
-  grandchild_partition_pd = readBlockStartFromBlockEntryAddr(base_block) + KERNELSTRUCTURETOTALLENGTH() * 4;
+  grandchild_partition_pd = readBlockStartFromBlockEntryAddr(base_block) + getKernelStructureTotalLength() * 4;
   block_create_grandchild_child_address = cutMemoryBlock(base_block, grandchild_partition_pd, -1);
   assert(block_create_grandchild_child_address != false);
 }
@@ -494,7 +494,7 @@ void build_create_grandchild_block(paddr base_block)
 void build_prepare_grandchild_block(paddr base_block)
 {
   // build block grandchild prepare
-  block_prepare_grandchild_start_addr = readBlockStartFromBlockEntryAddr(base_block) + KERNELSTRUCTURETOTALLENGTH() * 2;
+  block_prepare_grandchild_start_addr = readBlockStartFromBlockEntryAddr(base_block) + getKernelStructureTotalLength() * 2;
   block_prepare_grandchild_child_address = cutMemoryBlock(base_block, block_prepare_grandchild_start_addr, -1);
   assert(block_prepare_grandchild_child_address != false);
 }
@@ -742,13 +742,13 @@ void three_cuts_in_a_row(paddr cut_address1, paddr cut_address2, paddr cut_addre
 void test_cut_max_free_slots_used()
 {
   KStructure_t* ks_root = (KStructure_t*) root_kernel_structure_start;
-  paddr block1 = initial_block_start + KERNELSTRUCTURETOTALLENGTH()*30;
-  paddr block2 = initial_block_start + KERNELSTRUCTURETOTALLENGTH()*29;
-  paddr block3 = initial_block_start + KERNELSTRUCTURETOTALLENGTH()*28;
-  paddr block4 = initial_block_start + KERNELSTRUCTURETOTALLENGTH()*27;
-  paddr block5 = initial_block_start + KERNELSTRUCTURETOTALLENGTH()*26;
-  paddr block6 = initial_block_start + KERNELSTRUCTURETOTALLENGTH()*25;
-  paddr block7 = initial_block_start + KERNELSTRUCTURETOTALLENGTH()*24;
+  paddr block1 = initial_block_start + getKernelStructureTotalLength()*30;
+  paddr block2 = initial_block_start + getKernelStructureTotalLength()*29;
+  paddr block3 = initial_block_start + getKernelStructureTotalLength()*28;
+  paddr block4 = initial_block_start + getKernelStructureTotalLength()*27;
+  paddr block5 = initial_block_start + getKernelStructureTotalLength()*26;
+  paddr block6 = initial_block_start + getKernelStructureTotalLength()*25;
+  paddr block7 = initial_block_start + getKernelStructureTotalLength()*24;
 
   assert(cutMemoryBlock(initial_block_root_address, block1, -1) != 0);
   assert(cutMemoryBlock(initial_block_root_address, block2, -1) != 0);
@@ -891,17 +891,17 @@ void test_cut_bad_arguments()
  */
 void test_cut_6_cuts_in_a_row()
 {
-  paddr block1_address = cutMemoryBlock(initial_block_root_address, initial_block_start + 10*KERNELSTRUCTURETOTALLENGTH(), -1);
+  paddr block1_address = cutMemoryBlock(initial_block_root_address, initial_block_start + 10*getKernelStructureTotalLength(), -1);
   paddr block2_address = cutMemoryBlock(block1_address,
-                          initial_block_start + 12 * KERNELSTRUCTURETOTALLENGTH(), -1);
+                          initial_block_start + 12 * getKernelStructureTotalLength(), -1);
   paddr block3_address = cutMemoryBlock(block2_address,
-                          initial_block_start + 13 * KERNELSTRUCTURETOTALLENGTH(), -1);
+                          initial_block_start + 13 * getKernelStructureTotalLength(), -1);
   paddr block4_address = cutMemoryBlock(block3_address,
-                          initial_block_start + 14 * KERNELSTRUCTURETOTALLENGTH(), -1);
+                          initial_block_start + 14 * getKernelStructureTotalLength(), -1);
   paddr block5_address = cutMemoryBlock(block4_address,
-                          initial_block_start + 15 * KERNELSTRUCTURETOTALLENGTH(), -1);
+                          initial_block_start + 15 * getKernelStructureTotalLength(), -1);
   paddr block6_address = cutMemoryBlock(block5_address,
-                          initial_block_start + 16 * KERNELSTRUCTURETOTALLENGTH(), -1);
+                          initial_block_start + 16 * getKernelStructureTotalLength(), -1);
 
   dump_partition(root);
 
@@ -937,7 +937,7 @@ void test_cut_fails_when_block_not_accessible()
 
   // Fails trying to cut a block not accessible
   assert(
-      cutMemoryBlock(initial_block_root_address, initial_block_start + KERNELSTRUCTURETOTALLENGTH(), -1)
+      cutMemoryBlock(initial_block_root_address, initial_block_start + getKernelStructureTotalLength(), -1)
        == false
   );
 }
@@ -1028,10 +1028,10 @@ void test_create_partition()
  */
 void test_create_partitions_bad_arguments()
 {
-  paddr block_ram3_addr = ((BlockEntry_t*) block_ram2)->blockrange.startAddr + 10*KERNELSTRUCTURETOTALLENGTH();
+  paddr block_ram3_addr = ((BlockEntry_t*) block_ram2)->blockrange.startAddr + 10*getKernelStructureTotalLength();
   paddr block_ram3 = cutMemoryBlock(block_ram2, block_ram3_addr, -1);
   assert(block_ram3 != false);
-  paddr block_ram4_addr = block_ram3_addr + KERNELSTRUCTURETOTALLENGTH();
+  paddr block_ram4_addr = block_ram3_addr + getKernelStructureTotalLength();
   paddr block_ram4 = cutMemoryBlock(block_ram3, block_ram4_addr, -1);
   assert(block_ram4 != NULL);
 
@@ -1046,15 +1046,15 @@ void test_create_partitions_bad_arguments()
   paddr block_ram5_addr = block_ram4_addr + 64; // min 32 bytes for a cut
   paddr block_ram5 = cutMemoryBlock(block_ram4, block_ram5_addr, -1);
   assert(block_ram5 != NULL);
-  assert(createPartition(block_ram4) == false);  // Fail, min KERNELSTRUCTURETOTALLENGTH
+  assert(createPartition(block_ram4) == false);  // Fail, min getKernelStructureTotalLength
 
   dump_partition(root);
 
   // block shared: prepare child partition and add a shared block
-  paddr block_ram6_addr = block_ram5_addr + 5 * KERNELSTRUCTURETOTALLENGTH();
+  paddr block_ram6_addr = block_ram5_addr + 5 * getKernelStructureTotalLength();
   paddr block_ram6 = cutMemoryBlock(block_ram5, block_ram6_addr, -1);
   assert(block_ram6 != NULL);
-  paddr block_ram7_addr = block_ram6_addr + 5 * KERNELSTRUCTURETOTALLENGTH();
+  paddr block_ram7_addr = block_ram6_addr + 5 * getKernelStructureTotalLength();
   paddr block_ram7 = cutMemoryBlock(block_ram6, block_ram7_addr, -1);
   assert(block_ram7 != NULL);
   assert(prepare(block_ram3, -1, block_ram5) != false);
@@ -1289,13 +1289,13 @@ void test_prepare_fails_when_reaching_max_nb_prepare()
 {
   // Init
   paddr initial_block = initial_block_start;
-  paddr block1_addr = initial_block + 20 * KERNELSTRUCTURETOTALLENGTH();
-  paddr block2_addr = initial_block + 18 * KERNELSTRUCTURETOTALLENGTH();
-  paddr block3_addr = initial_block + 16 * KERNELSTRUCTURETOTALLENGTH();
-  paddr block4_addr = initial_block + 14 * KERNELSTRUCTURETOTALLENGTH();
-  paddr block5_addr = initial_block + 12 * KERNELSTRUCTURETOTALLENGTH();
-  paddr block6_addr = initial_block + 10 * KERNELSTRUCTURETOTALLENGTH();
-  paddr block7_addr = initial_block + 8 * KERNELSTRUCTURETOTALLENGTH();
+  paddr block1_addr = initial_block + 20 * getKernelStructureTotalLength();
+  paddr block2_addr = initial_block + 18 * getKernelStructureTotalLength();
+  paddr block3_addr = initial_block + 16 * getKernelStructureTotalLength();
+  paddr block4_addr = initial_block + 14 * getKernelStructureTotalLength();
+  paddr block5_addr = initial_block + 12 * getKernelStructureTotalLength();
+  paddr block6_addr = initial_block + 10 * getKernelStructureTotalLength();
+  paddr block7_addr = initial_block + 8 * getKernelStructureTotalLength();
   // cut 8 blocks
   paddr block1 = cutMemoryBlock(initial_block_root_address, block1_addr, -1);
   assert(block1 != false);
@@ -1335,7 +1335,7 @@ void test_prepare_fails_when_reaching_max_nb_prepare()
 void test_prepare_bad_arguments()
 {
   // cut initial block in a small block and a huge block + create child partition with huge block
-  paddr huge_block = initial_block_start + KERNELSTRUCTURETOTALLENGTH() - 0x100;
+  paddr huge_block = initial_block_start + getKernelStructureTotalLength() - 0x100;
   paddr huge_block_address = cutMemoryBlock(initial_block_root_address, huge_block, -1);
   assert(huge_block_address != false);
   assert(createPartition(huge_block_address) != false);
@@ -1354,13 +1354,13 @@ void test_prepare_bad_arguments()
   // block not in RAM
   init_tests_flash_ram_w_stack();
   // cut the initial block in 2
-  paddr block_ram3_addr = readBlockStartFromBlockEntryAddr(block_ram2) + 10*KERNELSTRUCTURETOTALLENGTH();
+  paddr block_ram3_addr = readBlockStartFromBlockEntryAddr(block_ram2) + 10*getKernelStructureTotalLength();
   paddr block_ram3 = cutMemoryBlock(block_ram2, block_ram3_addr, -1);
   assert(block_ram3 != false);
-  paddr block_ram4_addr = block_ram3_addr + KERNELSTRUCTURETOTALLENGTH();
+  paddr block_ram4_addr = block_ram3_addr + getKernelStructureTotalLength();
   paddr block_ram4 = cutMemoryBlock(block_ram3, block_ram4_addr, -1);
   assert(block_ram4 != NULL);
-  paddr block_ram5_addr = block_ram4_addr + KERNELSTRUCTURETOTALLENGTH();
+  paddr block_ram5_addr = block_ram4_addr + getKernelStructureTotalLength();
   paddr block_ram5 = cutMemoryBlock(block_ram4, block_ram5_addr, -1);
   assert(block_ram5 != NULL);
   dump_partition(root);
@@ -1702,7 +1702,7 @@ void remove_in_grandchildren()
   build_share_block_out_of_initial_block();
 
   // build 1 block later cut to create+prepare grandchild
-  paddr grandchild_block_id = block_prepare_child_id + KERNELSTRUCTURETOTALLENGTH() * 4;
+  paddr grandchild_block_id = block_prepare_child_id + getKernelStructureTotalLength() * 4;
   paddr block_grandchild_root_address = cutMemoryBlock(block_prepare_child_root_address, grandchild_block_id, -1);
   assert(block_grandchild_root_address != false);
 
@@ -1753,12 +1753,12 @@ void remove_in_grandchildren()
 
   // test block is not present anymore in child AND grandchild
   assert(readBlockStartFromBlockEntryAddr(block_to_share_child_address) != block_to_share_id); // NOT equal
-  //assert(child_entry[2], block_to_share_id + KERNELSTRUCTURETOTALLENGTH() - 1);  // NOT equal
+  //assert(child_entry[2], block_to_share_id + getKernelStructureTotalLength() - 1);  // NOT equal
   assert(readBlockAccessibleFromBlockEntryAddr(block_to_share_child_address) == false);
   assert(readBlockPresentFromBlockEntryAddr(block_to_share_child_address) == false);
 
   assert(readBlockStartFromBlockEntryAddr(block_to_share_grandchild_address) != block_to_share_id); // NOT equal
-  //assert(grandchild_entry[2], block_to_share_id + KERNELSTRUCTURETOTALLENGTH() - 1);  // NOT equal
+  //assert(grandchild_entry[2], block_to_share_id + getKernelStructureTotalLength() - 1);  // NOT equal
   assert(readBlockAccessibleFromBlockEntryAddr(block_to_share_grandchild_address) == false);
   assert(readBlockPresentFromBlockEntryAddr(block_to_share_grandchild_address) == false);
 
@@ -1822,15 +1822,15 @@ void remove_accessible_subblocks()
   // CUT Switch to child -> cut shared block 3x
   updateCurPartition(child_partition_pd);
   paddr block1_child_address = cutMemoryBlock(block_to_share_child_address,
-                                                  block_to_share_id + KERNELSTRUCTURETOTALLENGTH(),
+                                                  block_to_share_id + getKernelStructureTotalLength(),
                                                   -1);
   assert(block1_child_address != false);
   paddr block2_child_address = cutMemoryBlock(block1_child_address,
-                                                  block_to_share_id + 2*KERNELSTRUCTURETOTALLENGTH(),
+                                                  block_to_share_id + 2*getKernelStructureTotalLength(),
                                                   -1);
   assert(block2_child_address != false);
   paddr block3_child_address = cutMemoryBlock(block2_child_address,
-                                                  block_to_share_id + 3*KERNELSTRUCTURETOTALLENGTH(),
+                                                  block_to_share_id + 3*getKernelStructureTotalLength(),
                                                   -1);
   assert(block3_child_address != false);
   // Check BLK structure is not empty (check first entry);
@@ -1905,15 +1905,15 @@ void remove_fails_with_subblocks_inaccessible()
   // CUT Switch to child -> cut shared block 3x
   updateCurPartition(child_partition_pd);
   paddr block1_child_address = cutMemoryBlock(block_to_share_child_address,
-                                              block_to_share_id + KERNELSTRUCTURETOTALLENGTH(),
+                                              block_to_share_id + getKernelStructureTotalLength(),
                                               -1);
   assert(block1_child_address != false);
   paddr block2_child_address = cutMemoryBlock(block1_child_address,
-                                              block_to_share_id + 2 * KERNELSTRUCTURETOTALLENGTH(),
+                                              block_to_share_id + 2 * getKernelStructureTotalLength(),
                                               -1);
   assert(block2_child_address != false);
   paddr block3_child_address = cutMemoryBlock(block2_child_address,
-                                              block_to_share_id + 3 * KERNELSTRUCTURETOTALLENGTH(),
+                                              block_to_share_id + 3 * getKernelStructureTotalLength(),
                                               -1);
   assert(block3_child_address != false);
   // PREPARE the child prepares itself to add a kernel structure with one of the subblocks
@@ -2248,10 +2248,10 @@ void test_delete_partition_grandchild_with_blocks_not_cut()
   KStructure_t* ks_root = (KStructure_t*) root_kernel_structure_start;
   // INIT
   paddr child_partition_pd = initial_block_start;
-  paddr block_prepare_child_id = initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 2;
-  paddr grandchild_partition_pd = initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 4;
-  paddr block_prepare_grandchild_start_addr = initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 6;
-  paddr block_shared_id = initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 8;
+  paddr block_prepare_child_id = initial_block_start + getKernelStructureTotalLength() * 2;
+  paddr grandchild_partition_pd = initial_block_start + getKernelStructureTotalLength() * 4;
+  paddr block_prepare_grandchild_start_addr = initial_block_start + getKernelStructureTotalLength() * 6;
+  paddr block_shared_id = initial_block_start + getKernelStructureTotalLength() * 8;
   // cut all blocks in root partition
   paddr block_prepare_child_root_address = cutMemoryBlock(initial_block_root_address, block_prepare_child_id, -1);
   assert(block_prepare_child_root_address != false);
@@ -2286,7 +2286,7 @@ void test_delete_partition_grandchild_with_blocks_not_cut()
   assert(block_shared_grandchild_address != false);
   // cut shared block in grandchild
   updateCurPartition(grandchild_partition_pd);
-  assert(cutMemoryBlock(block_shared_grandchild_address, block_shared_id + KERNELSTRUCTURETOTALLENGTH(), -1) != false);
+  assert(cutMemoryBlock(block_shared_grandchild_address, block_shared_id + getKernelStructureTotalLength(), -1) != false);
 
   // Check all grandchild blocks are NOT accessible anymore to root partition
   paddr root_kernel_structure_start = readPDStructurePointer(root_partition);
@@ -2384,7 +2384,7 @@ void test_delete()
  */
 void test_merge_two_blocks()
 {
-  paddr block1 = initial_block_start + KERNELSTRUCTURETOTALLENGTH();
+  paddr block1 = initial_block_start + getKernelStructureTotalLength();
 
   // keep state of PD
   paddr old_pointer_to_BLK_linked_list = readPDStructurePointer(getCurPartition());
@@ -2428,13 +2428,13 @@ void test_merge_two_blocks()
  */
 void test_merge_full_BLK_structure()
 {
-  paddr block1 = initial_block_start + KERNELSTRUCTURETOTALLENGTH();
-  paddr block2 = block1 + KERNELSTRUCTURETOTALLENGTH();
-  paddr block3 = block2 + KERNELSTRUCTURETOTALLENGTH();
-  paddr block4 = block3 + KERNELSTRUCTURETOTALLENGTH();
-  paddr block5 = block4 + KERNELSTRUCTURETOTALLENGTH();
-  paddr block6 = block5 + KERNELSTRUCTURETOTALLENGTH();
-  paddr block7 = block6 + KERNELSTRUCTURETOTALLENGTH();
+  paddr block1 = initial_block_start + getKernelStructureTotalLength();
+  paddr block2 = block1 + getKernelStructureTotalLength();
+  paddr block3 = block2 + getKernelStructureTotalLength();
+  paddr block4 = block3 + getKernelStructureTotalLength();
+  paddr block5 = block4 + getKernelStructureTotalLength();
+  paddr block6 = block5 + getKernelStructureTotalLength();
+  paddr block7 = block6 + getKernelStructureTotalLength();
 
   // Fill BLK structure
   paddr block1_address = cutMemoryBlock(initial_block_root_address, block1, -1);
@@ -2500,7 +2500,7 @@ void test_merge_subblocks_child()
   );
   // cut the shared block in child
   updateCurPartition(child_partition_pd);
-  paddr block_to_share_child_address_cut = cutMemoryBlock(block_to_share_child_address, block_to_share_id + KERNELSTRUCTURETOTALLENGTH(), -1);
+  paddr block_to_share_child_address_cut = cutMemoryBlock(block_to_share_child_address, block_to_share_id + getKernelStructureTotalLength(), -1);
   assert(block_to_share_child_address_cut != false);
 
   // check that shared block is now not accessible anymore
@@ -2535,7 +2535,7 @@ void test_merge_bad_arguments()
   build_create_child_block_out_of_initial_block();
   build_prepare_child_block_out_of_initial_block();
   build_share_block_out_of_initial_block();
-  paddr root_accessible_block_id = block_to_share_id + KERNELSTRUCTURETOTALLENGTH();
+  paddr root_accessible_block_id = block_to_share_id + getKernelStructureTotalLength();
   paddr root_accessible_block_root_address = cutMemoryBlock(block_to_share_root_address, root_accessible_block_id, -1);
   assert(root_accessible_block_root_address != false);
   // create, prepare and share a block with a child
@@ -2557,7 +2557,7 @@ void test_merge_bad_arguments()
   assert(mergeMemoryBlocks(block_create_child_root_address, root_accessible_block_root_address, -1) == NULL);
 
   // Check block 2 follows block 1 -> cut accessible block and try to merge
-  paddr block1_root_address = cutMemoryBlock(root_accessible_block_root_address, root_accessible_block_id + KERNELSTRUCTURETOTALLENGTH(), -1);
+  paddr block1_root_address = cutMemoryBlock(root_accessible_block_root_address, root_accessible_block_id + getKernelStructureTotalLength(), -1);
   assert(block1_root_address != false);
   assert(
       mergeMemoryBlocks(block1_root_address, root_accessible_block_root_address, -1) ==
@@ -2784,9 +2784,9 @@ void test_collect_with_several_structures()
   init_test_with_create_prepare_child(false);
 
   // cut share block in three (2 cuts + original block);
-  paddr block2_address = cutMemoryBlock(block_to_share_root_address, block_to_share_id + 2*KERNELSTRUCTURETOTALLENGTH(), -1);
+  paddr block2_address = cutMemoryBlock(block_to_share_root_address, block_to_share_id + 2*getKernelStructureTotalLength(), -1);
   assert(block2_address != false);
-  paddr block3_address = cutMemoryBlock(block_to_share_root_address, block_to_share_id + KERNELSTRUCTURETOTALLENGTH(), -1);
+  paddr block3_address = cutMemoryBlock(block_to_share_root_address, block_to_share_id + getKernelStructureTotalLength(), -1);
   assert(block3_address != false);
 
   // prepare the child again (2nd prepare) without adding a block -> 1st prepare is empty and can be collected
@@ -2833,10 +2833,10 @@ void test_collect_fails_with_no_empty_structure()
 void test_collect_fails_trying_to_collect_a_structure_that_the_current_partition_did_not_prepare()
 {
   // cut initial block several times
-  child_partition_pd = initial_block_start + 20*KERNELSTRUCTURETOTALLENGTH();
-  block_prepare_child_id = initial_block_start + 15*KERNELSTRUCTURETOTALLENGTH();
-  block_to_share_id = initial_block_start + 10*KERNELSTRUCTURETOTALLENGTH();
-  paddr block_prepare_child_2_id = initial_block_start + 5*KERNELSTRUCTURETOTALLENGTH();
+  child_partition_pd = initial_block_start + 20*getKernelStructureTotalLength();
+  block_prepare_child_id = initial_block_start + 15*getKernelStructureTotalLength();
+  block_to_share_id = initial_block_start + 10*getKernelStructureTotalLength();
+  paddr block_prepare_child_2_id = initial_block_start + 5*getKernelStructureTotalLength();
 
   paddr child_partition_pd_address = cutMemoryBlock(initial_block_root_address, child_partition_pd, -1);
   assert(child_partition_pd_address != false);
@@ -3274,9 +3274,9 @@ void test_mpu_in_sync_with_system_calls()
   // CUT in root: subblock placed correctly in MPU
   updateCurPartition(root);
   currPart = (PDTable_t*) getCurPartition();
-  initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 25;
+  initial_block_start + getKernelStructureTotalLength() * 25;
   paddr subblock1_address = cutMemoryBlock(initial_block_root_address,
-                                              initial_block_start + KERNELSTRUCTURETOTALLENGTH() * 5,
+                                              initial_block_start + getKernelStructureTotalLength() * 5,
                                               6);
   assert(subblock1_address != NULL);
   assert(currPart->mpu[0] == initial_block_root_address);
@@ -3305,7 +3305,7 @@ void test_mpu_in_sync_with_system_calls()
 
   // block cut still in MPU, subblock not
   assert(cutMemoryBlock(shared_block_address,
-                        block_to_share_id + KERNELSTRUCTURETOTALLENGTH(),
+                        block_to_share_id + getKernelStructureTotalLength(),
                         -1) != NULL);
   assert(currPart->mpu[0] == shared_block_address);
   assert(currPart->mpu[1] == NULL);
@@ -3642,7 +3642,7 @@ void test_find_initial_block_in_max_prepared()
   {
     // cut the initial block
     paddr blockaddr = cutMemoryBlock(initial_block_root_address,
-                                  initial_block_start + i * KERNELSTRUCTURETOTALLENGTH(),
+                                  initial_block_start + i * getKernelStructureTotalLength(),
                                   -1);
     assert(blockaddr != false);
     int isPrepared = prepare(getCurPartition(), -1, blockaddr);
@@ -3710,7 +3710,7 @@ int main_test (int argc, char* argv[])
     while(1);
   }
 
-  initial_block_start = (void*) &user_mem_start + getPDStructureTotalLength() + KERNELSTRUCTURETOTALLENGTH(); // size in bytes
+  initial_block_start = (void*) &user_mem_start + getPDStructureTotalLength() + getKernelStructureTotalLength(); // size in bytes
   initial_block_end = &user_mem_end - 1;
 
   // Test initial root partition definition

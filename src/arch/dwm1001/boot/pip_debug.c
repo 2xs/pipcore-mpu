@@ -45,7 +45,7 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
 #if defined DUMP
     KStructure_t* ks = (KStructure_t*) kernel_structure_start_addr;
     printf("\r\n----------Kernel structure %p (size: %u)----\r\n", kernel_structure_start_addr,
-                                                                KERNELSTRUCTURETOTALLENGTH());
+                                                                getKernelStructureTotalLength());
     printf("\r\n----------BLOCKS---------------------------\r\n");
     for (int i=0;i<KERNELSTRUCTUREENTRIESNB;i++)
     {

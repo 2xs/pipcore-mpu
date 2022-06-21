@@ -294,11 +294,10 @@ uint32_t getPDStructureTotalLength(void)
 }
 
 /*!
- * \fn uint32_t KERNELSTRUCTURETOTALLENGTH(void)
  * \brief Returns the size of a kernel structure expanded to fill an MPU region.
  * \return The size in bytes of a kernel structure (matching a power of 2).
  */
-uint32_t KERNELSTRUCTURETOTALLENGTH(void)
+uint32_t getKernelStructureTotalLength(void)
 {
 	return fit_mpu_region(sizeof(KStructure_t));
 }

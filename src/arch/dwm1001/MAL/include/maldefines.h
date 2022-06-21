@@ -80,7 +80,6 @@ extern paddr nullAddr;
 
 #define maxNbPrepare MAXNBPREPARE
 #define getMaxNbPrepare getMaxNbPrepare
-#define getKernelStructureTotalLength KERNELSTRUCTURETOTALLENGTH
 #define getKernelStructureEntriesNb getKernelStructureEntriesNb
 #define kernelStructureEntriesNb KERNELSTRUCTUREENTRIESNB
 
