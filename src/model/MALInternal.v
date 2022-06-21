@@ -53,25 +53,32 @@ Definition paddrLt (x y: paddr) : bool := x <? y.
 Notation paddrLeM x y := (ret (paddrLe x y)) (only parsing).
 Notation paddrLtM x y := (ret (paddrLt x y)) (only parsing).
 
-Module Paddr.
-(* #[deprecated(note="Use paddrLeM instead.")] *)
-Notation leb x y := (paddrLeM x y) (only parsing).
-(* #[deprecated(note="Use paddrLtM instead.")] *)
-Notation ltb x y := (paddrLtM x y) (only parsing).
-
-Program Definition succ (n : paddr) : LLI paddr :=
+Program Definition paddrSuccM (n : paddr) : LLI paddr :=
 let isucc := n+1 in
 if (le_dec isucc maxAddr )
 then
   ret (Build_paddr isucc _ )
 else  undefined 68.
 
-Program Definition pred (n : paddr) : LLI paddr :=
+Program Definition paddrPredM (n : paddr) : LLI paddr :=
 let ipred := n-1 in
 if (le_dec ipred maxAddr )
 then
   ret (Build_paddr ipred _ )
 else  undefined 69.
+
+
+Module Paddr.
+(* #[deprecated(note="Use paddrLeM instead.")] *)
+Notation leb x y := (paddrLeM x y) (only parsing).
+(* #[deprecated(note="Use paddrLtM instead.")] *)
+Notation ltb x y := (paddrLtM x y) (only parsing).
+
+(* #[deprecated(note="Use paddrSuccM instead.")] *)
+Notation succ := paddrSuccM (only parsing).
+(* #[deprecated(note="Use paddrPredM instead.")] *)
+Notation pred := paddrPredM (only parsing).
+
 
 Program Definition addPaddrIdx (n : paddr) (m: index) : LLI paddr :=
 let res := n+m in
@@ -101,25 +108,32 @@ Definition indexLt (x y: index) : bool := x <? y.
 Notation indexLeM x y := (ret (indexLe x y)) (only parsing).
 Notation indexLtM x y := (ret (indexLt x y)) (only parsing).
 
+Program Definition indexSuccM (n : index) : LLI index :=
+let isucc := n+1 in
+if (le_dec isucc maxIdx)
+then
+  ret (Build_index isucc _ )
+else  undefined 68.
+
+Program Definition indexPredM (n : index) : LLI index :=
+let ipred := n-1 in
+if (le_dec ipred maxIdx)
+then
+  ret (Build_index ipred _ )
+else  undefined 71.
+
+
 Module Index.
 
 (* #[deprecated(note="Use indexLeM instead.")] *)
 Notation leb x y := (indexLeM x y) (only parsing).
 (* #[deprecated(note="Use indexLtM instead.")] *)
 Notation ltb x y := (indexLtM x y) (only parsing).
+(* #[deprecated(note="Use indexSuccM instead.")] *)
+Notation succ := indexSuccM (only parsing).
+(* #[deprecated(note="Use indexPredM instead.")] *)
+Notation pred := indexPredM (only parsing).
 
-Program Definition succ (n : index) : LLI index :=
-let isucc := n+1 in
-if (le_dec isucc maxIdx)
-then
-  ret (Build_index isucc _ )
-else  undefined 68.
-Program Definition pred (n : index) : LLI index :=
-let ipred := n-1 in
-if (le_dec ipred maxIdx)
-then
-  ret (Build_index ipred _ )
-else  undefined 71.
 
 Program Definition zero : LLI index:= ret (CIndex 0).
 

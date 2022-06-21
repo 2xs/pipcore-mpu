@@ -121,21 +121,19 @@ int eqb(const int32_t a, const int32_t b)
 }
 
 /*!
- * \fn uint32_t inc()
- * \brief incremet the value.
+ * \brief increment an index
  * \return the incremented value.
  */
-uint32_t inc(uint32_t val)
+Coq_index indexSuccM(Coq_index val)
 {
 	return ++val;
 }
 
 /*!
- * \fn uint32_t dec()
- * \brief decrement value.
+ * \brief decrement index
  * \return the decremented value.
  */
-uint32_t dec(uint32_t val)
+Coq_index indexPredM(Coq_index val)
 {
 	return --val;
 }
@@ -347,11 +345,11 @@ uint32_t subPaddr(paddr a, paddr b)
 }
 
 /*!
- * \fn paddr predPaddr(paddr a)
+ * \fn paddr paddrPredM(paddr a)
  * \brief decrements the given address.
  * \return the previous address.
  */
-paddr predPaddr(paddr a)
+paddr paddrPredM(paddr a)
 {
 	return --a;
 }

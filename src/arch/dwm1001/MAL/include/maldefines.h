@@ -58,11 +58,8 @@ extern uint32_t getMinVidtBlockSize(void);
 /* MALInternals */
 #define Paddr_leb lebPaddr
 #define Paddr_subPaddr subPaddr
-#define Paddr_pred predPaddr
 #define Paddr_addPaddrIdx addPaddrIdxBytes
 
-#define Index_succ      inc
-#define Index_pred      dec
 #define Index_eqb       eqb
 #define Index_zero      zero
 #define Index_one       one
