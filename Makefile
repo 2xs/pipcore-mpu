@@ -266,13 +266,12 @@ all: pip.bin
 ###################### Generation from Coq to C #####################
 
 DIGGERFLAGS := -m Monad -M coq_LLI
-DIGGERFLAGS += -m Datatypes -r Coq_true:true -r Coq_false:false -r Coq_tt:tt -r index:Coq_index
+DIGGERFLAGS += -m Datatypes -r Coq_true:true -r Coq_false:false -r Coq_tt:tt -r index:Coq_index -r coq_N:N
 DIGGERFLAGS += -m MALInternal -d :$(GENERATED_FILES_DIR)/MALInternal.json
 DIGGERFLAGS += -m MAL -d :$(GENERATED_FILES_DIR)/MAL.json
 DIGGERFLAGS += -m ADT -m Nat
 DIGGERFLAGS += -q maldefines.h
 DIGGERFLAGS += -c true -c false -c tt -c Coq_error
-DIGGERFLAGS += --ignore coq_N
 
 ifeq ($(GALLINA_C),digger)
 

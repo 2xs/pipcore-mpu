@@ -38,9 +38,6 @@ Require Import Bool Arith List.
 
 Open Scope mpu_state_scope.
 
-(** Fixed fuel/timeout value to prove function termination *)
-Definition N := 100.
-
 (** The [compareAddrToNull] returns true if the given addr is equal to the fixed
     default addr (null) *)
 Definition compareAddrToNull (p : paddr) : LLI bool :=

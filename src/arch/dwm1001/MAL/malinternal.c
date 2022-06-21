@@ -43,6 +43,8 @@
 #include <stddef.h>
 #include "mpu.h"
 
+uint32_t N = 1000;
+
  uint32_t min_mpu_region;
 
 paddr nullAddr = NULL;
