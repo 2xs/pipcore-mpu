@@ -52,7 +52,8 @@ LDFLAGS=$(ARCH_LDFLAGS)
 CFLAGS+=$(if $(DEBUG), $(DEBUG_CFLAGS))
 
 COQFLAGS := $(shell $(CAT) _CoqProject)
-COQCFLAGS := $(COQFLAGS) -w all,-nonprimitive-projection-syntax
+# Enable all warnings except for those triggered by the standard lib
+COQCFLAGS := $(COQFLAGS) -w all,-nonprimitive-projection-syntax,-disj-pattern-notation
 COQCEXTRFLAGS := $(shell $(SED) 's/-[RQ]  */&..\//g' _CoqProject) -w all,-extraction
 
 #####################################################################
