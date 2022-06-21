@@ -560,7 +560,7 @@ $(GENERATED_FILES_DIR)/root_partition.s: | $(GENERATED_FILES_DIR)
 
 # The order of the dependencies matter: in particular the linker script must be
 # the first, to feed it as is to ld -T ...
-pip+root.elf: $(C_SRC_TARGET_DIR)/link.ld pip.a $(GENERATED_FILES_DIR)/root_partition.o
+pip+root.elf: $(C_SRC_TARGET_DIR)/link.ld $(PIP_OBJS) $(GENERATED_FILES_DIR)/root_partition.o
 	$(LD) -T $^ -o $@ $(LDFLAGS)
 
 #####################################################################
