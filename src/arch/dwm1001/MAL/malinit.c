@@ -211,7 +211,7 @@ createAndRegisterRootPartition(void)
 static inline void
 initializeMalGlobalVariables(void)
 {
-	min_mpu_region = MINBLOCKSIZE() << 2;
+	min_mpu_region = getMinBlockSize() << 2;
 }
 
 /*!

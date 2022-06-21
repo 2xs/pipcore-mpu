@@ -45,6 +45,8 @@
 
  uint32_t min_mpu_region;
 
+paddr nullAddr = NULL;
+
 /*!
  * \fn paddr getNullAddr(void)
  * \brief Returns the default null address.
@@ -260,7 +262,7 @@ uint32_t max_powlog2_alignment(uint32_t v)
  * \brief Returns the minimum size of a block in bytes (MPU region constraint).
  * \return The minimum size in bytes of an MPU region.
  */
-uint32_t MINBLOCKSIZE(void)
+uint32_t getMinBlockSize(void)
 {
 	return 32;//TODO : not hard-coded
 }
@@ -269,7 +271,7 @@ uint32_t MINBLOCKSIZE(void)
  * \brief Returns the minimum size of a VIDT block in bytes.
  * \return The minimum size of a VIDT block in bytes.
  */
-uint32_t MINVIDTBLOCKSIZE(void)
+uint32_t getMinVidtBlockSize(void)
 {
 	/*
 	 * The VIDT is an array of 128 pointers of 4 bytes. This
@@ -283,11 +285,10 @@ uint32_t MINVIDTBLOCKSIZE(void)
 }
 
 /*!
- * \fn uint32_t PDSTRUCTURETOTALLENGTH(void)
  * \brief Returns the size of a PD structure expanded to fill an MPU region.
  * \return The size in bytes of a PD structure (matching a power of 2).
  */
-uint32_t PDSTRUCTURETOTALLENGTH(void)
+uint32_t getPDStructureTotalLength(void)
 {
 	return fit_mpu_region(sizeof(PDTable_t));
 }

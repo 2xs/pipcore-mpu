@@ -218,7 +218,7 @@ void SC_structure_is_default(paddr kernel_structure_start)
 void test_initial_root_PD_values()
 {
   assert(root == &user_mem_start);
-  root_kernel_structure_start = (void*) &user_mem_start + PDSTRUCTURETOTALLENGTH();//size in bytes
+  root_kernel_structure_start = (void*) &user_mem_start + getPDStructureTotalLength();//size in bytes
   KStructure_t* ks = (KStructure_t*) root_kernel_structure_start;
   dump_partition(root);
   assert(readPDStructurePointer(root) == root_kernel_structure_start);
@@ -1074,7 +1074,7 @@ void test_create_partitions_bad_arguments()
 void test_create_sister_partitions()
 {
   KStructure_t* ks_root = (KStructure_t*) root_kernel_structure_start;
-  uint32_t cut_offset = PDSTRUCTURETOTALLENGTH();
+  uint32_t cut_offset = getPDStructureTotalLength();
   paddr block1_address = cutMemoryBlock(initial_block_root_address, initial_block_start + cut_offset, -1);
   assert(block1_address != false);
   paddr block2_address = cutMemoryBlock(block1_address, initial_block_start + 2*cut_offset, -1) ;
@@ -3710,7 +3710,7 @@ int main_test (int argc, char* argv[])
     while(1);
   }
 
-  initial_block_start = (void*) &user_mem_start + PDSTRUCTURETOTALLENGTH() + KERNELSTRUCTURETOTALLENGTH(); // size in bytes
+  initial_block_start = (void*) &user_mem_start + getPDStructureTotalLength() + KERNELSTRUCTURETOTALLENGTH(); // size in bytes
   initial_block_end = &user_mem_end - 1;
 
   // Test initial root partition definition
