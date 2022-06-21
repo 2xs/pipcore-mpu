@@ -222,6 +222,7 @@ Record state : Type := {
  memory : list (paddr * value)
 }.
 
+#[universes(template)]
 Inductive result (A : Type) : Type :=
 | val : A -> result A
 | undef : nat -> state -> result A.
@@ -252,7 +253,7 @@ Definition undefined {A : Type} (code : nat ): LLI A :=
   fun s => undef code s.
 
 Notation "'perform' x ':=' m 'in' e" := (bind m (fun x => e))
-  (at level 60, x ident, m at level 200, e at level 60, format "'[v' '[' 'perform'  x  ':='  m  'in' ']' '/' '[' e ']' ']'") : mpu_state_scope.
+  (at level 60, x name, m at level 200, e at level 60, format "'[v' '[' 'perform'  x  ':='  m  'in' ']' '/' '[' e ']' ']'") : mpu_state_scope.
 
 
 Notation "m1 ;; m2" := (bind m1 (fun _ => m2)) (at level 60, right associativity) : mpu_state_scope.
