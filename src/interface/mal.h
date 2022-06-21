@@ -82,10 +82,10 @@ uint32_t add(uint32_t a, uint32_t b); //!< Add two integers
 uint32_t getKernelStructureEntriesNb(); //!< The kernel structure entries number
 uint32_t getMaxNbPrepare(); //!<  The maximum number of prepare
 uint32_t getMPURegionsNb(void); //! The maximum number of physical MPU regions
-uint32_t KERNELSTRUCTURETOTALLENGTH(void);
-uint32_t PDSTRUCTURETOTALLENGTH(void);
+uint32_t getKernelStructureTotalLength(void);
+uint32_t getPDStructureTotalLength(void);
 extern uint32_t min_mpu_region;
-uint32_t MINBLOCKSIZE(void);
+uint32_t getMinBlockSize(void);
 
 paddr getKernelStructureStartAddr(paddr blockentryaddr, uint32_t blockentryindex); //!< The start of the kernel structure frame
 paddr getBlockEntryAddrFromKernelStructureStart(paddr blockentryaddr, uint32_t blockentryindex); //!< The address of the block entry given the index and the KS

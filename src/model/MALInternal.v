@@ -187,7 +187,8 @@ Definition beqIdx (a b : ADT.index) : bool := a =? b.
 Definition beqAddr (a b : paddr) : bool := a =? b.
 Definition nullAddr : paddr := CPaddr 0.
 Definition getNullAddr := ret nullAddr.
-Definition getBeqAddr (p1 : paddr)  (p2 : paddr) : LLI bool := ret (p1 =? p2).
+Notation getBeqAddr a b := (ret (beqAddr a b)) (only parsing).
+
 Definition getBeqIdx (p1 : index)  (p2 : index) : LLI bool := ret (p1 =? p2).
 
 Definition getAddr (paddr : paddr) : LLI ADT.paddr := ret paddr.
