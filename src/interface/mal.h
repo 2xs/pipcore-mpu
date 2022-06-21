@@ -67,8 +67,8 @@ uint32_t toAddr(uint32_t input); //!< Converts a given uint32_t to an address (o
 
 int eqb(const int32_t a, const int32_t b); //!< Equals
 uint32_t mul3(uint32_t v); //!< Multiply an integer with 3
-uint32_t inc(uint32_t val); //!< Increment an integer
-uint32_t dec(uint32_t val); //!< Decrement an integer
+extern Coq_index indexSuccM(Coq_index);
+extern Coq_index indexPredM(Coq_index);
 uint32_t zero(); //!< Zero. That's it.
 uint32_t one(); //!< One.
 
@@ -104,7 +104,7 @@ bool beqIdx(uint32_t a, uint32_t b); //!< Compare two indexes
 paddr addPaddrIdxBytes(paddr a, uint32_t b); //!< adds an offset to a paddr
 uint32_t subPaddr(paddr a, paddr b); //!< substracts the first paddr to the second.
 bool lebPaddr(const paddr a, const paddr b); //!< the first parameter is less than or equal to the second one.
-paddr predPaddr(paddr a); //!< decrements the given address.
+paddr predPaddrM(paddr a); //!< decrements the given address.
 paddr getAddr(paddr addr); //!< returns the address //TODO to remove
 
 
