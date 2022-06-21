@@ -55,7 +55,7 @@ typedef _Bool boolean;
 typedef void* paddr;
 
 /* index */
-typedef int32_t Coq_index;
+typedef uint32_t Coq_index;
 
 /* Require for the Sh1Entry_t structure. */
 struct PDTable;
