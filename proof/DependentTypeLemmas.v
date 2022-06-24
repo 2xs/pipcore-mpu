@@ -304,6 +304,16 @@ unfold pdentryMPU.
 rewrite H;trivial.
 Qed.
 
+(*DUP*)
+Lemma lookupPDEntryVidt entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
+pdentryVidt entryaddr (vidtBlock entry) s.
+Proof.
+intros.
+unfold pdentryVidt.
+rewrite H;trivial.
+Qed.
+
 (* DUP*)
 Lemma lookupSh1EntryAddr entryaddr s :
 forall entry , lookup entryaddr (memory s) beqAddr = Some (BE entry) ->

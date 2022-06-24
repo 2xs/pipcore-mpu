@@ -58,9 +58,9 @@ Lemma insertNewEntry 	(pdinsertion startaddr endaddr origin: paddr)
 Internal.insertNewEntry pdinsertion startaddr endaddr origin r w e currnbfreeslots
 
 {{fun newentryaddr s =>
-(exists s0, P s0) /\ isBE newentryaddr s /\ consistency s
+(exists s0, P s0 /\ consistency s
 (* expected new state after memory writes and associated properties on the new state s *)
-/\ (exists s0, exists pdentry : PDTable, exists pdentry0 pdentry1: PDTable,
+/\ (exists pdentry : PDTable, exists pdentry0 pdentry1: PDTable,
 		exists bentry bentry0 bentry1 bentry2 bentry3 bentry4 bentry5 bentry6: BlockEntry,
 		exists sceaddr, exists scentry : SCEntry,
 		exists newBlockEntryAddr newFirstFreeSlotAddr predCurrentNbFreeSlots,
@@ -119,7 +119,7 @@ Internal.insertNewEntry pdinsertion startaddr endaddr origin r w e currnbfreeslo
                     parent := parent pdentry;
                     MPU := MPU pdentry;
 										vidtBlock := vidtBlock pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
-
+	/\ newBlockEntryAddr = newentryaddr
 	/\ lookup newBlockEntryAddr (memory s0) beqAddr = Some (BE bentry)
 	/\ lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry6) /\
 	bentry6 = (CBlockEntry (read bentry5) (write bentry5) e (present bentry5)
@@ -161,20 +161,21 @@ Internal.insertNewEntry pdinsertion startaddr endaddr origin r w e currnbfreeslo
 		                  parent := parent pdentry;
 		                  MPU := MPU pdentry;
 											vidtBlock := vidtBlock pdentry|}
-	(* propagate s0 properties *)
-	 /\ partitionsIsolation s0   (*/\ kernelDataIsolation s0*) /\ verticalSharing s0
+	(* propagate new s0 properties *)
+	 (*/\ partitionsIsolation s0   (*/\ kernelDataIsolation s0*) /\ verticalSharing s0
 	/\ consistency s0
 	/\ (exists pdentry, lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry))
 	(* to show the first free slot pointer is not NULL *)
 	/\ (pdentryNbFreeSlots pdinsertion currnbfreeslots s0 /\ currnbfreeslots > 0)
 	/\ (exists firstfreepointer, pdentryFirstFreeSlot pdinsertion firstfreepointer s0 /\
 			firstfreepointer <> nullAddr)
+	/\ pdentryNbFreeSlots pdinsertion currnbfreeslots s0*)
 	/\ pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s0
 	/\ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s0
-	/\ pdentryNbFreeSlots pdinsertion currnbfreeslots s0
+
 
 	(* propagate new properties (copied from last step) *)
-	/\pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s
+	/\ pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s
 	/\ StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots
 	/\ blockindex bentry6 = blockindex bentry5
 	/\ blockindex bentry5 = blockindex bentry4
@@ -191,9 +192,14 @@ Internal.insertNewEntry pdinsertion startaddr endaddr origin r w e currnbfreeslo
 	/\ isSCE sceaddr s0
 	/\ isSCE sceaddr s
 	/\ sceaddr = CPaddr (newBlockEntryAddr + scoffset)
+	/\ firstfreeslot pdentry1 = newFirstFreeSlotAddr
+	/\ newBlockEntryAddr = (firstfreeslot pdentry)
 	/\ newFirstFreeSlotAddr <> pdinsertion
 	/\ pdinsertion <> newBlockEntryAddr
 	/\ newFirstFreeSlotAddr <> newBlockEntryAddr
+	/\ sceaddr <> newBlockEntryAddr
+	/\ sceaddr <> pdinsertion
+	/\ sceaddr <> newFirstFreeSlotAddr
 	(* pdinsertion's new free slots list and relation with list at s0 *)
 	/\ (exists (optionfreeslotslist : list optionPaddr) (s2 : state)
 					(n0 n1 n2 : nat) (nbleft : index),
@@ -313,7 +319,7 @@ s1 = {|
      memory := add sceaddr 
 								(SCE {| origin := origin; next := next scentry |}
                  ) (memory s9) beqAddr |}
-)
+))
 }}.
 Proof.
 unfold Internal.insertNewEntry.
@@ -2607,7 +2613,7 @@ nbleft < maxIdx /\
 
 	(* Prove ret *)
 	intuition.
-	- exists s0. intuition.
+	exists s0. intuition.
 	- (* consistency *)
 		unfold consistency. split.
 		{ (* wellFormedFstShadowIfBlockEntry *)
@@ -13455,12 +13461,37 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s9 (nbfreeslots pd2ent
 } (* end of DisjointFreeSlotsLists *)
 
 	- (* Final state *)
-		intuition.
-		exists s0. exists pdentry. exists pdentry0. exists pdentry1.
+		(*intuition.
+		exists s0.*) exists pdentry. exists pdentry0. exists pdentry1.
 		exists bentry. exists bentry0. exists bentry1. exists bentry2. exists bentry3.
 		exists bentry4. exists bentry5. exists bentry6. exists sceaddr. exists scentry.
 		exists newBlockEntryAddr. exists newFirstFreeSlotAddr. exists predCurrentNbFreeSlots.
-		intuition. exists pdentry. intuition.
-		eexists. eexists. eexists. eexists. eexists. eexists. eexists. eexists.
-		eexists. eexists. intuition.
+		intuition. (*exists pdentry. intuition.*)
+		-- (* sceaddr = newBlockEntryAddr *)
+				assert(Hfalse : sceaddr = newBlockEntryAddr) by intuition.
+				rewrite <- Hfalse in *.
+				unfold isSCE in *.
+				destruct (lookup sceaddr (memory s0) beqAddr) eqn:Hf; try(exfalso ; congruence).
+				destruct v ; try(exfalso ; congruence).
+		-- (* sceaddr = pdinsertion *)
+				assert(Hfalse : sceaddr = pdinsertion) by intuition.
+				rewrite <- Hfalse in *.
+				unfold isSCE in *.
+				unfold isPDT in *.
+				destruct (lookup sceaddr (memory s0) beqAddr) eqn:Hf; try(exfalso ; congruence).
+				destruct v ; try(exfalso ; congruence).
+		-- 	(* sceaddr = newFirstFreeSlotAddr *)
+				assert(newFsceNotEq : newFirstFreeSlotAddr <> sceaddr).
+				{ apply isSCELookupEq in HSCEs0. destruct HSCEs0 as [scentrys0 HSCEs0].
+					subst sceaddr.
+					apply (@newFirstSCENotEq (CPaddr (newBlockEntryAddr + scoffset))
+																		scentrys0
+																		newBlockEntryAddr
+																		newFirstFreeSlotAddr
+																		pdinsertion pdentry s0) ; intuition.
+				}
+				congruence.
+		--	(* intermediate states *)
+				eexists. eexists. eexists. eexists. eexists. eexists. eexists. eexists.
+				eexists. eexists. intuition.
 Qed.

@@ -67,7 +67,8 @@ Definition nullAddrExists s :=
 getNullAddr s = Some n.*)
 isPADDR nullAddr s.
 
-(* TODO : to remove -> consequence of freeSlotsListIsFreeSlot and FreeSlotIsBE *)
+(* TODO : to remove -> consequence of freeSlotsListIsFreeSlot and FreeSlotIsBE
+	-> but convenient for know so keep it *)
 Definition FirstFreeSlotPointerIsBEAndFreeSlot s :=
 forall pdentryaddr pdentry,
 lookup pdentryaddr (memory s) beqAddr = Some (PDT pdentry) ->
@@ -103,6 +104,14 @@ pdentryNbFreeSlots pdinsertion nbFreeSlots s ->
 freeslotpointer = nullAddr ->
 nbFreeSlots = zero.*)
 
+(* TODO *)
+Definition NbFreeSlotsISNbFreeSlotsInList s :=
+forall pd nbfreeslots,
+isPDT pd s ->
+pdentryNbFreeSlots pd nbfreeslots s ->
+exists optionfreeslotslist, optionfreeslotslist = getFreeSlotsList pd s /\
+wellFormedFreeSlotsList optionfreeslotslist <> False /\ (* to get rid of false induction bound constraints *)
+nbfreeslots.(i) (* nat *) = length (*(filterOption*) (optionfreeslotslist).
 
 Definition DisjointFreeSlotsLists s :=
 forall pd1 pd2,

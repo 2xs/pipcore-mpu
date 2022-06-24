@@ -564,6 +564,22 @@ apply lookupPDEntryNbPrepare;trivial.
 Qed.
 
 (* DUP *)
+Lemma readPDVidt (paddr : paddr) (P : state -> Prop) :
+{{ fun s => P s /\ isPDT paddr s  }} MAL.readPDVidt paddr
+{{ fun (vidtBlock : ADT.paddr) (s : state) => P s /\ pdentryVidt paddr vidtBlock s }}.
+Proof.
+eapply WP.weaken.
+apply WP.getPDTRecordField.
+simpl.
+intros.
+destruct H as (H & Hentry).
+apply isPDTLookupEq in Hentry ;trivial.
+destruct Hentry as (entry & Hentry).
+exists entry. repeat split;trivial.
+apply lookupPDEntryVidt;trivial.
+Qed.
+
+(* DUP *)
 Lemma readBlockFromPhysicalMPU (pd : paddr) (idx : index) (P : state -> Prop) :
 {{ fun s => P s /\ isPDT pd s  }} MAL.readBlockFromPhysicalMPU pd idx
 {{ fun (block: paddr) (s : state) => P s /\ pdentryMPUblock pd idx block s }}.

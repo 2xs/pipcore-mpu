@@ -500,6 +500,13 @@ Definition addMemoryBlock (idPDchild idBlockToShare: paddr) (r w e : bool)
 		perform isFull := Index.leb currentFreeSlotsNb zero in
 		if isFull then (* no free slots left, stop*) ret nullAddr else
 
+		(* Check first free slot in the child is not null *)
+		(* Useless check by knowing nbfreeslots > 0
+				-> use NbFreeSlotsISNbFreeSlotsInList consistency property instead *)
+		perform firstfreeslotInChild := readPDFirstFreeSlotPointer globalIdPDChild in
+		perform slotIsNull := compareAddrToNull	firstfreeslotInChild in
+		if slotIsNull	then (* first free slot is null, stop *) ret nullAddr else
+
 		(* Check block is accessible and present*)
 		perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr
 																	blockToShareInCurrPartAddr in

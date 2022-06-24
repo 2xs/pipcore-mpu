@@ -767,7 +767,14 @@ match lookup entryaddr s.(memory) beqAddr with
 | _ => False
 end.
 
-
+(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
+    into the given physical page [table] is type of [VE] and the user flag stored into
+    this entry is equal to a given flag [flag] *)
+Definition pdentryVidt entryaddr vidtblock s:=
+match lookup entryaddr s.(memory) beqAddr with
+| Some (PDT entry) => vidtblock = entry.(vidtBlock)
+| _ => False
+end.
 
 (** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
     into the given physical page [table] is type of [VE] and the user flag stored into 
