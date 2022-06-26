@@ -3220,205 +3220,65 @@ split.
 
 	split.
 
-{ (* KernelStructureStartFromBlockEntryAddrIsKS s *)
-	unfold KernelStructureStartFromBlockEntryAddrIsKS.
-	intros bentryaddr blockidx Hlookup Hblockidx.
+	{ (* KernelStructureStartFromBlockEntryAddrIsKS s *)
+		unfold KernelStructureStartFromBlockEntryAddrIsKS.
+		intros bentryaddr blockidx Hlookup Hblockidx.
 
-	assert(Hcons0 : KernelStructureStartFromBlockEntryAddrIsKS s0) by (unfold consistency in * ; intuition).
-	unfold KernelStructureStartFromBlockEntryAddrIsKS in Hcons0.
+		assert(Hcons10 : KernelStructureStartFromBlockEntryAddrIsKS s10) by (unfold consistency in * ; intuition).
+		unfold KernelStructureStartFromBlockEntryAddrIsKS in Hcons10.
 
-	(* check all possible values for bentryaddr in the modified state s
-			-> only possible is newBlockEntryAddr
-		1) if bentryaddr == newBlockEntryAddr :
-				- still a BlockEntry in s, index not modified
-					- kernelStart is newBlock -> still a BE
-					- kernelStart is not modified -> leads to s0 -> OK
-		2) if bentryaddr <> newBlockEntryAddr :
-				- relates to another bentry than newBlockentryAddr
-					(either in the same structure or another)
-					- kernelStart is newBlock -> still a BE
-					- kernelStart is not modified -> leads to s0 -> OK
-*)
-	(* Check all values except newBlockEntryAddr *)
-	destruct (beqAddr sceaddr bentryaddr) eqn:beqscebentry; try(exfalso ; congruence).
-	-	(* sceaddr = bentryaddr *)
-		rewrite <- DependentTypeLemmas.beqAddrTrue in beqscebentry.
-		rewrite <- beqscebentry in *.
-		unfold isSCE in *.
-		unfold isBE in *.
-		destruct (lookup sceaddr (memory s) beqAddr) ; try(exfalso ; congruence).
-		destruct v ; try(exfalso ; congruence).
-	-	(* sceaddr <> bentryaddr *)
-		destruct (beqAddr pdinsertion bentryaddr) eqn:beqpdbentry; try(exfalso ; congruence).
-		-- (* pdinsertion = bentryaddr *)
-			rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdbentry.
-			rewrite <- beqpdbentry in *.
-			unfold isPDT in *.
-			unfold isBE in *.
-			destruct (lookup pdinsertion (memory s) beqAddr) ; try(exfalso ; congruence).
+		(* check all possible values for bentryaddr in the modified state s
+				-> no entry matches -> leads to s10 -> OK
+
+			same for the kernel start, no entry matches -> leads to s10 -> OK
+		*)
+
+		destruct (beqAddr sh1eaddr bentryaddr) eqn:beqsh1bentry; try(exfalso ; congruence).
+		*	(* sh1eaddr = bentryaddr *)
+			rewrite <- DependentTypeLemmas.beqAddrTrue in beqsh1bentry.
+			rewrite <- beqsh1bentry in *.
+			unfold isSHE in *. unfold isBE in *.
+			destruct (lookup sh1eaddr (memory s) beqAddr) eqn:Hlookupscefirst ; try(exfalso ; congruence).
 			destruct v ; try(exfalso ; congruence).
-		-- (* pdinsertion <> bentryaddr *)
-			destruct (beqAddr newBlockEntryAddr bentryaddr) eqn:newbentry ; try(exfalso ; congruence).
-			--- (* newBlockEntryAddr = bentryaddr *)
-					rewrite <- DependentTypeLemmas.beqAddrTrue in newbentry.
-					rewrite <- newbentry in *.
-					unfold bentryBlockIndex in *. rewrite HlookupnewBs in *.
-					destruct Hblockidx as [Hblockidx Hidxnb].
-					specialize(Hcons0 newBlockEntryAddr blockidx HBEs0).
-					rewrite HlookupnewBs0 in *. intuition. rewrite Hblockindex in *.
-					intuition.
+		* (* sh1eaddr <> bentryaddr *)
+			assert(HlookupbentryEq : lookup bentryaddr (memory s) beqAddr = lookup bentryaddr (memory s10) beqAddr).
+			{
+				rewrite HsEq.
+				cbn.
+				rewrite beqAddrTrue.
+				rewrite beqsh1bentry.
+				rewrite <- beqAddrFalse in *.
+				repeat rewrite removeDupIdentity; intuition.
+			}
+			assert(HBEbentrys10Eq : isBE bentryaddr s = isBE bentryaddr s10)
+				by (unfold isBE ; rewrite <- HlookupbentryEq ; intuition).
+			assert(HBEbentrys10 : isBE bentryaddr s10) by (rewrite <- HBEbentrys10Eq ; intuition).
+			assert(Hblockidxs10Eq : bentryBlockIndex bentryaddr blockidx s = bentryBlockIndex bentryaddr blockidx s10)
+				by (unfold bentryBlockIndex ; rewrite <- HlookupbentryEq ; intuition).
+			assert(Hblockidxbentrys10 : bentryBlockIndex bentryaddr blockidx s10)
+						by (rewrite <- Hblockidxs10Eq ; intuition).
+			specialize (Hcons10 bentryaddr blockidx HBEbentrys10 Hblockidxbentrys10).
 
-					(* Check all possible values for CPaddr (newBlockEntryAddr - blockidx)
-							-> only possible is newBlockEntryAddr
-							1) if CPaddr (newBlockEntryAddr - blockidx) == newBlockEntryAddr :
-									- still a BlockEntry in s with blockindex newBlockEntryAddr = 0 -> OK
-							2) if CPaddr (newBlockEntryAddr - blockidx) <> newBlockEntryAddr :
-									- relates to another bentry than newBlockentryAddr
-										that was not modified
-										(either in the same structure or another)
-									- -> leads to s0 -> OK
-					*)
+			(* check all values for bentryaddr - blockidx *)
+			destruct (beqAddr sh1eaddr (CPaddr (bentryaddr - blockidx))) eqn:beqsh1ks; try(exfalso ; congruence).
+			**	(* sh1eaddr = (CPaddr (bentryaddr - blockidx)) *)
+					rewrite <- DependentTypeLemmas.beqAddrTrue in beqsh1ks.
+					rewrite <- beqsh1ks in *.
+					unfold isSHE in *. unfold isKS in *.
+					destruct (lookup sh1eaddr (memory s10) beqAddr) eqn:Hsh1 ; try(exfalso ; congruence).
+					destruct v ; try(exfalso ; congruence).
+			** (* sh1eaddr <> (CPaddr (bentryaddr - blockidx)) *)
+					unfold isKS in *.
+					rewrite HsEq.
+					cbn.
+					rewrite beqAddrTrue.
+					rewrite beqsh1ks.
+					rewrite <- beqAddrFalse in *.
+					repeat rewrite removeDupIdentity; intuition.
+	} (* end of KernelStructureStartFromBlockEntryAddrIsKS *)
 
-					(* Check all values except newBlockEntryAddr *)
-					destruct (beqAddr sceaddr (CPaddr (newBlockEntryAddr - blockidx))) eqn:beqsceks; try(exfalso ; congruence).
-					*	(* sceaddr = (CPaddr (newBlockEntryAddr - blockidx)) *)
-						rewrite <- DependentTypeLemmas.beqAddrTrue in beqsceks.
-						rewrite <- beqsceks in *.
-						unfold isSCE in *.
-						unfold isKS in *.
-						destruct (lookup sceaddr (memory s0) beqAddr) ; try(exfalso ; congruence).
-						destruct v ; try(exfalso ; congruence).
-					*	(* sceaddr <> kernelstarts0 *)
-						destruct (beqAddr pdinsertion (CPaddr (newBlockEntryAddr - blockidx))) eqn:beqpdks; try(exfalso ; congruence).
-						** (* pdinsertion = (CPaddr (newBlockEntryAddr - blockidx)) *)
-							rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdks.
-							rewrite <- beqpdks in *.
-							unfold isPDT in *.
-							unfold isKS in *.
-							destruct (lookup pdinsertion (memory s0) beqAddr) ; try(exfalso ; congruence).
-							destruct v ; try(exfalso ; congruence).
-						** (* pdinsertion <> (CPaddr (newBlockEntryAddr - blockidx)) *)
-							destruct (beqAddr newBlockEntryAddr (CPaddr (newBlockEntryAddr - blockidx))) eqn:beqnewks ; try(exfalso ; congruence).
-							*** (* newBlockEntryAddr = (CPaddr (newBlockEntryAddr - blockidx)) *)
-									rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewks.
-									rewrite <- beqnewks in *.
-									intuition.
-									unfold isKS in *. rewrite HlookupnewBs. rewrite HlookupnewBs0 in *.
-									rewrite Hblockindex. intuition.
-							*** (* newBlockEntryAddr <> (CPaddr (newBlockEntryAddr - blockidx)) *)
-									unfold isKS.
-									rewrite Hs.
-									cbn. rewrite beqAddrTrue.
-									destruct (beqAddr sceaddr (CPaddr (newBlockEntryAddr - blockidx))) eqn:sceks ; try(exfalso ; congruence).
-									destruct (beqAddr newBlockEntryAddr sceaddr) eqn:newsce ; try(exfalso ; congruence).
-									rewrite beqAddrTrue.
-									cbn.
-									destruct (beqAddr newBlockEntryAddr (CPaddr (newBlockEntryAddr - blockidx))) eqn:newks ; try(exfalso ; congruence).
-									destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:pdks ; try(exfalso ; congruence).
-									cbn.
-									rewrite <- beqAddrFalse in *.
-									repeat rewrite removeDupIdentity ; intuition.
-									destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:pdnew ; try(exfalso ; congruence).
-									rewrite <- DependentTypeLemmas.beqAddrTrue in pdnew. congruence.
-									cbn.
-									destruct (beqAddr pdinsertion (CPaddr (newBlockEntryAddr - blockidx))) eqn:pdks'; try(exfalso ; congruence).
-									rewrite <- DependentTypeLemmas.beqAddrTrue in pdks'. congruence.
-									rewrite <- beqAddrFalse in *.
-									repeat rewrite removeDupIdentity ; intuition.
-			---	(* newBlockEntryAddr <> bentryaddr *)
-					assert(HblockEq : isBE bentryaddr s = isBE bentryaddr s0).
-					{ (* DUP *)
-						unfold isBE.
-						rewrite Hs.
-						cbn. rewrite beqAddrTrue.
-						destruct (beqAddr sceaddr bentryaddr) eqn:scebentry ; try(exfalso ; congruence).
-						destruct (beqAddr newBlockEntryAddr sceaddr) eqn:newsce ; try(exfalso ; congruence).
-						rewrite beqAddrTrue.
-						cbn. rewrite newbentry.
-						assert(HpdnewBNotEq : beqAddr pdinsertion newBlockEntryAddr = false) by intuition.
-						rewrite HpdnewBNotEq. (*pd <> newblock*)
-						rewrite <- beqAddrFalse in *.
-						repeat rewrite removeDupIdentity ; intuition.
-						cbn.
-						destruct (beqAddr pdinsertion bentryaddr) eqn:pdbentry; try(exfalso ; congruence).
-						rewrite <- DependentTypeLemmas.beqAddrTrue in pdbentry. congruence.
-						rewrite <- beqAddrFalse in *.
-						repeat rewrite removeDupIdentity ; intuition.
-					}
-					assert(Hblocks0 : isBE bentryaddr s0) by (rewrite HblockEq in * ; intuition).
-					apply isBELookupEq in Hlookup. destruct Hlookup as [blockentry Hlookup].
-					unfold bentryBlockIndex in *. rewrite Hlookup in *.
-					destruct Hblockidx as [Hblockidx Hidxnb].
-					specialize(Hcons0 bentryaddr blockidx Hblocks0).
-					apply isBELookupEq in Hblocks0. destruct Hblocks0 as [blockentrys0 Hblocks0].
-					rewrite Hblocks0 in *. intuition.
-					assert(HlookupEq : lookup bentryaddr (memory s) beqAddr = lookup bentryaddr (memory s0) beqAddr).
-					{ (* DUP *)
-						rewrite Hs.
-						cbn. rewrite beqAddrTrue.
-						destruct (beqAddr sceaddr bentryaddr) eqn:scebentry ; try(exfalso ; congruence).
-						destruct (beqAddr newBlockEntryAddr sceaddr) eqn:newsce ; try(exfalso ; congruence).
-						rewrite beqAddrTrue.
-						cbn. rewrite newbentry.
-						assert(HpdnewBNotEq : beqAddr pdinsertion newBlockEntryAddr = false) by intuition.
-						rewrite HpdnewBNotEq. (*pd <> newblock*)
-						rewrite <- beqAddrFalse in *.
-						repeat rewrite removeDupIdentity ; intuition.
-						cbn.
-						destruct (beqAddr pdinsertion bentryaddr) eqn:pdbentry; try(exfalso ; congruence).
-						rewrite <- DependentTypeLemmas.beqAddrTrue in pdbentry. congruence.
-						rewrite <- beqAddrFalse in *.
-						repeat rewrite removeDupIdentity ; intuition.
-					}
-					assert(HlookupEq' : lookup bentryaddr (memory s0) beqAddr = Some (BE blockentry)).
-					{ rewrite <- HlookupEq. intuition. }
-					rewrite HlookupEq' in *. inversion Hblocks0.
-					subst blockentrys0. intuition.
-					(* DUP *)
-					(* Check all values except newBlockEntryAddr *)
-					destruct (beqAddr sceaddr (CPaddr (bentryaddr - blockidx))) eqn:beqsceks; try(exfalso ; congruence).
-					*	(* sceaddr = (CPaddr (bentryaddr - blockidx)) *)
-						rewrite <- DependentTypeLemmas.beqAddrTrue in beqsceks.
-						rewrite <- beqsceks in *.
-						unfold isSCE in *.
-						unfold isKS in *.
-						destruct (lookup sceaddr (memory s0) beqAddr) ; try(exfalso ; congruence).
-						destruct v ; try(exfalso ; congruence).
-					*	(* sceaddr <> (CPaddr (bentryaddr - blockidx)) *)
-						destruct (beqAddr pdinsertion (CPaddr (bentryaddr - blockidx))) eqn:beqpdks; try(exfalso ; congruence).
-						** (* pdinsertion = (CPaddr (bentryaddr - blockidx)) *)
-							rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdks.
-							rewrite <- beqpdks in *.
-							unfold isPDT in *.
-							unfold isKS in *.
-							destruct (lookup pdinsertion (memory s0) beqAddr) ; try(exfalso ; congruence).
-							destruct v ; try(exfalso ; congruence).
-					** (* pdinsertion <> (CPaddr (bentryaddr - blockidx)) *)
-							destruct (beqAddr newBlockEntryAddr (CPaddr (bentryaddr - blockidx))) eqn:beqnewks ; try(exfalso ; congruence).
-							*** (* newBlockEntryAddr = (CPaddr (bentryaddr - blockidx)) *)
-									rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewks.
-									rewrite <- beqnewks in *.
-									unfold isKS in *. rewrite HlookupnewBs. rewrite HlookupnewBs0 in *.
-									rewrite Hblockindex. intuition.
-							*** (* newBlockEntryAddr <> kernelstarts0 *)
-									unfold isKS.
-									rewrite Hs.
-									cbn. rewrite beqAddrTrue.
-									rewrite beqsceks.
-									destruct (beqAddr newBlockEntryAddr sceaddr) eqn:newsce ; try(exfalso ; congruence).
-									rewrite beqAddrTrue.
-									cbn. rewrite beqnewks.
-									rewrite <- beqAddrFalse in *.
-									repeat rewrite removeDupIdentity ; intuition.
-									destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:pdnew ; try(exfalso ; congruence).
-									rewrite <- DependentTypeLemmas.beqAddrTrue in pdnew. congruence.
-									cbn.
-									destruct (beqAddr pdinsertion (CPaddr (bentryaddr - blockidx))) eqn:pdks'; try(exfalso ; congruence).
-									rewrite <- DependentTypeLemmas.beqAddrTrue in pdks'. congruence.
-									rewrite <- beqAddrFalse in *.
-									repeat rewrite removeDupIdentity ; intuition.
-} (* end of KernelStructureStartFromBlockEntryAddrIsKS *)
-split.
+	split.
+
 { (* sh1InChildLocationIsBE s *)
 	unfold sh1InChildLocationIsBE.
 	intros sh1entryaddr sh1entry Hlookup Hsh1entryNotNull.
