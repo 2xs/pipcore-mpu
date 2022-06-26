@@ -59,6 +59,8 @@ true = StateLib.checkChild idPDchild s sh1entryaddr ->
 forall idPDchild sh1entryaddr,
 true = StateLib.checkChild idPDchild s sh1entryaddr /\
 sh1entryAddr idPDchild sh1entryaddr s ->
+bentryAFlag idPDchild false s /\
+bentryPFlag idPDchild true s /\
 exists startaddr, bentryStartAddr idPDchild startaddr s /\
  entryPDT idPDchild startaddr s.
 

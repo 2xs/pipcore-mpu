@@ -95,7 +95,7 @@ case_eq isCurrentPart.
 		destruct H10 as [Hsh1entry Hsh1entryaddr]. destruct Hsh1entryaddr.
 		assert(Hconj := conj H8 H6).
 		specialize (HPDTIfPDFlag idPDToCheck x Hconj).
-		destruct HPDTIfPDFlag. intuition.
+		destruct HPDTIfPDFlag as [HAFlag (HPFlag & (startaddr & HPDTIfPDFlag))]. intuition.
 		unfold bentryStartAddr in *. rewrite H9 in *. subst.
 		unfold isPDT.
 		destruct (lookup (startAddr (blockrange x0)) (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
