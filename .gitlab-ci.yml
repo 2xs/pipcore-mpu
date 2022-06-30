@@ -3,6 +3,9 @@ image: "coqorg/coq:8.13"
 build:
   stage: build
   script:
+    - opam config list
+    - opam list
+
     # get digger from latest CI artifacts
     - cd tools/digger
     - curl -L 'https://gitlab.univ-lille.fr/2xs/digger/-/jobs/artifacts/master/download?job=build' -o digger.zip
