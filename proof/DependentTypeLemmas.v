@@ -40,6 +40,19 @@ Require Import Proof.StateLib Proof.Consistency.
 
 Require Import Coq.Logic.ProofIrrelevance Arith Lia Bool List.
 
+Lemma inclBlocksEq (l m : list block) :
+incl l m -> inclBlocksInside l m.
+Proof.
+unfold incl. unfold inclBlocksInside.
+intros.
+specialize (H a H0).
+induction m.
+unfold InBlock. unfold In in *. congruence.
+unfold InBlock. unfold In in *.
+intuition. subst a0.
+intuition.
+Qed.
+
 (* DUP *)
 Lemma isPDTLookupEq (pd : paddr) s :
 isPDT pd s -> exists entry : PDTable,

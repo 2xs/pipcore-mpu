@@ -76,6 +76,7 @@ Axiom MPURegionsNbNotZero: MPURegionsNb > 0.
 Axiom KSEntriesNbNotZero: kernelStructureEntriesNb > 0.
 Axiom KSEntriesNbLessThanMaxIdx: kernelStructureEntriesNb < maxIdx - 1.
 Axiom maxNbPrepareNotZero: maxNbPrepare > 0.
+Axiom maxNbPrepareNbLessThanMaxIdx: maxNbPrepare < maxIdx - 1.
 
 (*******************************************************************************)
 (* Elementary datatypes *)

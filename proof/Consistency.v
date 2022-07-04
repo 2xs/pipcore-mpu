@@ -125,7 +125,7 @@ optionfreeslotslist1 = getFreeSlotsList pd1 s /\
 wellFormedFreeSlotsList optionfreeslotslist1 <> False /\ (* to get rid of false induction bound constraints *)
 optionfreeslotslist2 = getFreeSlotsList pd2 s /\
 wellFormedFreeSlotsList optionfreeslotslist2 <> False /\ (* to get rid of false induction bound constraints *)
-disjoint (filterOption (optionfreeslotslist1))(filterOption (optionfreeslotslist2)).
+disjoint (filterOptionPaddr (optionfreeslotslist1))(filterOptionPaddr (optionfreeslotslist2)).
 
 
 Definition NoDupInFreeSlotsList s :=
@@ -133,7 +133,7 @@ forall pd pdentry,
 lookup pd (memory s) beqAddr = Some (PDT pdentry) ->
 exists optionfreeslotslist, optionfreeslotslist = getFreeSlotsList pd s /\
 wellFormedFreeSlotsList optionfreeslotslist <> False /\ (* to get rid of false induction bound constraints *)
-NoDup (filterOption (optionfreeslotslist)).
+NoDup (filterOptionPaddr (optionfreeslotslist)).
 
 (* TODO : state the blockindexes list constraints *)
 Definition StructurePointerIsKS s :=
@@ -190,10 +190,83 @@ forall pd freeslotaddr optionfreeslotslist freeslotslist,
 isPDT pd s ->
 optionfreeslotslist = getFreeSlotsList pd s /\
 wellFormedFreeSlotsList optionfreeslotslist <> False -> (* to get rid of false induction bound constraints *)
-freeslotslist = filterOption(optionfreeslotslist) /\
+freeslotslist = filterOptionPaddr(optionfreeslotslist) /\
 In freeslotaddr freeslotslist ->
 freeslotaddr <> nullAddr ->
 isFreeSlot freeslotaddr s.
+
+(*
+Definition subblockIsIncludedInBlock s :=
+forall subblock block substart subend blockstart blockend,
+isBE subblock s ->
+isBE block s ->
+bentryStartAddr subblock substart s ->
+bentryEndAddr subblock subend s ->
+bentryStartAddr block blockstart s ->
+bentryEndAddr block blockend s ->
+substart >= blockstart ->
+subend <= blockend ->
+In subblock [block].
+
+Definition subblockIncluded s :=
+forall subblock block,
+isBE subblock s ->
+isBE block s ->
+In block (getOriginalBlocks subblock s) ->
+inclblock subblock block.
+
+Definition :=
+fix inclblock (subblock : A) (block : A) {struct l} : Prop :=
+  match block with
+  | _ => False
+  | Some (BE a) => subblock.(blockrange).(startaddr) >= a.(blockrange).(startaddr)
+										&&  subblock.(blockrange).(endaddr) >= a.(blockrange).(endaddr)
+  end
+*)
+
+Definition inclFreeSlotsBlockEntries s :=
+forall pd,
+isPDT pd s ->
+incl (getFreeSlotsList pd s) (getKSEntries pd s).
+
+
+Definition DisjointKSEntries s :=
+forall pd1 pd2,
+isPDT pd1 s ->
+isPDT pd2 s ->
+pd1 <> pd2 ->
+exists optionentrieslist1 optionentrieslist2,
+optionentrieslist1 = getKSEntries pd1 s /\
+(*wellFormedFreeSlotsList optionfreeslotslist1 <> False /\ (* to get rid of false induction bound constraints *)
+*) optionentrieslist2 = getKSEntries pd2 s /\
+(*wellFormedFreeSlotsList optionfreeslotslist2 <> False /\ (* to get rid of false induction bound constraints *)
+*) disjoint (filterOptionPaddr (optionentrieslist1))(filterOptionPaddr (optionentrieslist2)).
+
+(* Prove DisjointKSEntries -> DisjointFreeSlotsList because of inclusion *)
+
+(** ** The [isChild] specifies that a given partition should be a child of the 
+        physical page stored as parent into the associated partition descriptor 
+    (11) **)
+Definition isChild  s :=
+forall partition parent : paddr,
+In partition (getPartitions multiplexer s) -> 
+pdentryParent partition parent s ->
+In partition (getChildren parent s).
+
+
+(** ** The [isParent] specifies that if we take any child into the children list of any 
+partition into the partition list so this partition should be the parent of this child 
+ (..) **)
+Definition isParent  s :=
+forall partition parent : paddr,
+In parent (getPartitions multiplexer s) -> 
+In partition (getChildren parent s) -> 
+pdentryParent partition parent s.
+
+Definition noDupPartitionTree s :=
+forall pd : paddr,
+NoDup (getPartitions pd s) .
+
 
 (** ** Conjunction of all consistency properties *)
 Definition consistency s :=
@@ -211,4 +284,6 @@ NextKSIsKS s /\
 NextKSOffsetIsPADDR s /\
 NoDupInFreeSlotsList s /\
 freeSlotsListIsFreeSlot s /\
-DisjointFreeSlotsLists s.
+DisjointFreeSlotsLists s /\
+inclFreeSlotsBlockEntries s /\
+DisjointKSEntries s.
