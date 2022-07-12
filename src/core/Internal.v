@@ -381,12 +381,12 @@ Definition freeSlot (pdfree entrytofreeaddr: paddr) : LLI paddr :=
 		(* Remove block from physical MPU if it is there *)
 		removeBlockFromPhysicalMPU 	pdfree entrytofreeaddr ;;
 		(* set default values in slot to free *)
-		perform defaultBlockEntry := getDefaultBlockEntry in
-		writeBlockEntryFromBlockEntryAddr entrytofreeaddr defaultBlockEntry;;
-		perform defaultSh1Entry := getDefaultSh1Entry in
-		writeSh1EntryFromBlockEntryAddr entrytofreeaddr defaultSh1Entry;;
-		perform defaultSCEntry := getDefaultSCEntry in
-		writeSCEntryFromBlockEntryAddr entrytofreeaddr defaultSCEntry;;
+		(* perform defaultBlockEntry := getDefaultBlockEntry in *)
+		(* writeBlockEntryFromBlockEntryAddr entrytofreeaddr defaultBlockEntry;; *)
+		(* perform defaultSh1Entry := getDefaultSh1Entry in *)
+		(* writeSh1EntryFromBlockEntryAddr entrytofreeaddr defaultSh1Entry;; *)
+		(* perform defaultSCEntry := getDefaultSCEntry in *)
+		(* writeSCEntryFromBlockEntryAddr entrytofreeaddr defaultSCEntry;; *)
 		(* insert free slot in the free slot list *)
 		perform currFirstFreeSlot := readPDFirstFreeSlotPointer pdfree in
 		writeBlockEndFromBlockEntryAddr entrytofreeaddr currFirstFreeSlot ;;
@@ -623,18 +623,18 @@ Fixpoint initBlockEntryRecAux 	(timeout : nat)
 									perform nextEntryPointer := getBlockEntryAddrFromKernelStructureStart
 																								kernelStructureStartAddr
 																								idxsucc in
-									perform blockEntry := buildBlockEntry
-																				nullAddr
-																				nextEntryPointer
-																				false
-																				false in
-									perform currEntryPointer := getBlockEntryAddrFromKernelStructureStart
-																								kernelStructureStartAddr
-																								indexCurr in
-									writeBlockEntryWithIndexFromBlockEntryAddr
-											currEntryPointer
-											indexCurr
-											blockEntry;;
+									(* perform blockEntry := buildBlockEntry *)
+									(* 											nullAddr *)
+									(* 											nextEntryPointer *)
+									(* 											false *)
+									(* 											false in *)
+									(* perform currEntryPointer := getBlockEntryAddrFromKernelStructureStart *)
+									(* 															kernelStructureStartAddr *)
+									(* 															indexCurr in *)
+									(* writeBlockEntryWithIndexFromBlockEntryAddr *)
+									(* 		currEntryPointer *)
+									(* 		indexCurr *)
+									(* 		blockEntry;; *)
 
 									perform zero := Index.zero in
 									if beqIdx indexCurr zero
@@ -663,16 +663,16 @@ Definition initBlocksStructure (kernelStructureStartAddr : paddr) : LLI bool :=
 																					secondlastindex in
 	if negb initEnded then (* timeout reached *) ret false else
 	(** Last entry has no following entry: make it point to NULL*)
-	perform lastBlockEntry := buildBlockEntry nullAddr
-																				nullAddr
-																				false
-																				false in
-	perform lastEntryPointer := getBlockEntryAddrFromKernelStructureStart
-									 								kernelStructureStartAddr
-																	lastindex in
-	writeBlockEntryWithIndexFromBlockEntryAddr 	lastEntryPointer
-																					lastindex
-																					lastBlockEntry;;
+	(* perform lastBlockEntry := buildBlockEntry nullAddr *)
+	(* 																			nullAddr *)
+	(* 																			false *)
+	(* 																			false in *)
+	(* perform lastEntryPointer := getBlockEntryAddrFromKernelStructureStart *)
+	(* 								 								kernelStructureStartAddr *)
+	(* 																lastindex in *)
+	(* writeBlockEntryWithIndexFromBlockEntryAddr 	lastEntryPointer *)
+	(* 																				lastindex *)
+	(* 																				lastBlockEntry;; *)
 	ret true.
 
 
@@ -689,12 +689,12 @@ Fixpoint initSh1EntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 	match timeout with
 		| 0 => 	ret false (* timeout reached *)
 		| S timeout1 => (** PROCESSING: set default values in current entry *)
-										perform defaultSh1Entry := getDefaultSh1Entry in
-										perform currEntryPointer := getBlockEntryAddrFromKernelStructureStart
-																									kernelStructureStartAddr
-																									indexCurr in
-										writeSh1EntryFromBlockEntryAddr currEntryPointer
-																									defaultSh1Entry;;
+										(* perform defaultSh1Entry := getDefaultSh1Entry in *)
+										(* perform currEntryPointer := getBlockEntryAddrFromKernelStructureStart *)
+										(* 															kernelStructureStartAddr *)
+										(* 															indexCurr in *)
+										(* writeSh1EntryFromBlockEntryAddr currEntryPointer *)
+										(* 															defaultSh1Entry;; *)
 										perform zero := Index.zero in
 										if beqIdx indexCurr zero
 										then (** STOP condition: parsed all entries *)
@@ -731,12 +731,12 @@ Fixpoint initSCEntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 	match timeout with
 		| 0 => 	ret false (* timeout reached *)
 		| S timeout1 => (** PROCESSING: set default values in current entry *)
-										perform defaultSCEntry := getDefaultSCEntry in
-										perform currEntryPointer := getBlockEntryAddrFromKernelStructureStart
-																									kernelStructureStartAddr
-																									indexCurr in
-										writeSCEntryFromBlockEntryAddr 	currEntryPointer
-																									defaultSCEntry;;
+										(* perform defaultSCEntry := getDefaultSCEntry in *)
+										(* perform currEntryPointer := getBlockEntryAddrFromKernelStructureStart *)
+										(* 															kernelStructureStartAddr *)
+										(* 															indexCurr in *)
+										(* writeSCEntryFromBlockEntryAddr 	currEntryPointer *)
+										(* 															defaultSCEntry;; *)
 										perform zero := Index.zero in
 										if beqIdx indexCurr zero
 										then (** STOP condition: parsed all entries *)
@@ -809,9 +809,9 @@ Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
 														(* Set block accessible in current partition *)
 														writeBlockAccessibleFromBlockEntryAddr 	currBlockEntryAddr
 																																true ;;
-														perform defaultSh1Entry := getDefaultSh1Entry in
-														writeSh1EntryFromBlockEntryAddr currBlockEntryAddr
-																													defaultSh1Entry ;;
+														(* perform defaultSh1Entry := getDefaultSh1Entry in *)
+														(* writeSh1EntryFromBlockEntryAddr currBlockEntryAddr *)
+														(* 															defaultSh1Entry ;; *)
 													(* 	whatever the accessibility of the block that could
 															not be accessible because of the child's operations,
 															set the block accessible again*)
@@ -1170,9 +1170,9 @@ match timeout with
 																															blockToCollectAddr
 																															true ;;
 												(* Erase sh1 reference *)
-												perform defaultSh1Entry := getDefaultSh1Entry in
-												writeSh1EntryFromBlockEntryAddr blockToCollectAddr
-																											defaultSh1Entry ;;
+												(* perform defaultSh1Entry := getDefaultSh1Entry in *)
+												(* writeSh1EntryFromBlockEntryAddr blockToCollectAddr *)
+												(* 															defaultSh1Entry ;; *)
 
 											(** STOP condition 2: found a structure to collect *)
 											ret blockToCollectAddr
