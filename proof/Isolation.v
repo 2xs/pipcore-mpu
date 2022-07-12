@@ -50,8 +50,9 @@ forall parent child : paddr,
   In child (getChildren parent s) ->
 (*isPDT child s ->
 pdentryParent child parent s ->*)
-inclBlocksInside 	(blockExtract (getUsedBlocks child s) s)
-									(blockExtract (getMappedBlocks parent s) s).
+(*inclBlocksInside 	(blockExtract (getUsedBlocks child s) s)
+									(blockExtract (getMappedBlocks parent s) s).*)
+incl (getUsedPaddr child s) (getMappedPaddr parent s).
 (*
 forall parent child : paddr (*page*) , 
 
@@ -76,7 +77,17 @@ forall parent child1 child2 : paddr ,
   In child2 (getChildren parent s) ->
 
 child1 <> child2 ->
-disjoint (getUsedBlocks child1 s)(getUsedBlocks child2 s).
+(* TODO : disjoint of inclusive blocks *)
+(*disjoint (getUsedBlocks child1 s)(getUsedBlocks child2 s).*)
+(*NoDup *)
+(*forall block subblock, In block (getUsedBlocks child1 s) ->
+(true = issubblock subblock block s \/
+true = issubblock block subblock s) ->
+(* wherever a subblock exists, it is not in the second child*)
+~ In subblock (getUsedBlocks child2 s).*)
+(*~inclBlocksInside (blockExtract(getUsedBlocks child1 s) s) (blockExtract (getUsedBlocks child2 s) s).*)
+disjoint (getUsedPaddr child1 s) (getUsedPaddr child2 s).
+
 
 (*forall parent child1 child2 : paddr ,
 isPDT parent s ->
@@ -129,9 +140,11 @@ isPDT partition2 ->*)
 	In partition1 (getPartitions multiplexer s) ->
 
   In partition2 (getPartitions multiplexer s) ->
-disjoint (getAccessibleMappedBlocks partition1 s) (getConfigBlocks partition2 s).
+(* TODO : disjoint of inclusive blocks *)
+(*disjoint (getAccessibleMappedBlocks partition1 s) (getConfigBlocks partition2 s).*)
 (* the config blocks are NOT the inaccessible blocks within a partition but
 	its PDT + its kernel structures *)
+disjoint (getAccessibleMappedPaddr partition1 s) (getConfigPaddr partition1 s).
 
 (*
 	forall partition1 partition2 : paddr,

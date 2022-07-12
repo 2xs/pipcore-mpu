@@ -192,6 +192,45 @@ Inductive optionBE : Type:=
 .
 
 
+Fixpoint getAllPaddrBlockAux (pos offset count: nat) : list paddr :=
+  match count with
+    | 0        => []
+    | S count1 => match le_dec (pos+offset) maxAddr with
+                   | left pf => Build_paddr (pos+offset) pf :: getAllPaddrBlockAux (S pos) offset count1
+                   | _       => []
+                 end
+  end.
+
+(** The [getAllIndicesAux] function returns the list of all indices  *)
+Definition getAllPaddrBlock (startaddr endaddr : paddr) : list paddr :=
+getAllPaddrBlockAux 0 startaddr (endaddr-startaddr).
+
+(*
+Fixpoint getAllPaddrAux (levels: nat) : list (list index) :=
+  match levels with
+    | 0         => [[]]
+    | S levels1 => let alls := getAllPaddrBlockAux levels1 in
+                  flat_map (fun (idx : index) => map (cons idx) alls) getAllIndices
+  end.
+
+(** The [getAllVAddr] function returns the list of all virtual addresses *)
+Definition getAllPaddr := flat_map (fun b => getAllPaddrBlock b s)
+																	(getMappedBlocks partition s)).*)
+
+Fixpoint getAllPaddrAux (blocklist : list paddr) (s : state) :=
+match blocklist with
+| [] => []
+| block::list1 => match lookup block (memory s) beqAddr with
+									| Some (BE bentry) => getAllPaddrBlock bentry.(blockrange).(startAddr)
+																													bentry.(blockrange).(endAddr) ++
+																				getAllPaddrAux list1 s
+									| _ => getAllPaddrAux list1 s
+									end
+end.
+
+
+
+
 (** The [checkChild] function returns true if the given physical address corresponds 
     to a child of the given partition 
     *)
@@ -224,18 +263,38 @@ else 	*) match lookup sh1entryaddr s.(memory) beqAddr  with
 
 Definition checkChild (blockentryaddr : paddr) (s : state) (sh1entryaddr : paddr) : bool :=
 match lookup blockentryaddr s.(memory) beqAddr  with
-				| Some (BE entry) => match lookup sh1entryaddr s.(memory) beqAddr  with
-														| Some (SHE sh1entry) => sh1entry.(PDflag)
-														|	_ => false
-														end
+| Some (BE entry) => match lookup sh1entryaddr s.(memory) beqAddr  with
+										| Some (SHE sh1entry) => sh1entry.(PDflag)
+										|	_ => false
+										end
+|	_ => false
+end.
 
-				|	_ => false
-				end. 
+Definition childFilter (s : state) (blockentryaddr : paddr) : bool :=
+match lookup blockentryaddr s.(memory) beqAddr  with
+| Some (BE entry) => let sh1entryaddr := Paddr.addPaddrIdx blockentryaddr sh1offset in
+											match sh1entryaddr with
+											| Some p =>	match lookup p s.(memory) beqAddr  with
+																	| Some (SHE sh1entry) => sh1entry.(PDflag)
+																	|	_ => false
+																	end
+											|	_ => (* NOK *) false
+											end
+|	_ => false
+end.
+
+Definition getPDsPaddr (paList : list paddr) s :=
+map (fun bentryaddr => match lookup bentryaddr (memory s) beqAddr with
+												| Some (BE bentry) => bentry.(blockrange).(startAddr)
+												| _ => nullAddr
+											end
+		) paList.
 
 (** The [getPdsVAddr] function returns the list of virtual addresses used as
     partition descriptor into a given partition *)
-Definition getPDsPAddr (partition : paddr) (paList : list paddr) s :=
-filter (checkChild partition s) paList.
+Definition getPDs (paList : list paddr) s :=
+getPDsPaddr (filter (childFilter s) paList) s.
+
 
 (** The [filterOption] function removes the option type from the list and filters
 		out all	unreachable paddr.
@@ -290,26 +349,27 @@ match bound with
 							then (* NOK, unreachable, should have stopped at NULL if end of list *)
 									[NonePaddr]
 							else
-									let nextkernelstructureoffset := Paddr.addPaddrIdx currKernelStructure nextoffset in
-									match nextkernelstructureoffset with
-									| Some p =>
-											match lookup p s.(memory) beqAddr with
-											| Some (PADDR addr) => 	match lookup addr (memory s) beqAddr with
-																							| Some (BE nextkernelstructure) =>
-																												match Index.pred maxStructNbleft with
-												                								|Some p => (getConfigBlocksAux bound1 addr s p)
-																												|None => [NonePaddr]
-																												end
-																							| Some (PADDR null) => if beqAddr addr nullAddr
-																																		then (* OK, end of list *)
-																																					[]
-																																		else [NonePaddr]
-																							|	_ => (* Wrong entry type, trying to access unexpected entry *)
-																											[NonePaddr]
-																							end
-											|	_ => (* NOK *) [NonePaddr]
-											end
-									|	_ => (* NOK *) [NonePaddr]
+									match lookup currKernelStructure (memory s) beqAddr with
+									| Some (BE kernelstructure) =>
+												let nextkernelstructureoffset := Paddr.addPaddrIdx currKernelStructure nextoffset in
+												match nextkernelstructureoffset with
+												| Some p =>
+														match lookup p s.(memory) beqAddr with
+														| Some (PADDR addr) => 	match Index.pred maxStructNbleft with
+													          								|Some p => [SomePaddr currKernelStructure]++(getConfigBlocksAux bound1 addr s p)
+																										|None => [NonePaddr]
+																										end
+
+														|	_ => (* NOK *) [NonePaddr]
+														end
+												|	_ => (* NOK *) [NonePaddr]
+												end
+									| Some (PADDR null) => if beqAddr null nullAddr
+																					then (* OK, end of list *)
+																								[]
+																					else [NonePaddr]
+									|	_ => (* Wrong entry type, trying to access unexpected entry *)
+													[NonePaddr]
 									end
 end.
 
@@ -328,7 +388,7 @@ match firstKernelStructure with
 end
 *)
 
-Definition getConfigBlocks (partition : paddr) (s : state) : list paddr := 
+(*Definition getConfigBlocks (partition : paddr) (s : state) : list paddr := 
 match lookup partition s.(memory) beqAddr with
 | Some (PDT pdentry) => (* get all entries from all kernel structures for this pd *)
 												(* filtering the list enables to reuse the same list somewhere else *)
@@ -336,7 +396,57 @@ match lookup partition s.(memory) beqAddr with
 												then [partition]
 												else partition :: (filterOptionPaddr (getConfigBlocksAux (maxIdx+1) pdentry.(structure) s (CIndex maxNbPrepare)))
 | _ => []
+end.*)
+
+Definition getConfigBlocks (partition : paddr) (s : state) : list paddr :=
+match lookup partition s.(memory) beqAddr with
+| Some (PDT pdentry) => (filterOptionPaddr (getConfigBlocksAux (maxIdx+1) pdentry.(structure) s (CIndex maxNbPrepare)))
+| _ => []
 end.
+
+
+
+Fixpoint getAllPaddrConfigAux (kslist : list paddr) (s : state) :=
+match kslist with
+| [] => []
+| ks::list1 => match lookup ks (memory s) beqAddr with
+									| Some (BE bentry) => getAllPaddrBlockAux 0
+																														ks
+																														(ks + Constants.kernelStructureTotalLength) ++
+																				getAllPaddrConfigAux list1 s
+									| _ => getAllPaddrConfigAux list1 s
+									end
+end.
+
+Fixpoint getAllPaddrPDTAux (pdtlist : list paddr) (s : state) :=
+match pdtlist with
+| [] => []
+| pd::list1 => match lookup pd (memory s) beqAddr with
+									| Some (PDT bentry) => getAllPaddrBlockAux 0
+																														pd
+																														(pd + Constants.PDStructureTotalLength) ++
+																					getAllPaddrPDTAux list1 s
+									| _ => getAllPaddrPDTAux list1 s
+									end
+end.
+
+(*Definition getConfigPaddr (partition : paddr) (s : state) : list paddr :=
+match lookup partition s.(memory) beqAddr with
+| Some (PDT pdentry) => (* get all entries from all kernel structures for this pd *)
+												(* filtering the list enables to reuse the same list somewhere else *)
+												(*if beqAddr pdentry.(structure) nullAddr
+												then [partition]
+												else partition :: (filterOptionPaddr (getConfigBlocksAux (maxIdx+1) pdentry.(structure) s (CIndex maxNbPrepare)))*)
+												let ksList := getConfigBlocks pdentry.(structure) s in
+												getAllPaddrPDTAux [partition] s ++ getAllPaddrConfigAux ksList s
+
+| _ => []
+end.*)
+
+Definition getConfigPaddr (partition : paddr) (s : state) : list paddr :=
+let ksList := getConfigBlocks partition s in
+getAllPaddrPDTAux [partition] s ++ getAllPaddrConfigAux ksList s.
+
 
 (*Definition getConfigBlocks (partition : paddr) (s : state) : list paddr :=
 partition :: (getConfigBlocks partition s).*)
@@ -515,6 +625,12 @@ Definition getMappedBlocks (partition : paddr) (s : state) : list paddr :=
 (* filtering the list in the last step enables to reuse the same list somewhere else *)
 filterPresent (filterOptionPaddr (getKSEntries partition s)) s.
 
+(** The [getMappedPages] function Returns all present pages of a given partition *)
+Definition getMappedPaddr (partition : paddr) s : list paddr :=
+let blockList := getMappedBlocks partition s in
+getAllPaddrAux blockList s.
+
+
 (*
 Fixpoint getAccessibleMappedBlocksInKSInStructAux (currIdx : nat) (currKernelStructure: paddr) s : list optionPaddr := 
 match currIdx with 
@@ -586,6 +702,12 @@ Definition getAccessibleMappedBlocks (partition : paddr) s : list paddr :=
   | Some (PDT a) => filterAccessible (getMappedBlocks partition s) s
   | _ => []
   end.
+
+(** The [getMappedPages] function Returns all present pages of a given partition *)
+Definition getAccessibleMappedPaddr (partition : paddr) s : list paddr :=
+let blockList := getAccessibleMappedBlocks partition s in
+getAllPaddrAux blockList s.
+
 (*
 Fixpoint getPresentBlocksInKSInStructAux (currIdx : nat) (currKernelStructure: paddr) s : list optionPaddr := 
 match currIdx with 
@@ -663,14 +785,20 @@ Definition getAccessibleBlocks (partition : paddr) s : list paddr :=
 
 (** The [getUsedPages] function Returns all used pages (present and config pages)
     of a given partition including the partition descriptor itself *)
-Definition getUsedBlocks (partition: paddr) s : list paddr :=
-  getConfigBlocks partition s ++ getMappedBlocks partition s.
+(*Definition getUsedBlocks (partition: paddr) s : list paddr :=
+  getConfigBlocks partition s ++ getMappedBlocks partition s.*)
+
+(** The [getMappedPages] function Returns all present pages of a given partition *)
+Definition getUsedPaddr (partition : paddr) s : list paddr :=
+let ksList := getConfigPaddr partition s in
+let mappedblockList := getMappedPaddr partition s in
+ksList ++ mappedblockList.
 
 (** The [getChildren] function Returns all children of a given partition *)
 Definition getChildren (partition : paddr) s := 
 	let entry :=  lookup partition s.(memory) beqAddr in
   match entry with
-  | Some (PDT a) => getPDsPAddr partition (getMappedBlocks partition s) s
+  | Some (PDT a) => getPDs (getMappedBlocks partition s) s
 	|_ => []
 end.
 
@@ -726,8 +854,6 @@ Lemma FreeSlotsListRec_unroll :
 forall blockentryaddr s bound nbfreeslotsleft, getFreeSlotsListRec bound blockentryaddr s nbfreeslotsleft = getFreeSlotsListAux bound getFreeSlotsListRec blockentryaddr s nbfreeslotsleft.
 destruct bound; simpl;reflexivity.
 Qed.
-
-
 (*
 (** The [getPartitionsAux] function returns all pages marked as descriptor partition *)
 Fixpoint getPartitionAux (partitionRoot : page) (s : state) bound {struct bound} : list page :=
@@ -743,22 +869,70 @@ Definition getPartitions (root : page) s : list page  :=
 
 *)
 
+(*
 (** The [getPartitionsAux] function returns all pages marked as descriptor partition *)
 Fixpoint getPartitionsAux (bound : nat) (partitionRoot : paddr) (s : state) {struct bound} : list paddr :=
 match bound with
   | O => []
-  | S bound1 => flat_map (fun p => getPartitionsAux bound1 p s) 
+  | S bound1 => partitionRoot :: flat_map (fun p => getPartitionsAux bound1 p s) 
+                                  (getChildren partitionRoot s )
+end.
+*)
+Fixpoint getPartitionsAux1 (bound : nat) (partitionRoot : paddr) (s : state) (maxAddrleft : nat) {struct bound}  : list optionPaddr :=
+match bound with
+|	0 => (* NOK *) [NonePaddr]
+| S bound1 => (* Recursion on each child *)
+							if maxAddrleft <? 0 (*<? -> == OK*)
+							then (* NOK, unreachable, should have stopped at NULL if end of list *)
+									[NonePaddr]
+							else
+									[SomePaddr partitionRoot] ++ flat_map (fun p => getPartitionsAux1 bound1 p s (maxAddrleft - 1)) 
                                   (getChildren partitionRoot s )
 end.
 
-(** The [getPartitions] function fixes the sufficient timeout value to retrieve all partitions *)
-Definition getPartitions (root : paddr) (s : state) : list paddr  :=
-let entry :=  lookup root s.(memory) beqAddr in
-match entry with
-| Some (PDT a) => root :: getPartitionsAux (maxAddr+1) root s
-|_ => []
+Fixpoint getPartitionsAux2 (bound : nat) (l : list paddr) (s : state) {struct bound}  : list optionPaddr :=
+match bound with
+|	0 => (* end of fuel *) []
+| S bound1 => (* Recursion on each child *)
+							match l with
+							| a :: l' => match lookup a (memory s) beqAddr with
+													| (Some (PDT pdentry)) => [SomePaddr a] ++ getPartitionsAux2 bound1 (getChildren a s) s (* depth-first search (arbitrairy chosen) *)
+																								++ getPartitionsAux2 bound1 l' s
+													| _ => (* NOK, wrong type *)
+																[NonePaddr]
+													end
+							| nil => (* empty list *)
+										[]
+							end
 end.
 
+Fixpoint getPartitionsAux (bound : nat)  (partitionRoot : paddr) (s : state) {struct bound}  : list optionPaddr :=
+match bound with
+|	0 => (* end of fuel *) []
+| S bound1 =>  [SomePaddr partitionRoot] ++ flat_map (fun p => getPartitionsAux bound1 p s) 
+																										(getChildren partitionRoot s )
+end.
+
+Definition PDTFilter (s : state) (pdentryaddr : paddr) : bool :=
+match lookup pdentryaddr s.(memory) beqAddr  with
+| Some (PDT entry) => true
+|	_ => false
+end.
+
+Definition filterPDT (paList : list paddr) (s : state) :=
+filter (PDTFilter s) paList.
+
+(** The [getPartitions] function fixes the sufficient timeout value to retrieve all partitions *)
+Definition getPartitions (root : paddr) (s : state) : list paddr  :=
+(*let entry :=  lookup root s.(memory) beqAddr in
+match entry with
+| Some (PDT a) => (*root :: getPartitionsAux (maxAddr+1) root s*)
+									root::filterOptionPaddr ( getPartitionsAux (maxAddr+1) (getChildren root s) )s)
+|_ => []
+end.*)
+(*filterOptionPaddr (getPartitionsAux (maxAddr+1) root s maxAddr).*)
+(*(filterPDT (root :: filterOptionPaddr (getPartitionsAux (maxAddr+1) (getChildren root s) s)) s).*)
+(filterPDT (root :: filterOptionPaddr (getPartitionsAux (maxAddr+1) root s)) s).
 
 
 (** Propositions *)
@@ -1112,7 +1286,7 @@ match goal with
 | [ |- ?x <> ?y ] => unfold not ; let Hk := fresh in intro Hk ; symmetry in Hk ;contradict Hk
 end.
 
-Definition issubblock (subblock block : paddr) (s : state) : bool :=
+(*Definition issubblock (subblock block : paddr) (s : state) : bool :=
 	match monadToValue (readBlockEntryFromBlockEntryAddr block) s with
 	| Some b => match monadToValue (readBlockEntryFromBlockEntryAddr subblock) s with
 							| Some sb => 
@@ -1125,7 +1299,20 @@ Definition issubblock (subblock block : paddr) (s : state) : bool :=
 							| None => false
 							end
 	| None => false
-	end.
+	end.*)
+
+Definition issubblock (subblock block : paddr) (s : state) : bool :=
+match lookup block (memory s) beqAddr with
+| Some (BE b) => match lookup subblock (memory s) beqAddr with
+										| Some (BE sb) => let above := b.(blockrange).(startAddr) <=? sb.(blockrange).(startAddr) in
+																			let below := sb.(blockrange).(endAddr) <=? b.(blockrange).(endAddr) in
+																			if (above && below)
+																			then (* sb is a subblock of b *) true
+																			else false
+										| _ => false
+											end
+| _ => false
+end.
 
 Definition checkissubblock (subblock block : paddr) (s : state) : Prop :=
 	match monadToValue (readBlockEntryFromBlockEntryAddr block) s with

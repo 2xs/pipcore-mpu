@@ -35,7 +35,7 @@
     This file contains several internal lemmas to help prove invariants *)
 Require Import Model.ADT Model.Monad Model.MAL Model.Lib Core.Internal.
 
-Require Import (*Proof.Isolation*) Proof.Consistency (*Proof.WeakestPreconditions*) Proof.StateLib.
+Require Import Proof.Isolation Proof.Consistency (*Proof.WeakestPreconditions*) Proof.StateLib.
 Require Import DependentTypeLemmas. (*Proof.Lib.
 Require Import PropagatedProperties*)
 
@@ -97,6 +97,312 @@ destruct p.
 		intros. trivial.
 		intros. assumption.
 Qed.
+
+Lemma addrInBlockIsMapped partition addr block s:
+In addr (getAllPaddrAux [block] s) ->
+In block (getMappedBlocks partition s) ->
+In addr (getMappedPaddr partition s).
+Proof.
+intros HInBlock HBlockInMapped.
+unfold getMappedPaddr.
+induction ((getMappedBlocks partition s)).
+- intuition.
+- simpl in *. intuition.
+	--  subst a.
+			destruct (lookup block (memory s) beqAddr) eqn:Hlookupblock ; intuition.
+			destruct v ; intuition.
+			rewrite app_nil_r in *.
+			apply in_or_app. left. intuition.
+	--	destruct (lookup block (memory s) beqAddr) eqn:Hlookupblock ; intuition.
+			destruct v ; intuition.
+			destruct (lookup a (memory s) beqAddr) eqn:Hlookupa ; intuition.
+			destruct v ; intuition.
+Qed.
+
+
+(*Lemma isChild parent child sh1entryaddr s :
+isPDT parent s ->
+isPDT child s ->
+true = StateLib.checkChild child s sh1entryaddr ->
+In child (getMappedBlocks parent s) ->
+In child (getChildren parent s).
+Proof.
+intros HPDTparent HPDTchild Hsh1pdflagtrue HchildIsMapped
+
+
+Qed.
+
+
+
+Lemma getAllPaddrBlockAuxincl addr offset baseaddr count offset' baseaddr' count' :
+
+(baseaddr+offset) >= (baseaddr'+offset')->
+(baseaddr+offset+count) <= (baseaddr'+offset'+count') ->
+In addr (getAllPaddrBlockAux baseaddr offset count) ->
+In addr (getAllPaddrBlockAux baseaddr' offset' count').
+Proof.
+intros  Hle1 Hle2 HInaddr.
+assert(Hcountle : count <= count') by lia.
+revert (*addr offset baseaddr count HInaddr*) baseaddr' offset' count' Hle1 Hle2 Hcountle.
+
+induction count as [|Sn' IHn'].
+	- intros. simpl in *. exfalso ;congruence.
+	-
+			intros. destruct count'.
+			-- simpl in *. apply PeanoNat.Nat.nle_succ_0 in Hcountle. exfalso ; congruence.
+			--
+				simpl in HInaddr.
+						destruct (le_dec (baseaddr + offset) maxAddr) eqn:Hle_dec ; intuition.
+						simpl in HInaddr.
+				assert({| p := baseaddr + offset; Hp := l |} = addr ->
+baseaddr + offset >= baseaddr' + offset' ->
+baseaddr + offset + S Sn' <= baseaddr' + offset' + S count' ->
+In addr (getAllPaddrBlockAux baseaddr' offset' (S count'))) by admit.
+				simpl. destruct (le_dec (baseaddr' + offset') maxAddr) eqn:Hle_dec' ; intuition ; try lia.
+				right.
+				eapply IHn' ; intuition ; try lia.
+
+				eapply IHn' ; intuition ; try lia.
+
+				destruct (le_dec (baseaddr' + offset') maxAddr) eqn:Hle_dec' ; intuition ; try lia.
+				---
+						simpl in *.
+						destruct (le_dec (baseaddr + offset) maxAddr) eqn:Hle_dec ; intuition.
+						simpl in *.
+						intuition.
+						---- destruct addr. inversion H. subst p.
+									case_eq ((baseaddr + offset) == (baseaddr' + offset')).
+
+									left. eapply proof_irrelevance. f_equal.
+
+ right. apply IHn' ; intuition ; try lia.
+				--- simpl in *.
+						destruct (le_dec (baseaddr + offset) maxAddr) eqn:Hle_dec ; intuition.
+						simpl in *. lia. congruence.
+
+
+
+ congruence.
+		simpl in *. right.
+
+ revert HInaddr. revert baseaddr offset IHn'. induction count'.
+		-- simpl in *. intuition. apply PeanoNat.Nat.nle_succ_0 in Hcountle. exfalso ; congruence.
+		-- intuition.
+				simpl in *.
+		destruct (le_dec (baseaddr' + offset') maxAddr) eqn:Hle_dec' ; intuition.
+		simpl in *. right.
+			eapply IHn' ; intuition ; try lia. eapply H.
+
+ simpl in *.
+		
+		destruct (le_dec (baseaddr + offset) maxAddr) eqn:Hle_dec ; intuition.
+		simpl in *.
+
+		intuition.
+
+		intuition.
+		- (* p = baseaddr+offset *)
+		destruct count'.
+		- apply PeanoNat.Nat.nle_succ_0 in Hcountle. exfalso ; congruence.
+		- simpl.
+							destruct (le_dec (baseaddr' + offset') maxAddr) eqn:Hle2' ; intuition.
+			destruct addr. simpl in *.
+			rewrite <- H. 
+
+			assert(baseaddr + offset = baseaddr' + offset') by admit.
+	clear H0.
+	right. rewrite H in *. eapply IHn' ; intuition ; try lia.
+admit.
+- (* addr in following *)
+	
+
+apply IHn' ; intuition ; try lia.
+unfold getAllPaddrBlockAux.
+simpl in *. cbn.
+				destruct (le_dec (baseaddr + offset) maxAddr) eqn:Hle_dec ; intuition.
+simpl in *.
+intuition.
+-- admit.
+--
+		induction n'.
+		--- simpl in *. congruence.
+		--- simpl in *.
+				destruct (le_dec (baseaddr + offset) maxAddr) eqn:Hle2' ; intuition.
+				right.
+ intuition. simpl in *. lia.
+
+	destruct addr.
+		simpl in *. inversion H. rewrite H1 in *.
+		simpl in *.
+
+
+ induction count.
+		--- simpl in *.
+	unfold getAllPaddrBlockAux. simpl. cbn.
+
+
+
+
+revert count HInaddr Hle2.
+revert count' .
+
+
+
+(*revert addr offset baseaddr offset' baseaddr' HInaddr Hle1 Hle2.
+destruct addr.*)
+induction count.
+intros.
+
+(*intros offset baseaddr offset' baseaddr' HInaddr Hle1 Hle2.*)
+
+
+- simpl in *. exfalso ; congruence.
+- intros. eapply IHcount ; intuition ; try lia.
+	induction count.
+	-- simpl in *.
+
+
+			assert(count = 0). lia. rewrite PeanoNat.Nat.add_0_r in *.
+			subst count.
+			simpl in *.
+ 			exfalso ; congruence.
+-	intros.
+
+simpl.
+	destruct (le_dec (baseaddr'+offset') maxAddr) eqn:Hle ; intuition.
+			simpl in *.
+	simpl.
+
+
+ induction count.
+	-- intros. simpl in *. exfalso ; congruence.
+	-- intros.
+			eapply IHcount ; intuition ; try lia.
+ simpl in *.
+			contradict Hcont. apply PeanoNat.Nat.nle_succ_0.
+-
+intros (*offset' baseaddr' count'*) HInaddr Hle1 Hle2 Hcont.
+destruct count.
+-- simpl in *. exfalso ; congruence.
+--
+	simpl in *.
+				destruct (le_dec (baseaddr' + offset') maxAddr) eqn:Hle_dec ; intuition.
+	simpl in *. intuition.
+simpl in *.
+
+intros. simpl in *.  lia.
+- intros offset' baseaddr' count' HInaddr Hle1 Hle2 Hcont.
+	apply IHcount ; intuition ; try lia.
+	simpl in *.
+				destruct (le_dec (baseaddr + offset) maxAddr) eqn:Hle_dec ; intuition.
+			simpl in *.
+	intuition. 
+	-- induction count'.
+			--- contradict Hcont. apply PeanoNat.Nat.nle_succ_0.
+			--- 
+
+ apply IHcount' ; intuition ; try lia.
+
+	induction count'.
+	-- simpl in *.
+			assert(count = 0). rewrite PeanoNat.Nat.add_0_r in *. lia.
+			subst count.
+			simpl in *.
+ 			exfalso ; congruence.
+	-- admit. (*lia.*)
+-
+intros HInaddr Hle1 Hle2.
+specialize (IHn' HInaddr Hle1).
+ simpl in *.
+destruct (le_dec (baseaddr' + offset') maxAddr) eqn:Hle_dec ; intuition.
+	-- simpl in *.
+
+	induction count.
+	-- simpl in *. exfalso ; congruence.
+	-- simpl in *.
+			destruct (le_dec (baseaddr + offset) maxAddr) eqn:Hle_dec ; intuition.
+			simpl in *.
+			intuition.
+			--- simpl in *.
+					destruct addr.
+					inversion H as [HaddrEq].
+					rewrite HaddrEq in *. simpl in *.
+					destruct (le_dec (baseaddr' + offset') maxAddr) eqn:Hle_dec2 ; intuition.
+					simpl in *. intuition.
+
+simpl in *.
+intuition.
+	exfalso ; congruence.
+- admit.
+induction (p-p1).
+- simpl in *.
+destruct (p0 - p2) eqn:Hf.
+-- simpl in *. exfalso ; congruence.
+-- contradict Hdiff. apply PeanoNat.Nat.nle_succ_0.
+-
+destruct (p0 - p2) eqn:Hdiff2.
+-- simpl in *. exfalso ; congruence.
+--	induction n.
+	contradict Hdiff. apply PeanoNat.Nat.nle_succ_0.
+-- apply IHn ; try lia.
+
+
+simpl in *.
+destruct (le_dec p2 maxAddr) eqn:Hle_dec.
+--- destruct (le_dec p1 maxAddr) eqn:Hle_dec'.
+		---- simpl in *.
+
+(* WIP *)apply IHn ; try lia.
+		simpl in *.
+		induction n as [|n' IHn']. simpl in *.
+		destruct HInsb.
+		---- induction n ; simpl in *.
+					-----
+--- intuition.*)
+(*Qed.
+
+
+
+assert(Hblockincllemma : forall addr subblock block startsb endsb startb endb s,
+														bentryStartAddr subblock startsb s ->
+														bentryEndAddr subblock endsb s ->
+														bentryStartAddr block startb s ->
+														bentryEndAddr block endb s ->
+														startsb >= startb /\ endsb <= endb ->
+														In addr (getAllPaddrAux [subblock] s) ->
+														In addr ((getAllPaddrAux [block] s))).
+		{
+			intros addr' subblock block startsb endsb startb endb s'.
+			intros Hstartsb Hendsb Hstartb Hendb Hbounds HInsb.
+			unfold getAllPaddrAux in HInsb.
+			unfold getAllPaddrAux.
+			unfold bentryStartAddr in *. unfold bentryEndAddr in *.
+			destruct (lookup block (memory s') beqAddr) eqn:Hlokupblock ; try(exfalso ; congruence).
+			destruct v ; try(exfalso ; congruence).
+			destruct (lookup subblock (memory s') beqAddr) eqn:Hlokupsubblock ; try(exfalso ; congruence).
+			destruct v ; try(exfalso ; congruence).
+			rewrite <- Hendb in *. rewrite <- Hendsb in *.
+			rewrite <- Hstartb in *. rewrite <- Hstartsb in *.
+			rewrite app_nil_r in *.
+			unfold getAllPaddrBlock in *.
+			destruct endb. destruct endsb. destruct startb. destruct startsb.
+			simpl in *.
+			assert(Hdiff : (p0 - p2) <= (p-p1)) by lia.
+
+
+			apply getAllPaddrBlockAuxincl with addr' p2 0 (p0-p2) p1 0 (p-p1) HInsb.
+			specialize (Haddrincllemma addr' p2 0 (p0-p2) p1 0 (p-p1) HInsb).
+			apply Haddrincllemma ; intuition ; try lia.
+			simpl.
+			assert(HEq : forall p0 p2, p2 + (p0 - p2) = p0).
+			{
+				admit.
+			}
+			rewrite HEq. rewrite HEq. assumption.
+			}
+
+*)
+
 (*
 (* Require Import Model.ADT Model.Hardware Core.Services Isolation
 Consistency Invariants WeakestPreconditions Model.Lib StateLib
@@ -9571,6 +9877,1161 @@ destruct i. f_equal. apply proof_irrelevance.
 
 Qed.
 
+Lemma getConfigBlocksAuxEqPDT structure addr' newEntry s0 n entriesleft:
+isPDT addr' s0 ->
+getConfigBlocksAux n structure {|
+currentPartition := currentPartition s0;
+memory := add addr' (PDT newEntry)
+            (memory s0) beqAddr |} entriesleft =
+getConfigBlocksAux n structure s0 entriesleft.
+Proof.
+revert n structure entriesleft.
+set (s' :=   {|
+currentPartition := currentPartition s0;
+memory := _ |}).
+induction n.
+- intros.
+	unfold getConfigBlocksAux in *.
+	intuition.
+- intros.
+	unfold getConfigBlocksAux.
+	fold getConfigBlocksAux.
+	destruct (Index.ltb entriesleft zero) eqn:Hentriesleft ; intuition.
+	unfold s' at 1. simpl.
+	destruct (beqAddr addr' structure)eqn:beqstructaddr.
+	-- (* addr' = structure *)
+			rewrite <- DependentTypeLemmas.beqAddrTrue in beqstructaddr.
+			subst structure.
+			unfold isPDT in *.
+			destruct (lookup addr' (memory s0) beqAddr) eqn:Hf ; try(exfalso ; congruence).
+			destruct v ; try(exfalso ; congruence).
+			trivial.
+	-- (* addr' <> structure *)
+			rewrite <- beqAddrFalse in *.
+		 	repeat rewrite removeDupIdentity ; intuition.
+
+			destruct (lookup structure (memory s0) beqAddr) eqn:Hoffset' ; intuition.
+			destruct v ; try(exfalso ; congruence) ; intuition.
+
+			destruct (Paddr.addPaddrIdx structure nextoffset) eqn:Hoffset ; intuition.
+			destruct (beqAddr addr' p) eqn:Haddr'Eq ; try(exfalso ; congruence).
+			rewrite <- DependentTypeLemmas.beqAddrTrue in Haddr'Eq.
+			subst p.
+			unfold isPDT in *.
+			destruct (lookup addr' (memory s0) beqAddr) ; try(exfalso ; congruence).
+			destruct v ; try(exfalso ; congruence).
+			trivial.
+
+			rewrite <- beqAddrFalse in *.
+		 	repeat rewrite removeDupIdentity ; intuition.
+
+			destruct (lookup p (memory s0) beqAddr) eqn:Hoffset'' ; intuition.
+			destruct v ; try(exfalso ; congruence) ; intuition.
+
+			destruct (Index.pred entriesleft) ; intuition.
+			f_equal.
+			specialize (IHn p0 i).
+			destruct IHn ; intuition.
+Qed.
+
+Lemma getConfigBlocksEqPDT partition addr' newEntry s0 pdentry0:
+lookup partition (memory s0) beqAddr = Some (PDT pdentry0) ->
+isPDT addr' s0 ->
+(*StructurePointerIsKS s0 ->*)
+(structure newEntry) = (structure pdentry0) ->
+getConfigBlocks partition {|
+						currentPartition := currentPartition s0;
+						memory := add addr' (PDT newEntry)
+            (memory s0) beqAddr |} =
+getConfigBlocks partition s0.
+Proof.
+set (s' :=   {|
+currentPartition := currentPartition s0;
+memory := _ |}).
+intros Hlookuppds0 HPDTaddrs0 (*HstructKS*) HstructEq.
+unfold getConfigBlocks.
+unfold s'. simpl.
+
+destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
+- (* addr' = partition *)
+	rewrite <- DependentTypeLemmas.beqAddrTrue in beqpartaddr.
+	rewrite Hlookuppds0.
+	unfold pdentryStructurePointer in *.
+	rewrite <- beqpartaddr in *.
+	rewrite HstructEq.
+
+	(*destruct (beqAddr (structure pdentry0) nullAddr) eqn:structNull ; intuition.*)
+	fold s'.
+	assert(HEq :  (getConfigBlocksAux (maxIdx + 1) (structure pdentry0) s' (CIndex maxNbPrepare)) =
+  (getConfigBlocksAux (maxIdx + 1) (structure pdentry0) s0 (CIndex maxNbPrepare))).
+	{ apply getConfigBlocksAuxEqPDT ; intuition.
+		(*unfold StructurePointerIsKS in *.
+		specialize (HstructKS addr' pdentry0 Hlookuppds0).
+		unfold isKS in *.
+		subst addr'. subst partition.
+		destruct (lookup (structure pdentry0) (memory s0) beqAddr) ; try(exfalso ; congruence).
+		destruct v ; try(exfalso ; congruence).*)
+	}
+	rewrite HEq.
+	intuition.
+- (* addr' <> partition *)
+	rewrite <- beqAddrFalse in *.
+	repeat rewrite removeDupIdentity ; intuition.
+	rewrite Hlookuppds0.
+	(*destruct (beqAddr (structure pdentry0) nullAddr) eqn:structNull ; intuition.*)
+	fold s'.
+	assert(HEq :  (getConfigBlocksAux (maxIdx + 1) (structure pdentry0) s' (CIndex maxNbPrepare)) =
+  (getConfigBlocksAux (maxIdx + 1) (structure pdentry0) s0 (CIndex maxNbPrepare))).
+	{
+		apply getConfigBlocksAuxEqPDT ; intuition.
+		(*unfold StructurePointerIsKS in *.
+		specialize (HstructKS partition pdentry0 Hlookuppds0).
+		unfold isKS in *.
+		subst addr'.
+		unfold isPDT in *.
+		destruct (lookup (structure pdentry0) (memory s0) beqAddr) ; try(exfalso ; congruence).
+		destruct v ; try(exfalso ; congruence).*)
+	}
+	rewrite HEq.
+	intuition.
+Qed.
+
+
+
+(* DUP *)
+Lemma getConfigBlocksAuxEqSCE structure addr' newEntry s0 n entriesleft:
+isSCE addr' s0 ->
+getConfigBlocksAux n structure {|
+currentPartition := currentPartition s0;
+memory := add addr' (SCE newEntry)
+            (memory s0) beqAddr |} entriesleft =
+getConfigBlocksAux n structure s0 entriesleft.
+Proof.
+revert n structure entriesleft.
+set (s' :=   {|
+currentPartition := currentPartition s0;
+memory := _ |}).
+induction n.
+- intros.
+	unfold getConfigBlocksAux in *.
+	intuition.
+- intros.
+	unfold getConfigBlocksAux.
+	fold getConfigBlocksAux.
+	destruct (Index.ltb entriesleft zero) eqn:Hentriesleft ; intuition.
+	unfold s' at 1. simpl.
+	destruct (beqAddr addr' structure)eqn:beqstructaddr.
+	-- (* addr' = structure *)
+			rewrite <- DependentTypeLemmas.beqAddrTrue in beqstructaddr.
+			subst structure.
+			unfold isSCE in *.
+			destruct (lookup addr' (memory s0) beqAddr) eqn:Hf ; try(exfalso ; congruence).
+			destruct v ; try(exfalso ; congruence).
+			trivial.
+	-- (* addr' <> structure *)
+			rewrite <- beqAddrFalse in *.
+		 	repeat rewrite removeDupIdentity ; intuition.
+
+			destruct (lookup structure (memory s0) beqAddr) eqn:Hoffset' ; intuition.
+			destruct v ; try(exfalso ; congruence) ; intuition.
+
+			destruct (Paddr.addPaddrIdx structure nextoffset) eqn:Hoffset ; intuition.
+			destruct (beqAddr addr' p) eqn:Haddr'Eq ; try(exfalso ; congruence).
+			rewrite <- DependentTypeLemmas.beqAddrTrue in Haddr'Eq.
+			subst p.
+			unfold isSCE in *.
+			destruct (lookup addr' (memory s0) beqAddr) ; try(exfalso ; congruence).
+			destruct v ; try(exfalso ; congruence).
+			trivial.
+
+			rewrite <- beqAddrFalse in *.
+		 	repeat rewrite removeDupIdentity ; intuition.
+
+			destruct (lookup p (memory s0) beqAddr) eqn:Hoffset'' ; intuition.
+			destruct v ; try(exfalso ; congruence) ; intuition.
+
+			destruct (Index.pred entriesleft) ; intuition.
+			f_equal.
+			specialize (IHn p0 i).
+			destruct IHn ; intuition.
+Qed.
+
+(* DUP *)
+Lemma getConfigBlocksEqSCE partition addr' newEntry s0 pdentry0:
+lookup partition (memory s0) beqAddr = Some (PDT pdentry0) ->
+isSCE addr' s0 ->
+getConfigBlocks partition {|
+						currentPartition := currentPartition s0;
+						memory := add addr' (SCE newEntry)
+            (memory s0) beqAddr |} =
+getConfigBlocks partition s0.
+Proof.
+set (s' :=   {|
+currentPartition := currentPartition s0;
+memory := _ |}).
+intros Hlookuppds0 HPDTaddrs0 (*HstructKS HstructEq*).
+unfold getConfigBlocks.
+unfold s'. simpl.
+destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
+- (* addr' = partition *)
+	rewrite <- DependentTypeLemmas.beqAddrTrue in beqpartaddr.
+	rewrite <- beqpartaddr in *.
+	unfold isSCE in *.
+	destruct (lookup addr' (memory s0) beqAddr) ; try(exfalso ; congruence).
+	destruct v ; try(exfalso ; congruence).
+- (* addr' <> partition *)
+	rewrite <- beqAddrFalse in *.
+	repeat rewrite removeDupIdentity ; intuition.
+	rewrite Hlookuppds0.
+	fold s'.
+	assert(HEq :  (getConfigBlocksAux (maxIdx + 1) (structure pdentry0) s' (CIndex maxNbPrepare)) =
+  (getConfigBlocksAux (maxIdx + 1) (structure pdentry0) s0 (CIndex maxNbPrepare))).
+	{
+		apply getConfigBlocksAuxEqSCE ; intuition.
+	}
+	rewrite HEq.
+	intuition.
+Qed.
+
+
+(* DUP *)
+Lemma getConfigBlocksAuxEqSHE structure addr' newEntry s0 n entriesleft:
+isSHE addr' s0 ->
+getConfigBlocksAux n structure {|
+currentPartition := currentPartition s0;
+memory := add addr' (SHE newEntry)
+            (memory s0) beqAddr |} entriesleft =
+getConfigBlocksAux n structure s0 entriesleft.
+Proof.
+revert n structure entriesleft.
+set (s' :=   {|
+currentPartition := currentPartition s0;
+memory := _ |}).
+induction n.
+- intros.
+	unfold getConfigBlocksAux in *.
+	intuition.
+- intros.
+	unfold getConfigBlocksAux.
+	fold getConfigBlocksAux.
+	destruct (Index.ltb entriesleft zero) eqn:Hentriesleft ; intuition.
+	unfold s' at 1. simpl.
+	destruct (beqAddr addr' structure)eqn:beqstructaddr.
+	-- (* addr' = structure *)
+			rewrite <- DependentTypeLemmas.beqAddrTrue in beqstructaddr.
+			subst structure.
+			unfold isSHE in *.
+			destruct (lookup addr' (memory s0) beqAddr) eqn:Hf ; try(exfalso ; congruence).
+			destruct v ; try(exfalso ; congruence).
+			trivial.
+	-- (* addr' <> structure *)
+			rewrite <- beqAddrFalse in *.
+		 	repeat rewrite removeDupIdentity ; intuition.
+
+			destruct (lookup structure (memory s0) beqAddr) eqn:Hoffset' ; intuition.
+			destruct v ; try(exfalso ; congruence) ; intuition.
+
+			destruct (Paddr.addPaddrIdx structure nextoffset) eqn:Hoffset ; intuition.
+			destruct (beqAddr addr' p) eqn:Haddr'Eq ; try(exfalso ; congruence).
+			rewrite <- DependentTypeLemmas.beqAddrTrue in Haddr'Eq.
+			subst p.
+			unfold isSHE in *.
+			destruct (lookup addr' (memory s0) beqAddr) ; try(exfalso ; congruence).
+			destruct v ; try(exfalso ; congruence).
+			trivial.
+
+			rewrite <- beqAddrFalse in *.
+		 	repeat rewrite removeDupIdentity ; intuition.
+
+			destruct (lookup p (memory s0) beqAddr) eqn:Hoffset'' ; intuition.
+			destruct v ; try(exfalso ; congruence) ; intuition.
+
+			destruct (Index.pred entriesleft) ; intuition.
+			f_equal.
+			specialize (IHn p0 i).
+			destruct IHn ; intuition.
+Qed.
+
+(* DUP *)
+Lemma getConfigBlocksEqSHE partition addr' newEntry s0 pdentry0:
+lookup partition (memory s0) beqAddr = Some (PDT pdentry0) ->
+isSHE addr' s0 ->
+getConfigBlocks partition {|
+						currentPartition := currentPartition s0;
+						memory := add addr' (SHE newEntry)
+            (memory s0) beqAddr |} =
+getConfigBlocks partition s0.
+Proof.
+set (s' :=   {|
+currentPartition := currentPartition s0;
+memory := _ |}).
+intros Hlookuppds0 HPDTaddrs0.
+unfold getConfigBlocks.
+unfold s'. simpl.
+destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
+- (* addr' = partition *)
+	rewrite <- DependentTypeLemmas.beqAddrTrue in beqpartaddr.
+	rewrite <- beqpartaddr in *.
+	unfold isSHE in *.
+	destruct (lookup addr' (memory s0) beqAddr) ; try(exfalso ; congruence).
+	destruct v ; try(exfalso ; congruence).
+- (* addr' <> partition *)
+	rewrite <- beqAddrFalse in *.
+	repeat rewrite removeDupIdentity ; intuition.
+	rewrite Hlookuppds0.
+	fold s'.
+	assert(HEq :  (getConfigBlocksAux (maxIdx + 1) (structure pdentry0) s' (CIndex maxNbPrepare)) =
+  (getConfigBlocksAux (maxIdx + 1) (structure pdentry0) s0 (CIndex maxNbPrepare))).
+	{
+		apply getConfigBlocksAuxEqSHE ; intuition.
+	}
+	rewrite HEq.
+	intuition.
+Qed.
+
+
+Lemma getConfigBlocksAuxEqBE structure addr' newEntry s0 n entriesleft:
+isBE addr' s0 ->
+getConfigBlocksAux n structure {|
+currentPartition := currentPartition s0;
+memory :=  add addr' (BE newEntry)
+            (memory s0) beqAddr |} entriesleft =
+getConfigBlocksAux n structure s0 entriesleft.
+Proof.
+revert n structure entriesleft.
+set (s' :=   {|
+currentPartition := currentPartition s0;
+memory := _ |}).
+induction n.
+- intros.
+	unfold getConfigBlocksAux in *.
+	intuition.
+- intros.
+	unfold getConfigBlocksAux.
+	fold getConfigBlocksAux.
+	destruct (Index.ltb entriesleft zero) eqn:Hentriesleft ; intuition.
+	unfold s' at 1. simpl.
+
+	destruct (beqAddr addr' structure)eqn:beqstructaddr.
+	-- (* addr' = structure *)
+			rewrite <- DependentTypeLemmas.beqAddrTrue in beqstructaddr.
+			subst structure.
+
+			unfold isBE in *.
+			destruct (lookup addr' (memory s0) beqAddr) eqn:Hlookups0 ; try(exfalso ; congruence).
+			destruct v ; try(exfalso ; congruence).
+			destruct (Paddr.addPaddrIdx addr' nextoffset) eqn:Hoffset ; intuition.
+				destruct (beqAddr addr' p) eqn:Haddr'Eq ; try(exfalso ; congruence).
+			+ (* addr' = p *)
+				rewrite <- DependentTypeLemmas.beqAddrTrue in Haddr'Eq.
+				subst p.
+				rewrite Hlookups0. trivial.
+			+ (* addr' <> p *)
+				rewrite <- beqAddrFalse in *.
+			 	repeat rewrite removeDupIdentity ; intuition.
+
+				destruct (lookup p (memory s0) beqAddr) eqn:Hoffset'' ; intuition.
+				destruct v ; try(exfalso ; congruence) ; intuition.
+
+				destruct (Index.pred entriesleft) ; intuition.
+				f_equal.
+				specialize (IHn p0 i).
+				destruct IHn ; intuition.
+	-- (* addr' <> structure *)
+			rewrite <- beqAddrFalse in *.
+		 	repeat rewrite removeDupIdentity ; intuition.
+
+			destruct (lookup structure (memory s0) beqAddr) eqn:Hoffset' ; intuition.
+			destruct v ; try(exfalso ; congruence) ; intuition.
+
+			destruct (Paddr.addPaddrIdx structure nextoffset) eqn:Hoffset ; intuition.
+			destruct (beqAddr addr' p) eqn:Haddr'Eq ; try(exfalso ; congruence).
+			rewrite <- DependentTypeLemmas.beqAddrTrue in Haddr'Eq.
+			subst p.
+			unfold isBE in *.
+			destruct (lookup addr' (memory s0) beqAddr) ; try(exfalso ; congruence).
+			destruct v ; try(exfalso ; congruence).
+			trivial.
+
+			rewrite <- beqAddrFalse in *.
+		 	repeat rewrite removeDupIdentity ; intuition.
+
+			destruct (lookup p (memory s0) beqAddr) eqn:Hoffset'' ; intuition.
+			destruct v ; try(exfalso ; congruence) ; intuition.
+
+			destruct (Index.pred entriesleft) ; intuition.
+			f_equal.
+			specialize (IHn p0 i).
+			destruct IHn ; intuition.
+Qed.
+
+(* After state modification, type is still BE, so the kernel entries did not change
+		which means the types we found at the same addresses as the previous structure
+		are still the same, even if the content might have changed *)
+Lemma getConfigBlocksEqBE partition addr' newEntry s0:
+isPDT partition s0 ->
+isBE addr' s0 ->
+getConfigBlocks partition {|
+currentPartition := currentPartition s0;
+memory := add addr' (BE newEntry)
+            (memory s0) beqAddr |}  =
+getConfigBlocks partition s0.
+Proof.
+set (s' :=   {|
+currentPartition := currentPartition s0;
+memory := _ |}).
+intros HPDTparts0 Hlookupaddr's0.
+unfold getConfigBlocks.
+unfold s'. simpl.
+destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
+- (* addr' = partition *)
+	rewrite <- DependentTypeLemmas.beqAddrTrue in beqpartaddr.
+	rewrite <- beqpartaddr in *.
+	unfold isBE in *. unfold isPDT in *.
+	destruct (lookup addr' (memory s0) beqAddr) ; try(exfalso ; congruence).
+	destruct v ; try(exfalso ; congruence).
+- (* addr' <> partition *)
+	rewrite <- beqAddrFalse in *.
+	repeat rewrite removeDupIdentity ; intuition.
+	apply isPDTLookupEq in HPDTparts0. destruct HPDTparts0 as [pdentry0 Hlookuppds0].
+	rewrite Hlookuppds0.
+	fold s'.
+	assert(HEq :  (getConfigBlocksAux (maxIdx + 1) (structure pdentry0) s' (CIndex maxNbPrepare)) =
+  (getConfigBlocksAux (maxIdx + 1) (structure pdentry0) s0 (CIndex maxNbPrepare))).
+	{	eapply getConfigBlocksAuxEqBE ; intuition.
+	}
+	rewrite HEq.
+	intuition.
+Qed.
+
+(* DUP *)
+Lemma getConfigBlocksAuxEqN addr s n1 n2 n3 list:
+list = getConfigBlocksAux n1 addr s n2 ->
+n2 < n1 ->
+n1 <= n3 ->
+n2 < n3 ->
+list = getConfigBlocksAux n3 addr s n2.
+Proof.
+revert list addr n1 n3.
+revert n2.
+destruct n2.
+induction i.
+- intuition.
+	destruct n3 ; intuition.
+	+ simpl. intros.
+		apply PeanoNat.Nat.nlt_0_r in H2. exfalso ; congruence.
+	+	destruct n1 ; intuition.
+		* simpl. intros.
+			apply PeanoNat.Nat.nlt_0_r in H0. exfalso ; congruence.
+- 	destruct n3 ; intuition.
+	+ simpl. intros.
+		apply PeanoNat.Nat.nlt_0_r in H2. exfalso ; congruence.
+	+	destruct n1 ; intuition.
+		* simpl. intros.
+			apply PeanoNat.Nat.nlt_0_r in H0. exfalso ; congruence.
+		* unfold getConfigBlocksAux in * at 1. fold getConfigBlocksAux in *.
+			simpl in *.
+			destruct (lookup addr (memory s) beqAddr) eqn:Haddr ; try(exfalso ; congruence) ; intuition.
+			destruct v ; try(exfalso ; congruence) ; intuition.
+
+			destruct(Paddr.addPaddrIdx addr nextoffset) ; intuition.
+			destruct (lookup p (memory s) beqAddr) eqn:Hp ; try(exfalso ; congruence) ; intuition.
+			destruct v ; try(exfalso ; congruence) ; intuition.
+			(*destruct (lookup p0 (memory s) beqAddr) eqn:Hp0 ; try(exfalso ; congruence) ; intuition.
+			destruct v ; try(exfalso ; congruence) ; intuition.*)
+
+			assert(HimaxIdx : i <= maxIdx) by intuition.
+			specialize (IHi HimaxIdx (getConfigBlocksAux n1 p0 s
+         {|
+           i := i - 0;
+           Hi :=
+             StateLib.Index.pred_obligation_1 {| i := S i; Hi := Hi |}
+               (Gt.gt_le_S 0 (S i) (Le.le_n_S 0 i (PeanoNat.Nat.le_0_l i)))
+         |}) p0 n1 n3 ).
+					subst list. f_equal.
+					assert(getConfigBlocksAux n1 p0 s
+        {|
+          i := i - 0;
+          Hi :=
+            StateLib.Index.pred_obligation_1 {| i := S i; Hi := Hi |}
+              (Gt.gt_le_S 0 (S i) (Le.le_n_S 0 i (PeanoNat.Nat.le_0_l i)))
+        |} = getConfigBlocksAux n1 p0 s
+  {|
+    i := i - 0;
+    Hi :=
+      StateLib.Index.pred_obligation_1 {| i := S i; Hi := Hi |}
+        (Gt.gt_le_S 0 (S i) (Le.le_n_S 0 i (PeanoNat.Nat.le_0_l i)))
+  |}) by intuition.
+					assert(getConfigBlocksAux n3 p0 s {| i := i; Hi := HimaxIdx |} =
+getConfigBlocksAux n3 p0 s
+  {|
+    i := i - 0;
+    Hi :=
+      StateLib.Index.pred_obligation_1 {| i := S i; Hi := Hi |}
+        (Gt.gt_le_S 0 (S i) (Le.le_n_S 0 i (PeanoNat.Nat.le_0_l i)))
+  |}
+). f_equal. 
+destruct i. f_equal. apply proof_irrelevance.
+					 f_equal. apply proof_irrelevance.
+					rewrite <- H3.
+
+
+					eapply IHi ; intuition. f_equal.
+					destruct i. f_equal. apply proof_irrelevance.
+					f_equal. apply proof_irrelevance.
+
+Qed.
+
+
+Lemma partitionsArePDT root partition s :
+In partition (getPartitions root s) ->
+isPDT partition s.
+Proof.
+(*revert partition.*)
+(*generalize multiplexer.*)
+intros (*root partition s*) HpartInRoot.
+
+unfold getPartitions in *.
+unfold filterPDT in *.
+
+(*
+induction (root
+                    :: filterOptionPaddr
+                         (getPartitionsAux (maxAddr + 1) (getChildren root s) s)).
+intuition.*)
+induction ((root :: filterOptionPaddr (getPartitionsAux (maxAddr + 1) root s))).
+intuition.
+
+
+simpl in *.
+destruct (PDTFilter s a) eqn:HPDTa ; intuition.
+
+simpl in *. intuition.
+subst a.
+
+unfold isPDT.
+
+unfold PDTFilter in *.
+destruct (lookup partition (memory s) beqAddr) ; try(exfalso ; congruence).
+destruct v ; try(exfalso ; congruence).
+trivial.
+Qed.
+
+
+Lemma childrenArePDT partition child s :
+PDTIfPDFlag s ->
+In child (getChildren partition s) ->
+isPDT child s.
+Proof.
+intros HPDTIfPDFlag Hchild.
+unfold getChildren in *.
+destruct (lookup partition (memory s) beqAddr) eqn:Hparts ; try(simpl in * ; exfalso ; congruence).
+destruct v ; try (simpl in * ; exfalso ; congruence).
+
+induction (getMappedBlocks partition s).
+- simpl in *.
+	exfalso ; congruence.
+- simpl in *.
+	unfold getPDs in *.
+	simpl in *.
+	destruct (childFilter s a) eqn:Hcheck ; intuition.
+	simpl in *.
+	intuition.
+
+	unfold childFilter in Hcheck.
+	destruct (lookup a (memory s) beqAddr) eqn:Hlookupa ; try(exfalso ; congruence).
+	destruct v eqn:Hv ; try(exfalso ; congruence).
+	destruct (Paddr.addPaddrIdx a sh1offset) eqn:Hsh1offset ; intuition.
+	destruct (lookup p0 (memory s) beqAddr) eqn:Hlookupp0 ; try(exfalso ; congruence).
+	destruct v0 eqn:Hv0 ; intuition.
+
+	unfold PDTIfPDFlag in *.
+	specialize (HPDTIfPDFlag a p0).
+	destruct HPDTIfPDFlag.
+	-- 	unfold checkChild. unfold sh1entryAddr.
+			rewrite Hlookupa. rewrite Hlookupp0.
+			intuition.
+			unfold Paddr.addPaddrIdx in *. unfold CPaddr.
+			destruct (le_dec (a + sh1offset) maxAddr) eqn:Hle ; try(exfalso ; congruence).
+			inversion Hsh1offset as [Hsh1offsetEq].
+			f_equal.
+	-- 	destruct H1. destruct H2 as [astartaddr (HastartAddr & HPDT)].
+			unfold bentryStartAddr in *. 	unfold entryPDT in *.
+			rewrite Hlookupa in *.
+			subst astartaddr. subst child.
+			unfold isPDT.
+			destruct (lookup (startAddr (blockrange b)) (memory s) beqAddr) eqn:HstartPDT ; try(exfalso ; congruence).
+			destruct v1 ; try(exfalso ; congruence).
+			trivial.
+Qed.
+
+Lemma childrenArePDTAndChild parent child s :
+PDTIfPDFlag s ->
+In child (getChildren parent s) ->
+exists bentryaddr sh1entryaddr,
+isPDT child s /\
+In bentryaddr (getMappedBlocks parent s) /\
+true = StateLib.checkChild bentryaddr s sh1entryaddr /\
+sh1entryAddr bentryaddr sh1entryaddr s.
+Proof.
+intros HPDTIfPDFlag Hchild.
+unfold getChildren in *.
+destruct (lookup parent (memory s) beqAddr) eqn:Hparts ; try(simpl in * ; exfalso ; congruence).
+destruct v ; try (simpl in * ; exfalso ; congruence).
+
+induction (getMappedBlocks parent s).
+- simpl in *.
+	exfalso ; congruence.
+- simpl in *.
+	unfold getPDs in *.
+	simpl in *.
+	destruct (childFilter s a) eqn:Hcheck ; intuition.
+
+	simpl in *.
+	intuition.
+
+	unfold childFilter in Hcheck.
+	destruct (lookup a (memory s) beqAddr) eqn:Hlookupa ; try(exfalso ; congruence).
+	destruct v eqn:Hv ; try(exfalso ; congruence).
+	destruct (Paddr.addPaddrIdx a sh1offset) eqn:Hsh1offset ; intuition.
+	destruct (lookup p0 (memory s) beqAddr) eqn:Hlookupp0 ; try(exfalso ; congruence).
+	destruct v0 eqn:Hv0 ; intuition.
+
+	unfold PDTIfPDFlag in *.
+	specialize (HPDTIfPDFlag a p0).
+	destruct HPDTIfPDFlag.
+	--- 	unfold checkChild. unfold sh1entryAddr.
+			rewrite Hlookupa. rewrite Hlookupp0.
+			intuition.
+			unfold Paddr.addPaddrIdx in *. unfold CPaddr.
+			destruct (le_dec (a + sh1offset) maxAddr) eqn:Hle ; try(exfalso ; congruence).
+			inversion Hsh1offset as [Hsh1offsetEq].
+			f_equal.
+	--- 	destruct H1. destruct H2 as [astartaddr (HastartAddr & HPDT)].
+			unfold bentryStartAddr in *. 	unfold entryPDT in *.
+
+			rewrite Hlookupa in *.
+			subst astartaddr. subst child.
+			unfold isPDT.
+			destruct (lookup (startAddr (blockrange b)) (memory s) beqAddr) eqn:HstartPDT ; try(exfalso ; congruence).
+			destruct v1 ; try(exfalso ; congruence).
+			eexists. eexists.
+			split. trivial.
+			split. left.
+			intuition.
+			unfold checkChild. unfold sh1entryAddr.
+			rewrite Hlookupa. rewrite Hlookupp0.
+			intuition.
+			unfold Paddr.addPaddrIdx in *. unfold CPaddr.
+			destruct (le_dec (a + sh1offset) maxAddr) eqn:Hle ; try(exfalso ; congruence).
+			inversion Hsh1offset as [Hsh1offsetEq].
+			f_equal.
+
+	--- destruct H0 as [bentryaddr (sh1entryaddr & Hchild)].
+			exists bentryaddr. exists sh1entryaddr.
+			intuition.
+---
+		destruct H as [bentryaddr (sh1entryaddr & Hchild')].
+			exists bentryaddr. exists sh1entryaddr.
+			intuition.
+
+Qed.
+(*
+Lemma blockshared addr child parent s :
+verticalSharing s ->
+(*wellFormedFstShadowIfBlockEntry s ->
+PDTIfPDFlag s ->*)
+noDupUsedPaddrList s ->
+In parent (getPartitions multiplexer s) ->
+In child (getChildren parent s) ->
+In addr (getUsedPaddr child s) ->
+exists! block (*sh1entryaddr*),
+In block (getMappedBlocks parent s) /\
+In addr (getAllPaddrAux [block] s) (*/\
+sh1entryAddr block sh1entryaddr s /\
+(sh1entryPDchild sh1entryaddr child s \/
+ sh1entryPDflag sh1entryaddr true s)*).
+Proof.
+intros  HVS  HNoDuppaddr (*HwellFormedSh1 HPDTIfPDFlag*) Hparent Hchild HaddrInUsedChild.
+unfold verticalSharing in *.
+unfold noDupUsedPaddrList in *.
+specialize (HVS parent child Hparent Hchild).
+unfold incl in *.
+specialize (HVS addr HaddrInUsedChild).
+apply partitionsArePDT in Hparent.
+specialize (HNoDuppaddr parent Hparent).
+unfold getUsedPaddr in HNoDuppaddr.
+unfold getMappedPaddr in *.
+induction ((getMappedBlocks parent s)).
+- intuition.
+-	unfold getAllPaddrAux in HVS.
+	destruct (lookup a (memory s) beqAddr) eqn:Hlookupas ; intuition.
+	destruct v ; intuition.
+	fold getAllPaddrAux in *.
+	apply in_app_or in HVS.
+	destruct HVS as [HinBlock | Hin].
+	--
+			exists a. (*eexists.*)
+			split. intuition.
+			(*split.*) unfold getAllPaddrAux. rewrite Hlookupas. intuition.
+			(* unique *)
+			intuition.
+			unfold getAllPaddrAux in H1.
+			simpl in *.
+			rewrite Hlookupas in *.
+			destruct (lookup x' (memory s) beqAddr) eqn:Hx' ; intuition.
+			destruct v ; intuition.
+			apply in_app_or in H1 ; intuition.
+			(*unfold getAllPaddrBlock in *.
+			simpl in *.*)
+
+			(*unfold getAllPaddrAux in HNoDuppaddr.*)
+			assert(HNoDupEq : NoDup
+                (
+                 getAllPaddrBlock (startAddr (blockrange b)) (endAddr (blockrange b)) ++
+                 getAllPaddrAux l s)).
+			{
+				apply Lib.NoDupSplit in HNoDuppaddr. intuition.
+			}
+			
+			pose proof (HNoDupEq2 := HNoDupEq).
+			apply Lib.NoDupSplitInclIff in HNoDupEq.
+					intuition. unfold Lib.disjoint in *.
+					pose proof (HNoDupEq3 := H2 addr HinBlock).
+			(* WIP *)
+			contradict HNoDupEq3.
+			unfold getAllPaddrAux. fold getAllPaddrAux in *.
+
+			induction l.
+			--- intuition.
+			---	(*unfold getAllPaddrAux in *. fold getAllPaddrAux in *.*)
+					(*simpl in H. apply IHl0 ; intuition.
+					admit.
+					apply IHl ; intuition.*)
+
+					simpl in H.
+					intuition.
+					---- subst a0. simpl in *. rewrite Hx' in *.
+								(*unfold getAllPaddrBlock in *.*)
+								assert(NoDup (getAllPaddrBlock (startAddr (blockrange b)) (endAddr (blockrange b)) ++
+						           getAllPaddrBlock (startAddr (blockrange b0))
+						             (endAddr (blockrange b0)) )).
+								{
+									apply Lib.NoDupSplitInclIff in HNoDuppaddr. intuition.
+								(*
+									rewrite app_assoc in H5.
+									apply Lib.NoDupSplit in H5. intuition.
+								*)
+								}
+								rewrite Lib.NoDupSplitInclIff in H. intuition.
+								(*unfold Lib.disjoint in *.
+								specialize (H2 addr HinBlock). congruence.*)
+					----
+
+								(*apply IHl0 ; intuition.*)
+ 
+								unfold getAllPaddrAux in *. fold getAllPaddrAux in *.
+
+								(*apply IHl0 ; intuition.*)
+ destruct (lookup a0 (memory s) beqAddr) eqn:Hlookupa0s ; try(exfalso ; congruence) ; intuition.
+											destruct v ; try(exfalso ; congruence) ; intuition.
+
+								induction l.
+								----- intuition.
+								----- simpl in *. intuition.
+												------ subst a1. rewrite Hx' in *. intuition.
+															rewrite app_assoc in HNoDuppaddr.
+															apply Lib.NoDupSplitInclIff in HNoDuppaddr.
+					intuition. unfold Lib.disjoint in *.
+					assert(Hinaddr : In addr
+       (getConfigPaddr parent s ++
+        getAllPaddrBlock (startAddr (blockrange b)) (endAddr (blockrange b)))).
+				{
+					apply in_or_app. intuition.
+				}
+					assert(Hinaddr2 : In addr
+       (getAllPaddrBlock (startAddr (blockrange b1)) (endAddr (blockrange b1)) ++
+        getAllPaddrBlock (startAddr (blockrange b0)) (endAddr (blockrange b0)) ++
+        getAllPaddrAux l s)).
+				{
+					apply in_or_app. intuition.
+				}
+
+					specialize (H1 addr Hinaddr). congruence.
+
+												------ 
+ 											destruct (lookup a1 (memory s) beqAddr) eqn:Hlookupa1s ; try(exfalso ; congruence) ; intuition.
+											destruct v ; try(exfalso ; congruence) ; intuition.
+											apply IHl1 ; intuition.
+																rewrite Hlookupa0s in *. intuition.
+								specialize (H4 H2).
+								admit. admit.
+
+			-- intuition.
+					assert(HNoDupEq : NoDup (getConfigPaddr parent s ++ getAllPaddrAux l s)).
+					{	unfold getAllPaddrAux in HNoDuppaddr.
+						rewrite Hlookupas in *. fold getAllPaddrAux in *.
+						induction (getAllPaddrBlock (startAddr (blockrange b)) (endAddr (blockrange b))).
+						- intuition.
+						- apply NoDup_remove_1 in HNoDuppaddr. simpl in *. intuition.
+					}
+					pose proof (HNoDupEq2 := H HNoDupEq).
+					(*specialize (H HNoDupEq).*)
+					destruct HNoDupEq2. exists x. unfold unique in *.
+					intuition. apply H2. intuition.
+					simpl in H4. intuition. subst x'.
+					unfold getAllPaddrAux in H3. unfold getAllPaddrAux in H5.
+					rewrite Hlookupas in *.
+					destruct (lookup x (memory s) beqAddr) eqn:Hlookupxs ; intuition.
+					destruct v ; intuition.
+					unfold getAllPaddrAux in HNoDuppaddr. rewrite Hlookupas in *.
+					fold getAllPaddrAux in *.
+					assert(HNoDupEq3 : NoDup (
+                 getAllPaddrBlock (startAddr (blockrange b)) (endAddr (blockrange b)) ++
+                 getAllPaddrAux l s)).
+					{
+						induction (getConfigPaddr parent s).
+						- intuition.
+						- apply Lib.NoDupSplit in HNoDuppaddr. intuition.
+					}
+					apply Lib.NoDupSplitInclIff in HNoDupEq3.
+					intuition. unfold Lib.disjoint in *.
+					Search (?l1 ++ ?l2 = _). rewrite app_nil_r in H5.
+					specialize (H4 addr H5). congruence.
+
+
+
+								exists x'. unfold unique. intuition. rewrite Hx'.
+								intuition.
+
+								destruct (lookup x'0 (memory s) beqAddr) eqn:Hlookupa0s ; intuition.
+								destruct v ; intuition.
+								induction l.
+								---- intuition.
+								---- simpl in *. intuition. subst a1. intuition.
+										subst a1. intuition.
+
+
+					destruct (getAllPaddrBlock (startAddr (blockrange b)) (endAddr (blockrange b))).
+					---- intuition.
+					---- simpl in *.
+								intuition. subst p.
+								destruct (getAllPaddrBlock (startAddr (blockrange b0)) (endAddr (blockrange b0))).
+								----- intuition.
+								----- simpl in *. intuition. subst p.
+											admit. admit.
+								-----
+
+											rewrite Lib.NoDupSplitInclIff in H.
+ congruence; intuition.
+ simpl in *.
+											intuition.
+						
+
+ unfold getAllPaddrBlockAux in *.
+					admit.
+					apply Lib.NoDupSplitInclIff in HNoDuppaddr. intuition.
+					specialize (HNoDuppaddr addr).
+
+
+			(*unfold sh1entryAddr. unfold sh1entryPDchild. unfold sh1entryPDflag.
+			rewrite Hlookupas.
+			split. intuition.
+			assert(HBEas: isBE a s) by (unfold isBE ; rewrite Hlookupas ; trivial).
+			specialize (HwellFormedSh1 a HBEas).
+			unfold isSHE in *.
+			destruct (lookup (CPaddr (a + sh1offset)) (memory s) beqAddr) eqn:Hsh1addr ; try(exfalso ; congruence).
+			destruct v ; try(exfalso ; congruence).
+			eapply childrenArePDTAndChild in Hchild ; intuition.
+			destruct Hchild as [blockentryaddr (sh1entryaddr & (HPDTchild & (HblockInMappedParent & (Hchild & Hsh1entry))))].
+			unfold sh1entryAddr in *.
+			destruct (lookup blockentryaddr (memory s) beqAddr) eqn:HBEblock ; try(exfalso ; congruence).
+			destruct v ; try(exfalso ; congruence).
+			destruct (beqAddr a blockentryaddr) eqn:beqablock ; try(exfalso ; congruence).
+			--- rewrite <- DependentTypeLemmas.beqAddrTrue in beqablock.
+					rewrite beqablock in *.
+					unfold checkChild in *.
+					rewrite Hlookupas in *.
+					rewrite Hsh1entry in *. rewrite Hsh1addr in *.
+					intuition.
+			--- intuition.*)
+
+	--	specialize (IHl Hin).
+			destruct IHl as [block (sh1entryaddr & Hleft)].
+			exists block. (*exists sh1entryaddr.*)
+			intuition.
+Qed.
+
+Definition blockshared addr child parent s :
+In parent (getPartitions multiplexer s) ->
+In child (getChildren parent s) ->
+In addr (getUsedPaddr child s) ->
+exists block,
+In block (getMappedBlocks parent s) /\
+In addr (getAllPaddrAux [block] s) ->
+exists sh1entryaddr,
+sh1entryAddr block sh1entryaddr s /\
+(sh1entryPDchild sh1entryaddr child s \/
+ sh1entryPDflag sh1entryaddr true s).
+Proof.
+
+Qed.*)
+
+(*
+Lemma childrenArePDTAndChildOfParent parent child s :
+PDTIfPDFlag s ->
+childParentEq s ->
+In child (getChildren parent s) ->
+exists bentryaddr sh1entryaddr,
+isPDT child s /\
+In bentryaddr (getMappedBlocks parent s) /\
+sh1entryAddr bentryaddr sh1entryaddr s /\
+(true = StateLib.checkChild bentryaddr s sh1entryaddr \/
+	sh1entryPDchild sh1entryaddr child s) /\
+pdentryParent child parent s.
+Proof.
+intros HPDTIfPDFlag HchildParentEq Hchild.
+unfold getChildren in *.
+destruct (lookup parent (memory s) beqAddr) eqn:Hparts ; try(simpl in * ; exfalso ; congruence).
+destruct v ; try (simpl in * ; exfalso ; congruence).
+
+destruct (getMappedBlocks parent s) as [|a mappedblocks].
+- simpl in *.
+	exfalso ; congruence.
+- simpl in *.
+	unfold getPDs in *.
+	simpl in *.
+	destruct (childFilter s a) eqn:Hcheck ; intuition.
+
+	simpl in *.
+	intuition.
+
+	unfold childFilter in Hcheck.
+	destruct (lookup a (memory s) beqAddr) eqn:Hlookupa ; try(exfalso ; congruence).
+	destruct v eqn:Hv ; try(exfalso ; congruence).
+	destruct (Paddr.addPaddrIdx a sh1offset) eqn:Hsh1offset ; intuition.
+	destruct (lookup p0 (memory s) beqAddr) eqn:Hlookupp0 ; try(exfalso ; congruence).
+	destruct v0 eqn:Hv0 ; intuition.
+
+	unfold PDTIfPDFlag in *.
+	specialize (HPDTIfPDFlag a p0).
+	destruct HPDTIfPDFlag.
+	--- 	unfold checkChild. unfold sh1entryAddr.
+			rewrite Hlookupa. rewrite Hlookupp0.
+			intuition.
+			unfold Paddr.addPaddrIdx in *. unfold CPaddr.
+			destruct (le_dec (a + sh1offset) maxAddr) eqn:Hle ; try(exfalso ; congruence).
+			inversion Hsh1offset as [Hsh1offsetEq].
+			f_equal.
+	--- 	destruct H1. destruct H2 as [astartaddr (HastartAddr & HPDT)].
+			unfold bentryStartAddr in *. 	unfold entryPDT in *.
+
+			rewrite Hlookupa in *.
+			subst astartaddr. subst child.
+			unfold isPDT.
+			destruct (lookup (startAddr (blockrange b)) (memory s) beqAddr) eqn:HstartPDT ; try(exfalso ; congruence).
+			destruct v1 ; try(exfalso ; congruence).
+			eexists. eexists.
+			split. trivial.
+			split. left.
+			intuition.
+
+			unfold checkChild. unfold sh1entryAddr.
+			rewrite Hlookupa. rewrite Hlookupp0.
+			intuition.
+			unfold Paddr.addPaddrIdx in *. unfold CPaddr.
+			destruct (le_dec (a + sh1offset) maxAddr) eqn:Hle ; try(exfalso ; congruence).
+			inversion Hsh1offset as [Hsh1offsetEq].
+			f_equal.
+
+			unfold pdentryParent. rewrite HstartPDT.
+			unfold childParentEq in *.
+			specialize (HchildParentEq (startAddr (blockrange b))  parent).
+
+			destruct HchildParentEq.
+						assert((exists bentryaddr sh1entryaddr : paddr,
+        isPDT (startAddr (blockrange b)) s /\
+        In bentryaddr (getMappedBlocks parent s) /\
+        true = checkChild bentryaddr s sh1entryaddr /\
+        sh1entryAddr bentryaddr sh1entryaddr s) ).
+			{
+					unfold isPDT. rewrite HstartPDT.
+					exists a. exists p0.
+					unfold checkChild. unfold sh1entryAddr.
+					rewrite Hlookupa. rewrite Hlookupp0.
+					assert(Hsh1offset' : p0 = CPaddr (a + sh1offset)).
+					{
+			unfold Paddr.addPaddrIdx in *. unfold CPaddr.
+			destruct (le_dec (a + sh1offset) maxAddr) eqn:Hle ; try(exfalso ; congruence).
+			inversion Hsh1offset as [Hsh1offsetEq].
+			f_equal.
+					}
+					intuition.
+					unfold getMappedBlocks.
+
+			}
+
+			intuition.
+			unfold pdentryParent in *.
+			rewrite HstartPDT in *.
+			assumption.
+
+	--- destruct H0 as [bentryaddr (sh1entryaddr & Hchild)].
+			exists bentryaddr. exists sh1entryaddr.
+			intuition.
+---
+		destruct H as [bentryaddr (sh1entryaddr & Hchild')].
+			exists bentryaddr. exists sh1entryaddr.
+			intuition.
+
+Qed.*)
+
+
+(*
+Lemma getPartitionsEqPDT partition addr' newEntry s0 pdentry0:
+lookup partition (memory s0) beqAddr = Some (PDT pdentry0) ->
+isPDT addr' s0 ->
+(*StructurePointerIsKS s0 ->
+(structure newEntry) = (structure pdentry0) ->*)
+getPartitions partition {|
+						currentPartition := currentPartition s0;
+						memory := add addr' (PDT newEntry)
+            (memory s0) beqAddr |} =
+getPartitions partition s0.
+Proof.
+set (s' :=   {|
+currentPartition := currentPartition s0;
+memory := _ |}).
+intros Hlookuppds0 HPDTaddrs0 (*HstructKS HstructEq*).
+unfold getPartitions.
+unfold s'. simpl.
+destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
+- (* addr' = partition *)
+	rewrite <- DependentTypeLemmas.beqAddrTrue in beqpartaddr.
+	rewrite Hlookuppds0.
+(*	unfold pdentryStructurePointer in *.
+	rewrite <- beqpartaddr in *.
+	rewrite HstructEq.
+*)
+	(*destruct (beqAddr (structure pdentry0) nullAddr) eqn:structNull ; intuition.*)
+	fold s'.
+(*	assert(HEq :  (getPartitionsAux (maxIdx + 1) partition s' (CIndex maxNbPrepare)) =
+  (getPartitionsAux (maxIdx + 1) partition s0 (CIndex maxNbPrepare))).
+	{ apply getConfigBlocksAuxEqPDT ; intuition.
+		unfold StructurePointerIsKS in *.
+		specialize (HstructKS addr' pdentry0 Hlookuppds0).
+		unfold isKS in *.
+		subst addr'. subst partition.
+		destruct (lookup (structure pdentry0) (memory s0) beqAddr) ; try(exfalso ; congruence).
+		destruct v ; try(exfalso ; congruence).
+	}
+	rewrite HEq.
+	intuition.
+- (* addr' <> partition *)
+	rewrite <- beqAddrFalse in *.
+	repeat rewrite removeDupIdentity ; intuition.
+	rewrite Hlookuppds0.
+	destruct (beqAddr (structure pdentry0) nullAddr) eqn:structNull ; intuition.
+	fold s'.
+	assert(HEq :  (getConfigBlocksAux (maxIdx + 1) (structure pdentry0) s' (CIndex maxNbPrepare)) =
+  (getConfigBlocksAux (maxIdx + 1) (structure pdentry0) s0 (CIndex maxNbPrepare))).
+	{
+		apply getConfigBlocksAuxEqPDT ; intuition.
+		unfold StructurePointerIsKS in *.
+		specialize (HstructKS partition pdentry0 Hlookuppds0).
+		unfold isKS in *.
+		subst addr'.
+		unfold isPDT in *.
+		destruct (lookup (structure pdentry0) (memory s0) beqAddr) ; try(exfalso ; congruence).
+		destruct v ; try(exfalso ; congruence).
+	}
+	rewrite HEq.
+	intuition.
+Qed.*)
+Admitted.
+
+Lemma getPartitionsAuxEqPDT partition addr' newEntry s0 n (*entriesleft*):
+(*structure <> addr' ->*)
+isPDT addr' s0 ->
+getPartitionsAux n partition {|
+currentPartition := currentPartition s0;
+memory := add addr' (PDT newEntry)
+            (memory s0) beqAddr |} (*entriesleft*) =
+getPartitionsAux n partition s0 (*entriesleft*).
+Proof.
+revert n partition (*entriesleft*).
+set (s' :=   {|
+currentPartition := currentPartition s0;
+memory := _ |}).
+induction n.
+- intros.
+	unfold getPartitionsAux in *.
+	intuition.
+- intros.
+	unfold getPartitionsAux.
+	fold getPartitionsAux.
+
+	destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
+-- (* addr' = partition *)
+	rewrite <- DependentTypeLemmas.beqAddrTrue in beqpartaddr.
+	rewrite beqpartaddr in *.
+	f_equal.
+	specialize (IHn partition H) ; intuition.
+	intuition.
+	unfold getPartitionsAux.
+	Set Printing All.
+	eapply IHn.
+	assert(HchildrenEq : getChildren part s' = getChildren part s0) by admit.
+	rewrite HchildrenEq.
+	f_equal.
+
+	unfold flat_map. intuition.
+	destruct (Index.ltb entriesleft zero) eqn:Hentriesleft ; intuition.
+	destruct (Paddr.addPaddrIdx structure nextoffset) eqn:Hoffset ; intuition.
+	destruct (beqAddr addr' p) eqn:Haddr'Eq ; try(exfalso ; congruence).
+	rewrite <- DependentTypeLemmas.beqAddrTrue in Haddr'Eq.
+	subst p.
+	unfold isPDT in *.
+	destruct (lookup addr' (memory s0) beqAddr) ; try(exfalso ; congruence).
+	destruct v ; try(exfalso ; congruence).
+	unfold s' at 1. simpl. rewrite beqAddrTrue. trivial.
+
+	assert(HlookupEq : lookup p (memory s') beqAddr = lookup p (memory s0) beqAddr).
+	{ unfold s'. simpl.
+		rewrite Haddr'Eq.
+		rewrite <- beqAddrFalse in *.
+	 	repeat rewrite removeDupIdentity ; intuition.
+	}
+	rewrite HlookupEq.
+
+	destruct (lookup p (memory s0) beqAddr) eqn:Hoffset' ; intuition.
+	destruct v ; try(exfalso ; congruence) ; intuition.
+
+	destruct (beqAddr addr' p0) eqn:Haddr'Eq0 ; try(exfalso ; congruence).
+	rewrite <- DependentTypeLemmas.beqAddrTrue in Haddr'Eq0.
+	subst p0.
+	unfold isPDT in *.
+	destruct (lookup addr' (memory s0) beqAddr) ; try(exfalso ; congruence).
+	destruct v ; try(exfalso ; congruence).
+	unfold s' at 1. simpl. rewrite beqAddrTrue. trivial.
+	assert(HlookupEq' : lookup p0 (memory s') beqAddr = lookup p0 (memory s0) beqAddr).
+	{ unfold s'. cbn.
+		rewrite Haddr'Eq0.
+		rewrite <- beqAddrFalse in *.
+	 	repeat rewrite removeDupIdentity ; intuition.
+	}
+	rewrite HlookupEq'.
+
+	destruct (lookup p0 (memory s0) beqAddr) eqn:Hoffset'' ; intuition.
+	destruct v ; try(exfalso ; congruence) ; intuition.
+	destruct (Index.pred entriesleft) ; intuition.
+	f_equal.
+	specialize (IHn p0 i).
+	destruct IHn ; intuition.
+	subst p0. unfold isPDT in *.
+	destruct (lookup addr' (memory s0) beqAddr) ; try(exfalso ; congruence).
+	destruct v ; try(exfalso ; congruence).
+Qed.*)
 
 
 (*Lemma eqFreeSlotsList n addr s s0 listoption1 listoption2:

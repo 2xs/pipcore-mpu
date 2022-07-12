@@ -263,9 +263,84 @@ In parent (getPartitions multiplexer s) ->
 In partition (getChildren parent s) -> 
 pdentryParent partition parent s.
 
+Definition childParentEq s :=
+forall child parent : paddr,
+(pdentryParent child parent s <->
+forall bentryaddr sh1entryaddr,
+isPDT child s /\
+In bentryaddr (getMappedBlocks parent s) /\
+sh1entryAddr bentryaddr sh1entryaddr s /\
+(true = StateLib.checkChild bentryaddr s sh1entryaddr \/
+	sh1entryPDchild sh1entryaddr child s)
+).
+
+Definition noDupMappedBlocksList s :=
+forall (partition : paddr),
+isPDT partition s ->
+NoDup (blockExtract ((getMappedBlocks partition s)) s).
+
+
+Definition noDupUsedPaddrList s :=
+forall (partition : paddr),
+isPDT partition s ->
+NoDup ((getUsedPaddr partition s)).
+
+Definition DisjointUsedPaddrList s :=
+forall pd1 pd2,
+isPDT pd1 s ->
+isPDT pd2 s ->
+pd1 <> pd2 ->
+disjoint (getUsedPaddr pd1 s) (getUsedPaddr pd2 s).
+
 Definition noDupPartitionTree s :=
 forall pd : paddr,
 NoDup (getPartitions pd s) .
+
+(*
+Definition sharedBlock s:
+forall partition block,
+isPDT partition s ->
+In block (getMappedBlocks partition s) ->
+exists sh1entryaddr sh1entry,
+sh1entryAddr block sh1entryaddr s ->
+lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
+sh1entry.(inChildLocation) <> nullAddr ->
+sh1entry.(PDchild) <> nullAddr ->
+pdentryParent sh1entry.(PDchild) partition s ->
+In sh1entry.(inChildLocation) (getMappedBlocks sh1entry.(PDchild) s).*)
+
+(*Definition sharedInChild s :=
+forall block sh1entryaddr child,
+sh1entryAddr block sh1entryaddr s ->
+sh1entryPDchild sh1entryaddr child s ->
+exists subblock,
+true = issubblock subblock block s ->
+In subblock ((getUsedBlocks child s)).*)
+
+(*Definition sharedInChild s :=
+forall subblock child parent,
+In subblock ((getUsedPaddr child s))->
+exists block,
+true = issubblock subblock block s -> (* subblocks can only be in the ancestors *)
+pdentryParent child parent s ->
+In block (getMappedBlocks parent s) ->
+exists sh1entryaddr,
+sh1entryAddr block sh1entryaddr s /\
+sh1entryPDchild sh1entryaddr child s.*)
+
+Definition sharedInChild s :=
+forall parent child addr parentblock,
+In parent (getPartitions multiplexer s) ->
+In child (getChildren parent s) ->
+In addr (getAllPaddrAux [parentblock] s) ->
+In addr (getUsedPaddr child s) ->
+In parentblock (getMappedBlocks parent s) ->
+exists sh1entryaddr,
+sh1entryAddr parentblock sh1entryaddr s /\
+(sh1entryPDchild sh1entryaddr child s \/
+sh1entryPDflag sh1entryaddr true s).
+
+
 
 
 (** ** Conjunction of all consistency properties *)
