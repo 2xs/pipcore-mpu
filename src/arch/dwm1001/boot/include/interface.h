@@ -31,47 +31,37 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
-#ifndef __PIP_INTERFACE_H__
-#define __PIP_INTERFACE_H__
-
-#include "userconstants.h"
-#include "context.h"
-#include "ADT.h"
+#ifndef __INTERFACE_H__
+#define __INTERFACE_H__
 
 /*!
- * \brief This structure defines the interface that PIP provides to the
- *        root partition.
+ * \brief This structure defines the interface that
+ *        PIP provides to partitions.
  */
-typedef struct pip_interface_s
+typedef struct interface_s
 {
 	/*!
-	 * \brief The ID of the block containing the partition
-	 *        descriptor of the root partition.
+	 * \brief The ID of the block containing the
+	 *        partition descriptor of the root
+	 *        partition.
 	 */
-	void *rootPartDescBlockId;
+	void *partDescBlockId;
 
 	/*!
-	 * \brief The initial context of the root partition.
+	 * \brief The limit address of the stack of
+	 *        the root partition.
 	 */
-	stackedContext_t rootPartContext;
+	void *stackLimit;
 
 	/*!
-	 * \brief List containing the attributes of the MPU blocks.
+	 * \brief The stack top address of the root
+	 *        partition.
 	 */
-	blockAttr_t mpuBlockAttributes[MPU_REGIONS_NB];
+	void *stackTop;
 
 	/*!
-	 * \brief The limit address of the stack of the root partition.
-	 */
-	void *rootStackLimit;
-
-	/*!
-	 * \brief The stack top address of the root partition.
-	 */
-	void *rootStackTop;
-
-	/*!
-	 * \brief The start address of the root partition binary.
+	 * \brief The start address of the root
+	 *        partition binary.
 	 */
 	void *root;
 
@@ -81,7 +71,8 @@ typedef struct pip_interface_s
 	void *romEnd;
 
 	/*!
-	 * \brief The start address of the unused RAM.
+	 * \brief The start address of the unused
+	 * RAM.
 	 */
 	void *unusedRamStart;
 
@@ -90,6 +81,6 @@ typedef struct pip_interface_s
 	 */
 	void *ramEnd;
 
-} pip_interface_t;
+} interface_t;
 
-#endif /* __PIP_INTERFACE_H__ */
+#endif /* __INTERFACE_H__ */

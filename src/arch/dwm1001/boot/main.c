@@ -39,8 +39,7 @@
 #include "context.h"
 #include "yield_c.h"
 #include "scs.h"
-#include "pip_interface.h"
-#include "userconstants.h"
+#include "interface.h"
 #include "memlayout.h"
 #include "stdio.h"
 
@@ -74,69 +73,41 @@ Boot_Handler(void)
 	uint32_t sp  = (uint32_t) &__rootStackTop;
 
 	/* Reserve on the stack the space necessary for structure. */
-	sp -= sizeof(pip_interface_t);
+	sp -= sizeof(interface_t);
 
 	/* Copy the ID of the block containing the partition descriptor
 	 * of the root partition. */
-	pip_interface_t *pip_interface = (pip_interface_t *) sp;
-	pip_interface->rootPartDescBlockId = (uint32_t *) rootPartitionDescriptor;
+	interface_t *interface     = (interface_t *) sp;
+	interface->partDescBlockId = (void *) rootPartitionDescriptor;
+	interface->stackLimit      = &__rootStackLimit;
+	interface->stackTop        = &__rootStackTop;
+	interface->root            = &__root;
+	interface->romEnd          = &__romEnd;
+	interface->unusedRamStart  = &__unusedRamStart;
+	interface->ramEnd          = &__ramEnd;
 
-	/* Copy the block attributes of the block entries. */
-	for (size_t i = 0; i < MPU_REGIONS_NB; i++)
-	{
-		BlockEntry_t *currentBlockEntry = rootPartitionDescriptor->mpu[i];
-
-		if (currentBlockEntry != NULL)
-		{
-			pip_interface->mpuBlockAttributes[i].blockentryaddr = (uint32_t *) currentBlockEntry;
-			pip_interface->mpuBlockAttributes[i].blockrange.startAddr = currentBlockEntry->blockrange.startAddr;
-			pip_interface->mpuBlockAttributes[i].blockrange.endAddr = currentBlockEntry->blockrange.endAddr;
-			pip_interface->mpuBlockAttributes[i].read = currentBlockEntry->read;
-			pip_interface->mpuBlockAttributes[i].write = currentBlockEntry->write;
-			pip_interface->mpuBlockAttributes[i].exec = currentBlockEntry->exec;
-			pip_interface->mpuBlockAttributes[i].accessible = currentBlockEntry->accessible;
-		}
-		else
-		{
-			pip_interface->mpuBlockAttributes[i].blockentryaddr = NULL;
-			pip_interface->mpuBlockAttributes[i].blockrange.startAddr = 0;
-			pip_interface->mpuBlockAttributes[i].blockrange.endAddr = 0;
-			pip_interface->mpuBlockAttributes[i].read = 0;
-			pip_interface->mpuBlockAttributes[i].write = 0;
-			pip_interface->mpuBlockAttributes[i].exec = 0;
-			pip_interface->mpuBlockAttributes[i].accessible = 0;
-		}
-	}
-
-	/* Copy the start and end address of the ROM. */
-	pip_interface->rootStackLimit       = &__rootStackLimit;
-	pip_interface->rootStackTop         = &__rootStackTop;
-	pip_interface->root                 = &__root;
-	pip_interface->romEnd               = &__romEnd;
-	pip_interface->unusedRamStart       = &__unusedRamStart;
-	pip_interface->ramEnd               = &__ramEnd;
-
-	pip_interface->rootPartContext.isBasicFrame = 1;
+	stackedContext_t rootPartCtx;
+	rootPartCtx.isBasicFrame = 1;
 
 	/* Reset the structure to ensure that the restored registers do
 	 * not contain undefined value */
 	for (size_t i = 0; i < BASIC_FRAME_SIZE; i++)
 	{
-		pip_interface->rootPartContext.basicFrame.registers[i] = 0;
+		rootPartCtx.basicFrame.registers[i] = 0;
 	}
 
 	/* Initialize the root partition context. */
-	pip_interface->rootPartContext.basicFrame.r0 = sp;
-	pip_interface->rootPartContext.basicFrame.pc = (uint32_t) &__root;
-	pip_interface->rootPartContext.basicFrame.sp = sp;
-	pip_interface->rootPartContext.pipflags      = 0;
+	rootPartCtx.basicFrame.r0 = sp;
+	rootPartCtx.basicFrame.pc = (uint32_t) &__root;
+	rootPartCtx.basicFrame.sp = sp;
+	rootPartCtx.pipflags      = 0;
 
 	/* Switch to unprivileged Thread mode. */
 	__set_CONTROL(__get_CONTROL() | CONTROL_nPRIV_Msk );
 	__DMB(); __ISB(); __DSB();
 
 	/* Yield to the root partition. */
-	switchContextCont(getRootPartition(), 0, &pip_interface->rootPartContext);
+	switchContextCont(getRootPartition(), 0, &rootPartCtx);
 
 	/* We should never end up here because the switchContextCont
 	 * function never returns to the caller. */
