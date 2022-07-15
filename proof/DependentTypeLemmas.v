@@ -1124,6 +1124,64 @@ Proof.
 lia.
 Qed.
 
+Lemma NotInListNotInFilterPresent a l s:
+~In a l -> ~In a (filterPresent l s).
+Proof.
+intro HNotInList.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) ; intuition.
+	destruct v ; intuition.
+	destruct (present b) ; intuition.
+	simpl in *. intuition.
+Qed.
+
+Lemma NotInListNotInFilterPresentContra a l s:
+In a (filterPresent l s) -> In a l.
+Proof.
+intro HBlockInList.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) ; intuition.
+	destruct v ; intuition.
+	destruct (present b) ; intuition.
+	simpl in *. intuition.
+Qed.
+
+Lemma NotInListNotInFilter a l s:
+~In a l -> ~In a (filter (childFilter s) l).
+Proof.
+intro HNotInList.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) ; intuition.
+	destruct (childFilter s a0) ; intuition.
+	simpl in *. intuition.
+	destruct (childFilter s a0) ; intuition.
+	simpl in *. intuition.
+Qed.
+
+
+
+Lemma NoDupListNoDupFilterPresent l s :
+NoDup l -> NoDup (filterPresent l s).
+Proof.
+intro HNoDup.
+induction l.
+- intuition.
+- simpl in *. apply NoDup_cons_iff in HNoDup.
+	destruct (lookup a (memory s) beqAddr) ; intuition.
+	destruct v ; intuition.
+	destruct (present b) ; intuition.
+	apply NoDup_cons_iff.
+	simpl in *. intuition.
+	eapply NotInListNotInFilterPresent with a l s in H.
+	congruence.
+Qed.
+
 (*
 Lemma indexEqbTrue : 
 forall idx1 idx2 : index, true = StateLib.Index.eqb idx1 idx2 -> 

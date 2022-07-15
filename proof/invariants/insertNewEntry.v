@@ -552,7 +552,6 @@ newBlockEntryAddr <> nullAddr /\
 												memory := _ |}
 				).
 				eapply getKSEntriesEqPDT with x; intuition.
-				unfold isPDT. rewrite H5. trivial.
 				(* StructurePointerIsKS s *)
 				unfold consistency in * ; intuition.
 				(* In newB KSEntriesList*)
@@ -726,9 +725,6 @@ getFreeSlotsListRec n1 newFirstFreeSlotAddr olds nbleft).
 					rewrite <- HKSEntriesolds. (* getKSEntries pdinsertion olds = ...*)
 					subst olds. apply eq_sym.
 					eapply getKSEntriesEqPDT with x1; intuition.
-					unfold isPDT.
-					assert(Hlookuppds : lookup pdinsertion (memory s) beqAddr = Some (PDT x1)) by trivial.
-					rewrite Hlookuppds. trivial.
 					*	(* StructurePointerIsKS s *)
 						unfold StructurePointerIsKS.
 						intros pdentryaddr pdentry' Hlookup.

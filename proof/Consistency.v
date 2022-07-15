@@ -277,20 +277,18 @@ sh1entryAddr bentryaddr sh1entryaddr s /\
 Definition noDupMappedBlocksList s :=
 forall (partition : paddr),
 isPDT partition s ->
-NoDup (blockExtract ((getMappedBlocks partition s)) s).
+NoDup (getMappedBlocks partition s).
+
+Definition noDupKSEntriesList s :=
+forall (partition : paddr),
+isPDT partition s ->
+NoDup (filterOptionPaddr (getKSEntries partition s)).
 
 
 Definition noDupUsedPaddrList s :=
 forall (partition : paddr),
 isPDT partition s ->
-NoDup ((getUsedPaddr partition s)).
-
-Definition DisjointUsedPaddrList s :=
-forall pd1 pd2,
-isPDT pd1 s ->
-isPDT pd2 s ->
-pd1 <> pd2 ->
-disjoint (getUsedPaddr pd1 s) (getUsedPaddr pd2 s).
+NoDup (getUsedPaddr partition s).
 
 Definition noDupPartitionTree s :=
 forall pd : paddr,
@@ -328,12 +326,12 @@ exists sh1entryaddr,
 sh1entryAddr block sh1entryaddr s /\
 sh1entryPDchild sh1entryaddr child s.*)
 
-Definition sharedInChild s :=
+Definition sharedBlockPointsToChild s :=
 forall parent child addr parentblock,
 In parent (getPartitions multiplexer s) ->
 In child (getChildren parent s) ->
-In addr (getAllPaddrAux [parentblock] s) ->
 In addr (getUsedPaddr child s) ->
+In addr (getAllPaddrAux [parentblock] s) ->
 In parentblock (getMappedBlocks parent s) ->
 exists sh1entryaddr,
 sh1entryAddr parentblock sh1entryaddr s /\
@@ -362,3 +360,7 @@ freeSlotsListIsFreeSlot s /\
 DisjointFreeSlotsLists s /\
 inclFreeSlotsBlockEntries s /\
 DisjointKSEntries s.
+
+Definition consistency2 s :=
+sharedBlockPointsToChild s.
+
