@@ -39,6 +39,7 @@ Require Import Model.ADT Model.MALInternal Model.Lib Model.Monad.
 Require Import Proof.StateLib Proof.Consistency.
 
 Require Import Coq.Logic.ProofIrrelevance Arith Lia Bool List.
+Import List.ListNotations.
 
 Lemma inclBlocksEq (l m : list block) :
 incl l m -> inclBlocksInside l m.
@@ -1180,6 +1181,86 @@ induction l.
 	simpl in *. intuition.
 	eapply NotInListNotInFilterPresent with a l s in H.
 	congruence.
+Qed.
+(*
+Lemma disjointAllPaddr b1 b2 addr s:
+b1 <> b2 ->
+In addr (getAllPaddrAux [b1] s) ->
+~ In addr (getAllPaddrAux [b2] s).
+Proof.
+revert b1 b2 addr.
+intros b1 b2 addr Hb1b2NotEq HaddrInb1.
+simpl in*.
+destruct (lookup b1 (memory s) beqAddr) eqn:Hlookupbs1 ; intuition.
+destruct v ; intuition.
+destruct (lookup b2 (memory s) beqAddr) eqn:Hlookupbs2 ; intuition.
+destruct v ; intuition.
+rewrite app_nil_r in *.
+Qed.*)
+
+Lemma NotInListNotInAllPaddr block addr l s:
+~In block l ->
+(*NoDup (block::l) ->*)
+NoDup (getAllPaddrAux l s) ->
+In addr (getAllPaddrAux [block] s) ->
+~In addr (getAllPaddrAux l s).
+Proof.
+revert block addr.
+induction l.
+- intros.
+	unfold Lib.disjoint. intros. simpl. trivial.
+- intros block addr HblockNotInList HNoDupPaddrList HaddrInBlock.
+	simpl in HblockNotInList. simpl in HNoDupPaddrList. simpl.
+	intuition.
+	destruct (lookup a (memory s) beqAddr) eqn:Hlookupas ; intuition.
+	destruct v ; intuition.
+
+	apply NoDup_cons_iff in HNoDupPaddrList.
+intuition.
+
+	unfold getAllPaddrAux at 2. fold getAllPaddrAux. simpl in HNoDupPaddr.
+	(*assert(forall b1 b2 addr, b1 <> b2 ->
+			In addr (getAllPaddrAux [b1] s)  -> ~ In addr (getAllPaddrAux [b2] s)).
+	{
+
+
+Lemma NotInListNotInAllPaddr block l s:
+~In block l ->
+(*NoDup (block::l) ->*)
+NoDup (getAllPaddrAux l s) ->
+Lib.disjoint (getAllPaddrAux [block] s) (getAllPaddrAux l s).
+Proof.
+revert block.
+induction l.
+- intros.
+	unfold Lib.disjoint. intros. simpl. trivial.
+- intros block HNotInList HNoDupList HNoDupPaddr.
+	simpl in HNotInList. 
+	apply NoDup_cons_iff in HNoDupList.
+intuition.
+
+	unfold getAllPaddrAux at 2. fold getAllPaddrAux. simpl in HNoDupPaddr.
+	(*assert(forall b1 b2 addr, b1 <> b2 ->
+			In addr (getAllPaddrAux [b1] s)  -> ~ In addr (getAllPaddrAux [b2] s)).
+	{
+		admit.
+	}*)
+
+	destruct (lookup a (memory s) beqAddr) eqn:Hlookupas ; intuition.
+	destruct v ; intuition.
+	pose proof (HNoDup := IHl a H H0).
+	simpl in HNoDup. rewrite Hlookupas in *. rewrite app_nil_r in *.
+	pose proof (HNoDup2 := a
+
+	specialize (IHl a H0).
+
+	unfold Lib.disjoint in *.
+	intuition.
+	specialize (H1 a block x H).
+	unfold getAllPaddrAux at 1 in H1.
+	rewrite Hlookupas in *. rewrite app_nil_r in *.
+	apply in_app_or in H3. intuition.
+	eapply IHl with x ; intuition.
 Qed.
 
 (*
