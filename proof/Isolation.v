@@ -144,7 +144,7 @@ isPDT partition2 ->*)
 (*disjoint (getAccessibleMappedBlocks partition1 s) (getConfigBlocks partition2 s).*)
 (* the config blocks are NOT the inaccessible blocks within a partition but
 	its PDT + its kernel structures *)
-disjoint (getAccessibleMappedPaddr partition1 s) (getConfigPaddr partition1 s).
+disjoint (getAccessibleMappedPaddr partition1 s) (getConfigPaddr partition2 s).
 
 (*
 	forall partition1 partition2 : paddr,

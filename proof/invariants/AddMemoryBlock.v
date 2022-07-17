@@ -37,7 +37,7 @@ Require Import Core.Services.
 Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPreconditions
 Proof.StateLib Proof.DependentTypeLemmas Proof.InternalLemmas.
 
-Require Import Invariants checkChildOfCurrPart insertNewEntry.
+Require Import Invariants checkChildOfCurrPart insertNewEntry AddMemoryBlockKI.
 
 Require Import Bool List EqNat Lia Compare_dec Coq.Logic.ProofIrrelevance.
 Import List.ListNotations.
@@ -1131,7 +1131,7 @@ intros. simpl.  set (s' := {|
 						+++ unfold isPADDR in *. unfold isSHE in *.
 								destruct (lookup (CPaddr (blockToShareInCurrPartAddr + sh1offset)) (memory s) beqAddr) ; try(exfalso ; congruence).
 								destruct v ; try(exfalso ; congruence).
-				++	destruct H104 as [optionentrieslist (Hoptionentrieslists & (Hoptionentrieslists' & Hoptionentrieslists0))].
+				++	destruct H105 as [optionentrieslist (Hoptionentrieslists & (Hoptionentrieslists' & Hoptionentrieslists0))].
 						exists optionentrieslist.
 						unfold s'. intuition.
 						remember ((CPaddr (blockToShareInCurrPartAddr + sh1offset))) as sh1eaddr.
@@ -5571,6 +5571,21 @@ specialize (HVs0 parent child HparentPartTree HchildIsChild addr HnAddrInUsedChi
 assumption.
 }
 
+
+assert(HKI : kernelDataIsolation s).
+
+	{ (* kernelDataIsolation s*)
+
+		apply AddMemoryBlockKI with idPDchild idBlockToShare r w e
+currentPart blockToShareInCurrPartAddr addrIsNull rcheck isChildCurrPart
+globalIdPDChild nbfreeslots zero isFull childfirststructurepointer slotIsNull
+addrIsAccessible addrIsPresent vidtBlockGlobalId blockstart blockend
+blockToShareChildEntryAddr pdentry pdentry0 pdentry1 bentry bentry0 bentry1
+bentry2 bentry3 bentry4 bentry5 bentry6 sceaddr scentry newBlockEntryAddr
+newFirstFreeSlotAddr predCurrentNbFreeSlots sh1eaddr sh1entry sh1entry0
+sh1entry1 sh1entrybts s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 ; intuition.
+
+}
 
 split.
 

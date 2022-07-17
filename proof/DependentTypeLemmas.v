@@ -1182,6 +1182,62 @@ induction l.
 	eapply NotInListNotInFilterPresent with a l s in H.
 	congruence.
 Qed.
+
+Lemma NotInPaddrListNotInPaddrFilterAccessible a l s:
+~ In a (getAllPaddrAux l s) -> ~ In a (getAllPaddrAux (filterAccessible l s) s).
+Proof.
+intro HNotInList.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) eqn:Hlookupas ; intuition.
+	destruct v ; intuition.
+	destruct (accessible b) ; intuition.
+	simpl in *. intuition.
+	rewrite Hlookupas in *.
+	apply in_app_or in H.
+	simpl in *. intuition.
+Qed.
+
+Lemma NotInPaddrListNotInPaddrFilterAccessibleContra a l s:
+In a (getAllPaddrAux (filterAccessible l s) s) ->
+In a (getAllPaddrAux l s).
+Proof.
+intro HBlockInList.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) eqn:Hlookupas ; intuition.
+	destruct v ; intuition.
+	destruct (accessible b) ; intuition.
+	simpl in *. rewrite Hlookupas in *.
+	apply in_app_or in HBlockInList.
+	apply in_app_iff. intuition.
+Qed.
+
+Lemma NoDupPaddrListNoDupPaddrFilterAccessible l s :
+NoDup (getAllPaddrAux l s) -> NoDup (getAllPaddrAux (filterAccessible l s) s).
+Proof.
+intro HNoDup.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a (memory s) beqAddr) eqn:Hlookupas ; intuition.
+	destruct v ; intuition.
+	destruct (accessible b) ; intuition.
+	simpl. rewrite Hlookupas in *.
+	apply Lib.NoDupSplitInclIff in HNoDup.
+	apply Lib.NoDupSplitInclIff.
+	simpl in *. intuition.
+	unfold Lib.disjoint in*.
+	intros addr HaddrIn. specialize (H0 addr HaddrIn).
+	eapply NotInPaddrListNotInPaddrFilterAccessible with addr l s in H0.
+	congruence.
+	apply Lib.NoDupSplit in HNoDup. intuition.
+Qed.
+
+
+
 (*
 Lemma disjointAllPaddr b1 b2 addr s:
 b1 <> b2 ->
@@ -1198,32 +1254,7 @@ destruct v ; intuition.
 rewrite app_nil_r in *.
 Qed.*)
 
-Lemma NotInListNotInAllPaddr block addr l s:
-~In block l ->
-(*NoDup (block::l) ->*)
-NoDup (getAllPaddrAux l s) ->
-In addr (getAllPaddrAux [block] s) ->
-~In addr (getAllPaddrAux l s).
-Proof.
-revert block addr.
-induction l.
-- intros.
-	unfold Lib.disjoint. intros. simpl. trivial.
-- intros block addr HblockNotInList HNoDupPaddrList HaddrInBlock.
-	simpl in HblockNotInList. simpl in HNoDupPaddrList. simpl.
-	intuition.
-	destruct (lookup a (memory s) beqAddr) eqn:Hlookupas ; intuition.
-	destruct v ; intuition.
-
-	apply NoDup_cons_iff in HNoDupPaddrList.
-intuition.
-
-	unfold getAllPaddrAux at 2. fold getAllPaddrAux. simpl in HNoDupPaddr.
-	(*assert(forall b1 b2 addr, b1 <> b2 ->
-			In addr (getAllPaddrAux [b1] s)  -> ~ In addr (getAllPaddrAux [b2] s)).
-	{
-
-
+(*
 Lemma NotInListNotInAllPaddr block l s:
 ~In block l ->
 (*NoDup (block::l) ->*)
@@ -1234,9 +1265,26 @@ revert block.
 induction l.
 - intros.
 	unfold Lib.disjoint. intros. simpl. trivial.
-- intros block HNotInList HNoDupList HNoDupPaddr.
-	simpl in HNotInList. 
-	apply NoDup_cons_iff in HNoDupList.
+- intros block HNotInList HNoDupPaddr.
+	simpl in HNotInList.
+	simpl in *. intuition.
+
+	destruct (lookup a (memory s) beqAddr) eqn:Hlookupas ; intuition.
+	destruct v ; intuition.
+	unfold Lib.disjoint in *.
+	intros addr HaddrInList.
+	destruct (lookup block (memory s) beqAddr) eqn:Hlookupblocks ; intuition.
+	destruct v ; intuition.
+	rewrite app_nil_r in *.
+	apply Lib.NoDupSplit in HNoDupPaddr.
+	apply in_app_or in H1.
+	intuition.
+
+
+
+	destruct HNotInList.
+
+	apply NoDup_cons_iff in HNoDupPaddr.
 intuition.
 
 	unfold getAllPaddrAux at 2. fold getAllPaddrAux. simpl in HNoDupPaddr.
@@ -1261,7 +1309,7 @@ intuition.
 	rewrite Hlookupas in *. rewrite app_nil_r in *.
 	apply in_app_or in H3. intuition.
 	eapply IHl with x ; intuition.
-Qed.
+Qed.*)
 
 (*
 Lemma indexEqbTrue : 
