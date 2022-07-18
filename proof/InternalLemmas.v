@@ -8585,6 +8585,33 @@ intuition.
 apply CPaddrInjection. intuition.
 Qed.
 
+
+Lemma isPDTMultiplexerEqSHE addr' newEntry sh1entry0 s0:
+isPDT multiplexer s0 ->
+lookup addr' (memory s0) beqAddr = Some (SHE sh1entry0) ->
+isPDT multiplexer {|
+						currentPartition := currentPartition s0;
+						memory := add addr' (SHE newEntry)
+            (memory s0) beqAddr |}.
+Proof.
+intros.
+unfold isPDT. simpl.
+destruct (beqAddr addr' multiplexer) eqn:beqmultiaddr'; try(exfalso ; congruence).
+- (* addr' = multiplexer *)
+	rewrite <- DependentTypeLemmas.beqAddrTrue in beqmultiaddr'.
+	rewrite beqmultiaddr' in *.
+	unfold isPDT in *.
+	rewrite H0 in *.
+	exfalso ; congruence.
+- (* addr' <> multiplexer *)
+	rewrite removeDupIdentity ; intuition.
+	subst addr'.
+	unfold isPDT in *.
+	rewrite H0 in *.
+	exfalso ; congruence.
+Qed.
+
+
 Lemma newFirstPDNotEq newBlockEntryAddr newFirstFreeSlotAddr pdinsertion x s :
 lookup pdinsertion (memory s) beqAddr = Some (PDT x) ->
 bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s ->
@@ -12941,7 +12968,7 @@ lookup block (memory s0) beqAddr = Some (BE bentry0) ->
 (endAddr (blockrange newEntry)) = (endAddr (blockrange bentry0)) ->
 noDupKSEntriesList s0 ->
 noDupMappedBlocksList s0 ->
-noDupUsedPaddrList s0 ->
+(*noDupUsedPaddrList s0 ->*)
 In block (filterOptionPaddr (getKSEntries partition s0)) ->
 In addr
 (getMappedPaddr partition {|
@@ -12962,7 +12989,7 @@ set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
 intros HPDTs0 Hlookupaddr's0 HpresentNotEq Hpresenttrue HstartEq HendEq.
-intros HNoDupKSEntries HNoDupMappedBlocks HNoDupUsedPaddr HaddrInKSentriess0 HaddrIsMapped (*HNotMappeds0*).
+intros HNoDupKSEntries HNoDupMappedBlocks (*HNoDupUsedPaddr*) HaddrInKSentriess0 HaddrIsMapped (*HNotMappeds0*).
 
 	assert(Haddr'NotMapped : ~In block (getMappedBlocks partition s0)).
 	{
@@ -13005,12 +13032,12 @@ intros HNoDupKSEntries HNoDupMappedBlocks HNoDupUsedPaddr HaddrInKSentriess0 Had
 				simpl in *. intuition.*)
 	}
 
-	assert(HNoDupAllPaddr :  NoDup (getMappedPaddr partition s0)).
+	(*assert(HNoDupAllPaddr :  NoDup (getMappedPaddr partition s0)).
 	{
 		unfold noDupUsedPaddrList in *.
 		specialize (HNoDupUsedPaddr partition HPDTs0).
 		unfold getUsedPaddr in *. apply Lib.NoDupSplit in HNoDupUsedPaddr. intuition.
-	}
+	}*)
 
 	unfold getMappedPaddr in *.
 
@@ -13055,105 +13082,8 @@ assert (Haddr'Ismapped : In block (getMappedBlocks partition s')).
 		assert(HNoDupMappeds : NoDup (getMappedBlocks partition s')).
 		{ specialize (getMappedBlocksEqBEPresentChange block partition block newEntry s0 bentry0).
 			intuition.
-(*
-(*			assert(HblockIsaddeds0 : In block (block::getMappedBlocks partition s0)).
-			{
-				apply getMappedBlocksEqBEPresentChange with newEntry bentry0; intuition.
-			}*)
-			unfold getMappedBlocks. unfold getMappedBlocks in Haddr'Ismapped.
-			unfold getMappedBlocks in Haddr'NotMapped.
-			(*unfold getMappedBlocks in HblockIsaddeds0.*)
-			unfold noDupMappedBlocksList in *.
-			specialize (HNoDupMappedBlocks partition HPDTs0).
-			unfold getMappedBlocks in HNoDupMappedBlocks.
-			rewrite HKSEntriesEq in *.
-			assert(In block (block::filterPresent (filterOptionPaddr (getKSEntries partition s0)) s0) /\ NoDup (block::filterPresent (filterOptionPaddr (getKSEntries partition s0)) s0)).
-			{
-				eapply filterPresentEqBEChangePresentTrue with newEntry bentry0 ; intuition.
-			}
-			unfold noDupKSEntriesList in *.
-			specialize (HNoDupKSEntries partition HPDTs0).
-			induction (filterOptionPaddr (getKSEntries partition s0)).
-			- intuition.
-			- simpl in *.
-			destruct (beqAddr block a) eqn:beqaddr'a ; try (exfalso ; congruence).
-			-- (*block = a *)
-					rewrite <- DependentTypeLemmas.beqAddrTrue in beqaddr'a.
-					rewrite <- beqaddr'a in *.
-					simpl in *.
-					rewrite Hpresenttrue in *. rewrite Hlookupaddr's0 in *.
-					rewrite Hpresents0false in *.
-					simpl in *. subst a.
-					apply NoDup_cons_iff. destruct H.
-					apply NoDup_cons_iff in H0.
-					apply NoDup_cons_iff in HNoDupKSEntries. destruct HNoDupKSEntries as [HblockNotInl HNoDupL].
-					assert(HNoBlockNotInFilter : forall a l s , ~In a l -> ~In a (filterPresent l s)) by admit.
-					specialize (HNoBlockNotInFilter block l s' HblockNotInl).
-					intuition ; try (exfalso ; congruence).
-					assert(HNoDupListNoDupFilter : forall l s, NoDup l -> NoDup (filterPresent l s))
-						by admit.
-					specialize (HNoDupListNoDupFilter l s' HNoDupL). intuition.
-					(*assert(HfilterPresentEq : (filterPresent l s') = (filterPresent l s0)).
-					{ apply filterPresentEqBENotInListNoChange ; intuition. }
-					rewrite HfilterPresentEq in *; intuition.
-					 (* cause block is not in l so remaining didn't change *)
-					rewrite HlFilterNoChange in *. intuition.
-					rewrite <- DependentTypeLemmas.beqAddrTrue in beqaddr'a.
-					rewrite <- beqaddr'a in *.
-					rewrite Hpresenttrue in *.
-					rewrite Hlookupaddr's0 in *.
-					rewrite Hpresents0false in *.
-					apply NoDup_cons_iff.
-assert(HlFilterNoChange : filterPresent l s' = filterPresent l s0)
-						by admit. (* cause block is not in l so remaining didn't change *)
-					rewrite HlFilterNoChange in *. intuition.*)
-			-- (* block <> a *)
-					rewrite <- beqAddrFalse in *.
-					rewrite removeDupIdentity in * ; intuition.
-					apply NoDup_cons_iff in HNoDupKSEntries.
-					destruct (lookup a (memory s0) beqAddr) eqn:Hlookupas0 ; intuition.
-					destruct v ; intuition.
-					destruct (present b) ; intuition.
-					simpl in *. intuition.
-					apply NoDup_cons_iff in HNoDupMappedBlocks.
-					assert(HNoDupBlockFilters0 : NoDup (block :: filterPresent l s0)) by admit.
-					apply NoDup_cons_iff in H1. destruct H1 as [HBlockNotInCons HNoDupCons].
-					apply NoDup_cons_iff in HNoDupCons.
-					apply NoDup_cons_iff. intuition.
-					assert(HNoBlockNotInFilter : forall a l s , ~In a l -> ~In a (filterPresent l s)) by admit.
-					specialize (HNoBlockNotInFilter a l s' H0). intuition.*)
+
 }
-
-
-(*assert(HaddrNotInMapped : ~In addr (getMappedPaddr partition s0)).
-{
-	unfold getMappedPaddr.
-	unfold getMappedBlocks in *.
-	induction ((filterOptionPaddr (getKSEntries partition s0))).
-	- intuition.
-	- simpl in Haddr'NotMapped. simpl.
-		destruct (beqAddr block a) eqn:beqaddr'a ; try(exfalso ; congruence).
-		-- (* block = a *)
-			rewrite <- DependentTypeLemmas.beqAddrTrue in beqaddr'a.
-			subst a. rewrite Hlookupaddr's0 in *.
-		assert(Hpresents0false : present bentry0 = false).
-		{ rewrite Hpresenttrue in *.
-			apply Bool.not_true_iff_false.
-			intuition.
-		}
-		rewrite Hpresents0false in *.
-		induction ((filterPresent l s0)).
-		--- intuition.
-		--- simpl. simpl in Haddr'NotMapped.
-				destruct (beqAddr block a) eqn:beqaddr'a ; try(exfalso ; congruence).
-			---- (* block = a *)
-			rewrite <- DependentTypeLemmas.beqAddrTrue in beqaddr'a.
-			subst a. rewrite Hlookupaddr's0 in *. intuition.
-			---- simpl in *. intuition.
-					destruct (lookup a (memory s0) beqAddr) ; try(exfalso ; congruence).
-					destruct v ; try(exfalso ; congruence).
-} 
-	by admit. (* because block not mapped *)*)
 
 specialize (HNoDupMappedBlocks partition HPDTs0).
 
@@ -13162,24 +13092,12 @@ block::getMappedBlocks partition s0) /\ NoDup(block::getMappedBlocks partition s
 /\ NoDup (getMappedBlocks partition s')).
 { eapply getMappedBlocksEqBEPresentChange with bentry0 ; intuition. }
 
-unfold noDupUsedPaddrList in *.
+(*unfold noDupUsedPaddrList in *.
 specialize (HNoDupUsedPaddr partition HPDTs0).
 unfold getUsedPaddr in *.
 apply Lib.NoDupSplitInclIff in HNoDupUsedPaddr.
-unfold getMappedPaddr in HNoDupUsedPaddr.
-(*assert(Hconsistency : forall block partition s,
-~ In block (getMappedBlocks partition s) ->
-~In addr (getAllPaddrAux [block] s) ->
-~ In addr (getMappedPaddr partition s)) by admit.
-specialize (Hconsistency block partition s0 Haddr'NotMapped).
-simpl in Hconsistency. rewrite Hlookupaddr's0 in *. rewrite app_nil_r in *.
-unfold getMappedPaddr in *.*)
-(*
-unfold getMappedBlocks in HNoDupMappeds.
-unfold getMappedBlocks in HNoDupMappedBlocks.
-unfold getMappedBlocks in HaddrIsMapped.
-unfold getMappedBlocks in HMappedBlocksPresentTrueModif.
-*)
+unfold getMappedPaddr in HNoDupUsedPaddr.*)
+
 unfold getMappedBlocks in *.
 
 unfold noDupKSEntriesList in *.
@@ -13291,7 +13209,7 @@ In addr
 				intros HaddrIn.
 				apply in_app_iff. rewrite in_app_iff.
 				intuition.
-				rewrite in_app_iff in H13. intuition.
+				rewrite in_app_iff in H10. intuition.
 			}
 			apply HInEq.
 			intuition. right. 
@@ -13299,12 +13217,11 @@ In addr
 			apply NoDup_cons_iff in HNoDupMappedBlocks.
 			simpl in *.
 			assert(NoDup (block :: filterPresent l s0)).
-			{ apply NoDup_cons_iff. rewrite NoDup_cons_iff in H. rewrite NoDup_cons_iff in H.
+			{ apply NoDup_cons_iff.
+				rewrite NoDup_cons_iff in H1.  (*NoDup (block :: a :: filterPresent l s0) *)
+				rewrite NoDup_cons_iff in H1. (*  NoDup (block :: a :: filterPresent l s0) *)
 				intuition. }
-			apply Lib.NoDupSplit in H4.
-			apply H8 ; intuition.
-
-			eapply Lib.inclDisjoint. apply H0 ; intuition. intuition. intuition.
+			apply H5 ; intuition. (*IHl*)
 Qed.
 
 
@@ -13318,7 +13235,6 @@ lookup block (memory s0) beqAddr = Some (BE bentry0) ->
 (endAddr (blockrange newEntry)) = (endAddr (blockrange bentry0)) ->
 noDupKSEntriesList s0 ->
 noDupMappedBlocksList s0 ->
-noDupUsedPaddrList s0 ->
 In block (filterOptionPaddr (getKSEntries partition s0)) ->
 In addr
 (getMappedPaddr partition {|
@@ -13339,7 +13255,7 @@ set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
 intros HPDTs0 Hlookupaddr's0 HpresentNotEq Hpresenttrue HstartEq HendEq.
-intros HNoDupKSEntries HNoDupMappedBlocks HNoDupUsedPaddr HaddrInKSentriess0 (*HaddrIsMapped*) (*HNotMappeds0*).
+intros HNoDupKSEntries HNoDupMappedBlocks HaddrInKSentriess0 (*HaddrIsMapped*) (*HNotMappeds0*).
 
 
 	assert(Haddr'NotMapped : ~In block (getMappedBlocks partition s0)).
@@ -13351,13 +13267,6 @@ intros HNoDupKSEntries HNoDupMappedBlocks HNoDupUsedPaddr HaddrInKSentriess0 (*H
 			intuition.
 		}
 		trivial.
-	}
-
-	assert(HNoDupAllPaddr :  NoDup (getMappedPaddr partition s0)).
-	{
-		unfold noDupUsedPaddrList in *.
-		specialize (HNoDupUsedPaddr partition HPDTs0).
-		unfold getUsedPaddr in *. apply Lib.NoDupSplit in HNoDupUsedPaddr. intuition.
 	}
 
 	unfold getMappedPaddr in *.
@@ -13405,12 +13314,6 @@ block::getMappedBlocks partition s0) /\ NoDup(block::getMappedBlocks partition s
 /\ NoDup (getMappedBlocks partition s')).
 { eapply getMappedBlocksEqBEPresentChange with bentry0 ; intuition. }
 
-unfold noDupUsedPaddrList in *.
-specialize (HNoDupUsedPaddr partition HPDTs0).
-unfold getUsedPaddr in *.
-apply Lib.NoDupSplit in HNoDupUsedPaddr. destruct HNoDupUsedPaddr as [HNoDupConfig HNoDupUsedPaddr].
-unfold getMappedPaddr in HNoDupUsedPaddr.
-
 unfold getMappedBlocks in *.
 
 unfold noDupKSEntriesList in *.
@@ -13423,7 +13326,6 @@ induction ((filterOptionPaddr (getKSEntries partition s0))).
 		assert(Haddrs0 : (getAllPaddrAux (filterPresent l s0) s') =  (getAllPaddrAux (filterPresent l s0) s0)).
 		{
 			eapply getAllPaddrAuxEqBEStartEndNoChange with bentry0 ; intuition.
-
 		}
 
 
@@ -13476,17 +13378,16 @@ In addr
 				intros HaddrIn.
 				apply in_app_iff. rewrite in_app_iff.
 				intuition.
-				rewrite in_app_iff in H6. intuition.
+				rewrite in_app_iff in H6. (*getAllPaddrBlock bentry0 ++ getAllPaddr*)
+				intuition.
 			}
-			(*apply HInEq.*)
-			(*intuition. right. *)
 			apply NoDup_cons_iff in HNoDupMappeds.
 			apply NoDup_cons_iff in HNoDupMappedBlocks.
 			simpl in *.
 			assert(NoDup (block :: filterPresent l s0)).
 			{ apply NoDup_cons_iff. intuition. }
-apply Lib.NoDupSplitInclIff in HNoDupAllPaddr. unfold Lib.disjoint in *.
-			intuition. specialize (H5 addr). apply in_app_or in H22. 
+			intuition.
+			apply in_app_or in H19. (*getAllPAddrblock b ++ getAllPaddrAux filterPresent l s' s'*)
 			intuition.
 Qed.
 
@@ -13574,21 +13475,13 @@ Lemma partitionsArePDT root partition s :
 In partition (getPartitions root s) ->
 isPDT partition s.
 Proof.
-(*revert partition.*)
-(*generalize multiplexer.*)
-intros (*root partition s*) HpartInRoot.
+intros HpartInRoot.
 
 unfold getPartitions in *.
 unfold filterPDT in *.
 
-(*
-induction (root
-                    :: filterOptionPaddr
-                         (getPartitionsAux (maxAddr + 1) (getChildren root s) s)).
-intuition.*)
 induction ((root :: filterOptionPaddr (getPartitionsAux (maxAddr + 1) root s))).
 intuition.
-
 
 simpl in *.
 destruct (PDTFilter s a) eqn:HPDTa ; intuition.

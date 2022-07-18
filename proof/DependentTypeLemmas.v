@@ -1236,6 +1236,214 @@ induction l.
 	apply Lib.NoDupSplit in HNoDup. intuition.
 Qed.
 
+Lemma addrInBlockisBE a block s :
+In a (getAllPaddrAux [block] s) ->
+isBE block s.
+Proof.
+intro HaddrIn.
+simpl in *.
+unfold isBE.
+destruct (lookup block (memory s) beqAddr) ; intuition.
+destruct v ; intuition.
+Qed.
+
+
+Lemma addrNotInAllPaddrBlock offset1 offset2 startaddr left :
+offset1 < offset2 ->
+~In (CPaddr (offset1 + startaddr))
+  (getAllPaddrBlockAux offset2 startaddr left).
+Proof.
+revert offset1 offset2.
+induction left.
+- intuition.
+- intros. simpl in *.
+	destruct (le_dec (S (offset1 + startaddr)) maxAddr) ; intuition.
+	destruct (le_dec (offset2 + startaddr) maxAddr) ; intuition.
+	simpl in *.
+	intuition.
+	inversion H1.
+	contradict H2.
+	unfold CPaddr.
+	destruct (le_dec (offset1 + startaddr) maxAddr) ; intuition.
+	inversion H0.
+	apply Nat.add_cancel_r in H3.
+	apply NPeano.Nat.lt_neq in H. congruence.
+	specialize (IHleft offset1 (S offset2)) ; intuition.
+	destruct (le_dec (offset2 + startaddr) maxAddr) ; intuition.
+	simpl in *.
+	intuition.
+	contradict H1.
+	unfold CPaddr.
+	destruct (le_dec (offset1 + startaddr) maxAddr) ; intuition.
+	inversion H0.
+	apply Nat.add_cancel_r in H2.
+	apply NPeano.Nat.lt_neq in H. congruence.
+	inversion H0. apply plus_is_O in H2.
+ 	intuition. subst offset2.
+	apply Nat.nlt_0_r in H. congruence.
+	contradict H1.
+	unfold CPaddr.
+	destruct (le_dec (offset1 + startaddr) maxAddr) ; intuition.
+	eapply IHleft. instantiate (1:= S offset2). instantiate (1:= S offset1).
+	intuition. intuition.
+	unfold CPaddr.
+	destruct (le_dec (S offset1 + startaddr) maxAddr) ; intuition.
+	simpl.
+	contradict H0.
+	specialize (IHleft offset1 (S offset2)) ; intuition.
+	apply Nat.lt_lt_succ_r in H.
+	intuition. unfold CPaddr in *.
+	destruct (le_dec (offset1 + startaddr) maxAddr ) ; intuition.
+	assert(l0 = l1). apply proof_irrelevance.
+	subst l0. intuition.
+	specialize (IHleft 0 (S offset2)) ; intuition.
+	assert( 0 < S offset2) by apply NPeano.Nat.lt_0_succ.
+	intuition.
+	unfold CPaddr in *.
+	destruct (le_dec (0 + startaddr) maxAddr ) ; intuition.
+	contradict H0.
+	clear.
+	revert offset2.
+	induction left.
+	--- intuition.
+	--- intro offset2. simpl.
+			destruct (le_dec (S (offset2 + startaddr)) maxAddr) ; intuition.
+			simpl in *.
+			intuition.
+			---- inversion H0.
+			---- specialize (IHleft (S offset2)). intuition.
+Qed.
+
+Lemma NoDupPaddrBlockAux offset startaddr left :
+NoDup (getAllPaddrBlockAux offset startaddr left).
+Proof.
+revert offset startaddr.
+induction left.
+- intros. simpl. apply NoDup_nil.
+- intros. simpl in *.
+	destruct (le_dec (offset + startaddr) maxAddr); try (apply NoDup_nil).
+	apply NoDup_cons_iff.
+	split.
+	--
+			revert offset l.
+			intros.
+			specialize (addrNotInAllPaddrBlock offset (S offset) startaddr left).
+			(*assert(forall offset startaddr left, ~In (CPaddr (offset + startaddr))
+  (getAllPaddrBlockAux (S offset) startaddr left)) by admit.
+			intros. specialize (H offset startaddr left).*)
+			unfold CPaddr in *.
+			destruct (le_dec (offset + startaddr) maxAddr) ; intuition.
+			unfold ADT.CPaddr_obligation_1 in *.
+			assert({| p := offset + startaddr; Hp := l |} = {| p := offset + startaddr; Hp := l0 |}).
+			f_equal.
+			eapply proof_irrelevance.
+			rewrite H1 in *.
+			intuition.
+	-- intuition.
+Qed.
+
+
+Lemma NoDupPaddrBlock startaddr endaddr :
+NoDup (getAllPaddrBlock startaddr endaddr).
+Proof.
+unfold getAllPaddrBlock.
+revert startaddr endaddr.
+intros.
+apply (NoDupPaddrBlockAux 0 startaddr (endaddr-startaddr)).
+Qed.
+
+Lemma blockIsMappedAddrInPaddrList block addr l s :
+In block l ->
+In addr (getAllPaddrAux [block] s) ->
+In addr (getAllPaddrAux l s).
+Proof.
+intros.
+induction l.
+- intuition.
+- simpl. simpl in H.
+	intuition.
+	+ subst a. simpl in *.
+		destruct (lookup block (memory s) beqAddr ) ; intuition.
+		destruct v ; intuition.
+		apply in_or_app. left. rewrite app_nil_r in *. intuition.
+	+ destruct (lookup a (memory s) beqAddr ) ; intuition.
+		destruct v ; intuition.
+Qed.
+
+Lemma DisjointPaddrInPart partition block1 block2 addr s :
+noDupUsedPaddrList s ->
+isPDT partition s ->
+In block1 (getMappedBlocks partition s) ->
+In block2 (getMappedBlocks partition s) ->
+block1 <> block2 ->
+In addr (getAllPaddrAux [block1] s) ->
+~ In addr (getAllPaddrAux [block2] s).
+Proof.
+intros HNoDupPaddr HPDTs Hblock1 Hblock2 Hblock1block2NotEq HaddrIn.
+simpl in *.
+unfold noDupUsedPaddrList in *.
+specialize (HNoDupPaddr partition HPDTs).
+unfold getUsedPaddr in *.
+apply Lib.NoDupSplit in HNoDupPaddr.
+intuition.
+unfold getMappedPaddr in *.
+induction ((getMappedBlocks partition s)).
+- intuition.
+- simpl in *.
+	intuition.
+	+	subst a. subst block1. congruence.
+	+	subst a.
+		specialize (blockIsMappedAddrInPaddrList block2 addr l s H3).
+		simpl in *. intuition.
+		destruct (lookup block1 (memory s) beqAddr) ; intuition.
+		destruct v ; intuition.
+		destruct (lookup block2 (memory s) beqAddr) ; intuition.
+		destruct v ; intuition.
+		apply Lib.NoDupSplitInclIff in H1.
+		intuition.
+		rewrite app_nil_r in *.
+		specialize (H5 addr HaddrIn).
+		congruence.
+	+ subst a.
+		specialize (blockIsMappedAddrInPaddrList block1 addr l s H2).
+		simpl in *. intuition.
+		destruct (lookup block1 (memory s) beqAddr) ; intuition.
+		destruct v ; intuition.
+		destruct (lookup block2 (memory s) beqAddr) ; intuition.
+		destruct v ; intuition.
+		apply Lib.NoDupSplitInclIff in H1.
+		intuition.
+		rewrite app_nil_r in *.
+		specialize (H6 addr H).
+		congruence.
+	+ destruct (lookup a (memory s) beqAddr) ; intuition.
+		destruct v ; intuition.
+		apply Lib.NoDupSplit in H1.
+		intuition.
+Qed.
+
+Lemma uniqueParent child parent parent' s:
+isChild s ->
+isParent s ->
+In parent (getPartitions multiplexer s) ->
+In parent' (getPartitions multiplexer s) ->
+In child (getPartitions multiplexer s) ->
+In child (getChildren parent s) ->
+In child (getChildren parent' s) ->
+parent = parent'.
+Proof.
+intros HisChild HisParent Hparent Hparent' Hchild Hchildparent Hchildparent'.
+unfold isChild in *.
+unfold isParent in *.
+pose proof (isChild1 := HisChild child parent Hchild).
+pose proof (isChild2 := HisChild child parent' Hchild).
+pose proof (isParent1 := HisParent child parent Hparent Hchildparent).
+pose proof (isParent2 := HisParent child parent' Hparent' Hchildparent').
+unfold pdentryParent in *.
+destruct (lookup child (memory s) beqAddr)  ; intuition.
+destruct v ; intuition.
+subst parent. subst parent'. intuition.
+Qed.
 
 
 (*
