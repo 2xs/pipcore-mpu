@@ -129,7 +129,69 @@ induction (getMappedBlocks partition s).
 			destruct v ; intuition.
 Qed.
 
+Lemma addrInAccessibleBlockIsAccessibleMapped partition block addr s:
+In addr (getAllPaddrAux [block] s) ->
+In block (getMappedBlocks partition s) -> (* by block found *)
+bentryAFlag block true s ->
+In addr (getAccessibleMappedPaddr partition s).
+Proof.
+intros HInBlock HBlockInMapped Haccessible.
 
+unfold getAccessibleMappedPaddr in *.
+unfold getAccessibleMappedBlocks.
+assert(HPDT : isPDT partition s).
+{ unfold isPDT. unfold getMappedBlocks in *.
+	unfold getKSEntries in *.
+	destruct (lookup partition (memory s) beqAddr) ; intuition.
+	destruct v ; intuition.
+}
+apply isPDTLookupEq in HPDT. destruct HPDT as [pdentry Hlookupd].
+rewrite Hlookupd.
+induction (getMappedBlocks partition s).
+- intuition.
+-
+ simpl in *.
+
+	destruct HBlockInMapped as [HblockIsA  | HBlockInl].
+	--  subst a.
+			destruct (lookup block (memory s) beqAddr) eqn:Hlookupblock ; intuition.
+			destruct v ; intuition.
+			rewrite app_nil_r in *.
+			unfold bentryAFlag in *. rewrite Hlookupblock in *.
+			destruct (accessible b) ; intuition.
+			simpl. rewrite Hlookupblock.
+			apply in_or_app. left. intuition.
+	--	destruct (lookup block (memory s) beqAddr) eqn:Hlookupblock ; intuition.
+			destruct v ; intuition.
+			rewrite app_nil_r in *.
+			destruct (lookup a (memory s) beqAddr) eqn:Hlookupa ; intuition.
+			destruct v ; intuition.
+			destruct (accessible b0) ; intuition.
+			simpl.
+			rewrite Hlookupa.
+			apply in_or_app. right. intuition.
+Qed.
+
+Lemma addrInAccessibleMappedIsIsMappedPaddr partition addr s:
+In addr (getAccessibleMappedPaddr partition s) ->
+In addr (getMappedPaddr partition s).
+Proof.
+intro HaccessibleMapped.
+unfold getAccessibleMappedPaddr in *.
+unfold getAccessibleMappedBlocks in *.
+unfold getMappedPaddr.
+destruct (lookup partition (memory s) beqAddr) eqn:Hlookupparts0; intuition.
+destruct v ; intuition.
+induction (getMappedBlocks partition s).
+- intuition.
+- simpl in *.
+	destruct (lookup a (memory s) beqAddr) eqn:Hlookupa ; intuition.
+	destruct v ; intuition.
+	destruct (accessible b) ; intuition.
+	simpl in *. rewrite Hlookupa in *.
+	apply in_app_iff in HaccessibleMapped.
+	intuition.
+Qed.
 
 (*Lemma isChild parent child sh1entryaddr s :
 isPDT parent s ->
