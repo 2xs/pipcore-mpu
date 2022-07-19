@@ -154,22 +154,6 @@ extern void *__pipStackLimit;
 extern void *__pipStackTop;
 
 /*!
- * \brief The start address of the root partition kernel structures in
- *        RAM.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__rootKernStructStart;
-
-/*!
- * \brief The end address of the root partition kernel structures in
- *        RAM.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__rootKernStructEnd;
-
-/*!
  * \brief The limit address of the stack of the root partition in RAM.
  *
  * \see The definition in the link.ld file.

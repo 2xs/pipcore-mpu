@@ -45,14 +45,6 @@
 #include "mal.h"
 
 /*!
- * \def __SECTION
- *
- * \brief Wrapper of the GCC section attribute.
- */
-#define __SECTION(x) \
-	__attribute__((section(x)))
-
-/*!
  * \def PANIC
  *
  * \brief Print a message and loop forever.
@@ -135,13 +127,13 @@ prepareRootPartition(paddr rootPartDesc, paddr rootKernStruct)
 static inline void
 createAndRegisterRootPartition(void)
 {
-	/* Allocate a space in the .root_kern_struct section for the
-	 * root partition descriptor structure. */
-	static PDTable_t rootPartDesc __SECTION(".root_kern_struct");
+	/* Allocate space in the .data section for the root
+	 * partition descriptor structure. */
+	static PDTable_t rootPartDesc;
 
-	/* Allocate a space in the .root_kern_struct section for the
-	 * root kernel structure. */
-	static KStructure_t rootKernStruct __SECTION(".root_kern_struct");
+	/* Allocate space in the .data section for the root
+	 * kernel structure. */
+	static KStructure_t rootKernStruct;
 
 	/* Initialize the root partition structures. */
 	initializeRootPartitionDescriptor(&rootPartDesc);
