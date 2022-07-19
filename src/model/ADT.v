@@ -167,6 +167,9 @@ Record PDTable :=
  parent : paddr ;
  MPU : list paddr ;
  vidtBlock : paddr
+
+	(*TODO : add constraints on size. Constraints on KS not needed thanks to the
+			consistency properties *)
  (*;
  HMPU : length MPU = MPURegionsNb*)
 
