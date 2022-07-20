@@ -89,7 +89,7 @@ case_eq isCurrentPart.
 		simpl. intros. intuition.
 		destruct H6.
 		assert(HPDTIfPDFlag : PDTIfPDFlag s) by
-			(unfold consistency in * ; intuition).
+			(unfold consistency in * ; unfold consistency1 in * ; intuition).
 		unfold PDTIfPDFlag in *.
 		intuition. unfold entryPDT in *. destruct H9. intuition.
 		destruct H10 as [Hsh1entry Hsh1entryaddr]. destruct Hsh1entryaddr.

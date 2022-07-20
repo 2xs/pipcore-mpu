@@ -872,7 +872,8 @@ Lemma readSh1PDChildFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> P
 MAL.readSh1PDChildFromBlockEntryAddr blockentryaddr
 {{fun pdchild s => Q s (*/\ consistency s*) (*/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)*)
 										/\ exists sh1entry : Sh1Entry, exists sh1entryaddr : paddr, lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry)
-										/\ sh1entryPDchild sh1entryaddr pdchild s}}.
+										/\ sh1entryPDchild sh1entryaddr pdchild s
+										/\ sh1entryAddr blockentryaddr sh1entryaddr s}}.
 Proof.
 unfold MAL.readSh1PDChildFromBlockEntryAddr.
 eapply WP.bindRev.
@@ -886,7 +887,8 @@ eapply WP.bindRev.
 	intros. simpl. destruct H. destruct H0. exists x.
 	split. intuition. split. apply H.
 	exists x. exists sh1entryaddr. split. apply H0.
-	apply lookupSh1EntryPDchild. apply H0.
+	split. apply lookupSh1EntryPDchild. apply H0.
+	intuition.
 Qed.
 
 (* DUP *)

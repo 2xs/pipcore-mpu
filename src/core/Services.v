@@ -394,12 +394,20 @@ Definition prepare (idPD : paddr)
 		if isBlockTooSmall then (* block is smaller than minimum  *) ret false else
 
 		(* Check block is accessible and present*)
+		(* TODO : No need to check if present since it has been found *)
 		perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr
 																	requisitionedBlockInCurrPartAddr in
 		if negb addrIsAccessible then (* block is inaccessible *) ret false else
 		perform addrIsPresent := readBlockPresentFromBlockEntryAddr
 																	requisitionedBlockInCurrPartAddr in
 		if negb addrIsPresent then (** block is not present *) ret false else
+
+		(** Check the block is not shared *)
+		(* if accessible, then PDflag can't be set, we just need to check PDchild is null*)
+		perform PDChildAddr := readSh1PDChildFromBlockEntryAddr
+															requisitionedBlockInCurrPartAddr in
+		perform PDChildAddrIsNull := compareAddrToNull PDChildAddr in
+		if negb PDChildAddrIsNull (*shouldn't be null*) then (*shared*) ret false else
 
 		(* Init kernel structure (erase first) *)
 		perform requisitionedBlockStart := readBlockStartFromBlockEntryAddr
@@ -502,18 +510,25 @@ Definition addMemoryBlock (idPDchild idBlockToShare: paddr) (r w e : bool)
 
 		(* Check first free slot in the child is not null *)
 		(* Useless check by knowing nbfreeslots > 0
-				-> use NbFreeSlotsISNbFreeSlotsInList consistency property instead *)
+				-> TODO : use NbFreeSlotsISNbFreeSlotsInList consistency property instead *)
 		perform firstfreeslotInChild := readPDFirstFreeSlotPointer globalIdPDChild in
 		perform slotIsNull := compareAddrToNull	firstfreeslotInChild in
 		if slotIsNull	then (* first free slot is null, stop *) ret nullAddr else
 
 		(* Check block is accessible and present*)
+		(* TODO : no need to check present since it has been found, so it is present *)
 		perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr
 																	blockToShareInCurrPartAddr in
 		if negb addrIsAccessible then (* block not accessible *) ret nullAddr else
 		perform addrIsPresent := readBlockPresentFromBlockEntryAddr
 																	blockToShareInCurrPartAddr in
 		if negb addrIsPresent then (** block is not present *) ret nullAddr else
+
+		(** Check the block is not shared *)
+		(* if accessible, then PDflag can't be set, we just need to check PDchild is null*)
+		perform PDChildAddr := readSh1PDChildFromBlockEntryAddr	blockToShareInCurrPartAddr in
+		perform PDChildAddrIsNull := compareAddrToNull PDChildAddr in
+		if negb PDChildAddrIsNull (*shouldn't be null*) then (*shared*) ret nullAddr else
 
 		(* Check that the block to add is not the block
 		 * containing the VIDT of the current partition. *)
@@ -576,8 +591,8 @@ Definition removeMemoryBlock (idBlockToRemove: paddr) : LLI bool :=
 		perform blockInChildIsNull := compareAddrToNull blockToRemoveInChildAddr in
 		if blockInChildIsNull then(* block not shared or PD, stop *) ret false else
 
-                (* Check that the block to remove is not the block
-                 * containing the VIDT of the current partition. *)
+    (* Check that the block to remove is not the block
+     * containing the VIDT of the current partition. *)
 		perform vidtBlockGlobalId := readPDVidt idPDchild in
 		if (beqAddr vidtBlockGlobalId blockToRemoveInCurrPartAddr) then ret false else
 

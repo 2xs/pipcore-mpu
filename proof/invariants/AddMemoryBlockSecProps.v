@@ -61,9 +61,10 @@ childfirststructurepointer
 slotIsNull
 addrIsAccessible
 addrIsPresent
+PDChildAddr
+pdchildIsNull
 vidtBlockGlobalId
 blockstart blockend blockToShareChildEntryAddr
-
 pdentry pdentry0 pdentry1
 bentry bentry0 bentry1 bentry2 bentry3 bentry4 bentry5 bentry6
 sceaddr
@@ -87,6 +88,7 @@ negb isChildCurrPart = false /\
 isFull = false /\
 negb addrIsAccessible = false /\
 negb addrIsPresent = false /\
+negb pdchildIsNull = false /\
 slotIsNull = false /\ 
 beqAddr vidtBlockGlobalId blockToShareInCurrPartAddr = false
 
@@ -102,7 +104,8 @@ beqAddr vidtBlockGlobalId blockToShareInCurrPartAddr = false
           (blockToShareInCurrPartAddr = nullAddr \/
            (exists entry : BlockEntry,
               lookup blockToShareInCurrPartAddr (memory s0) beqAddr = Some (BE entry) /\
-              blockToShareInCurrPartAddr = idBlockToShare)) /\
+              blockToShareInCurrPartAddr = idBlockToShare /\
+              bentryPFlag blockToShareInCurrPartAddr true s0)) /\
           beqAddr nullAddr blockToShareInCurrPartAddr = false /\
           (exists entry : BlockEntry,
              lookup blockToShareInCurrPartAddr (memory s0) beqAddr = Some (BE entry)) /\
@@ -123,10 +126,15 @@ beqAddr vidtBlockGlobalId blockToShareInCurrPartAddr = false
           beqAddr nullAddr childfirststructurepointer = false /\
           bentryAFlag blockToShareInCurrPartAddr addrIsAccessible s0 /\
           bentryPFlag blockToShareInCurrPartAddr addrIsPresent s0 /\
+          (exists (sh1entry : Sh1Entry) (sh1entryaddr : paddr),
+             lookup sh1entryaddr (memory s0) beqAddr = Some (SHE sh1entry) /\
+             sh1entryPDchild sh1entryaddr PDChildAddr s0 /\
+             sh1entryAddr blockToShareInCurrPartAddr sh1entryaddr s0) /\
+          beqAddr nullAddr PDChildAddr = pdchildIsNull /\
           pdentryVidt globalIdPDChild vidtBlockGlobalId s0 /\
           bentryStartAddr blockToShareInCurrPartAddr blockstart s0 /\
-          bentryEndAddr blockToShareInCurrPartAddr blockend s0)
-
+          bentryEndAddr blockToShareInCurrPartAddr blockend s0
+)
 /\ (s =
      {|
        currentPartition := currentPartition s0;
@@ -589,16 +597,6 @@ s12 = {|
 s = s12
 
 ) /\ (
-
-consistency s10 /\
-isPDT globalIdPDChild s10 /\
-isSCE sceaddr s10 /\
-isSHE sh1eaddr s10 /\
-isBE newBlockEntryAddr s10 /\
-lookup sh1eaddr (memory s10) beqAddr = lookup sh1eaddr (memory s0) beqAddr
-
-) /\ (
-
 blockToShareInCurrPartAddr <> nullAddr
 ) /\ (
  sh1eaddr = CPaddr (blockToShareInCurrPartAddr + sh1offset)
@@ -689,9 +687,7 @@ firstfreeslot pdentry1 = newFirstFreeSlotAddr
  consistency s
 ) /\ (
  consistency2 s
-) (*/\ (
-verticalSharing s
-)*)
+)
 /\ (
 		(endAddr (blockrange bentry6) = blockend) /\
 		(startAddr (blockrange bentry6) = blockstart) /\
@@ -757,6 +753,8 @@ childfirststructurepointer
 slotIsNull
 addrIsAccessible
 addrIsPresent
+PDChildAddr
+pdchildIsNull
 vidtBlockGlobalId
 blockstart blockend blockToShareChildEntryAddr
 pdentry pdentry0 pdentry1
@@ -786,6 +784,8 @@ childfirststructurepointer
 slotIsNull
 addrIsAccessible
 addrIsPresent
+PDChildAddr
+pdchildIsNull
 vidtBlockGlobalId
 blockstart blockend blockToShareChildEntryAddr
 pdentry pdentry0 pdentry1
@@ -806,16 +806,16 @@ Proof.
 (*reconstuct hypotheses *)
 intro hyps. unfold AddMemoryBlockPropagatedProperties in *.
 destruct hyps as
-[HaddrIsNull (Hcheck & (HchildCurrPart & (HFull & (Haccessible & (Hpresent & (HslotIsNull & (beqBToShareVIDT & hyps)))))))].
+[HaddrIsNull (Hcheck & (HchildCurrPart & (HFull & (Haccessible & (Hpresent &(HpdchildNull & (HslotIsNull & (beqBToShareVIDT & hyps))))))))].
 destruct hyps as
 [Hprops0 (Hs & (Hprops & ((Hnbleft & (Hs2Eq & Hlists)) & (HbtsEq & (Hpdchildflags0 & (Hs1 & (Hs2 & (Hs3 & (Hs4 & ( Hs5 & (Hs6
-& (Hs7 & (Hs8 & (Hs9 & (Hs10 & (Hs11 & (Hs12 & (Hs12Eq & (Hstates & (HbtsNotNull & (HSh1Offset & (HBEbtss0 & (Hlookupbtss & (HBEbts & (
+& (Hs7 & (Hs8 & (Hs9 & (Hs10 & (Hs11 & (Hs12 & (Hs12Eq & (HbtsNotNull & (HSh1Offset & (HBEbtss0 & (Hlookupbtss & (HBEbts & (
 HSHEs & (Hblockindex & (HBEs0 & (HBEs & (HlookupnewBs0 & (HlookupnewBs & (Hpdinsertions0 & (
 Hpdinsertions & (HPDTs0 & (HPDTs & (HSceOffset & (HSCEs0 & (HSCEs & (beqpdnewB & (beqnewBsce & (
 beqscesh1 & (beqnewBsh1 & (beqsh1bts & (HnewFirstFree & (HnewB & (HnullAddrExists & (HsEq &(
 HPDTs10 & (HSCEs10 & (HSHEs10 & (HBEs10 & (HSHEs10Eq & (HlookupbtscurrpartEq & (Hcons & (Hcons2 & (HstartendbtsEq & (
 HMappedPaddrEqNotInParts0 & (HConfigPaddrEqNotInParts0 & (HUsedPaddrEqNotInParts0 & (
-HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqNotInParts0)))) (*& Hvert)*) ))))))))))))))))))))))))))))))))))))))))))))))))))))))))].
+HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqNotInParts0))))))))) (*& Hvert)*) ))))))))))))))))))))))))))))))))))))))))))))))))))].
 
 { (* verticalSharing s*)
 		unfold verticalSharing.
@@ -1010,6 +1010,8 @@ childfirststructurepointer
 slotIsNull
 addrIsAccessible
 addrIsPresent
+PDChildAddr
+pdchildIsNull
 vidtBlockGlobalId
 blockstart blockend blockToShareChildEntryAddr
 pdentry pdentry0 pdentry1
@@ -1039,6 +1041,8 @@ childfirststructurepointer
 slotIsNull
 addrIsAccessible
 addrIsPresent
+PDChildAddr
+pdchildIsNull
 vidtBlockGlobalId
 blockstart blockend blockToShareChildEntryAddr
 pdentry pdentry0 pdentry1
@@ -1059,16 +1063,16 @@ Proof.
 (*reconstuct hypotheses *)
 intro hyps. unfold AddMemoryBlockPropagatedProperties in *.
 destruct hyps as
-[HaddrIsNull (Hcheck & (HchildCurrPart & (HFull & (Haccessible & (Hpresent & (HslotIsNull & (beqBToShareVIDT & hyps)))))))].
+[HaddrIsNull (Hcheck & (HchildCurrPart & (HFull & (Haccessible & (Hpresent &(HpdchildNull & (HslotIsNull & (beqBToShareVIDT & hyps))))))))].
 destruct hyps as
 [Hprops0 (Hs & (Hprops & ((Hnbleft & (Hs2Eq & Hlists)) & (HbtsEq & (Hpdchildflags0 & (Hs1 & (Hs2 & (Hs3 & (Hs4 & ( Hs5 & (Hs6
-& (Hs7 & (Hs8 & (Hs9 & (Hs10 & (Hs11 & (Hs12 & (Hs12Eq & (Hstates & (HbtsNotNull & (HSh1Offset & (HBEbtss0 & (Hlookupbtss & (HBEbts & (
+& (Hs7 & (Hs8 & (Hs9 & (Hs10 & (Hs11 & (Hs12 & (Hs12Eq & (HbtsNotNull & (HSh1Offset & (HBEbtss0 & (Hlookupbtss & (HBEbts & (
 HSHEs & (Hblockindex & (HBEs0 & (HBEs & (HlookupnewBs0 & (HlookupnewBs & (Hpdinsertions0 & (
 Hpdinsertions & (HPDTs0 & (HPDTs & (HSceOffset & (HSCEs0 & (HSCEs & (beqpdnewB & (beqnewBsce & (
 beqscesh1 & (beqnewBsh1 & (beqsh1bts & (HnewFirstFree & (HnewB & (HnullAddrExists & (HsEq &(
 HPDTs10 & (HSCEs10 & (HSHEs10 & (HBEs10 & (HSHEs10Eq & (HlookupbtscurrpartEq & (Hcons & (Hcons2 & (HstartendbtsEq & (
 HMappedPaddrEqNotInParts0 & (HConfigPaddrEqNotInParts0 & (HUsedPaddrEqNotInParts0 & (
-HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqNotInParts0)))) (*& Hvert)*) ))))))))))))))))))))))))))))))))))))))))))))))))))))))))].
+HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqNotInParts0))))))))) (*& Hvert)*) ))))))))))))))))))))))))))))))))))))))))))))))))))].
 
 {
 	 (* kernelDataIsolation s*)
@@ -1310,6 +1314,8 @@ childfirststructurepointer
 slotIsNull
 addrIsAccessible
 addrIsPresent
+PDChildAddr
+pdchildIsNull
 vidtBlockGlobalId
 blockstart blockend blockToShareChildEntryAddr
 pdentry pdentry0 pdentry1
@@ -1339,6 +1345,8 @@ childfirststructurepointer
 slotIsNull
 addrIsAccessible
 addrIsPresent
+PDChildAddr
+pdchildIsNull
 vidtBlockGlobalId
 blockstart blockend blockToShareChildEntryAddr
 pdentry pdentry0 pdentry1
@@ -1359,16 +1367,16 @@ Proof.
 (*reconstuct hypotheses *)
 intro hyps. unfold AddMemoryBlockPropagatedProperties in *.
 destruct hyps as
-[HaddrIsNull (Hcheck & (HchildCurrPart & (HFull & (Haccessible & (Hpresent & (HslotIsNull & (beqBToShareVIDT & hyps)))))))].
+[HaddrIsNull (Hcheck & (HchildCurrPart & (HFull & (Haccessible & (Hpresent &(HpdchildNull & (HslotIsNull & (beqBToShareVIDT & hyps))))))))].
 destruct hyps as
 [Hprops0 (Hs & (Hprops & ((Hnbleft & (Hs2Eq & Hlists)) & (HbtsEq & (Hpdchildflags0 & (Hs1 & (Hs2 & (Hs3 & (Hs4 & ( Hs5 & (Hs6
-& (Hs7 & (Hs8 & (Hs9 & (Hs10 & (Hs11 & (Hs12 & (Hs12Eq & (Hstates & (HbtsNotNull & (HSh1Offset & (HBEbtss0 & (Hlookupbtss & (HBEbts & (
+& (Hs7 & (Hs8 & (Hs9 & (Hs10 & (Hs11 & (Hs12 & (Hs12Eq & (HbtsNotNull & (HSh1Offset & (HBEbtss0 & (Hlookupbtss & (HBEbts & (
 HSHEs & (Hblockindex & (HBEs0 & (HBEs & (HlookupnewBs0 & (HlookupnewBs & (Hpdinsertions0 & (
 Hpdinsertions & (HPDTs0 & (HPDTs & (HSceOffset & (HSCEs0 & (HSCEs & (beqpdnewB & (beqnewBsce & (
 beqscesh1 & (beqnewBsh1 & (beqsh1bts & (HnewFirstFree & (HnewB & (HnullAddrExists & (HsEq &(
 HPDTs10 & (HSCEs10 & (HSHEs10 & (HBEs10 & (HSHEs10Eq & (HlookupbtscurrpartEq & (Hcons & (Hcons2 & (HstartendbtsEq & (
 HMappedPaddrEqNotInParts0 & (HConfigPaddrEqNotInParts0 & (HUsedPaddrEqNotInParts0 & (
-HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqNotInParts0)))) (*& Hvert)*) ))))))))))))))))))))))))))))))))))))))))))))))))))))))))].
+HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqNotInParts0))))))))) (*& Hvert)*) ))))))))))))))))))))))))))))))))))))))))))))))))))].
 
 	{ (* partitionsIsolation s*)
 		unfold partitionsIsolation.

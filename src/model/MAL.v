@@ -54,12 +54,17 @@ Definition getKernelStructureStartAddr (blockentryaddr : paddr) (blockindex : in
   ret kernelStartAddr.
 
 Definition getBlockEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (BlockEntryIndex : index) : LLI paddr :=
-  let blockEntryAddr := CPaddr (kernelStartAddr + blkoffset + BlockEntryIndex) in
-  ret blockEntryAddr.
+  (*perform blockStartEntryAddr := Paddr.addPaddrIdx kernelStartAddr blkoffset in
+	perform blockEntryAddr := Paddr.addPaddrIdx blockStartEntryAddr BlockEntryIndex in*)
+  ret (CPaddr(kernelStartAddr + blkoffset + BlockEntryIndex)).
 
 Definition getSh1EntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (BlockEntryIndex : index) : LLI paddr :=
-  let sh1EntryAddr := CPaddr (kernelStartAddr + sh1offset + BlockEntryIndex) in
-  ret sh1EntryAddr.
+  (*perform sh1StartEntryAddr := Paddr.addPaddrIdx kernelStartAddr sh1offset in
+	perform sh1EntryAddr := Paddr.addPaddrIdx sh1StartEntryAddr BlockEntryIndex in
+  ret sh1EntryAddr.*)
+ (* perform sh1StartEntryAddr := Paddr.addPaddrIdx kernelStartAddr sh1offset in
+	perform sh1EntryAddr := Paddr.addPaddrIdx sh1StartEntryAddr BlockEntryIndex in*)
+  ret (CPaddr (kernelStartAddr + sh1offset + BlockEntryIndex)).
 
 Definition getSCEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (BlockEntryIndex : index) : LLI paddr :=
   let scEntryAddr := CPaddr (kernelStartAddr + scoffset + BlockEntryIndex) in

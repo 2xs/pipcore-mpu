@@ -137,7 +137,8 @@ induction n.
 	eapply bindRev.
 	{ (** getBlockEntryAddrFromKernelStructureStart *)
 		eapply weaken. apply getBlockEntryAddrFromKernelStructureStart.
-		intros. split. apply H. unfold consistency in *. cbn. intuition.
+		intros. split. apply H. unfold consistency in *. unfold consistency1 in *.
+		cbn. intuition.
 	}
 	intro entryaddr.
 	eapply bindRev.
@@ -256,7 +257,8 @@ induction n.
 		eapply bindRev.
 		{ (** MAL.readNextFromKernelStructureStart *)
 			eapply weaken. apply readNextFromKernelStructureStart.
-			intros. simpl. split. apply H0. unfold consistency in *. intuition.
+			intros. simpl. split. apply H0. unfold consistency in *.
+			unfold consistency1 in *. intuition.
 		}
 		intro nextkernelstructure.
 		eapply bindRev.
@@ -277,14 +279,15 @@ induction n.
 			{ (** induction hypothesis *)
 				eapply weaken. apply IHn.
 				intros. simpl. split. apply H1. split. apply H1. intuition.
-				- destruct H4. unfold consistency in *. intuition.
+				- destruct H4. unfold consistency in *.
+					unfold consistency1 in *. intuition.
 				unfold NextKSIsKS in *.
 				apply beqAddrFalse in H3.
 				eauto.
 				- (* impossible, foundblock is null *)
 					contradict H10.
 					apply beqAddrTrue in H5. subst.
-					unfold consistency in *.
+					unfold consistency in *. unfold consistency1 in *.
 					unfold nullAddrExists in *.
 					intuition. unfold isPADDR in *.
 					destruct H9.
@@ -336,7 +339,8 @@ intro kernelstructurestart.
 	unfold isPDT in *.
 	destruct (lookup idPD (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
 	destruct v eqn:Hv ; try (exfalso ; congruence).
-	assert(HSPIsKS : StructurePointerIsKS s) by (unfold consistency in * ; intuition).
+	assert(HSPIsKS : StructurePointerIsKS s)
+		by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 	subst.
 	apply HSPIsKS with idPD. assumption.
 }
@@ -370,7 +374,8 @@ intro kernelstructurestart.
 	unfold isPDT in *.
 	destruct (lookup idPD (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
 	destruct v eqn:Hv ; try (exfalso ; congruence).
-	assert(HSPIsKS : StructurePointerIsKS s) by (unfold consistency in * ; intuition).
+	assert(HSPIsKS : StructurePointerIsKS s)
+		by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 	subst.
 	apply HSPIsKS with idPD. assumption.
 }

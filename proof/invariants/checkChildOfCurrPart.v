@@ -39,6 +39,8 @@ Require Import Core.Internal.
 Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
                Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants
 							 Proof.invariants.findBlockInKSWithAddr.
+Require Import List.
+Import List.ListNotations.
 
 Lemma checkChildOfCurrPart (currentPartition idPDchild : paddr) P :
 {{ fun s => P s /\ consistency s /\ isPDT currentPartition s}}
@@ -95,9 +97,12 @@ case_eq addrIsNull0.
 				(*blockInParentPartAddr can't be NULL and not NULL at the same time *)
 				apply beqAddrFalse in H3. exfalso ; congruence.
 				destruct H2. destruct H2. exists x0.
-				split. unfold checkChild. destruct H5. intuition. subst. 
-				rewrite H2. rewrite H8.
-				unfold sh1entryPDflag in *. rewrite -> H8 in *. assumption.
+				assert(HcheckChilds : true = checkChild idPDchild s x0).
+				{ unfold checkChild. destruct H5. intuition. subst. 
+						rewrite H2. rewrite H8.
+						unfold sh1entryPDflag in *. rewrite -> H8 in *. assumption.
+				}
+				split. intuition.
 				destruct H5. exists x1. split. intuition. subst. assumption.
 				exists x. intuition.
 				subst blockInParentPartAddr.

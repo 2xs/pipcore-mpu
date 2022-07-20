@@ -46,7 +46,9 @@ Internal.findBlockInKSWithAddrAux n kernelstructurestart blockEntryAddr
 {{fun (blockaddr : paddr) (s : state) => P s /\ consistency s /\
 																				(blockaddr = nullAddr \/
 																	(exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)
-																			/\ blockaddr = blockEntryAddr)) }}.
+																			/\ blockaddr = blockEntryAddr
+																			/\ bentryPFlag blockaddr true s
+)) }}.
 Proof.
 (* revert mandatory to generalize the induction hypothesis *)
 revert kernelstructurestart blockEntryAddr.
@@ -73,7 +75,8 @@ revert kernelstructurestart blockEntryAddr.
 	eapply bindRev.
 	{ (** getSh1EntryAddrFromKernelStructureStart *)
 		eapply weaken. apply getSh1EntryAddrFromKernelStructureStart.
-		intros. simpl. split. apply H. unfold consistency in *. intuition.
+		intros. simpl. split. apply H. unfold consistency in *.
+		unfold consistency1 in *. intuition.
 		unfold pdentryStructurePointer in *.
 		unfold isPDT in *.
 		cbn. subst. unfold CIndex. destruct (lt_dec 0 maxIdx) ; intuition.
@@ -120,7 +123,7 @@ revert kernelstructurestart blockEntryAddr.
 			{ (** readNextFromKernelStructureStart *)
 				eapply weaken. apply readNextFromKernelStructureStart.
 				intros. simpl. split. apply H0. intuition.
-				unfold consistency in *. intuition.
+				unfold consistency in *. unfold consistency1 in *. intuition.
 			}
 			intro nextKernelStructure.
 			eapply bindRev.
@@ -142,7 +145,8 @@ revert kernelstructurestart blockEntryAddr.
 						intros. simpl. intuition.
 						apply isKSLookupEq in H10. destruct H10 as [x (H10&Hblockidx)].
 						destruct H4. intuition.
-						assert(HnextKSIsKS : NextKSIsKS s) by (unfold consistency in * ; intuition).
+						assert(HnextKSIsKS : NextKSIsKS s)
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold NextKSIsKS in *.
 						apply HnextKSIsKS with 	(addr:=kernelstructurestart)
 																		(nextKSaddr:=CPaddr (kernelstructurestart + nextoffset))
@@ -163,7 +167,8 @@ Lemma findBlockInKSWithAddr (idPD blockEntryAddr: paddr) (P : state -> Prop) :
 {{fun (blockaddr : paddr) (s : state) => P s /\ consistency s /\
 																				(blockaddr = nullAddr \/
 																	(exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)
-																			/\ blockaddr = blockEntryAddr)) }}.
+																			/\ blockaddr = blockEntryAddr
+																			/\ bentryPFlag blockaddr true s)) }}.
 Proof.
 unfold Internal.findBlockInKSWithAddr.
 eapply bindRev.
@@ -175,7 +180,8 @@ eapply bindRev.
 	(** findBlockInKSWithAddrAux *)
 	eapply weaken. apply findBlockInKSWithAddrAux.
 	intros. simpl. intuition.
-	assert(HSPIsKS : StructurePointerIsKS s) by (unfold consistency in * ; intuition).
+	assert(HSPIsKS : StructurePointerIsKS s)
+		by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 	unfold isPDT in *.
 	destruct (lookup idPD (memory s) beqAddr) eqn:Hlookup ; try (exfalso; congruence).
 	destruct v eqn:Hv ; try (exfalso; congruence).

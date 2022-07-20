@@ -60,6 +60,13 @@ bentryPFlag idPDchild true s /\
 exists startaddr, bentryStartAddr idPDchild startaddr s /\
  entryPDT idPDchild startaddr s.
 
+Definition AccessibleNoPDFlag s :=
+forall block sh1entryaddr,
+isBE block s ->
+sh1entryAddr block sh1entryaddr s ->
+bentryAFlag block true s ->
+sh1entryPDflag sh1entryaddr false s.
+
 Definition nullAddrExists s :=
 isPADDR nullAddr s.
 
@@ -121,7 +128,7 @@ nextKSentry nextKSaddr nextKS s ->
 nextKS <> nullAddr ->
 isKS nextKS s.
 
-Definition CurrentPartIsPDT s :=
+Definition currentPartitionInPartitionsList s :=
 In (currentPartition s) (getPartitions multiplexer s).
 (*forall pdaddr,
 currentPartition s = pdaddr ->
@@ -182,23 +189,23 @@ optionentrieslist1 = getKSEntries pd1 s /\
 
 (* Prove DisjointKSEntries -> DisjointFreeSlotsList because of inclusion *)
 
-(** ** The [isChild] specifies that a given partition should be a child of the 
-        physical page stored as parent into the associated partition descriptor 
+(** ** The [isChild] specifies that a given partition should be a child of the
+        physical page stored as parent into the associated partition descriptor
     (11) **)
 Definition isChild  s :=
 forall partition parent : paddr,
-In partition (getPartitions multiplexer s) -> 
+In partition (getPartitions multiplexer s) ->
 pdentryParent partition parent s ->
 In partition (getChildren parent s).
 
 
-(** ** The [isParent] specifies that if we take any child into the children list of any 
-partition into the partition list so this partition should be the parent of this child 
+(** ** The [isParent] specifies that if we take any child into the children list of any
+partition into the partition list so this partition should be the parent of this child
  (..) **)
 Definition isParent  s :=
 forall partition parent : paddr,
-In parent (getPartitions multiplexer s) -> 
-In partition (getChildren parent s) -> 
+In parent (getPartitions multiplexer s) ->
+In partition (getChildren parent s) ->
 pdentryParent partition parent s.
 
 Definition noDupMappedBlocksList s :=
@@ -241,11 +248,12 @@ In addr (getAccessibleMappedPaddr parent s).
 
 (** ** First batch of consistency properties *)
 Definition consistency1 s :=
+nullAddrExists s /\
 wellFormedFstShadowIfBlockEntry s /\
 PDTIfPDFlag s /\
-nullAddrExists s /\
+AccessibleNoPDFlag s /\
 FirstFreeSlotPointerIsBEAndFreeSlot s /\
-CurrentPartIsPDT s /\
+currentPartitionInPartitionsList s /\
 wellFormedShadowCutIfBlockEntry s /\
 BlocksRangeFromKernelStartIsBE s /\
 KernelStructureStartFromBlockEntryAddrIsKS s /\
@@ -259,10 +267,11 @@ DisjointFreeSlotsLists s /\
 inclFreeSlotsBlockEntries s /\
 DisjointKSEntries s /\
 noDupPartitionTree s /\
-sharedBlockPointsToChild s /\
 isParent s /\
 isChild s /\
 accessibleChildPaddrIsAccessibleIntoParent s /\
+noDupKSEntriesList s /\
+noDupMappedBlocksList s /\
 noDupUsedPaddrList s.
 
 (** ** Second batch of consistency properties *)

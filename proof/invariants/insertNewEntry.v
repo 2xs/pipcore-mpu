@@ -58,7 +58,7 @@ Lemma insertNewEntry 	(pdinsertion startaddr endaddr origin: paddr)
 Internal.insertNewEntry pdinsertion startaddr endaddr origin r w e currnbfreeslots
 
 {{fun newentryaddr s =>
-(exists s0, P s0 /\ consistency s
+(exists s0, P s0 /\ consistency1 s (* only propagate the 1st batch*)
 (* expected new state after memory writes and associated properties on the new state s *)
 /\ (exists pdentry : PDTable, exists pdentry0 pdentry1: PDTable,
 		exists bentry bentry0 bentry1 bentry2 bentry3 bentry4 bentry5 bentry6: BlockEntry,
@@ -172,6 +172,7 @@ Internal.insertNewEntry pdinsertion startaddr endaddr origin r w e currnbfreeslo
 	/\ pdentryNbFreeSlots pdinsertion currnbfreeslots s0*)
 	/\ pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s0
 	/\ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s0
+	/\ isPDT multiplexer s0
 
 
 	(* propagate new properties (copied from last step) *)
@@ -202,34 +203,59 @@ Internal.insertNewEntry pdinsertion startaddr endaddr origin r w e currnbfreeslo
 	/\ sceaddr <> newFirstFreeSlotAddr
 	(* pdinsertion's new free slots list and relation with list at s0 *)
 	/\ (exists (optionfreeslotslist : list optionPaddr) (s2 : state)
-				(n0 n1 n2 : nat) (nbleft : index),
-      nbleft = CIndex (currnbfreeslots - 1) /\
-      nbleft < maxIdx /\
-      s =
-      {|
-        currentPartition := currentPartition s0;
-        memory :=
-          add sceaddr (SCE {| origin := origin; next := next scentry |})
-            (memory s2) beqAddr
-      |} /\
-      optionfreeslotslist = getFreeSlotsListRec n1 newFirstFreeSlotAddr s2 nbleft /\
-      getFreeSlotsListRec n2 newFirstFreeSlotAddr s nbleft = optionfreeslotslist /\
-      optionfreeslotslist = getFreeSlotsListRec n0 newFirstFreeSlotAddr s0 nbleft /\
-      n0 <= n1 /\
-      nbleft < n0 /\
-      n1 <= n2 /\
-      nbleft < n2 /\
-      n2 <= maxIdx + 1 /\
-      (wellFormedFreeSlotsList optionfreeslotslist = False -> False) /\
-      NoDup (filterOptionPaddr optionfreeslotslist) /\
-      (In newBlockEntryAddr (filterOptionPaddr optionfreeslotslist) -> False) /\
-      (exists optionentrieslist : list optionPaddr,
-         optionentrieslist = getKSEntries pdinsertion s2 /\
-         getKSEntries pdinsertion s = optionentrieslist /\
-         optionentrieslist = getKSEntries pdinsertion s0 /\
-					(* newB in free slots list at s0, so in optionentrieslist *)
-					In (SomePaddr newBlockEntryAddr) optionentrieslist)
-			)
+					(n0 n1 n2 : nat) (nbleft : index),
+	    nbleft = CIndex (currnbfreeslots - 1) /\
+	    nbleft < maxIdx /\
+	    s =
+	    {|
+	      currentPartition := currentPartition s0;
+	      memory :=
+	        add sceaddr (SCE {| origin := origin; next := next scentry |})
+	          (memory s2) beqAddr
+	    |} /\
+		    ( optionfreeslotslist = getFreeSlotsListRec n1 newFirstFreeSlotAddr s2 nbleft /\
+				  getFreeSlotsListRec n2 newFirstFreeSlotAddr s nbleft = optionfreeslotslist /\
+				  optionfreeslotslist = getFreeSlotsListRec n0 newFirstFreeSlotAddr s0 nbleft /\
+				  n0 <= n1 /\
+				  nbleft < n0 /\
+				  n1 <= n2 /\
+				  nbleft < n2 /\
+				  n2 <= maxIdx + 1 /\
+				  (wellFormedFreeSlotsList optionfreeslotslist = False -> False) /\
+				  NoDup (filterOptionPaddr optionfreeslotslist) /\
+				  (In newBlockEntryAddr (filterOptionPaddr optionfreeslotslist) -> False) /\
+				  (exists optionentrieslist : list optionPaddr,
+				     optionentrieslist = getKSEntries pdinsertion s2 /\
+				     getKSEntries pdinsertion s = optionentrieslist /\
+				     optionentrieslist = getKSEntries pdinsertion s0 /\
+							(* newB in free slots list at s0, so in optionentrieslist *)
+							In (SomePaddr newBlockEntryAddr) optionentrieslist)
+				)
+
+			/\ (	isPDT multiplexer s
+					/\ getPartitions multiplexer s2 = getPartitions multiplexer s0
+					/\ getPartitions multiplexer s = getPartitions multiplexer s2
+					/\ getChildren pdinsertion s2 = getChildren pdinsertion s0
+					/\ getChildren pdinsertion s = getChildren pdinsertion s2
+					/\ getConfigBlocks pdinsertion s2 = getConfigBlocks pdinsertion s0
+					/\ getConfigBlocks pdinsertion s = getConfigBlocks pdinsertion s2
+					/\ getConfigPaddr pdinsertion s2 = getConfigPaddr pdinsertion s0
+					/\ getConfigPaddr pdinsertion s = getConfigPaddr pdinsertion s2
+					/\ (forall block, In block (getMappedBlocks pdinsertion s2) <->
+										In block (newBlockEntryAddr:: (getMappedBlocks pdinsertion s0)))
+					/\ (forall block, In block (getMappedBlocks pdinsertion s) <->
+										In block (newBlockEntryAddr:: (getMappedBlocks pdinsertion s0)))
+					/\ (forall addr, In addr (getMappedPaddr pdinsertion s2) <->
+								In addr (getAllPaddrBlock (startAddr (blockrange bentry6)) (endAddr (blockrange bentry6))
+									 ++ getMappedPaddr pdinsertion s0))
+					/\ (forall addr, In addr (getMappedPaddr pdinsertion s) <->
+								In addr (getAllPaddrBlock (startAddr (blockrange bentry6)) (endAddr (blockrange bentry6))
+									 ++ getMappedPaddr pdinsertion s0))
+				)
+		)
+
+
+
 
 (* intermediate steps *)
 /\ exists s1 s2 s3 s4 s5 s6 s7 s8 s9 s10,
@@ -329,6 +355,7 @@ s1 = {|
 ))
 }}.
 Proof.
+
 unfold Internal.insertNewEntry.
 eapply WP.bindRev.
 { (** readPDFirstFreeSlotPointer **)
@@ -349,8 +376,9 @@ eapply WP.bindRev.
 	assert(Hpdinsertions : exists pdentry : PDTable,
       lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry)) by trivial.
  	destruct Hpdinsertions as [pdentry Hpdinsertions].
- 	unfold consistency in *. intuition.
-	assert(HfirstfreeslotBEs : FirstFreeSlotPointerIsBEAndFreeSlot s) by intuition.
+ 	unfold consistency in * ; unfold consistency1 in *. intuition.
+	assert(HfirstfreeslotBEs : FirstFreeSlotPointerIsBEAndFreeSlot s)
+		by (unfold consistency in * ; unfold consistency in * ; unfold consistency1 in * ; intuition).
 	unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 	specialize(HfirstfreeslotBEs pdinsertion pdentry Hpdinsertions).
 	assert(newBlockEntryAddr = firstfreeslot pdentry).
@@ -382,7 +410,7 @@ eapply WP.bindRev.
 		{
 			unfold isBE.
 			assert(HfirstfreeslotBEs : FirstFreeSlotPointerIsBEAndFreeSlot s)
-				by (unfold consistency in * ; intuition).
+				by (unfold consistency in * ;unfold consistency in * ; unfold consistency1 in * ; intuition).
 			unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 			specialize(HfirstfreeslotBEs pdinsertion x H5).
 			assert(newBlockEntryAddr = firstfreeslot x).
@@ -474,7 +502,7 @@ newBlockEntryAddr <> nullAddr /\
 				+ rewrite removeDupIdentity. rewrite H11. trivial.
 					rewrite <- beqAddrFalse in Hbeq. intuition.
 			- exists s. exists x. eexists. intuition.
-				assert(HnullAddrExistss : nullAddrExists s) by (unfold consistency in * ; intuition).
+				assert(HnullAddrExistss : nullAddrExists s) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold nullAddrExists in *. unfold isBE in *. unfold isPADDR in *.
 				subst newBlockEntryAddr. destruct (lookup nullAddr (memory s) beqAddr) ; try(exfalso ; congruence).
 				destruct v ; try(exfalso ; congruence).
@@ -485,7 +513,7 @@ newBlockEntryAddr <> nullAddr /\
 				apply (@newFirstPDNotEq newBlockEntryAddr newFirstFreeSlotAddr pdinsertion x s) ; intuition.
 				unfold isBE. rewrite H5. intuition.
 				unfold isPADDR. rewrite H5. intuition.
-				assert(HNoDupInFreeSlotsList : NoDupInFreeSlotsList s) by (unfold consistency in * ; intuition).
+				assert(HNoDupInFreeSlotsList : NoDupInFreeSlotsList s) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold NoDupInFreeSlotsList in *.
 				specialize(HNoDupInFreeSlotsList pdinsertion x H5).
 				destruct HNoDupInFreeSlotsList.
@@ -553,7 +581,7 @@ newBlockEntryAddr <> nullAddr /\
 				).
 				eapply getKSEntriesEqPDT with x; intuition.
 				(* StructurePointerIsKS s *)
-				unfold consistency in * ; intuition.
+				unfold consistency in * ; unfold consistency1 in * ; intuition.
 				(* In newB KSEntriesList*)
 				assert(HnewBFreeSlots0 : In (SomePaddr newBlockEntryAddr) (getFreeSlotsList pdinsertion s)).
 				{
@@ -567,7 +595,7 @@ newBlockEntryAddr <> nullAddr /\
 					cbn. left. trivial.
 				}
 				assert(HinclFreeSlotsBlockEntries : inclFreeSlotsBlockEntries s)
-						by (unfold consistency in * ; intuition).
+						by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold inclFreeSlotsBlockEntries in *.
 				assert(HPDTs : isPDT pdinsertion s)
 					by (unfold isPDT ; rewrite H5 ; trivial).
@@ -729,7 +757,7 @@ getFreeSlotsListRec n1 newFirstFreeSlotAddr olds nbleft).
 						unfold StructurePointerIsKS.
 						intros pdentryaddr pdentry' Hlookup.
 
-						assert(Hcons0 : StructurePointerIsKS x) by (unfold consistency in * ; intuition).
+						assert(Hcons0 : StructurePointerIsKS x) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold StructurePointerIsKS in Hcons0.
 
 						(* check all possible values for pdentryaddr in the modified state s
@@ -1006,8 +1034,8 @@ nbleft < maxIdx /\
 					assert(HKSEntriess : optionentrieslist = getKSEntries pdinsertion s) by trivial.
 					rewrite HKSEntriess. (* getKSEntries pdinsertion olds = ...*)
 					eapply getKSEntriesEqBE ; intuition.
-					assert(Hlookuppds : lookup pdinsertion (memory s) beqAddr = Some (PDT x2)) by trivial.
-					unfold isPDT. rewrite Hlookuppds. trivial.
+					(*assert(Hlookuppds : lookup pdinsertion (memory s) beqAddr = Some (PDT x2)) by trivial.
+					unfold isPDT. rewrite Hlookuppds. trivial.*)
 }	intros. simpl.
 eapply bindRev.
 	{ (**  MAL.writeBlockEndFromBlockEntryAddr **)
@@ -1178,8 +1206,8 @@ nbleft < maxIdx /\
 							assert(HKSEntriess : getKSEntries pdinsertion s =  optionentrieslist) by trivial. 
 							rewrite <- HKSEntriess. (* getKSEntries pdinsertion s = ...*)
 							eapply getKSEntriesEqBE ; intuition.
-							assert(Hlookuppds : lookup pdinsertion (memory s) beqAddr = Some (PDT x3)) by trivial.
-							unfold isPDT. rewrite Hlookuppds. trivial.
+							(*assert(Hlookuppds : lookup pdinsertion (memory s) beqAddr = Some (PDT x3)) by trivial.
+							unfold isPDT. rewrite Hlookuppds. trivial.*)
 							assert(HlookupnewBs : lookup newBlockEntryAddr (memory s) beqAddr = Some (BE x5)) by trivial.
 							unfold isBE. rewrite HlookupnewBs. trivial.
 }	intros. simpl.
@@ -1360,8 +1388,8 @@ nbleft < maxIdx /\
 							assert(HKSEntriess : getKSEntries pdinsertion s =  optionentrieslist) by trivial. 
 							rewrite <- HKSEntriess. (* getKSEntries pdinsertion s = ...*)
 							eapply getKSEntriesEqBE ; intuition.
-							assert(Hlookuppds : lookup pdinsertion (memory s) beqAddr = Some (PDT x3)) by trivial.
-							unfold isPDT. rewrite Hlookuppds. trivial.
+							(*assert(Hlookuppds : lookup pdinsertion (memory s) beqAddr = Some (PDT x3)) by trivial.
+							unfold isPDT. rewrite Hlookuppds. trivial.*)
 							unfold isBE. rewrite H4. trivial.
 }	intros. simpl.
 eapply bindRev.
@@ -1548,8 +1576,8 @@ nbleft < maxIdx /\
 							assert(HKSEntriess : getKSEntries pdinsertion s =  optionentrieslist) by trivial. 
 							rewrite <- HKSEntriess. (* getKSEntries pdinsertion s = ...*)
 							eapply getKSEntriesEqBE ; intuition.
-							assert(Hlookuppds : lookup pdinsertion (memory s) beqAddr = Some (PDT x3)) by trivial.
-							unfold isPDT. rewrite Hlookuppds. trivial.
+							(*assert(Hlookuppds : lookup pdinsertion (memory s) beqAddr = Some (PDT x3)) by trivial.
+							unfold isPDT. rewrite Hlookuppds. trivial.*)
 							unfold isBE. rewrite H4. trivial.
 }	intros. simpl.
 
@@ -1744,8 +1772,8 @@ nbleft < maxIdx /\
 							assert(HKSEntriess : getKSEntries pdinsertion s =  optionentrieslist) by trivial. 
 							rewrite <- HKSEntriess. (* getKSEntries pdinsertion s = ...*)
 							eapply getKSEntriesEqBE ; intuition.
-							assert(Hlookuppds : lookup pdinsertion (memory s) beqAddr = Some (PDT x3)) by trivial.
-							unfold isPDT. rewrite Hlookuppds. trivial.
+							(*assert(Hlookuppds : lookup pdinsertion (memory s) beqAddr = Some (PDT x3)) by trivial.
+							unfold isPDT. rewrite Hlookuppds. trivial.*)
 							unfold isBE. rewrite H4. trivial.
 }	intros. simpl.
 eapply bindRev.
@@ -1946,8 +1974,8 @@ nbleft < maxIdx /\
 							assert(HKSEntriess : getKSEntries pdinsertion s =  optionentrieslist) by trivial. 
 							rewrite <- HKSEntriess. (* getKSEntries pdinsertion s = ...*)
 							eapply getKSEntriesEqBE ; intuition.
-							assert(Hlookuppds : lookup pdinsertion (memory s) beqAddr = Some (PDT x3)) by trivial.
-							unfold isPDT. rewrite Hlookuppds. trivial.
+							(*assert(Hlookuppds : lookup pdinsertion (memory s) beqAddr = Some (PDT x3)) by trivial.
+							unfold isPDT. rewrite Hlookuppds. trivial.*)
 							unfold isBE. rewrite H4. trivial.
 }	intros. simpl.
 eapply bindRev.
@@ -2161,8 +2189,8 @@ nbleft < maxIdx /\
 							assert(HKSEntriess : getKSEntries pdinsertion s =  optionentrieslist) by trivial. 
 							rewrite <- HKSEntriess. (* getKSEntries pdinsertion s = ...*)
 							eapply getKSEntriesEqBE ; intuition.
-							assert(Hlookuppds : lookup pdinsertion (memory s) beqAddr = Some (PDT x3)) by trivial.
-							unfold isPDT. rewrite Hlookuppds. trivial.
+							(*assert(Hlookuppds : lookup pdinsertion (memory s) beqAddr = Some (PDT x3)) by trivial.
+							unfold isPDT. rewrite Hlookuppds. trivial.*)
 							unfold isBE. rewrite H4. trivial.
 }	intros. simpl.
 eapply bindRev.
@@ -2207,7 +2235,7 @@ eapply bindRev.
 			}
 			rewrite HSCEEq.
 			assert(Hcons : wellFormedShadowCutIfBlockEntry s0) by
-			(unfold consistency in * ; intuition).
+			(unfold consistency in * ; unfold consistency1 in * ; intuition).
 			unfold wellFormedShadowCutIfBlockEntry in Hcons.
 			assert(HBEEq : isBE pa s = isBE pa s0).
 			{
@@ -2334,7 +2362,7 @@ intuition.
 		}
 			rewrite H31.
 			assert(Hcons0 : KernelStructureStartFromBlockEntryAddrIsKS s0)
-				by (unfold consistency in *; intuition).
+				by (unfold consistency in * ; unfold consistency1 in *; intuition).
 			unfold KernelStructureStartFromBlockEntryAddrIsKS in *.
 			assert(HBEs : lookup newBlockEntryAddr (memory s) beqAddr = Some (BE x10)) by intuition.
 			(* pdinsertion <> newBlockEntryAddr *)
@@ -2609,7 +2637,7 @@ nbleft < maxIdx /\
 							subst pdinsertion. congruence.
 						+++ subst scentryaddr.
 								assert(newFsceNotEq : newFirstFreeSlotAddr <> (CPaddr (newBlockEntryAddr + scoffset))).
-								{ assert(HwellFormedSCEs0 : wellFormedShadowCutIfBlockEntry s0) by (unfold consistency in * ; intuition).
+								{ assert(HwellFormedSCEs0 : wellFormedShadowCutIfBlockEntry s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 									assert(HBEs0 : isBE newBlockEntryAddr s0).
 									unfold isBE. rewrite H4. trivial.
 									specialize (HwellFormedSCEs0 newBlockEntryAddr HBEs0).
@@ -2749,7 +2777,7 @@ nbleft < maxIdx /\
 	{ assert(Hsceaddr : sceaddr = CPaddr (newBlockEntryAddr + scoffset)) by intuition.
 		rewrite Hsceaddr.
 		assert(HSCE : wellFormedShadowCutIfBlockEntry s0)
-										by (unfold consistency in *; intuition).
+										by (unfold consistency in * ; unfold consistency1 in *; intuition).
 		specialize(HSCE newBlockEntryAddr).
 		unfold isBE in HSCE.
 		rewrite Hpdinsertions0 in *.
@@ -2812,7 +2840,7 @@ nbleft < maxIdx /\
 
 	assert(HnullAddrExists : nullAddrExists s).
 	{ (* nullAddrExists s *)
-		assert(Hcons0 : nullAddrExists s0) by (unfold consistency in * ; intuition).
+		assert(Hcons0 : nullAddrExists s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 		unfold nullAddrExists in Hcons0.
 		unfold isPADDR in Hcons0.
 
@@ -2892,8 +2920,14 @@ nbleft < maxIdx /\
 	(* Prove ret *)
 	intuition.
 	exists s0. intuition.
-	- (* consistency *)
-		unfold consistency. split.
+	- (* consistency1 -> only prove consistency1 since the shared information has not
+				been written in parent yet -> to be done back in main file *)
+		unfold consistency1.
+
+		split. intuition. (* nullAddrExists *)
+
+		split.
+
 		{ (* wellFormedFstShadowIfBlockEntry *)
 			unfold wellFormedFstShadowIfBlockEntry.
 			intros pa HBEaddrs.
@@ -2920,7 +2954,7 @@ nbleft < maxIdx /\
 							rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewblockpa.
 							rewrite <- beqnewblockpa in *.
 							assert(Hcons : wellFormedFstShadowIfBlockEntry s0)
-											by (unfold consistency in *; intuition).
+											by (unfold consistency in * ; unfold consistency1 in *; intuition).
 							unfold wellFormedFstShadowIfBlockEntry in *.
 							specialize (Hcons newBlockEntryAddr).
 							unfold isBE in Hcons.
@@ -2934,7 +2968,7 @@ nbleft < maxIdx /\
 							++++ (* sceaddr = (CPaddr (newBlockEntryAddr + sh1offset)) *)
 										rewrite <- DependentTypeLemmas.beqAddrTrue in beqsceoffset.
 										assert(HwellFormedSHE : wellFormedShadowCutIfBlockEntry s0)
-														by (unfold consistency in *; intuition).
+														by (unfold consistency in * ; unfold consistency1 in *; intuition).
 										specialize(HwellFormedSHE newBlockEntryAddr).
 										unfold isBE in HwellFormedSHE.
 										rewrite HBE in *. destruct HwellFormedSHE ; trivial.
@@ -2993,11 +3027,11 @@ nbleft < maxIdx /\
 								assert(HSHEEq : isSHE (CPaddr (pa + sh1offset)) s = isSHE (CPaddr (pa + sh1offset)) s0).
 								{
 									assert(HSHE : wellFormedFstShadowIfBlockEntry s0)
-																by (unfold consistency in *; intuition).
+																by (unfold consistency in * ; unfold consistency1 in *; intuition).
 									specialize(HSHE pa).
 									unfold isBE in HSHE.
 									assert(HwellFormedSHE : wellFormedShadowCutIfBlockEntry s0)
-																by (unfold consistency in *; intuition).
+																by (unfold consistency in * ; unfold consistency1 in *; intuition).
 									specialize(HwellFormedSHE pa).
 									unfold isBE in HwellFormedSHE.
 									rewrite HBEaddrs in *.
@@ -3050,7 +3084,7 @@ nbleft < maxIdx /\
 							}
 							rewrite HSHEEq.
 							assert(HwellFormedSHE : wellFormedFstShadowIfBlockEntry s0)
-														by (unfold consistency in *; intuition).
+														by (unfold consistency in * ; unfold consistency1 in *; intuition).
 							specialize(HwellFormedSHE pa).
 							unfold isBE in HwellFormedSHE.
 							rewrite HBEaddrs in *. intuition.
@@ -3058,7 +3092,7 @@ nbleft < maxIdx /\
 
 		split.
 		{ (* PDTIfPDFlag s *)
-			assert(Hcons0 : PDTIfPDFlag s0) by (unfold consistency in * ; intuition).
+			assert(Hcons0 : PDTIfPDFlag s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 			unfold PDTIfPDFlag.
 			intros idPDchild sh1entryaddr HcheckChilds.
 			destruct HcheckChilds as [HcheckChilds Hsh1entryaddr].
@@ -3124,7 +3158,7 @@ nbleft < maxIdx /\
 						}
 						(* PDflag was false at s0 *)
 						assert(HfreeSlot : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-														by (unfold consistency in *; intuition).
+														by (unfold consistency in * ; unfold consistency1 in *; intuition).
 						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 						apply isPDTLookupEq in HPDTs0. destruct HPDTs0 as [pds0 HPDTs0].
 						assert(HfreeSlots0 : pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s0)
@@ -3361,12 +3395,17 @@ nbleft < maxIdx /\
 													destruct v0 eqn:Hv0 ; try (exfalso ; congruence).
 													reflexivity.
 		} (* end PDTIfPDFlag*)
-		split. intuition. (* nullAddrExists *)
+
+		split.
+		{ (* AccessibleNoPDFlag s *)
+			admit.
+		} (* end of AccessibleNoPDFlag *)
+
 
 	(* Prove outside in order to use the proven properties to prove other ones *)
 	assert(HFirstFreeIsBEAndFreeSlots : FirstFreeSlotPointerIsBEAndFreeSlot s).
 	{ (* FirstFreeSlotPointerIsBEAndFreeSlot s *)
-		assert(Hcons0 : FirstFreeSlotPointerIsBEAndFreeSlot s0) by (unfold consistency in * ; intuition).
+		assert(Hcons0 : FirstFreeSlotPointerIsBEAndFreeSlot s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 		unfold FirstFreeSlotPointerIsBEAndFreeSlot in Hcons0.
 
 		unfold FirstFreeSlotPointerIsBEAndFreeSlot.
@@ -3438,11 +3477,11 @@ nbleft < maxIdx /\
 									by intuition.
 								assert(HNewFirstFreeSlots0 : isFreeSlot newFirstFreeSlotAddr s0).
 								{ assert(HfreeSlotsListIsFreeSlot : freeSlotsListIsFreeSlot s0)
-										by (unfold consistency in * ; intuition).
+										by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 									unfold freeSlotsListIsFreeSlot in *.
 									(* extract freeslotslist *)
 									assert(HNoDupInFreeSlotsList : NoDupInFreeSlotsList s0)
-										by (unfold consistency in * ; intuition).
+										by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 									unfold NoDupInFreeSlotsList in *.
 									specialize(HNoDupInFreeSlotsList pdinsertion pdentry Hpdinsertions0).
 									destruct HNoDupInFreeSlotsList as [Hoptionfreeslotslists0 (HfreeSlotsLists0 & Hwellformeds0 & HNoDups0)].
@@ -3483,7 +3522,7 @@ nbleft < maxIdx /\
 									cbn. intuition.
 									destruct (beqAddr newFirstFreeSlotAddr nullAddr) eqn:HnewFirstNull ; try(exfalso ; cbn in * ; congruence).
 									assert(HnullAddrExistss0 : nullAddrExists s0)
-										by (unfold consistency in * ; intuition).
+										by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 									unfold nullAddrExists in *. unfold isPADDR in *.
 									rewrite <- DependentTypeLemmas.beqAddrTrue in HnewFirstNull.
 									rewrite HnewFirstNull in *.
@@ -3603,7 +3642,7 @@ nbleft < maxIdx /\
 																			unfold isFreeSlot in HHH.
 																			rewrite Hscentryaddr in *.
 																			assert(HnullAddrExistss0 : nullAddrExists s0)
-																					by (unfold consistency in *; intuition).
+																					by (unfold consistency in * ; unfold consistency1 in *; intuition).
 																			unfold nullAddrExists in *. unfold isPADDR in *.
 																			unfold CPaddr in beqscenewsc.
 																			destruct (le_dec (newBlockEntryAddr + scoffset) maxAddr) eqn:Hj.
@@ -3714,7 +3753,7 @@ nbleft < maxIdx /\
 													------ (* newBlockEntryAddr = firstfreeslot entrypd *)
 															(* Case : other pdentry but firstfreeslot points to newBlockEntryAddr anyways -> impossible *)
 															assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-																by (unfold consistency in *; intuition).
+																by (unfold consistency in * ; unfold consistency1 in *; intuition).
 															unfold DisjointFreeSlotsLists in *.
 															assert(HPDTentrypds0 : isPDT entryaddrpd s0).
 															{ unfold isPDT. rewrite Hentrypds0. trivial. }
@@ -3849,7 +3888,7 @@ nbleft < maxIdx /\
 																						rewrite <- beqscenewsc in *.
 																						rewrite Hscentryaddr in *.
 																						assert(HnullAddrExistss0 : nullAddrExists s0)
-																								by (unfold consistency in *; intuition).
+																								by (unfold consistency in * ; unfold consistency1 in *; intuition).
 																						unfold nullAddrExists in *. unfold isPADDR in *.
 																						unfold CPaddr in beqscenewsc.
 																						destruct (le_dec (newBlockEntryAddr + scoffset) maxAddr) eqn:Hj.
@@ -3913,65 +3952,29 @@ nbleft < maxIdx /\
 																			destruct v1 eqn:Hv1 ; try(exfalso ; congruence).
 																			intuition.
 } (* end of FirstFreeSlotPointerIsBEAndFreeSlot *)
+
+
 split. intuition.
+
 split.
-{ (* CurrentPartIsPDT s *)
-	assert(Hcons0 : CurrentPartIsPDT s0) by (unfold consistency in * ; intuition).
-	unfold CurrentPartIsPDT in Hcons0.
 
-	intros entryaddrpd HcurrentPart.
-	rewrite Hs in HcurrentPart.
-	cbn in HcurrentPart.
-	unfold isPDT.
+	{ (* currentPartitionInPartitionsList s *)
+		assert(Hcons0 : currentPartitionInPartitionsList s0)
+			by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+		unfold currentPartitionInPartitionsList in Hcons0.
 
-	(* check all possible values for entryaddrpd in the modified state s
-			-> only possible is pdinsertion
-		1) if entryaddrpd == pdinsertion :
-				- pdinsertion could be the current partition and insert in itself
-				- we know isPDT pdinsertion s -> OK
-		2) if entryaddrpd <> pdinsertion :
-				- could be another partition inserting in pdinsertion
-				- -> leads to s0 -> OK
-*)
-	specialize(Hcons0 entryaddrpd HcurrentPart).
-	(* DUP *)
-	(* Check all values except pdinsertion *)
-	destruct (beqAddr sceaddr entryaddrpd) eqn:beqsceentry; try(exfalso ; congruence).
-	-	(* sceaddr = entryaddrpd *)
-		rewrite <- DependentTypeLemmas.beqAddrTrue in beqsceentry.
-		rewrite <- beqsceentry in *.
-		unfold isSCE in *.
-		unfold isPDT in Hcons0.
-		destruct (lookup sceaddr (memory s0) beqAddr) ; try(exfalso ; congruence).
-		destruct v ; try(exfalso ; congruence).
-	-	(* sceaddr <> entryaddrpd *)
-		destruct (beqAddr newBlockEntryAddr entryaddrpd) eqn:beqnewblockentry; try(exfalso ; congruence).
-		-- (* newBlockEntryAddr = entryaddrpd *)
-			rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewblockentry.
-			rewrite <- beqnewblockentry in *.
-			unfold isBE in *.
-			unfold isPDT in Hcons0.
-			destruct (lookup newBlockEntryAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
-			destruct v ; try(exfalso ; congruence).
-		-- (* newBlockEntryAddr <> entryaddrpd *)
-			rewrite Hs.
-			cbn. rewrite beqAddrTrue.
-			destruct (beqAddr sceaddr entryaddrpd) eqn:sceentrypd ; try(exfalso ; congruence).
-			destruct (beqAddr newBlockEntryAddr sceaddr) eqn:newsce ; try(exfalso ; congruence).
-			rewrite beqAddrTrue.
-			cbn.
-			destruct (beqAddr newBlockEntryAddr entryaddrpd) eqn:newentrypd ; try(exfalso ; congruence).
-			destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:pdnew ; try(exfalso ; congruence).
-			rewrite <- beqAddrFalse in *.
-			repeat rewrite removeDupIdentity ; intuition.
-			cbn.
-			destruct (beqAddr pdinsertion entryaddrpd) eqn:pdentrypd ; try(exfalso ; congruence).
-			--- (* pdinsertion = entryaddrpd *)
-					trivial.
-			---	(* pdinsertion <> entryaddrpd *)
-					rewrite <- beqAddrFalse in *.
-					repeat rewrite removeDupIdentity ; intuition.
-} (* end of CurrentPartIsPDT *)
+		unfold currentPartitionInPartitionsList.
+		assert(HcurrPartEq : currentPartition s = currentPartition s0).
+		{
+			rewrite Hs. simpl. trivial.
+		}
+		rewrite HcurrPartEq in *.
+		assert(HparentEq : (getPartitions multiplexer s) = (getPartitions multiplexer s0))
+			by admit. (* list equalities *)
+		rewrite HparentEq.
+		assumption.
+	} (* end of currentPartitionInPartitionsList *)
+
 split.
 { (* wellFormedShadowCutIfBlockEntry s*)
 	(* Almost DUP of wellFormedFstShadowIfBlockEntry *)
@@ -4023,7 +4026,7 @@ split.
 												rewrite <- beqscenewsc in *.
 												rewrite Hscentryaddr in *.
 												assert(HnullAddrExistss0 : nullAddrExists s0)
-														by (unfold consistency in *; intuition).
+														by (unfold consistency in * ; unfold consistency1 in *; intuition).
 												unfold nullAddrExists in *. unfold isPADDR in *.
 												unfold CPaddr in beqscenewsc.
 												destruct (le_dec (newBlockEntryAddr + scoffset) maxAddr) eqn:Hj.
@@ -4058,7 +4061,7 @@ split.
 									 - (* sce <> (CPaddr (pa + scoffset)) *)
 											(* leads to s0 *)
 											assert(Hcons0 : wellFormedShadowCutIfBlockEntry s0)
-													by (unfold consistency in *; intuition).
+													by (unfold consistency in * ; unfold consistency1 in *; intuition).
 											unfold wellFormedShadowCutIfBlockEntry in *.
 											assert(HBEeq : isBE pa s = isBE pa s0).
 											{
@@ -4135,7 +4138,7 @@ split.
 	unfold BlocksRangeFromKernelStartIsBE.
 	intros kernelentryaddr blockidx HKSs Hblockidx.
 
-	assert(Hcons0 : BlocksRangeFromKernelStartIsBE s0) by (unfold consistency in * ; intuition).
+	assert(Hcons0 : BlocksRangeFromKernelStartIsBE s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 	unfold BlocksRangeFromKernelStartIsBE in Hcons0.
 
 	(* check all possible values for bentryaddr in the modified state s
@@ -4319,7 +4322,7 @@ split.
 	unfold KernelStructureStartFromBlockEntryAddrIsKS.
 	intros bentryaddr blockidx Hlookup Hblockidx.
 
-	assert(Hcons0 : KernelStructureStartFromBlockEntryAddrIsKS s0) by (unfold consistency in * ; intuition).
+	assert(Hcons0 : KernelStructureStartFromBlockEntryAddrIsKS s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 	unfold KernelStructureStartFromBlockEntryAddrIsKS in Hcons0.
 
 	(* check all possible values for bentryaddr in the modified state s
@@ -4518,7 +4521,7 @@ split.
 	unfold sh1InChildLocationIsBE.
 	intros sh1entryaddr sh1entry Hlookup Hsh1entryNotNull.
 
-	assert(Hcons0 : sh1InChildLocationIsBE s0) by (unfold consistency in * ; intuition).
+	assert(Hcons0 : sh1InChildLocationIsBE s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 	unfold sh1InChildLocationIsBE in Hcons0.
 
 	(* check all possible values for sh1entryaddr in the modified state s
@@ -4617,7 +4620,7 @@ split.
 	unfold StructurePointerIsKS.
 	intros pdentryaddr pdentry' Hlookup.
 
-	assert(Hcons0 : StructurePointerIsKS s0) by (unfold consistency in * ; intuition).
+	assert(Hcons0 : StructurePointerIsKS s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 	unfold StructurePointerIsKS in Hcons0.
 
 (* check all possible values for pdentryaddr in the modified state s
@@ -4778,7 +4781,7 @@ split.
 	unfold NextKSIsKS.
 	intros ksaddr nextksaddr next HKS Hnextksaddr Hnext HnextNotNull.
 
-	assert(Hcons0 : NextKSIsKS s0) by (unfold consistency in * ; intuition).
+	assert(Hcons0 : NextKSIsKS s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 	unfold NextKSIsKS in Hcons0.
 
 	(* check all possible values for ksaddr in the modified state s
@@ -4901,7 +4904,7 @@ split.
 					--- (* newBlockEntryAddr <> ksaddr *)
 							rewrite Hs. cbn.
 							rewrite beqAddrTrue.
-							assert(Hcons1 : NextKSOffsetIsPADDR s0) by (unfold consistency in * ; intuition).
+							assert(Hcons1 : NextKSOffsetIsPADDR s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 							unfold NextKSOffsetIsPADDR in *.
 							specialize(Hcons1 ksaddr nextksaddr HKSs0 Hnextaddrs0).
 							destruct (beqAddr sceaddr nextksaddr) eqn:beqscenextaddr ; try(exfalso;congruence).
@@ -4985,7 +4988,7 @@ split.
 	unfold NextKSOffsetIsPADDR.
 	intros ksaddr nextksaddr HKS Hnextksaddr.
 
-	assert(Hcons0 : NextKSOffsetIsPADDR s0) by (unfold consistency in * ; intuition).
+	assert(Hcons0 : NextKSOffsetIsPADDR s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 	unfold NextKSOffsetIsPADDR in Hcons0.
 
 	(* check all possible values for ksaddr in the modified state s
@@ -5146,7 +5149,7 @@ split.
 	unfold NoDupInFreeSlotsList.
 	intros pd entrypd Hlookuppd.
 
-	assert(Hcons0 : NoDupInFreeSlotsList s0) by (unfold consistency in * ; intuition).
+	assert(Hcons0 : NoDupInFreeSlotsList s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 	unfold NoDupInFreeSlotsList in Hcons0.
 
 	(* check all possible values for pd in the modified state s
@@ -5199,7 +5202,7 @@ split.
 										destruct (StateLib.Index.ltb nbleft zero).
 										rewrite Hoption in *. cbn in *. congruence.
 										assert(HNullAddrExistss0 : nullAddrExists s0)
-												by (unfold consistency in * ; intuition).
+												by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 										unfold nullAddrExists in *.
 										unfold isPADDR in *.
 										destruct (lookup nullAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
@@ -5403,13 +5406,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s0 (nbfreeslots p)).
 		apply getFreeSlotsListRecEqPDT.
 		-- 	intro Hfirstpdeq.
 				assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 				specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd p Hlookups0).
 				destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 				--- intro HfirstfreeNull.
 						assert(HnullAddrExistss0 : nullAddrExists s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold nullAddrExists in *.
 						unfold isPADDR in *.
 						rewrite HfirstfreeNull in *. rewrite <- Hfirstpdeq in *.
@@ -5429,13 +5432,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s1 (nbfreeslots p)).
 				apply getFreeSlotsListRecEqPDT.
 				--- 	intro Hfirstpdeq.
 						assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 						specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd p Hlookups0).
 						destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 						---- intro HfirstfreeNull.
 								assert(HnullAddrExistss0 : nullAddrExists s0)
-									by (unfold consistency in * ; intuition).
+									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 								unfold nullAddrExists in *.
 								unfold isPADDR in *.
 								rewrite HfirstfreeNull in *. rewrite <- Hfirstpdeq in *.
@@ -5455,7 +5458,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s2 (nbfreeslots p)).
 				apply getFreeSlotsListRecEqBE ; intuition.
 				---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
 							assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-								by (unfold consistency in *; intuition).
+								by (unfold consistency in * ; unfold consistency1 in *; intuition).
 							unfold DisjointFreeSlotsLists in *.
 							assert(HPDTentrypds0 : isPDT pd s0).
 							{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -5515,7 +5518,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s2 (nbfreeslots p)).
 							because of Disjoint *)
 					(* DUP from previous step *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -5546,7 +5549,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s2 (nbfreeslots p)).
 								** (* N>0 *)
 									clear IHn.
 									assert(HnullAddrExistss0 : nullAddrExists s0)
-										by (unfold consistency in * ; intuition).
+										by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 									unfold nullAddrExists in *.
 									unfold isPADDR in *.
 									rewrite HfirstfreeNull in *.
@@ -5583,7 +5586,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s3 (nbfreeslots p)).
 				apply getFreeSlotsListRecEqBE ; intuition.
 				---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
 							assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-								by (unfold consistency in *; intuition).
+								by (unfold consistency in * ; unfold consistency1 in *; intuition).
 							unfold DisjointFreeSlotsLists in *.
 							assert(HPDTentrypds0 : isPDT pd s0).
 							{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -5646,7 +5649,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s3 (nbfreeslots p)).
 							because of Disjoint *)
 					(* DUP from previous step *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -5677,7 +5680,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s3 (nbfreeslots p)).
 								** (* N>0 *)
 									clear IHn.
 									assert(HnullAddrExistss0 : nullAddrExists s0)
-										by (unfold consistency in * ; intuition).
+										by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 									unfold nullAddrExists in *.
 									unfold isPADDR in *.
 									rewrite HfirstfreeNull in *.
@@ -5715,7 +5718,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s4 (nbfreeslots p)).
 				apply getFreeSlotsListRecEqBE ; intuition.
 				---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
 							assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-								by (unfold consistency in *; intuition).
+								by (unfold consistency in * ; unfold consistency1 in *; intuition).
 							unfold DisjointFreeSlotsLists in *.
 							assert(HPDTentrypds0 : isPDT pd s0).
 							{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -5778,7 +5781,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s4 (nbfreeslots p)).
 							because of Disjoint *)
 					(* DUP from previous step *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -5809,7 +5812,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s4 (nbfreeslots p)).
 								** (* N>0 *)
 									clear IHn.
 									assert(HnullAddrExistss0 : nullAddrExists s0)
-										by (unfold consistency in * ; intuition).
+										by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 									unfold nullAddrExists in *.
 									unfold isPADDR in *.
 									rewrite HfirstfreeNull in *.
@@ -5848,7 +5851,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s5 (nbfreeslots p)).
 				apply getFreeSlotsListRecEqBE ; intuition.
 				---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
 							assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-								by (unfold consistency in *; intuition).
+								by (unfold consistency in * ; unfold consistency1 in *; intuition).
 							unfold DisjointFreeSlotsLists in *.
 							assert(HPDTentrypds0 : isPDT pd s0).
 							{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -5914,7 +5917,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s5 (nbfreeslots p)).
 							because of Disjoint *)
 					(* DUP from previous step *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -5945,7 +5948,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s5 (nbfreeslots p)).
 								** (* N>0 *)
 									clear IHn.
 									assert(HnullAddrExistss0 : nullAddrExists s0)
-										by (unfold consistency in * ; intuition).
+										by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 									unfold nullAddrExists in *.
 									unfold isPADDR in *.
 									rewrite HfirstfreeNull in *.
@@ -5984,7 +5987,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s6 (nbfreeslots p)).
 				apply getFreeSlotsListRecEqBE ; intuition.
 				---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
 							assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-								by (unfold consistency in *; intuition).
+								by (unfold consistency in * ; unfold consistency1 in *; intuition).
 							unfold DisjointFreeSlotsLists in *.
 							assert(HPDTentrypds0 : isPDT pd s0).
 							{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -6050,7 +6053,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s6 (nbfreeslots p)).
 							because of Disjoint *)
 					(* DUP from previous step *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -6081,7 +6084,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s6 (nbfreeslots p)).
 								** (* N>0 *)
 									clear IHn.
 									assert(HnullAddrExistss0 : nullAddrExists s0)
-										by (unfold consistency in * ; intuition).
+										by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 									unfold nullAddrExists in *.
 									unfold isPADDR in *.
 									rewrite HfirstfreeNull in *.
@@ -6120,7 +6123,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s7 (nbfreeslots p)).
 				apply getFreeSlotsListRecEqBE ; intuition.
 				---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
 							assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-								by (unfold consistency in *; intuition).
+								by (unfold consistency in * ; unfold consistency1 in *; intuition).
 							unfold DisjointFreeSlotsLists in *.
 							assert(HPDTentrypds0 : isPDT pd s0).
 							{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -6189,7 +6192,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s7 (nbfreeslots p)).
 							because of Disjoint *)
 					(* DUP from previous step *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -6220,7 +6223,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s7 (nbfreeslots p)).
 								** (* N>0 *)
 									clear IHn.
 									assert(HnullAddrExistss0 : nullAddrExists s0)
-										by (unfold consistency in * ; intuition).
+										by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 									unfold nullAddrExists in *.
 									unfold isPADDR in *.
 									rewrite HfirstfreeNull in *.
@@ -6259,7 +6262,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s8 (nbfreeslots p)).
 				apply getFreeSlotsListRecEqBE ; intuition.
 				---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
 							assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-								by (unfold consistency in *; intuition).
+								by (unfold consistency in * ; unfold consistency1 in *; intuition).
 							unfold DisjointFreeSlotsLists in *.
 							assert(HPDTentrypds0 : isPDT pd s0).
 							{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -6328,7 +6331,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s8 (nbfreeslots p)).
 							because of Disjoint *)
 					(* DUP from previous step *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -6359,7 +6362,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s8 (nbfreeslots p)).
 								** (* N>0 *)
 									clear IHn.
 									assert(HnullAddrExistss0 : nullAddrExists s0)
-										by (unfold consistency in * ; intuition).
+										by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 									unfold nullAddrExists in *.
 									unfold isPADDR in *.
 									rewrite HfirstfreeNull in *.
@@ -6410,13 +6413,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s9 (nbfreeslots p)).
 				apply getFreeSlotsListRecEqSCE.
 				--- 	intro Hfirstsceeq.
 						assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 						specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd p Hlookups0).
 						destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 						---- intro HfirstfreeNull.
 								assert(HnullAddrExistss0 : nullAddrExists s0)
-									by (unfold consistency in * ; intuition).
+									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 								unfold nullAddrExists in *.
 								unfold isSCE in *.
 								unfold isPADDR in *.
@@ -6479,7 +6482,7 @@ split.
 	intros (HoptionfreeSlotsList&HwellFormedFreeSlots) (HfreeSlotsList & HfreeSlotInList).
 	intro HfreeSlotNotNull.
 
-	assert(Hcons0 : freeSlotsListIsFreeSlot s0) by (unfold consistency in * ; intuition).
+	assert(Hcons0 : freeSlotsListIsFreeSlot s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 	unfold freeSlotsListIsFreeSlot in Hcons0.
 
 	(* check all possible values for freeslotaddr in the modified state s
@@ -6982,13 +6985,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s0 (nbfreeslots p)).
 		apply getFreeSlotsListRecEqPDT.
 		-- 	intro Hfirstpdeq.
 				assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 				specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd p Hlookups0).
 				destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 				--- intro HfirstfreeNull.
 						assert(HnullAddrExistss0 : nullAddrExists s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold nullAddrExists in *.
 						unfold isPADDR in *.
 						rewrite HfirstfreeNull in *. rewrite <- Hfirstpdeq in *.
@@ -7008,13 +7011,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s1 (nbfreeslots p)).
 				apply getFreeSlotsListRecEqPDT.
 				--- 	intro Hfirstpdeq.
 						assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 						specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd p Hlookups0).
 						destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 						---- intro HfirstfreeNull.
 								assert(HnullAddrExistss0 : nullAddrExists s0)
-									by (unfold consistency in * ; intuition).
+									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 								unfold nullAddrExists in *.
 								unfold isPADDR in *.
 								rewrite HfirstfreeNull in *. rewrite <- Hfirstpdeq in *.
@@ -7030,13 +7033,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s1 (nbfreeslots p)).
 	set (s3 := {| currentPartition := _ |}).
 	assert(Hfreeslotss3 : getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s3 (nbfreeslots p) =
 getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s2 (nbfreeslots p)).
-	{			assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; intuition).
+	{			assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold NoDupInFreeSlotsList in *.
 				specialize (HwellFormedNoDup pd p Hlookups0).
 				apply getFreeSlotsListRecEqBE ; intuition.
 				---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
 							assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-								by (unfold consistency in *; intuition).
+								by (unfold consistency in * ; unfold consistency1 in *; intuition).
 							unfold DisjointFreeSlotsLists in *.
 							assert(HPDTentrypds0 : isPDT pd s0).
 							{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -7102,7 +7105,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s2 (nbfreeslots p)).
 							because of Disjoint *)
 					(* DUP from previous step *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -7146,13 +7149,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s2 (nbfreeslots p)).
 getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s3 (nbfreeslots p)).
 	{
 		(* DUP *)
-		assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; intuition).
+		assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 		unfold NoDupInFreeSlotsList in *.
 		specialize (HwellFormedNoDup pd p Hlookups0).
 		apply getFreeSlotsListRecEqBE ; intuition.
 		---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -7220,7 +7223,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s3 (nbfreeslots p)).
 							because of Disjoint *)
 					(* DUP from previous step *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -7265,13 +7268,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s3 (nbfreeslots p)).
 getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s4 (nbfreeslots p)).
 	{
 		(* DUP *)
-		assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; intuition).
+		assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 		unfold NoDupInFreeSlotsList in *.
 		specialize (HwellFormedNoDup pd p Hlookups0).
 		apply getFreeSlotsListRecEqBE ; intuition.
 		---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -7339,7 +7342,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s4 (nbfreeslots p)).
 							because of Disjoint *)
 					(* DUP from previous step *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -7385,13 +7388,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s4 (nbfreeslots p)).
 getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s5 (nbfreeslots p)).
 	{
 		(* DUP *)
-		assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; intuition).
+		assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 		unfold NoDupInFreeSlotsList in *.
 		specialize (HwellFormedNoDup pd p Hlookups0).
 		apply getFreeSlotsListRecEqBE ; intuition.
 		---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -7462,7 +7465,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s5 (nbfreeslots p)).
 							because of Disjoint *)
 					(* DUP from previous step *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -7508,13 +7511,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s5 (nbfreeslots p)).
 getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s6 (nbfreeslots p)).
 	{
 		(* DUP *)
-		assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; intuition).
+		assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 		unfold NoDupInFreeSlotsList in *.
 		specialize (HwellFormedNoDup pd p Hlookups0).
 		apply getFreeSlotsListRecEqBE ; intuition.
 		---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -7585,7 +7588,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s6 (nbfreeslots p)).
 							because of Disjoint *)
 					(* DUP from previous step *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -7631,13 +7634,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s6 (nbfreeslots p)).
 getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s7 (nbfreeslots p)).
 	{
 		(* DUP *)
-				assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; intuition).
+				assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold NoDupInFreeSlotsList in *.
 				specialize (HwellFormedNoDup pd p Hlookups0).
 				apply getFreeSlotsListRecEqBE ; intuition.
 				---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -7711,7 +7714,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s7 (nbfreeslots p)).
 							because of Disjoint *)
 					(* DUP from previous step *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -7757,13 +7760,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s7 (nbfreeslots p)).
 getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s8 (nbfreeslots p)).
 	{
 		(* DUP *)
-				assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; intuition).
+				assert(HwellFormedNoDup : NoDupInFreeSlotsList s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold NoDupInFreeSlotsList in *.
 				specialize (HwellFormedNoDup pd p Hlookups0).
 				apply getFreeSlotsListRecEqBE ; intuition.
 				---	(* Lists are disjoint at s0, so newB <> firstfreeslot p *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -7837,7 +7840,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s8 (nbfreeslots p)).
 							because of Disjoint *)
 					(* DUP from previous step *)
 					assert(Hfreeslotsdisjoints0 : DisjointFreeSlotsLists s0)
-						by (unfold consistency in *; intuition).
+						by (unfold consistency in * ; unfold consistency1 in *; intuition).
 					unfold DisjointFreeSlotsLists in *.
 					assert(HPDTentrypds0 : isPDT pd s0).
 					{ unfold isPDT. rewrite Hlookups0. trivial. }
@@ -7898,13 +7901,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s9 (nbfreeslots p)).
 				apply getFreeSlotsListRecEqSCE.
 				--- 	intro Hfirstsceeq.
 						assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 						specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd p Hlookups0).
 						destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 						---- intro HfirstfreeNull.
 								assert(HnullAddrExistss0 : nullAddrExists s0)
-									by (unfold consistency in * ; intuition).
+									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 								unfold nullAddrExists in *.
 								unfold isSCE in *.
 								unfold isPADDR in *.
@@ -7991,7 +7994,7 @@ destruct (beqAddr sceaddr freeslotaddr) eqn:beqfscefree; try(exfalso ; congruenc
 													but that means newB was at the same time in pd's and pdinsertion's free slots list
 													which is false because they are disjoint -> contradiction *)
 											assert(H_Disjoints0 : DisjointFreeSlotsLists s0)
-																by (unfold consistency in * ; intuition).
+																by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 											unfold DisjointFreeSlotsLists in *.
 											assert(HPDTNotEq : pdinsertion <> pd)
 														by (rewrite <- beqAddrFalse in * ; intuition).
@@ -8178,7 +8181,7 @@ split.
 	unfold DisjointFreeSlotsLists.
 	intros pd1 pd2 HPDTpd1 HPDTpd2 Hpd1pd2NotEq.
 
-	assert(Hcons0 : DisjointFreeSlotsLists s0) by (unfold consistency in * ; intuition).
+	assert(Hcons0 : DisjointFreeSlotsLists s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 	unfold DisjointFreeSlotsLists in Hcons0.
 
 	(* we must show all free slots list are disjoint
@@ -8316,7 +8319,7 @@ split.
 																	destruct (StateLib.Index.ltb nbleft zero).
 																	rewrite Hoption in *. cbn in *. congruence.
 																	assert(HNullAddrExistss0 : nullAddrExists s0)
-																			by (unfold consistency in * ; intuition).
+																			by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 																	unfold nullAddrExists in *.
 																	unfold isPADDR in *.
 																	destruct (lookup nullAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
@@ -8466,13 +8469,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s0 (nbfreeslots pd2ent
 		apply getFreeSlotsListRecEqPDT.
 		-- 	intro Hfirstpdeq.
 				assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 				specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd2 pd2entry Hlookuppd2s0).
 				destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 				--- intro HfirstfreeNull.
 						assert(HnullAddrExistss0 : nullAddrExists s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold nullAddrExists in *.
 						unfold isPADDR in *.
 						rewrite HfirstfreeNull in *. rewrite <- Hfirstpdeq in *.
@@ -8492,13 +8495,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s1 (nbfreeslots pd2ent
 				apply getFreeSlotsListRecEqPDT.
 				--- 	intro Hfirstpdeq.
 						assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 						specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd2 pd2entry Hlookuppd2s0).
 						destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 						---- intro HfirstfreeNull.
 								assert(HnullAddrExistss0 : nullAddrExists s0)
-									by (unfold consistency in * ; intuition).
+									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 								unfold nullAddrExists in *.
 								unfold isPADDR in *.
 								rewrite HfirstfreeNull in *. rewrite <- Hfirstpdeq in *.
@@ -8557,7 +8560,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s2 (nbfreeslots pd2ent
 			--- subst listoption2.
 					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -8647,7 +8650,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s3 (nbfreeslots pd2ent
 					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
 					rewrite <- Hfreeslotss3 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -8741,7 +8744,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s4 (nbfreeslots pd2ent
 					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
 					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -8836,7 +8839,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s5 (nbfreeslots pd2ent
 					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *.
 					rewrite <- Hfreeslotss5 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -8933,7 +8936,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s6 (nbfreeslots pd2ent
 					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *.
 					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -9031,7 +9034,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s7 (nbfreeslots pd2ent
 					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *.
 					rewrite <- Hfreeslotss7 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -9131,7 +9134,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s8 (nbfreeslots pd2ent
 					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *.
 					rewrite <- Hfreeslotss7 in *. rewrite <- Hfreeslotss8 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -9201,13 +9204,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s9 (nbfreeslots pd2ent
 				apply getFreeSlotsListRecEqSCE.
 				--- 	intro Hfirstsceeq.
 						assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 						specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd2 pd2entry Hlookuppd2s0).
 						destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 						---- intro HfirstfreeNull.
 								assert(HnullAddrExistss0 : nullAddrExists s0)
-									by (unfold consistency in * ; intuition).
+									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 								unfold nullAddrExists in *.
 								unfold isSCE in *.
 								unfold isPADDR in *.
@@ -9289,7 +9292,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s9 (nbfreeslots pd2ent
 															destruct (StateLib.Index.ltb nbleft' zero).
 															rewrite Hoption in *. cbn in *. congruence.
 															assert(HNullAddrExistss0 : nullAddrExists s0)
-																	by (unfold consistency in * ; intuition).
+																	by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 															unfold nullAddrExists in *.
 															unfold isPADDR in *.
 															destruct (lookup nullAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
@@ -9476,7 +9479,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s9 (nbfreeslots pd2ent
 																				destruct (StateLib.Index.ltb nbleft zero).
 																				rewrite Hoption in *. cbn in *. congruence.
 																				assert(HNullAddrExistss0 : nullAddrExists s0)
-																						by (unfold consistency in * ; intuition).
+																						by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 																				unfold nullAddrExists in *.
 																				unfold isPADDR in *.
 																				destruct (lookup nullAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
@@ -9626,13 +9629,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s0 (nbfreeslots pd1ent
 		apply getFreeSlotsListRecEqPDT.
 		-- 	intro Hfirstpdeq.
 				assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 				specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd1 pd1entry Hlookuppd1s0).
 				destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 				--- intro HfirstfreeNull.
 						assert(HnullAddrExistss0 : nullAddrExists s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold nullAddrExists in *.
 						unfold isPADDR in *.
 						rewrite HfirstfreeNull in *. rewrite <- Hfirstpdeq in *.
@@ -9652,13 +9655,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s1 (nbfreeslots pd1ent
 				apply getFreeSlotsListRecEqPDT.
 				--- 	intro Hfirstpdeq.
 						assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 						specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd1 pd1entry Hlookuppd1s0).
 						destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 						---- intro HfirstfreeNull.
 								assert(HnullAddrExistss0 : nullAddrExists s0)
-									by (unfold consistency in * ; intuition).
+									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 								unfold nullAddrExists in *.
 								unfold isPADDR in *.
 								rewrite HfirstfreeNull in *. rewrite <- Hfirstpdeq in *.
@@ -9717,7 +9720,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s2 (nbfreeslots pd1ent
 			--- subst listoption2.
 					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd1 pd1entry Hlookuppd1s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -9807,7 +9810,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s3 (nbfreeslots pd1ent
 					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
 					rewrite <- Hfreeslotss3 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd1 pd1entry Hlookuppd1s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -9900,7 +9903,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s4 (nbfreeslots pd1ent
 					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
 					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd1 pd1entry Hlookuppd1s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -9995,7 +9998,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s5 (nbfreeslots pd1ent
 					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *.
 					rewrite <- Hfreeslotss5 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd1 pd1entry Hlookuppd1s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -10092,7 +10095,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s6 (nbfreeslots pd1ent
 					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *.
 					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd1 pd1entry Hlookuppd1s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -10190,7 +10193,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s7 (nbfreeslots pd1ent
 					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *.
 					rewrite <- Hfreeslotss7 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd1 pd1entry Hlookuppd1s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -10290,7 +10293,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s8 (nbfreeslots pd1ent
 					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *.
 					rewrite <- Hfreeslotss7 in *. rewrite <- Hfreeslotss8 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd1 pd1entry Hlookuppd1s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -10360,13 +10363,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s9 (nbfreeslots pd1ent
 				apply getFreeSlotsListRecEqSCE.
 				--- 	intro Hfirstsceeq.
 						assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 						specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd1 pd1entry Hlookuppd1s0).
 						destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 						---- intro HfirstfreeNull.
 								assert(HnullAddrExistss0 : nullAddrExists s0)
-									by (unfold consistency in * ; intuition).
+									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 								unfold nullAddrExists in *.
 								unfold isSCE in *.
 								unfold isPADDR in *.
@@ -10447,7 +10450,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s9 (nbfreeslots pd1ent
 														destruct (StateLib.Index.ltb nbleft' zero).
 														rewrite Hoption in *. cbn in *. congruence.
 														assert(HNullAddrExistss0 : nullAddrExists s0)
-																by (unfold consistency in * ; intuition).
+																by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 														unfold nullAddrExists in *.
 														unfold isPADDR in *.
 														destruct (lookup nullAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
@@ -10590,11 +10593,11 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s9 (nbfreeslots pd1ent
 														assert(Hpdpd1NotEq : pdinsertion <> pd1) by (rewrite <- beqAddrFalse in * ; intuition).
 														assert(Hpdpd2NotEq : pdinsertion <> pd2) by (rewrite <- beqAddrFalse in * ; intuition).
 														assert(HDisjointpdpd1s0 : DisjointFreeSlotsLists s0)
-															by (unfold consistency in * ; intuition).
+															by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 														unfold DisjointFreeSlotsLists in *.
 														specialize (HDisjointpdpd1s0 pdinsertion pd1 HPDTs0 HPDTpd1s0 Hpdpd1NotEq).
 														assert(HDisjointpdpd2s0 : DisjointFreeSlotsLists s0)
-															by (unfold consistency in * ; intuition).
+															by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 														unfold DisjointFreeSlotsLists in *.
 														specialize (HDisjointpdpd2s0 pdinsertion pd2 HPDTs0 HPDTpd2s0 Hpdpd2NotEq).
 
@@ -10753,13 +10756,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s0 (nbfreeslots pd2ent
 		apply getFreeSlotsListRecEqPDT.
 		-- 	intro Hfirstpdeq.
 				assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 				specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd2 pd2entry Hlookuppd2s0).
 				destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 				--- intro HfirstfreeNull.
 						assert(HnullAddrExistss0 : nullAddrExists s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold nullAddrExists in *.
 						unfold isPADDR in *.
 						rewrite HfirstfreeNull in *. rewrite <- Hfirstpdeq in *.
@@ -10779,13 +10782,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s1 (nbfreeslots pd2ent
 				apply getFreeSlotsListRecEqPDT.
 				--- 	intro Hfirstpdeq.
 						assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 						specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd2 pd2entry Hlookuppd2s0).
 						destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 						---- intro HfirstfreeNull.
 								assert(HnullAddrExistss0 : nullAddrExists s0)
-									by (unfold consistency in * ; intuition).
+									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 								unfold nullAddrExists in *.
 								unfold isPADDR in *.
 								rewrite HfirstfreeNull in *. rewrite <- Hfirstpdeq in *.
@@ -10855,7 +10858,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s2 (nbfreeslots pd2ent
 			--- subst listoption2.
 					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -10962,7 +10965,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s3 (nbfreeslots pd2ent
 					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
 					rewrite <- Hfreeslotss3 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -11073,7 +11076,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s4 (nbfreeslots pd2ent
 					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
 					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -11186,7 +11189,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s5 (nbfreeslots pd2ent
 					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *.
 					rewrite <- Hfreeslotss5 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -11301,7 +11304,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s6 (nbfreeslots pd2ent
 					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *.
 					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -11417,7 +11420,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s7 (nbfreeslots pd2ent
 					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *.
 					rewrite <- Hfreeslotss7 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -11535,7 +11538,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s8 (nbfreeslots pd2ent
 					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *.
 					rewrite <- Hfreeslotss7 in *. rewrite <- Hfreeslotss8 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -11611,13 +11614,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s9 (nbfreeslots pd2ent
 				apply getFreeSlotsListRecEqSCE.
 				--- 	intro Hfirstsceeq.
 						assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 						specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd2 pd2entry Hlookuppd2s0).
 						destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 						---- intro HfirstfreeNull.
 								assert(HnullAddrExistss0 : nullAddrExists s0)
-									by (unfold consistency in * ; intuition).
+									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 								unfold nullAddrExists in *.
 								unfold isSCE in *.
 								unfold isPADDR in *.
@@ -11814,13 +11817,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s0 (nbfreeslots pd1ent
 		apply getFreeSlotsListRecEqPDT.
 		-- 	intro Hfirstpdeq.
 				assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 				specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd1 pd1entry Hlookuppd1s0).
 				destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 				--- intro HfirstfreeNull.
 						assert(HnullAddrExistss0 : nullAddrExists s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold nullAddrExists in *.
 						unfold isPADDR in *.
 						rewrite HfirstfreeNull in *. rewrite <- Hfirstpdeq in *.
@@ -11840,13 +11843,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s1 (nbfreeslots pd1ent
 		apply getFreeSlotsListRecEqPDT.
 		--- 	intro Hfirstpdeq.
 				assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 				specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd1 pd1entry Hlookuppd1s0).
 				destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 				---- intro HfirstfreeNull.
 						assert(HnullAddrExistss0 : nullAddrExists s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold nullAddrExists in *.
 						unfold isPADDR in *.
 						rewrite HfirstfreeNull in *. rewrite <- Hfirstpdeq in *.
@@ -11917,7 +11920,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s2 (nbfreeslots pd1ent
 			--- subst listoption1.
 					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd1 pd1entry Hlookuppd1s0).
 					destruct H_NoDups0 as [optionlist1 (Hoptionlist1 & HwellFormed1' & HNoDup1)].
@@ -12027,7 +12030,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s3 (nbfreeslots pd1ent
 					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
 					rewrite <- Hfreeslotss3 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd1 pd1entry Hlookuppd1s0).
 					destruct H_NoDups0 as [optionlist1 (Hoptionlist1 & HwellFormed1' & HNoDup1)].
@@ -12140,7 +12143,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s4 (nbfreeslots pd1ent
 					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
 					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd1 pd1entry Hlookuppd1s0).
 					destruct H_NoDups0 as [optionlist1 (Hoptionlist1 & HwellFormed1' & HNoDup1)].
@@ -12255,7 +12258,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s5 (nbfreeslots pd1ent
 					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *.
 					rewrite <- Hfreeslotss5 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd1 pd1entry Hlookuppd1s0).
 					destruct H_NoDups0 as [optionlist1 (Hoptionlist1 & HwellFormed1' & HNoDup1)].
@@ -12372,7 +12375,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s6 (nbfreeslots pd1ent
 					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *.
 					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd1 pd1entry Hlookuppd1s0).
 					destruct H_NoDups0 as [optionlist1 (Hoptionlist1 & HwellFormed1' & HNoDup1)].
@@ -12490,7 +12493,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s7 (nbfreeslots pd1ent
 					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *.
 					rewrite <- Hfreeslotss7 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd1 pd1entry Hlookuppd1s0).
 					destruct H_NoDups0 as [optionlist1 (Hoptionlist1 & HwellFormed1' & HNoDup1)].
@@ -12610,7 +12613,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s8 (nbfreeslots pd1ent
 					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *.
 					rewrite <- Hfreeslotss7 in *. rewrite <- Hfreeslotss8 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd1 pd1entry Hlookuppd1s0).
 					destruct H_NoDups0 as [optionlist1 (Hoptionlist1 & HwellFormed1' & HNoDup1)].
@@ -12688,13 +12691,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s9 (nbfreeslots pd1ent
 				apply getFreeSlotsListRecEqSCE.
 				--- 	intro Hfirstsceeq.
 						assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 						specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd1 pd1entry Hlookuppd1s0).
 						destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 						---- intro HfirstfreeNull.
 								assert(HnullAddrExistss0 : nullAddrExists s0)
-									by (unfold consistency in * ; intuition).
+									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 								unfold nullAddrExists in *.
 								unfold isSCE in *.
 								unfold isPADDR in *.
@@ -12752,7 +12755,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd1entry) s9 (nbfreeslots pd1ent
 														}
 														(* specialize disjoint for pd1 and pd2 at s0 *)
 														assert(HDisjointpd1pd2s0 : DisjointFreeSlotsLists s0)
-															by (unfold consistency in * ; intuition).
+															by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 														unfold DisjointFreeSlotsLists in *.
 														assert(HPDTpd1s0 : isPDT pd1 s0) by (unfold isPDT ; rewrite Hlookuppd1s0 ; intuition).
 														specialize (HDisjointpd1pd2s0 pd1 pd2 HPDTpd1s0 HPDTpd2s0 Hpd1pd2NotEq).
@@ -12834,13 +12837,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s0 (nbfreeslots pd2ent
 		apply getFreeSlotsListRecEqPDT.
 		-- 	intro Hfirstpdeq.
 				assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 				specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd2 pd2entry Hlookuppd2s0).
 				destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 				--- intro HfirstfreeNull.
 						assert(HnullAddrExistss0 : nullAddrExists s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold nullAddrExists in *.
 						unfold isPADDR in *.
 						rewrite HfirstfreeNull in *. rewrite <- Hfirstpdeq in *.
@@ -12859,13 +12862,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s1 (nbfreeslots pd2ent
 				apply getFreeSlotsListRecEqPDT.
 				--- 	intro Hfirstpdeq.
 						assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 						specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd2 pd2entry Hlookuppd2s0).
 						destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 						---- intro HfirstfreeNull.
 								assert(HnullAddrExistss0 : nullAddrExists s0)
-									by (unfold consistency in * ; intuition).
+									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 								unfold nullAddrExists in *.
 								unfold isPADDR in *.
 								rewrite HfirstfreeNull in *. rewrite <- Hfirstpdeq in *.
@@ -12935,7 +12938,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s2 (nbfreeslots pd2ent
 			--- subst listoption2.
 					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -13044,7 +13047,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s3 (nbfreeslots pd2ent
 					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
 					rewrite <- Hfreeslotss3 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -13155,7 +13158,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s4 (nbfreeslots pd2ent
 					rewrite <- Hfreeslotss1 in *. rewrite <- Hfreeslotss2 in *.
 					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -13267,7 +13270,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s5 (nbfreeslots pd2ent
 					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *.
 					rewrite <- Hfreeslotss5 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -13380,7 +13383,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s6 (nbfreeslots pd2ent
 					rewrite <- Hfreeslotss3 in *. rewrite <- Hfreeslotss4 in *.
 					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -13495,7 +13498,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s7 (nbfreeslots pd2ent
 					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *.
 					rewrite <- Hfreeslotss7 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -13613,7 +13616,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s8 (nbfreeslots pd2ent
 					rewrite <- Hfreeslotss5 in *. rewrite <- Hfreeslotss6 in *.
 					rewrite <- Hfreeslotss7 in *. rewrite <- Hfreeslotss8 in *. intuition.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd2 pd2entry Hlookuppd2s0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -13690,13 +13693,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s9 (nbfreeslots pd2ent
 				apply getFreeSlotsListRecEqSCE.
 				--- 	intro Hfirstsceeq.
 						assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 						specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd2 pd2entry Hlookuppd2s0).
 						destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 						---- intro HfirstfreeNull.
 								assert(HnullAddrExistss0 : nullAddrExists s0)
-									by (unfold consistency in * ; intuition).
+									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 								unfold nullAddrExists in *.
 								unfold isSCE in *.
 								unfold isPADDR in *.
@@ -13753,7 +13756,7 @@ split.
 	unfold inclFreeSlotsBlockEntries.
 	intros pd HPDT.
 
-	assert(Hcons0 : inclFreeSlotsBlockEntries s0) by (unfold consistency in * ; intuition).
+	assert(Hcons0 : inclFreeSlotsBlockEntries s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 	unfold inclFreeSlotsBlockEntries in Hcons0.
 
 	(* we must show the free slots list is included in the ks entries list of the same pd
@@ -14084,7 +14087,7 @@ getFreeSlotsListRec n1 (firstfreeslot entrypd0) s10 nbleft =
 	assert(HpdpdinsertionNotEq : pdinsertion <> pd)
 		by (rewrite <- beqAddrFalse in * ; intuition).
 	assert(HDisjoints0 : DisjointFreeSlotsLists s0)
-		by (unfold consistency in * ; intuition).
+		by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 	specialize (HDisjoints0 pdinsertion pd HPDTs0 HPDTpds0 HpdpdinsertionNotEq).
 	destruct HDisjoints0 as [optionfreeslotslist1 (optionfreeslotslist2 & (Hoptionlist1s0 & (Hwellformed1s0 & (Hoptionlist2s0 & (Hwellformed2s0 & HDisjoints0)))))].
 	unfold getFreeSlotsList in Hoptionlist1s0.
@@ -14103,7 +14106,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot entrypd0) s0 (nbfreeslots entryp
 		apply getFreeSlotsListRecEqPDT.
 		--- 	intro Hfirstpdeq.
 						assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 						specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd entrypd0 Hlookuppds0).
 						destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
@@ -14130,7 +14133,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot entrypd0) s1 (nbfreeslots entryp
 		apply getFreeSlotsListRecEqPDT.
 		--- 	intro Hfirstpdeq.
 						assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 						specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd entrypd0 Hlookuppds0).
 						destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
@@ -14197,7 +14200,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot entrypd0) s2 (nbfreeslots entryp
 			--- rewrite firstfreeNull in *.
 					subst optionfreeslotslist2. congruence.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd entrypd0 Hlookuppds0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -14289,7 +14292,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot entrypd0) s3 (nbfreeslots entryp
 			--- rewrite firstfreeNull in *.
 					subst optionfreeslotslist2. congruence.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd entrypd0 Hlookuppds0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -14383,7 +14386,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot entrypd0) s4 (nbfreeslots entryp
 			--- rewrite firstfreeNull in *.
 					subst optionfreeslotslist2. congruence.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd entrypd0 Hlookuppds0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -14479,7 +14482,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot entrypd0) s5 (nbfreeslots entryp
 			--- rewrite firstfreeNull in *.
 					subst optionfreeslotslist2. congruence.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd entrypd0 Hlookuppds0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -14576,7 +14579,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot entrypd0) s6 (nbfreeslots entryp
 			--- rewrite firstfreeNull in *.
 					subst optionfreeslotslist2. congruence.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd entrypd0 Hlookuppds0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -14673,7 +14676,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot entrypd0) s7 (nbfreeslots entryp
 			--- rewrite firstfreeNull in *.
 					subst optionfreeslotslist2. congruence.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd entrypd0 Hlookuppds0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -14772,7 +14775,7 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot entrypd0) s8 (nbfreeslots entryp
 			--- rewrite firstfreeNull in *.
 					subst optionfreeslotslist2. congruence.
 			--- assert(H_NoDups0 : NoDupInFreeSlotsList s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold NoDupInFreeSlotsList in *.
 					specialize (H_NoDups0 pd entrypd0 Hlookuppds0).
 					destruct H_NoDups0 as [optionlist2 (Hoptionlist2 & HwellFormed2' & HNoDup2)].
@@ -14840,13 +14843,13 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot entrypd0) s9 (nbfreeslots entryp
 			apply getFreeSlotsListRecEqSCE.
 			--- 	intro Hfirstsceeq.
 						assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 						specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd entrypd0 Hlookuppds0).
 						destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
 						---- intro HfirstfreeNull.
 								assert(HnullAddrExistss0 : nullAddrExists s0)
-									by (unfold consistency in * ; intuition).
+									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 								unfold nullAddrExists in *.
 								unfold isSCE in *.
 								unfold isPADDR in *.
@@ -15046,7 +15049,7 @@ getKSEntriesAux (maxIdx + 1) (structure entrypd0) s0 (CIndex maxNbPrepare)).
 		-- (* prove wrong type if equality *)
 				intro Hfirstpdeq.
 				assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd entrypd0 Hlookuppds0).
 				unfold isKS in *.
@@ -15063,7 +15066,7 @@ getKSEntriesAux (maxIdx + 1) (structure entrypd0) s1 (CIndex maxNbPrepare)).
 		-- (* prove wrong type if equality *)
 				intro Hfirstpdeq.
 				assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd entrypd0 Hlookuppds0).
 				unfold isKS in *.
@@ -15214,11 +15217,13 @@ getKSEntriesAux (maxIdx + 1) (structure entrypd0) s9 (CIndex maxNbPrepare)).
 									rewrite HKSEntriesEq in *. intuition.
 } (* end of inclFreeSlotsBlockEntries *)
 
+split.
+
 { (* DisjointKSEntries s *)
 	unfold DisjointKSEntries.
 	intros pd1 pd2 HPDTpd1 HPDTpd2 Hpd1pd2NotEq.
 
-	assert(Hcons0 : DisjointKSEntries s0) by (unfold consistency in * ; intuition).
+	assert(Hcons0 : DisjointKSEntries s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 	unfold DisjointKSEntries in Hcons0.
 
 	(* we must show all KSEntries lists are disjoint
@@ -15481,7 +15486,7 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s0 (CIndex maxNbPrepare)).
 		-- (* prove wrong type if equality *)
 				intro Hfirstpdeq.
 				assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd2 pd2entry Hlookuppd2s0).
 				unfold isKS in *.
@@ -15498,7 +15503,7 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s1 (CIndex maxNbPrepare)).
 		-- (* prove wrong type if equality *)
 				intro Hfirstpdeq.
 				assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd2 pd2entry Hlookuppd2s0).
 				unfold isKS in *.
@@ -15879,7 +15884,7 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s0 (CIndex maxNbPrepare)).
 		-- (* prove wrong type if equality *)
 				intro Hfirstpdeq.
 				assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd1 pd1entry Hlookuppd1s0).
 				unfold isKS in *.
@@ -15896,7 +15901,7 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s1 (CIndex maxNbPrepare)).
 		-- (* prove wrong type if equality *)
 				intro Hfirstpdeq.
 				assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd1 pd1entry Hlookuppd1s0).
 				unfold isKS in *.
@@ -16096,11 +16101,11 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s9 (CIndex maxNbPrepare)).
 																			assert(Hpdpd1NotEq : pdinsertion <> pd1) by (rewrite <- beqAddrFalse in * ; intuition).
 																			assert(Hpdpd2NotEq : pdinsertion <> pd2) by (rewrite <- beqAddrFalse in * ; intuition).
 																			assert(HDisjointpdpd1s0 : DisjointFreeSlotsLists s0)
-																				by (unfold consistency in * ; intuition).
+																				by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 																			unfold DisjointFreeSlotsLists in *.
 																			specialize (HDisjointpdpd1s0 pdinsertion pd1 HPDTs0 HPDTpd1s0 Hpdpd1NotEq).
 																			assert(HDisjointpdpd2s0 : DisjointFreeSlotsLists s0)
-																				by (unfold consistency in * ; intuition).
+																				by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 																			unfold DisjointFreeSlotsLists in *.
 																			specialize (HDisjointpdpd2s0 pdinsertion pd2 HPDTs0 HPDTpd2s0 Hpdpd2NotEq).
 
@@ -16267,7 +16272,7 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s0 (CIndex maxNbPrepare)).
 		-- (* prove wrong type if equality *)
 				intro Hfirstpdeq.
 				assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd2 pd2entry Hlookuppd2s0).
 				unfold isKS in *.
@@ -16283,7 +16288,7 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s1 (CIndex maxNbPrepare)).
 		-- (* prove wrong type if equality *)
 				intro Hfirstpdeq.
 				assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd2 pd2entry Hlookuppd2s0).
 				unfold isKS in *.
@@ -16574,7 +16579,7 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s0 (CIndex maxNbPrepare)).
 		-- (* prove wrong type if equality *)
 				intro Hfirstpdeq.
 				assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd1 pd1entry Hlookuppd1s0).
 				unfold isKS in *.
@@ -16590,7 +16595,7 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s1 (CIndex maxNbPrepare)).
 		-- (* prove wrong type if equality *)
 				intro Hfirstpdeq.
 				assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd1 pd1entry Hlookuppd1s0).
 				unfold isKS in *.
@@ -16747,7 +16752,7 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s9 (CIndex maxNbPrepare)).
 														}
 														(* specialize disjoint for pd1 and pd2 at s0 *)
 														assert(HDisjointpd1pd2s0 : DisjointKSEntries s0)
-															by (unfold consistency in * ; intuition).
+															by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 														unfold DisjointKSEntries in *.
 														assert(HPDTpd1s0 : isPDT pd1 s0) by (unfold isPDT ; rewrite Hlookuppd1s0 ; intuition).
 														specialize (HDisjointpd1pd2s0 pd1 pd2 HPDTpd1s0 HPDTpd2s0 Hpd1pd2NotEq).
@@ -16832,7 +16837,7 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s0 (CIndex maxNbPrepare)).
 		-- (* prove wrong type if equality *)
 				intro Hfirstpdeq.
 				assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd2 pd2entry Hlookuppd2s0).
 				unfold isKS in *.
@@ -16847,7 +16852,7 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s1 (CIndex maxNbPrepare)).
 		-- (* prove wrong type if equality *)
 				intro Hfirstpdeq.
 				assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
-					by (unfold consistency in * ; intuition).
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd2 pd2entry Hlookuppd2s0).
 				unfold isKS in *.
@@ -16991,12 +16996,51 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 															rewrite <- HfreeslotsEqn1'. rewrite HfreeslotsEqpd2. intuition.
 } (* end of DisjointKSEntries *)
 
+split.
+
+	{ (* noDupPartitionTree s *)
+		(* equality of list getPartitions already proven so immediate proof *)
+		admit.
+	} (* end of AccessibleNoPDFlag *)
+
+split.
+
+	{ (* isParent s *)
+		(* equality of lists getPartitions and getChildren for any partition already proven
+			+ no change of pdentry so immediate proof *)
+		admit.
+	} (* end of isParent *)
+
+split.
+
+	{ (* isChild s *)
+		(* equality of lists getPartitions and getChildren for any partition already proven
+			+ no change of pdentry so immediate proof *)
+		admit.
+	} (* end of isChild *)
+
+split.
+
+	{ (* accessibleChildPaddrIsAccessibleIntoParent s *)
+		(* similar to vertical sharing *)
+		admit.
+	} (* end of accessibleChildPaddrIsAccessibleIntoParent *)
+
+
+	{ (* noDupUsedPaddrList s *)
+		(* equality of lists getPartitions and getChildren for already proven any partition
+				except globalidPDchild whose NoDup property is already proven so immediate proof *)
+		admit.
+	} (* end of noDupUsedPaddrList *)
+
 	- (* Final state *)
 		exists pdentry. exists pdentry0. exists pdentry1.
 		exists bentry. exists bentry0. exists bentry1. exists bentry2. exists bentry3.
 		exists bentry4. exists bentry5. exists bentry6. exists sceaddr. exists scentry.
 		exists newBlockEntryAddr. exists newFirstFreeSlotAddr. exists predCurrentNbFreeSlots.
 		intuition.
+		-- (* isPDT multiplexer s0 *)
+				admit.
 		-- (* sceaddr = newBlockEntryAddr *)
 				assert(Hfalse : sceaddr = newBlockEntryAddr) by intuition.
 				rewrite <- Hfalse in *.
@@ -17021,8 +17065,10 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 																		pdinsertion pdentry s0) ; intuition.
 				}
 				congruence.
+		-- (* lists *)
+				admit.
 		-- (* intermediate steps *)
 				eexists. eexists. eexists. eexists. eexists. eexists. eexists. eexists.
 				eexists. eexists.
 				intuition.
-Qed.
+Admitted.

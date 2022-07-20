@@ -13699,7 +13699,6 @@ destruct v ; try(exfalso ; congruence).
 trivial.
 Qed.
 
-
 Lemma childrenArePDT partition child s :
 PDTIfPDFlag s ->
 In child (getChildren partition s) ->
@@ -13817,6 +13816,15 @@ induction (getMappedBlocks parent s).
 			exists bentryaddr. exists sh1entryaddr.
 			intuition.
 
+Qed.
+
+Lemma currentPartIsPDT s:
+currentPartitionInPartitionsList s ->
+isPDT (currentPartition s) s.
+Proof.
+intros.
+unfold currentPartitionInPartitionsList in *.
+eapply partitionsArePDT with multiplexer ; intuition.
 Qed.
 
 Lemma childparentNotEq parent child s:
