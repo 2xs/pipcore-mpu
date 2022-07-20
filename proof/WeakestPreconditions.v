@@ -423,7 +423,6 @@ eapply bind .
   - eapply weaken. eapply get . intuition.
 Qed.
 
-Require Import Proof.InternalLemmas.
 (* COPY *)
 Lemma writeBlockXFromBlockEntryAddr  (entryaddr : paddr) (flag : bool)  (P : unit -> state -> Prop) :
 {{fun  s => exists entry , lookup entryaddr s.(memory) beqAddr = Some (BE entry) /\
@@ -867,16 +866,22 @@ Lemma WPsubPaddrIdx  (n : paddr) (m: index) (P: paddr -> state -> Prop) :
 Proof.
 apply wpIsPrecondition.
 Qed.
-
+(*
 Lemma subPaddrIdx  (n : paddr) (m: index)
 																	(P : paddr -> state -> Prop) :
 {{fun s => P n s}}
 MALInternal.Paddr.subPaddrIdx n m
 {{P}}.
 Proof.
-Admitted.
-(*
+unfold MALInternal.Paddr.subPaddrIdx.
+destruct (le_dec (n - m) maxAddr) ; intuition.
+eapply weaken. eapply ret.
+intros.
+unfold MALInternal.Paddr.subPaddrIdx_obligation_1. eapply H.
+ intuition.
 eapply weaken.
+
+
 apply WPsubPaddrIdx.
 intros. unfold wp. destruct (Paddr.subPaddrIdx n m s) eqn:sub.
 destruct p. intuition. unfold val in sub. eapply (H p s0). assert(H2 := conj p s0 H).*)
@@ -885,20 +890,14 @@ destruct p. intuition. unfold val in sub. eapply (H p s0). assert(H2 := conj p s
 Lemma getSh1EntryAddrFromKernelStructureStart  (kernelStartAddr : paddr) (BlockEntryIndex : index)
 																	(P : paddr -> state -> Prop) :
 {{fun s =>  wellFormedFstShadowIfBlockEntry s /\ exists entry, lookup kernelStartAddr s.(memory) beqAddr = Some (BE entry)
-					/\ P (CPaddr (kernelStartAddr + sh1offset + BlockEntryIndex)) s }}
+					/\ P (CPaddr(kernelStartAddr + sh1offset + BlockEntryIndex)) s }}
 MAL.getSh1EntryAddrFromKernelStructureStart kernelStartAddr BlockEntryIndex
 {{P}}.
 Proof.
-unfold MAL.getSh1EntryAddrFromKernelStructureStart.
-eapply weaken.
-apply ret.
-intros.
-destruct H.
-destruct H0.
-destruct H0.
-apply H1.
+unfold getSh1EntryAddrFromKernelStructureStart.
+eapply weaken. eapply ret.
+intros. destruct H. destruct H0. intuition.
 Qed.
-
 
 (* TODO : move getsh1entry here *)
 Lemma getSCEntryAddrFromKernelStructureStart  (kernelStartAddr : paddr) (BlockEntryIndex : index)

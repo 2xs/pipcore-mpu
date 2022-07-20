@@ -35,7 +35,7 @@
     In this file we formalize and prove all invariants of the MAL and MALInternal functions *)
 Require Import Model.ADT (*Pip.Model.Hardware Pip.Model.IAL*) Model.Monad Model.Lib
                Model.MAL.
-Require Import Core.Internal Core.Services.
+Require Import Core.Internal. (*Core.Services.*)
 Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
                Proof.Isolation Proof.StateLib Proof.WeakestPreconditions.
 Require Import Coq.Logic.ProofIrrelevance Lia Setoid Compare_dec EqNat List Bool.
@@ -45,15 +45,12 @@ Module WP := WeakestPreconditions.
 
 (* COPY *)
 Lemma getCurPartition P :
-{{fun s => P s /\ consistency s }} MAL.getCurPartition
-{{fun (pd : paddr) (s : state) => P s /\ consistency s  /\ isPDT pd s /\ pd = currentPartition s }}.
+{{fun s => P s}} MAL.getCurPartition
+{{fun (pd : paddr) (s : state) => P s /\ pd = currentPartition s }}.
 Proof.
 eapply WP.weaken.
 eapply WeakestPreconditions.getCurPartition .
 cbn. intros . intuition.
-unfold consistency in *.
-unfold CurrentPartIsPDT in *.
-intuition.
 Qed.
 
 Module Index.
@@ -778,7 +775,6 @@ intro kernelStartAddr. simpl.
 }
 Qed.
 
-
 Lemma getSh1EntryAddrFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Prop) :
 {{fun s => Q s /\ wellFormedFstShadowIfBlockEntry s /\
 					(*/\ P blockentryaddr s /\ *)
@@ -822,8 +818,8 @@ eapply bindRev.
 	- intuition. unfold bentryBlockIndex in *. destruct H6. rewrite H5 in H4.
 	intuition.
 }
-(* Preuve : kernelStartAddr + blockindex est BE, donc +sh1offset est SHE
-	blockentryindex < kernelstructurenb dans entryBlockIndex*)
+(* Proof : kernelStartAddr + blockindex is BE, so +sh1offset is SHE
+	blockentryindex < kernelstructurenb in entryBlockIndex*)
 intro SHEAddr.
 { (** ret *)
 	eapply weaken. apply ret.
@@ -929,7 +925,8 @@ Proof.
 unfold readSh1InChildLocationFromBlockEntryAddr.
 eapply WP.bindRev.
 +   eapply WP.weaken. apply getSh1EntryAddrFromBlockEntryAddr.
-	intros. simpl. split. apply H. unfold consistency in H. intuition.
+	intros. simpl. split. apply H. unfold consistency in H. unfold consistency1 in H.
+	intuition.
 +	intro sh1entryaddr. simpl.
 	eapply bind.
 	intros. apply ret.
@@ -1286,14 +1283,10 @@ unfold blockInRAM in *. rewrite H.
 reflexivity.
 Qed.
 
-Lemma writePDFirstFreeSlotPointer (pdtablepaddr firstfreeslotpaddr : paddr) :
-{{fun s => isPDT pdtablepaddr s /\
-					partitionsIsolation s   (*/\ kernelDataIsolation s*) /\ verticalSharing s
-					/\ consistency s}}
-MAL.writePDFirstFreeSlotPointer pdtablepaddr firstfreeslotpaddr
-{{fun tt s => (*P s /\ *)
-exists entry , lookup pdtablepaddr s.(memory) beqAddr = Some (PDT entry)
-/\ s = {|
+Lemma writePDFirstFreeSlotPointer (pdtablepaddr firstfreeslotpaddr : paddr) (P : unit -> state -> Prop) :
+{{fun s =>
+exists entry , lookup pdtablepaddr s.(memory) beqAddr = Some (PDT entry) /\
+P tt {|
   currentPartition := currentPartition s;
   memory := add pdtablepaddr
               (PDT {| structure := entry.(structure);
@@ -1302,21 +1295,16 @@ exists entry , lookup pdtablepaddr s.(memory) beqAddr = Some (PDT entry)
                      	nbprepare := entry.(nbprepare);
 											parent := entry.(parent);
 											MPU := entry.(MPU) ; vidtBlock := entry.(vidtBlock) |})
-              (memory s) beqAddr |}
-/\ partitionsIsolation s   (*/\ kernelDataIsolation s*) /\ verticalSharing s
-					/\ consistency s  }}.
+              (memory s) beqAddr |} }}
+MAL.writePDFirstFreeSlotPointer pdtablepaddr firstfreeslotpaddr {{P}}.
 Proof.
-admit.
-Admitted.
+eapply WP.writePDFirstFreeSlotPointer.
+Qed.
 
-Lemma writePDNbFreeSlots (pdtablepaddr : paddr) (nbfreeslots : index) :
-{{fun s => isPDT pdtablepaddr s /\
-					partitionsIsolation s   (*/\ kernelDataIsolation s*) /\ verticalSharing s
-					/\ consistency s}}
-MAL.writePDNbFreeSlots pdtablepaddr nbfreeslots
-{{fun tt s => (*P s /\ *)
-exists entry , lookup pdtablepaddr s.(memory) beqAddr = Some (PDT entry)
-/\ s = {|
+Lemma writePDNbFreeSlots (pdtablepaddr : paddr) (nbfreeslots : index) (P : unit -> state -> Prop) :
+{{fun s =>
+exists entry , lookup pdtablepaddr s.(memory) beqAddr = Some (PDT entry) /\
+P tt {|
   currentPartition := currentPartition s;
   memory := add pdtablepaddr
               (PDT {| structure := entry.(structure);
@@ -1326,28 +1314,27 @@ exists entry , lookup pdtablepaddr s.(memory) beqAddr = Some (PDT entry)
 											parent := entry.(parent);
 											MPU := entry.(MPU) ; vidtBlock := entry.(vidtBlock) |})
               (memory s) beqAddr |}
-/\ partitionsIsolation s   (*/\ kernelDataIsolation s*) /\ verticalSharing s
-					/\ consistency s  }}.
+}}
+MAL.writePDNbFreeSlots pdtablepaddr nbfreeslots
+{{ P }}.
 Proof.
-admit.
-Admitted.
+eapply WP.writePDNbFreeSlots.
+Qed.
 
-Lemma writeBlockStartFromBlockEntryAddr (entryaddr newstartaddr : paddr) :
-{{fun s => isBE entryaddr s /\
-					partitionsIsolation s   (*/\ kernelDataIsolation s*) /\ verticalSharing s
-					/\ consistency s}}
-MAL.writeBlockStartFromBlockEntryAddr entryaddr newstartaddr
-{{fun tt s => (*P s /\ *)
-exists entry , lookup entryaddr s.(memory) beqAddr = Some (BE entry)
-/\ s = {|
+Lemma writeBlockStartFromBlockEntryAddr (entryaddr newstartaddr : paddr) (P : unit -> state -> Prop)  :
+{{fun s => 
+exists entry , lookup entryaddr s.(memory) beqAddr = Some (BE entry) /\
+P tt {|
   currentPartition := currentPartition s;
   memory := add entryaddr
 								(BE (CBlockEntry 	entry.(read) entry.(write) entry.(exec)
 																	entry.(present) entry.(accessible)
 																	entry.(blockindex) (CBlock newstartaddr entry.(blockrange).(endAddr))))
               (memory s) beqAddr |}
-/\ partitionsIsolation s   (*/\ kernelDataIsolation s*) /\ verticalSharing s
-					/\ consistency s  }}.
+
+}}
+MAL.writeBlockStartFromBlockEntryAddr entryaddr newstartaddr
+{{P }}.
 Proof.
-admit.
-Admitted.
+eapply WP.writeBlockStartFromBlockEntryAddr.
+Qed.

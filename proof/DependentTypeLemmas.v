@@ -241,7 +241,9 @@ intros.
 unfold sh1entryInChildLocation.
 rewrite H;trivial.
 intuition.
-unfold consistency in *. unfold sh1InChildLocationIsBE in *. intuition.
+unfold consistency in *.
+unfold consistency1 in *.
+unfold sh1InChildLocationIsBE in *. intuition.
 eauto. (* specialize (H10 paddr entry H H1). trivial. *)
 Qed.
 
@@ -1444,7 +1446,6 @@ destruct (lookup child (memory s) beqAddr)  ; intuition.
 destruct v ; intuition.
 subst parent. subst parent'. intuition.
 Qed.
-
 
 (*
 Lemma disjointAllPaddr b1 b2 addr s:

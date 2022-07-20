@@ -52,10 +52,6 @@ exists scentryaddr : paddr, isSCE scentryaddr s
 /\ scentryaddr = CPaddr (pa + scoffset).
 
 Definition PDTIfPDFlag s :=
-(*forall idPDchild sh1entryaddr,
-true = StateLib.checkChild idPDchild s sh1entryaddr ->
-(exists entry, lookup idPDchild s.(memory) beqAddr = Some (BE entry)
-/\ entryPDT idPDchild entry.(blockrange).(startAddr) s).*)
 forall idPDchild sh1entryaddr,
 true = StateLib.checkChild idPDchild s sh1entryaddr /\
 sh1entryAddr idPDchild sh1entryaddr s ->
@@ -65,48 +61,18 @@ exists startaddr, bentryStartAddr idPDchild startaddr s /\
  entryPDT idPDchild startaddr s.
 
 Definition nullAddrExists s :=
-(*forall n,
-getNullAddr s = Some n.*)
 isPADDR nullAddr s.
 
 (* TODO : to remove -> consequence of freeSlotsListIsFreeSlot and FreeSlotIsBE
-	-> but convenient for know so keep it *)
+	-> but convenient for now so keep it *)
 Definition FirstFreeSlotPointerIsBEAndFreeSlot s :=
 forall pdentryaddr pdentry,
 lookup pdentryaddr (memory s) beqAddr = Some (PDT pdentry) ->
 pdentry.(firstfreeslot) <> nullAddr ->
 isBE pdentry.(firstfreeslot) s /\
-(*exists slotentry, lookup entry.(firstfreeslot) s.(memory) beqAddr = Some (BE slotentry) /\*)
 isFreeSlot pdentry.(firstfreeslot) s.
 
-(*Definition FirstFreeSlotPointerNotNullEq s :=
-(*forall pdinsertion currnbfreeslots,
-pdentryNbFreeSlots pdinsertion currnbfreeslots s /\ currnbfreeslots > 0 <->
-exists freeslotpointer, pdentryFirstFreeSlot pdinsertion freeslotpointer s /\
-freeslotpointer <> nullAddr.*)
-forall pdinsertion currnbfreeslots,
-pdentryNbFreeSlots pdinsertion currnbfreeslots s /\ currnbfreeslots > 0 ->
-exists freeslotpointer, pdentryFirstFreeSlot pdinsertion freeslotpointer s /\
-isBE freeslotpointer s.*)
-
-(*forall pdinsertion freeslotpointer currnbfreeslots,
-(pdentryFirstFreeSlot pdinsertion freeslotpointer s ->
-freeslotpointer <> nullAddr) <->
-( exists optionfreeslotslist1,
-optionfreeslotslist1 = getFreeSlotsList pdinsertion s /\
-wellFormedFreeSlotsList optionfreeslotslist1 s <> False ->
-currnbfreeslots = CIndex (length (filterOption (optionfreeslotslist1)))) ->
-pdentryNbFreeSlots pdinsertion currnbfreeslots s
--> currnbfreeslots > 0.*)
-
-(*Definition FirstFreeSlotPointerNull s :=
-forall pdinsertion freeslotpointer nbFreeSlots,
-pdentryFirstFreeSlot pdinsertion freeslotpointer s ->
-pdentryNbFreeSlots pdinsertion nbFreeSlots s ->
-freeslotpointer = nullAddr ->
-nbFreeSlots = zero.*)
-
-(* TODO *)
+(* TODO : when removing the unecessary check in addMemoryBlock if this holds *)
 Definition NbFreeSlotsISNbFreeSlotsInList s :=
 forall pd nbfreeslots,
 isPDT pd s ->
@@ -156,9 +122,10 @@ nextKS <> nullAddr ->
 isKS nextKS s.
 
 Definition CurrentPartIsPDT s :=
-forall pdaddr,
+In (currentPartition s) (getPartitions multiplexer s).
+(*forall pdaddr,
 currentPartition s = pdaddr ->
-isPDT pdaddr s.
+isPDT pdaddr s.*)
 
 Definition BlocksRangeFromKernelStartIsBE s :=
 forall kernelentryaddr : paddr, forall blockidx : index,
@@ -194,35 +161,6 @@ freeslotslist = filterOptionPaddr(optionfreeslotslist) /\
 In freeslotaddr freeslotslist ->
 freeslotaddr <> nullAddr ->
 isFreeSlot freeslotaddr s.
-
-(*
-Definition subblockIsIncludedInBlock s :=
-forall subblock block substart subend blockstart blockend,
-isBE subblock s ->
-isBE block s ->
-bentryStartAddr subblock substart s ->
-bentryEndAddr subblock subend s ->
-bentryStartAddr block blockstart s ->
-bentryEndAddr block blockend s ->
-substart >= blockstart ->
-subend <= blockend ->
-In subblock [block].
-
-Definition subblockIncluded s :=
-forall subblock block,
-isBE subblock s ->
-isBE block s ->
-In block (getOriginalBlocks subblock s) ->
-inclblock subblock block.
-
-Definition :=
-fix inclblock (subblock : A) (block : A) {struct l} : Prop :=
-  match block with
-  | _ => False
-  | Some (BE a) => subblock.(blockrange).(startaddr) >= a.(blockrange).(startaddr)
-										&&  subblock.(blockrange).(endaddr) >= a.(blockrange).(endaddr)
-  end
-*)
 
 Definition inclFreeSlotsBlockEntries s :=
 forall pd,
@@ -263,17 +201,6 @@ In parent (getPartitions multiplexer s) ->
 In partition (getChildren parent s) -> 
 pdentryParent partition parent s.
 
-Definition childParentEq s :=
-forall child parent : paddr,
-(pdentryParent child parent s <->
-forall bentryaddr sh1entryaddr,
-isPDT child s /\
-In bentryaddr (getMappedBlocks parent s) /\
-sh1entryAddr bentryaddr sh1entryaddr s /\
-(true = StateLib.checkChild bentryaddr s sh1entryaddr \/
-	sh1entryPDchild sh1entryaddr child s)
-).
-
 Definition noDupMappedBlocksList s :=
 forall (partition : paddr),
 isPDT partition s ->
@@ -294,55 +221,26 @@ Definition noDupPartitionTree s :=
 forall pd : paddr,
 NoDup (getPartitions pd s) .
 
-(*
-Definition sharedBlock s:
-forall partition block,
-isPDT partition s ->
-In block (getMappedBlocks partition s) ->
-exists sh1entryaddr sh1entry,
-sh1entryAddr block sh1entryaddr s ->
-lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
-sh1entry.(inChildLocation) <> nullAddr ->
-sh1entry.(PDchild) <> nullAddr ->
-pdentryParent sh1entry.(PDchild) partition s ->
-In sh1entry.(inChildLocation) (getMappedBlocks sh1entry.(PDchild) s).*)
-
-(*Definition sharedInChild s :=
-forall block sh1entryaddr child,
-sh1entryAddr block sh1entryaddr s ->
-sh1entryPDchild sh1entryaddr child s ->
-exists subblock,
-true = issubblock subblock block s ->
-In subblock ((getUsedBlocks child s)).*)
-
-(*Definition sharedInChild s :=
-forall subblock child parent,
-In subblock ((getUsedPaddr child s))->
-exists block,
-true = issubblock subblock block s -> (* subblocks can only be in the ancestors *)
-pdentryParent child parent s ->
-In block (getMappedBlocks parent s) ->
-exists sh1entryaddr,
-sh1entryAddr block sh1entryaddr s /\
-sh1entryPDchild sh1entryaddr child s.*)
-
 Definition sharedBlockPointsToChild s :=
-forall parent child addr parentblock,
+forall parent child addr parentblock sh1entryaddr,
 In parent (getPartitions multiplexer s) ->
 In child (getChildren parent s) ->
 In addr (getUsedPaddr child s) ->
 In addr (getAllPaddrAux [parentblock] s) ->
 In parentblock (getMappedBlocks parent s) ->
-exists sh1entryaddr,
-sh1entryAddr parentblock sh1entryaddr s /\
-(sh1entryPDchild sh1entryaddr child s \/
-sh1entryPDflag sh1entryaddr true s).
+sh1entryAddr parentblock sh1entryaddr s ->
+(sh1entryPDchild (CPaddr (parentblock + sh1offset)) child s \/
+sh1entryPDflag (CPaddr (parentblock + sh1offset)) true s).
 
+Definition accessibleChildPaddrIsAccessibleIntoParent s :=
+ forall parent child addr,
+In parent (getPartitions multiplexer s) ->
+In child (getChildren parent s) ->
+In addr (getAccessibleMappedPaddr child s) ->
+In addr (getAccessibleMappedPaddr parent s).
 
-
-
-(** ** Conjunction of all consistency properties *)
-Definition consistency s :=
+(** ** First batch of consistency properties *)
+Definition consistency1 s :=
 wellFormedFstShadowIfBlockEntry s /\
 PDTIfPDFlag s /\
 nullAddrExists s /\
@@ -359,8 +257,18 @@ NoDupInFreeSlotsList s /\
 freeSlotsListIsFreeSlot s /\
 DisjointFreeSlotsLists s /\
 inclFreeSlotsBlockEntries s /\
-DisjointKSEntries s.
+DisjointKSEntries s /\
+noDupPartitionTree s /\
+sharedBlockPointsToChild s /\
+isParent s /\
+isChild s /\
+accessibleChildPaddrIsAccessibleIntoParent s /\
+noDupUsedPaddrList s.
 
+(** ** Second batch of consistency properties *)
 Definition consistency2 s :=
 sharedBlockPointsToChild s.
 
+(** ** Conjunction of all consistency properties *)
+Definition consistency s :=
+consistency1 s /\ consistency2 s.

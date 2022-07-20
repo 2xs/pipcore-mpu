@@ -8686,14 +8686,14 @@ Proof.
 intros HPDTs HbentryEnd Hfirstfree HfirstNotNull Hcons.
 intro HnewFirstPDEq. (* pdinsertion would be in the free slots list so it would loop -> contradiction *)
 assert(HfirstIsBE : FirstFreeSlotPointerIsBEAndFreeSlot s)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 specialize(HfirstIsBE pdinsertion x HPDTs).
 destruct HfirstNotNull. unfold pdentryFirstFreeSlot in *.
 rewrite HPDTs in *. intuition. subst.
 specialize(HfirstIsBE H1). destruct (HfirstIsBE) as [_ HfreeNewFirst].
 assert(HNoDupInFreeSlotsList : NoDupInFreeSlotsList s)
-	by (unfold consistency in * ; intuition).
+	by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 unfold NoDupInFreeSlotsList in *.
 specialize(HNoDupInFreeSlotsList pdinsertion x HPDTs).
 destruct HNoDupInFreeSlotsList.
@@ -8741,14 +8741,14 @@ Proof.
 intros HPDTs Hscentrys HbentryEnd Hfirstfree HfirstNotNull Hcons.
 intro HnewFirstSCEEq. (* sceaddr would be in the free slots list so SCE and BE at the same time -> contradiction *)
 assert(HfirstIsBE : FirstFreeSlotPointerIsBEAndFreeSlot s)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in *; intuition).
 unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 specialize(HfirstIsBE pdinsertion x HPDTs).
 destruct HfirstNotNull. unfold pdentryFirstFreeSlot in *.
 rewrite HPDTs in *. intuition. subst x0.
 specialize(HfirstIsBE H1). destruct (HfirstIsBE) as [_ HfreeNewFirst].
 assert(HNoDupInFreeSlotsList : NoDupInFreeSlotsList s)
-	by (unfold consistency in * ; intuition).
+	by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 unfold NoDupInFreeSlotsList in *.
 specialize(HNoDupInFreeSlotsList pdinsertion x HPDTs).
 destruct HNoDupInFreeSlotsList.
@@ -8795,14 +8795,14 @@ Proof.
 intros HPDTs Hsh1entrys HbentryEnd Hfirstfree HfirstNotNull Hcons.
 intro HnewFirstSHEEq. (* sh1addr would be in the free slots list so SHE and BE at the same time -> contradiction *)
 assert(HfirstIsBE : FirstFreeSlotPointerIsBEAndFreeSlot s)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 specialize(HfirstIsBE pdinsertion x HPDTs).
 destruct HfirstNotNull. unfold pdentryFirstFreeSlot in *.
 rewrite HPDTs in *. intuition. subst x0.
 specialize(HfirstIsBE H1). destruct (HfirstIsBE) as [_ HfreeNewFirst].
 assert(HNoDupInFreeSlotsList : NoDupInFreeSlotsList s)
-	by (unfold consistency in * ; intuition).
+	by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 unfold NoDupInFreeSlotsList in *.
 specialize(HNoDupInFreeSlotsList pdinsertion x HPDTs).
 destruct HNoDupInFreeSlotsList.
@@ -8848,14 +8848,14 @@ newFirstFreeSlotAddr <> newBlockEntryAddr.
 Proof.
 intros HPDTs HNewBs HbentryEnd Hfirstfree HfirstNotNull Hcons.
 assert(HfirstIsBE : FirstFreeSlotPointerIsBEAndFreeSlot s)
-							by (unfold consistency in * ; intuition).
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 specialize(HfirstIsBE pdinsertion x HPDTs).
 destruct HfirstNotNull. unfold pdentryFirstFreeSlot in *.
 rewrite HPDTs in *. intuition. subst.
 specialize(HfirstIsBE H2). destruct (HfirstIsBE) as [_ HfreeNewFirst].
 assert(HNoDup: NoDupInFreeSlotsList s)
-	by (unfold consistency in * ; intuition).
+	by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 unfold NoDupInFreeSlotsList in *.
 specialize(HNoDup pdinsertion x HPDTs).
 destruct HNoDup.
