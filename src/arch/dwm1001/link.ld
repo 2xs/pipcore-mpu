@@ -40,24 +40,24 @@
  *               |    |                    |   |                    |    |
  *               |    +--------------------+   +--------------------+    |
  *               |    |                    |   |                    |    |
- *         PIP --+    |       .text        |   |        .bss        |    +-- PIP
+ *               |    |       .text        |   |        .bss        |    +-- PIP
  *               |    |                    |   |                    |    |
- *               |    +--------------------+   +--------------------+    |
+ *         PIP --+    +--------------------+   +--------------------+    |
  *               |    |                    |   |                    |    |
  *               |    |       .data        |   |       .stack       |    |
  *               |    |                    |   |                    |    |
+ *               |    +--------------------+   +--------------------+ <--+
+ *               |    |                    |   |                    |    |
+ *               |    |      .padding      |   |     .root_stack    |    +-- MPU R1
+ *               |    |                    |   |                    |    |
  *               +--> +--------------------+   +--------------------+ <--+
  *               |    |                    |   |                    |    |
- *               |    |                    |   |     .root_stack    |    +-- MPU R1
- *               |    |                    |   |                    |    |
- *               |    |                    |   +--------------------+ <--+
  *               |    |                    |   |                    |    |
  *               |    |                    |   |                    |    |
  *               |    |                    |   |                    |    |
  *               |    |                    |   |                    |    |
- *      MPU R0 --+    |        ...         |   |                    |    |
  *               |    |                    |   |                    |    |
- *               |    |                    |   |                    |    +-- MPU R2
+ *      MPU R0 --+    |        ...         |   |        ...         |    +-- MPU R2
  *               |    |                    |   |                    |    |
  *               |    |                    |   |                    |    |
  *               |    |                    |   |                    |    |
@@ -138,7 +138,6 @@ SECTIONS
 		*(.text*)
 		*(.rodata*)
 		. = ALIGN( 4 ) ;
-		__root = . ;
 	} > ROM
 
 	.data :
@@ -153,7 +152,26 @@ SECTIONS
 	__pipDataRomStart = LOADADDR(.data) ;
 	__pipDataRomEnd = __pipDataRomStart +
 		( __pipDataEnd - __pipDataStart ) ;
-	__unusedRomStart = __pipDataRomEnd ;
+
+	/*
+	 * Warning: this section must be the last section in ROM.
+	 *
+	 * It is only used to align the two following symbols
+	 * to a multiple of 32. Since there are no input
+	 * sections in the '.padding' output section, ld sets
+	 * this section to the NOBITS type. objcopy ignores all
+	 * NOBITS sections, so the size of the output binary
+	 * file is not aligned to 32 bytes. To solve this
+	 * problem, we use the '--pad-to' option of objcopy
+	 * with the symbol address '__root' to force the
+	 * alignment.
+	 */
+	.padding :
+	{
+		. = ALIGN( 32 ) ;
+		__unusedRomStart = . ;
+		__root = . ;
+	} > ROM
 
 	.bss (NOLOAD) :
 	{
