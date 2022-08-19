@@ -2924,10 +2924,9 @@ nbleft < maxIdx /\
 				been written in parent yet -> to be done back in main file *)
 		unfold consistency1.
 
-		split. intuition. (* nullAddrExists *)
+		(* prove all properties outside to reuse them *)
 
-		split.
-
+		assert(HwellFormedFstShadowIfBlockEntrys : wellFormedFstShadowIfBlockEntry s).
 		{ (* wellFormedFstShadowIfBlockEntry *)
 			unfold wellFormedFstShadowIfBlockEntry.
 			intros pa HBEaddrs.
@@ -3090,7 +3089,7 @@ nbleft < maxIdx /\
 							rewrite HBEaddrs in *. intuition.
 		}
 
-		split.
+		assert(HPDTIfPDFlags : PDTIfPDFlag s).
 		{ (* PDTIfPDFlag s *)
 			assert(Hcons0 : PDTIfPDFlag s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 			unfold PDTIfPDFlag.
@@ -3396,7 +3395,7 @@ nbleft < maxIdx /\
 													reflexivity.
 		} (* end PDTIfPDFlag*)
 
-		split.
+		assert(HAccessibleNoPDFlags : AccessibleNoPDFlag s).
 		{ (* AccessibleNoPDFlag s *)
 			assert(Hcons0 : AccessibleNoPDFlag s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 			unfold AccessibleNoPDFlag.
@@ -4144,11 +4143,7 @@ nbleft < maxIdx /\
 																			intuition.
 } (* end of FirstFreeSlotPointerIsBEAndFreeSlot *)
 
-
-split. intuition.
-
-split.
-
+	assert(HcurrentPartitionInPartitionsLists : currentPartitionInPartitionsList s).
 	{ (* currentPartitionInPartitionsList s *)
 		assert(Hcons0 : currentPartitionInPartitionsList s0)
 			by (unfold consistency in * ; unfold consistency1 in * ; intuition).
@@ -4166,7 +4161,7 @@ split.
 		assumption.
 	} (* end of currentPartitionInPartitionsList *)
 
-split.
+assert(HwellFormedShadowCutIfBlockEntry : wellFormedShadowCutIfBlockEntry s).
 { (* wellFormedShadowCutIfBlockEntry s*)
 	(* Almost DUP of wellFormedFstShadowIfBlockEntry *)
 	unfold wellFormedShadowCutIfBlockEntry.
@@ -4324,7 +4319,8 @@ split.
 													}
 													rewrite HSCEeq. assumption.
 } (* end of wellFormedShadowCutIfBlockEntry *)
-split.
+
+assert(HBlocksRangeFromKernelStartIsBEs : BlocksRangeFromKernelStartIsBE s).
 { (* BlocksRangeFromKernelStartIsBE s*)
 	unfold BlocksRangeFromKernelStartIsBE.
 	intros kernelentryaddr blockidx HKSs Hblockidx.
@@ -4508,7 +4504,8 @@ split.
 									rewrite <- beqAddrFalse in *.
 									repeat rewrite removeDupIdentity ; intuition.
 } (* end of BlockEntryAddrInBlocksRangeIsBE *)
-split.
+
+assert(HKernelStructureStartFromBlockEntryAddrIsKSs : KernelStructureStartFromBlockEntryAddrIsKS s).
 { (* KernelStructureStartFromBlockEntryAddrIsKS s *)
 	unfold KernelStructureStartFromBlockEntryAddrIsKS.
 	intros bentryaddr blockidx Hlookup Hblockidx.
@@ -4707,7 +4704,8 @@ split.
 									rewrite <- beqAddrFalse in *.
 									repeat rewrite removeDupIdentity ; intuition.
 } (* end of KernelStructureStartFromBlockEntryAddrIsKS *)
-split.
+
+assert(Hsh1InChildLocationIsBEs : sh1InChildLocationIsBE s).
 { (* sh1InChildLocationIsBE s *)
 	unfold sh1InChildLocationIsBE.
 	intros sh1entryaddr sh1entry Hlookup Hsh1entryNotNull.
@@ -4806,7 +4804,8 @@ split.
 									rewrite <- beqAddrFalse in *.
 									repeat rewrite removeDupIdentity ; intuition.
 } (* end of sh1InChildLocationIsBE *)
-split.
+
+assert(HStructurePointerIsKSs : StructurePointerIsKS s).
 { (* StructurePointerIsKS s *)
 	unfold StructurePointerIsKS.
 	intros pdentryaddr pdentry' Hlookup.
@@ -4967,7 +4966,8 @@ split.
 										rewrite <- beqAddrFalse in *.
 										repeat rewrite removeDupIdentity ; intuition.
 } (* end of StructurePointerIsKS *)
-split.
+
+assert(HNextKSIsKSs : NextKSIsKS s).
 { (* NextKSIsKS s *)
 	unfold NextKSIsKS.
 	intros ksaddr nextksaddr next HKS Hnextksaddr Hnext HnextNotNull.
@@ -5174,7 +5174,8 @@ split.
 									rewrite <- beqAddrFalse in *.
 									repeat rewrite removeDupIdentity ; intuition.
 } (* end of NextKSIsKS *)
-split.
+
+assert(HNextKSOffsetIsPADDRs: NextKSOffsetIsPADDR s).
 { (* NextKSOffsetIsPADDR s *)
 	unfold NextKSOffsetIsPADDR.
 	intros ksaddr nextksaddr HKS Hnextksaddr.
@@ -5335,7 +5336,8 @@ split.
 									rewrite <- beqAddrFalse in *.
 									repeat rewrite removeDupIdentity ; intuition.
 } (* end of NextKSOffsetIsPADDR *)
-split.
+
+assert(HNoDupInFreeSlotsLists : NoDupInFreeSlotsList s).
 { (* NoDupInFreeSlotsList s *)
 	unfold NoDupInFreeSlotsList.
 	intros pd entrypd Hlookuppd.
@@ -6666,7 +6668,8 @@ assert (HfreeslotsEqn1 : getFreeSlotsListRec n1 (firstfreeslot p) s (nbfreeslots
 }
 rewrite <- HfreeslotsEqn1. rewrite HfreeslotsEq. intuition.
 } (* end of NoDupInFreeSlotsList *)
-split.
+
+assert(HfreeSlotsListIsFreeSlots : freeSlotsListIsFreeSlot s).
 { (* freeSlotsListIsFreeSlot s*)
 	unfold freeSlotsListIsFreeSlot.
 	intros pd freeslotaddr optionfreeslotslist freeslotslist HPDTpds.
@@ -8366,8 +8369,8 @@ destruct (beqAddr sceaddr freeslotaddr) eqn:beqfscefree; try(exfalso ; congruenc
 											* intro Hf. rewrite <- beqAddrFalse in *. congruence.
 } (* end of freeSlotsListIsFreeSlot *)
 
-split.
 
+assert(HDisjointFreeSlotsListss : DisjointFreeSlotsLists s).
 { (* DisjointFreeSlotsLists s *)
 	unfold DisjointFreeSlotsLists.
 	intros pd1 pd2 HPDTpd1 HPDTpd2 Hpd1pd2NotEq.
@@ -13941,8 +13944,8 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot pd2entry) s9 (nbfreeslots pd2ent
 															rewrite <- HfreeslotsEqn1'. rewrite HfreeslotsEqpd2. intuition.
 } (* end of DisjointFreeSlotsLists *)
 
-split.
 
+assert(HinclFreeSlotsBlockEntriess : inclFreeSlotsBlockEntries s).
 { (* inclFreeSlotsBlockEntries s *)
 	unfold inclFreeSlotsBlockEntries.
 	intros pd HPDT.
@@ -15408,8 +15411,7 @@ getKSEntriesAux (maxIdx + 1) (structure entrypd0) s9 (CIndex maxNbPrepare)).
 									rewrite HKSEntriesEq in *. intuition.
 } (* end of inclFreeSlotsBlockEntries *)
 
-split.
-
+assert(HDisjointKSEntriess : DisjointKSEntries s).
 { (* DisjointKSEntries s *)
 	unfold DisjointKSEntries.
 	intros pd1 pd2 HPDTpd1 HPDTpd2 Hpd1pd2NotEq.
@@ -17187,42 +17189,103 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 															rewrite <- HfreeslotsEqn1'. rewrite HfreeslotsEqpd2. intuition.
 } (* end of DisjointKSEntries *)
 
-split.
-
+	assert(HnoDupPartitionTrees : noDupPartitionTree s).
 	{ (* noDupPartitionTree s *)
 		(* equality of list getPartitions already proven so immediate proof *)
 		admit.
-	} (* end of AccessibleNoPDFlag *)
+	} (* end of noDupPartitionTree *)
 
-split.
-
+	assert(HisParents : isParent s).
 	{ (* isParent s *)
 		(* equality of lists getPartitions and getChildren for any partition already proven
 			+ no change of pdentry so immediate proof *)
-		admit.
+			assert(Hcons0 : isParent s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+			unfold isParent.
+			intros pd parent HparentInPartTree HpartChild.
+			assert(HpdPDT : isPDT pd s).
+			{
+				apply childrenArePDT with parent; intuition.
+			}
+			unfold pdentryParent.
+			apply isPDTLookupEq in HpdPDT. destruct HpdPDT as [partpdentry Hlookuppds].
+			rewrite Hlookuppds.
+
+			(* Check all values for pd *)
+			destruct (beqAddr sceaddr pd) eqn:beqscepd; try(exfalso ; congruence).
+			-	(* sceaddr = pd *)
+				rewrite <- DependentTypeLemmas.beqAddrTrue in beqscepd.
+				rewrite <- beqscepd in *.
+				unfold isSCE in *.
+				unfold isPDT in *.
+				destruct (lookup sceaddr (memory s) beqAddr) ; try(exfalso ; congruence).
+				destruct v ; try(exfalso ; congruence).
+			-	(* sceaddr <> pd *)
+				destruct (beqAddr newBlockEntryAddr pd) eqn:beqnewpd ; try(exfalso ; congruence).
+				-- (* newBlockEntryAddr = pd *)
+						rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewpd.
+						rewrite <- beqnewpd in *.
+						unfold isBE in *.
+						unfold isPDT in *.
+						destruct (lookup newBlockEntryAddr (memory s) beqAddr) ; try(exfalso ; congruence).
+				-- (* newBlockEntryAddr <> pd *)
+						destruct (beqAddr pdinsertion pd) eqn:beqpdpd; try(exfalso ; congruence).
+						--- (* pdinsertion = pd *)
+								rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdpd.
+								rewrite <- beqpdpd in *.
+								assert(HpdentryEq : partpdentry = pdentry1).
+								{
+									rewrite Hlookuppds in *. inversion Hpdinsertions. trivial.
+								}
+								rewrite HpdentryEq.
+								subst pdentry1. cbn.
+								subst pdentry0. cbn. trivial.
+								assert(HparentInPartTrees0 : In parent (getPartitions multiplexer s0))
+									by admit. (* after lists propagation*)
+								assert(HpartChilds0 : In pdinsertion (getChildren parent s0))
+									by admit. (* after lists propagation*)
+								unfold isParent in *.
+								specialize (Hcons0 pdinsertion parent HparentInPartTrees0 HpartChilds0).
+								unfold pdentryParent in *.
+								rewrite Hpdinsertions0 in *.
+								assumption.
+						--- (* pdinsertion <> pd *)
+								assert(HlookuppsEq : lookup pd (memory s) beqAddr = lookup pd (memory s0) beqAddr).
+								{
+									admit.
+								}
+								assert(HparentInPartTrees0 : In parent (getPartitions multiplexer s0))
+									by admit. (* after lists propagation*)
+								assert(HpartChilds0 : In pd (getChildren parent s0))
+									by admit.
+								unfold isParent in *.
+								specialize (Hcons0 pd parent HparentInPartTrees0 HpartChilds0).
+								unfold pdentryParent in *.
+								rewrite HlookuppsEq in *.
+								rewrite Hlookuppds in *.
+								assumption.
 	} (* end of isParent *)
 
-split.
-
+	assert(HisChilds : isChild s).
 	{ (* isChild s *)
 		(* equality of lists getPartitions and getChildren for any partition already proven
 			+ no change of pdentry so immediate proof *)
 		admit.
 	} (* end of isChild *)
 
-split.
-
+	assert(HaccessibleChildPaddrIsAccessibleIntoParents : accessibleChildPaddrIsAccessibleIntoParent s).
 	{ (* accessibleChildPaddrIsAccessibleIntoParent s *)
 		(* similar to vertical sharing *)
 		admit.
 	} (* end of accessibleChildPaddrIsAccessibleIntoParent *)
 
-
+	assert(HnoDupUsedPaddrLists : noDupUsedPaddrList s).
 	{ (* noDupUsedPaddrList s *)
 		(* equality of lists getPartitions and getChildren for already proven any partition
 				except globalidPDchild whose NoDup property is already proven so immediate proof *)
 		admit.
 	} (* end of noDupUsedPaddrList *)
+
+	intuition.
 
 	- (* Final state *)
 		exists pdentry. exists pdentry0. exists pdentry1.
