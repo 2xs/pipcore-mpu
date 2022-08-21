@@ -1153,6 +1153,19 @@ induction l.
 	simpl in *. intuition.
 Qed.
 
+Lemma NotInListNotInFilterAccessible a l s:
+~In a l -> ~In a (filterAccessible l s).
+Proof.
+intro HNotInList.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) ; intuition.
+	destruct v ; intuition.
+	destruct (accessible b) ; intuition.
+	simpl in *. intuition.
+Qed.
+
 Lemma NotInListNotInFilter a l s:
 ~In a l -> ~In a (filter (childFilter s) l).
 Proof.
