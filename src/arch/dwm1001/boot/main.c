@@ -81,6 +81,8 @@ Boot_Handler(void)
 	interface->partDescBlockId = (void *) rootPartitionDescriptor;
 	interface->stackLimit      = &__rootStackLimit;
 	interface->stackTop        = &__rootStackTop;
+	interface->vidtStart       = &__rootVidtStart;
+	interface->vidtEnd         = &__rootVidtEnd;
 	interface->root            = &__root;
 	interface->romEnd          = &__romEnd;
 	interface->unusedRamStart  = &__unusedRamStart;

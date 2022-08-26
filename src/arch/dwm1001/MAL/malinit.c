@@ -169,6 +169,19 @@ createAndRegisterRootPartition(void)
 	);
 
 	/* Insertion of a new MPU block for the root partition's
+	 * VIDT in the kernel structure. */
+	paddr rootPartVidtBlockId = insertNewEntry(
+		(paddr) &rootPartDesc,
+		(paddr) &__rootVidtStart,
+		(paddr) addressMinusOne(&__rootVidtEnd),
+		(paddr) &__rootVidtStart,
+		true,
+		true,
+		false,
+		readPDNbFreeSlots(&rootPartDesc)
+	);
+
+	/* Insertion of a new MPU block for the root partition's
 	 * RAM in the kernel structure. */
 	paddr rootPartRamBLockId = insertNewEntry(
 		(paddr) &rootPartDesc,
@@ -189,7 +202,12 @@ createAndRegisterRootPartition(void)
 	 * registers onto the stack. */
 	enableBlockInMPU(&rootPartDesc, rootPartRomBlockId, 0);
 	enableBlockInMPU(&rootPartDesc, rootPartStackBlockId, 1);
-	enableBlockInMPU(&rootPartDesc, rootPartRamBLockId, 2);
+	enableBlockInMPU(&rootPartDesc, rootPartVidtBlockId, 2);
+	enableBlockInMPU(&rootPartDesc, rootPartRamBLockId, 3);
+
+	/* Set the created VIDT block as the current root partition
+	 * VIDT block in the partition descriptor structure. */
+	rootPartDesc.vidtBlock = rootPartVidtBlockId;
 
 #endif /* UNIT_TESTS */
 

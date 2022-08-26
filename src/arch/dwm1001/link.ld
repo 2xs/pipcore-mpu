@@ -32,7 +32,6 @@
 /*******************************************************************************/
 
 /* Memory layout:
- *
  *                              ROM                      RAM
  *    0x00000000 +--> +--------------------+   +--------------------+ <--+ 0x20000000
  *               |    |                    |   |                    |    |
@@ -48,18 +47,18 @@
  *               |    |                    |   |                    |    |
  *               |    +--------------------+   +--------------------+ <--+
  *               |    |                    |   |                    |    |
- *               |    |      .padding      |   |     .root_stack    |    +-- MPU R1
+ *               |    |      .padding      |   |     .root.stack    |    +-- R1
  *               |    |                    |   |                    |    |
  *               +--> +--------------------+   +--------------------+ <--+
  *               |    |                    |   |                    |    |
+ *               |    |                    |   |     .root.vidt     |    +-- R2
+ *               |    |                    |   |                    |    |
+ *               |    |                    |   +--------------------+ <--+
  *               |    |                    |   |                    |    |
  *               |    |                    |   |                    |    |
+ *      MPU R0 --+    |        ...         |   |                    |    |
  *               |    |                    |   |                    |    |
- *               |    |                    |   |                    |    |
- *               |    |                    |   |                    |    |
- *      MPU R0 --+    |        ...         |   |        ...         |    +-- MPU R2
- *               |    |                    |   |                    |    |
- *               |    |                    |   |                    |    |
+ *               |    |                    |   |         ...        |    +-- R3
  *               |    |                    |   |                    |    |
  *               |    |                    |   |                    |    |
  *               |    |                    |   |                    |    |
@@ -68,9 +67,10 @@
  *
  * MPU regions:
  *
- *   - MPU R0: MPU region containing the ROM accessible to the root partition.
- *   - MPU R1: MPU region containing the stack of the root partition.
- *   - MPU R2: MPU region containing the RAM accessible to the root partition.
+ *   R0: MPU region containing the ROM accessible to the root partition.
+ *   R1: MPU region containing the stack of the root partition.
+ *   R2: MPU region containing the VIDT of the root partition.
+ *   R3: MPU region containing the RAM accessible to the root partition.
  */
 
 /*
@@ -192,12 +192,20 @@ SECTIONS
 		__pipStackTop = . ;
 	} > RAM
 
-	.root_stack (NOLOAD) :
+	.root.stack (NOLOAD) :
 	{
 		. = ALIGN( __rootStackSize ) ;
 		__rootStackLimit = . ;
 		. += __rootStackSize ;
 		__rootStackTop = . ;
+	} > RAM
+
+	.root.vidt (NOLOAD) :
+	{
+		. = ALIGN( 256 ) ;
+		__rootVidtStart = . ;
+		. += 256 ;
+		__rootVidtEnd = . ;
 		. = ALIGN( 32 ) ;
 		__unusedRamStart = . ;
 	} > RAM

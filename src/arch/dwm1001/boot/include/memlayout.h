@@ -168,6 +168,20 @@ extern void *__rootStackLimit;
 extern void *__rootStackTop;
 
 /*!
+ * \brief The start address of the VIDT of the root partition in RAM.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__rootVidtStart;
+
+/*!
+ * \brief The end address of the VIDT of the root partition in RAM.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__rootVidtEnd;
+
+/*!
  * \brief The start address of the free RAM.
  *
  * \see The definition in the link.ld file.

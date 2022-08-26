@@ -60,6 +60,18 @@ typedef struct interface_s
 	void *stackTop;
 
 	/*!
+	 * \brief The VIDT start address of the root
+	 *        partition.
+	 */
+	void *vidtStart;
+
+	/*!
+	 * \brief The VIDT end address of the root
+	 *        partition.
+	 */
+	void *vidtEnd;
+
+	/*!
 	 * \brief The start address of the root
 	 *        partition binary.
 	 */
