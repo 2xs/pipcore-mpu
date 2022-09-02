@@ -171,7 +171,7 @@ typedef struct PDTable
 	struct PDTable *parent              ;   //!< Pointer to the parent partition
 	BlockEntry_t *mpu[MPU_REGIONS_NB]   ;   //!< List of pointers to enabled blocks
 	uint32_t LUT[MPU_REGIONS_NB*2]      ;   //!< MPU registers' configuration sequence
-	BlockEntry_t *vidtBlock             ;   //!< Pointer to the block containing the VIDT.
+	BlockEntry_t *vidtAddr              ;   //!< Address of the VIDT.
 	int_mask_t interruptState           ;   //!< The interrupt state of the partition.
 } PDTable_t;
 

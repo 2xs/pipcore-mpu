@@ -161,7 +161,7 @@ Record PDTable :=
  nbprepare : index ;
  parent : paddr ;
  MPU : list paddr ;
- vidtBlock : paddr
+ vidtAddr : paddr
  (*;
  HMPU : length MPU = MPURegionsNb*)
 

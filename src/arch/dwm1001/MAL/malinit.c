@@ -142,72 +142,48 @@ createAndRegisterRootPartition(void)
 
 #if !defined UNIT_TESTS
 
-	/* Insertion of a new MPU block for the root partition's
-	 * ROM in the kernel structure. */
-	paddr rootPartRomBlockId = insertNewEntry(
+	paddr mpuRegion0Id = insertNewEntry(
 		(paddr) &rootPartDesc,
-		(paddr) &__root,
-		(paddr) addressMinusOne(&__romEnd),
-		(paddr) &__root,
-		true,
-		false,
-		true,
+		(paddr) &__mpuRegion0Start,
+		(paddr) addressMinusOne(&__mpuRegion0End),
+		(paddr) &__mpuRegion0Start,
+		(bool) &__mpuRegion0Read,
+		(bool) &__mpuRegion0Write,
+		(bool) &__mpuRegion0Execute,
 		readPDNbFreeSlots(&rootPartDesc)
 	);
 
-	/* Insertion of a new MPU block for the root partition's
-	 * stack in the kernel structure. */
-	paddr rootPartStackBlockId = insertNewEntry(
+	paddr mpuRegion1Id = insertNewEntry(
 		(paddr) &rootPartDesc,
-		(paddr) &__rootStackLimit,
-		(paddr) addressMinusOne(&__rootStackTop),
-		(paddr) &__rootStackLimit,
-		true,
-		true,
-		false,
+		(paddr) &__mpuRegion1Start,
+		(paddr) addressMinusOne(&__mpuRegion1End),
+		(paddr) &__mpuRegion1Start,
+		(bool) &__mpuRegion1Read,
+		(bool) &__mpuRegion1Write,
+		(bool) &__mpuRegion1Execute,
 		readPDNbFreeSlots(&rootPartDesc)
 	);
 
-	/* Insertion of a new MPU block for the root partition's
-	 * VIDT in the kernel structure. */
-	paddr rootPartVidtBlockId = insertNewEntry(
+	paddr mpuRegion2Id = insertNewEntry(
 		(paddr) &rootPartDesc,
-		(paddr) &__rootVidtStart,
-		(paddr) addressMinusOne(&__rootVidtEnd),
-		(paddr) &__rootVidtStart,
-		true,
-		true,
-		false,
-		readPDNbFreeSlots(&rootPartDesc)
-	);
-
-	/* Insertion of a new MPU block for the root partition's
-	 * RAM in the kernel structure. */
-	paddr rootPartRamBLockId = insertNewEntry(
-		(paddr) &rootPartDesc,
-		(paddr) &__unusedRamStart,
-		(paddr) addressMinusOne(&__ramEnd),
-		(paddr) &__unusedRamStart,
-		true,
-		true,
-		false,
+		(paddr) &__mpuRegion2Start,
+		(paddr) addressMinusOne(&__mpuRegion2End),
+		(paddr) &__mpuRegion2Start,
+		(bool) &__mpuRegion2Read,
+		(bool) &__mpuRegion2Write,
+		(bool) &__mpuRegion2Execute,
 		readPDNbFreeSlots(&rootPartDesc)
 	);
 
 	/* Map all blocks previously inserted into the kernel
-	 * structure to the physical MPU.
-	 *
-	 * WARNING: The stack block MUST always be mapped to the
-	 * physical MPU because, in ARMv7-M, the hardware pushes
-	 * registers onto the stack. */
-	enableBlockInMPU(&rootPartDesc, rootPartRomBlockId, 0);
-	enableBlockInMPU(&rootPartDesc, rootPartStackBlockId, 1);
-	enableBlockInMPU(&rootPartDesc, rootPartVidtBlockId, 2);
-	enableBlockInMPU(&rootPartDesc, rootPartRamBLockId, 3);
+	 * structure to the physical MPU. */
+	enableBlockInMPU(&rootPartDesc, mpuRegion0Id, 0);
+	enableBlockInMPU(&rootPartDesc, mpuRegion1Id, 1);
+	enableBlockInMPU(&rootPartDesc, mpuRegion2Id, 2);
 
-	/* Set the created VIDT block as the current root partition
-	 * VIDT block in the partition descriptor structure. */
-	rootPartDesc.vidtBlock = rootPartVidtBlockId;
+	/* Set the first MPU region as the current root partition
+	 * VIDT region in the partition descriptor structure. */
+	rootPartDesc.vidtAddr = (void *) &__rootVidtStart;
 
 #endif /* UNIT_TESTS */
 

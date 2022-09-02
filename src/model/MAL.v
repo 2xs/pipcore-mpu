@@ -97,7 +97,7 @@ Definition writePDStructurePointer (pdtablepaddr: paddr) (structurepaddr : paddr
     nbprepare := a.(nbprepare);
     parent := a.(parent);
     MPU := a.(MPU);
-    vidtBlock := a.(vidtBlock)
+    vidtAddr := a.(vidtAddr)
   |} in
     modify (fun s => {|
       currentPartition := s.(currentPartition);
@@ -121,7 +121,7 @@ Definition writePDFirstFreeSlotPointer (pdtablepaddr: paddr) (firstfreeslotpaddr
     nbprepare := a.(nbprepare);
     parent := a.(parent);
     MPU := a.(MPU);
-    vidtBlock := a.(vidtBlock)
+    vidtAddr := a.(vidtAddr)
   |} in
     modify (fun s => {|
       currentPartition := s.(currentPartition);
@@ -145,7 +145,7 @@ Definition writePDNbFreeSlots (pdtablepaddr: paddr) (nbfreeslots : index) : LLI 
     nbprepare := a.(nbprepare);
     parent := a.(parent);
     MPU := a.(MPU);
-    vidtBlock := a.(vidtBlock)
+    vidtAddr := a.(vidtAddr)
   |} in
     modify (fun s => {|
       currentPartition := s.(currentPartition);
@@ -169,7 +169,7 @@ Definition writePDNbPrepare (pdtablepaddr: paddr) (nbprepare : index) : LLI unit
     nbprepare := nbprepare;
     parent := a.(parent);
     MPU := a.(MPU);
-    vidtBlock := a.(vidtBlock)
+    vidtAddr := a.(vidtAddr)
   |} in
     modify (fun s => {|
       currentPartition := s.(currentPartition);
@@ -193,7 +193,7 @@ Definition writePDParent (pdtablepaddr: paddr) (parent : paddr) : LLI unit :=
     nbprepare := a.(nbprepare);
     parent := parent;
     MPU := a.(MPU);
-    vidtBlock := a.(vidtBlock)
+    vidtAddr := a.(vidtAddr)
   |} in
     modify (fun s => {|
       currentPartition := s.(currentPartition);
@@ -217,7 +217,7 @@ Definition writePDMPU (pdtablepaddr: paddr) (MPUlist : list paddr) : LLI unit :=
     nbprepare := a.(nbprepare);
     parent := a.(parent);
     MPU := MPUlist;
-    vidtBlock := a.(vidtBlock)
+    vidtAddr := a.(vidtAddr)
   |} in
     modify (fun s => {|
       currentPartition := s.(currentPartition);
@@ -228,9 +228,9 @@ Definition writePDMPU (pdtablepaddr: paddr) (MPUlist : list paddr) : LLI unit :=
   end.
 
 Definition readPDVidt  (pdtablepaddr: paddr) : LLI paddr :=
-	getPDTRecordField vidtBlock pdtablepaddr.
+	getPDTRecordField vidtAddr pdtablepaddr.
 
-Definition writePDVidt (pdtablepaddr: paddr) (vidtBlock : paddr) : LLI unit :=
+Definition writePDVidt (pdtablepaddr: paddr) (vidtAddr : paddr) : LLI unit :=
   perform s := get in
   let entry := lookup pdtablepaddr s.(memory) beqAddr in
   match entry with
@@ -241,7 +241,7 @@ Definition writePDVidt (pdtablepaddr: paddr) (vidtBlock : paddr) : LLI unit :=
     nbprepare := a.(nbprepare);
     parent := a.(parent);
     MPU := a.(MPU);
-    vidtBlock := vidtBlock
+    vidtAddr := vidtAddr
   |} in
     modify (fun s => {|
       currentPartition := s.(currentPartition);
@@ -672,7 +672,7 @@ Definition getEmptyPDTable : LLI PDTable :=
     nbprepare := zero;
     parent := nullAddr;
     MPU := nil;
-    vidtBlock := nullAddr
+    vidtAddr := nullAddr
   |} in
     ret emptyPDTable.
 

@@ -86,7 +86,7 @@ Boot_Handler(void)
 	interface->root            = &__root;
 	interface->romEnd          = &__romEnd;
 	interface->unusedRamStart  = &__unusedRamStart;
-	interface->ramEnd          = &__ramEnd;
+	interface->ramEnd          = &__rootRamEnd;
 
 	stackedContext_t rootPartCtx;
 	rootPartCtx.isBasicFrame = 1;

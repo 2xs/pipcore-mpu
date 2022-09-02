@@ -35,18 +35,109 @@
 #define __MEMLAYOUT_H__
 
 /*!
- * \brief The stack size of PIP in bytes.
+ * \brief The start address of the vector table in ROM.
  *
  * \see The definition in the link.ld file.
  */
-extern void *__pipStackSize;
+extern void *__vectorTableStart;
 
 /*!
- * \brief The stack size of the root partition in bytes.
+ * \brief The start address of the data of Pip in ROM.
  *
  * \see The definition in the link.ld file.
  */
-extern void *__rootStackSize;
+extern void *__pipDataRomStart;
+
+/*!
+ * \brief The start address of the data of Pip in RAM.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__pipDataStart;
+
+/*!
+ * \brief The end address of the data of Pip in RAM.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__pipDataEnd;
+
+/*!
+ * \brief The start address of the bss of Pip in RAM.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__pipBssStart;
+
+/*!
+ * \brief The end address of the bss of Pip in RAM.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__pipBssEnd;
+
+/*!
+ * \brief The top address of the stack of the root in RAM.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__rootStackTop;
+
+/*!
+ * \brief The limit address of the stack of the root in RAM.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__rootStackLimit;
+
+/*!
+ * \brief The start address of the VIDT of the root in RAM.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__rootVidtStart;
+
+/*!
+ * \brief The end address of the VIDT of the root in RAM.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__rootVidtEnd;
+
+/*!
+ * \brief The start address of the root partition binary in ROM.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__root;
+
+/*!
+ * \brief The end address of the ROM.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__romEnd;
+
+/*!
+ * \brief The start address of the available ROM to the root.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__unusedRamStart;
+
+/*!
+ * \brief The end address of the available RAM to the root.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__rootRamEnd;
+
+/*!
+ * \brief The top address of the stack of the Pip in RAM.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__pipStackTop;
 
 /*!
  * \brief The start address of the RAM.
@@ -63,129 +154,108 @@ extern void *__ramStart;
 extern void *__ramEnd;
 
 /*!
- * \brief The start address of the ROM.
+ * \brief The start address of the MPU region 0.
  *
  * \see The definition in the link.ld file.
  */
-extern void *__romStart;
+extern void *__mpuRegion0Start;
 
 /*!
- * \brief The end address of the ROM.
+ * \brief The end address of the MPU region 0.
  *
  * \see The definition in the link.ld file.
  */
-extern void *__romEnd;
+extern void *__mpuRegion0End;
 
 /*!
- * \brief The start address of the vector table in ROM.
+ * \brief The read right of the MPU region 0.
  *
  * \see The definition in the link.ld file.
  */
-extern void *__vectorTableStart;
+extern void *__mpuRegion0Read;
 
 /*!
- * \brief The end address of the vector table in ROM.
+ * \brief The write right of the MPU region 0.
  *
  * \see The definition in the link.ld file.
  */
-extern void *__vectorTableEnd;
+extern void *__mpuRegion0Write;
 
 /*!
- * \brief The start address of the initialized data of PIP in RAM.
+ * \brief The execute right of the MPU region 0.
  *
  * \see The definition in the link.ld file.
  */
-extern void *__pipDataStart;
+extern void *__mpuRegion0Execute;
 
 /*!
- * \brief The end address of the initialized data of PIP in RAM.
+ * \brief The start address of the MPU region 1.
  *
  * \see The definition in the link.ld file.
  */
-extern void *__pipDataEnd;
+extern void *__mpuRegion1Start;
 
 /*!
- * \brief The start address of the initialized data of PIP in ROM.
+ * \brief The end address of the MPU region 1.
  *
  * \see The definition in the link.ld file.
  */
-extern void *__pipDataRomStart;
+extern void *__mpuRegion1End;
 
 /*!
- * \brief The end address of the initialized data of PIP in ROM.
+ * \brief The read right of the MPU region 1.
  *
  * \see The definition in the link.ld file.
  */
-extern void *__pipDataRomEnd;
+extern void *__mpuRegion1Read;
 
 /*!
- * \brief The start address of the root partition binary in ROM.
+ * \brief The write right of the MPU region 1.
  *
  * \see The definition in the link.ld file.
  */
-extern void *__root;
+extern void *__mpuRegion1Write;
 
 /*!
- * \brief The start address of the uninitialized data of PIP in RAM.
+ * \brief The execute right of the MPU region 1.
  *
  * \see The definition in the link.ld file.
  */
-extern void *__pipBssStart;
+extern void *__mpuRegion1Execute;
 
 /*!
- * \brief The end address of the uninitialized data of PIP in RAM.
+ * \brief The start address of the MPU region 2.
  *
  * \see The definition in the link.ld file.
  */
-extern void *__pipBssEnd;
+extern void *__mpuRegion2Start;
 
 /*!
- * \brief The limit address of the stack of PIP in RAM.
+ * \brief The end address of the MPU region 2.
  *
  * \see The definition in the link.ld file.
  */
-extern void *__pipStackLimit;
+extern void *__mpuRegion2End;
 
 /*!
- * \brief The top address the stack of PIP in RAM.
+ * \brief The read right of the MPU region 2.
  *
  * \see The definition in the link.ld file.
  */
-extern void *__pipStackTop;
+extern void *__mpuRegion2Read;
 
 /*!
- * \brief The limit address of the stack of the root partition in RAM.
+ * \brief The write right of the MPU region 2.
  *
  * \see The definition in the link.ld file.
  */
-extern void *__rootStackLimit;
+extern void *__mpuRegion2Write;
 
 /*!
- * \brief The top address of the stack of the root partition in RAM.
+ * \brief The execute right of the MPU region 2.
  *
  * \see The definition in the link.ld file.
  */
-extern void *__rootStackTop;
-
-/*!
- * \brief The start address of the VIDT of the root partition in RAM.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__rootVidtStart;
-
-/*!
- * \brief The end address of the VIDT of the root partition in RAM.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__rootVidtEnd;
-
-/*!
- * \brief The start address of the free RAM.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__unusedRamStart;
+extern void *__mpuRegion2Execute;
 
 #endif /* __MEMLAYOUT_H__ */

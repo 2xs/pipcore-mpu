@@ -35,60 +35,114 @@
  *                              ROM                      RAM
  *    0x00000000 +--> +--------------------+   +--------------------+ <--+ 0x20000000
  *               |    |                    |   |                    |    |
- *               |    |   .vector_table    |   |       .data        |    |
+ *               |    |   .vector_table    |   |     .root.stack    |    |
  *               |    |                    |   |                    |    |
  *               |    +--------------------+   +--------------------+    |
  *               |    |                    |   |                    |    |
- *               |    |       .text        |   |        .bss        |    +-- PIP
- *               |    |                    |   |                    |    |
+ *               |    |       .text        |   |      .root.vidt    |    |
+ *               |    |                    |   |                    |    +-- R0
  *         PIP --+    +--------------------+   +--------------------+    |
  *               |    |                    |   |                    |    |
- *               |    |       .data        |   |       .stack       |    |
+ *               |    |       .data        |   |                    |    |
  *               |    |                    |   |                    |    |
- *               |    +--------------------+   +--------------------+ <--+
+ *               |    +--------------------+   |                    | <--+ 0x20008000
  *               |    |                    |   |                    |    |
- *               |    |      .padding      |   |     .root.stack    |    +-- R1
- *               |    |                    |   |                    |    |
- *               +--> +--------------------+   +--------------------+ <--+
- *               |    |                    |   |                    |    |
- *               |    |                    |   |     .root.vidt     |    +-- R2
+ *               |    |      .padding      |   |                    |    |
+ *               |    |                    |   |                    |    +-- R1
+ *               +--> +--------------------+   |                    |    |
  *               |    |                    |   |                    |    |
  *               |    |                    |   +--------------------+ <--+
  *               |    |                    |   |                    |    |
+ *               |    |                    |   |       .data        |    |
  *               |    |                    |   |                    |    |
- *      MPU R0 --+    |        ...         |   |                    |    |
+ *               |    |                    |   +--------------------+    |
+ *         R2  --+    |        ...         |   |                    |    |
+ *               |    |                    |   |        .bss        |    +-- PIP
  *               |    |                    |   |                    |    |
- *               |    |                    |   |         ...        |    +-- R3
+ *               |    |                    |   +--------------------+    |
  *               |    |                    |   |                    |    |
- *               |    |                    |   |                    |    |
- *               |    |                    |   |                    |    |
+ *               |    |                    |   |       .stack       |    |
  *               |    |                    |   |                    |    |
  *    0x00080000 +--> +--------------------+   +--------------------+ <--+ 0x20010000
  *
  * MPU regions:
  *
- *   R0: MPU region containing the ROM accessible to the root partition.
- *   R1: MPU region containing the stack of the root partition.
- *   R2: MPU region containing the VIDT of the root partition.
- *   R3: MPU region containing the RAM accessible to the root partition.
+ *   R0: MPU region containing the first 32K of RAM accessible to the root partition.
+ *   R1: MPU region containing the remaining RAM accessible to the root partition.
+ *   R2: MPU region containing the ROM accessible to the root partition.
  */
 
-/*
- * The stack size of PIP in bytes.
- */
+/* The size of the ROM memory. */
+__romSize = 512K ;
+
+/* The size of the RAM memory of PIP. */
+__pipRamSize = 4K ;
+
+/* The size of the RAM memory of the root partition. */
+__rootRamSize = 64K - __pipRamSize ;
+
+/* The start address of the ROM. */
+__romStart = 0x00000000 ;
+
+/* The start address of the RAM. */
+__ramStart = 0x20000000 ;
+
+/* The start address of the RAM of the root partition. */
+__rootRamStart = __ramStart ;
+
+/* The start address of RAM of PIP. */
+__pipRamStart = __rootRamStart + __rootRamSize ;
+
+/* The end address of the ROM. */
+__romEnd = __romStart + __romSize ;
+
+/* The end addres of the RAM. */
+__ramEnd = 0x20010000 ;
+
+/* The end address of the RAM of the root partition. */
+__rootRamEnd = __rootRamStart + __rootRamSize ;
+
+/* The end address of the RAM of PIP. */
+__pipRamEnd = __pipRamStart + __pipRamSize;
+
+/* The stack size of PIP. */
 __pipStackSize = 1024 ;
 
-/* The stack size of the root partition in bytes.
- *
- * WARNING: Must be a power of 2 greater than or equal to 32 which is
- * the minimum valid MPU region size for ARMv7-M.
- */
+/* The stack size of the root partition. */
 __rootStackSize = 1024 ;
+
+/* The VIDT size of the root partition. */
+__rootVidtSize = 256 ;
+
+/* The configuration of the MPU region 0. */
+__mpuRegion0Size     = 32K ;
+__mpuRegion0Start    = __rootRamStart ;
+__mpuRegion0End      = __mpuRegion0Start + __mpuRegion0Size ;
+__mpuRegion0Read     = 1 ;
+__mpuRegion0Write    = 1 ;
+__mpuRegion0Execute  = 0 ;
+
+/* The configuration of the MPU region 1. */
+__mpuRegion1Size     = __rootRamEnd - __mpuRegion0Size ;
+__mpuRegion1Start    = __mpuRegion0End ;
+__mpuRegion1End      = __mpuRegion1Start + __mpuRegion1Size ;
+__mpuRegion1Read     = 1 ;
+__mpuRegion1Write    = 1 ;
+__mpuRegion1Execute  = 0 ;
+
+/* The configuration of the MPU region 2. */
+__mpuRegion2Size     = __romEnd - __unusedRomStart ;
+__mpuRegion2Start    = __unusedRomStart ;
+__mpuRegion2End      = __mpuRegion2Start + __mpuRegion2Size ;
+__mpuRegion2Read     = 1 ;
+__mpuRegion2Write    = 0 ;
+__mpuRegion2Execute  = 1 ;
 
 MEMORY
 {
-	ROM (rx)  : ORIGIN = 0x00000000, LENGTH = 512K
-	RAM (xrw) : ORIGIN = 0x20000000, LENGTH = 64K
+	ROM      (rx)  : ORIGIN = __romStart,     LENGTH = __romSize
+	ROOT_RAM (xrw) : ORIGIN = __rootRamStart, LENGTH = __rootRamSize
+	PIP_RAM  (xrw) : ORIGIN = __pipRamStart,  LENGTH = __pipRamSize
 }
 
 OUTPUT_FORMAT(
@@ -100,26 +154,6 @@ OUTPUT_FORMAT(
 OUTPUT_ARCH(arm)
 
 ENTRY(_start)
-
-/*
- * The start address of the RAM.
- */
-__ramStart = ORIGIN(RAM);
-
-/*
- * The end address of the RAM.
- */
-__ramEnd = ORIGIN(RAM) + LENGTH(RAM);
-
-/*
- * The start address of the ROM.
- */
-__romStart = ORIGIN(ROM);
-
-/*
- * The end address of the ROM.
- */
-__romEnd = ORIGIN(ROM) + LENGTH(ROM);
 
 SECTIONS
 {
@@ -147,7 +181,7 @@ SECTIONS
 		*(.data*)
 		. = ALIGN( 4 ) ;
 		__pipDataEnd = . ;
-	} > RAM AT > ROM
+	} > PIP_RAM AT > ROM
 
 	__pipDataRomStart = LOADADDR(.data) ;
 	__pipDataRomEnd = __pipDataRomStart +
@@ -181,7 +215,7 @@ SECTIONS
 		*(COMMON)
 		. = ALIGN( 4 ) ;
 		__pipBssEnd = . ;
-	} > RAM
+	} > PIP_RAM
 
 	.stack (NOLOAD) :
 	{
@@ -190,25 +224,26 @@ SECTIONS
 		. += __pipStackSize ;
 		. = ALIGN( 8 ) ;
 		__pipStackTop = . ;
-	} > RAM
+	} > PIP_RAM
 
 	.root.stack (NOLOAD) :
 	{
-		. = ALIGN( __rootStackSize ) ;
+		. = ALIGN( 8 ) ;
 		__rootStackLimit = . ;
 		. += __rootStackSize ;
 		__rootStackTop = . ;
-	} > RAM
+		. = ALIGN( 8 ) ;
+	} > ROOT_RAM
 
 	.root.vidt (NOLOAD) :
 	{
-		. = ALIGN( 256 ) ;
+		. = ALIGN( 4 ) ;
 		__rootVidtStart = . ;
-		. += 256 ;
+		. += __rootVidtSize ;
 		__rootVidtEnd = . ;
-		. = ALIGN( 32 ) ;
+		. = ALIGN( 4 ) ;
 		__unusedRamStart = . ;
-	} > RAM
+	} > ROOT_RAM
 
 	/* Assert that the following values are true before linking.
 	 *
@@ -216,7 +251,7 @@ SECTIONS
 	 * plus 32 does not overflow the RAM because it is the smallest
 	 * valid MPU region for ARMv7-M.
 	 */
-	ASSERT( ( __rootStackSize  & 31 ) ==        0, "The root partition stack size is not a power of two greater than or equal to 32..." )
-	ASSERT( ( __unusedRomStart      ) <= __romEnd, "The sections overflow the ROM..." )
-	ASSERT( ( __unusedRamStart + 32 ) <= __ramEnd, "The sections overflow the RAM..." )
+	ASSERT( ( __mpuRegion0Size  & 31 ) ==            0, "The MPU region 0 is not a power of two greater than or equal to 32..." )
+	ASSERT( ( __unusedRomStart      )  <=     __romEnd, "The sections overflow the ROM..." )
+	ASSERT( ( __unusedRamStart + 32 )  <= __rootRamEnd, "The sections overflow the RAM..." )
 }

@@ -333,7 +333,10 @@ yield_return_code_t getSourcePartVidtCont(
 	int_mask_t flagsOnWake,
 	stackedContext_t *callerInterruptedContext
 ) {
-	paddr callerVidtBlockEntryAddr = readPDVidt(callerPartDescGlobalId);
+	paddr callerVidtAddr = readPDVidt(callerPartDescGlobalId);
+
+	paddr callerVidtBlockEntryAddr =
+		findBelongingBlock(callerPartDescGlobalId, callerVidtAddr);
 
 	/* Check that the address of the block containing the VIDT of
 	 * the caller is not null. */
@@ -372,9 +375,6 @@ yield_return_code_t getSourcePartVidtCont(
 		return CALLER_VIDT_BLOCK_TOO_SMALL;
 	}
 
-	paddr callerVidtAddr =
-		readBlockStartFromBlockEntryAddr(callerVidtBlockEntryAddr);
-
 	paddr callerContextSaveAddr =
 		((vidt_t *) callerVidtAddr)->contexts[callerContextSaveIndex];
 
@@ -398,7 +398,10 @@ yield_return_code_t getTargetPartVidtCont(
 	int_mask_t flagsOnWake,
 	stackedContext_t *callerInterruptedContext
 ) {
-	paddr calleeVidtBlockEntryAddr = readPDVidt(calleePartDescGlobalId);
+	paddr calleeVidtAddr = readPDVidt(calleePartDescGlobalId);
+
+	paddr calleeVidtBlockEntryAddr =
+		findBelongingBlock(calleePartDescGlobalId, calleeVidtAddr);
 
 	/* Check that the address of the block containing the VIDT of
 	 * the callee is not null. */
@@ -436,9 +439,6 @@ yield_return_code_t getTargetPartVidtCont(
 	{
 		return CALLEE_VIDT_BLOCK_TOO_SMALL;
 	}
-
-	paddr calleeVidtAddr =
-		readBlockStartFromBlockEntryAddr(calleeVidtBlockEntryAddr);
 
 	/* Save the current interrupt number into the callee's VIDT. */
 	((vidt_t *) calleeVidtAddr)->currentInterrupt = targetInterrupt;

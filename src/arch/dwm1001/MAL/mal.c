@@ -285,34 +285,38 @@ void writePDParent(paddr pdaddr, paddr value)
 }
 
 /*!
- * \brief Read the ID of the block containing the VIDT from a
- *        partition descriptor structure.
+ * \brief Read the address of the VIDT from a partition descriptor
+ *        structure.
+ *
  * \param partDescAddr The ID of the block containing a partition
- *        descriptor structure from which the VIDT block is to be
+ *        descriptor structure from which the VIDT address is to be
  *        read.
- * \return The ID of the block containing the VIDT.
+ *
+ * \return The address of the VIDT.
  */
 paddr readPDVidt(paddr partDescAddr)
 {
 	PDTable_t *partDesc = (PDTable_t *) partDescAddr;
 
-	return partDesc->vidtBlock;
+	return partDesc->vidtAddr;
 }
 
 /*!
- * \brief Write the ID of the block containing the VIDT to a partition
- *        descriptor structure.
+ * \brief Write the address of the VIDT to a partition descriptor
+ *        structure.
+ *
  * \param partDescAddr The ID of the block containing a partition
- *        descriptor structure from which the VIDT block is to be
+ *        descriptor structure from which the VIDT address is to be
  *        written.
- * \param vidtBlockAddr The ID of the block containing the VIDT to write
- *        to the partition descriptor structure.
+ *
+ * \param vidtAddr The address of the VIDT to write to the partition
+ *        descriptor structure.
  */
-void writePDVidt(paddr partDescAddr, paddr vidtBlockAddr)
+void writePDVidt(paddr partDescAddr, paddr vidtAddr)
 {
 	PDTable_t *partDesc = (PDTable_t *) partDescAddr;
 
-	partDesc->vidtBlock = vidtBlockAddr;
+	partDesc->vidtAddr = vidtAddr;
 }
 
 /*!
