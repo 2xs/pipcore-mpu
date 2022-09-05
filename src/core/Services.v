@@ -508,10 +508,11 @@ Definition addMemoryBlock (idPDchild idBlockToShare: paddr) (r w e : bool)
 																	blockToShareInCurrPartAddr in
 		if negb addrIsPresent then (** block is not present *) ret nullAddr else
 
-		(* Check that the block to add is not the block
-		 * containing the VIDT of the current partition. *)
-		perform vidtBlockGlobalId := readPDVidt globalIdPDChild in
-		if (beqAddr vidtBlockGlobalId blockToShareInCurrPartAddr) then ret nullAddr else
+                (* Check that the block to add is not the block
+                 * containing the VIDT of the current partition. *)
+                perform vidtAddr := readPDVidt globalIdPDChild in
+                perform vidtBlock := findBelongingBlock globalIdPDChild vidtAddr in
+                if (beqAddr blockToShareInCurrPartAddr vidtBlock) then ret nullAddr else
 
 		(** Child: set the block to share in the child's first free slot*)
 		(* the block start is set as origin in the child*)
@@ -571,8 +572,9 @@ Definition removeMemoryBlock (idBlockToRemove: paddr) : LLI bool :=
 
                 (* Check that the block to remove is not the block
                  * containing the VIDT of the current partition. *)
-		perform vidtBlockGlobalId := readPDVidt idPDchild in
-		if (beqAddr vidtBlockGlobalId blockToRemoveInCurrPartAddr) then ret false else
+                perform vidtAddr := readPDVidt idPDchild in
+                perform vidtBlock := findBelongingBlock idPDchild vidtAddr in
+                if (beqAddr blockToRemoveInCurrPartAddr vidtBlock) then ret false else
 
 		(** Child (and grand-children): remove block if possible *)
 		perform blockIsRemoved := removeBlockInChildAndDescendants
@@ -805,77 +807,73 @@ Definition findBlock (idPD: paddr) (addrInBlock : paddr) : LLI blockOrError :=
 (**
  * The setVIDT PIP MPU service.
  *
- * The [setVIDT] system call sets the VIDT block in the partition
+ * The [setVIDT] system call sets the VIDT address in the partition
  * descriptor structure of the current partition or one of its child.
  *
  * It returns true if the VIDT block has been added to the partition
  * descriptor structure, false otherwise.
  *
- * <<partDescBlockId>> The ID of the block containing the partition
- *                     descriptor structure of the current partition or
- *                     one of its childs.
+ * <<pd>>       The ID of the block containing the partition
+ *              descriptor structure of the current partition or
+ *              one of its childs.
  *
- * <<vidtBlockLocalId>> The ID of the block that will contain the VIDT
- *                      or 0 to reset the VIDT block to NULL in the
- *                      partition descriptor structure.
+ * <<vidtAddr>> The address of the VIDT or NULL to reset the VIDT
+ *              address to NULL in the partition descriptor.
  *)
-Definition setVIDT (partDescBlockId vidtBlockLocalId : paddr) : LLI bool :=
-  perform currentPartDescBlockGlobalId := getCurPartition in
-  (* Check that partDescBlockId is either the current partition or one
-   * of its childs. *)
-  perform currentOrChildPartDescBlockGlobalId := getGlobalIdPDCurrentOrChild currentPartDescBlockGlobalId partDescBlockId in
-  perform currentOrChildPartDescBlockGlobalIdIsNull := compareAddrToNull currentOrChildPartDescBlockGlobalId in
-  if currentOrChildPartDescBlockGlobalIdIsNull
-  then ret false
+Definition setVIDT (pd vidtAddr : paddr) : LLI bool :=
+  (* Check 1: Partition descriptor is not null *)
+  perform curPd := getCurPartition in
+  perform globalPd := getGlobalIdPDCurrentOrChild curPd pd in
+  perform globalPdNull := compareAddrToNull globalPd in
+  if globalPdNull then ret false else
+
+  (* Check 2: VIDT address is null *)
+  perform vidtAddrNull := compareAddrToNull vidtAddr in
+  if vidtAddrNull
+  then
+    writePDVidt globalPd nullAddr ;;
+    ret true
   else
-    (* Check if the vidtBlockLocalId is null. *)
-    perform vidtBlockLocalIdIsNull := compareAddrToNull(vidtBlockLocalId) in
-    if vidtBlockLocalIdIsNull
-    then
-      (* If the vidtBlockLocalId is null, reset the VIDT block with a
-       * null address. *)
-      writePDVidt currentOrChildPartDescBlockGlobalId nullAddr ;;
-      ret true
-    else
-      (* Check that the vidtBlockLocalId is a block in the partition
-       * descriptor of currentOrChildPartDescBlockGlobalId. *)
-      perform vidtBlockGlobalId := findBlockInKSWithAddr currentOrChildPartDescBlockGlobalId vidtBlockLocalId in
-      perform vidtBlockGlobalIdIsNull := compareAddrToNull vidtBlockGlobalId in
-        if vidtBlockGlobalIdIsNull
-        then ret false
-        else
-          (* Check that the vidtBlockGlobalId is an accessible block. *)
-          perform vidtBlockGlobalIdIsAccessible := readBlockAccessibleFromBlockEntryAddr vidtBlockGlobalId in
-          if negb vidtBlockGlobalIdIsAccessible
-          then ret false
-          else
-            (* Check that the vidtBlockGlobalId size is greater or equal
-	     * to the minimum VIDT size. *)
-            perform minVidtBlockSize := getMinVidtBlockSize in
-            perform vidtBlockSize := sizeOfBlock vidtBlockGlobalId in
-            perform vidtBlockSizeIsBigEnough := Index.leb minVidtBlockSize vidtBlockSize in
-            if negb vidtBlockSizeIsBigEnough
-            then ret false
-            else
-              (* Check if the current partition is setting its own VIDT
-	       * block. Otherwise, the current partition is setting the
-	       * VIDT of its child. *)
-              if (beqAddr currentOrChildPartDescBlockGlobalId currentPartDescBlockGlobalId)
-              then
-                (* Check that the VIDT block is not a shared block. *)
-                perform childPartDescGlobalId := readSh1PDChildFromBlockEntryAddr vidtBlockGlobalId in
-                perform childPartDescGlobalIdIsNull := compareAddrToNull childPartDescGlobalId in
-                if negb childPartDescGlobalIdIsNull
-                then ret false
-                else
-                  writePDVidt currentOrChildPartDescBlockGlobalId vidtBlockGlobalId ;;
-                  ret true
-              else
-                (* Checks that the VIDT block is not shared in the child. *)
-                perform vidtBlockInChildGlobalId := readSh1InChildLocationFromBlockEntryAddr vidtBlockGlobalId in
-                perform vidtBlockInChildGlobalIdIsNull := compareAddrToNull vidtBlockInChildGlobalId in
-                if negb vidtBlockInChildGlobalIdIsNull
-                then ret false
-                else
-                  writePDVidt currentOrChildPartDescBlockGlobalId vidtBlockGlobalId ;;
-                  ret true.
+
+  (* Check 3: VIDT block ID is not null *)
+  perform vidtBlock := findBelongingBlock globalPd vidtAddr in
+  perform vidtBlockNull := compareAddrToNull vidtBlock in
+  if vidtBlockNull then ret false else
+
+  (* Check 4: VIDT block is present *)
+  perform present := readBlockPresentFromBlockEntryAddr vidtBlock in
+  if negb present then ret false else
+
+  (* Check 5: VIDT block is accessible *)
+  perform accessible := readBlockAccessibleFromBlockEntryAddr vidtBlock in
+  if negb accessible then ret false else
+
+  (* Check 6: VIDT block does not overlap *)
+  perform vidtSize := getVidtSize in
+  perform vidtEndAddr := Paddr.addPaddrIdx vidtAddr vidtSize in
+  perform vidtBlockEndAddr := readBlockEndFromBlockEntryAddr vidtBlock in
+  perform overlap := Paddr.leb vidtBlockEndAddr vidtEndAddr in
+  if overlap then ret false else
+
+  if (beqAddr globalPd curPd)
+  then
+    (* The current partition is setting its VIDT. *)
+
+    (* Check 8: VIDT block is not shared *)
+    perform childPd := readSh1PDChildFromBlockEntryAddr vidtBlock in
+    perform childPdNull := compareAddrToNull childPd in
+    if negb childPdNull then ret false else
+
+    writePDVidt globalPd vidtAddr ;;
+    ret true
+
+  else
+    (* The current partition is setting the VIDT of one of its child. *)
+
+    (* Check 9: VIDT block is not shared in a child *)
+    perform vidtBlockChild := readSh1InChildLocationFromBlockEntryAddr vidtBlock in
+    perform vidtBlockChildNull := compareAddrToNull vidtBlockChild in
+    if negb vidtBlockChildNull then ret false else
+
+    writePDVidt globalPd vidtAddr ;;
+    ret true.

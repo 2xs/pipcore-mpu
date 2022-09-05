@@ -43,7 +43,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-extern uint32_t MINVIDTBLOCKSIZE(void);
+extern uint32_t VIDTSIZE(void);
 
 /* Constants */
 #define Constants_rootPart root_partition
@@ -83,7 +83,7 @@ extern uint32_t MINVIDTBLOCKSIZE(void);
 #define maxNbPrepare MAXNBPREPARE
 #define getMaxNbPrepare getMaxNbPrepare
 #define getMinBlockSize MINBLOCKSIZE
-#define getMinVidtBlockSize MINVIDTBLOCKSIZE
+#define getVidtSize VIDTSIZE
 #define getKernelStructureTotalLength KERNELSTRUCTURETOTALLENGTH
 #define getPDStructureTotalLength PDSTRUCTURETOTALLENGTH
 #define getKernelStructureEntriesNb getKernelStructureEntriesNb

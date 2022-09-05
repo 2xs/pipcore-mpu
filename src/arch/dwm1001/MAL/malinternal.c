@@ -289,7 +289,7 @@ uint32_t MINBLOCKSIZE(void)
  * \brief Returns the minimum size of a VIDT block in bytes.
  * \return The minimum size of a VIDT block in bytes.
  */
-uint32_t MINVIDTBLOCKSIZE(void)
+uint32_t VIDTSIZE(void)
 {
 	/*
 	 * The minimum VIDT block size for the nRF52832.

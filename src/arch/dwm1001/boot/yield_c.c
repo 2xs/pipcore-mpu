@@ -370,7 +370,7 @@ yield_return_code_t getSourcePartVidtCont(
 
 	/* Check that the block containing the VIDT of the caller is
 	 * big enough. */
-	if (callerVidtBlockSize < getMinVidtBlockSize())
+	if (callerVidtBlockSize < getVidtSize())
 	{
 		return CALLER_VIDT_BLOCK_TOO_SMALL;
 	}
@@ -435,7 +435,7 @@ yield_return_code_t getTargetPartVidtCont(
 
 	/* Check that the block containing the VIDT of the callee is
 	 * big enough. */
-	if (calleeVidtBlockSize < getMinVidtBlockSize())
+	if (calleeVidtBlockSize < getVidtSize())
 	{
 		return CALLEE_VIDT_BLOCK_TOO_SMALL;
 	}

@@ -143,7 +143,7 @@ Definition minBlockSize := CIndex 32.
  *
  * TODO: Do not hard-code the value.
  *)
-Definition minVidtBlockSize := CIndex 224.
+Definition vidtSize := CIndex 224.
 
 (* TODO : power of 2*)
 Definition kernelStructureTotalLength := CIndex (nextoffset + 1).
@@ -158,7 +158,7 @@ Definition getKernelStructureEntriesNb : LLI index := ret (CIndex kernelStructur
 Definition getMaxNbPrepare : LLI index := ret (CIndex maxNbPrepare).
 (*Definition getMinBlockSize : LLI paddr := ret Constants.minBlockSize.*)
 Definition getMinBlockSize : LLI index := ret Constants.minBlockSize.
-Definition getMinVidtBlockSize : LLI index := ret Constants.minVidtBlockSize.
+Definition getVidtSize : LLI index := ret Constants.vidtSize.
 Definition getKernelStructureTotalLength : LLI index := ret Constants.kernelStructureTotalLength.
 Definition getPDStructureTotalLength : LLI index := ret Constants.PDStructureTotalLength.
 Definition getMPURegionsNb : LLI index := ret (CIndex MPURegionsNb).
