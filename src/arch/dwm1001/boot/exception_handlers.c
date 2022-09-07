@@ -426,6 +426,13 @@ getFaultedAddress(stackedContext_t *ctx, void **addr, memFaultCause_t *cause)
 			*cause = IACCVIOL16;
 		}
 	}
+	else if (CFSR.MMFSR.MUNSTKERR)
+	{
+		printf("Error: The partition %p unmapped its MPU "
+			"region 0...\n", (void *) getCurPartition());
+		*addr = (void *) 0;
+		*cause = UNKNOWN;
+	}
 	else
 	{
 		*addr = (void *) 0;
