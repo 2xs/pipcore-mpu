@@ -8647,6 +8647,75 @@ intuition.
 apply CPaddrInjection. intuition.
 Qed.
 
+Lemma isPDTMultiplexerEqPDT addr' newEntry s0:
+isPDT multiplexer s0 ->
+isPDT addr' s0 ->
+isPDT multiplexer {|
+						currentPartition := currentPartition s0;
+						memory := add addr' (PDT newEntry)
+            (memory s0) beqAddr |}.
+Proof.
+intros.
+unfold isPDT. simpl.
+destruct (beqAddr addr' multiplexer) eqn:beqmultiaddr'; try(exfalso ; congruence).
+- (* addr' = multiplexer *)
+	trivial.
+- (* addr' <> multiplexer *)
+	rewrite removeDupIdentity ; intuition.
+	subst addr'.
+	rewrite <- beqAddrFalse in *.
+	congruence.
+Qed.
+
+Lemma isPDTMultiplexerEqBE addr' newEntry s0:
+isPDT multiplexer s0 ->
+isBE addr' s0 ->
+isPDT multiplexer {|
+						currentPartition := currentPartition s0;
+						memory := add addr' (BE newEntry)
+            (memory s0) beqAddr |}.
+Proof.
+intros.
+unfold isPDT. simpl.
+destruct (beqAddr addr' multiplexer) eqn:beqmultiaddr'; try(exfalso ; congruence).
+- (* addr' = multiplexer *)
+	rewrite <- DependentTypeLemmas.beqAddrTrue in beqmultiaddr'.
+	rewrite beqmultiaddr' in *.
+	unfold isPDT in *.
+	unfold isBE in *.
+	destruct (lookup multiplexer (memory s0) beqAddr) ; try(exfalso ; congruence).
+	destruct v ; try(exfalso ; congruence).
+- (* addr' <> multiplexer *)
+	rewrite removeDupIdentity ; intuition.
+	subst addr'.
+	rewrite <- beqAddrFalse in *.
+	congruence.
+Qed.
+
+Lemma isPDTMultiplexerEqSCE addr' newEntry sh1entry0 s0:
+isPDT multiplexer s0 ->
+lookup addr' (memory s0) beqAddr = Some (SCE sh1entry0) ->
+isPDT multiplexer {|
+						currentPartition := currentPartition s0;
+						memory := add addr' (SCE newEntry)
+            (memory s0) beqAddr |}.
+Proof.
+intros.
+unfold isPDT. simpl.
+destruct (beqAddr addr' multiplexer) eqn:beqmultiaddr'; try(exfalso ; congruence).
+- (* addr' = multiplexer *)
+	rewrite <- DependentTypeLemmas.beqAddrTrue in beqmultiaddr'.
+	rewrite beqmultiaddr' in *.
+	unfold isPDT in *.
+	rewrite H0 in *.
+	exfalso ; congruence.
+- (* addr' <> multiplexer *)
+	rewrite removeDupIdentity ; intuition.
+	subst addr'.
+	unfold isPDT in *.
+	rewrite H0 in *.
+	exfalso ; congruence.
+Qed.
 
 Lemma isPDTMultiplexerEqSHE addr' newEntry sh1entry0 s0:
 isPDT multiplexer s0 ->
@@ -14138,31 +14207,212 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 	apply getAllPaddrAuxEqSHE ; intuition.
 Qed.
 
-Lemma partitionsArePDT root partition s :
-In partition (getPartitions root s) ->
-isPDT partition s.
+Definition getAllPaddr: list paddr:= 
+map CPaddr (seq 0 (maxAddr+1) ).
+
+Lemma PaddrListBoundedLength :
+forall l:list paddr,
+NoDup l ->
+length(l) <= maxAddr+1.
 Proof.
-intros HpartInRoot.
+intros.
 
-unfold getPartitions in *.
-unfold filterPDT in *.
+(*assert(forall (b : paddr) (l : list paddr), In b l -> b.(p) <= maxAddr).
+{
+	intros.
+	destruct b. intuition.
+}*)
 
-induction ((root :: filterOptionPaddr (getPartitionsAux (maxAddr + 1) root s))).
-intuition.
+(*assert(forall l1:list paddr, list_max (map (fun a => a.(p)) l1) <= maxAddr).
+{
+	intros.
+	induction l1.
+	- intuition.
+	- simpl in *.
+		destruct a. simpl.
+		apply PeanoNat.Nat.max_lub ; intuition.
+}*)
 
+(*
+assert(forall l1 : list paddr, NoDup l1 -> length l1 <= maxAddr+1).
+{
+	intros.
+	generalize dependent (maxAddr).
+		induction l1 ; intuition.
+	simpl in *.
+		apply NoDup_cons_iff in H2. intuition.
+		specialize (H2 n). intuition.
+		Search (_ -> S ?a <= ?b). apply PeanoNat.Nat.le_le_succ_r. lia.
+		destruct a. destruct p ;intuition.
+		simpl in *.
+	apply NoDup_cons_iff in H2. intuition.
+		destruct l1. intuition. simpl in *. intuition.
+		apply NoDup_cons_iff in H5. intuition.
+}
+*)
+
+assert(AllPaddrAll : forall p : paddr, In p getAllPaddr).
+{
+
+intros.
+unfold getAllPaddr.
+apply in_map_iff.
+exists p.
+split.
+unfold CPaddr.
+case_eq (le_dec p maxAddr); intros.
+destruct p.
 simpl in *.
-destruct (PDTFilter s a) eqn:HPDTa ; intuition.
+f_equal.
+apply proof_irrelevance.
+destruct p.
+simpl in *. lia.
+apply in_seq.
+simpl.
+assert (0 < maxAddr). apply maxAddrNotZero.
+destruct p.
+simpl.
+lia.
+}
 
-simpl in *. intuition.
-subst a.
-
-unfold isPDT.
-
-unfold PDTFilter in *.
-destruct (lookup partition (memory s) beqAddr) ; try(exfalso ; congruence).
-destruct v ; try(exfalso ; congruence).
-trivial.
+intros.
+assert (forall p : paddr, In p getAllPaddr) by apply AllPaddrAll.
+assert (length getAllPaddr <= maxAddr+1).
+unfold getAllPaddr.
+rewrite map_length.
+rewrite seq_length. trivial.
+apply NoDup_incl_length with paddr l getAllPaddr in H.
+lia.
+unfold incl.
+intros.
+apply AllPaddrAll.
 Qed.
+
+(*
+
+assert(forall l1 n, NoDup l1 -> list_max l1 <= n -> length l1 <= n+1).
+{
+	clear.
+	intros.
+
+	induction n.
+	- intuition. simpl in *. auto. Search (list_max ?a <= ?b).
+
+	induction l1.
+	- simpl. intuition.
+	- simpl in *.
+		apply NoDup_cons_iff in H. intuition.
+		induction a.
+		-- intuition. Search (Nat.max ?a ?b <= ?n).
+				apply PeanoNat.Nat.max_lub_l in H0. intuition.
+		induction n.
+		--- intuition. simpl in *.
+
+						auto. induction (length l1) ; intuition.
+ intuition.
+
+		case_eq (a <= (list_max l1)).
+		-- intuition. admit.
+		-- intuition.
+
+
+
+ Search (_ -> S ?a <= S ?b).
+		rewrite PeanoNat.Nat.add_1_r.
+		apply le_n_S.
+		generalize dependent a.
+		induction l1.
+		-- simpl in *. intuition.
+		-- intuition.
+
+		Search (?a < Nat.max _).
+
+apply NoDup_cons_iff in H. intuition.
+		
+		destruct n eqn:Ha.
+		--- simpl in *.
+				induction (list_max l1).
+				---- intuition. simpl in *. lia. congruence. 
+
+}
+
+assert(forall l1, NoDup l1 -> length l1 <= list_max (map (fun a : paddr => a.(p)) l1)+1).
+{
+	intros.
+
+	pose proof (H1 l1).
+	apply list_max_le in H3.
+
+	induction l1.
+	- intuition.
+	- 
+ 		simpl in *.
+		destruct a. intuition. destruct p ; intuition.
+		-- simpl in *.
+
+
+		pose proof (H1 (a::l1)).
+		apply NoDup_cons_iff in H2. intuition.
+		(*assert(length l1 <= maxAddr) by lia.
+		assert(length l1 <= maxAddr+1) by lia.*)
+		Search (S ?a <= ?b).
+		rewrite PeanoNat.Nat.add_1_r.
+		Search (S ?a <= S ?b).
+		Search (?a <= ?b).
+		simpl in *.
+		(*apply Le.le_n_S in H2.
+		apply Le.le_n_S in H3.*)
+		
+		rewrite <- PeanoNat.Nat.succ_le_mono.
+		destruct a. destruct p ; intuition.
+		-- simpl in *.
+				Search (?a <= ?b -> _ \/ _).
+				assert(list_max (map (fun a : paddr => a.(p)) l1) <= maxAddr ->
+						list_max (map (fun a : paddr => a.(p)) l1) = maxAddr \/
+						list_max (map (fun a : paddr => a.(p)) l1) < maxAddr) by admit.
+				specialize (H6 H3).
+				intuition.
+				--- rewrite H7 in *. Search (length ?a -> _).
+						pose proof(H1 l1).
+				rewrite PeanoNat.Nat.max_le in H1.
+				apply Le.le_n_S in H2.
+				Search (_ -> ?a <= S ?b).
+				assert(list_max (map (fun a : paddr => a.(p)) l1) <= S maxAddr) by lia.
+				Search (?a <= S ?b -> _).
+
+				assert(S (length l1) <= S maxAddr) by lia.
+				induction l1. 
+}
+
+
+specialize (H1 l).
+assert(length l <= maxAddr) by lia.
+
+induction l.
+- intuition.
+- simpl in *.
+	intuition.
+	-- subst a.
+			apply NoDup_cons_iff in H0.
+			destruct b.
+			induction p.
+			--- intuition.
+					induction l.
+					---- intuition.
+					---- simpl in *. intuition.
+							apply NoDup_cons_iff in H1. intuition.
+
+
+Qed.
+
+
+Lemma PaddrListBoundedLength :
+forall b l,
+In b l ->
+NoDup l ->
+length(l) < list_max l.
+*)
+
 
 Lemma childrenArePDT partition child s :
 PDTIfPDFlag s ->
@@ -14280,17 +14530,127 @@ induction (getMappedBlocks parent s).
 		destruct H as [bentryaddr (sh1entryaddr & Hchild')].
 			exists bentryaddr. exists sh1entryaddr.
 			intuition.
-
 Qed.
+
+Lemma partitionsArePDT partition s :
+(*NoDup (getPartitions root s) ->*)
+PDTIfPDFlag s ->
+multiplexerIsPDT s ->
+In partition (getPartitions multiplexer s) ->
+isPDT partition s.
+Proof.
+intros HPDTIfPDFlag HmultiIsPDT HpartInRoot.
+
+unfold getPartitions in *.
+assert(Hnext' : maxAddr+2 = S (maxAddr+1)).
+{ lia. }
+rewrite Hnext' in *. clear Hnext'.
+assert(Hnext' : maxAddr+1 = S maxAddr).
+{ lia. }
+simpl in *.
+
+intuition.
+{ unfold multiplexerIsPDT in *.
+	subst partition. assumption.
+}
+unfold multiplexerIsPDT in *.
+clear HmultiIsPDT.
+
+generalize dependent multiplexer.
+
+rewrite Hnext'. clear Hnext'.
+
+induction (S maxAddr).
+- intros.
+	unfold getPartitionsAux in *. intuition.
+		induction (getChildren p s) ; intuition.
+- intros root HpartInRoot.
+	simpl in *. 
+
+	assert(HchildPDT : In partition (getChildren root s) -> isPDT partition s).
+	{ intros.
+		apply childrenArePDT with root ; intuition.
+	}
+	induction (getChildren root s) ; intuition.
+	simpl in *.
+	intuition.
+	apply in_app_or in H ; intuition.
+	apply IHn with a ; intuition.
+Qed.
+
 
 Lemma currentPartIsPDT s:
 currentPartitionInPartitionsList s ->
+PDTIfPDFlag s ->
+multiplexerIsPDT s ->
 isPDT (currentPartition s) s.
 Proof.
 intros.
 unfold currentPartitionInPartitionsList in *.
-eapply partitionsArePDT with multiplexer ; intuition.
+eapply partitionsArePDT ; intuition.
 Qed.
+(*
+Lemma getPartitionsInclMultiplexer partition s :
+isPDT multiplexer s ->
+In partition (getPartitions multiplexer s) ->
+incl (getPartitions partition s) (getPartitions multiplexer s).
+Proof.
+intros HPDTmulti HpartInPartTree.
+intros element HelementInPartitionTree.
+
+assert(isPDT partition s) by (apply partitionsArePDT with multiplexer ; intuition).
+apply isPDTLookupEq in H. destruct H as [pdentrychild Hlookupchild].
+
+unfold getPartitions in *.
+assert(Hnext : maxAddr+1 = S maxAddr).
+{ lia. }
+assert(Hnext' : maxAddr+2 = S maxAddr + 1).
+{ lia. }
+rewrite Hnext' in *. simpl in *.
+
+unfold PDTFilter in *.
+apply isPDTLookupEq in HPDTmulti. destruct HPDTmulti as [pdentrymulti Hlookupmulti].
+rewrite Hlookupmulti in *.
+simpl in *.
+rewrite Hlookupchild in *.
+
+(*clear HisChild. clear HisParent.*)
+
+intuition.
+- subst partition.
+	intuition.
+- simpl in *.
+	intuition.
+	-- subst element.
+		intuition.
+	-- destruct (getChildren multiplexer s) ; intuition.
+			simpl in *.
+			rewrite Hnext in *.
+			simpl in *.
+			destruct (PDTFilter s p) eqn:HPDTFilterp ; intuition.
+			--- simpl in *.
+					intuition.
+					---- subst p.
+								intuition.
+
+Qed.*)
+
+Lemma getPartitionsAuxSbound s bound : 
+forall partition1 partition2, In partition1 (getPartitionsAux bound partition2 s) ->
+In partition1 (getPartitionsAux (bound+1) partition2 s).
+Proof.
+induction bound;simpl; intros.
+now contradict H.
+destruct H. 
+left ;trivial.
+right.
+rewrite in_flat_map in *.
+destruct H as (x & Hx & Hxx).
+exists x;split;trivial.
+apply IHbound;trivial.  
+Qed.
+
+
 
 Lemma childparentNotEq parent child s:
 noDupPartitionTree s ->
@@ -14298,24 +14658,159 @@ In parent (getPartitions multiplexer s) ->
 In child (getChildren parent s) ->
 parent <> child.
 Proof.
-intros HNoDupPartTree HparentTree (*HchildTree*) Hchild.
-intro Hf. subst parent.
-assert(isPDT child s) by (apply partitionsArePDT with multiplexer ; intuition).
+intros HNoDupPartTree.
 unfold noDupPartitionTree in *.
-specialize (HNoDupPartTree child).
-contradict HNoDupPartTree.
-unfold getPartitions. simpl.
-unfold PDTFilter.
-unfold isPDT in *.
-destruct (lookup child (memory s) beqAddr) eqn:Hlookupchilds ; try(exfalso ; congruence).
-destruct v ; try(exfalso ; congruence).
-assert(Hnext : maxAddr+1 = S maxAddr).
+specialize (HNoDupPartTree multiplexer).
+generalize dependent multiplexer.
+intros root HNoDupPartTree HparentTree Hchild.
+intro Hf. subst parent.
+rename child into partition.
+
+assert(length (getPartitions root s) <= maxAddr + 1).
+{
+	apply PaddrListBoundedLength ; intuition.
+}
+
+
+unfold getPartitions in *.
+
+generalize dependent root.
+
+assert(Hnext' : maxAddr+2 = S (maxAddr+1)).
 { lia. }
-rewrite Hnext. simpl.
-unfold PDTFilter. rewrite Hlookupchilds in *.
-intro Hf.
-apply NoDup_cons_iff in Hf. intuition.
+
+rewrite Hnext' in *. simpl in *. (*clear Hnext.*)
+
+revert dependent partition.
+clear Hnext'.
+induction (maxAddr+1).
+- lia.
+
+- simpl in *.
+	intuition.
+	-- subst root.
+			induction (getChildren partition s).
+			---  intuition.
+			--- simpl in *.
+					intuition.
+					---- 	subst a.
+								unfold getPartitions in *.
+								apply NoDup_cons_iff in HNoDupPartTree. intuition.
+					---- 	apply H1.
+								assert((length
+												 (flat_map
+														(fun p : paddr =>
+														 p :: flat_map (fun p0 : paddr => getPartitionsAux n p0 s) (getChildren p s))
+														l)) <=
+												(length
+													 (flat_map (fun p : paddr => getPartitionsAux n p s) (getChildren a s) ++
+														flat_map
+														  (fun p : paddr =>
+														   p
+														   :: flat_map (fun p0 : paddr => getPartitionsAux n p0 s)
+														        (getChildren p s)) l))).
+								{ clear.
+									repeat rewrite app_length. lia.
+								} lia.
+									apply NoDup_cons_iff in HNoDupPartTree.
+									apply NoDup_cons_iff. intuition. apply NoDup_cons_iff in H3. intuition.
+									apply Lib.NoDupSplit in H5. intuition.
+	-- 	apply NoDup_cons_iff in HNoDupPartTree.
+			destruct HNoDupPartTree as [HnotRootInPartTree HNoDupPartTree].
+			clear HnotRootInPartTree.
+			induction (getChildren root s).
+			---  intuition.
+			--- simpl in *.
+					intuition.
+					---- 	intuition.
+								----- subst a.
+											induction (getChildren partition s).
+											------  intuition.
+											------ simpl in *.
+															intuition.
+															------- subst a.
+																			simpl in *.
+																			destruct n. lia. simpl in *.
+																			apply NoDup_cons_iff in HNoDupPartTree ; intuition.
+															------- intuition.
+																				apply H1 ; intuition.
+																				assert((length
+																								(flat_map (fun p : paddr => getPartitionsAux n p s) l0 ++
+																								 flat_map
+																									 (fun p : paddr =>
+																										p
+																										:: flat_map (fun p0 : paddr => getPartitionsAux n p0 s) (getChildren p s))
+																									 l)) <=
+																									(length
+																										 ((getPartitionsAux n a s ++
+																											 flat_map (fun p : paddr => getPartitionsAux n p s) l0) ++
+																											flat_map
+																												(fun p : paddr =>
+																												 p
+																												 :: flat_map (fun p0 : paddr => getPartitionsAux n p0 s)
+																															(getChildren p s)) l))).
+																				{ clear.
+																					repeat rewrite app_length. lia.
+																				}
+																				lia.
+																				apply NoDup_cons_iff in HNoDupPartTree. intuition.
+																				apply NoDup_cons_iff. intuition.
+																				intuition. apply H2. simpl. (*right.*)
+																				apply in_app_or in H4. intuition.
+																				assert(((getPartitionsAux n a s ++
+																								 flat_map (fun p : paddr => getPartitionsAux n p s) l0) ++
+																								flat_map
+																									(fun p : paddr =>
+																									 p
+																									 :: flat_map (fun p0 : paddr => getPartitionsAux n p0 s) (getChildren p s))
+																									l) = getPartitionsAux n a s ++
+																								 ((flat_map (fun p : paddr => getPartitionsAux n p s) l0) ++
+																								flat_map
+																									(fun p : paddr =>
+																									 p
+																									 :: flat_map (fun p0 : paddr => getPartitionsAux n p0 s) (getChildren p s))
+																									l)) by intuition.
+																				rewrite H4 in *.
+																				apply Lib.NoDupSplit in H3 ; intuition.
+
+					---- 	apply IHl ; intuition.
+								apply NoDup_cons_iff in HNoDupPartTree. intuition.
+								apply Lib.NoDupSplit in H2. intuition.
+								assert((length
+												 (flat_map
+														(fun p : paddr =>
+														 p :: flat_map (fun p0 : paddr => getPartitionsAux n p0 s) (getChildren p s))
+														l)) <= 
+												(length
+														 (flat_map (fun p : paddr => getPartitionsAux n p s) (getChildren a s) ++
+															flat_map
+																(fun p : paddr =>
+																 p
+																 :: flat_map (fun p0 : paddr => getPartitionsAux n p0 s)
+																		  (getChildren p s)) l))).
+								{ clear.
+									repeat rewrite app_length. lia.
+								} lia.
+								apply in_app_or in H1 ; intuition.
+								exfalso. apply IHn with partition a ; intuition.
+								destruct n ; intuition. lia.
+								apply NoDup_cons_iff in HNoDupPartTree. intuition.
+								apply Lib.NoDupSplit in H2. intuition.
+								apply NoDup_cons_iff. intuition.
+								assert((length (flat_map (fun p : paddr => getPartitionsAux n p s) (getChildren a s)))
+													<=
+												(length
+												 (flat_map (fun p : paddr => getPartitionsAux n p s) (getChildren a s) ++
+												  flat_map
+												    (fun p : paddr =>
+												     p
+												     :: flat_map (fun p0 : paddr => getPartitionsAux n p0 s)
+												          (getChildren p s)) l))).
+								{ clear.
+									repeat rewrite app_length. lia.
+								} lia.
 Qed.
+
 
 Lemma getPartitionsAuxEqPDT partition addr' newEntry pdentry0 s0 n:
 lookup addr' (memory s0) beqAddr = Some (PDT pdentry0) ->
@@ -14433,14 +14928,14 @@ currentPartition := currentPartition s0;
 memory := _ |}).
 intros Hlookuppds0 HstructEq HstructKSs0 HPDTIfPDflags0.
 unfold getPartitions.
-assert(HPartitionsEq : (getPartitionsAux (maxAddr + 1) partition s') =
-													(getPartitionsAux (maxAddr + 1) partition s0)).
+assert(HPartitionsEq : (getPartitionsAux (maxAddr + 2) partition s') =
+													(getPartitionsAux (maxAddr + 2) partition s0)).
 {
 	apply getPartitionsAuxEqPDT with pdentry0 ; intuition.
 }
 rewrite HPartitionsEq.
+trivial.
 
-apply filterPDTEqPDT with pdentry0 ; intuition.
 Qed.
 
 
@@ -14507,37 +15002,13 @@ memory := _ |}).
 intros HPDTs0 HPDTIfPDflags0 Hlookupaddr's0 HpresentEq HpresentFalse.
 unfold getPartitions.
 
-assert(HgetPartitionsAuxEq : (getPartitionsAux (maxAddr + 1) partition s') =
-							(getPartitionsAux (maxAddr + 1) partition s0)).
+assert(HgetPartitionsAuxEq : (getPartitionsAux (maxAddr + 2) partition s') =
+							(getPartitionsAux (maxAddr + 2) partition s0)).
 {
 	eapply getPartitionsAuxEqBEPresentFalseNoChange with bentry0; intuition.
 }
 rewrite HgetPartitionsAuxEq in *.
-induction (partition :: filterOptionPaddr (getPartitionsAux (maxAddr + 1) partition s0)).
-- intuition.
-- simpl in *.
-	unfold PDTFilter.
-	assert(HSBEs' : isBE addr' s').
-	{ unfold isBE. unfold s'. simpl. rewrite beqAddrTrue. trivial. }
-
-	destruct (beqAddr addr' a) eqn:beqpartaddr ; try(exfalso ; congruence).
-	-- (* addr' = a *)
-			rewrite <- DependentTypeLemmas.beqAddrTrue in beqpartaddr.
-			subst a.
-			unfold isBE in *.
-			destruct (lookup addr' (memory s0) beqAddr) eqn:Hf ; try(exfalso ; congruence).
-			destruct v ; try(exfalso ; congruence).
-			destruct (lookup addr' (memory s') beqAddr) eqn:Hff ; try(exfalso ; congruence).
-			destruct v ; try(exfalso ; congruence).
-			intuition.
-	-- (* addr' <> a *)
-			unfold s'. simpl in *.
-			rewrite beqpartaddr in *.
-			rewrite <- beqAddrFalse in *.
-			repeat rewrite removeDupIdentity ; intuition.
-			destruct (lookup a (memory s0) beqAddr) ; intuition.
-			destruct v ; intuition.
-			f_equal. intuition.
+trivial.
 Qed.
 
 Lemma getPartitionsAuxEqSCE partition addr' newEntry s0 n :
@@ -14599,37 +15070,13 @@ memory := _ |}).
 intros HPDTs0 HSCEs0 HPDTIfPDflags0.
 unfold getPartitions.
 
-assert(HgetPartitionsAuxEq : (getPartitionsAux (maxAddr + 1) partition s') =
-							(getPartitionsAux (maxAddr + 1) partition s0)).
+assert(HgetPartitionsAuxEq : (getPartitionsAux (maxAddr + 2) partition s') =
+							(getPartitionsAux (maxAddr + 2) partition s0)).
 {
 	eapply getPartitionsAuxEqSCE ; intuition.
 }
 rewrite HgetPartitionsAuxEq in *.
-induction (partition :: filterOptionPaddr (getPartitionsAux (maxAddr + 1) partition s0)).
-- intuition.
-- simpl in *.
-	unfold PDTFilter.
-	assert(HSCEs' : isSCE addr' s').
-	{ unfold isSCE. unfold s'. simpl. rewrite beqAddrTrue. trivial. }
-
-	destruct (beqAddr addr' a) eqn:beqpartaddr ; try(exfalso ; congruence).
-	-- (* addr' = a *)
-			rewrite <- DependentTypeLemmas.beqAddrTrue in beqpartaddr.
-			subst a.
-			unfold isSCE in *.
-			destruct (lookup addr' (memory s0) beqAddr) eqn:Hf ; try(exfalso ; congruence).
-			destruct v ; try(exfalso ; congruence).
-			destruct (lookup addr' (memory s') beqAddr) eqn:Hff ; try(exfalso ; congruence).
-			destruct v ; try(exfalso ; congruence).
-			intuition.
-	-- (* addr' <> a *)
-			unfold s'. simpl in *.
-			rewrite beqpartaddr in *.
-			rewrite <- beqAddrFalse in *.
-			repeat rewrite removeDupIdentity ; intuition.
-			destruct (lookup a (memory s0) beqAddr) ; intuition.
-			destruct v ; intuition.
-			f_equal. intuition.
+trivial.
 Qed.
 
 (* DUP *)
@@ -14694,37 +15141,13 @@ memory := _ |}).
 intros HPDTs0 HSHEs0 HPDflagEq HPDTIfPDflags0.
 unfold getPartitions.
 
-assert(HgetPartitionsAuxEq : (getPartitionsAux (maxAddr + 1) partition s') =
-							(getPartitionsAux (maxAddr + 1) partition s0)).
+assert(HgetPartitionsAuxEq : (getPartitionsAux (maxAddr + 2) partition s') =
+							(getPartitionsAux (maxAddr + 2) partition s0)).
 {
 	eapply getPartitionsAuxEqSHE with sh1entry0; intuition.
 }
 rewrite HgetPartitionsAuxEq in *.
-induction (partition :: filterOptionPaddr (getPartitionsAux (maxAddr + 1) partition s0)).
-- intuition.
-- simpl in *.
-	unfold PDTFilter.
-	assert(HSHEs' : isSHE addr' s').
-	{ unfold isSHE. unfold s'. simpl. rewrite beqAddrTrue. trivial. }
-
-	destruct (beqAddr addr' a) eqn:beqpartaddr ; try(exfalso ; congruence).
-	-- (* addr' = a *)
-			rewrite <- DependentTypeLemmas.beqAddrTrue in beqpartaddr.
-			subst a.
-			unfold isSHE in *.
-			destruct (lookup addr' (memory s0) beqAddr) eqn:Hf ; try(exfalso ; congruence).
-			destruct v ; try(exfalso ; congruence).
-			destruct (lookup addr' (memory s') beqAddr) eqn:Hff ; try(exfalso ; congruence).
-			destruct v ; try(exfalso ; congruence).
-			intuition.
-	-- (* addr' <> a *)
-			unfold s'. simpl in *.
-			rewrite beqpartaddr in *.
-			rewrite <- beqAddrFalse in *.
-			repeat rewrite removeDupIdentity ; intuition.
-			destruct (lookup a (memory s0) beqAddr) ; intuition.
-			destruct v ; intuition.
-			f_equal. intuition.
+trivial.
 Qed.
 
 (*

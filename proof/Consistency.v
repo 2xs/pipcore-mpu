@@ -128,6 +128,9 @@ nextKSentry nextKSaddr nextKS s ->
 nextKS <> nullAddr ->
 isKS nextKS s.
 
+Definition multiplexerIsPDT s :=
+isPDT multiplexer s.
+
 Definition currentPartitionInPartitionsList s :=
 In (currentPartition s) (getPartitions multiplexer s).
 (*forall pdaddr,
@@ -253,6 +256,7 @@ wellFormedFstShadowIfBlockEntry s /\
 PDTIfPDFlag s /\
 AccessibleNoPDFlag s /\
 FirstFreeSlotPointerIsBEAndFreeSlot s /\
+multiplexerIsPDT s /\
 currentPartitionInPartitionsList s /\
 wellFormedShadowCutIfBlockEntry s /\
 BlocksRangeFromKernelStartIsBE s /\

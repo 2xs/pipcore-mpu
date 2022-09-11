@@ -890,7 +890,7 @@ match bound with
                                   (getChildren partitionRoot s )
 end.
 
-Fixpoint getPartitionsAux2 (bound : nat) (l : list paddr) (s : state) {struct bound}  : list optionPaddr :=
+(*Fixpoint getPartitionsAux2 (bound : nat) (l : list paddr) (s : state) {struct bound}  : list optionPaddr :=
 match bound with
 |	0 => (* end of fuel *) []
 | S bound1 => (* Recursion on each child *)
@@ -904,36 +904,36 @@ match bound with
 							| nil => (* empty list *)
 										[]
 							end
-end.
+end.*)
 
-Fixpoint getPartitionsAux (bound : nat)  (partitionRoot : paddr) (s : state) {struct bound}  : list optionPaddr :=
+(*Fixpoint getPartitionsAux (bound : nat)  (partitionRoot : paddr) (s : state) {struct bound}  : list optionPaddr :=
+match bound with
+|	0 => (* end of fuel *) [SomePaddr partitionRoot]
+| S bound1 =>  [SomePaddr partitionRoot] ++ flat_map (fun p => getPartitionsAux bound1 p s) 
+																										(getChildren partitionRoot s )
+end.*)
+
+Fixpoint getPartitionsAux (bound : nat)  (partitionRoot : paddr) (s : state) {struct bound} :=
 match bound with
 |	0 => (* end of fuel *) []
-| S bound1 =>  [SomePaddr partitionRoot] ++ flat_map (fun p => getPartitionsAux bound1 p s) 
+| S bound1 =>  [partitionRoot] ++ flat_map (fun p => getPartitionsAux bound1 p s) 
 																										(getChildren partitionRoot s )
 end.
 
+(* TODO : to remove *)
 Definition PDTFilter (s : state) (pdentryaddr : paddr) : bool :=
 match lookup pdentryaddr s.(memory) beqAddr  with
 | Some (PDT entry) => true
 |	_ => false
 end.
 
+(* TODO : to remove *)
 Definition filterPDT (paList : list paddr) (s : state) :=
 filter (PDTFilter s) paList.
 
 (** The [getPartitions] function fixes the sufficient timeout value to retrieve all partitions *)
 Definition getPartitions (root : paddr) (s : state) : list paddr  :=
-(*let entry :=  lookup root s.(memory) beqAddr in
-match entry with
-| Some (PDT a) => (*root :: getPartitionsAux (maxAddr+1) root s*)
-									root::filterOptionPaddr ( getPartitionsAux (maxAddr+1) (getChildren root s) )s)
-|_ => []
-end.*)
-(*filterOptionPaddr (getPartitionsAux (maxAddr+1) root s maxAddr).*)
-(*(filterPDT (root :: filterOptionPaddr (getPartitionsAux (maxAddr+1) (getChildren root s) s)) s).*)
-(filterPDT (root :: filterOptionPaddr (getPartitionsAux (maxAddr+1) root s)) s).
-
+getPartitionsAux (maxAddr+2) root s.
 
 (** Propositions *)
 (** The [isPE] proposition reutrns True if the entry at position [idx]
