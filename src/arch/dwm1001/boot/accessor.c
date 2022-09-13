@@ -92,18 +92,23 @@ in(uint32_t registerId, uint32_t *valueAddress)
 {
 	const registerIdToAccessor_t *entry;
 
-	if (registerId < REGISTER_ID_TO_ACCESSOR_SIZE)
+	if (getRootPartition() != getCurPartition())
 	{
-		entry = &REGISTER_ID_TO_ACCESSOR[registerId];
-
-		return entry->accessor(
-			REGISTER_ACCESS_READ,
-			entry->address,
-			valueAddress
-		);
+		return 0;
 	}
 
-	return 0;
+	if (registerId >= REGISTER_ID_TO_ACCESSOR_SIZE)
+	{
+		return 0;
+	}
+
+	entry = &REGISTER_ID_TO_ACCESSOR[registerId];
+
+	return entry->accessor(
+		REGISTER_ACCESS_READ,
+		entry->address,
+		valueAddress
+	);
 }
 
 extern uint32_t
@@ -111,16 +116,21 @@ out(uint32_t registerId, uint32_t *valueAddress)
 {
 	const registerIdToAccessor_t *entry;
 
-	if (registerId < REGISTER_ID_TO_ACCESSOR_SIZE)
+	if (getRootPartition() != getCurPartition())
 	{
-		entry = &REGISTER_ID_TO_ACCESSOR[registerId];
-
-		return entry->accessor(
-			REGISTER_ACCESS_WRITE,
-			entry->address,
-			valueAddress
-		);
+		return 0;
 	}
 
-	return 0;
+	if (registerId >= REGISTER_ID_TO_ACCESSOR_SIZE)
+	{
+		return 0;
+	}
+
+	entry = &REGISTER_ID_TO_ACCESSOR[registerId];
+
+	return entry->accessor(
+		REGISTER_ACCESS_WRITE,
+		entry->address,
+		valueAddress
+	);
 }
