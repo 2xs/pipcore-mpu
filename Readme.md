@@ -138,7 +138,7 @@ Pip-MPU provides 13 system calls:
 
 * `findBlock`: retrieves the memory block's attributes
 
-* `setVIDT`: sets the memory block containing the interrupt handlers
+* `setVIDT`: sets the VIDT (Virtual Interrupt Descriptor Table) address of the current partition descriptor or of the partition descriptor of one of its children
 
 * `yield`: switches context
 
