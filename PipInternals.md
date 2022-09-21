@@ -1,172 +1,162 @@
-# PipInternals
+# Pip Internals
 
-**WARNING**: This document is for PIP MMU and needs to be rewritten.
+## Pip-MPU overview
+Pip-MPU is an OS (Operating System) kernel specialised in memory management and context switching.
+It is a partitioning kernel and a security kernel, ensuring memory isolation between partitions.
+It is part of the proto-kernel family, *e.g.* leaving file systems, drivers, scheduler, IPC (Inter-Process Communication) or multiplexer out of the minimalist TCB (Trusted Computing Base).
+Therefore, Pip-MPU is sole privileged in the system while all the partitions run unprivileged in userland.
+The partitions provide the missing features when necessary (for instance scheduling) as well as the applications and their support components.
+Pip-MPU is meant to be trustworthy and proofs of its memory isolation is on going work.
 
-Pip enables the user to create a collection of memory partitions, with a
-hierarchical organisation where a parent partition can manage the memory
-of its child partitions.
+In the rest of the document, we speak about Pip-MPU, the Pip variant which memory isolation is based on the MPU (Memory Protection Unit) and targets low-end microcontrollers.
+The informed reader already acquainted with the MMU-based memory isolation variant (the first [Pip](https://gitlab.univ-lille.fr/2xs/pip/pipcore/-/tree/main)) release is highly recommended to read the Pip-related parts in this document as no comparison or evolution from the MMU variant is described.
+Pip-MPU is intended to be compatible with both ARMv7-M and ARMv8-M architectures.
 
-## Memory management :
-### The description of all primitives
-Pip exports 8 primitives related to memory management:
+## Partitioning model
 
-* `createPartition`: creates a new child partition, given five free pages (which will become Partition Descriptor, Page Directory, Shadow 1, 2 and linked list)
-* `deletePartition`: deletes the given child partition
-* `addVaddr`: maps a page from the current partition into the given child partition
-* `removeVaddr`: gets back a page from a child partition
-* `prepare`: prepares a child partition for page map, given the required amount of pages (see pageCount)
-* `collect`: retrieves the empty indirection tables, and gives them back to the caller
-* `pageCount`: returns the amount of pages required to perform a prepare operation
-* `mappedInChild`: checks whether a page has been derivated in a child partition or not
+Pip-MPU's memory management is based on a hierarchical partitioning model.
+The main principle is that a *partition* (an execution unit) can create one or several sub-partitions, that in turn can create sub-partitions.
+This creates a *partition tree* rooted in a special partition called the *root partition*.
+The root partition is the only partition existing at system initialisation.
+The other partitions are dynamically created during the system's lifetime.
 
-Pip also exports the primitives `dispatch` and `resume` that are discussed below and are related to control flow.
+## Partition lineage
+We define in this paragraph fundamental relationships within the partition tree, closely resembling a family tree.
+The relationship between a partition and a sub-partition is referred as a  **parent-child** relationship.
+A **parent partition** may have **descendants** when a **child partition** also have its own children.
+For the descendants, this parent partition is considered as an **ancestor**.
+The common ancestor to all partitions is the **root partition**.
+Partitions stemming from the same parent are **sibling partitions**.
 
-### Data structure 
-In order to control, allow or decline memory operations, Pip uses several data structures to keep track of derivations.
+## Features
+Pip-MPU exposes system calls that build up the partition tree.
 
-#### Partition descriptor
-The partition descriptor is the first empty page given to createPartition. It contains the following elements, stored into it as a list:
+### Memory sharing
+A parent partition can create child partitions and share memory with them.
+	All the memory attributed to a partition is directly accessible to this partition.
+	The parent can only map memory that it owns itself.
+	As a result, the whole system memory is divided in two parts: 1) Pip's memory and 2) the rest owned at start by the root partition.
+	The root partition can access any partition's memory.
+	This is a natural consequence of the hierarchical partitioning model, where the security of any partition is based on its ancestors, by recursion.
+	As such, a parent partition has always the ability to tear down a child.
 
-* VAddr in parent partition and PAddr of Partition Descriptor
-* VAddr in parent partition and PAddr of Page Directory
-* VAddr in parent partition and PAddr of Shadow 1
-* VAddr in parent partition and PAddr of Shadow 2
-* VAddr in parent partition and PAddr of Linked list
-* PAddr of parent partition
+### Access permissions
+The parent decides which access permissions is associated to the shared memory.
+	Indeed, a partition can restrict the use of the memory to a child partition.
+	However, it can never increase the permissions.
 
-The indexes of the elements into this list are always the same in all partitions.
+### Fine-grained memory unit
+The basic memory unit is a memory block, *i.e.* a continuous range of memory addresses.
+	The memory block is defined by a start and an end address and its size can vary during the partition's lifetime.
+	Indeed, the user can cut memory blocks in smaller pieces, for example to share only a part of a block to a child.
 
-This data structure is inaccessible by any partition.
+### Flexible usage
+Partitions can leverage the previous features to set up their own requirements and fit their usage.
+	Examples are inter-partition communication by moving around memory blocks from isolated partitions, ensuring the W^X principle and least privilege in a partition...
+	From the start of the system with the launch of the root partition, the partitioning view is completely dynamic and evolves as desired by the user.
 
-    |------------------|
-    | @V. P.Descriptor |
-    | @P. P.Descriptor |
-    | @V. P.Directory  |
-    | @P. P.Directory  |
-    | @V. Shadow 1     |
-    | @P. Shadow 1     |
-    | @V. Shadow 2     |
-    | @P. Shadow 2     |
-    | @V. Linked list  |
-    | @P. Linked list  |
-    |    Null value    |
-    | @P. Parent part. |
-    |------------------|
+## Security properties
+Pip's partitioning model ensures 3 security properties:
 
-#### MMU tables structure (page directory as root) (to reformulate)
-The Page Directory is a data structure commonly used in several architectures, including Intel x86 and ARM.
-It provides a simple way to describe a virtual memory environment, by cutting a virtual address into indexes.
-Its structure is one of a table, containing entries addressed by their offset.
+* **Vertical sharing**: a parent partition can only share memory to a child partition and must own the memory blocks it gives out.
+* **Horizontal isolation**: a memory block can only be shared to as single child partition. This property ensures strict memory isolation between child partitions.
+* **Kernel Isolation**: Pip's memory, as well as all metadata structures used for describing the partitioning model, should never be accessible to any partitions.
+This property protects the kernel itself and ensures no partition can change its configuration by itself by bypassing Pip.
 
-Therefore, each index will point to an entry in one of those tables. The first index will give an entry into the Page Directory.
-This entry contains a physical address, which is a "Page Table". We can then take the second index extracted from the virtual address,
-and parse the Page Table to find another entry, and so on. 
+As such, the Pip-MPU API builds up a nested compartmentalisation.
+	Pip-MPU ensures these security properties are guaranteed at any time.
 
-Example: On x86 32 bits architectures, we have two levels of indirection, which are Page Directory and Page Table.
-The first 10 bits of the virtual address points to an entry in the Page Directory, which is the Page Table address.
-The middle 10 bits of the virtual address points to an entry in the Page Table, which is the corresponding physical address.
-We can then take the remaining 12 bits of the virtual address, OR them with the found physical address, to get the physical address of the source virtual address.
 
-    |------------------|
-    |  PAddr      |Fl. |
-    |------------------|      
-    |  PAddr      |Fl. |      
-    |------------------|
-    |       ...        |
-    |                  |
-    |------------------|
 
-This data structure is inaccessible by any partition.
+## Pip-MPU nomenclature
+This paragraph aims at defining some Pip-MPU objects that are used to describe the API.
+This is a simplified view hiding the implementation detailed not relevant for the user.
 
-#### Shadow tables structure (sh1 or sh2 as root)
-The Shadow 1 and Shadow 2 data structures are exactly the same as Page Directories, the only difference being the data stored within it.
-The Shadow 1 contains some flags related to derivation, such as the is_page_directory() flag, which defines whether a page has become a child partition or not.
-The Shadow 2 contains some tracking information, which are the virtual address of a page into the parent partition's context.
+The metadata structures are Pip's configuration information, used to track the partitioning view and to configure the MPU with the correct information.
 
-Both of these data structures are inaccessible by any partition.
+In Pip, they are of two types :
 
-#### The last linked list structure
-The configuration tables linked list contains the physical address of every data structure page of the current partition (i.e. page directory, page tables, shadow pages and linked list itself), as well as their virtual address in the parent partition. As those pages aren't even mapped in a partition, but only are in their parent, we can't use Shadow 1 or 2 to this purpose. It is structured as list of <VAddr, PAddr> couples.
+* **Partition Descriptor**: A partition is identified by a Partition Descriptor, unique in the system for this partition.
+			The Partition Descriptor is a metadata structure containing the partition's references.
+* **Kernel structure**: The kernel structure is a metadata structure holding the memory blocks and associated RWX access permissions (Read-Write-Execute).
+		A kernel structure has a fixed amount of slots (user-defined, by default 8) where to register the memory blocks.
+			Hence, a partition can have several kernel structures.
+			If one needs more slots to register new memory blocks, it is sufficient to create new kernel structures, up to a user-defined limit.
 
-    |------------------|
-    | First free index |
-    | @V. Page Table   |
-    | @P. Page Table   |
-    | @V. Shadow PT1   |
-    | @P. Shadow PT1   |
-    |       ...        |
-    |  @P. Next page   |
-    |------------------|
 
-This data structure is not accessible by any partition.
+	Metadata structures are created out of memory blocks.
+	They are only special memory blocks containing Pip-MPU information.
+	As such, memory blocks that turned into metadata structures are not accessible anymore to the partition, as they became Pip-MPU objects and should be isolated (Kernel Isolation property).
 
-## Interrupt layer and scheduling
-### Functional description
-In addition to memory management, we need to allow proper interrupts
-multiplexing and dispatching to the right child partition. (`dispatch`)
+## Pip-MPU services
 
-We also want to provide a way of implementing ~trap calls between parent and
-child partitions. (`notify`)
+Pip-MPU provides 13 system calls:
 
-### Design 
-In order to keep the Pip kernel as 'exo' as possible, we keep most of the
-scheduler out of the kernel. The Pip kernel provides only context saving and
-switching primitives. All the complex scheduling logics must be implemented
-in userland.
+* `createPartition`: creates a child partition
 
-We keep the same hierarchical organisation that was used for the memory. 
-Therefore, a parent partition should take care of managing the execution
-flow of its children partitions.
+* `deletePartition`: deletes a child partition
 
-#### Pipflags
-For now, pipflags holds only the `vcli` flag (bit 0), which enables a partition to mask virtual interrupts, and the `stack fault` flag, which is set when the interrupted stack overflowed.
+* `prepare`: sets up a new kernel structure to the current partition's or a child partition
 
-#### Saved contexts
-When an interrupt occurs, the interrupted context can be saved in two different places according to the current state of the partition :
-- If the VCLI flag is not set, Pip tries to push the interrupted context info onto the interrupted stack; if the stack overflows, the context is instead pushed onto the VIDT's context buffer, which is located at offset 0xF0C from the beginning of the VIDT, and sets the `stack fault` flag
-- If the VCLI flag is set, Pip pushes the interrupted context info onto the VIDT's context buffer.
+* `collect`: finds an empty kernel structure in the current partition or in a child partition and removes it
 
-The interrupted context's stack can be found at entry ESP(0) of the interrupted partition's VIDT, from which the interrupted context info can be found as well.
+* `addMemoryBlock`: adds a block (shared memory) to a child partition (consumes one slot in the kernel structure)
 
-#### On occurence of an hardware interrupt
-- If the interrupt happens in kernel-land, it is ignored
-- If the root partition has no handler registered for this interrupt, it is ignored as well
-- The current partition's context is saved and interrupted
-- The root partition is notified of the signal
+* `removeMemoryBlock`: removes a block from a child partition (frees one slot in the kernel structure)
 
-#### On occurence of an exception
-- Kernel-land exceptions trigger a panic
-- If the current partition is the root partition, it is notified to itself
-- Else, the target partition is the parent partition
-- The interrupted context is saved
-- The target partition is notified
+* `cutMemoryBlock`: cuts a block in the current partition (consumes one slot in the kernel structure)
 
-#### Context switching
-To resume a child context, a pip-service has been added: `resume`
-This service allows a parent partition to activate a child partition and 
-switch to one of its contexts.
-ie. `resume(part_no, 0)` to activate child partition `part_no` and
-	resume its interrupted context, resetting or not the VCLI flag.
+* `mergeMemoryBlocks`: merges back previously cut blocks in the current partition (frees one slot in the kernel structure)
 
-#### Dispatch
-The `dispatch` service allows a partition to dispatch an interrupt to a child partition or to its parent.
-This function triggers a partition/context switch. It does not save the caller context, and never returns.
-It is mainly meant to forward a hardware interrupt to a child partition (discarding the parent's interrupt
-handler context).
+* `mapMPU`: selects a block to be enabled in the MPU of the current partition or a child partition
 
-PipFlags:
+* `readMPU`: reads the block mapped in a MPU entry of the current partition or a child partition
 
-- In the calling partition: If target is a child, `vcli` = 0
-- In the target partition:  `vcli` = 1
+* `findBlock`: finds a block in the current partition or in a child partition
 
-#### Resume
-The `resume` service activates another partition, and restores the execution of the specified saved context.
-This function is meant to be called from an interrupt/notify handler, and never returns to the caller.
-Arguments are: target partition, and context to resume.
+* `setVIDT`: sets the memory block containing the interrupt handlers
 
-This service is usually used by a parent when implementing the scheduling of its child partitions. 
+* `yield`: switches context
 
-PipFlags:
+* `in`: writes a register
 
-- In the calling partition: `vcli` = 0
+* `out`: reads a register
+## Focus on the MPU management
+The MPU (Memory Protection Unit) is a hardware unit present in many ARM Cortex-M processors.
+Its role is to restrict memory accesses according to a defined configuration.
+	The configuration consists in a set of memory regions called *MPU regions* having various permission rights (read, write, execute) and additional attributes (caching, buffering...).
+	From a broad perspective, the MPU is for small embedded systems what the Memory Management Unit (MMU) is for general-purpose systems, since both share the memory protection role in a similar fashion.
+
+A Pip-based system is guarded by the MPU at all time.
+	The memory blocks are meant to be configured as an MPU region, with a minimum size of 32 bytes.
+	This means an illegal access (to Pip-MPU or a violation of a block's access permissions) ends up in a memory fault.
+	The memory fault is caught by the parent partition which can decide what to do with the faulted child.
+
+
+Furthermore, Pip-MPU introduces a distinction between all memory blocks owned by a partition (the block pool) and the memory blocks that can be accessed (enabled blocks).
+	Indeed, a typical MPU consists in 8 protected MPU regions that are too restrictive for the partition management.
+	Not all memory blocks can thus be active at the same time.
+	Thus, blocks in the block pool are enabled or disabled.
+	**Enabled** means they are guarded by the MPU with their RWX permissions set up.
+	**Disabled** means they are not accessible at all.
+	**Trying to access disabled blocks, even if they are in the block pool, results in a memory fault.**
+	By default, exception made for the root partition, no block is active from the block pool and needs to be manually enabled by the developer.
+	Though, enabled blocks must not be confused with **accessible** blocks.
+	In fact, when a memory block is shared, it is accessible by default, *i.e.* eligible to be enabled, and the developer choose to enable it or not.
+	However, if it leaves this shared state condition, *e.g.* by turning into a metadata structure during partition creation, it becomes inaccessible.
+	Only accessible blocks can be enabled in the MPU.
+
+## Special consideration to ARMv7-M users
+The ARMv8-M architecture introduces slight differences with the MPU of the previous ARMv7-M version.
+	Indeed, ARMv7-M requires more configuration constraints.
+	Pip-MPU developed mechanisms to deal with these constraints so to share common grounds between the two versions.
+	Basically, this results in 2 consequences to the ARMv7-M user:
+
+* Stack size and alignment: the stack must always be aligned to a power of two aligned on a multiple of its size.
+							This is a direct constraint carried forward.
+* Access to non-aligned memory blocks: Pip-MPU releases the alignment constraint to any other memory blocks.
+									However, in the background, Pip-MPU makes partial memory block configuration that matches the alignment constraint.
+									Hence, for any legitimate memory access in an enabled memory block, Pip-MPU reloads the MPU to always match the constraints.
+									This means that a legitimate access to a non-aligned memory block could be delayed because of the MPU reloading.
+
 
