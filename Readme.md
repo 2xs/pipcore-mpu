@@ -142,9 +142,9 @@ Pip-MPU provides 13 system calls:
 
 * `yield`: switches context
 
-* `in`: writes a register
+* `in`: reads a register
 
-* `out`: reads a register
+* `out`: writes a register
 
 ## Getting started
 
