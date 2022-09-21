@@ -118,9 +118,9 @@ Pip-MPU provides 13 system calls:
 
 * `yield`: switches context
 
-* `in`: writes a register
+* `in`: reads a register
 
-* `out`: reads a register
+* `out`: writes a register
 ## Focus on the MPU management
 The MPU (Memory Protection Unit) is a hardware unit present in many ARM Cortex-M processors.
 Its role is to restrict memory accesses according to a defined configuration.
