@@ -39,14 +39,14 @@
  *               |    |                    |   |                    |    |
  *               |    +--------------------+   +--------------------+    |
  *               |    |                    |   |                    |    |
- *               |    |       .text        |   |      .root.vidt    |    |
+ *               |    |       .text        |   |     .root.vidt     |    |
  *               |    |                    |   |                    |    +-- R0
  *         PIP --+    +--------------------+   +--------------------+    |
  *               |    |                    |   |                    |    |
  *               |    |       .data        |   |                    |    |
  *               |    |                    |   |                    |    |
  *               |    +--------------------+   |                    | <--+ 0x20008000
- *               |    |                    |   |                    |    |
+ *               |    |                    |   |         ...        |    |
  *               |    |      .padding      |   |                    |    |
  *               |    |                    |   |                    |    +-- R1
  *               +--> +--------------------+   |                    |    |
@@ -72,71 +72,48 @@
  *   R2: MPU region containing the ROM accessible to the root partition.
  */
 
-/* The size of the ROM memory. */
 __romSize = 512K ;
+__ramSize = 64K ;
 
-/* The size of the RAM memory of PIP. */
-__pipRamSize = 4K ;
-
-/* The size of the RAM memory of the root partition. */
-__rootRamSize = 64K - __pipRamSize ;
-
-/* The start address of the ROM. */
 __romStart = 0x00000000 ;
-
-/* The start address of the RAM. */
 __ramStart = 0x20000000 ;
 
-/* The start address of the RAM of the root partition. */
-__rootRamStart = __ramStart ;
-
-/* The start address of RAM of PIP. */
-__pipRamStart = __rootRamStart + __rootRamSize ;
-
-/* The end address of the ROM. */
-__romEnd = __romStart + __romSize ;
-
-/* The end addres of the RAM. */
-__ramEnd = 0x20010000 ;
-
-/* The end address of the RAM of the root partition. */
-__rootRamEnd = __rootRamStart + __rootRamSize ;
-
-/* The end address of the RAM of PIP. */
-__pipRamEnd = __pipRamStart + __pipRamSize;
-
-/* The stack size of PIP. */
-__pipStackSize = 1024 ;
-
-/* The stack size of the root partition. */
-__rootStackSize = 1024 ;
-
-/* The VIDT size of the root partition. */
+__pipStackSize = 1K ;
+__rootStackSize = 1K ;
 __rootVidtSize = 256 ;
 
-/* The configuration of the MPU region 0. */
-__mpuRegion0Size     = 32K ;
-__mpuRegion0Start    = __rootRamStart ;
-__mpuRegion0End      = __mpuRegion0Start + __mpuRegion0Size ;
-__mpuRegion0Read     = 1 ;
-__mpuRegion0Write    = 1 ;
-__mpuRegion0Execute  = 0 ;
+__romEnd = __romStart + __romSize ;
+__ramEnd = __ramStart + __ramSize ;
 
-/* The configuration of the MPU region 1. */
-__mpuRegion1Size     = __rootRamEnd - __mpuRegion0Size ;
-__mpuRegion1Start    = __mpuRegion0End ;
-__mpuRegion1End      = __mpuRegion1Start + __mpuRegion1Size ;
-__mpuRegion1Read     = 1 ;
-__mpuRegion1Write    = 1 ;
-__mpuRegion1Execute  = 0 ;
+__pipRamSize = 4K ;
+__rootRamSize = __ramSize - __pipRamSize ;
 
-/* The configuration of the MPU region 2. */
-__mpuRegion2Size     = __romEnd - __unusedRomStart ;
-__mpuRegion2Start    = __unusedRomStart ;
-__mpuRegion2End      = __mpuRegion2Start + __mpuRegion2Size ;
-__mpuRegion2Read     = 1 ;
-__mpuRegion2Write    = 0 ;
-__mpuRegion2Execute  = 1 ;
+__pipRamStart = __ramStart + __rootRamSize ;
+__rootRamStart = __ramStart ;
+
+__pipRamEnd = __pipRamStart + __pipRamSize ;
+__rootRamEnd = __rootRamStart + __rootRamSize ;
+
+__mpuRegion0Size = 32K ;
+__mpuRegion0Start = __ramStart ;
+__mpuRegion0End = __ramStart + __mpuRegion0Size ;
+__mpuRegion0Read = 1 ;
+__mpuRegion0Write = 1 ;
+__mpuRegion0Execute = 0 ;
+
+__mpuRegion1Size = __ramSize - __mpuRegion0Size - __pipRamSize ;
+__mpuRegion1Start = __mpuRegion0End ;
+__mpuRegion1End = __mpuRegion1Start + __mpuRegion1Size ;
+__mpuRegion1Read = 1 ;
+__mpuRegion1Write = 1 ;
+__mpuRegion1Execute = 0 ;
+
+__mpuRegion2Size = __romEnd - __unusedRomStart ;
+__mpuRegion2Start = __unusedRomStart ;
+__mpuRegion2End = __mpuRegion2Start + __mpuRegion2Size ;
+__mpuRegion2Read = 1 ;
+__mpuRegion2Write = 0 ;
+__mpuRegion2Execute = 1 ;
 
 MEMORY
 {
