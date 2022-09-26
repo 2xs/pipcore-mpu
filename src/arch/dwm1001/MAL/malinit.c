@@ -147,9 +147,9 @@ createAndRegisterRootPartition(void)
 		(paddr) &__mpuRegion0Start,
 		(paddr) addressMinusOne(&__mpuRegion0End),
 		(paddr) &__mpuRegion0Start,
-		(bool) &__mpuRegion0Read,
-		(bool) &__mpuRegion0Write,
-		(bool) &__mpuRegion0Execute,
+		(bool) true,
+		(bool) true,
+		(bool) false,
 		readPDNbFreeSlots(&rootPartDesc)
 	);
 
@@ -158,9 +158,9 @@ createAndRegisterRootPartition(void)
 		(paddr) &__mpuRegion1Start,
 		(paddr) addressMinusOne(&__mpuRegion1End),
 		(paddr) &__mpuRegion1Start,
-		(bool) &__mpuRegion1Read,
-		(bool) &__mpuRegion1Write,
-		(bool) &__mpuRegion1Execute,
+		(bool) true,
+		(bool) true,
+		(bool) false,
 		readPDNbFreeSlots(&rootPartDesc)
 	);
 
@@ -169,9 +169,9 @@ createAndRegisterRootPartition(void)
 		(paddr) &__mpuRegion2Start,
 		(paddr) addressMinusOne(&__mpuRegion2End),
 		(paddr) &__mpuRegion2Start,
-		(bool) &__mpuRegion2Read,
-		(bool) &__mpuRegion2Write,
-		(bool) &__mpuRegion2Execute,
+		(bool) true,
+		(bool) false,
+		(bool) true,
 		readPDNbFreeSlots(&rootPartDesc)
 	);
 

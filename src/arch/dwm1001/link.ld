@@ -97,23 +97,14 @@ __rootRamEnd = __rootRamStart + __rootRamSize ;
 __mpuRegion0Size = 32K ;
 __mpuRegion0Start = __ramStart ;
 __mpuRegion0End = __ramStart + __mpuRegion0Size ;
-__mpuRegion0Read = 1 ;
-__mpuRegion0Write = 1 ;
-__mpuRegion0Execute = 0 ;
 
 __mpuRegion1Size = __ramSize - __mpuRegion0Size - __pipRamSize ;
 __mpuRegion1Start = __mpuRegion0End ;
 __mpuRegion1End = __mpuRegion1Start + __mpuRegion1Size ;
-__mpuRegion1Read = 1 ;
-__mpuRegion1Write = 1 ;
-__mpuRegion1Execute = 0 ;
 
 __mpuRegion2Size = __romEnd - __unusedRomStart ;
 __mpuRegion2Start = __unusedRomStart ;
 __mpuRegion2End = __mpuRegion2Start + __mpuRegion2Size ;
-__mpuRegion2Read = 1 ;
-__mpuRegion2Write = 0 ;
-__mpuRegion2Execute = 1 ;
 
 MEMORY
 {
