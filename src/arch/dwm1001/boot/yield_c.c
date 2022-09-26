@@ -33,6 +33,7 @@
 
 #include <stdint.h>
 
+#include "maldefines.h"
 #include "Internal.h"
 #include "context.h"
 #include "yield_c.h"

@@ -61,15 +61,14 @@ uint32_t addressEquals(uint32_t addr, uint32_t addr2); //!< Checks whether an ad
 void cleanPage(uint32_t paddr); //!< Cleans a given page, filling it with zero
 uint32_t toAddr(uint32_t input); //!< Converts a given uint32_t to an address (only for Haskell FFI purposes)
 
-/* Coq related stuff */
-int geb(const int32_t a, const int32_t b); //!< Greater or equal
-int gtb(const int32_t a, const int32_t b); //!< Greater than
-int leb(const int32_t a, const int32_t b); //!< Lower or equal
-int ltb(const int32_t a, const int32_t b); //!< Lower than
+#define paddrLe(a,b) ((a)<=(b))
+#define indexLe(a,b) ((a)<=(b))
+#define indexLt(a,b) ((a)<(b))
+
 int eqb(const int32_t a, const int32_t b); //!< Equals
 uint32_t mul3(uint32_t v); //!< Multiply an integer with 3
-uint32_t inc(uint32_t val); //!< Increment an integer
-uint32_t dec(uint32_t val); //!< Decrement an integer
+extern Coq_index indexSuccM(Coq_index);
+extern Coq_index indexPredM(Coq_index);
 uint32_t zero(); //!< Zero. That's it.
 uint32_t one(); //!< One.
 
@@ -83,10 +82,10 @@ uint32_t add(uint32_t a, uint32_t b); //!< Add two integers
 uint32_t getKernelStructureEntriesNb(); //!< The kernel structure entries number
 uint32_t getMaxNbPrepare(); //!<  The maximum number of prepare
 uint32_t getMPURegionsNb(void); //! The maximum number of physical MPU regions
-uint32_t KERNELSTRUCTURETOTALLENGTH(void);
-uint32_t PDSTRUCTURETOTALLENGTH(void);
+uint32_t getKernelStructureTotalLength(void);
+uint32_t getPDStructureTotalLength(void);
 extern uint32_t min_mpu_region;
-uint32_t MINBLOCKSIZE(void);
+uint32_t getMinBlockSize(void);
 
 paddr getKernelStructureStartAddr(paddr blockentryaddr, uint32_t blockentryindex); //!< The start of the kernel structure frame
 paddr getBlockEntryAddrFromKernelStructureStart(paddr blockentryaddr, uint32_t blockentryindex); //!< The address of the block entry given the index and the KS
@@ -105,12 +104,11 @@ bool beqIdx(uint32_t a, uint32_t b); //!< Compare two indexes
 paddr addPaddrIdxBytes(paddr a, uint32_t b); //!< adds an offset to a paddr
 uint32_t subPaddr(paddr a, paddr b); //!< substracts the first paddr to the second.
 bool lebPaddr(const paddr a, const paddr b); //!< the first parameter is less than or equal to the second one.
-paddr predPaddr(paddr a); //!< decrements the given address.
+paddr paddrPredM(paddr a); //!< decrements the given address.
 paddr getAddr(paddr addr); //!< returns the address //TODO to remove
 
 
 /* MAL */
-PDTable_t readPDTable(paddr pdaddr); //!< Gets the Partition Descriptor (PD)
 paddr readPDStructurePointer(paddr pdaddr); //!< Gets the first kernel structure
 void writePDStructurePointer(paddr pdaddr, paddr value); //!< Sets the first kernel structure
 paddr readPDFirstFreeSlotPointer(paddr pdaddr); //!< Gets the first free slot's address
@@ -140,6 +138,7 @@ void writeBlockWFromBlockEntryAddr(paddr blockentryaddr, bool value); //!< Sets 
 bool readBlockXFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the exec flag
 void writeBlockXFromBlockEntryAddr(paddr blockentryaddr, bool value); //!< Sets the exec flag
 BlockEntry_t readBlockEntryFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the block entry
+void copyBlock(paddr blockTarget, paddr blockSource); //!< Copies block structures at the given addresses
 void writeBlockEntryFromBlockEntryAddr(paddr blockentryaddr, BlockEntry_t value); //!< Sets the block entry
 void writeBlockEntryWithIndexFromBlockEntryAddr(paddr blockentryaddr, uint32_t index, BlockEntry_t value); //!< Sets the block entry with given index
 paddr getSh1EntryAddrFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the Sh1 entry from the block entry
@@ -159,9 +158,8 @@ void writeSCEntryFromBlockEntryAddr(paddr blockentryaddr, SCEntry_t newscentry);
 paddr readNextFromKernelStructureStart(paddr structureaddr); //! Gets the block's next subblock
 void writeNextFromKernelStructureStart(paddr structureaddr, paddr newnextstructure); //! Sets the block's SC entry
 bool eraseBlock (paddr startAddr, paddr endAddr); //! Erases the memory block defined by (startAddr, endAddr).
+void initPDTable(paddr pdtablepaddr); //! Initialises PD table at paddr with a default PD table
 void writePDTable(paddr addr, PDTable_t newpdtable); //! Sets a new PD Table at the given address
-PDTable_t getDefaultPDTable(); //! Returns the default PD Table without initialisation
-PDTable_t getEmptyPDTable(); //! Returns the default PD Table with initialisation
 BlockEntry_t getDefaultBlockEntry(); //! Returns the default block entry
 Sh1Entry_t getDefaultSh1Entry(); //! Returns the default Sh1 entry
 SCEntry_t getDefaultSCEntry(); //! Returns the default SC entry

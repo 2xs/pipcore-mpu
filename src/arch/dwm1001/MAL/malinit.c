@@ -85,7 +85,7 @@ initializeRootPartitionDescriptor(paddr rootPartDesc)
 			"descriptor structure...\n");
 	}
 
-	*((PDTable_t *) rootPartDesc) = getEmptyPDTable();
+	initPDTable(rootPartDesc);
 }
 
 /*!
@@ -197,7 +197,7 @@ createAndRegisterRootPartition(void)
 static inline void
 initializeMalGlobalVariables(void)
 {
-	min_mpu_region = MINBLOCKSIZE() << 2;
+	min_mpu_region = getMinBlockSize() << 2;
 }
 
 /*!

@@ -47,7 +47,7 @@
 #include "context.h"
 
 /* bool */
-typedef uint32_t boolean;
+typedef _Bool boolean;
 #define true    1
 #define false   0
 #define bool boolean
@@ -80,7 +80,7 @@ typedef uint32_t boolean;
 typedef void* paddr;
 
 /* index */
-typedef int32_t Coq_index;
+typedef uint32_t Coq_index;
 
 /* Require for the Sh1Entry_t structure. */
 struct PDTable;

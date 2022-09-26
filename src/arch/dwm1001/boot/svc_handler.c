@@ -197,21 +197,12 @@ void SVC_Handler_C(stackedContext_t *context)
 		}
 		case SVC_NUMBER_FIND_BLOCK:
 		{
-			// Note as the result is in memory, the parameters are passed with R1 and R2, not RO
-			blockOrError block_found = findBlock(
+			bool is_found = findBlock(
 				(paddr) *r0,
-				(paddr) *r1
+				(paddr) *r1,
+				(paddr) *r2
 			);
-
-			// Fill R0-R3: the access permissions and accessible bit are squeezed into R3
-			*r0 = (uint32_t) block_found.blockAttr.blockentryaddr;
-			*r1 = (uint32_t) block_found.blockAttr.blockrange.startAddr; // displays start and end
-			*r2 = (uint32_t) block_found.blockAttr.blockrange.endAddr;
-			*r3 = (uint32_t) block_found.blockAttr.read       |
-			      (uint32_t) block_found.blockAttr.write << 1 |
-			      (uint32_t) block_found.blockAttr.exec << 2  |
-			      (uint32_t) block_found.blockAttr.accessible << 3;
-
+			*r0 = is_found;
 			break;
 		}
 		case SVC_NUMBER_SET_VIDT:

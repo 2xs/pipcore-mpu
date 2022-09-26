@@ -598,6 +598,7 @@ configure_global_variables() {
 			esac
 			arch_cflags="$arch_cflags"' -DDUMP'
 			arch_cflags="$arch_cflags"' -DNRF52832_XXAA'
+			arch_cflags="$arch_cflags"' -U__UINT32_TYPE__ -D__UINT32_TYPE__=unsigned'
 
 			### LDFLAGS for the selected architecture
 

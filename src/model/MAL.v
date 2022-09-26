@@ -465,6 +465,10 @@ Definition readBlockEntryFromBlockEntryAddr  (paddr : paddr) : LLI BlockEntry :=
   | None => undefined 11
   end.
 
+Definition copyBlock (blockTarget blockSource: paddr) : LLI unit :=
+  (* TODO Check that it does not overwrite Pip data structures *)
+  ret tt.
+
 Definition writeBlockEntryFromBlockEntryAddr (blockentryaddr : paddr) (blockentry : BlockEntry) : LLI unit :=
   writeBlockStartFromBlockEntryAddr blockentryaddr blockentry.(blockrange).(startAddr);;
   writeBlockEndFromBlockEntryAddr blockentryaddr blockentry.(blockrange).(endAddr);;
@@ -675,6 +679,14 @@ Definition getEmptyPDTable : LLI PDTable :=
     vidtAddr := nullAddr
   |} in
     ret emptyPDTable.
+
+(** The [initPDTable] function initializes the PD table pointed by <pdtableaddr>
+		with the default PD table
+	Returns unit
+*)
+Definition initPDTable (pdtablepaddr : paddr) : LLI unit :=
+	perform emptytable := getEmptyPDTable in
+	writePDTable pdtablepaddr emptytable.
 
 Definition getNextAddrFromKernelStructureStart (kernelStartAddr : paddr) : LLI paddr :=
   let nextAddr := CPaddr (kernelStartAddr + nextoffset) in

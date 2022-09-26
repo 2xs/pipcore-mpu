@@ -43,7 +43,11 @@
 #include <stddef.h>
 #include "mpu.h"
 
+uint32_t N = 1000;
+
  uint32_t min_mpu_region;
+
+paddr nullAddr = NULL;
 
 /*!
  * \fn paddr getNullAddr(void)
@@ -89,26 +93,6 @@ uint32_t addressEquals(uint32_t addr, uint32_t addr2)
 }
 
 /*!
- * \fn int32_t geb()
- * \brief the first parameter is greater than or equal to the second one.
- * \return the comparison.
- */
-int geb(const int32_t a, const int32_t b)
-{
-	return a >= b;
-}
-
-/*!
- * \fn int32_t gtb()
- * \brief the first parameter is greater than the second one.
- * \return the comparison.
- */
-int gtb(const int32_t a, const int32_t b)
-{
-	return a > b;
-}
-
-/*!
  * \fn int32_t leb()
  * \brief the first parameter is less than or equal to the second one.
  * \return the comparison.
@@ -139,21 +123,19 @@ int eqb(const int32_t a, const int32_t b)
 }
 
 /*!
- * \fn uint32_t inc()
- * \brief incremet the value.
+ * \brief increment an index
  * \return the incremented value.
  */
-uint32_t inc(uint32_t val)
+Coq_index indexSuccM(Coq_index val)
 {
 	return ++val;
 }
 
 /*!
- * \fn uint32_t dec()
- * \brief decrement value.
+ * \brief decrement index
  * \return the decremented value.
  */
-uint32_t dec(uint32_t val)
+Coq_index indexPredM(Coq_index val)
 {
 	return --val;
 }
@@ -280,7 +262,7 @@ uint32_t max_powlog2_alignment(uint32_t v)
  * \brief Returns the minimum size of a block in bytes (MPU region constraint).
  * \return The minimum size in bytes of an MPU region.
  */
-uint32_t MINBLOCKSIZE(void)
+uint32_t getMinBlockSize(void)
 {
 	return 32;//TODO : not hard-coded
 }
@@ -289,7 +271,7 @@ uint32_t MINBLOCKSIZE(void)
  * \brief Returns the minimum size of a VIDT block in bytes.
  * \return The minimum size of a VIDT block in bytes.
  */
-uint32_t VIDTSIZE(void)
+uint32_t getVidtSize(void)
 {
 	/*
 	 * The minimum VIDT block size for the nRF52832.
@@ -300,21 +282,19 @@ uint32_t VIDTSIZE(void)
 }
 
 /*!
- * \fn uint32_t PDSTRUCTURETOTALLENGTH(void)
  * \brief Returns the size of a PD structure expanded to fill an MPU region.
  * \return The size in bytes of a PD structure (matching a power of 2).
  */
-uint32_t PDSTRUCTURETOTALLENGTH(void)
+uint32_t getPDStructureTotalLength(void)
 {
 	return fit_mpu_region(sizeof(PDTable_t));
 }
 
 /*!
- * \fn uint32_t KERNELSTRUCTURETOTALLENGTH(void)
  * \brief Returns the size of a kernel structure expanded to fill an MPU region.
  * \return The size in bytes of a kernel structure (matching a power of 2).
  */
-uint32_t KERNELSTRUCTURETOTALLENGTH(void)
+uint32_t getKernelStructureTotalLength(void)
 {
 	return fit_mpu_region(sizeof(KStructure_t));
 }
@@ -364,11 +344,11 @@ uint32_t subPaddr(paddr a, paddr b)
 }
 
 /*!
- * \fn paddr predPaddr(paddr a)
+ * \fn paddr paddrPredM(paddr a)
  * \brief decrements the given address.
  * \return the previous address.
  */
-paddr predPaddr(paddr a)
+paddr paddrPredM(paddr a)
 {
 	return --a;
 }

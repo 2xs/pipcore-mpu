@@ -43,7 +43,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-extern uint32_t VIDTSIZE(void);
+extern uint32_t getVidtSize(void);
 
 /* Constants */
 #define Constants_rootPart root_partition
@@ -58,16 +58,11 @@ extern uint32_t VIDTSIZE(void);
 /* MALInternals */
 #define Paddr_leb lebPaddr
 #define Paddr_subPaddr subPaddr
-#define Paddr_pred predPaddr
 #define Paddr_addPaddrIdx addPaddrIdxBytes
 
-#define Index_succ      inc
-#define Index_pred      dec
 #define Index_eqb       eqb
 #define Index_zero      zero
 #define Index_one       one
-#define Index_geb       geb
-#define Index_gtb       gtb
 #define Index_leb       leb
 #define Index_ltb       ltb
 #define Index_subIdx    sub
@@ -76,20 +71,14 @@ extern uint32_t VIDTSIZE(void);
 
 #define Bool_eqb eqb
 
-#define getBeqAddr beqAddr
 #define getBeqIdx beqIdx
-#define nullAddr NULL
+
+extern paddr nullAddr;
 
 #define maxNbPrepare MAXNBPREPARE
 #define getMaxNbPrepare getMaxNbPrepare
-#define getMinBlockSize MINBLOCKSIZE
-#define getVidtSize VIDTSIZE
-#define getKernelStructureTotalLength KERNELSTRUCTURETOTALLENGTH
-#define getPDStructureTotalLength PDSTRUCTURETOTALLENGTH
-#define getKernelStructureEntriesNb getKernelStructureEntriesNb
 #define kernelStructureEntriesNb KERNELSTRUCTUREENTRIESNB
 
-/* Astucious defines */
-#define coq_N   1000
+extern uint32_t N;
 
 #endif

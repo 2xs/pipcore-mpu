@@ -38,13 +38,6 @@ Require Import Bool Arith List.
 
 Open Scope mpu_state_scope.
 
-(** Fixed fuel/timeout value to prove function termination *)
-Definition N := 100.
-
-(** The [getPd] function returns the page directory of a given partition *)
-Definition getPd partition :=
-  readPDTable partition.
-
 (** The [compareAddrToNull] returns true if the given addr is equal to the fixed
     default addr (null) *)
 Definition compareAddrToNull (p : paddr) : LLI bool :=
@@ -609,14 +602,6 @@ Definition sizeOfBlock (blockentryaddr : paddr) : LLI index :=
 	perform size := Paddr.subPaddr endAddr startAddr in
 	(* last address must be counted *)
 	Index.succ size.
-
-(** The [initPDTable] function initializes the PD table pointed by <pdtableaddr>
-		with the default PD table
-	Returns unit
-*)
-Definition initPDTable (pdtablepaddr : paddr) : LLI unit :=
-	perform emptytable := getEmptyPDTable in
-	writePDTable pdtablepaddr emptytable.
 
 (** The [initBlockEntryRec] function recursively initializes all block entries from
 		<indexCurr> to 0 of kernel structure located at <kernelStructureStartAddr>

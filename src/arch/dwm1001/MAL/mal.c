@@ -107,21 +107,6 @@ paddr getSCEntryAddrFromKernelStructureStart(paddr kernelstartaddr, uint32_t blo
 }
 
 /*!
- * \fn PDTable_t readPDTable(paddr pdaddr)
- * \brief Gets the Partition Descriptor (PD).
- * \param pdaddr The address where to find PD
- * \return the PD table
- */
-PDTable_t readPDTable(paddr pdaddr)
-{
-	// Cast it into a PDTable_t structure
-	PDTable_t* pd = (PDTable_t*)pdaddr; // TODO: Exception ? Only called with current partition
-
-	// Return the pd table
-	return *pd;
-}
-
-/*!
  * \fn paddr readPDStructurePointer(paddr pdaddr)
  * \brief Gets the first kernel structure.
  * \param pdaddr The address of the PD
@@ -597,6 +582,13 @@ BlockEntry_t readBlockEntryFromBlockEntryAddr(paddr blockentryaddr)
 }
 
 /*!
+ * \brief Copies block structures at the given addresses
+ */
+void copyBlock(paddr blockTarget, paddr blockSource) {
+    *((BlockEntry_t*)blockTarget) = *((BlockEntry_t*)blockSource);
+}
+
+/*!
  * \fn void writeBlockEntryFromBlockEntryAddr(paddr blockentryaddr, BlockEntry_t value)
  * \brief Sets the block entry.
  * \param blockentryaddr The address of the block entry to write in
@@ -949,41 +941,13 @@ bool eraseBlock (paddr startAddr, paddr endAddr)
 }
 
 /*!
- * \fn void writePDTable(paddr addr, PDTable_t newpdtable)
- * \brief Sets a new PD Table at the given address.
- * \param addr The address where to set the PD Table
- * \param newpdtable The new PD Table
- * \return void
+ * \fn void initPDTable(paddr)
+ * \brief Initialises PD table at paddr with a default PD table
  */
-void writePDTable(paddr addr, PDTable_t newpdtable)
-{
-	// Cast it into a PDTable_t structure
-	PDTable_t* pdtable = (PDTable_t*)addr;
-	*pdtable = newpdtable;
-
-	return;
-}
-
-/*!
- * \fn PDTable_t getDefaultPDTable()
- * \brief Returns the default PD Table without LUT initialisation.
- * \return default PD Table
- */
-PDTable_t getDefaultPDTable()
-{
-	return DEFAULT_PD_TABLE;
-}
-
-/*!
- * \fn PDTable_t getEmptyPDTable()
- * \brief Returns the default PD Table with LUT initialisation.
- * \return initialised default PD Table
- */
-PDTable_t getEmptyPDTable()
-{
-	PDTable_t defaultpdt = getDefaultPDTable();
-	clear_LUT(defaultpdt.LUT);
-	return defaultpdt;
+void initPDTable(paddr pdtablepaddr) {
+	PDTable_t* pdtable = (PDTable_t*)pdtablepaddr;
+	*pdtable = DEFAULT_PD_TABLE;
+	clear_LUT(pdtable->LUT);
 }
 
 /*!

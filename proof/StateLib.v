@@ -39,10 +39,8 @@ Require Import ProofIrrelevance Coq.Program.Equality Arith List Lia Bool.
 Import List.ListNotations.
 
 Module Index.
-Definition geb (a b : index) : bool := b <=? a.
 Definition leb (a b : index) : bool := a <=? b.
 Definition ltb (a b : index) : bool := a <? b.
-Definition gtb (a b : index) : bool := b <? a.
 Definition eqb (a b : index) : bool := a =? b.
 Definition succ (n : index): option index:=
 let isucc := n + 1 in
@@ -67,10 +65,8 @@ End Index.
 
 (* DUP *)
 Module Paddr.
-Definition geb (a b : paddr) : bool := b <=? a.
 Definition leb (a b : paddr) : bool := a <=? b.
 Definition ltb (a b : paddr) : bool := a <? b.
-Definition gtb (a b : paddr) : bool := b <? a.
 Definition eqb (a b : paddr) : bool := a =? b.
 (*Definition succ (n : index): option index:=
 let isucc := n + 1 in
@@ -145,18 +141,6 @@ match p s with
 (** The [getCurPartition] function returns the current partition descriptor of a given state *)
 (*Definition getCurPartition s : paddr :=
 currentPartition s. *)
-
-(** The [readPhysical] function returns the physical page stored into a given 
-    page at a given position in physical memory. The table should contain only Physical pages 
-    (The type [PP] is already defined into [Model.ADT]) *)
-Definition readPDTable (paddr : paddr) memory: option PDTable :=
-let entry :=  lookup paddr memory beqAddr  in 
-  match entry with
-  | Some (PDT a) => Some a
-  | _ => None
- end.
-
-
 
 (**  The [getPd] function returns the physical page of the page directory of
      a given partition  *)

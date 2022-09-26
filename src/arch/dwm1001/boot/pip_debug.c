@@ -13,11 +13,11 @@ void dump_PD_structure(paddr pd)
 {
 #if defined DUMP
     PDTable_t* pdt = (PDTable_t*) pd;
-    printf("\r\n----------PD %p (size: %zu/%ld)------------\r\n", (void *) pdt, sizeof(PDTable_t), PDSTRUCTURETOTALLENGTH());
+    printf("\r\n----------PD %p (size: %zu/%u)------------\r\n", (void *) pdt, sizeof(PDTable_t), getPDStructureTotalLength());
     printf("%p:PD\t%p\r\n", (void *) &(pdt->structure), (void *) pdt->structure);
     printf("%p:PD\t%p\r\n", (void *) &(pdt->firstfreeslot), (void *) pdt->firstfreeslot);
-    printf("%p:PD\t%lu\r\n", (void *) &(pdt->nbfreeslots), pdt->nbfreeslots);
-    printf("%p:PD\t%lu\r\n", (void *) &(pdt->nbprepare), pdt->nbprepare);
+    printf("%p:PD\t%u\r\n", (void *) &(pdt->nbfreeslots), pdt->nbfreeslots);
+    printf("%p:PD\t%u\r\n", (void *) &(pdt->nbprepare), pdt->nbprepare);
     printf("%p:PD\t%p\r\n", (void *) &(pdt->parent), (void *) pdt->parent);
     printf("%p:PD\t", (void *) &(pdt->mpu));
     for(int i = 0 ; i < MPU_REGIONS_NB ; i++)
@@ -27,8 +27,8 @@ void dump_PD_structure(paddr pd)
     printf("\r\n%p:PD\t", (void *) &(pdt->LUT));
     for(int i = 0 ; i < MPU_REGIONS_NB ; i++)
     {
-        printf(" %lx ", (pdt->LUT[i*2]));
-        printf(" %lx ", (pdt->LUT[i*2+1]));
+        printf(" %x ", (pdt->LUT[i*2]));
+        printf(" %x ", (pdt->LUT[i*2+1]));
     }
     printf("\r\n");
 #endif // DUMP
@@ -44,13 +44,13 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
 {
 #if defined DUMP
     KStructure_t* ks = (KStructure_t*) kernel_structure_start_addr;
-    printf("\r\n----------Kernel structure %p (size: %ld)----\r\n", kernel_structure_start_addr,
-                                                                KERNELSTRUCTURETOTALLENGTH());
+    printf("\r\n----------Kernel structure %p (size: %u)----\r\n", kernel_structure_start_addr,
+                                                                getKernelStructureTotalLength());
     printf("\r\n----------BLOCKS---------------------------\r\n");
     for (int i=0;i<KERNELSTRUCTUREENTRIESNB;i++)
     {
         paddr blockentryadddr = &ks->blocks[i];
-        printf("%p:%-1ld:BLK\t%-10p|%-10p\t|%-1lu|%-1lu|%-1lu%-1lu%-1lu\r\n",    blockentryadddr,
+        printf("%p:%-1u:BLK\t%-10p|%-10p\t|%-1d|%-1d|%-1d%-1d%-1d\r\n",    blockentryadddr,
                                                             readBlockIndexFromBlockEntryAddr(blockentryadddr),
                                                             readBlockStartFromBlockEntryAddr(blockentryadddr),
                                                             readBlockEndFromBlockEntryAddr(blockentryadddr),
@@ -75,7 +75,7 @@ void dump_kernel_structure(paddr kernel_structure_start_addr)
 
         paddr blockentryadddr = &ks->blocks[i];
         paddr sh1entryadddr = &ks->sh1[i];
-        printf("%p:SH1\t%-10p|%-1lu|%p\r\n",  sh1entryadddr,
+        printf("%p:SH1\t%-10p|%-1d|%p\r\n",  sh1entryadddr,
                                                 readSh1PDChildFromBlockEntryAddr(blockentryadddr),
                                                 readSh1PDFlagFromBlockEntryAddr(blockentryadddr),
                                                 readSh1InChildLocationFromBlockEntryAddr(blockentryadddr));
@@ -165,8 +165,8 @@ int dump_mpu()
         uint32_t size = readPhysicalMPUSizeBits(i);
         uint32_t enable = readPhysicalMPURegionEnable(i);
 
-        printf("%ld:MPU->RBAR =%lx, start=%p\n", i, MPU->RBAR, (void *) start);// size=%d, AP=%d, X=%d,
-        printf("%ld:MPU->RASR =%lx, end=%p, regionsize=(2^(%ld+1)=%ld, AP=%ld, XNbit=%ld, enable=%ld\n",
+        printf("%u:MPU->RBAR =%x, start=%p\n", i, MPU->RBAR, (void *) start);// size=%d, AP=%d, X=%d,
+        printf("%u:MPU->RASR =%x, end=%p, regionsize=(2^(%u+1)=%u, AP=%u, XNbit=%u, enable=%u\n",
                                                     i,
                                                     MPU->RASR,
                                                     (void *) end,
