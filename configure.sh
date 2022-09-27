@@ -48,7 +48,6 @@ coqc_regex=
 
 # Global variables
 cc=
-as_partition=
 as=
 ld=
 objcopy=
@@ -62,9 +61,7 @@ doxygen=
 make=
 no_command_check=
 architecture=
-partition_name=
 quiet=
-libpip=
 debugging_mode='none'
 boot_sequence='default'
 
@@ -88,10 +85,6 @@ Usage: %s <MANDATORY ARGUMENTS> [OPTIONAL ARGUMENTS]
 
     --architecture=<x>        The target architecture name:
                                   - \"dwm1001\"
-
-    --partition-name=<x>      The name of the partition to build
-
-    --libpip=<x>              Path to the PIP standart library
 
   OPTIONAL ARGUMENTS:
 
@@ -222,7 +215,6 @@ GDB := $gdb
 ################# Compilation options #################
 
 TARGET    = $target
-PARTITION = $partition_name
 
 # Arch related options
 ARCH_CFLAGS   = $arch_cflags
@@ -242,54 +234,6 @@ DEBUG = yes
 
 GDBARGS =
 EOF
-
-# TODO: Remove this command when the root partitions
-# code will be separated from PIP code
-exit 0
-
-cat <<EOF > src/arch/"$target"/partitions/toolchain.mk
-###############################################################################
-#  © Université de Lille, The Pip Development Team (2015-2022)                #
-#                                                                             #
-#  This software is a computer program whose purpose is to run a minimal,     #
-#  hypervisor relying on proven properties such as memory isolation.          #
-#                                                                             #
-#  This software is governed by the CeCILL license under French law and       #
-#  abiding by the rules of distribution of free software.  You can  use,      #
-#  modify and/ or redistribute the software under the terms of the CeCILL     #
-#  license as circulated by CEA, CNRS and INRIA at the following URL          #
-#  "http://www.cecill.info".                                                  #
-#                                                                             #
-#  As a counterpart to the access to the source code and  rights to copy,     #
-#  modify and redistribute granted by the license, users are provided only    #
-#  with a limited warranty  and the software's author,  the holder of the     #
-#  economic rights,  and the successive licensors  have only  limited         #
-#  liability.                                                                 #
-#                                                                             #
-#  In this respect, the user's attention is drawn to the risks associated     #
-#  with loading,  using,  modifying and/or developing or reproducing the      #
-#  software by the user in light of its specific status of free software,     #
-#  that may mean  that it is complicated to manipulate,  and  that  also      #
-#  therefore means  that it is reserved for developers  and  experienced      #
-#  professionals having in-depth computer knowledge. Users are therefore      #
-#  encouraged to load and test the software's suitability as regards their    #
-#  requirements in conditions enabling the security of their systems and/or   #
-#  data to be ensured and,  more generally, to use and operate it in the      #
-#  same conditions as regards security.                                       #
-#                                                                             #
-#  The fact that you are presently reading this means that you have had       #
-#  knowledge of the CeCILL license and that you accept its terms.             #
-###############################################################################
-
-# Edit this to suit your needs
-
-CC=$cc
-LD=$ld
-AS=$as_partition
-OBJCOPY=$objcopy
-
-LIBPIP=$libpip
-EOF
 }
 
 # Parse provided arguments
@@ -306,9 +250,6 @@ parse_arguments() {
 			--architecture)
 				architecture=$value
 				;;
-			--partition-name)
-				partition_name=$value
-				;;
 			--no-command-check)
 				no_command_check=1
 				;;
@@ -320,9 +261,6 @@ parse_arguments() {
 				;;
 			--boot-sequence)
 				boot_sequence=$value
-				;;
-			--libpip)
-				libpip=$value
 				;;
 			--c-compiler)
 				cc=$value
@@ -569,9 +507,6 @@ configure_global_variables() {
 			coqdep=${coqdep:='coqdep'}
 			coqdoc=${coqdoc:='coqdoc'}
 
-			# Assembler for partitions
-			as_partition="$as"
-
 			### Regular expressions used to extract the version
 			### number from the "--version" output
 
@@ -641,7 +576,7 @@ main() {
 	parse_arguments "$@"
 
 	# Check if the mandatory arguments are set
-	if [ -z "$architecture" ] # || [ -z "$partition_name" ] || [ -z "$libpip" ]
+	if [ -z "$architecture" ]
 	then
 		usage && return 1
 	fi
@@ -665,28 +600,6 @@ main() {
 		validate_command_path_wrapper "$doxygen"
 		validate_command_path_wrapper "$make"
 	fi
-
-	# Abort if the provided partition name could not be found in the target architecture
-	#if [ ! -d 'src/arch/'"$target"'/partitions/'"$partition_name" ]
-	#then
-	#	print_error 'The provided partition name "%s" could not be found at ' "$partition_name"
-	#	print_error '"src/arch/%s/partitions/%s" ...\n' "$target" "$partition_name"
-	#	return 1
-	#fi
-
-	# Abort if the provided LibPIP path does not exist
-	#if [ ! -d "$libpip" ]
-	#then
-	#	print_error 'The provided LibPIP path "%s" could not be found ...\n' "$libpip"
-	#	return 1
-	#fi
-
-	# Abort if the provided LibPIP path is a relative one
-	#if ! printf '%s' "$libpip" | grep -q '^/.*'
-	#then
-	#	print_error 'The provided LibPIP path "%s" is not an absolute path ...\n' "$libpip"
-	#	return 1
-	#fi
 
 	generate_toolchains
 
