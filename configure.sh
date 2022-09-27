@@ -53,6 +53,7 @@ as=
 ld=
 objcopy=
 coqc=
+dx=
 coqdep=
 coqdoc=
 pdflatex=
@@ -129,6 +130,12 @@ Usage: %s <MANDATORY ARGUMENTS> [OPTIONAL ARGUMENTS]
     --coq-compiler=<x>        Explicitly use a path to the Coq compiler rather
                               than trying to find it in the \$PATH variable.
 
+    --dx=<x>                  Set the directory in which dx C printer is
+                              installed (see variable \$CPRINTERDIR in dx
+                              configuration). If you installed dx with opam, it
+                              should be \"$(opam var dx:lib)\".
+                              If not set, digger will be used.
+
     --coqdep=<x>              Explicitly use a path to coqdep rather than trying
                               to find it in the \$PATH variable.
 
@@ -189,6 +196,8 @@ cat <<EOF > toolchain.mk
 # Tool to convert Coq code into C code
 DIGGER_DIR   = tools/digger
 DIGGER     := \$(DIGGER_DIR)/digger
+
+DXDIR := $dx
 
 # Coq Proof Assistant
 COQC   := $coqc
@@ -329,6 +338,9 @@ parse_arguments() {
 				;;
 			--coq-compiler)
 				coqc=$value
+				;;
+			--dx)
+				dx=$value
 				;;
 			--coqdep)
 				coqdep=$value
