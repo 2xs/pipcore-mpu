@@ -67,6 +67,12 @@ then
   ret (Build_paddr ipred _ )
 else  undefined 69.
 
+Program Definition paddrAddIdxM (n : paddr) (m : index) : LLI paddr :=
+let res := n+m in
+if (le_dec res maxAddr )
+then
+  ret (Build_paddr res _ )
+else  undefined 70.
 
 Module Paddr.
 (* #[deprecated(note="Use paddrLeM instead.")] *)
@@ -78,14 +84,8 @@ Notation ltb x y := (paddrLtM x y) (only parsing).
 Notation succ := paddrSuccM (only parsing).
 (* #[deprecated(note="Use paddrPredM instead.")] *)
 Notation pred := paddrPredM (only parsing).
-
-
-Program Definition addPaddrIdx (n : paddr) (m: index) : LLI paddr :=
-let res := n+m in
-if (le_dec res maxAddr )
-then
-  ret (Build_paddr res _ )
-else  undefined 70.
+(* #[deprecated(note="Use paddrAddIdxM instead.")] *)
+Notation addPaddrIdx := paddrAddIdxM (only parsing).
 
 Program Definition subPaddrIdx (n : paddr) (m: index) : LLI paddr :=
 let res := n-m in

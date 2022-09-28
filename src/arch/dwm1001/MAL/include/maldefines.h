@@ -58,7 +58,6 @@ extern uint32_t getVidtSize(void);
 /* MALInternals */
 #define Paddr_leb lebPaddr
 #define Paddr_subPaddr subPaddr
-#define Paddr_addPaddrIdx addPaddrIdxBytes
 
 #define Index_eqb       eqb
 #define Index_zero      zero

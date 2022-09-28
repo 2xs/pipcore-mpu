@@ -103,7 +103,7 @@ block_t largest_covering_MPU_region(paddr blockentryaddr, paddr addrtocover); //
 paddr getNullAddr(void); //!< Returns the default null address.
 bool beqAddr(paddr a, paddr b); //!< Compare two addresses
 bool beqIdx(uint32_t a, uint32_t b); //!< Compare two indexes
-paddr addPaddrIdxBytes(paddr a, uint32_t b); //!< adds an offset to a paddr
+paddr paddrAddIdxM(paddr a, Coq_index b); //!< adds an offset to a paddr
 uint32_t subPaddr(paddr a, paddr b); //!< substracts the first paddr to the second.
 bool lebPaddr(const paddr a, const paddr b); //!< the first parameter is less than or equal to the second one.
 paddr paddrPredM(paddr a); //!< decrements the given address.

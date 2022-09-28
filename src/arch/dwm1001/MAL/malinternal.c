@@ -361,13 +361,12 @@ bool lebPaddr(const paddr a, const paddr b)
 }
 
 /*!
- * \fn paddr addPaddrIdxBytes(paddr a, uint32_t b)
  * \brief adds an offset in bytes to a paddr
  * \param a Address to offset
  * \param b the offset in bytes
  * \return the offseted address.
  */
-paddr addPaddrIdxBytes(paddr a, uint32_t b)
+paddr paddrAddIdxM(paddr a, Coq_index b)
 {
 	return (paddr) ((uint8_t*) a + b);
 }
