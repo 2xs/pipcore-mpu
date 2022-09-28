@@ -140,13 +140,11 @@ Coq_index indexPredM(Coq_index val)
 	return --val;
 }
 
-
 /*!
- * \fn uint32_t sub()
- * \brief substracts the second value from the first.
+ * \brief substracts the second index from the first.
  * \return the result of the substraction.
  */
-uint32_t sub(uint32_t a, uint32_t b)
+Coq_index indexSubM(Coq_index a, Coq_index b)
 {
 	return a-b;
 }

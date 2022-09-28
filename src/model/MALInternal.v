@@ -129,6 +129,13 @@ then
   ret (Build_index res _ )
 else  undefined 72.
 
+Program Definition indexSubM (n : index) (m : index) : LLI index :=
+let res := n-m in
+if (le_dec res maxIdx )
+then
+  ret (Build_index res _ )
+else  undefined 72.
+
 Module Index.
 
 (* #[deprecated(note="Use indexLeM instead.")] *)
@@ -141,15 +148,10 @@ Notation succ := indexSuccM (only parsing).
 Notation pred := indexPredM (only parsing).
 (* #[deprecated(note="Use indexAddM instead.")] *)
 Notation addIdx := indexAddM (only parsing).
+(* #[deprecated(note="Use indexSubM instead.")] *)
+Notation subIdx := indexSubM (only parsing).
 
 Program Definition zero : LLI index:= ret (CIndex 0).
-
-Program Definition subIdx (n : index) (m: index) : LLI index :=
-let res := n-m in
-if (le_dec res maxIdx )
-then
-  ret (Build_index res _ )
-else  undefined 72.
 
 Program Definition mulIdx (n : index) (m: index) : LLI index :=
 let res := n*m in

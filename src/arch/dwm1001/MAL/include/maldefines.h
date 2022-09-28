@@ -65,7 +65,6 @@ extern uint32_t getVidtSize(void);
 #define Index_one       one
 #define Index_leb       leb
 #define Index_ltb       ltb
-#define Index_subIdx    sub
 #define Index_mulIdx    mul
 
 #define Bool_eqb eqb
