@@ -148,7 +148,7 @@ bool readSh1PDFlagFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the child'
 void writeSh1PDFlagFromBlockEntryAddr(paddr blockentryaddr, bool value); //!< Sets the entry's PD flag
 paddr readSh1InChildLocationFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the location of the block in the child
 void writeSh1InChildLocationFromBlockEntryAddr(paddr blockentryaddr, paddr value); //!<Sets the block's location in the child
-void writeSh1EntryFromBlockEntryAddr(paddr blockentryaddr, Sh1Entry_t newsh1entry);//! Sets the block's Sh1 entry
+void writeSh1EntryFromBlockEntryAddr(paddr blockentryaddr, paddr pdChild, bool pdFlag, paddr inChildLocation);//! Sets the block's Sh1 entry
 paddr getSCEntryAddrFromBlockEntryAddr(paddr blockentryaddr); //! Gets the SC entry from the block entry
 paddr readSCOriginFromBlockEntryAddr(paddr blockentryaddr); //! Gets the block's origin
 void writeSCOriginFromBlockEntryAddr(paddr blockentryaddr, paddr value); //! Sets the block's origin
@@ -161,7 +161,6 @@ bool eraseBlock (paddr startAddr, paddr endAddr); //! Erases the memory block de
 void initPDTable(paddr pdtablepaddr); //! Initialises PD table at paddr with a default PD table
 void writePDTable(paddr addr, PDTable_t newpdtable); //! Sets a new PD Table at the given address
 BlockEntry_t getDefaultBlockEntry(); //! Returns the default block entry
-Sh1Entry_t getDefaultSh1Entry(); //! Returns the default Sh1 entry
 SCEntry_t getDefaultSCEntry(); //! Returns the default SC entry
 BlockEntry_t buildBlockEntry(paddr startaddr, paddr endaddr, bool accessiblebit, bool presentbit); //! Constructs a block entry given the attributes
 paddr getPDStructurePointerAddrFromPD(paddr pdaddr); //! Gets the structure pointer of the given PD

@@ -383,8 +383,7 @@ Definition freeSlot (pdfree entrytofreeaddr: paddr) : LLI paddr :=
 		(* set default values in slot to free *)
 		perform defaultBlockEntry := getDefaultBlockEntry in
 		writeBlockEntryFromBlockEntryAddr entrytofreeaddr defaultBlockEntry;;
-		perform defaultSh1Entry := getDefaultSh1Entry in
-		writeSh1EntryFromBlockEntryAddr entrytofreeaddr defaultSh1Entry;;
+		writeSh1EntryFromBlockEntryAddr entrytofreeaddr nullAddr false nullAddr;;
 		perform defaultSCEntry := getDefaultSCEntry in
 		writeSCEntryFromBlockEntryAddr entrytofreeaddr defaultSCEntry;;
 		(* insert free slot in the free slot list *)
@@ -689,12 +688,10 @@ Fixpoint initSh1EntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 	match timeout with
 		| 0 => 	ret false (* timeout reached *)
 		| S timeout1 => (** PROCESSING: set default values in current entry *)
-										perform defaultSh1Entry := getDefaultSh1Entry in
 										perform currEntryPointer := getBlockEntryAddrFromKernelStructureStart
 																									kernelStructureStartAddr
 																									indexCurr in
-										writeSh1EntryFromBlockEntryAddr currEntryPointer
-																									defaultSh1Entry;;
+										writeSh1EntryFromBlockEntryAddr currEntryPointer nullAddr false nullAddr;;
 										perform zero := Index.zero in
 										if beqIdx indexCurr zero
 										then (** STOP condition: parsed all entries *)
@@ -809,9 +806,7 @@ Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
 														(* Set block accessible in current partition *)
 														writeBlockAccessibleFromBlockEntryAddr 	currBlockEntryAddr
 																																true ;;
-														perform defaultSh1Entry := getDefaultSh1Entry in
-														writeSh1EntryFromBlockEntryAddr currBlockEntryAddr
-																													defaultSh1Entry ;;
+														writeSh1EntryFromBlockEntryAddr currBlockEntryAddr nullAddr false nullAddr ;;
 													(* 	whatever the accessibility of the block that could
 															not be accessible because of the child's operations,
 															set the block accessible again*)
@@ -1170,9 +1165,7 @@ match timeout with
 																															blockToCollectAddr
 																															true ;;
 												(* Erase sh1 reference *)
-												perform defaultSh1Entry := getDefaultSh1Entry in
-												writeSh1EntryFromBlockEntryAddr blockToCollectAddr
-																											defaultSh1Entry ;;
+												writeSh1EntryFromBlockEntryAddr blockToCollectAddr nullAddr false nullAddr ;;
 
 											(** STOP condition 2: found a structure to collect *)
 											ret blockToCollectAddr

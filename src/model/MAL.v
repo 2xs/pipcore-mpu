@@ -585,10 +585,10 @@ Definition writeSh1InChildLocationFromBlockEntryAddr (blockentryaddr : paddr)
 	writeSh1InChildLocationFromBlockEntryAddr2 Sh1EAddr newinchildlocation.
 
 Definition writeSh1EntryFromBlockEntryAddr (blockentryaddr : paddr)
-  (sh1entry : Sh1Entry) : LLI unit :=
-  writeSh1PDChildFromBlockEntryAddr blockentryaddr sh1entry.(PDchild);;
-  writeSh1PDFlagFromBlockEntryAddr blockentryaddr sh1entry.(PDflag);;
-  writeSh1InChildLocationFromBlockEntryAddr blockentryaddr sh1entry.(inChildLocation);;
+  (pdChild : paddr) (pdFlag : bool) (inChildLocation : paddr) : LLI unit :=
+  writeSh1PDChildFromBlockEntryAddr blockentryaddr pdChild;;
+  writeSh1PDFlagFromBlockEntryAddr blockentryaddr pdFlag;;
+  writeSh1InChildLocationFromBlockEntryAddr blockentryaddr inChildLocation;;
   ret tt.
 
 Definition getSCEntryAddrFromBlockEntryAddr (blockentryaddr : paddr) : LLI paddr :=
@@ -730,14 +730,6 @@ Definition getDefaultBlockEntry : LLI BlockEntry :=
                                 (* default index is outside possible values*)
                                 entriesnb
                                 emptyblock in
-    ret emptyentry.
-
-Definition getDefaultSh1Entry : LLI Sh1Entry :=
-  let emptyentry := {|
-    PDchild := nullAddr;
-    PDflag := false;
-    inChildLocation := nullAddr
-  |} in
     ret emptyentry.
 
 Definition getDefaultSCEntry : LLI SCEntry :=

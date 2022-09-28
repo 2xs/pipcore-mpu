@@ -585,8 +585,7 @@ Definition removeMemoryBlock (idBlockToRemove: paddr) : LLI bool :=
 		if negb blockIsRemoved then (* block not removed, stop*) ret false else
 
 		(** Parent: remove block reference to the child *)
-		perform defaultSh1Entry := getDefaultSh1Entry in
-		writeSh1EntryFromBlockEntryAddr blockToRemoveInCurrPartAddr defaultSh1Entry ;;
+		writeSh1EntryFromBlockEntryAddr blockToRemoveInCurrPartAddr nullAddr false nullAddr ;;
 		ret true.
 
 (** ** The deletePartition PIP MPU service
@@ -631,8 +630,7 @@ Definition deletePartition (idPDchildToDelete: paddr) : LLI bool :=
 
 		(** Erase PD child entry: remove sharing and set accessible for current partition *)
 		writeBlockAccessibleFromBlockEntryAddr blockToDeleteInCurrPartAddr true ;;
-		perform defaultSh1Entry := getDefaultSh1Entry in
-		writeSh1EntryFromBlockEntryAddr blockToDeleteInCurrPartAddr defaultSh1Entry ;;
+		writeSh1EntryFromBlockEntryAddr blockToDeleteInCurrPartAddr nullAddr false nullAddr ;;
 		perform isCut := checkBlockCut blockToDeleteInCurrPartAddr in
 		if isCut
 		then	(* if the PD child block to remove is cut, remains not accessible in

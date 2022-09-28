@@ -51,7 +51,6 @@ static const PDTable_t DEFAULT_PD_TABLE = {NULL, NULL, 0, 0, NULL}; // BEWARE : 
 static const block_t DEFAULT_BLOCK = {0, 0};
 static const BlockIndex_t DEFAULT_BLOCK_INDEX = {-1};
 static const BlockEntry_t DEFAULT_BLOCK_ENTRY = {DEFAULT_BLOCK, DEFAULT_BLOCK_INDEX, false, false, false, false, false};
-static const Sh1Entry_t DEFAULT_SH1_ENTRY = {NULL, NULL, false};
 static const SCEntry_t DEFAULT_SC_ENTRY = {NULL, NULL};
 
 
@@ -758,17 +757,18 @@ void writeSh1InChildLocationFromBlockEntryAddr(paddr blockentryaddr, paddr value
 }
 
 /*!
- * \fn void writeSh1EntryFromBlockEntryAddr(paddr blockentryaddr, Sh1Entry_t newsh1entry)
  * \brief Sets the block's SH1 entry.
  * \param blockentryaddr The address of the reference block entry
- * \param newsh1entry The new Sh1 entry
+ * \param pdChild Pointer to the child the block is shared with
+ * \param pdFlag Block content is a PD
+ * \param inChildLocation Pointer to the slot where the block lies in the child partition
  * \return void
  */
-void writeSh1EntryFromBlockEntryAddr(paddr blockentryaddr, Sh1Entry_t newsh1entry)
+void writeSh1EntryFromBlockEntryAddr(paddr blockentryaddr, paddr pdChild, bool pdFlag, paddr inChildLocation)
 {
-	writeSh1PDChildFromBlockEntryAddr(blockentryaddr, newsh1entry.PDchild);
-	writeSh1PDFlagFromBlockEntryAddr(blockentryaddr, newsh1entry.PDflag);
-	writeSh1InChildLocationFromBlockEntryAddr(blockentryaddr, newsh1entry.inChildLocation);
+	writeSh1PDChildFromBlockEntryAddr(blockentryaddr, pdChild);
+	writeSh1PDFlagFromBlockEntryAddr(blockentryaddr, pdFlag);
+	writeSh1InChildLocationFromBlockEntryAddr(blockentryaddr, inChildLocation);
 
 	return;
 }
@@ -958,16 +958,6 @@ void initPDTable(paddr pdtablepaddr) {
 BlockEntry_t getDefaultBlockEntry()
 {
 	return DEFAULT_BLOCK_ENTRY;
-}
-
-/*!
- * \fn Sh1Entry_t getDefaultSh1Entry()
- * \brief Returns the default Sh1 entry.
- * \return default Sh1 entry
- */
-Sh1Entry_t getDefaultSh1Entry()
-{
-	return DEFAULT_SH1_ENTRY;
 }
 
 /*!
