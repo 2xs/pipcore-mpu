@@ -385,8 +385,7 @@ Definition freeSlot (pdfree entrytofreeaddr: paddr) : LLI paddr :=
 		perform index := getKernelStructureEntriesNb in
 		writeBlockEntryFromBlockEntryAddr entrytofreeaddr index nullAddr nullAddr false false false false false;;
 		writeSh1EntryFromBlockEntryAddr entrytofreeaddr nullAddr false nullAddr;;
-		perform defaultSCEntry := getDefaultSCEntry in
-		writeSCEntryFromBlockEntryAddr entrytofreeaddr defaultSCEntry;;
+		writeSCEntryFromBlockEntryAddr entrytofreeaddr nullAddr nullAddr;;
 		(* insert free slot in the free slot list *)
 		perform currFirstFreeSlot := readPDFirstFreeSlotPointer pdfree in
 		writeBlockEndFromBlockEntryAddr entrytofreeaddr currFirstFreeSlot ;;
@@ -715,12 +714,10 @@ Fixpoint initSCEntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 	match timeout with
 		| 0 => 	ret false (* timeout reached *)
 		| S timeout1 => (** PROCESSING: set default values in current entry *)
-										perform defaultSCEntry := getDefaultSCEntry in
 										perform currEntryPointer := getBlockEntryAddrFromKernelStructureStart
 																									kernelStructureStartAddr
 																									indexCurr in
-										writeSCEntryFromBlockEntryAddr 	currEntryPointer
-																									defaultSCEntry;;
+										writeSCEntryFromBlockEntryAddr currEntryPointer nullAddr nullAddr;;
 										perform zero := Index.zero in
 										if beqIdx indexCurr zero
 										then (** STOP condition: parsed all entries *)

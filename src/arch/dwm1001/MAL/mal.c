@@ -48,7 +48,6 @@ paddr current_partition = NULL; /* Current partition, default root */
 paddr root_partition = NULL; /* Multiplexer's partition descriptor, default 0*/
 
 static const PDTable_t DEFAULT_PD_TABLE = {NULL, NULL, 0, 0, NULL}; // BEWARE : LUT not initialized
-static const SCEntry_t DEFAULT_SC_ENTRY = {NULL, NULL};
 
 
 /*!
@@ -857,16 +856,15 @@ void writeSCNextFromBlockEntryAddr(paddr blockentryaddr, paddr value)
 }
 
 /*!
- * \fn void writeSCEntryFromBlockEntryAddr(paddr blockentryaddr, SCEntry_t newscentry)
  * \brief Sets the block's SC entry.
  * \param blockentryaddr The address of the reference block entry
- * \param newscentry The new SC entry
- * \return void
+ * \param origin Pointer to the original (sub)block
+ * \param next Pointer to the next subblock
  */
-void writeSCEntryFromBlockEntryAddr(paddr blockentryaddr, SCEntry_t newscentry)
+void writeSCEntryFromBlockEntryAddr(paddr blockentryaddr, paddr origin, paddr next)
 {
-	writeSCOriginFromBlockEntryAddr(blockentryaddr, newscentry.origin);
-	writeSCNextFromBlockEntryAddr(blockentryaddr, newscentry.next);
+	writeSCOriginFromBlockEntryAddr(blockentryaddr, origin);
+	writeSCNextFromBlockEntryAddr(blockentryaddr, next);
 
 	return;
 }
@@ -936,16 +934,6 @@ void initPDTable(paddr pdtablepaddr) {
 	PDTable_t* pdtable = (PDTable_t*)pdtablepaddr;
 	*pdtable = DEFAULT_PD_TABLE;
 	clear_LUT(pdtable->LUT);
-}
-
-/*!
- * \fn SCEntry_t getDefaultSCEntry()
- * \brief Returns the default SC entry.
- * \return default SC entry
- */
-SCEntry_t getDefaultSCEntry()
-{
-	return DEFAULT_SC_ENTRY;
 }
 
 /*!

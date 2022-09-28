@@ -652,9 +652,9 @@ Definition writeSCNextFromBlockEntryAddr (paddr : paddr) (newnext : ADT.paddr) :
   end.
 
 Definition writeSCEntryFromBlockEntryAddr (blockentryaddr : paddr)
-  (scentry : SCEntry) : LLI unit :=
-  writeSCOriginFromBlockEntryAddr blockentryaddr scentry.(origin);;
-  writeSCNextFromBlockEntryAddr blockentryaddr scentry.(next);;
+  (origin : paddr) (next : paddr) : LLI unit :=
+  writeSCOriginFromBlockEntryAddr blockentryaddr origin;;
+  writeSCNextFromBlockEntryAddr blockentryaddr next;;
   ret tt.
 
 Definition writePDTable (pdtablepaddr : paddr) (newEntry : PDTable)  : LLI unit:=
@@ -714,13 +714,6 @@ Definition writeNextFromKernelStructureStart (structurepaddr : paddr) (newnext :
   | Some _ => undefined 12
   | None => undefined 11
   end.
-
-Definition getDefaultSCEntry : LLI SCEntry :=
-  let emptyentry := {|
-    origin := nullAddr;
-    next := nullAddr
-  |} in
-    ret emptyentry.
 
 Definition getPDStructurePointerAddrFromPD (pdAddr : paddr) : LLI paddr :=
   let structurePointerAddr := CPaddr (pdAddr + Constants.kernelstructureidx) in

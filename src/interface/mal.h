@@ -153,13 +153,12 @@ paddr readSCOriginFromBlockEntryAddr(paddr blockentryaddr); //! Gets the block's
 void writeSCOriginFromBlockEntryAddr(paddr blockentryaddr, paddr value); //! Sets the block's origin
 paddr readSCNextFromBlockEntryAddr(paddr blockentryaddr); //! Gets the block's next subblock
 void writeSCNextFromBlockEntryAddr(paddr blockentryaddr, paddr value); //! Sets the block's next subblock
-void writeSCEntryFromBlockEntryAddr(paddr blockentryaddr, SCEntry_t newscentry); //! Sets the block's SC entry
+void writeSCEntryFromBlockEntryAddr(paddr blockentryaddr, paddr origin, paddr next); //! Sets the block's SC entry
 paddr readNextFromKernelStructureStart(paddr structureaddr); //! Gets the block's next subblock
 void writeNextFromKernelStructureStart(paddr structureaddr, paddr newnextstructure); //! Sets the block's SC entry
 bool eraseBlock (paddr startAddr, paddr endAddr); //! Erases the memory block defined by (startAddr, endAddr).
 void initPDTable(paddr pdtablepaddr); //! Initialises PD table at paddr with a default PD table
 void writePDTable(paddr addr, PDTable_t newpdtable); //! Sets a new PD Table at the given address
-SCEntry_t getDefaultSCEntry(); //! Returns the default SC entry
 paddr getPDStructurePointerAddrFromPD(paddr pdaddr); //! Gets the structure pointer of the given PD
 bool checkEntry(paddr kstructurestart, paddr blockentryaddr); //! Checks a block entry is valid in the kernel structure
 bool checkBlockInRAM(paddr blockentryaddr); //! Checks whether the block is entirely in RAM
