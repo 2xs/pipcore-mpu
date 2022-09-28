@@ -45,9 +45,6 @@
 
 extern uint32_t getVidtSize(void);
 
-/* Constants */
-#define Constants_rootPart root_partition
-
 /* ADT structure */
 #define coq_PDTable PDTable_t
 #define coq_BlockEntry BlockEntry_t

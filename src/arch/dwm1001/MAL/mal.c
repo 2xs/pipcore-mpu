@@ -45,7 +45,7 @@
 #include "stdio.h"
 
 paddr current_partition = NULL; /* Current partition, default root */
-paddr root_partition = NULL; /* Multiplexer's partition descriptor, default 0*/
+paddr constantRootPartM = NULL; /* Multiplexer's partition descriptor, default 0*/
 
 static const PDTable_t DEFAULT_PD_TABLE = {NULL, NULL, 0, 0, NULL}; // BEWARE : LUT not initialized
 
@@ -1083,7 +1083,7 @@ updateCurPartition (paddr descriptor)
  */
 paddr getRootPartition(void)
 {
-	return root_partition;
+	return constantRootPartM;
 }
 
 /*! \fn paddr updateRootPartition(paddr partition)
@@ -1093,7 +1093,7 @@ paddr getRootPartition(void)
 void
 updateRootPartition(paddr partition)
 {
-	root_partition = partition;
+	constantRootPartM = partition;
 }
 
 /*!

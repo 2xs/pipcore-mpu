@@ -162,12 +162,15 @@ else  undefined 70.
 
 End Index.
 
+Definition constantRootPartM := CPaddr 0.
+
 Module Constants.
+(* #[deprecated(note="Use constantRootPartM instead.")] *)
+Notation rootPart := constantRootPartM (only parsing).
+
 (** Fix positions into the partition descriptor
     of the partition *)
 Definition kernelstructureidx := CIndex 0.
-
-Definition rootPart := CPaddr 0.
 
 Definition minBlockSize := CIndex 32.
 

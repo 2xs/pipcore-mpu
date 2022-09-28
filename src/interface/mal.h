@@ -47,7 +47,7 @@
 void activate(paddr descriptor); //!< Sets up the Partition Descriptor's memory space (MPU configuration)
 
 /* Current page directory */
-extern paddr root_partition;
+extern paddr constantRootPartM;
 paddr getCurPartition(void); //!< Gets the current Partition Descriptor
 void updateCurPartition(paddr descriptor); //!< Updates the current Partition Descriptor
 void updateCurPartAndActivate(paddr calleePartDescGlobalId); //!< Updates the current Partition Descriptor and activate it

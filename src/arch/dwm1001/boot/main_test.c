@@ -2289,7 +2289,7 @@ void test_delete_partition_grandchild_with_blocks_not_cut()
   assert(cutMemoryBlock(block_shared_grandchild_address, block_shared_id + getKernelStructureTotalLength(), -1) != false);
 
   // Check all grandchild blocks are NOT accessible anymore to root partition
-  paddr root_kernel_structure_start = readPDStructurePointer(root_partition);
+  paddr root_kernel_structure_start = readPDStructurePointer(constantRootPartM);
   assert(
       readBlockAccessibleFromBlockEntryAddr(
           &ks_root->blocks[2]
@@ -2315,7 +2315,7 @@ void test_delete_partition_grandchild_with_blocks_not_cut()
   dump_ancestors(child_partition_pd);
 
   // Test all grandchild blocks are accessible AGAIN to root partition
-  root_kernel_structure_start = readPDStructurePointer(root_partition);
+  root_kernel_structure_start = readPDStructurePointer(constantRootPartM);
   assert(
       readBlockAccessibleFromBlockEntryAddr(
           &ks_root->blocks[2]
