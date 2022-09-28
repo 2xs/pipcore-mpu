@@ -116,60 +116,10 @@ GenerateIntermediateRepresentation
   MALInternal
   MAL
 
-  (* Cannot be converted by dx, should be fixed *)
-  Internal.freeSlot
-  Internal.initBlockEntryRecAux
-  Internal.initBlocksStructure
-  Internal.initSh1EntryRecAux
-  Internal.initSCEntryRecAux
-  Internal.deleteSharedBlocksInStructRecAux
-  Internal.collectStructureRecAux
 
   __
 
-  Internal.compareAddrToNull
-  Internal.findBlockComp
-  Internal.findBlockInKSInStructAux
-  Internal.findBlockInKSAux
-  Internal.findBlockInKS
-  Internal.findBelongingBlock
-  Internal.findBlockInKSWithAddrAux
-  Internal.findBlockInKSWithAddr
-  Internal.checkBlockCut
-  Internal.writeAccessibleRecAux
-  Internal.writeAccessibleRec
-  Internal.writeAccessibleToAncestorsIfNotCutRec
-  Internal.insertNewEntry
-  (* Internal.freeSlot *)
-  Internal.checkChildOfCurrPart
-  Internal.removeBlockInDescendantsRecAux
-  Internal.removeBlockInDescendantsRec
-  Internal.checkRemoveSubblocksRecAux
-  Internal.checkRemoveSubblocksRec
-  Internal.removeSubblocksRecAux
-  Internal.removeSubblocksRec
-  Internal.removeBlockInChildAndDescendants
-  Internal.sizeOfBlock
-  (* Internal.initBlockEntryRecAux *)
-  (* Internal.initBlocksStructure *)
-  (* Internal.initSh1EntryRecAux *)
-  Internal.initSh1Structure
-  (* Internal.initSCEntryRecAux *)
-  Internal.initSCStructure
-  Internal.initStructure
-  (* Internal.deleteSharedBlocksInStructRecAux *)
-  Internal.deleteSharedBlocksRecAux
-  Internal.deleteSharedBlocksRec
-  Internal.removeStructure
-  Internal.checkStructureEmptyRecAux
-  Internal.collectFreeSlotsRecAux
-  (* Internal.collectStructureRecAux *)
-  Internal.collectStructureRec
-  Internal.enableBlockInMPU
-  Internal.removeBlockFromPhysicalMPUIfAlreadyMapped
-  Internal.getGlobalIdPDCurrentOrChild
-  Internal.compatibleRight
-  Internal.checkRights
+  Internal
   .
 
 Definition dxModuleInternal := makeDXModuleWithDefaults InternalIRSyms.
@@ -207,24 +157,10 @@ GenerateIntermediateRepresentation
 
   Internal
 
-  (* Cannot be converted by dx, should be fixed *)
-  Services.removeMemoryBlock
-  Services.deletePartition
 
   __
 
-  Services.createPartition
-  Services.cutMemoryBlock
-  Services.mergeMemoryBlocks
-  Services.prepare
-  Services.addMemoryBlock
-  (* Services.removeMemoryBlock *)
-  (* Services.deletePartition *)
-  Services.collect
-  Services.mapMPU
-  Services.readMPU
-  Services.findBlock
-  Services.setVIDT
+  Services
   .
 
 Definition dxModuleServices := makeDXModuleWithDefaults ServicesIRSyms.
