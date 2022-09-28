@@ -139,8 +139,7 @@ bool readBlockXFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the exec flag
 void writeBlockXFromBlockEntryAddr(paddr blockentryaddr, bool value); //!< Sets the exec flag
 BlockEntry_t readBlockEntryFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the block entry
 void copyBlock(paddr blockTarget, paddr blockSource); //!< Copies block structures at the given addresses
-void writeBlockEntryFromBlockEntryAddr(paddr blockentryaddr, BlockEntry_t value); //!< Sets the block entry
-void writeBlockEntryWithIndexFromBlockEntryAddr(paddr blockentryaddr, uint32_t index, BlockEntry_t value); //!< Sets the block entry with given index
+void writeBlockEntryFromBlockEntryAddr(paddr blockentryaddr, uint32_t index, paddr startAddr, paddr endAddr, bool accessible, bool present, bool read, bool write, bool exec); //!< Sets the block entry
 paddr getSh1EntryAddrFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the Sh1 entry from the block entry
 paddr readSh1PDChildFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the child's PD from the given entry
 void writeSh1PDChildFromBlockEntryAddr(paddr blockentryaddr, paddr value); //!< Sets the entry's child PD
@@ -160,9 +159,7 @@ void writeNextFromKernelStructureStart(paddr structureaddr, paddr newnextstructu
 bool eraseBlock (paddr startAddr, paddr endAddr); //! Erases the memory block defined by (startAddr, endAddr).
 void initPDTable(paddr pdtablepaddr); //! Initialises PD table at paddr with a default PD table
 void writePDTable(paddr addr, PDTable_t newpdtable); //! Sets a new PD Table at the given address
-BlockEntry_t getDefaultBlockEntry(); //! Returns the default block entry
 SCEntry_t getDefaultSCEntry(); //! Returns the default SC entry
-BlockEntry_t buildBlockEntry(paddr startaddr, paddr endaddr, bool accessiblebit, bool presentbit); //! Constructs a block entry given the attributes
 paddr getPDStructurePointerAddrFromPD(paddr pdaddr); //! Gets the structure pointer of the given PD
 bool checkEntry(paddr kstructurestart, paddr blockentryaddr); //! Checks a block entry is valid in the kernel structure
 bool checkBlockInRAM(paddr blockentryaddr); //! Checks whether the block is entirely in RAM

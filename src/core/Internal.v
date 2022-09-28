@@ -381,8 +381,9 @@ Definition freeSlot (pdfree entrytofreeaddr: paddr) : LLI paddr :=
 		(* Remove block from physical MPU if it is there *)
 		removeBlockFromPhysicalMPU 	pdfree entrytofreeaddr ;;
 		(* set default values in slot to free *)
-		perform defaultBlockEntry := getDefaultBlockEntry in
-		writeBlockEntryFromBlockEntryAddr entrytofreeaddr defaultBlockEntry;;
+		(* default index is outside possible values*)
+		perform index := getKernelStructureEntriesNb in
+		writeBlockEntryFromBlockEntryAddr entrytofreeaddr index nullAddr nullAddr false false false false false;;
 		writeSh1EntryFromBlockEntryAddr entrytofreeaddr nullAddr false nullAddr;;
 		perform defaultSCEntry := getDefaultSCEntry in
 		writeSCEntryFromBlockEntryAddr entrytofreeaddr defaultSCEntry;;
@@ -622,18 +623,10 @@ Fixpoint initBlockEntryRecAux 	(timeout : nat)
 									perform nextEntryPointer := getBlockEntryAddrFromKernelStructureStart
 																								kernelStructureStartAddr
 																								idxsucc in
-									perform blockEntry := buildBlockEntry
-																				nullAddr
-																				nextEntryPointer
-																				false
-																				false in
 									perform currEntryPointer := getBlockEntryAddrFromKernelStructureStart
 																								kernelStructureStartAddr
 																								indexCurr in
-									writeBlockEntryWithIndexFromBlockEntryAddr
-											currEntryPointer
-											indexCurr
-											blockEntry;;
+									writeBlockEntryFromBlockEntryAddr currEntryPointer indexCurr nullAddr nextEntryPointer false false false false false;;
 
 									perform zero := Index.zero in
 									if beqIdx indexCurr zero
@@ -662,16 +655,10 @@ Definition initBlocksStructure (kernelStructureStartAddr : paddr) : LLI bool :=
 																					secondlastindex in
 	if negb initEnded then (* timeout reached *) ret false else
 	(** Last entry has no following entry: make it point to NULL*)
-	perform lastBlockEntry := buildBlockEntry nullAddr
-																				nullAddr
-																				false
-																				false in
 	perform lastEntryPointer := getBlockEntryAddrFromKernelStructureStart
 									 								kernelStructureStartAddr
 																	lastindex in
-	writeBlockEntryWithIndexFromBlockEntryAddr 	lastEntryPointer
-																					lastindex
-																					lastBlockEntry;;
+	writeBlockEntryFromBlockEntryAddr lastEntryPointer lastindex nullAddr nullAddr false false false false false;;
 	ret true.
 
 

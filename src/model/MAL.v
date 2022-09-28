@@ -469,20 +469,16 @@ Definition copyBlock (blockTarget blockSource: paddr) : LLI unit :=
   (* TODO Check that it does not overwrite Pip data structures *)
   ret tt.
 
-Definition writeBlockEntryFromBlockEntryAddr (blockentryaddr : paddr) (blockentry : BlockEntry) : LLI unit :=
-  writeBlockStartFromBlockEntryAddr blockentryaddr blockentry.(blockrange).(startAddr);;
-  writeBlockEndFromBlockEntryAddr blockentryaddr blockentry.(blockrange).(endAddr);;
-  writeBlockAccessibleFromBlockEntryAddr blockentryaddr blockentry.(accessible);;
-  writeBlockPresentFromBlockEntryAddr blockentryaddr blockentry.(present);;
-  writeBlockRFromBlockEntryAddr blockentryaddr blockentry.(read);;
-  writeBlockWFromBlockEntryAddr blockentryaddr blockentry.(write);;
-  writeBlockXFromBlockEntryAddr blockentryaddr blockentry.(exec);;
-  ret tt.
-
-Definition writeBlockEntryWithIndexFromBlockEntryAddr (blockentryaddr : paddr)
-  (blockindex : index)
-  (blockentry : BlockEntry) : LLI unit :=
-  writeBlockEntryFromBlockEntryAddr blockentryaddr blockentry;;
+Definition writeBlockEntryFromBlockEntryAddr (blockentryaddr : paddr) (blockindex : index)
+  (startAddr : paddr) (endAddr : paddr) (accessible : bool) (present : bool) (read : bool)
+  (write : bool) (exec : bool) : LLI unit :=
+  writeBlockStartFromBlockEntryAddr blockentryaddr startAddr;;
+  writeBlockEndFromBlockEntryAddr blockentryaddr endAddr;;
+  writeBlockAccessibleFromBlockEntryAddr blockentryaddr accessible;;
+  writeBlockPresentFromBlockEntryAddr blockentryaddr present;;
+  writeBlockRFromBlockEntryAddr blockentryaddr read;;
+  writeBlockWFromBlockEntryAddr blockentryaddr write;;
+  writeBlockXFromBlockEntryAddr blockentryaddr exec;;
   writeBlockIndexFromBlockEntryAddr blockentryaddr blockindex;;
   ret tt.
 
@@ -719,38 +715,12 @@ Definition writeNextFromKernelStructureStart (structurepaddr : paddr) (newnext :
   | None => undefined 11
   end.
 
-Definition getDefaultBlockEntry : LLI BlockEntry :=
-  let emptyblock := CBlock nullAddr nullAddr in
-  perform entriesnb := getKernelStructureEntriesNb in
-  let emptyentry := CBlockEntry false
-                                false
-                                false
-                                false
-                                false
-                                (* default index is outside possible values*)
-                                entriesnb
-                                emptyblock in
-    ret emptyentry.
-
 Definition getDefaultSCEntry : LLI SCEntry :=
   let emptyentry := {|
     origin := nullAddr;
     next := nullAddr
   |} in
     ret emptyentry.
-
-Definition buildBlockEntry (startaddr endaddr : paddr)
-  (accessiblebit presentbit : bool): LLI BlockEntry :=
-  perform defaultentry := getDefaultBlockEntry in
-  let newblock := CBlock startaddr endaddr in
- let entry := CBlockEntry 	defaultentry.(read)
-														defaultentry.(write)
-														defaultentry.(exec)
-						 								presentbit
-														accessiblebit
-						 								defaultentry.(blockindex)
-														newblock in
-    ret entry.
 
 Definition getPDStructurePointerAddrFromPD (pdAddr : paddr) : LLI paddr :=
   let structurePointerAddr := CPaddr (pdAddr + Constants.kernelstructureidx) in

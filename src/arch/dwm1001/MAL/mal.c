@@ -48,9 +48,6 @@ paddr current_partition = NULL; /* Current partition, default root */
 paddr root_partition = NULL; /* Multiplexer's partition descriptor, default 0*/
 
 static const PDTable_t DEFAULT_PD_TABLE = {NULL, NULL, 0, 0, NULL}; // BEWARE : LUT not initialized
-static const block_t DEFAULT_BLOCK = {0, 0};
-static const BlockIndex_t DEFAULT_BLOCK_INDEX = {-1};
-static const BlockEntry_t DEFAULT_BLOCK_ENTRY = {DEFAULT_BLOCK, DEFAULT_BLOCK_INDEX, false, false, false, false, false};
 static const SCEntry_t DEFAULT_SC_ENTRY = {NULL, NULL};
 
 
@@ -588,37 +585,28 @@ void copyBlock(paddr blockTarget, paddr blockSource) {
 }
 
 /*!
- * \fn void writeBlockEntryFromBlockEntryAddr(paddr blockentryaddr, BlockEntry_t value)
  * \brief Sets the block entry.
  * \param blockentryaddr The address of the block entry to write in
- * \param value The new value
- * \return void
+ * \param index Index of the slot in the kernel structure containing it
+ * \param startAddr The block's start address
+ * \param endAddr The block's end address (or pointer to the next free slot if it is one)
+ * \param accessible Block accessible
+ * \param present Block present
+ * \param read Read permission
+ * \param write Write permission
+ * \param exec Exec permission
  */
-void writeBlockEntryFromBlockEntryAddr(paddr blockentryaddr, BlockEntry_t value)
+void writeBlockEntryFromBlockEntryAddr(paddr blockentryaddr, uint32_t index,
+	paddr startAddr, paddr endAddr, bool accessible, bool present,
+	bool read, bool write, bool exec)
 {
-	// write the block entry without the index
-	writeBlockStartFromBlockEntryAddr(blockentryaddr, value.blockrange.startAddr);
-	writeBlockEndFromBlockEntryAddr(blockentryaddr, value.blockrange.endAddr);
-	writeBlockAccessibleFromBlockEntryAddr(blockentryaddr, value.accessible);
-	writeBlockPresentFromBlockEntryAddr(blockentryaddr, value.present);
-	writeBlockRFromBlockEntryAddr(blockentryaddr, value.read);
-	writeBlockWFromBlockEntryAddr(blockentryaddr, value.write);
-	writeBlockXFromBlockEntryAddr(blockentryaddr, value.exec);
-	return;
-}
-
-/*!
- * \fn void writeBlockEntryWithIndexFromBlockEntryAddr(paddr blockentryaddr, uint32_t index, BlockEntry_t value)
- * \brief Sets the block entry with given index.
- * \param blockentryaddr The address of the block entry to write in
- * \param value The new value
- * \param index The index to set
- * \return void
- */
-void writeBlockEntryWithIndexFromBlockEntryAddr(paddr blockentryaddr, uint32_t index, BlockEntry_t value)
-{
-	// write the block entry with the index
-	writeBlockEntryFromBlockEntryAddr(blockentryaddr, value);
+	writeBlockStartFromBlockEntryAddr(blockentryaddr, startAddr);
+	writeBlockEndFromBlockEntryAddr(blockentryaddr, endAddr);
+	writeBlockAccessibleFromBlockEntryAddr(blockentryaddr, accessible);
+	writeBlockPresentFromBlockEntryAddr(blockentryaddr, present);
+	writeBlockRFromBlockEntryAddr(blockentryaddr, read);
+	writeBlockWFromBlockEntryAddr(blockentryaddr, write);
+	writeBlockXFromBlockEntryAddr(blockentryaddr, exec);
 	writeBlockIndexFromBlockEntryAddr(blockentryaddr, index);
 	return;
 }
@@ -951,16 +939,6 @@ void initPDTable(paddr pdtablepaddr) {
 }
 
 /*!
- * \fn BlockEntry_t getDefaultBlockEntry()
- * \brief Returns the default block entry.
- * \return default block entry
- */
-BlockEntry_t getDefaultBlockEntry()
-{
-	return DEFAULT_BLOCK_ENTRY;
-}
-
-/*!
  * \fn SCEntry_t getDefaultSCEntry()
  * \brief Returns the default SC entry.
  * \return default SC entry
@@ -968,27 +946,6 @@ BlockEntry_t getDefaultBlockEntry()
 SCEntry_t getDefaultSCEntry()
 {
 	return DEFAULT_SC_ENTRY;
-}
-
-/*!
- * \fn BlockEntry_t buildBlockEntry(startaddr, endaddr, accessiblebit, presentbit)
- * \brief Constructs an Block entry given the attributes.
- * \param startaddr The block's start address
- * \param endaddr The block's end address
- * \param endaddr The block's end address
- * \param accessiblebit The block's accessible bit
- * \param presentbit The block's present bit
- * \return default SC entry
- */
-BlockEntry_t buildBlockEntry(paddr startaddr, paddr endaddr, bool accessiblebit, bool presentbit)
-{
-	//DEFAULT_BLOCK_ENTRY(BE);
-	BlockEntry_t BE = DEFAULT_BLOCK_ENTRY;
-	block_t block = {startaddr, endaddr};
-	BE.blockrange = block;
-	BE.accessible = accessiblebit;
-	BE.present = presentbit;
-	return BE;
 }
 
 /*!
