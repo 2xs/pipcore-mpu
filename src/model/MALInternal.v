@@ -199,13 +199,17 @@ Definition getKernelStructureTotalLength : LLI index := ret Constants.kernelStru
 Definition getPDStructureTotalLength : LLI index := ret Constants.PDStructureTotalLength.
 Definition getMPURegionsNb : LLI index := ret (CIndex MPURegionsNb).
 
-Definition beqIdx (a b : ADT.index) : bool := a =? b.
 Definition beqAddr (a b : paddr) : bool := a =? b.
 Definition nullAddr : paddr := CPaddr 0.
 Definition getNullAddr := ret nullAddr.
 Notation getBeqAddr a b := (ret (beqAddr a b)) (only parsing).
 
-Definition getBeqIdx (p1 : index)  (p2 : index) : LLI bool := ret (p1 =? p2).
+Definition indexEq (x y: index) : bool := x =? y.
+Notation indexEqM x y := (ret (indexEq x y)) (only parsing).
+(* #[deprecated(note="Use indexEq instead.")] *)
+Notation beqIdx x y := (indexEq x y) (only parsing).
+(* #[deprecated(note="Use indexEqM instead.")] *)
+Notation getBeqIdx x y := (indexEqM x y) (only parsing).
 
 Definition getAddr (paddr : paddr) : LLI ADT.paddr := ret paddr.
 

@@ -321,16 +321,6 @@ bool beqAddr(paddr a, paddr b)
 }
 
 /*!
- * \fn bool beqIdx(uint32_t a, uint32_t b)
- * \brief Compare two indexes
- * \return 1 if same index, 0 if not
- */
-bool beqIdx(uint32_t a, uint32_t b)
-{
-	return (a == b);
-}
-
-/*!
  * \fn uint32_t subPaddr(paddr a, paddr b)
  * \brief substracts the first paddr to the second.
  * \return the result of the substraction.

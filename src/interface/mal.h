@@ -64,6 +64,7 @@ uint32_t toAddr(uint32_t input); //!< Converts a given uint32_t to an address (o
 #define paddrLe(a,b) ((a)<=(b))
 #define indexLe(a,b) ((a)<=(b))
 #define indexLt(a,b) ((a)<(b))
+#define indexEq(a,b) ((a)==(b))
 
 int eqb(const int32_t a, const int32_t b); //!< Equals
 uint32_t mul3(uint32_t v); //!< Multiply an integer with 3
@@ -102,7 +103,6 @@ block_t largest_covering_MPU_region(paddr blockentryaddr, paddr addrtocover); //
 
 paddr getNullAddr(void); //!< Returns the default null address.
 bool beqAddr(paddr a, paddr b); //!< Compare two addresses
-bool beqIdx(uint32_t a, uint32_t b); //!< Compare two indexes
 paddr paddrAddIdxM(paddr a, Coq_index b); //!< adds an offset to a paddr
 uint32_t subPaddr(paddr a, paddr b); //!< substracts the first paddr to the second.
 bool lebPaddr(const paddr a, const paddr b); //!< the first parameter is less than or equal to the second one.

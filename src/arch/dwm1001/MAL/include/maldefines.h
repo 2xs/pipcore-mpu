@@ -65,8 +65,6 @@ extern uint32_t getVidtSize(void);
 
 #define Bool_eqb eqb
 
-#define getBeqIdx beqIdx
-
 extern paddr nullAddr;
 
 #define maxNbPrepare MAXNBPREPARE

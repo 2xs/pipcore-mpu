@@ -84,7 +84,7 @@ Definition cLt := cBinOp Cop.Olt.
 Module PipPrimitives.
   Definition paddrEqPrim := MkPrimitive funPaddrPaddrBoolType MALInternal.beqAddr cEq.
   Definition paddrLePrim := MkPrimitive funPaddrPaddrBoolType MALInternal.paddrLe cLe.
-  Definition indexEqPrim := MkPrimitive funIndexIndexBoolType MALInternal.beqIdx cEq.
+  Definition indexEqPrim := MkPrimitive funIndexIndexBoolType MALInternal.indexEq cEq.
   Definition indexLePrim := MkPrimitive funIndexIndexBoolType MALInternal.indexLe cLe.
   Definition indexLtPrim := MkPrimitive funIndexIndexBoolType MALInternal.indexLt cLt.
 End PipPrimitives.
