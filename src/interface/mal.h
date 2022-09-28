@@ -69,6 +69,7 @@ int eqb(const int32_t a, const int32_t b); //!< Equals
 uint32_t mul3(uint32_t v); //!< Multiply an integer with 3
 extern Coq_index indexSuccM(Coq_index);
 extern Coq_index indexPredM(Coq_index);
+extern Coq_index indexAddM(Coq_index a, Coq_index b);
 uint32_t zero(); //!< Zero. That's it.
 uint32_t one(); //!< One.
 

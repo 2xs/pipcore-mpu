@@ -152,11 +152,10 @@ uint32_t sub(uint32_t a, uint32_t b)
 }
 
 /*!
- * \fn uint32_t add()
- * \brief adds the first value to the second.
+ * \brief adds the first index to the second.
  * \return the result of the addition.
  */
-uint32_t add(uint32_t a, uint32_t b)
+Coq_index indexAddM(Coq_index a, Coq_index b)
 {
 	return a+b;
 }
