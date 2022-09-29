@@ -116,7 +116,6 @@ GenerateIntermediateRepresentation
   MALInternal
   MAL
 
-
   __
 
   Internal
@@ -156,7 +155,6 @@ GenerateIntermediateRepresentation
   MAL
 
   Internal
-
 
   __
 
