@@ -168,27 +168,6 @@ extern void *__mpuRegion0Start;
 extern void *__mpuRegion0End;
 
 /*!
- * \brief The read right of the MPU region 0.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__mpuRegion0Read;
-
-/*!
- * \brief The write right of the MPU region 0.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__mpuRegion0Write;
-
-/*!
- * \brief The execute right of the MPU region 0.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__mpuRegion0Execute;
-
-/*!
  * \brief The start address of the MPU region 1.
  *
  * \see The definition in the link.ld file.
@@ -203,27 +182,6 @@ extern void *__mpuRegion1Start;
 extern void *__mpuRegion1End;
 
 /*!
- * \brief The read right of the MPU region 1.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__mpuRegion1Read;
-
-/*!
- * \brief The write right of the MPU region 1.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__mpuRegion1Write;
-
-/*!
- * \brief The execute right of the MPU region 1.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__mpuRegion1Execute;
-
-/*!
  * \brief The start address of the MPU region 2.
  *
  * \see The definition in the link.ld file.
@@ -236,26 +194,5 @@ extern void *__mpuRegion2Start;
  * \see The definition in the link.ld file.
  */
 extern void *__mpuRegion2End;
-
-/*!
- * \brief The read right of the MPU region 2.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__mpuRegion2Read;
-
-/*!
- * \brief The write right of the MPU region 2.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__mpuRegion2Write;
-
-/*!
- * \brief The execute right of the MPU region 2.
- *
- * \see The definition in the link.ld file.
- */
-extern void *__mpuRegion2Execute;
 
 #endif /* __MEMLAYOUT_H__ */
