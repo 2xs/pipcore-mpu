@@ -24178,6 +24178,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 
 	} (* end of noDupPartitionTree *)
 
+	assert(HmultiIsPDT : multiplexerIsPDT s) by admit.
+
 	assert(HisParents : isParent s).
 	{ (* isParent s *)
 		(* equality of lists getPartitions and getChildren for any partition already proven
@@ -24211,10 +24213,57 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 						unfold isPDT in *.
 						destruct (lookup newBlockEntryAddr (memory s) beqAddr) ; try(exfalso ; congruence).
 				-- (* newBlockEntryAddr <> pd *)
+						assert(HPDTEq: isPDT parent s = isPDT parent s0).
+						{
+							unfold isPDT.
+							rewrite Hs. simpl.
+							repeat rewrite beqAddrTrue.
+							(* Check all values for parent *)
+							destruct (beqAddr sceaddr parent) eqn:beqsceparent; try(exfalso ; congruence).
+							-	(* sceaddr = parent *)
+								rewrite <- DependentTypeLemmas.beqAddrTrue in beqsceparent.
+								rewrite <- beqsceparent in *.
+								unfold isSCE in *.
+								unfold isPDT in *.
+								destruct (lookup sceaddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+								destruct v ; try(exfalso ; congruence).
+								trivial.
+							-	(* sceaddr <> parent *)
+								rewrite beqnewBsce.
+								simpl.
+								destruct (beqAddr newBlockEntryAddr parent) eqn:beqnewparent ; try(exfalso ; congruence).
+								-- (* newBlockEntryAddr = parent *)
+										rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewparent.
+										rewrite <- beqnewparent in *.
+										unfold isBE in *.
+										unfold isPDT in *.
+										destruct (lookup newBlockEntryAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+										destruct v ; try(exfalso ; congruence).
+										trivial.
+								-- (* newBlockEntryAddr <> parent *)
+										rewrite <- beqAddrFalse in *.
+										repeat rewrite removeDupIdentity ; intuition.
+										destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:Hf; try(exfalso ; congruence).
+										rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+										simpl.
+										destruct (beqAddr pdinsertion parent) eqn:beqpdparent; try(exfalso ; congruence).
+										--- (* pdinsertion = parent *)
+												rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdparent.
+												subst parent.
+												rewrite Hpdinsertions0.
+												trivial.
+										--- (* pdinsertion <> parent *)
+												rewrite <- beqAddrFalse in *.
+												repeat rewrite removeDupIdentity ; intuition.
+						}
+
+						assert(HPDTparent : isPDT parent s).
+						{ eapply partitionsArePDT ; intuition. }
+
 						destruct (beqAddr pdinsertion pd) eqn:beqpdpd; try(exfalso ; congruence).
 						--- (* pdinsertion = pd *)
 								rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdpd.
-								rewrite <- beqpdpd in *.
+								subst pd.
 								assert(HpdentryEq : partpdentry = pdentry1).
 								{
 									rewrite Hlookuppds in *. inversion Hpdinsertions. trivial.
@@ -24222,10 +24271,40 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 								rewrite HpdentryEq.
 								subst pdentry1. cbn.
 								subst pdentry0. cbn. trivial.
+
+								assert(HgetPartitionspdEq : getPartitions multiplexer s = getPartitions multiplexer s0).
+								{
+									destruct H31 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].
+
+									assert(HgetPartitionspdEq1 : getPartitions multiplexer s = getPartitions multiplexer olds)
+												by intuition.
+									assert(HgetPartitionspdEq2 : getPartitions multiplexer olds = getPartitions multiplexer s0)
+												by intuition.
+									rewrite HgetPartitionspdEq1. rewrite HgetPartitionspdEq2. intuition.
+								}
+
 								assert(HparentInPartTrees0 : In parent (getPartitions multiplexer s0))
-									by admit. (* after lists propagation*)
+									by (rewrite HgetPartitionspdEq in * ; assumption). (* after lists propagation*)
+
+								assert(HpdparentNotEq : parent <> pdinsertion).
+								{
+									eapply childparentNotEq with s; intuition.
+								}
+
+								assert(HgetChildrenEq : getChildren parent s = getChildren parent s0).
+								{
+									destruct H31 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].
+									assert(HpartNotIn : (forall partition : paddr,
+																			(partition = pdinsertion -> False) ->
+																			isPDT partition s0 ->
+																			getChildren partition s = getChildren partition s0))
+										by intuition.
+									rewrite HPDTEq in *.
+									eapply HpartNotIn ; intuition.
+								}
+
 								assert(HpartChilds0 : In pdinsertion (getChildren parent s0))
-									by admit. (* after lists propagation*)
+									by (rewrite HgetChildrenEq in * ; assumption). (* after lists propagation*)
 								unfold isParent in *.
 								specialize (Hcons0 pdinsertion parent HparentInPartTrees0 HpartChilds0).
 								unfold pdentryParent in *.
@@ -24234,12 +24313,64 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 						--- (* pdinsertion <> pd *)
 								assert(HlookuppsEq : lookup pd (memory s) beqAddr = lookup pd (memory s0) beqAddr).
 								{
-									admit.
+									rewrite Hs. simpl.
+									repeat rewrite beqAddrTrue.
+									rewrite beqscepd.
+									rewrite beqnewBsce.
+									simpl.
+									rewrite beqnewpd.
+									rewrite beqpdnewB.
+									rewrite <- beqAddrFalse in *.
+									repeat rewrite removeDupIdentity ; intuition.
+									simpl.
+									destruct (beqAddr pdinsertion pd) eqn:Hf; try(exfalso ; congruence).
+									rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+									rewrite <- beqAddrFalse in *.
+									repeat rewrite removeDupIdentity ; intuition.
 								}
+
+								assert(HgetPartitionspdEq : getPartitions multiplexer s = getPartitions multiplexer s0).
+								{
+									(* DUP *)
+									destruct H31 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].
+
+									assert(HgetPartitionspdEq1 : getPartitions multiplexer s = getPartitions multiplexer olds)
+												by intuition.
+									assert(HgetPartitionspdEq2 : getPartitions multiplexer olds = getPartitions multiplexer s0)
+												by intuition.
+									rewrite HgetPartitionspdEq1. rewrite HgetPartitionspdEq2. intuition.
+								}
+
 								assert(HparentInPartTrees0 : In parent (getPartitions multiplexer s0))
-									by admit. (* after lists propagation*)
+									by (rewrite HgetPartitionspdEq in * ; intuition). (* after lists propagation*)
+
+								assert(HgetChildrenEq : getChildren parent s = getChildren parent s0).
+								{
+									destruct H31 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].
+
+									(* 2 cases: either parent is pdinsertion or it is not *)
+									destruct (beqAddr pdinsertion parent) eqn:beqpdparent.
+									- (* pdinsertion = parent *)
+										rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdparent.
+										subst parent.
+										assert(HgetChildrenEq1 : getChildren pdinsertion s = getChildren pdinsertion olds)
+												by intuition.
+										assert(HgetChildrenEq2 : getChildren pdinsertion olds = getChildren pdinsertion s0)
+												by intuition.
+										rewrite HgetChildrenEq1. rewrite HgetChildrenEq2. reflexivity.
+									- (* pdinsertion <> parent *)
+										rewrite <- beqAddrFalse in *.
+										assert(HpartNotIn : (forall partition : paddr,
+																				(partition = pdinsertion -> False) ->
+																				isPDT partition s0 ->
+																				getChildren partition s = getChildren partition s0))
+											by intuition.
+										rewrite HPDTEq in *.
+										eapply HpartNotIn ; intuition.
+								}
+
 								assert(HpartChilds0 : In pd (getChildren parent s0))
-									by admit.
+									by (rewrite HgetChildrenEq in * ; assumption).
 								unfold isParent in *.
 								specialize (Hcons0 pd parent HparentInPartTrees0 HpartChilds0).
 								unfold pdentryParent in *.
@@ -24277,8 +24408,6 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 				except globalidPDchild whose NoDup property is already proven so immediate proof *)
 		admit.
 	} (* end of noDupUsedPaddrList *)
-
-	assert(HmultiIsPDT : multiplexerIsPDT s) by admit.
 
 	intuition.
 
