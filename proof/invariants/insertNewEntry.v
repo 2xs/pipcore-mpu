@@ -24165,9 +24165,17 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 
 	assert(HnoDupPartitionTrees : noDupPartitionTree s).
 	{ (* noDupPartitionTree s *)
-		(* WIP *)
 		(* equality of list getPartitions already proven so immediate proof *)
-		admit.
+		assert(Hcons0 : noDupPartitionTree s0)
+			by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+		unfold noDupPartitionTree.
+		destruct H31 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].
+		assert(HgetPartitionspdEq1 : getPartitions multiplexer s = getPartitions multiplexer olds)
+			by intuition.
+		assert(HgetPartitionspdEq2 : getPartitions multiplexer olds = getPartitions multiplexer s0)
+			by intuition.
+		rewrite HgetPartitionspdEq1. rewrite HgetPartitionspdEq2. intuition.
+
 	} (* end of noDupPartitionTree *)
 
 	assert(HisParents : isParent s).

@@ -15517,7 +15517,6 @@ parent <> child.
 Proof.
 intros HNoDupPartTree.
 unfold noDupPartitionTree in *.
-specialize (HNoDupPartTree multiplexer).
 generalize dependent multiplexer.
 intros root HNoDupPartTree HparentTree Hchild.
 intro Hf. subst parent.

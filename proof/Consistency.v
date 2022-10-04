@@ -211,6 +211,7 @@ In parent (getPartitions multiplexer s) ->
 In partition (getChildren parent s) ->
 pdentryParent partition parent s.
 
+(* TODO: remove, consequence of noDupKSEntriesList*)
 Definition noDupMappedBlocksList s :=
 forall (partition : paddr),
 isPDT partition s ->
@@ -221,15 +222,14 @@ forall (partition : paddr),
 isPDT partition s ->
 NoDup (filterOptionPaddr (getKSEntries partition s)).
 
-
+(* TODO: remove, consequence of noDupKSEntriesList*)
 Definition noDupUsedPaddrList s :=
 forall (partition : paddr),
 isPDT partition s ->
 NoDup (getUsedPaddr partition s).
 
 Definition noDupPartitionTree s :=
-forall pd : paddr,
-NoDup (getPartitions pd s) .
+NoDup (getPartitions multiplexer s) .
 
 Definition sharedBlockPointsToChild s :=
 forall parent child addr parentblock sh1entryaddr,
