@@ -24178,7 +24178,13 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 
 	} (* end of noDupPartitionTree *)
 
-	assert(HmultiIsPDT : multiplexerIsPDT s) by admit.
+	assert(HmultiIsPDT : multiplexerIsPDT s).
+	{ (* multiplexerIsPDT s *)
+		(* already proven by propagation *)
+		unfold multiplexerIsPDT.
+		destruct H31 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].
+		intuition.
+	} (* end of multiplexerIsPDT *)
 
 	assert(HisParents : isParent s).
 	{ (* isParent s *)
