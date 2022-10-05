@@ -24383,7 +24383,211 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 	{ (* isChild s *)
 		(* equality of lists getPartitions and getChildren for any partition already proven
 			+ no change of pdentry so immediate proof *)
-		admit.
+		assert(Hcons0 : isChild s0)
+			by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+		unfold isChild.
+		intros pd parent HparentInPartTree Hparententry.
+		assert(HpdPDT : isPDT pd s).
+		{
+			apply partitionsArePDT ; intuition.
+		}
+
+		apply isPDTLookupEq in HpdPDT. destruct HpdPDT as [partpdentry Hlookuppds].
+
+		assert(HgetPartitionspdEq : getPartitions multiplexer s = getPartitions multiplexer s0).
+		{
+			destruct H31 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].
+
+			assert(HgetPartitionspdEq1 : getPartitions multiplexer s = getPartitions multiplexer olds)
+						by intuition.
+			assert(HgetPartitionspdEq2 : getPartitions multiplexer olds = getPartitions multiplexer s0)
+						by intuition.
+			rewrite HgetPartitionspdEq1. rewrite HgetPartitionspdEq2. intuition.
+		}
+
+		assert(HpdInPartTrees0 : In pd (getPartitions multiplexer s0))
+			by (rewrite HgetPartitionspdEq in * ; assumption).
+
+		(* Check all values for pd *)
+		destruct (beqAddr sceaddr pd) eqn:beqscepd; try(exfalso ; congruence).
+		-	(* sceaddr = pd *)
+			rewrite <- DependentTypeLemmas.beqAddrTrue in beqscepd.
+			rewrite <- beqscepd in *.
+			unfold isSCE in *.
+			unfold isPDT in *.
+			destruct (lookup sceaddr (memory s) beqAddr) ; try(exfalso ; congruence).
+			destruct v ; try(exfalso ; congruence).
+		-	(* sceaddr <> pd *)
+			destruct (beqAddr newBlockEntryAddr pd) eqn:beqnewpd ; try(exfalso ; congruence).
+			-- (* newBlockEntryAddr = pd *)
+					rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewpd.
+					rewrite <- beqnewpd in *.
+					unfold isBE in *.
+					unfold isPDT in *.
+					destruct (lookup newBlockEntryAddr (memory s) beqAddr) ; try(exfalso ; congruence).
+			-- (* newBlockEntryAddr <> pd *)
+					assert(HPDTEq: isPDT parent s = isPDT parent s0).
+					{
+						unfold isPDT.
+						rewrite Hs. simpl.
+						repeat rewrite beqAddrTrue.
+						(* Check all values for parent *)
+						destruct (beqAddr sceaddr parent) eqn:beqsceparent; try(exfalso ; congruence).
+						-	(* sceaddr = parent *)
+							rewrite <- DependentTypeLemmas.beqAddrTrue in beqsceparent.
+							rewrite <- beqsceparent in *.
+							unfold isSCE in *.
+							unfold isPDT in *.
+							destruct (lookup sceaddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+							destruct v ; try(exfalso ; congruence).
+							trivial.
+						-	(* sceaddr <> parent *)
+							rewrite beqnewBsce.
+							simpl.
+							destruct (beqAddr newBlockEntryAddr parent) eqn:beqnewparent ; try(exfalso ; congruence).
+							-- (* newBlockEntryAddr = parent *)
+									rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewparent.
+									rewrite <- beqnewparent in *.
+									unfold isBE in *.
+									unfold isPDT in *.
+									destruct (lookup newBlockEntryAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+									destruct v ; try(exfalso ; congruence).
+									trivial.
+							-- (* newBlockEntryAddr <> parent *)
+									rewrite <- beqAddrFalse in *.
+									repeat rewrite removeDupIdentity ; intuition.
+									destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:Hf; try(exfalso ; congruence).
+									rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+									simpl.
+									destruct (beqAddr pdinsertion parent) eqn:beqpdparent; try(exfalso ; congruence).
+									--- (* pdinsertion = parent *)
+											rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdparent.
+											subst parent.
+											rewrite Hpdinsertions0.
+											trivial.
+									--- (* pdinsertion <> parent *)
+											rewrite <- beqAddrFalse in *.
+											repeat rewrite removeDupIdentity ; intuition.
+					}
+
+					destruct (beqAddr pdinsertion pd) eqn:beqpdpd; try(exfalso ; congruence).
+					--- (* pdinsertion = pd *)
+							rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdpd.
+							subst pd.
+							(*assert(HpdentryEq : partpdentry = pdentry1).
+							{
+								rewrite Hlookuppds in *. inversion Hpdinsertions. trivial.
+							}*)
+
+							assert(HparententryEq : pdentryParent pdinsertion parent s = pdentryParent pdinsertion parent s0).
+							{
+								unfold pdentryParent.
+								rewrite Hpdinsertions.
+								subst pdentry1. simpl.
+								subst pdentry0. simpl.
+								rewrite Hpdinsertions0.
+								reflexivity.
+							}
+
+							assert(Hparententrys0 : pdentryParent pdinsertion parent s0)
+								by (rewrite HparententryEq in * ; assumption).
+
+							specialize (Hcons0 pdinsertion parent HpdInPartTrees0 Hparententrys0).
+
+							assert(HPDTparents : isPDT parent s0).
+							{
+								unfold getChildren in *.
+								unfold isPDT.
+								destruct (lookup parent (memory s0) beqAddr) eqn:Hlookupparent ; intuition.
+								destruct v ; intuition.
+							}
+
+							destruct H31 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].
+
+							(* 2 cases: either parent is pdinsertion or it is not *)
+							destruct (beqAddr pdinsertion parent) eqn:beqpdparent.
+							---- (* pdinsertion = parent *)
+										rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdparent.
+										subst parent.
+										assert(HgetChildrenEq1 : getChildren pdinsertion s = getChildren pdinsertion olds)
+												by intuition.
+										assert(HgetChildrenEq2 : getChildren pdinsertion olds = getChildren pdinsertion s0)
+												by intuition.
+										rewrite HgetChildrenEq1. rewrite HgetChildrenEq2. intuition.
+							---- (* pdinsertion <> parent *)
+										rewrite <- beqAddrFalse in *.
+										assert(HpartNotIn : (forall partition : paddr,
+																				(partition = pdinsertion -> False) ->
+																				isPDT partition s0 ->
+																				getChildren partition s = getChildren partition s0))
+												by intuition.
+											assert(HparentEq : getChildren parent s = getChildren parent s0).
+											{ eapply HpartNotIn ; intuition. }
+											rewrite HparentEq in *. intuition.
+					--- (* pdinsertion <> pd *)
+							assert(HlookuppsEq : lookup pd (memory s) beqAddr = lookup pd (memory s0) beqAddr).
+							{
+								rewrite Hs. simpl.
+								repeat rewrite beqAddrTrue.
+								rewrite beqscepd.
+								rewrite beqnewBsce.
+								simpl.
+								rewrite beqnewpd.
+								rewrite beqpdnewB.
+								rewrite <- beqAddrFalse in *.
+								repeat rewrite removeDupIdentity ; intuition.
+								simpl.
+								destruct (beqAddr pdinsertion pd) eqn:Hf; try(exfalso ; congruence).
+								rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+								rewrite <- beqAddrFalse in *.
+								repeat rewrite removeDupIdentity ; intuition.
+							}
+
+							assert(HparententryEq : pdentryParent pd parent s = pdentryParent pd parent s0).
+							{
+								unfold pdentryParent.
+								rewrite HlookuppsEq.
+								reflexivity.
+							}
+
+							assert(Hparententrys0 : pdentryParent pd parent s0)
+								by (rewrite HparententryEq in * ; assumption).
+
+							specialize (Hcons0 pd parent HpdInPartTrees0 Hparententrys0).
+							assert(HPDTparents : isPDT parent s0).
+							{
+								unfold getChildren in *.
+								unfold isPDT.
+								destruct (lookup parent (memory s0) beqAddr) eqn:Hlookupparent ; intuition.
+								destruct v ; intuition.
+							}
+
+							assert(HgetChildrenEq : getChildren parent s = getChildren parent s0).
+							{
+								destruct H31 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].
+
+								(* 2 cases: either parent is pdinsertion or it is not *)
+								destruct (beqAddr pdinsertion parent) eqn:beqpdparent.
+								- (* pdinsertion = parent *)
+									rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdparent.
+									subst parent.
+									assert(HgetChildrenEq1 : getChildren pdinsertion s = getChildren pdinsertion olds)
+											by intuition.
+									assert(HgetChildrenEq2 : getChildren pdinsertion olds = getChildren pdinsertion s0)
+											by intuition.
+									rewrite HgetChildrenEq1. rewrite HgetChildrenEq2. reflexivity.
+								- (* pdinsertion <> parent *)
+									rewrite <- beqAddrFalse in *.
+									assert(HpartNotIn : (forall partition : paddr,
+																			(partition = pdinsertion -> False) ->
+																			isPDT partition s0 ->
+																			getChildren partition s = getChildren partition s0))
+										by intuition.
+									eapply HpartNotIn ; intuition.
+							}
+
+							rewrite HgetChildrenEq in *.
+							assumption.
 	} (* end of isChild *)
 
 	assert(HaccessibleChildPaddrIsAccessibleIntoParents : accessibleChildPaddrIsAccessibleIntoParent s).
