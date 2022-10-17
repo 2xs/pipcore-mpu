@@ -36,105 +36,108 @@
 
 #include <stdint.h>
 
+#include "context.h"
 #include "register.h"
 
 /*!
  * \brief Read only accessor.
  *
- * \param registerAccessType The type of access requested by the
- *        caller.
+ * \param type The type of access requested by the caller.
  *
- * \param registerAddress The address from which to read the
- *        value to write to valueAddress.
+ * \param reg The address from which to read the value to write
+ *        to val.
  *
- * \param valueAddress The address where to write the value read
- *        from registerAddress.
+ * \param val The address where to write the value read from
+ *        reg.
  *
  * \return 1 if the read or the write succeed, 0 otherwise.
  */
-extern uint32_t
+extern int
 registerAccessRead(
-	registerAccessType_t registerAccessType,
-	volatile uint32_t *registerAddress,
-	uint32_t *valueAddress
+	registerAccessType_t type,
+	volatile uint32_t *reg,
+	uint32_t *val
 );
 
 /*!
  * \brief Write only accessor.
  *
- * \param registerAccessType The type of access requested by the
- *        caller.
+ * \param type The type of access requested by the caller.
  *
- * \param registerAddress The address where to write the value
- *        read from valueAddress.
+ * \param reg The address where to write the value read from
+ *        val.
  *
- * \param valueAddress The address from which to read the value
- *        to write to registerAddress.
+ * \param val The address from which to read the value to write
+ *        to reg.
  *
  * \return 1 if the read or the write succeed, 0 otherwise.
  */
-extern uint32_t
+extern int
 registerAccessWrite(
-	registerAccessType_t registerAccessType,
-	volatile uint32_t *registerAddress,
-	uint32_t *valueAddress
+	registerAccessType_t type,
+	volatile uint32_t *reg,
+	uint32_t *val
 );
 
 /*!
  * \brief Read/Write accessor.
  *
- * \param registerAccessType The type of access requested by the
- *        caller.
+ * \param type The type of access requested by the caller.
  *
- * \param registerAddress The address where to write the value
- *        read from valueAddress or the address from which to
- *        read the value to write to valueAddress.
+ * \param reg The address where to write the value read from val
+ *        or the address from which to read the value to write
+ *        to val.
  *
- * \param valueAddress The address where to write the value read
- *        from registerAddress or the address from which to read
- *        the value to write to registerAddress.
+ * \param val The address where to write the value read from
+ *        registerAddress or the address from which to read the
+ *        value to write to registerAddress.
  *
  * \return 1 if the read or the write succeed, 0 otherwise.
  */
-extern uint32_t
+extern int
 registerAccessReadWrite(
-	registerAccessType_t registerAccessType,
-	volatile uint32_t *registerAddress,
-	uint32_t *valueAddress
+	registerAccessType_t type,
+	volatile uint32_t *reg,
+	uint32_t *val
 );
 
 /*!
  * \brief The in SVC writes the value of the register designated
  *        by its ID to the valueAddress address.
  *
- * \param registerId The ID of the register to read.
+ * \param ctx The context stacked by an exception entry point.
  *
- * \param valueAddress The address where to write the value
- *        read.
+ * \param id The ID of the register to read.
+ *
+ * \param val The address where to write the value read.
  *
  * \param 1 if the read succeed, 0 otherwise.
  */
-extern uint32_t
+extern void
 in(
-	uint32_t registerId,
-	uint32_t *valueAddress
+	stackedContext_t *ctx,
+	uint32_t id,
+	uint32_t *val
 );
 
 /*!
  * \brief The out SVC writes the value at valueAddress address
  *        to the register designated by its ID.
  *
- * \param registerId The ID of the register to write.
+ * \param ctx The context stacked by an exception entry point.
  *
- * \param valueAddress The address where the value to be written
- *        is located.
+ * \param id The ID of the register to write.
+ *
+ * \param val The address where the value to be written is
+ *        located.
  *
  * \param 1 if the read succeed, 0 otherwise.
  */
-extern uint32_t
+extern void
 out(
-	uint32_t registerId,
-	uint32_t *valueAddress
+	stackedContext_t *ctx,
+	uint32_t id,
+	uint32_t *val
 );
 
 #endif /* __ACCESSOR_H__ */

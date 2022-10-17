@@ -44,7 +44,7 @@ typedef enum registerAccessType_u
 	REGISTER_ACCESS_WRITE
 } registerAccessType_t;
 
-typedef uint32_t (*registerAccessor_t)
+typedef int (*registerAccessor_t)
 (
 	registerAccessType_t,
 	volatile uint32_t*,

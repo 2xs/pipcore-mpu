@@ -272,39 +272,57 @@ propagateFault(
  *        up to the root partition. If the root partition cannot handle
  *        the fault, PIP is in an unrecoverable state.
  *
- * \param stackedContext The context stacked by the Fault_Handler entry
- *        point.
+ * \param ctx The context stacked by the Fault_Handler entry point.
+ *
+ * \param irq The exception number.
  *
  * \see The calling code is in the exception_entry.S file.
  */
 extern void __attribute__((noreturn))
-Fault_Handler_C(stackedContext_t *context)
+Fault_Handler_C_Irq(stackedContext_t *ctx, uint32_t irq)
 {
-	uint32_t currentInterrupt = ICSR.VECTACTIVE;
+	int_mask_t state = getSelfIntState();
+	paddr pd = getCurPartition();
+	uint32_t saveidx;
 
-	paddr currentPartDesc = getCurPartition();
-	int_mask_t interruptedPartIntState = getSelfIntState();
-	uint32_t saveIndex;
-
-	if (interruptedPartIntState == 0)
+	if (state == 0)
 	{
-		saveIndex = CLI_SAVE_INDEX;
+		saveidx = CLI_SAVE_INDEX;
 	}
 	else
 	{
-		saveIndex = STI_SAVE_INDEX;
+		saveidx = STI_SAVE_INDEX;
 	}
 
-	resetInitialSp(context);
+	resetInitialSp(ctx);
 
-	printf("The current partition (%p) has faulted...\n", currentPartDesc);
+	printf("The current partition (%p) has faulted...\n", pd);
 
 	/* Propagate the fault to the parent of the faulted partition. */
-	propagateFault(currentPartDesc, currentInterrupt, saveIndex,
-		interruptedPartIntState, interruptedPartIntState, context);
+	propagateFault(pd, irq, saveidx, state, state, ctx);
 
-	/* We should never end up here because the propagateFault never
+	/* We should never end up here because the propagatefault never
 	 * return to the caller. */
+	__builtin_unreachable();
+}
+
+/*!
+ * \brief Retrieve the current exception number from the VECTACTIVE
+ *        register and call the real fault handler.
+ *
+ * \param ctx The context stacked by the Fault_Handler entry point.
+ *
+ * \see The calling code is in the exception_entry.S file.
+ */
+extern void __attribute__((noreturn))
+Fault_Handler_C(stackedContext_t *ctx)
+{
+	uint32_t irq = ICSR.VECTACTIVE;
+
+	Fault_Handler_C_Irq(ctx, irq);
+
+	/* We should never end up here because the Fault_Handler_C_Irq
+	 * never return to the caller. */
 	__builtin_unreachable();
 }
 

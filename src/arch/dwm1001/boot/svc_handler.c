@@ -251,7 +251,8 @@ void SVC_Handler_C(stackedContext_t *context)
 		}
 		case SVC_NUMBER_IN:
 		{
-			*r0 = in(
+			in(
+				context,
 				*r0,
 				r1
 			);
@@ -260,7 +261,8 @@ void SVC_Handler_C(stackedContext_t *context)
 		}
 		case SVC_NUMBER_OUT:
 		{
-			*r0 = out(
+			out(
+				context,
 				*r0,
 				r1
 			);

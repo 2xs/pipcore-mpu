@@ -34,103 +34,119 @@
 #include <stdint.h>
 
 #include "accessor.h"
+#include "context.h"
 #include "register.h"
 #include "mal.h"
 
-extern uint32_t
+#define MEMMANAGE_IRQ_NUMBER 4
+
+extern void
+Fault_Handler_C_Irq(
+	stackedContext_t *ctx,
+	uint32_t irq
+) __attribute__((noreturn));
+
+extern int
 registerAccessRead(
-	registerAccessType_t registerAccessType,
-	volatile uint32_t *registerAddress,
-	uint32_t *valueAddress
+	registerAccessType_t type,
+	volatile uint32_t *reg,
+	uint32_t *val
 ) {
-	if (registerAccessType != REGISTER_ACCESS_READ)
+	if (type != REGISTER_ACCESS_READ)
 	{
 		return 0;
 	}
 
-	*valueAddress = *registerAddress;
+	*val = *reg;
 
 	return 1;
 }
 
-extern uint32_t
+extern int
 registerAccessWrite(
-	registerAccessType_t registerAccessType,
-	volatile uint32_t *registerAddress,
-	uint32_t *valueAddress
+	registerAccessType_t type,
+	volatile uint32_t *reg,
+	uint32_t *val
 ) {
-	if (registerAccessType != REGISTER_ACCESS_WRITE)
+	if (type != REGISTER_ACCESS_WRITE)
 	{
 		return 0;
 	}
 
-	*registerAddress = *valueAddress;
+	*reg = *val;
 
 	return 1;
 }
 
-extern uint32_t
+extern int
 registerAccessReadWrite(
-	registerAccessType_t registerAccessType,
-	volatile uint32_t *registerAddress,
-	uint32_t *valueAddress
+	registerAccessType_t type,
+	volatile uint32_t *reg,
+	uint32_t *val
 ) {
-	if (registerAccessType == REGISTER_ACCESS_READ)
+	switch (type)
 	{
-		*valueAddress = *registerAddress;
-	}
-	else
-	{
-		*registerAddress = *valueAddress;
+		case REGISTER_ACCESS_READ:
+		{
+			*val = *reg;
+			break;
+		}
+		case REGISTER_ACCESS_WRITE:
+		{
+			*reg = *val;
+			break;
+		}
+		default:
+		{
+			return 0;
+		}
 	}
 
 	return 1;
 }
 
-extern uint32_t
-in(uint32_t registerId, uint32_t *valueAddress)
-{
-	const registerIdToAccessor_t *entry;
+static void
+doAccess(
+	stackedContext_t *ctx,
+	registerAccessType_t type,
+	uint32_t id,
+	uint32_t *val
+) {
+	registerAccessor_t accessor;
+	volatile uint32_t *reg;
 
 	if (getRootPartition() != getCurPartition())
 	{
-		return 0;
+		goto fault;
 	}
 
-	if (registerId >= REGISTER_ID_TO_ACCESSOR_SIZE)
+	if (id >= REGISTER_ID_TO_ACCESSOR_SIZE)
 	{
-		return 0;
+		goto fault;
 	}
 
-	entry = &REGISTER_ID_TO_ACCESSOR[registerId];
+	accessor = REGISTER_ID_TO_ACCESSOR[id].accessor;
+	reg      = REGISTER_ID_TO_ACCESSOR[id].address;
 
-	return entry->accessor(
-		REGISTER_ACCESS_READ,
-		entry->address,
-		valueAddress
-	);
+	if (accessor(type, reg, val) == 0)
+	{
+		goto fault;
+	}
+
+	return;
+
+fault:
+	Fault_Handler_C_Irq(ctx, MEMMANAGE_IRQ_NUMBER);
 }
 
-extern uint32_t
-out(uint32_t registerId, uint32_t *valueAddress)
+extern void
+in(stackedContext_t *ctx, uint32_t id, uint32_t *val)
 {
-	const registerIdToAccessor_t *entry;
+	doAccess(ctx, REGISTER_ACCESS_READ, id, val);
+}
 
-	if (getRootPartition() != getCurPartition())
-	{
-		return 0;
-	}
-
-	if (registerId >= REGISTER_ID_TO_ACCESSOR_SIZE)
-	{
-		return 0;
-	}
-
-	entry = &REGISTER_ID_TO_ACCESSOR[registerId];
-
-	return entry->accessor(
-		REGISTER_ACCESS_WRITE,
-		entry->address,
-		valueAddress
-	);
+extern void
+out(stackedContext_t *ctx, uint32_t id, uint32_t *val)
+{
+	doAccess(ctx, REGISTER_ACCESS_WRITE, id, val);
 }
