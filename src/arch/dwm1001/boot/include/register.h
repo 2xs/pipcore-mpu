@@ -36,7 +36,7 @@
 
 #include <stdint.h>
 
-#define REGISTER_ID_TO_ACCESSOR_SIZE 519
+#define REGISTER_ID_TO_ACCESSOR_SIZE 582
 
 typedef enum registerAccessType_u
 {
