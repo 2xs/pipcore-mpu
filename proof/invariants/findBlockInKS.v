@@ -1,5 +1,6 @@
 (*******************************************************************************)
-(*  © Université de Lille, The Pip Development Team (2015-2021)                *)
+(*  © Université de Lille, The Pip Development Team (2015-2022)                *)
+(*  Copyright (C) 2020-2022 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -31,7 +32,7 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(**  * Summary 
+(**  * Summary
     This file contains the invariants of [findBlockInKS, findBelongingBlock] and
 		associated lemmas.
 *)
@@ -41,7 +42,7 @@ Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
                Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants.
 Require Import Compare_dec Bool.
 
-Lemma findBlockComp  (entryaddr referenceaddr : paddr) (comparator : index) (P : state -> Prop)  : 
+Lemma findBlockComp  (entryaddr referenceaddr : paddr) (comparator : index) (P : state -> Prop)  :
 {{fun s  =>  P s
 						/\ isBE entryaddr s}}
 Internal.findBlockComp entryaddr referenceaddr comparator
@@ -208,7 +209,7 @@ induction n.
 			}
 Qed.
 
-Lemma findBlockInKSAux n (currentkernelstructure idblock : paddr) 
+Lemma findBlockInKSAux n (currentkernelstructure idblock : paddr)
 																(compoption : index) (P : state -> Prop) :
 {{  fun s : state => P s /\ consistency s
 										/\ isKS currentkernelstructure s}}
@@ -300,7 +301,7 @@ Qed.
 
 Lemma findBelongingBlock (idPD referenceaddr: paddr) (P : state -> Prop) :
 {{ fun s => P s /\ consistency s /\ isPDT idPD s}}
-Internal.findBelongingBlock idPD referenceaddr 
+Internal.findBelongingBlock idPD referenceaddr
 {{fun (blockaddr : paddr) (s : state) => P s /\ consistency s /\
 			(blockaddr = nullAddr
 					\/ (exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)))
@@ -345,7 +346,7 @@ Qed.
 
 Lemma findBlockInKS (idPD blockEntryAddr: paddr) (P : state -> Prop) :
 {{ fun s => P s /\ consistency s /\ isPDT idPD s}}
-Internal.findBlockInKS idPD blockEntryAddr 
+Internal.findBlockInKS idPD blockEntryAddr
 {{fun (blockaddr : paddr) (s : state) => P s /\ consistency s /\
 			(blockaddr = nullAddr
 			\/ (exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)))

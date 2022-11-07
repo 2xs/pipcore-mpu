@@ -1,5 +1,6 @@
 (*******************************************************************************)
 (*  © Université de Lille, The Pip Development Team (2015-2022)                *)
+(*  Copyright (C) 2020-2022 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -32,21 +33,21 @@
 (*******************************************************************************)
 
 
-(** * Summary 
-    This file contains the formalization of the consistency properties : 
+(** * Summary
+    This file contains the formalization of the consistency properties :
 for each one we summarize the description of its definition *)
-Require Import Model.ADT Model.Monad Model.MAL Model.Lib Lib (*Isolation*) 
+Require Import Model.ADT Model.Monad Model.MAL Model.Lib Lib (*Isolation*)
 StateLib.
 Require Import  Omega List Coq.Logic.ProofIrrelevance.
 Import List.ListNotations.
 
 Definition wellFormedFstShadowIfBlockEntry s :=
-forall pa, 
+forall pa,
 isBE pa s ->
 isSHE (CPaddr (pa + sh1offset)) s.
 
 Definition wellFormedShadowCutIfBlockEntry s :=
-forall pa, 
+forall pa,
 isBE pa s ->
 exists scentryaddr : paddr, isSCE scentryaddr s
 /\ scentryaddr = CPaddr (pa + scoffset).
@@ -136,7 +137,7 @@ sh1entry.(inChildLocation) <> nullAddr ->
 isBE sh1entry.(inChildLocation) s.
 
 (** ** Conjunction of all consistency properties *)
-Definition consistency s := 
+Definition consistency s :=
 wellFormedFstShadowIfBlockEntry s /\
 PDTIfPDFlag s /\
 nullAddrExists s /\

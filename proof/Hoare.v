@@ -1,5 +1,6 @@
 (*******************************************************************************)
-(*  © Université Lille 1, The Pip Development Team (2015-2018)                 *)
+(*  © Université de Lille, The Pip Development Team (2015-2022)                *)
+(*  Copyright (C) 2020-2022 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -31,20 +32,20 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary 
+(** * Summary
 This file contains the Hoare logic formalization.
 
- 
--Hoare logic formalization <<{{ P }} m {{ Q }}>>:  
-   
- - <<m>> is a monadic function 
-  
- - <<P>> is the precondition of the function <<m>>, it is an unary predicate which depends on the state   
-   
- - <<Q>> is the postcondition of the function <<m>>, it is a binary predicate which depends on the new state and the return value  
- 
 
--We define some lemmas like [weaken] and [bindWP] to facilitate Hoare logic 
+-Hoare logic formalization <<{{ P }} m {{ Q }}>>:
+
+ - <<m>> is a monadic function
+
+ - <<P>> is the precondition of the function <<m>>, it is an unary predicate which depends on the state
+
+ - <<Q>> is the postcondition of the function <<m>>, it is a binary predicate which depends on the new state and the return value
+
+
+-We define some lemmas like [weaken] and [bindWP] to facilitate Hoare logic
      and monad manipulation.
 *)
 Require Import FunctionalExtensionality Model.Monad(*Model.ADT*).
@@ -100,11 +101,11 @@ extensionality s; unfold bind; case (m s); trivial; tauto.
 Qed.
 
 
-(* Lemma runvaluebind {A : Type} (m e: LLI A) (s : state) : 
-runvalue (perform x := m in e) s = 
-match runvalue m s with 
-| None => runvalue e s 
-| Some x => runvalue e s 
+(* Lemma runvaluebind {A : Type} (m e: LLI A) (s : state) :
+runvalue (perform x := m in e) s =
+match runvalue m s with
+| None => runvalue e s
+| Some x => runvalue e s
 end.
 case_eq(runvalue m s);intros.
 unfold runvalue in *.
@@ -119,7 +120,7 @@ subst.
 unfold bind in *.
 rewrite H0 in *.
 cbn in *.
-simpl in 
+simpl in
 *.
 
 simpl. *)
@@ -145,10 +146,10 @@ generalize (H1 s H3). clear H1. intro H1. assumption.
 generalize (H2 s H3). clear H2. intro H2. assumption.
 Qed.
 
-Lemma preAndPost : 
+Lemma preAndPost :
  forall (A : Type) (P1 Q1 : state -> Prop) (P2  : A -> state -> Prop) (m : LLI A),
-{{P1}} m {{P2}} -> 
-{{fun s => P1 s /\ Q1 s}} m {{fun a => Q1 }} -> 
+{{P1}} m {{P2}} ->
+{{fun s => P1 s /\ Q1 s}} m {{fun a => Q1 }} ->
 {{fun s => P1 s /\ Q1 s}} m {{fun a s => P2 a s /\ Q1 s}}.
 Proof.
 intros.
@@ -207,7 +208,7 @@ Qed.
 Lemma conjPrePost :
 forall (A : Type) (P1 Q1 : state -> Prop) (P2 Q2 : A -> state -> Prop) (m : LLI A),
 {{P1}} m {{P2}} ->
-{{Q1}} m {{Q2}} -> 
+{{Q1}} m {{Q2}} ->
 {{fun s => P1 s /\ Q1 s}} m {{fun a s => P2 a s /\ Q2 a s}}.
 Proof.
 intros.

@@ -1,5 +1,6 @@
 (*******************************************************************************)
 (*  © Université de Lille, The Pip Development Team (2015-2022)                *)
+(*  Copyright (C) 2020-2022 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -31,7 +32,7 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary 
+(** * Summary
     This file contains required lemmas to help in proving some properties
     on our dependent types defined into [Model.ADT] *)
 Require Import Model.ADT Model.MALInternal Model.Lib.
@@ -44,8 +45,8 @@ Require Import Coq.Logic.ProofIrrelevance Arith Lia Bool.
 Lemma levelEqBEqNatTrue :
 forall l l' : level, StateLib.Level.eqb l l' = true -> l = l' .
  Proof.
- intros l l' H.  
- unfold StateLib.Level.eqb in H. 
+ intros l l' H.
+ unfold StateLib.Level.eqb in H.
  apply beq_nat_true in H.
  destruct l.
  destruct l'. simpl in *.
@@ -54,7 +55,7 @@ forall l l' : level, StateLib.Level.eqb l l' = true -> l = l' .
  apply proof_irrelevance. subst. intuition.
 Qed.
 
-Lemma levelEqBEqNatFalse : 
+Lemma levelEqBEqNatFalse :
 forall l ,
 StateLib.Level.eqb l fstLevel = false -> l > fstLevel.
 Proof.
@@ -68,13 +69,13 @@ intros.
 rewrite H0 in *.
 simpl in *. lia.
 intros.
-assert (0 < nbLevel). 
+assert (0 < nbLevel).
 apply nbLevelNotZero.
 contradict H1.
-intuition. 
-Qed. 
+intuition.
+Qed.
 
-Lemma levelEqBEqNatFalse0 : 
+Lemma levelEqBEqNatFalse0 :
 forall l ,
 StateLib.Level.eqb l fstLevel = false -> l > 0.
 Proof.
@@ -88,13 +89,13 @@ intros.
 rewrite H0 in H.
 simpl in *. lia.
 intros.
-assert (0 < nbLevel). 
+assert (0 < nbLevel).
 apply nbLevelNotZero.
 contradict H1.
-intuition. 
-Qed. 
+intuition.
+Qed.
 
-Lemma levelEqBEqNatTrue0 : 
+Lemma levelEqBEqNatTrue0 :
 forall l ,
 StateLib.Level.eqb l fstLevel = true -> l <= 0.
 Proof.
@@ -108,12 +109,12 @@ intros.
 rewrite H0 in H.
 simpl in *. lia.
 intros.
-assert (0 < nbLevel). 
+assert (0 < nbLevel).
 apply nbLevelNotZero.
 contradict H1.
-intuition. 
+intuition.
 Qed.
- 
+
 Lemma levelPredNone nbL:
 StateLib.Level.eqb nbL fstLevel = false ->
 StateLib.Level.pred nbL <> None.
@@ -129,8 +130,8 @@ Qed.
 
 Lemma levelPredLt nbL l :
 StateLib.Level.eqb nbL fstLevel = false ->
-StateLib.Level.pred nbL = Some l -> 
-l < nbL. 
+StateLib.Level.pred nbL = Some l ->
+l < nbL.
 Proof.
 intros.
 unfold Level.pred in *.
@@ -141,10 +142,10 @@ simpl in *.
 lia.
 apply levelEqBEqNatFalse0 in H.
 lia.
-Qed.    
+Qed.
 
-Lemma CLevel0_r :  forall l : level,l - CLevel 0 = l. 
-Proof. 
+Lemma CLevel0_r :  forall l : level,l - CLevel 0 = l.
+Proof.
 unfold CLevel.
 case_eq (lt_dec 0 nbLevel).
 intros.
@@ -159,21 +160,21 @@ Proof.
 intros l.
 rewrite CLevel0_r. destruct l.
 simpl.
-unfold CLevel. 
+unfold CLevel.
 case_eq(lt_dec l nbLevel).
 intros. simpl.
 assert ( Hl = ADT.CLevel_obligation_1 l l0).
 apply proof_irrelevance.
 subst. reflexivity.
 intros.
-contradict H. 
+contradict H.
 lia.
 Qed.
 
 Lemma CLevelIdentity1 : forall l : level, CLevel l  = l.
 Proof.
 intros l.
-unfold CLevel. 
+unfold CLevel.
 case_eq(lt_dec l nbLevel).
 intros. simpl.
 destruct l.
@@ -183,7 +184,7 @@ apply proof_irrelevance.
 subst.
 intros.
 destruct l.
-simpl in *. 
+simpl in *.
 lia.
 Qed.
 
@@ -199,7 +200,7 @@ Qed.
 
 Lemma levelPredMinus1: forall l l' , StateLib.Level.eqb l fstLevel = false -> StateLib.Level.pred l = Some l' -> l' = CLevel (l - 1).
 Proof.
-intros. 
+intros.
 unfold StateLib.Level.pred  in *.
 assert (l > 0).
 { apply levelEqBEqNatFalse0.
@@ -210,13 +211,13 @@ case_eq (gt_dec l 0).
   inversion H0.
   unfold CLevel.
   case_eq (lt_dec (l - 1) nbLevel).
-  intros. subst.   
+  intros. subst.
   assert (ADT.CLevel_obligation_1 (l - 1) l0  = StateLib.Level.pred_obligation_1 l g ).
-  apply proof_irrelevance. 
+  apply proof_irrelevance.
   rewrite H4. reflexivity.
   intros.
   destruct l.
-  subst. 
+  subst.
   simpl in *.
   contradict H3.
   lia.
@@ -225,7 +226,7 @@ case_eq (gt_dec l 0).
   assumption.
 Qed.
 
-Lemma levelEqNat : 
+Lemma levelEqNat :
 forall a b , a < nbLevel -> b < nbLevel -> CLevel a = CLevel b -> a = b.
 Proof.
 intros a b Ha Hb Hab.
@@ -239,7 +240,7 @@ intros a b Ha Hb Hab.
  + lia.
 Qed.
 
-Lemma level_gt : 
+Lemma level_gt :
 forall x x0, x - x0 < nbLevel ->  CLevel (x - x0) > 0 -> x > x0.
 Proof.
 intros.
@@ -250,15 +251,15 @@ simpl in *. lia.
 intros. contradict H1. lia.
 Qed.
 
-Lemma getNbLevelLe : 
-forall nbL, 
-Some nbL = StateLib.getNbLevel -> 
+Lemma getNbLevelLe :
+forall nbL,
+Some nbL = StateLib.getNbLevel ->
 nbL <= CLevel (nbLevel - 1).
 Proof.
 intros.
 unfold getNbLevel in *.
 destruct (gt_dec nbLevel 0).
-inversion H. 
+inversion H.
 unfold CLevel.
 case_eq (lt_dec (nbLevel - 1) nbLevel); intros.
 simpl.
@@ -268,9 +269,9 @@ assert (0 < nbLevel) by apply nbLevelNotZero.
 lia.
 Qed.
 
-Lemma getNbLevelEq : 
-forall nbL, 
-Some nbL = StateLib.getNbLevel -> 
+Lemma getNbLevelEq :
+forall nbL,
+Some nbL = StateLib.getNbLevel ->
 nbL = CLevel (nbLevel - 1).
 Proof.
 intros.
@@ -279,7 +280,7 @@ destruct (gt_dec nbLevel 0).
 inversion H.
 destruct nbL.
 simpl in *.
- 
+
 unfold CLevel.
 case_eq (lt_dec (nbLevel - 1) nbLevel); intros.
 inversion H.
@@ -291,7 +292,7 @@ lia.
 now contradict H.
 Qed.
 
-Lemma getNbLevelEqOption : 
+Lemma getNbLevelEqOption :
  StateLib.getNbLevel= Some (CLevel (nbLevel - 1)).
 Proof.
 unfold getNbLevel in *.
@@ -328,7 +329,7 @@ simpl;lia.
 assert(0 <nbLevel) by apply nbLevelNotZero.
 lia.
 Qed.
- 
+
 Lemma getNbLevelLt nbL:
 StateLib.getNbLevel = Some nbL -> nbL < nbLevel.
 Proof.
@@ -341,16 +342,16 @@ lia.
 now contradict H.
 Qed.
 
-Lemma notFstLevel (level1 : level) : 
- 0 < level1 -> 
+Lemma notFstLevel (level1 : level) :
+ 0 < level1 ->
 StateLib.Level.eqb level1 fstLevel = false.
-Proof. 
+Proof.
 unfold Level.eqb.
 intros.
 apply NPeano.Nat.eqb_neq.
-unfold fstLevel. 
+unfold fstLevel.
 unfold CLevel.
-case_eq (lt_dec 0 nbLevel);intros. 
+case_eq (lt_dec 0 nbLevel);intros.
 simpl.
 lia.
 assert(0<nbLevel) by apply nbLevelNotZero.
@@ -358,8 +359,8 @@ lia.
 Qed.
 
 Lemma ClevelMinus0Eq (nbL: level) stop :
-stop <= nbL -> 
-nbL = CLevel (nbL - stop) -> 
+stop <= nbL ->
+nbL = CLevel (nbL - stop) ->
 stop = 0.
 Proof.
 intros.
@@ -375,8 +376,8 @@ lia.
 Qed.
 
 Lemma ClevelMinus0Le (nbL: level) stop :
-stop <= nbL -> 
-nbL <= CLevel (nbL - stop) -> 
+stop <= nbL ->
+nbL <= CLevel (nbL - stop) ->
 stop = 0.
 Proof.
 intros.
@@ -396,7 +397,7 @@ Qed.
 (**** ADT : page **)
 Lemma isDefaultPageFalse : forall p,   (defaultPage =? pa p) = false -> pa p <> defaultPage .
 Proof.
-intros. 
+intros.
 apply beq_nat_false in H.
 unfold not. intros.
 contradict H. symmetry.
@@ -412,7 +413,7 @@ Qed.
 
 Lemma isDefaultPageTrue : forall p,   (defaultPage =? pa p) = true -> pa p = defaultPage .
 Proof.
-intros. 
+intros.
 apply beq_nat_true in H. symmetry.
 unfold defaultPage in *.
 unfold CPage in *.
@@ -422,7 +423,7 @@ rewrite H0 in H.
 symmetry.
 simpl in *.
 destruct p.
-simpl in *. 
+simpl in *.
 subst.
 destruct pa.
 simpl in *.
@@ -436,7 +437,7 @@ rewrite H0 in H.
 subst.
 simpl in *.
 destruct p.
-simpl in *. 
+simpl in *.
 subst.
 destruct pa.
 simpl in *.
@@ -464,9 +465,9 @@ now contradict Heq.
 Qed.
 
 Lemma listPageDecOrNot :
-forall x (l: list page), List.In x l \/ 
+forall x (l: list page), List.In x l \/
               ~List.In x l.
-Proof.              
+Proof.
 induction l;trivial.
 right;intuition.
 simpl.
@@ -477,11 +478,11 @@ destruct IHl.
 left;right;trivial.
 right.
 apply Logic.Classical_Prop.and_not_or. intuition.
-Qed. 
-             
-             
+Qed.
+
+
 (** ADT : index **)
-Lemma indexEqFalse : 
+Lemma indexEqFalse :
 forall a b : nat , a < tableSize -> b < tableSize -> a <> b -> CIndex a <> CIndex b.
 Proof.
 intros.
@@ -497,45 +498,45 @@ case_eq (lt_dec a tableSize).
     intuition.
   - intros. contradict H0. assumption.
 + intros. contradict H. intuition.
-Qed. 
+Qed.
 
-Lemma indexltbTrue : 
-forall i1 i2 : index , 
+Lemma indexltbTrue :
+forall i1 i2 : index ,
 StateLib.Index.ltb i1 i2 = true -> i1 < i2.
-Proof. intros. unfold MALInternal.Index.ltb in H. 
+Proof. intros. unfold MALInternal.Index.ltb in H.
 apply NPeano.Nat.ltb_lt in H.
 assumption.
-Qed. 
+Qed.
 
-Lemma indexltbFalse : 
-forall i1 i2 : index , 
+Lemma indexltbFalse :
+forall i1 i2 : index ,
 StateLib.Index.ltb i1 i2 = false -> i1 >= i2.
 Proof.
 intros.
-unfold MALInternal.Index.ltb in *. 
+unfold MALInternal.Index.ltb in *.
 apply not_lt.
 apply NPeano.Nat.ltb_nlt in H.
 lia.
-Qed. 
+Qed.
 
-Lemma indexBoundEq : 
-forall i : index , i>= CIndex (tableSize - 1) -> i =  CIndex (tableSize - 1). 
+Lemma indexBoundEq :
+forall i : index , i>= CIndex (tableSize - 1) -> i =  CIndex (tableSize - 1).
 Proof.
 intros.
 unfold CIndex in *.
 destruct (lt_dec (tableSize - 1) tableSize).
 simpl in *.
 destruct i.
-simpl in *. 
+simpl in *.
 subst.
 assert(i = tableSize - 1). lia.
-subst. 
+subst.
 assert (Hi = ADT.CIndex_obligation_1 (tableSize - 1) l ).
 apply proof_irrelevance.
 subst. trivial.
 contradict n.
 assert (0 < tableSize).
-assert (tableSize > tableSizeLowerBound). 
+assert (tableSize > tableSizeLowerBound).
 apply tableSizeBigEnough.
 unfold  tableSizeLowerBound in * . lia. lia.
 Qed.
@@ -556,8 +557,8 @@ apply H; f_equal.
 apply proof_irrelevance.
 Qed.
 
-Lemma indexEqId : 
-forall i : index, CIndex i = i. 
+Lemma indexEqId :
+forall i : index, CIndex i = i.
 Proof.
 intros.
 unfold CIndex.
@@ -569,7 +570,7 @@ subst. reflexivity.
 now contradict Hi.
 Qed.
 
-Lemma indexMaxEqFalseLt : 
+Lemma indexMaxEqFalseLt :
 forall idx : index, idx <> CIndex (tableSize - 1) -> idx < tableSize - 1.
 Proof.
 intros.
@@ -594,10 +595,10 @@ lia.
 Qed.
 
 Lemma SuccOddEven :
-forall oneI twoI : index, 
-oneI < tableSize -1 -> 
-StateLib.Index.succ oneI = Some twoI -> 
-Nat.Odd oneI -> 
+forall oneI twoI : index,
+oneI < tableSize -1 ->
+StateLib.Index.succ oneI = Some twoI ->
+Nat.Odd oneI ->
 Nat.Even twoI.
 Proof.
 intros.
@@ -615,14 +616,14 @@ unfold Nat.Even in *.
 destruct H1 as (m & Hm).
 exists m.
 lia.
-now contradict H0.   
+now contradict H0.
 Qed.
 
 Lemma SuccEvenOdd :
-forall oneI twoI : index, 
-oneI < tableSize -1 -> 
-StateLib.Index.succ oneI = Some twoI -> 
-Nat.Even oneI -> 
+forall oneI twoI : index,
+oneI < tableSize -1 ->
+StateLib.Index.succ oneI = Some twoI ->
+Nat.Even oneI ->
 Nat.Odd twoI.
 Proof.
 intros.
@@ -640,10 +641,10 @@ unfold Nat.Odd in *.
 destruct H1 as (m & Hm).
 exists m.
 lia.
-now contradict H0.   
+now contradict H0.
 Qed.
 
-Lemma indexMaxEqFalseLt1 : 
+Lemma indexMaxEqFalseLt1 :
 forall idx : index, idx <> CIndex (tableSize - 1) -> idx < CIndex (tableSize - 1).
 Proof.
 intros.
@@ -668,10 +669,10 @@ lia.
 Qed.
 
 Lemma noteqIndex a b:
-a < tableSizeLowerBound -> b < tableSizeLowerBound -> a<>b ->  
+a < tableSizeLowerBound -> b < tableSizeLowerBound -> a<>b ->
 CIndex a <> CIndex b.
 Proof.
-intros. 
+intros.
 apply indexEqFalse;
 assert (tableSize > tableSizeLowerBound).
 apply tableSizeBigEnough.
@@ -692,7 +693,7 @@ case_eq(lt_dec 0 tableSize);intros;simpl;try lia.
 Qed.
 
 Lemma CIndex1lt oneI:
-StateLib.Index.succ (CIndex 0) = Some oneI-> 
+StateLib.Index.succ (CIndex 0) = Some oneI->
 oneI < tableSize - 1.
 Proof.
 unfold StateLib.Index.succ.
@@ -728,8 +729,8 @@ assumption.
 Qed.
 
 (*
-Lemma indexEqbTrue : 
-forall idx1 idx2 : index, true = StateLib.Index.eqb idx1 idx2 -> 
+Lemma indexEqbTrue :
+forall idx1 idx2 : index, true = StateLib.Index.eqb idx1 idx2 ->
 idx1 = idx2.
 Proof.
 unfold StateLib.Index.eqb in *.
@@ -744,7 +745,7 @@ apply proof_irrelevance.
 Qed.
 
 
-Lemma indexLtZero : 
+Lemma indexLtZero :
 forall idx : index, idx < CIndex 0 -> False.
 Proof.
 intros.
@@ -756,10 +757,10 @@ assert (tableSizeLowerBound < tableSize) by apply tableSizeBigEnough.
 lia.
 Qed.
 
-Lemma indexSEqbZeroOdd : 
-forall curidx idxsucc, 
-true = StateLib.Index.eqb curidx (CIndex 0) -> 
-StateLib.Index.succ curidx = Some idxsucc -> 
+Lemma indexSEqbZeroOdd :
+forall curidx idxsucc,
+true = StateLib.Index.eqb curidx (CIndex 0) ->
+StateLib.Index.succ curidx = Some idxsucc ->
 Nat.Odd idxsucc.
 Proof.
 intros.
@@ -784,10 +785,10 @@ Qed.
 
 Lemma indexSuccNot0:
 forall FFI nextFFI,
-StateLib.Index.succ FFI = Some nextFFI -> 
+StateLib.Index.succ FFI = Some nextFFI ->
 (CIndex 0) <> nextFFI .
 Proof.
-intros. 
+intros.
 unfold Index.succ in *.
 case_eq(lt_dec (FFI + 1) tableSize);intros; rewrite H0 in *.
 inversion H.
@@ -804,9 +805,9 @@ lia.
 now contradict H.
 Qed.
 
-Lemma indexZeroNotOdd : 
+Lemma indexZeroNotOdd :
 forall idx idxsucc : index,
-idx < idxsucc -> 
+idx < idxsucc ->
 StateLib.Index.succ (CIndex 0) = Some idxsucc ->
 ~ Nat.Odd idx.
 Proof.
@@ -833,11 +834,11 @@ assert (tableSizeLowerBound < tableSize) by apply tableSizeBigEnough.
 lia.
 now contradict H0.
 Qed.
- 
- Lemma indexSEqbZeroLt : 
-forall  idxsucc idx : index, 
-StateLib.Index.succ (CIndex 0)  = Some idxsucc -> 
-idx < idxsucc -> 
+
+ Lemma indexSEqbZeroLt :
+forall  idxsucc idx : index,
+StateLib.Index.succ (CIndex 0)  = Some idxsucc ->
+idx < idxsucc ->
 idx = CIndex 0.
 Proof.
 intros.
@@ -863,10 +864,10 @@ lia.
 now contradict H0.
 Qed.
 
-Lemma indexSuccGt : 
+Lemma indexSuccGt :
 forall idx curidx iIndex : index,
-StateLib.Index.succ curidx = Some iIndex -> 
-idx < curidx -> 
+StateLib.Index.succ curidx = Some iIndex ->
+idx < curidx ->
 idx <> iIndex.
 Proof.
 intros.
@@ -884,7 +885,7 @@ lia.
 now contradict H.
 Qed.
 Lemma Succ0is1 oneI:
-StateLib.Index.succ (CIndex 0) = Some oneI -> 
+StateLib.Index.succ (CIndex 0) = Some oneI ->
 oneI = CIndex 1.
 Proof.
 intros.
@@ -893,8 +894,8 @@ unfold StateLib.Index.succ in *.
 assert(CIndex 0 + 1 = 1).
 {
 unfold CIndex.
-case_eq (lt_dec 0 tableSize );intros. 
-simpl;trivial.  
+case_eq (lt_dec 0 tableSize );intros.
+simpl;trivial.
 assert (tableSize > tableSizeLowerBound).
 apply tableSizeBigEnough.
 unfold tableSizeLowerBound in *.
@@ -911,9 +912,9 @@ f_equal.
 now contradict H1.
 Qed.
 
-Lemma indexSuccEqFalse: 
+Lemma indexSuccEqFalse:
 forall  curidx iIndex : index,
-StateLib.Index.succ curidx = Some iIndex -> 
+StateLib.Index.succ curidx = Some iIndex ->
  curidx <> iIndex.
 Proof.
 intros.
@@ -932,12 +933,12 @@ lia.
 now contradict H.
 Qed.
 
-Lemma indexSuccSuccOddOr (curidx iIndex nextidx idx : index): 
+Lemma indexSuccSuccOddOr (curidx iIndex nextidx idx : index):
 StateLib.Index.succ curidx = Some iIndex ->
-StateLib.Index.succ iIndex = Some nextidx -> 
-Nat.Odd curidx -> 
-Nat.Odd idx -> 
-idx < nextidx -> 
+StateLib.Index.succ iIndex = Some nextidx ->
+Nat.Odd curidx ->
+Nat.Odd idx ->
+idx < nextidx ->
 idx = curidx \/ idx < curidx.
 Proof.
 intros.
@@ -961,7 +962,7 @@ unfold StateLib.Index.succ in *.
       assert (i1 = i \/ i1 < i).
       unfold Nat.Odd in *.
       destruct H1 ; destruct H2.
-      
+
       lia.
       destruct H.
       left.
@@ -970,13 +971,13 @@ unfold StateLib.Index.succ in *.
       apply proof_irrelevance.
       right; trivial.
 Qed.
-      
-Lemma indexSuccSuccEvenOr (curidx iIndex nextidx idx : index): 
+
+Lemma indexSuccSuccEvenOr (curidx iIndex nextidx idx : index):
 StateLib.Index.succ curidx = Some iIndex ->
-StateLib.Index.succ iIndex = Some nextidx -> 
-Nat.Even curidx -> 
-Nat.Even idx -> 
-idx < nextidx -> 
+StateLib.Index.succ iIndex = Some nextidx ->
+Nat.Even curidx ->
+Nat.Even idx ->
+idx < nextidx ->
 idx = curidx \/ idx < curidx.
 Proof.
 intros.
@@ -1008,13 +1009,13 @@ unfold StateLib.Index.succ in *.
       right; trivial.
 Qed.
 
-Lemma indexSuccSuccEvenOddLt (curidx iIndex nextidx idx : index): 
+Lemma indexSuccSuccEvenOddLt (curidx iIndex nextidx idx : index):
 StateLib.Index.succ curidx = Some iIndex ->
-StateLib.Index.succ iIndex = Some nextidx -> 
-Nat.Even idx -> 
-Nat.Odd curidx -> 
-idx < nextidx -> 
-idx < iIndex -> 
+StateLib.Index.succ iIndex = Some nextidx ->
+Nat.Even idx ->
+Nat.Odd curidx ->
+idx < nextidx ->
+idx < iIndex ->
 idx < curidx.
 Proof.
 intros.
@@ -1035,16 +1036,16 @@ unfold StateLib.Index.succ in *.
       simpl in *.
       destruct H1; destruct H2.
       subst.
-      
+
       lia.
 Qed.
-Lemma indexSuccSuccOddEvenLt (curidx iIndex nextidx idx : index): 
+Lemma indexSuccSuccOddEvenLt (curidx iIndex nextidx idx : index):
 StateLib.Index.succ curidx = Some iIndex ->
-StateLib.Index.succ iIndex = Some nextidx -> 
-Nat.Odd idx -> 
-Nat.Even curidx -> 
-idx < nextidx -> 
-idx < iIndex -> 
+StateLib.Index.succ iIndex = Some nextidx ->
+Nat.Odd idx ->
+Nat.Even curidx ->
+idx < nextidx ->
+idx < iIndex ->
 idx < curidx.
 Proof.
 intros.
@@ -1070,8 +1071,8 @@ Qed.
 
 Lemma succLet (Scuridx SScuridx idx:index):
 
-StateLib.Index.succ Scuridx = Some SScuridx -> 
-idx < SScuridx -> 
+StateLib.Index.succ Scuridx = Some SScuridx ->
+idx < SScuridx ->
 idx = Scuridx \/ idx < Scuridx.
 Proof.
 intros.
@@ -1097,13 +1098,13 @@ f_equal.
 apply proof_irrelevance.
 now contradict H0.
 Qed.
-  
-  
-  
-Lemma indexNotEqSuccNotEq (idx1 idx2 : index): 
-idx1 < tableSize -1 -> 
-idx2 < tableSize -1 -> 
-idx1 <> idx2 -> 
+
+
+
+Lemma indexNotEqSuccNotEq (idx1 idx2 : index):
+idx1 < tableSize -1 ->
+idx2 < tableSize -1 ->
+idx1 <> idx2 ->
 StateLib.Index.succ idx2 <> StateLib.Index.succ idx1.
 Proof.
 intros.
@@ -1120,7 +1121,7 @@ f_equal.
 apply proof_irrelevance.
 Qed.
 
-Lemma tableSizeMinus0: 
+Lemma tableSizeMinus0:
 forall idx: index,  idx = CIndex (tableSize - 1) -> idx>0.
 Proof.
 intros.
@@ -1133,10 +1134,10 @@ destruct idx;simpl in *.
 inversion H;subst.
 lia.
 lia.
-Qed. 
+Qed.
 
-Lemma tableSizeMinus2: 
-CIndex (tableSize - 1) - 1 = tableSize - 2. 
+Lemma tableSizeMinus2:
+CIndex (tableSize - 1) - 1 = tableSize - 2.
 Proof.
 unfold CIndex.
 case_eq(lt_dec (tableSize - 1) tableSize);intros;simpl in *;try lia.
@@ -1145,19 +1146,19 @@ apply tableSizeBigEnough.
 lia.
 Qed.
 
-Lemma TableSizeMinus2: 
+Lemma TableSizeMinus2:
 forall idx, idx < CIndex (tableSize - 2) -> idx < CIndex (tableSize - 1).
 Proof.
 intros.
 unfold CIndex in *.
 assert(tableSize > tableSizeLowerBound) by apply tableSizeBigEnough.
 unfold tableSizeLowerBound in *.
-case_eq( lt_dec (tableSize - 2) tableSize);intros Hi Hii ; rewrite Hii in *;simpl in *; try lia. 
+case_eq( lt_dec (tableSize - 2) tableSize);intros Hi Hii ; rewrite Hii in *;simpl in *; try lia.
 case_eq (lt_dec (tableSize - 1) tableSize);intros;simpl; lia.
 Qed.
- 
+
 Lemma predMaxIndex :
-forall i,  StateLib.Index.pred (CIndex (tableSize - 1)) = Some i -> 
+forall i,  StateLib.Index.pred (CIndex (tableSize - 1)) = Some i ->
 i = CIndex (tableSize - 2).
 Proof.
 intros.
@@ -1183,18 +1184,18 @@ lia.
 Qed.
 (** ADT : vaddr **)
 Lemma lengthVAddrNotZero (va : vaddr) : fstLevel < (length va -1).
-Proof. 
+Proof.
  unfold fstLevel.  destruct va.
  simpl. rewrite Hva. unfold CLevel. case_eq (lt_dec 0 nbLevel).
  simpl. intros. lia.
- intros. destruct level_d. simpl. lia. 
+ intros. destruct level_d. simpl. lia.
  Qed.
 
-Lemma CLevelMinusEq0 : 
-forall (a : level) b , CLevel (a -  b) = CLevel 0 ->   a = CLevel b \/ a < b. 
+Lemma CLevelMinusEq0 :
+forall (a : level) b , CLevel (a -  b) = CLevel 0 ->   a = CLevel b \/ a < b.
 Proof.
 intros.
-unfold CLevel in *.  
+unfold CLevel in *.
 case_eq (lt_dec (a - b) nbLevel );
 intros lab Hab; rewrite Hab in *.
 case_eq(lt_dec 0 nbLevel);
@@ -1206,13 +1207,13 @@ intros lb Hb.
 simpl in *.
 apply NPeano.Nat.sub_0_le in H2.
 apply le_lt_or_eq in H2.
-destruct H2. 
+destruct H2.
 right; assumption.
 left.
 destruct a.
 simpl in *.
 subst.
-assert (Hl =  ADT.CLevel_obligation_1 b lb ) by 
+assert (Hl =  ADT.CLevel_obligation_1 b lb ) by
 apply proof_irrelevance.
 subst. reflexivity.
 right; destruct a; simpl in *; lia.
@@ -1224,18 +1225,18 @@ Qed.
 
 
 (** beqPairs **)
-Lemma beqPairsTrue : 
-forall table1 idx1 table2 idx2 , table1 = table2 /\ idx1 = idx2 <->   
+Lemma beqPairsTrue :
+forall table1 idx1 table2 idx2 , table1 = table2 /\ idx1 = idx2 <->
 beqPairs (table1, idx1) (table2, idx2) beqPage beqIndex = true.
 Proof.
 intros.
 unfold beqPairs.
-cbn.  
+cbn.
 unfold beqPage , beqIndex .
 split.
 * case_eq (table1 =? table2) ; case_eq(idx1 =? idx2);intuition.
-  apply beq_nat_false in H.  
-  destruct idx1 , idx2. simpl in *. inversion H3. lia.  
+  apply beq_nat_false in H.
+  destruct idx1 , idx2. simpl in *. inversion H3. lia.
   apply beq_nat_false in H0.
   destruct table1, table2. simpl in *.
   inversion H2. lia.
@@ -1243,50 +1244,50 @@ split.
   apply beq_nat_false in H0.
   destruct table1, table2. simpl in *.
   inversion H2. lia.
-* intros. 
+* intros.
   case_eq (table1 =? table2) ; case_eq(idx1 =? idx2);intuition.
   apply beq_nat_true in H1; trivial.
-  destruct table1, table2; simpl in *; subst; f_equal; apply proof_irrelevance. 
+  destruct table1, table2; simpl in *; subst; f_equal; apply proof_irrelevance.
   destruct idx1 , idx2; simpl in *.
   apply beq_nat_true in H0; subst; f_equal; apply proof_irrelevance.
   apply beq_nat_true in H1; trivial.
   destruct table1, table2; simpl in *; subst; f_equal; apply proof_irrelevance.
   rewrite H0 in H.
-  rewrite H1 in H. 
+  rewrite H1 in H.
   case_eq ((true && false)%bool); intros.
   apply Bool.andb_true_iff in H2.
   now contradict H2.
   rewrite H2 in H; now contradict H.
   rewrite H0 in H.
-  rewrite H1 in H. 
+  rewrite H1 in H.
   case_eq ((false && true)%bool); intros.
   apply Bool.andb_true_iff in H2.
   now contradict H2.
   rewrite H2 in H; now contradict H.
   apply beq_nat_true in H0.
-  destruct idx1 , idx2; simpl in *;subst; f_equal; apply proof_irrelevance. 
+  destruct idx1 , idx2; simpl in *;subst; f_equal; apply proof_irrelevance.
   rewrite H0 in H.
-  rewrite H1 in H. 
+  rewrite H1 in H.
   case_eq ((false && false)%bool); intros.
   apply Bool.andb_true_iff in H2.
-  now contradict H2.  
+  now contradict H2.
   rewrite H2 in H; now contradict H.
   rewrite H0 in H.
-  rewrite H1 in H. 
+  rewrite H1 in H.
   case_eq ((false && false)%bool); intros.
   apply Bool.andb_true_iff in H2.
-  now contradict H2.  
+  now contradict H2.
   rewrite H2 in H; now contradict H.
 Qed.
 
-Lemma beqPairsFalse : 
-forall table1 idx1 table2 idx2 , 
-table1 <> table2 \/ idx1 <> idx2 <-> 
+Lemma beqPairsFalse :
+forall table1 idx1 table2 idx2 ,
+table1 <> table2 \/ idx1 <> idx2 <->
 beqPairs (table1, idx1) (table2, idx2) beqPage beqIndex = false.
 Proof.
 intros.
 unfold beqPairs.
-cbn.  
+cbn.
 unfold beqPage , beqIndex .
 intuition.
 case_eq (table1 =? table2) ; case_eq(idx1 =? idx2);intuition.
@@ -1294,7 +1295,7 @@ contradict H0.
 apply beq_nat_true in H1.
 destruct table1, table2. simpl in *. subst.
 assert (Hp = Hp0).
-apply proof_irrelevance. subst. trivial. 
+apply proof_irrelevance. subst. trivial.
 assert((idx1 =? idx2) = false).
 apply Nat.eqb_neq. unfold not.
 intros.
@@ -1316,7 +1317,7 @@ case_eq (table1 =? table2) ; case_eq(idx1 =? idx2);intuition.
   intuition.
 + apply beq_nat_false in H0.
   right.
-  intros. 
+  intros.
   destruct idx1; destruct idx2.
   simpl in *.
   inversion H2.
@@ -1324,7 +1325,7 @@ case_eq (table1 =? table2) ; case_eq(idx1 =? idx2);intuition.
   now contradict H0.
 + apply beq_nat_false in H1.
   left.
-  intros. 
+  intros.
   destruct table1; destruct table2.
   simpl in *.
   inversion H2.
@@ -1332,7 +1333,7 @@ case_eq (table1 =? table2) ; case_eq(idx1 =? idx2);intuition.
   now contradict H1.
 + apply beq_nat_false in H1.
   left.
-  intros. 
+  intros.
   destruct table1; destruct table2.
   simpl in *.
   inversion H2.
@@ -1340,9 +1341,9 @@ case_eq (table1 =? table2) ; case_eq(idx1 =? idx2);intuition.
   now contradict H1.
 Qed.*)
 
-Lemma beqAddrTrue : 
-forall addr1 addr2 , 
-addr1 = addr2 <-> 
+Lemma beqAddrTrue :
+forall addr1 addr2 ,
+addr1 = addr2 <->
 beqAddr addr1 addr2 = true.
 Proof.
 intros.
@@ -1359,9 +1360,9 @@ assert (Hp = Hp0).
 apply proof_irrelevance. subst. trivial.
 Qed.
 
-Lemma beqAddrFalse : 
-forall addr1 addr2 , 
-addr1 <> addr2 <-> 
+Lemma beqAddrFalse :
+forall addr1 addr2 ,
+addr1 <> addr2 <->
 beqAddr addr1 addr2 = false.
 Proof.
 intros.
@@ -1386,7 +1387,7 @@ case_eq (addr1 =? addr2) ; intuition.
 	congruence.
 Qed.
 
-Lemma beqAddrSym : 
+Lemma beqAddrSym :
 forall addr1 addr2 ,
 beqAddr addr1 addr2 = beqAddr addr2 addr1.
 Proof.
@@ -1395,7 +1396,7 @@ case_eq ((addr1 =? addr2)). intuition.
 apply beq_nat_true in H. rewrite H. apply eq_sym. apply Nat.eqb_refl.
 intros. apply eq_sym.
 apply Nat.eqb_neq. apply Nat.eqb_neq in H. unfold not in *.
-intros. intuition. 
+intros. intuition.
 Qed.
 
 (*
@@ -1449,10 +1450,10 @@ unfold not;intros Hirr.
 inversion Hirr.
 subst;now contradict Hor.
 Qed.
-    
-Lemma idxPRsucNotEqidxPPR : PRidx < tableSize - 1 -> 
+
+Lemma idxPRsucNotEqidxPPR : PRidx < tableSize - 1 ->
 exists succidx1 : index, Index.succ PRidx = Some succidx1 /\ (succidx1 = PPRidx -> False).
-Proof. 
+Proof.
 unfold Index.succ.
 case_eq (lt_dec (PRidx + 1) tableSize); intros.
 eexists.
@@ -1478,7 +1479,7 @@ unfold not; intros Hii.
 inversion Hii as (Hi2).
 unfold CIndex in Hi2.
 case_eq(lt_dec 0 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-simpl in *. 
+simpl in *.
 inversion Hii.
 abstract lia.
 abstract lia.
@@ -1491,10 +1492,10 @@ apply tableSizeBigEnough.
 unfold tableSizeLowerBound in *.
 abstract lia.
 abstract lia.
-Qed. 
-     Lemma idxPPRsuccNotEqidxPR : PPRidx < tableSize - 1 -> 
+Qed.
+     Lemma idxPPRsuccNotEqidxPR : PPRidx < tableSize - 1 ->
     exists succidx2 : index, Index.succ PPRidx = Some succidx2 /\ (succidx2 = PRidx -> False).
-    Proof.  
+    Proof.
     unfold Index.succ.
     case_eq (lt_dec (PPRidx + 1) tableSize); intros.
     eexists.
@@ -1507,7 +1508,7 @@ Qed.
     apply proof_irrelevance.
     abstract lia.
     unfold CIndex.
-    case_eq(lt_dec (PPRidx + 1) tableSize ); intros.    
+    case_eq(lt_dec (PPRidx + 1) tableSize ); intros.
     assert(Hi : {| i := PPRidx + 1; Hi := ADT.CIndex_obligation_1 (PPRidx + 1) l0 |} = PRidx)
     by trivial.
     contradict Hi.
@@ -1519,7 +1520,7 @@ Qed.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 10 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     abstract lia.
     abstract lia.
@@ -1532,9 +1533,9 @@ Qed.
     unfold tableSizeLowerBound in *.
     abstract lia.
     abstract lia.
-    Qed. 
+    Qed.
 Lemma idxPRidxPPRNotEq : PRidx <> PPRidx.
-    Proof.  
+    Proof.
       unfold PRidx. unfold PPRidx.
       apply indexEqFalse ;
       assert (tableSize > tableSizeLowerBound).
@@ -1544,11 +1545,11 @@ Lemma idxPRidxPPRNotEq : PRidx <> PPRidx.
       unfold tableSizeLowerBound in *.
       abstract lia.
       apply tableSizeBigEnough.
-      abstract lia. Qed. 
+      abstract lia. Qed.
 
-    Lemma idxPPRsuccNotEqidxPD : PPRidx < tableSize - 1 -> 
+    Lemma idxPPRsuccNotEqidxPD : PPRidx < tableSize - 1 ->
     exists succidx2 : index, StateLib.Index.succ PPRidx = Some succidx2 /\ (succidx2 = PDidx -> False).
-    Proof. 
+    Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (PPRidx + 1) tableSize); intros.
     eexists.
@@ -1562,7 +1563,7 @@ Lemma idxPRidxPPRNotEq : PRidx <> PPRidx.
     abstract lia.
     unfold CIndex.
     case_eq(lt_dec (PPRidx + 1) tableSize ); intros.
-    
+
     assert(Hi : {| i := PPRidx + 1; Hi := ADT.CIndex_obligation_1 (PPRidx + 1) l0 |} = PDidx)
     by trivial.
     contradict Hi.
@@ -1574,7 +1575,7 @@ Lemma idxPRidxPPRNotEq : PRidx <> PPRidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 10 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     abstract lia.
     assert (tableSize > tableSizeLowerBound).
@@ -1590,7 +1591,7 @@ Lemma idxPRidxPPRNotEq : PRidx <> PPRidx.
     Qed.
 
 Lemma idxPPRidxPDNotEq : PPRidx <> PDidx.
-    Proof. 
+    Proof.
       unfold PPRidx. unfold PDidx.
       apply indexEqFalse ;
       assert (tableSize > tableSizeLowerBound).
@@ -1598,10 +1599,10 @@ Lemma idxPPRidxPDNotEq : PPRidx <> PDidx.
       unfold tableSizeLowerBound in *.
       abstract lia.  apply tableSizeBigEnough.
       unfold tableSizeLowerBound in *.
-      abstract lia. apply tableSizeBigEnough. abstract lia. Qed. 
-    Lemma idxPDsucNotEqidxPPR :  PDidx < tableSize - 1 -> 
+      abstract lia. apply tableSizeBigEnough. abstract lia. Qed.
+    Lemma idxPDsucNotEqidxPPR :  PDidx < tableSize - 1 ->
     exists succidx1 : index, StateLib.Index.succ PDidx = Some succidx1 /\ (succidx1 = PPRidx -> False).
-    Proof. 
+    Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (PDidx + 1) tableSize); intros.
     eexists.
@@ -1615,7 +1616,7 @@ Lemma idxPPRidxPDNotEq : PPRidx <> PDidx.
     abstract lia.
     unfold CIndex.
     case_eq(lt_dec (PDidx + 1) tableSize ); intros.
-    
+
     assert(Hi : {| i := PDidx + 1; Hi := ADT.CIndex_obligation_1 (PDidx + 1) l0 |} = PPRidx)
     by trivial.
     contradict Hi.
@@ -1627,7 +1628,7 @@ Lemma idxPPRidxPDNotEq : PPRidx <> PDidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 2 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     abstract lia.
     abstract lia.
@@ -1643,7 +1644,7 @@ Lemma idxPPRidxPDNotEq : PPRidx <> PDidx.
     Qed.
 
  Lemma idxPDidxPPRNotEq : PDidx <> PPRidx.
-    Proof. 
+    Proof.
       unfold PRidx. unfold sh3idx.
       apply indexEqFalse ;
       assert (tableSize > tableSizeLowerBound).
@@ -1656,7 +1657,7 @@ Lemma idxPPRidxPDNotEq : PPRidx <> PDidx.
       abstract lia. Qed.
 
  Lemma idxPPRidxSh1NotEq : PPRidx <> sh1idx.
-    Proof. 
+    Proof.
       unfold PPRidx. unfold sh1idx.
       apply indexEqFalse ;
       assert (tableSize > tableSizeLowerBound).
@@ -1665,10 +1666,10 @@ Lemma idxPPRidxPDNotEq : PPRidx <> PDidx.
       abstract lia.  apply tableSizeBigEnough.
       unfold tableSizeLowerBound in *.
       abstract lia. apply tableSizeBigEnough. abstract lia. Qed.
-   
-    Lemma idxPPRsuccNotEqidxSh1 : PPRidx < tableSize - 1 -> 
+
+    Lemma idxPPRsuccNotEqidxSh1 : PPRidx < tableSize - 1 ->
     exists succidx2 : index, StateLib.Index.succ PPRidx = Some succidx2 /\ (succidx2 = sh1idx -> False).
-    Proof. 
+    Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (PPRidx + 1) tableSize); intros.
     eexists.
@@ -1682,7 +1683,7 @@ Lemma idxPPRidxPDNotEq : PPRidx <> PDidx.
     abstract lia.
     unfold CIndex.
     case_eq(lt_dec (PPRidx + 1) tableSize ); intros.
-    
+
     assert(Hi : {| i := PPRidx + 1; Hi := ADT.CIndex_obligation_1 (PPRidx + 1) l0 |} = sh1idx)
     by trivial.
     contradict Hi.
@@ -1694,7 +1695,7 @@ Lemma idxPPRidxPDNotEq : PPRidx <> PDidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 10 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     abstract lia.
     assert (tableSize > tableSizeLowerBound).
@@ -1707,11 +1708,11 @@ Lemma idxPPRidxPDNotEq : PPRidx <> PDidx.
     abstract lia.
     abstract lia.
     abstract lia.
-    Qed. 
+    Qed.
 
     Lemma idxSh1succNotEqidxPPR : sh1idx < tableSize - 1 ->
     exists succidx1 : index, StateLib.Index.succ sh1idx = Some succidx1 /\ (succidx1 = PPRidx -> False).
-    Proof. 
+    Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (sh1idx + 1) tableSize); intros.
     eexists.
@@ -1725,7 +1726,7 @@ Lemma idxPPRidxPDNotEq : PPRidx <> PDidx.
     abstract lia.
     unfold CIndex.
     case_eq(lt_dec (sh1idx + 1) tableSize ); intros.
-    
+
     assert(Hi : {| i := sh1idx + 1; Hi := ADT.CIndex_obligation_1 (sh1idx + 1) l0 |} = PPRidx)
     by trivial.
     contradict Hi.
@@ -1737,7 +1738,7 @@ Lemma idxPPRidxPDNotEq : PPRidx <> PDidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 4 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     abstract lia.
     abstract lia.
@@ -1753,7 +1754,7 @@ Lemma idxPPRidxPDNotEq : PPRidx <> PDidx.
     Qed.
 
 Lemma idxSh1idxPPRnotEq : sh1idx <> PPRidx.
-    Proof.  
+    Proof.
       unfold sh1idx. unfold PPRidx.
       apply indexEqFalse ;
       assert (tableSize > tableSizeLowerBound).
@@ -1765,117 +1766,9 @@ Lemma idxSh1idxPPRnotEq : sh1idx <> PPRidx.
       apply tableSizeBigEnough.
       abstract lia. Qed.
 
-    Lemma idxPPRsuccNotEqidxSh2 : PPRidx < tableSize - 1 -> 
+    Lemma idxPPRsuccNotEqidxSh2 : PPRidx < tableSize - 1 ->
     exists succidx2 : index, StateLib.Index.succ PPRidx = Some succidx2 /\ (succidx2 = sh2idx -> False).
-    Proof. 
-    unfold StateLib.Index.succ.
-    case_eq (lt_dec (PPRidx + 1) tableSize); intros.
-    eexists.
-    split.
-    instantiate (1:= CIndex (PPRidx + 1)).
-    f_equal.
-    unfold CIndex .
-    case_eq (lt_dec(PPRidx + 1) tableSize); intros.
-    f_equal.
-    apply proof_irrelevance.
-    abstract lia.
-    unfold CIndex.
-    case_eq(lt_dec (PPRidx + 1) tableSize ); intros.    
-    assert(Hi : {| i := PPRidx + 1; Hi := ADT.CIndex_obligation_1 (PPRidx + 1) l0 |} = sh2idx)
-    by trivial.
-    contradict Hi.
-    subst.
-    unfold PPRidx. unfold sh2idx.
-    unfold CIndex at 3.
-    case_eq (lt_dec 6 tableSize); intros.
-    unfold not; intros Hii.
-    inversion Hii as (Hi2).
-    unfold CIndex in Hi2.
-    case_eq(lt_dec 10 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
-    inversion Hii.
-    abstract lia.
-    assert (tableSize > tableSizeLowerBound).
-    apply tableSizeBigEnough.
-    unfold tableSizeLowerBound in *.
-    abstract lia.
-    assert (tableSize > tableSizeLowerBound).
-    apply tableSizeBigEnough.
-    unfold tableSizeLowerBound in *.
-    abstract lia.
-    abstract lia.
-    abstract lia.
-    Qed. 
-
-Lemma idxPPRidxSh2NotEq : PPRidx <> sh2idx. Proof. 
-      unfold PPRidx. unfold sh2idx.
-      apply indexEqFalse ;
-      assert (tableSize > tableSizeLowerBound).
-      apply tableSizeBigEnough.
-      unfold tableSizeLowerBound in *.
-      abstract lia.  apply tableSizeBigEnough.
-      unfold tableSizeLowerBound in *.
-      abstract lia.
-      apply tableSizeBigEnough.
-      abstract lia. Qed.
-    Lemma idxSh2succNotEqidxPPR : sh2idx < tableSize - 1 -> 
-    exists succidx1 : index, StateLib.Index.succ sh2idx = Some succidx1 /\ (succidx1 = PPRidx -> False).
-    Proof.  
-    unfold StateLib.Index.succ.
-    case_eq (lt_dec (sh2idx + 1) tableSize); intros.
-    eexists.
-    split.
-    instantiate (1:= CIndex (sh2idx + 1)).
-    f_equal.
-    unfold CIndex .
-    case_eq (lt_dec(sh2idx + 1) tableSize); intros.
-    f_equal.
-    apply proof_irrelevance.
-    abstract lia.
-    unfold CIndex.
-    case_eq(lt_dec (sh2idx + 1) tableSize ); intros.    
-    assert(Hi : {| i := sh2idx + 1; Hi := ADT.CIndex_obligation_1 (sh2idx + 1) l0 |} = PPRidx)
-    by trivial.
-    contradict Hi.
-    subst.
-    unfold sh2idx. unfold PPRidx.
-    unfold CIndex at 3.
-    case_eq (lt_dec 10 tableSize); intros.
-    unfold not; intros Hii.
-    inversion Hii as (Hi2).
-    unfold CIndex in Hi2.
-    case_eq(lt_dec 6 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
-    inversion Hii.
-    abstract lia.
-    abstract lia.
-    assert (tableSize > tableSizeLowerBound).
-    apply tableSizeBigEnough.
-    unfold tableSizeLowerBound in *.
-    abstract lia.
-    assert (tableSize > tableSizeLowerBound).
-    apply tableSizeBigEnough.
-    unfold tableSizeLowerBound in *.
-    abstract lia.
-    abstract lia.
-    Qed. 
-
-Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
-    Proof.  
-      unfold sh1idx. unfold sh3idx.
-      apply indexEqFalse ;
-      assert (tableSize > tableSizeLowerBound).
-      apply tableSizeBigEnough.
-      unfold tableSizeLowerBound in *.
-      abstract lia.  apply tableSizeBigEnough.
-      unfold tableSizeLowerBound in *.
-      abstract lia.
-      apply tableSizeBigEnough.
-      abstract lia. Qed.
-
-    Lemma idxPPRsuccNotEqidxSh3 : PPRidx < tableSize - 1 -> 
-    exists succidx2 : index, StateLib.Index.succ PPRidx = Some succidx2 /\ (succidx2 = sh3idx -> False).
-    Proof. 
+    Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (PPRidx + 1) tableSize); intros.
     eexists.
@@ -1889,19 +1782,18 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     abstract lia.
     unfold CIndex.
     case_eq(lt_dec (PPRidx + 1) tableSize ); intros.
-    
-     assert(Hi : {| i := PPRidx + 1; Hi := ADT.CIndex_obligation_1 (PPRidx + 1) l0 |} = sh3idx)
+    assert(Hi : {| i := PPRidx + 1; Hi := ADT.CIndex_obligation_1 (PPRidx + 1) l0 |} = sh2idx)
     by trivial.
     contradict Hi.
     subst.
-    unfold PPRidx. unfold sh3idx.
+    unfold PPRidx. unfold sh2idx.
     unfold CIndex at 3.
-    case_eq (lt_dec 8 tableSize); intros.
+    case_eq (lt_dec 6 tableSize); intros.
     unfold not; intros Hii.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 10 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     abstract lia.
     assert (tableSize > tableSizeLowerBound).
@@ -1914,9 +1806,118 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     abstract lia.
     abstract lia.
     abstract lia.
-    Qed. 
+    Qed.
 
-    Lemma idxSh3succNotEqPPRidx : sh3idx < tableSize - 1 -> 
+Lemma idxPPRidxSh2NotEq : PPRidx <> sh2idx. Proof.
+      unfold PPRidx. unfold sh2idx.
+      apply indexEqFalse ;
+      assert (tableSize > tableSizeLowerBound).
+      apply tableSizeBigEnough.
+      unfold tableSizeLowerBound in *.
+      abstract lia.  apply tableSizeBigEnough.
+      unfold tableSizeLowerBound in *.
+      abstract lia.
+      apply tableSizeBigEnough.
+      abstract lia. Qed.
+    Lemma idxSh2succNotEqidxPPR : sh2idx < tableSize - 1 ->
+    exists succidx1 : index, StateLib.Index.succ sh2idx = Some succidx1 /\ (succidx1 = PPRidx -> False).
+    Proof.
+    unfold StateLib.Index.succ.
+    case_eq (lt_dec (sh2idx + 1) tableSize); intros.
+    eexists.
+    split.
+    instantiate (1:= CIndex (sh2idx + 1)).
+    f_equal.
+    unfold CIndex .
+    case_eq (lt_dec(sh2idx + 1) tableSize); intros.
+    f_equal.
+    apply proof_irrelevance.
+    abstract lia.
+    unfold CIndex.
+    case_eq(lt_dec (sh2idx + 1) tableSize ); intros.
+    assert(Hi : {| i := sh2idx + 1; Hi := ADT.CIndex_obligation_1 (sh2idx + 1) l0 |} = PPRidx)
+    by trivial.
+    contradict Hi.
+    subst.
+    unfold sh2idx. unfold PPRidx.
+    unfold CIndex at 3.
+    case_eq (lt_dec 10 tableSize); intros.
+    unfold not; intros Hii.
+    inversion Hii as (Hi2).
+    unfold CIndex in Hi2.
+    case_eq(lt_dec 6 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
+    simpl in *.
+    inversion Hii.
+    abstract lia.
+    abstract lia.
+    assert (tableSize > tableSizeLowerBound).
+    apply tableSizeBigEnough.
+    unfold tableSizeLowerBound in *.
+    abstract lia.
+    assert (tableSize > tableSizeLowerBound).
+    apply tableSizeBigEnough.
+    unfold tableSizeLowerBound in *.
+    abstract lia.
+    abstract lia.
+    Qed.
+
+Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
+    Proof.
+      unfold sh1idx. unfold sh3idx.
+      apply indexEqFalse ;
+      assert (tableSize > tableSizeLowerBound).
+      apply tableSizeBigEnough.
+      unfold tableSizeLowerBound in *.
+      abstract lia.  apply tableSizeBigEnough.
+      unfold tableSizeLowerBound in *.
+      abstract lia.
+      apply tableSizeBigEnough.
+      abstract lia. Qed.
+
+    Lemma idxPPRsuccNotEqidxSh3 : PPRidx < tableSize - 1 ->
+    exists succidx2 : index, StateLib.Index.succ PPRidx = Some succidx2 /\ (succidx2 = sh3idx -> False).
+    Proof.
+    unfold StateLib.Index.succ.
+    case_eq (lt_dec (PPRidx + 1) tableSize); intros.
+    eexists.
+    split.
+    instantiate (1:= CIndex (PPRidx + 1)).
+    f_equal.
+    unfold CIndex .
+    case_eq (lt_dec(PPRidx + 1) tableSize); intros.
+    f_equal.
+    apply proof_irrelevance.
+    abstract lia.
+    unfold CIndex.
+    case_eq(lt_dec (PPRidx + 1) tableSize ); intros.
+
+     assert(Hi : {| i := PPRidx + 1; Hi := ADT.CIndex_obligation_1 (PPRidx + 1) l0 |} = sh3idx)
+    by trivial.
+    contradict Hi.
+    subst.
+    unfold PPRidx. unfold sh3idx.
+    unfold CIndex at 3.
+    case_eq (lt_dec 8 tableSize); intros.
+    unfold not; intros Hii.
+    inversion Hii as (Hi2).
+    unfold CIndex in Hi2.
+    case_eq(lt_dec 10 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
+    simpl in *.
+    inversion Hii.
+    abstract lia.
+    assert (tableSize > tableSizeLowerBound).
+    apply tableSizeBigEnough.
+    unfold tableSizeLowerBound in *.
+    abstract lia.
+    assert (tableSize > tableSizeLowerBound).
+    apply tableSizeBigEnough.
+    unfold tableSizeLowerBound in *.
+    abstract lia.
+    abstract lia.
+    abstract lia.
+    Qed.
+
+    Lemma idxSh3succNotEqPPRidx : sh3idx < tableSize - 1 ->
     exists succidx1 : index, StateLib.Index.succ sh3idx = Some succidx1 /\ (succidx1 = PPRidx -> False).
     Proof.
     unfold StateLib.Index.succ.
@@ -1943,7 +1944,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 8 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     abstract lia.
     abstract lia.
@@ -1956,10 +1957,10 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     unfold tableSizeLowerBound in *.
     abstract lia.
     abstract lia.
-    Qed. 
+    Qed.
 
  Lemma idxPPRidxSh3NotEq : PPRidx <> sh3idx.
-    Proof.  
+    Proof.
       unfold PPRidx. unfold sh3idx.
       apply indexEqFalse ;
       assert (tableSize > tableSizeLowerBound).
@@ -1970,9 +1971,9 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
       abstract lia.
        apply tableSizeBigEnough. abstract lia. Qed.
 
-    Lemma idxSh3succNotEqPRidx : sh3idx < tableSize - 1 -> 
+    Lemma idxSh3succNotEqPRidx : sh3idx < tableSize - 1 ->
     exists succidx2 : index, StateLib.Index.succ sh3idx = Some succidx2 /\ (succidx2 = PRidx -> False).
-    Proof. 
+    Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (sh3idx + 1) tableSize); intros.
     eexists.
@@ -1986,7 +1987,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     abstract lia.
     unfold CIndex.
     case_eq(lt_dec (sh3idx + 1) tableSize ); intros.
-    
+
      assert(Hi : {| i := sh3idx + 1; Hi := ADT.CIndex_obligation_1 (sh3idx + 1) l0 |} = PRidx)
     by trivial.
     contradict Hi.
@@ -1998,7 +1999,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 8 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     abstract lia.
     abstract lia.
@@ -2014,7 +2015,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     Qed.
 
     Lemma idxPRsuccNotEqidxSh3 : PRidx < tableSize - 1 -> exists succidx1 : index, StateLib.Index.succ PRidx = Some succidx1 /\ (succidx1 = sh3idx -> False).
-    Proof.  
+    Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (PRidx + 1) tableSize); intros.
     eexists.
@@ -2039,7 +2040,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 0 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     abstract lia.
     abstract lia.
@@ -2055,7 +2056,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     Qed.
 
     Lemma  idxPRidxSh3NotEq : PRidx <> sh3idx.
-    Proof.  
+    Proof.
     (* *)
       unfold PRidx. unfold sh3idx.
       apply indexEqFalse ;
@@ -2064,11 +2065,11 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
       unfold tableSizeLowerBound in *.
       abstract lia.  apply tableSizeBigEnough.
       unfold tableSizeLowerBound in *.
-      abstract lia. apply tableSizeBigEnough. abstract lia. Qed.  
+      abstract lia. apply tableSizeBigEnough. abstract lia. Qed.
 
-    Lemma idxSh3succNotEqidxPDidx : sh3idx < tableSize - 1 -> 
+    Lemma idxSh3succNotEqidxPDidx : sh3idx < tableSize - 1 ->
     exists succidx2 : index, StateLib.Index.succ sh3idx = Some succidx2 /\ (succidx2 = PDidx -> False).
-    Proof.  
+    Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (sh3idx + 1) tableSize); intros.
     eexists.
@@ -2093,7 +2094,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 8 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     abstract lia.
     assert (tableSize > tableSizeLowerBound).
@@ -2109,9 +2110,9 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     Qed.
 
 
-    Lemma idxPDsucNotEqidxSh3 : PDidx < tableSize - 1 -> 
+    Lemma idxPDsucNotEqidxSh3 : PDidx < tableSize - 1 ->
     exists succidx1 : index, StateLib.Index.succ PDidx = Some succidx1 /\ (succidx1 = sh3idx -> False).
-    Proof. 
+    Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (PDidx + 1) tableSize); intros.
     eexists.
@@ -2125,7 +2126,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     abstract lia.
     unfold CIndex.
     case_eq(lt_dec (PDidx + 1) tableSize ); intros.
-    
+
      assert(Hi : {| i := PDidx + 1; Hi := ADT.CIndex_obligation_1 (PDidx + 1) l0 |} = sh3idx)
     by trivial.
     contradict Hi.
@@ -2137,7 +2138,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 2 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     abstract lia.
     abstract lia.
@@ -2153,8 +2154,8 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     Qed.
 
     Lemma idxPDidxSh3notEq : PDidx <> sh3idx.
-    Proof. 
-(*    
+    Proof.
+(*
  *)      unfold PDidx. unfold sh3idx.
       apply indexEqFalse ;
       assert (tableSize > tableSizeLowerBound).
@@ -2163,12 +2164,12 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
       abstract lia.  apply tableSizeBigEnough.
       unfold tableSizeLowerBound in *.
       abstract lia. apply tableSizeBigEnough. abstract lia.
-      Qed. 
+      Qed.
 
-    Lemma idxSh3succNotEqidxSh1 : 
-    sh3idx < tableSize - 1 -> 
+    Lemma idxSh3succNotEqidxSh1 :
+    sh3idx < tableSize - 1 ->
      exists succidx2 : index, StateLib.Index.succ sh3idx = Some succidx2 /\ (succidx2 = sh1idx -> False).
-     Proof. 
+     Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (sh3idx + 1) tableSize); intros.
     eexists.
@@ -2182,7 +2183,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     lia.
     unfold CIndex.
     case_eq(lt_dec (sh3idx + 1) tableSize ); intros.
-    
+
      assert(Hi : {| i := sh3idx + 1; Hi := ADT.CIndex_obligation_1 (sh3idx + 1) l0 |} = sh1idx)
     by trivial.
     contradict Hi.
@@ -2194,7 +2195,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 8 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     lia.
     assert (tableSize > tableSizeLowerBound).
@@ -2210,7 +2211,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     Qed.
     Lemma sh1idxSh3idxNotEq : sh1idx < tableSize - 1 ->
     exists succidx1 : index, StateLib.Index.succ sh1idx = Some succidx1 /\ (succidx1 = sh3idx -> False).
-    Proof. 
+    Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (sh1idx + 1) tableSize); intros.
     eexists.
@@ -2224,7 +2225,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     lia.
     unfold CIndex.
     case_eq(lt_dec (sh1idx + 1) tableSize ); intros.
-    
+
      assert(Hi : {| i := sh1idx + 1; Hi := ADT.CIndex_obligation_1 (sh1idx + 1) l0 |} = sh3idx)
     by trivial.
     contradict Hi.
@@ -2236,7 +2237,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 4 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     lia.
     lia.
@@ -2251,7 +2252,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     lia.
     Qed.
     Lemma idxSh1idxSh3notEq :  sh1idx <> sh3idx.
-     Proof. 
+     Proof.
       unfold sh1idx. unfold sh3idx.
       apply indexEqFalse ;
       assert (tableSize > tableSizeLowerBound).
@@ -2260,11 +2261,11 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
       lia.  apply tableSizeBigEnough.
       unfold tableSizeLowerBound in *.
       lia. apply tableSizeBigEnough. lia.
-      Qed. 
+      Qed.
 
     Lemma idxSh3succNotEqidxSh2 : sh3idx < tableSize - 1 ->
     exists succidx2 : index, StateLib.Index.succ sh3idx = Some succidx2 /\ (succidx2 = sh2idx -> False).
-    Proof.  
+    Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (sh3idx + 1) tableSize); intros.
     eexists.
@@ -2289,7 +2290,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 8 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     lia.
     assert (tableSize > tableSizeLowerBound).
@@ -2306,7 +2307,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
 
     Lemma idxSh2succNotEqidxSh3 : sh2idx < tableSize - 1 ->
     exists succidx1 : index, StateLib.Index.succ sh2idx = Some succidx1 /\ (succidx1 = sh3idx -> False).
-    Proof. 
+    Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (sh2idx + 1) tableSize); intros.
     eexists.
@@ -2331,7 +2332,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 6 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     lia.
     lia.
@@ -2345,9 +2346,9 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     lia.
     lia.
     Qed.
- 
+
     Lemma idxSh2idxSh3notEq : sh2idx <> sh3idx .
-    Proof.  
+    Proof.
       unfold sh2idx. unfold sh3idx.
       apply indexEqFalse ;
       assert (tableSize > tableSizeLowerBound).
@@ -2355,10 +2356,10 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
       unfold tableSizeLowerBound in *.
       lia.  apply tableSizeBigEnough.
       unfold tableSizeLowerBound in *.
-      lia. apply tableSizeBigEnough. lia. 
+      lia. apply tableSizeBigEnough. lia.
      Qed.
-     
-   Lemma  idxSh2succNotEqidxPR : sh2idx < tableSize - 1 -> 
+
+   Lemma  idxSh2succNotEqidxPR : sh2idx < tableSize - 1 ->
    exists succidx2 : index, StateLib.Index.succ sh2idx = Some succidx2 /\ (succidx2 = PRidx -> False).
    Proof.
     unfold StateLib.Index.succ.
@@ -2374,7 +2375,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     lia.
     unfold CIndex.
     case_eq(lt_dec (sh2idx + 1) tableSize ); intros.
-    
+
      assert(Hi : {| i := sh2idx + 1; Hi := ADT.CIndex_obligation_1 (sh2idx + 1) l0 |} = PRidx)
     by trivial.
     contradict Hi.
@@ -2386,7 +2387,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 6 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     lia.
     lia.
@@ -2399,10 +2400,10 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     unfold tableSizeLowerBound in *.
     lia.
     lia.
-    Qed.   
-    
-        Lemma idxPRsuccNotEqidxSh2 : PRidx < tableSize - 1 -> 
-    exists succidx1 : index, StateLib.Index.succ PRidx = Some succidx1 /\ (succidx1 = sh2idx -> False). 
+    Qed.
+
+        Lemma idxPRsuccNotEqidxSh2 : PRidx < tableSize - 1 ->
+    exists succidx1 : index, StateLib.Index.succ PRidx = Some succidx1 /\ (succidx1 = sh2idx -> False).
     Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (PRidx + 1) tableSize); intros.
@@ -2417,7 +2418,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     lia.
     unfold CIndex.
     case_eq(lt_dec (PRidx + 1) tableSize ); intros.
-    
+
      assert(Hi : {| i := PRidx + 1; Hi := ADT.CIndex_obligation_1 (PRidx + 1) l0 |} = sh2idx)
     by trivial.
     contradict Hi.
@@ -2429,7 +2430,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 0 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     lia.
     lia.
@@ -2453,11 +2454,11 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
       lia.  apply tableSizeBigEnough.
       unfold tableSizeLowerBound in *.
       lia. apply tableSizeBigEnough. lia.
-      Qed.   
+      Qed.
 
-          Lemma idxSh2succNotEqidxPD : sh2idx < tableSize - 1 -> 
+          Lemma idxSh2succNotEqidxPD : sh2idx < tableSize - 1 ->
      exists succidx2 : index, StateLib.Index.succ sh2idx = Some succidx2 /\ (succidx2 = PDidx -> False).
-     Proof. 
+     Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (sh2idx + 1) tableSize); intros.
     eexists.
@@ -2482,7 +2483,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 6 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     lia.
 
@@ -2495,12 +2496,12 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     unfold tableSizeLowerBound in *.
     lia.
     lia.
-    
+
     lia.
     Qed.
 
-        Lemma idxPDsucNotEqidxSh2 : 
-    PDidx < tableSize - 1 -> 
+        Lemma idxPDsucNotEqidxSh2 :
+    PDidx < tableSize - 1 ->
     exists succidx1 : index, StateLib.Index.succ PDidx = Some succidx1 /\ (succidx1 = sh2idx -> False).
     Proof.
     unfold StateLib.Index.succ.
@@ -2516,8 +2517,8 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     lia.
     unfold CIndex.
     case_eq(lt_dec (PDidx + 1) tableSize ); intros.
-   
-   
+
+
     assert(Hi : {| i := PDidx + 1; Hi := ADT.CIndex_obligation_1 (PDidx + 1) l0 |} = sh2idx)
     by trivial.
     contradict Hi.
@@ -2529,7 +2530,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 2 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     lia.
     lia.
@@ -2542,11 +2543,11 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     unfold tableSizeLowerBound in *.
     lia.
     lia.
-    Qed. 
+    Qed.
 
- 
+
     Lemma idxPDidxSh2notEq : PDidx <> sh2idx .
-    Proof.  
+    Proof.
       unfold PDidx. unfold sh2idx.
       apply indexEqFalse ;
       assert (tableSize > tableSizeLowerBound).
@@ -2556,8 +2557,8 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
       unfold tableSizeLowerBound in *.
       lia. apply tableSizeBigEnough. lia. Qed.
 
-          Lemma idxSh2succNotEqidxSh1 : 
-    sh2idx < tableSize - 1 -> 
+          Lemma idxSh2succNotEqidxSh1 :
+    sh2idx < tableSize - 1 ->
     exists succidx2 : index, StateLib.Index.succ sh2idx = Some succidx2 /\ (succidx2 = sh1idx -> False).
     Proof.
     unfold StateLib.Index.succ.
@@ -2584,7 +2585,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 6 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     lia.
     assert (tableSize > tableSizeLowerBound).
@@ -2599,11 +2600,11 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     lia.
     Qed.
 
-  
-      Lemma idxSh1succNotEqidxSh2 : 
-    sh1idx < tableSize - 1 -> 
+
+      Lemma idxSh1succNotEqidxSh2 :
+    sh1idx < tableSize - 1 ->
     exists succidx1 : index, StateLib.Index.succ sh1idx = Some succidx1 /\ (succidx1 = sh2idx -> False).
-    Proof.  
+    Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (sh1idx + 1) tableSize); intros.
     eexists.
@@ -2617,7 +2618,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     lia.
     unfold CIndex.
     case_eq(lt_dec (sh1idx + 1) tableSize ); intros.
-    
+
      assert(Hi : {| i := sh1idx + 1; Hi := ADT.CIndex_obligation_1 (sh1idx + 1) l0 |} = sh2idx)
     by trivial.
     contradict Hi.
@@ -2629,7 +2630,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 4 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     lia.
     lia.
@@ -2642,12 +2643,12 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     unfold tableSizeLowerBound in *.
     lia.
     lia.
-    Qed.	
+    Qed.
 
 
-      
-    Lemma idxSh1succNotEqidxPR : 
-    sh1idx < tableSize - 1 -> 
+
+    Lemma idxSh1succNotEqidxPR :
+    sh1idx < tableSize - 1 ->
     exists succidx2 : index, StateLib.Index.succ sh1idx = Some succidx2 /\ (succidx2 = PRidx -> False).
     Proof.
     unfold StateLib.Index.succ.
@@ -2674,11 +2675,11 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 0 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     lia.
     lia.
-    
+
     assert (tableSize > tableSizeLowerBound).
     apply tableSizeBigEnough.
     unfold tableSizeLowerBound in *.
@@ -2690,10 +2691,10 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     lia.
     Qed.
         Lemma idxPRsuccNotEqidxSh1 :
-    PRidx + 1 < tableSize -> 
+    PRidx + 1 < tableSize ->
 (*     PRidx + 1< tableSize - 1 ->  *)
     exists succidx1 : index, StateLib.Index.succ PRidx = Some succidx1 /\ (succidx1 = sh1idx -> False).
-    Proof. 
+    Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (PRidx + 1) tableSize); intros.
     eexists.
@@ -2718,7 +2719,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 0 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     lia.
     lia.
@@ -2731,7 +2732,7 @@ Lemma idxSh2idxPPRnotEq : sh2idx <> PPRidx.
     lia.
     Qed.
 Lemma idxPRidxSh1NotEq : PRidx <> sh1idx.
-    Proof. 
+    Proof.
       unfold PRidx. unfold sh1idx.
       apply indexEqFalse ;
       assert (tableSize > tableSizeLowerBound).
@@ -2741,11 +2742,11 @@ Lemma idxPRidxSh1NotEq : PRidx <> sh1idx.
       unfold tableSizeLowerBound in *.
       lia. apply tableSizeBigEnough. lia.
       Qed.
-      
-          Lemma idxSh1succNotEqidxPD : 
-    sh1idx + 1 < tableSize -> 
+
+          Lemma idxSh1succNotEqidxPD :
+    sh1idx + 1 < tableSize ->
     exists succidx2 : index, StateLib.Index.succ sh1idx = Some succidx2 /\ (succidx2 = PDidx -> False).
-    Proof.  
+    Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (sh1idx + 1) tableSize); intros.
     eexists.
@@ -2770,12 +2771,12 @@ Lemma idxPRidxSh1NotEq : PRidx <> sh1idx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 4 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     lia.
 (*     lia.
-    
-    
+
+
     contradict H13.
     subst.
     unfold PDidx. unfold sh1idx.
@@ -2796,12 +2797,12 @@ Lemma idxPRidxSh1NotEq : PRidx <> sh1idx.
     lia.
     lia.
     lia.
-    Qed. 
-    
-        Lemma  idxPDsucNotEqidxSh1 : 
-    PDidx + 1 < tableSize -> 
+    Qed.
+
+        Lemma  idxPDsucNotEqidxSh1 :
+    PDidx + 1 < tableSize ->
     exists succidx1 : index, StateLib.Index.succ PDidx = Some succidx1 /\ (succidx1 = sh1idx -> False).
-    Proof. 
+    Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (PDidx + 1) tableSize); intros.
     eexists.
@@ -2826,7 +2827,7 @@ Lemma idxPRidxSh1NotEq : PRidx <> sh1idx.
     inversion Hii as (Hi2).
     unfold CIndex in Hi2.
     case_eq(lt_dec 2 tableSize); intros Hi1 Hi3; rewrite Hi3 in *.
-    simpl in *. 
+    simpl in *.
     inversion Hii.
     lia.
     lia.
@@ -2842,9 +2843,9 @@ Lemma idxPRidxSh1NotEq : PRidx <> sh1idx.
     Qed.
 
 
-      
-          Lemma idxPDsucNotEqidxPR : 
-    PDidx + 1 < tableSize -> 
+
+          Lemma idxPDsucNotEqidxPR :
+    PDidx + 1 < tableSize ->
      exists succidx2 : index, StateLib.Index.succ PDidx = Some succidx2 /\ (succidx2 = PRidx -> False).
      Proof.
     unfold StateLib.Index.succ.
@@ -2860,7 +2861,7 @@ Lemma idxPRidxSh1NotEq : PRidx <> sh1idx.
     lia.
     unfold CIndex.
     case_eq(lt_dec (PDidx + 1) tableSize ); intros.
-    
+
     assert(Hii : {| i := PDidx + 1; Hi := ADT.CIndex_obligation_1 (PDidx + 1) l0 |} = PRidx)
 
 by trivial.
@@ -2887,11 +2888,11 @@ by trivial.
     lia.
     lia.
     Qed.
-    
-        Lemma idxPRsucNotEqidxPD : 
-    PRidx + 1 < tableSize -> 
+
+        Lemma idxPRsucNotEqidxPD :
+    PRidx + 1 < tableSize ->
     exists succidx1 : index, Index.succ PRidx = Some succidx1 /\ (succidx1 = PDidx -> False).
-    Proof. 
+    Proof.
     unfold StateLib.Index.succ.
     case_eq (lt_dec (PRidx + 1) tableSize); intros.
     eexists.
@@ -2927,12 +2928,12 @@ by trivial.
     unfold tableSizeLowerBound in *.
     lia.
     lia.
-    
+
     lia.
     Qed.
 
         Lemma idxPRidxPDNotEq : PRidx <> PDidx.
-    Proof.  
+    Proof.
       unfold PDidx. unfold PRidx.
       apply indexEqFalse ;
       assert (tableSize > tableSizeLowerBound).
@@ -3002,9 +3003,9 @@ inversion H.
 subst.
 now contradict Heq.
 Qed.
-Lemma getNbLevelEqNat : 
-forall nbL, 
-Some nbL = StateLib.getNbLevel -> 
+Lemma getNbLevelEqNat :
+forall nbL,
+Some nbL = StateLib.getNbLevel ->
 nbLevel - 1 = nbL.
 Proof.
 intros.
@@ -3021,7 +3022,7 @@ Qed.
 Lemma level_eq_l:
 forall x1 x2: level, l x1 = l x2 -> x1 = x2.
 Proof.
-intros. 
+intros.
 destruct x1;destruct x2;simpl in *.
 subst.
 f_equal.
@@ -3031,7 +3032,7 @@ Qed.
 Lemma page_eq_p:
 forall x1 x2: page, p x1 =p x2 -> x1 = x2.
 Proof.
-intros. 
+intros.
 destruct x1;destruct x2;simpl in *.
 subst.
 f_equal.

@@ -30,8 +30,8 @@
 (*  The fact that you are presently reading this means that you have had       *)
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
-(**  * Summary 
-      In this file we define the required configuration to extract the  MALInternal, MAL, Internal and 
+(**  * Summary
+      In this file we define the required configuration to extract the  MALInternal, MAL, Internal and
       Services functions from Coq to JSON.
       The JSON output will be analyzed to generate the corresponding C implementation *)
 Require Import Model.MAL Model.Monad Model.ADT Core.Services Core.Internal.
@@ -45,7 +45,7 @@ Extract Inlined Constant andb => "andb".
 Extract Inlined Constant orb => "orb".
 
 (** EXTRACTION *)
-Extraction Library MALInternal. 
+Extraction Library MALInternal.
 Extraction Library MAL.
 Extraction Library Internal .
 Extraction Library Services.
