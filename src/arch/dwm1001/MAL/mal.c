@@ -1074,7 +1074,7 @@ updateCurPartition (paddr descriptor)
 {
 	current_partition = descriptor;
 	//DEBUG(TRACE, "Registered partition descriptor %x.\n", descriptor);
-	printf("DEBUG: Registered partition descriptor %p.\n", descriptor);
+	//printf("DEBUG: Registered partition descriptor %p.\n", descriptor);
 }
 
 /*! \fn paddr getRootPartition()
@@ -1165,7 +1165,7 @@ void activate(paddr desc)
 		while(1);
 	}
 
-	printf("DEBUG: activate %p: loading MPU...\r\n", desc);
+	//printf("DEBUG: activate %p: loading MPU...\r\n", desc);
 
 	if (mpu_configure_from_LUT(PDT->LUT) < 0)
 	{
@@ -1173,7 +1173,7 @@ void activate(paddr desc)
 		while(1);
 	}
 
-	printf("DEBUG: activate %p: MPU loaded\r\n", desc);
+	//printf("DEBUG: activate %p: MPU loaded\r\n", desc);
 }
 
 void updateCurPartAndActivate(paddr calleePartDescGlobalId)
