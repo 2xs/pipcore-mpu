@@ -1,5 +1,6 @@
 (*******************************************************************************)
-(*  © Université de Lille, The Pip Development Team (2015-2021)                *)
+(*  © Université de Lille, The Pip Development Team (2015-2022)                *)
+(*  Copyright (C) 2020-2022 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -31,7 +32,7 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(**  * Summary 
+(**  * Summary
     In this file we formalize and prove all invariants of the MAL and MALInternal functions *)
 Require Import (*Model.ADT*) Model.Monad Model.Lib
                Model.MAL.

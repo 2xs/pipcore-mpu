@@ -1,5 +1,6 @@
 (*******************************************************************************)
-(*  © Université de Lille, The Pip Development Team (2015-2021)                *)
+(*  © Université de Lille, The Pip Development Team (2015-2022)                *)
+(*  Copyright (C) 2020-2022 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -31,7 +32,7 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary 
+(** * Summary
     This file contains the invariant of [checkChildOfCurrPart].
 *)
 Require Import Model.Monad Model.Lib Model.MAL.
@@ -93,7 +94,7 @@ case_eq addrIsNull0.
 				(*blockInParentPartAddr can't be NULL and not NULL at the same time *)
 				apply beqAddrFalse in H3. exfalso ; congruence.
 				destruct H2. destruct H2. exists x0.
-				split. unfold checkChild. destruct H5. intuition. subst. 
+				split. unfold checkChild. destruct H5. intuition. subst.
 				rewrite H2. rewrite H8.
 				unfold sh1entryPDflag in *. rewrite -> H8 in *. assumption.
 				destruct H5. exists x1. split. intuition. subst. assumption.

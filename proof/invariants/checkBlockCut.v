@@ -1,5 +1,6 @@
 (*******************************************************************************)
 (*  © Université de Lille, The Pip Development Team (2015-2022)                *)
+(*  Copyright (C) 2020-2022 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -31,7 +32,7 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(**  * Summary 
+(**  * Summary
     In this file we formalize and prove all invariants of the MAL and MALInternal functions *)
 Require Import (*Model.ADT*) Model.Monad Model.Lib
                Model.MAL.
@@ -44,7 +45,7 @@ Require Import Coq.Logic.ProofIrrelevance Lia Setoid Compare_dec (*EqNat*) List 
 Module WP := WeakestPreconditions.
 
 (* Couper le code de preuve -> ici que faire une propagation des propriétés initiale
-+ propager nouvelles propriétés *) 
++ propager nouvelles propriétés *)
 Lemma checkBlockCut (blockentryaddr : paddr) P :
 {{ fun s => P s /\ consistency s
 						/\ isBE blockentryaddr s }}
@@ -73,7 +74,7 @@ eapply WP.bindRev.
 { (** readSCNextFromBlockEntryAddr *)
 	eapply weaken. apply readSCNextFromBlockEntryAddr.
 	intros. simpl. split. apply H. intuition. apply isBELookupEq. intuition.
-	
+
 }
 	intro blockNext. simpl.
 	case_eq (beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr).

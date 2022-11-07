@@ -1,5 +1,6 @@
 (*******************************************************************************)
-(*  © Université de Lille, The Pip Development Team (2015-2021)                *)
+(*  © Université de Lille, The Pip Development Team (2015-2022)                *)
+(*  Copyright (C) 2020-2022 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -31,7 +32,7 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(**  * Summary 
+(**  * Summary
     In this file we formalize and prove all invariants of the MAL and MALInternal functions *)
 Require Import Model.ADT (*Pip.Model.Hardware Pip.Model.IAL*) Model.Monad Model.Lib
                Model.MAL.
@@ -43,7 +44,7 @@ Require Import Coq.Logic.ProofIrrelevance Lia Setoid Compare_dec (*EqNat*) List 
 Module WP := WeakestPreconditions.
 
 (* Couper le code de preuve -> ici que faire une propagation des propriétés initiale
-+ propager nouvelles propriétés *) 
++ propager nouvelles propriétés *)
 Lemma insertNewEntry 	(pdinsertion startaddr endaddr origin: paddr)
 											(r w e : bool) (currnbfreeslots : index) idBlockToShare :
 {{ fun s => (*P s /\*) partitionsIsolation s   (*/\ kernelDataIsolation s*) /\ verticalSharing s
@@ -86,9 +87,9 @@ Internal.insertNewEntry pdinsertion startaddr endaddr origin r w e currnbfreeslo
 /\ if isChild then (exists entry, lookup idPDchild s.(memory) beqAddr = Some (BE entry)
 										/\ exists sh1entry, lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry))
 		else isChild = false*)
-(*/\ exists globalIdPDChild : paddr, 
+(*/\ exists globalIdPDChild : paddr,
 	exists pdtentry : PDTable, lookup (beentry.(blockrange).(startAddr)) s.(memory) beqAddr = Some (PDT pdtentry)
--> pas cette condition car on retourne ensuite dans le code principal et si on termine 
+-> pas cette condition car on retourne ensuite dans le code principal et si on termine
 en faux on peut pas prouver ctte partie *)
 /\ isBE idBlockToShare s
 }}.
@@ -158,7 +159,7 @@ rewrite PeanoNat.Nat.eqb_refl.
 Search (PeanoNat.Nat.eqb).
 
 
-destruct H5. 
+destruct H5.
 destruct H6.
 specialize (H6 pdinsertion).
 eexists. split. admit. eexists. split. exact H0.
@@ -190,7 +191,7 @@ eapply WP.bindRev.
 { eapply weaken. apply readBlockEndFromBlockEntryAddr.
 	intros. simpl. split. apply H.
 	unfold isBE. intuition. destruct H0. intuition.
- 	unfold consistency in *. intuition. 
+ 	unfold consistency in *. intuition.
 	unfold FirstFreeSlotPointerIsBE in *.
 	destruct H5 with pdinsertion x. apply H0.
 	unfold entryFirstFreeSlot in H1.
@@ -218,10 +219,10 @@ eapply WP.bindRev.
 	rewrite H0 in *. unfold consistency in *. intuition. unfold FirstFreeSlotPointerIsBE in *.
 	specialize (H9 pdinsertion x H0). destruct H9. subst.
 	rewrite H9 in *. subst.
-	instantiate (1: newFirstFreeSlotAddr = x1 
+	instantiate (1: newFirstFreeSlotAddr = x1
 exact H6.
-	
-	destruct H6. destruct H5. 
+
+	destruct H6. destruct H5.
 	generalize dependent x1.
 	intros.
 
@@ -234,7 +235,7 @@ destruct H6. destruct H5. destruct H5. exact H6. H7.
 	destruct H9 as [slotentry].
 	rewrite H9 in H3. subst.
 	destruct H8. eapply H3.
-	
+
 	specialize (H8 (endAddr (blockrange slotentry))).
 
 
@@ -242,7 +243,7 @@ destruct H6. destruct H5. destruct H5. exact H6. H7.
 
 	intuition.
 	destruct H4. destruct H0. exists x. intuition.
-	
+
 }
 	intros.
 	eapply bindRev.
@@ -317,7 +318,7 @@ Qed.*)
 	apply WP.writePDFirstFreeSlotPointer. simpl.
 	intros.
 	apply WP.Index.pred.
-	apply WP.readBlockEndFromBlockEntryAddr. 
+	apply WP.readBlockEndFromBlockEntryAddr.
 	eapply weaken. apply WP.readPDFirstFreeSlotPointer.
 	intros. simpl. intuition.
 	destruct H2.  exists x. split. apply H1.
@@ -327,7 +328,7 @@ Qed.*)
 	split. assumption.
 	intros. simpl. exists x. split. apply H2.
 	rewrite beqAddrTrue. simpl.
-	eexists. split. 
+	eexists. split.
 	f_equal.
 	split. intros parent child1 child2 Hparent Hchild1 Hchild2 Hneq.
 	intros paddr1 Hpaddr1 Hpaddr1'.
@@ -464,7 +465,7 @@ split. intros. simpl.
 	exists x0. rewrite removeDupDupIdentity. rewrite removeDupIdentity.
 	destruct (beqAddr pdinsertion (firstfreeslot entry)) eqn:Hbeq ; congruence.
 	congruence. congruence. congruence.
-	unfold isBE. 
+	unfold isBE.
 	destruct (lookup idBlockToShare
     (memory
        {|
@@ -529,17 +530,17 @@ split. intros. simpl.
                          parent := parent x;
                          MPU := MPU x |}) (memory s) beqAddr) beqAddr |})
     beqAddr) ; congruence.
-	
+
 Qed.
 
-	
-	
+
+
 
 (*
 unfold add. simpl. rewrite beqAddrTrue. simpl.
 	assert (
 forall addr pe1 pointer, lookup addr (memory s) beqAddr = Some (PDT pe1) ->
-exists pe2, 
+exists pe2,
           lookup addr  (add addr
        (PDT
           {|
@@ -587,7 +588,7 @@ Search ( PeanoNat.Nat.eqb ?x ?y = false).*)
 	simpl. rewrite beqAddrTrue. simpl.
 	(* newblockEntryAddr is the free slot pointer in PDT, we know it's a BE from consistency*)
 	assert (beqAddr pdinsertion newBlockEntryAddr = false).
-	{ apply beqAddrFalse. unfold not. 
+	{ apply beqAddrFalse. unfold not.
 		intros.
 		unfold entryEndAddr in *. unfold entryFirstFreeSlot in *.
 		destruct H0.
@@ -618,7 +619,7 @@ Search ( PeanoNat.Nat.eqb ?x ?y = false).*)
 			eexists. split. f_equal. simpl.*)
 
 		assert (forall x0 : BlockEntry, read
-             (CBlockEntry (read x0) (write x0) (exec x0) 
+             (CBlockEntry (read x0) (write x0) (exec x0)
                 (present x0) (accessible x0) (blockindex x0)
                 (CBlock startaddr (endAddr (blockrange x0)))) = read x0).
 		{ simpl. induction x0. simpl.
@@ -628,7 +629,7 @@ Search ( PeanoNat.Nat.eqb ?x ?y = false).*)
 			congruence.
 		}
 assert (forall x0 : BlockEntry, write
-             (CBlockEntry (read x0) (write x0) (exec x0) 
+             (CBlockEntry (read x0) (write x0) (exec x0)
                 (present x0) (accessible x0) (blockindex x0)
                 (CBlock startaddr (endAddr (blockrange x0)))) = write x0).
 		{ simpl. induction x0. simpl.
@@ -638,7 +639,7 @@ assert (forall x0 : BlockEntry, write
 			congruence.
 		}
 assert (forall x0 : BlockEntry, exec
-             (CBlockEntry (read x0) (write x0) (exec x0) 
+             (CBlockEntry (read x0) (write x0) (exec x0)
                 (present x0) (accessible x0) (blockindex x0)
                 (CBlock startaddr (endAddr (blockrange x0)))) = exec x0).
 		{ simpl. induction x0. simpl.
@@ -648,7 +649,7 @@ assert (forall x0 : BlockEntry, exec
 			congruence.
 		}
 assert (forall x0 : BlockEntry, accessible
-             (CBlockEntry (read x0) (write x0) (exec x0) 
+             (CBlockEntry (read x0) (write x0) (exec x0)
                 (present x0) (accessible x0) (blockindex x0)
                 (CBlock startaddr (endAddr (blockrange x0)))) = accessible x0).
 		{ simpl. induction x0. simpl.
@@ -658,7 +659,7 @@ assert (forall x0 : BlockEntry, accessible
 			congruence.
 		}
 assert (forall x0 : BlockEntry, present
-             (CBlockEntry (read x0) (write x0) (exec x0) 
+             (CBlockEntry (read x0) (write x0) (exec x0)
                 (present x0) (accessible x0) (blockindex x0)
                 (CBlock startaddr (endAddr (blockrange x0)))) = present x0).
 		{ simpl. induction x0. simpl.
@@ -670,7 +671,7 @@ assert (forall x0 : BlockEntry, present
 		rewrite H3. rewrite H14. rewrite H16. rewrite H17. rewrite H18.
 
 assert (forall x0 : BlockEntry, (blockindex
-             (CBlockEntry (read x0) (write x0) (exec x0) 
+             (CBlockEntry (read x0) (write x0) (exec x0)
                 (present x0) (accessible x0) (blockindex x0)
                 (CBlock startaddr (endAddr (blockrange x0))))) = blockindex x0).
 		{ simpl. induction x0. simpl.
@@ -682,7 +683,7 @@ assert (forall x0 : BlockEntry, (blockindex
 		rewrite H19.
 		assert(forall x0 : BlockEntry, startAddr
                 (blockrange
-                   (CBlockEntry (read x0) (write x0) (exec x0) 
+                   (CBlockEntry (read x0) (write x0) (exec x0)
                       (present x0) (accessible x0) (blockindex x0)
                       (CBlock startaddr (endAddr (blockrange x0))))) = startaddr).
 		{ simpl. induction x0. simpl.
@@ -694,11 +695,11 @@ assert (forall x0 : BlockEntry, (blockindex
 			simpl. congruence.
 }
 	rewrite H20.
- 		
+
 		eexists. split. f_equal.
 		eexists. split. simpl.
 		assert (forall x0 : BlockEntry, (read
-           (CBlockEntry (read x0) (write x0) (exec x0) (present x0) 
+           (CBlockEntry (read x0) (write x0) (exec x0) (present x0)
               (accessible x0) (blockindex x0) (CBlock startaddr endaddr))) = read x0).
 		{ simpl. induction x0. simpl.
 			intuition. cbn. unfold CBlockEntry.
@@ -706,7 +707,7 @@ assert (forall x0 : BlockEntry, (blockindex
 			simpl. reflexivity. congruence.
 }
 			assert (forall x0 : BlockEntry, (write
-           (CBlockEntry (read x0) (write x0) (exec x0) (present x0) 
+           (CBlockEntry (read x0) (write x0) (exec x0) (present x0)
               (accessible x0) (blockindex x0) (CBlock startaddr endaddr))) = write x0).
 		{ simpl. induction x0. simpl.
 			intuition. cbn. unfold CBlockEntry.
@@ -714,7 +715,7 @@ assert (forall x0 : BlockEntry, (blockindex
 			simpl. reflexivity. congruence.
 }
 			assert (forall x0 : BlockEntry, (exec
-           (CBlockEntry (read x0) (write x0) (exec x0) (present x0) 
+           (CBlockEntry (read x0) (write x0) (exec x0) (present x0)
               (accessible x0) (blockindex x0) (CBlock startaddr endaddr))) = exec x0).
 		{ simpl. induction x0. simpl.
 			intuition. cbn. unfold CBlockEntry.
@@ -722,7 +723,7 @@ assert (forall x0 : BlockEntry, (blockindex
 			simpl. reflexivity. congruence.
 }
 			assert (forall x0 : BlockEntry, (present
-           (CBlockEntry (read x0) (write x0) (exec x0) (present x0) 
+           (CBlockEntry (read x0) (write x0) (exec x0) (present x0)
               (accessible x0) (blockindex x0) (CBlock startaddr endaddr))) = present x0).
 		{ simpl. induction x0. simpl.
 			intuition. cbn. unfold CBlockEntry.
@@ -730,7 +731,7 @@ assert (forall x0 : BlockEntry, (blockindex
 			simpl. reflexivity. congruence.
 }
 			assert (forall x0 : BlockEntry, (accessible
-           (CBlockEntry (read x0) (write x0) (exec x0) (present x0) 
+           (CBlockEntry (read x0) (write x0) (exec x0) (present x0)
               (accessible x0) (blockindex x0) (CBlock startaddr endaddr))) = accessible x0).
 		{ simpl. induction x0. simpl.
 			intuition. cbn. unfold CBlockEntry.
@@ -756,7 +757,7 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
 			destruct CBlockEntry. simpl.
 		exists entry.
 
-		assert (exists entry1 : BlockEntry, CBlockEntry (read x1) (write x1) (exec x1) (present x1) 
+		assert (exists entry1 : BlockEntry, CBlockEntry (read x1) (write x1) (exec x1) (present x1)
           (accessible x1) (blockindex x1)
           (CBlock startaddr (endAddr (blockrange x1))) = Some (entry)).
 
@@ -764,10 +765,10 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
                    currentPartition := currentPartition s;
                    memory := add newBlockEntryAddr
                                               (BE
-                                                 (CBlockEntry 
-                                                    (read entry) 
-                                                    (write entry) 
-                                                    (exec entry) 
+                                                 (CBlockEntry
+                                                    (read entry)
+                                                    (write entry)
+                                                    (exec entry)
                                                     (present entry)
                                                     (accessible entry)
                                                     (blockindex entry)
@@ -789,23 +790,23 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
                                (blockindex entry2) (blockrange entry2)))
                          (add newBlockEntryAddr
                             (BE
-                               (CBlockEntry (read entry1) w 
-                                  (exec entry1) (present entry1) 
+                               (CBlockEntry (read entry1) w
+                                  (exec entry1) (present entry1)
                                   (accessible entry1) (blockindex entry1)
                                   (blockrange entry1)))
                             (add newBlockEntryAddr
                                (BE
-                                  (CBlockEntry r (write entry0) 
+                                  (CBlockEntry r (write entry0)
                                      (exec entry0) (present entry0)
-                                     (accessible entry0) 
-                                     (blockindex entry0) 
+                                     (accessible entry0)
+                                     (blockindex entry0)
                                      (blockrange entry0)))
                                (add newBlockEntryAddr
                                   (BE
-                                     (CBlockEntry (read entry) 
+                                     (CBlockEntry (read entry)
                                         (write entry) (exec entry) true
-                                        (accessible entry) 
-                                        (blockindex entry) 
+                                        (accessible entry)
+                                        (blockindex entry)
                                         (blockrange entry)))
                                   (add newBlockEntryAddr
                                      (BE
@@ -813,61 +814,61 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
                                            (read
                                               (CBlockEntry
                                                  (read
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (write
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (exec
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (present
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (accessible
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (blockindex
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
@@ -875,11 +876,11 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
                                                  (CBlock
                                                     (startAddr
                                                        (blockrange
-                                                        (CBlockEntry 
-                                                        (read x1) 
-                                                        (write x1) 
-                                                        (exec x1) 
-                                                        (present x1) 
+                                                        (CBlockEntry
+                                                        (read x1)
+                                                        (write x1)
+                                                        (exec x1)
+                                                        (present x1)
                                                         (accessible x1)
                                                         (blockindex x1)
                                                         (CBlock startaddr
@@ -888,61 +889,61 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
                                            (write
                                               (CBlockEntry
                                                  (read
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (write
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (exec
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (present
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (accessible
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (blockindex
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
@@ -950,11 +951,11 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
                                                  (CBlock
                                                     (startAddr
                                                        (blockrange
-                                                        (CBlockEntry 
-                                                        (read x1) 
-                                                        (write x1) 
-                                                        (exec x1) 
-                                                        (present x1) 
+                                                        (CBlockEntry
+                                                        (read x1)
+                                                        (write x1)
+                                                        (exec x1)
+                                                        (present x1)
                                                         (accessible x1)
                                                         (blockindex x1)
                                                         (CBlock startaddr
@@ -963,61 +964,61 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
                                            (exec
                                               (CBlockEntry
                                                  (read
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (write
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (exec
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (present
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (accessible
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (blockindex
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
@@ -1025,11 +1026,11 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
                                                  (CBlock
                                                     (startAddr
                                                        (blockrange
-                                                        (CBlockEntry 
-                                                        (read x1) 
-                                                        (write x1) 
-                                                        (exec x1) 
-                                                        (present x1) 
+                                                        (CBlockEntry
+                                                        (read x1)
+                                                        (write x1)
+                                                        (exec x1)
+                                                        (present x1)
                                                         (accessible x1)
                                                         (blockindex x1)
                                                         (CBlock startaddr
@@ -1038,61 +1039,61 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
                                            (present
                                               (CBlockEntry
                                                  (read
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (write
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (exec
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (present
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (accessible
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (blockindex
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
@@ -1100,11 +1101,11 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
                                                  (CBlock
                                                     (startAddr
                                                        (blockrange
-                                                        (CBlockEntry 
-                                                        (read x1) 
-                                                        (write x1) 
-                                                        (exec x1) 
-                                                        (present x1) 
+                                                        (CBlockEntry
+                                                        (read x1)
+                                                        (write x1)
+                                                        (exec x1)
+                                                        (present x1)
                                                         (accessible x1)
                                                         (blockindex x1)
                                                         (CBlock startaddr
@@ -1113,61 +1114,61 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
                                            (blockindex
                                               (CBlockEntry
                                                  (read
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (write
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (exec
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (present
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (accessible
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (blockindex
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
@@ -1175,11 +1176,11 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
                                                  (CBlock
                                                     (startAddr
                                                        (blockrange
-                                                        (CBlockEntry 
-                                                        (read x1) 
-                                                        (write x1) 
-                                                        (exec x1) 
-                                                        (present x1) 
+                                                        (CBlockEntry
+                                                        (read x1)
+                                                        (write x1)
+                                                        (exec x1)
+                                                        (present x1)
                                                         (accessible x1)
                                                         (blockindex x1)
                                                         (CBlock startaddr
@@ -1188,61 +1189,61 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
                                            (blockrange
                                               (CBlockEntry
                                                  (read
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (write
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (exec
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (present
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (accessible
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
                                                         (endAddr (blockrange x1)))))
                                                  (blockindex
-                                                    (CBlockEntry 
-                                                       (read x1) 
-                                                       (write x1) 
-                                                       (exec x1) 
-                                                       (present x1) 
+                                                    (CBlockEntry
+                                                       (read x1)
+                                                       (write x1)
+                                                       (exec x1)
+                                                       (present x1)
                                                        (accessible x1)
                                                        (blockindex x1)
                                                        (CBlock startaddr
@@ -1250,11 +1251,11 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
                                                  (CBlock
                                                     (startAddr
                                                        (blockrange
-                                                        (CBlockEntry 
-                                                        (read x1) 
-                                                        (write x1) 
-                                                        (exec x1) 
-                                                        (present x1) 
+                                                        (CBlockEntry
+                                                        (read x1)
+                                                        (write x1)
+                                                        (exec x1)
+                                                        (present x1)
                                                         (accessible x1)
                                                         (blockindex x1)
                                                         (CBlock startaddr
@@ -1264,73 +1265,73 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
                                         (BE
                                            (CBlockEntry
                                               (read
-                                                 (CBlockEntry 
-                                                    (read x1) 
-                                                    (write x1) 
-                                                    (exec x1) 
-                                                    (present x1) 
-                                                    (accessible x1) 
+                                                 (CBlockEntry
+                                                    (read x1)
+                                                    (write x1)
+                                                    (exec x1)
+                                                    (present x1)
+                                                    (accessible x1)
                                                     (blockindex x1)
                                                     (CBlock startaddr
                                                        (endAddr (blockrange x1)))))
                                               (write
-                                                 (CBlockEntry 
-                                                    (read x1) 
-                                                    (write x1) 
-                                                    (exec x1) 
-                                                    (present x1) 
-                                                    (accessible x1) 
+                                                 (CBlockEntry
+                                                    (read x1)
+                                                    (write x1)
+                                                    (exec x1)
+                                                    (present x1)
+                                                    (accessible x1)
                                                     (blockindex x1)
                                                     (CBlock startaddr
                                                        (endAddr (blockrange x1)))))
                                               (exec
-                                                 (CBlockEntry 
-                                                    (read x1) 
-                                                    (write x1) 
-                                                    (exec x1) 
-                                                    (present x1) 
-                                                    (accessible x1) 
+                                                 (CBlockEntry
+                                                    (read x1)
+                                                    (write x1)
+                                                    (exec x1)
+                                                    (present x1)
+                                                    (accessible x1)
                                                     (blockindex x1)
                                                     (CBlock startaddr
                                                        (endAddr (blockrange x1)))))
                                               (present
-                                                 (CBlockEntry 
-                                                    (read x1) 
-                                                    (write x1) 
-                                                    (exec x1) 
-                                                    (present x1) 
-                                                    (accessible x1) 
+                                                 (CBlockEntry
+                                                    (read x1)
+                                                    (write x1)
+                                                    (exec x1)
+                                                    (present x1)
+                                                    (accessible x1)
                                                     (blockindex x1)
                                                     (CBlock startaddr
                                                        (endAddr (blockrange x1)))))
                                               (accessible
-                                                 (CBlockEntry 
-                                                    (read x1) 
-                                                    (write x1) 
-                                                    (exec x1) 
-                                                    (present x1) 
-                                                    (accessible x1) 
+                                                 (CBlockEntry
+                                                    (read x1)
+                                                    (write x1)
+                                                    (exec x1)
+                                                    (present x1)
+                                                    (accessible x1)
                                                     (blockindex x1)
                                                     (CBlock startaddr
                                                        (endAddr (blockrange x1)))))
                                               (blockindex
-                                                 (CBlockEntry 
-                                                    (read x1) 
-                                                    (write x1) 
-                                                    (exec x1) 
-                                                    (present x1) 
-                                                    (accessible x1) 
+                                                 (CBlockEntry
+                                                    (read x1)
+                                                    (write x1)
+                                                    (exec x1)
+                                                    (present x1)
+                                                    (accessible x1)
                                                     (blockindex x1)
                                                     (CBlock startaddr
                                                        (endAddr (blockrange x1)))))
                                               (CBlock
                                                  (startAddr
                                                     (blockrange
-                                                       (CBlockEntry 
-                                                        (read x1) 
-                                                        (write x1) 
-                                                        (exec x1) 
-                                                        (present x1) 
+                                                       (CBlockEntry
+                                                        (read x1)
+                                                        (write x1)
+                                                        (exec x1)
+                                                        (present x1)
                                                         (accessible x1)
                                                         (blockindex x1)
                                                         (CBlock startaddr
@@ -1338,12 +1339,12 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
                                                  endaddr)))
                                         (add newBlockEntryAddr
                                            (BE
-                                              (CBlockEntry 
-                                                 (read x1) 
-                                                 (write x1) 
-                                                 (exec x1) 
-                                                 (present x1) 
-                                                 (accessible x1) 
+                                              (CBlockEntry
+                                                 (read x1)
+                                                 (write x1)
+                                                 (exec x1)
+                                                 (present x1)
+                                                 (accessible x1)
                                                  (blockindex x1)
                                                  (CBlock startaddr
                                                     (endAddr (blockrange x1)))))
@@ -1364,7 +1365,7 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
                                                     nbfreeslots := nbfreeslots x;
                                                     nbprepare := nbprepare x;
                                                     parent := parent x;
-                                                    MPU := MPU x |}) 
+                                                    MPU := MPU x |})
                                                  (memory s) beqAddr) beqAddr) beqAddr)
                                         beqAddr) beqAddr) beqAddr) beqAddr) beqAddr)
                          beqAddr) .
@@ -1379,13 +1380,13 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
 		eexists. split. f_equal.
 		assert (add newBlockEntryAddr
               (BE
-                 (CBlockEntry (read x1) (write x1) (exec x1) 
+                 (CBlockEntry (read x1) (write x1) (exec x1)
                     true true
                     (blockindex x2) (CBlock ((startAddr (blockrange x0) (endAddr (blockrange x))))
               (add newBlockEntryAddr
                  (BE
-                    (CBlockEntry (read ?entry2) w (exec ?entry2) 
-                       (present ?entry2) (accessible ?entry2) 
+                    (CBlockEntry (read ?entry2) w (exec ?entry2)
+                       (present ?entry2) (accessible ?entry2)
                        (blockindex ?entry2) (blockrange ?entry2)))
                  (add newBlockEntryAddr
                     (BE
@@ -1394,31 +1395,31 @@ unfold CBlock.  destruct (lt_dec startaddr (endAddr (ADT.blockrange x0))).
                           (blockindex ?entry1) (blockrange ?entry1)))
                     (add newBlockEntryAddr
                        (BE
-                          (CBlockEntry (read ?entry0) (write ?entry0) 
+                          (CBlockEntry (read ?entry0) (write ?entry0)
                              (exec ?entry0) true (accessible ?entry0)
                              (blockindex ?entry0) (blockrange ?entry0)))
                        (add newBlockEntryAddr
                           (BE
-                             (CBlockEntry (read ?entry) 
-                                (write ?entry) (exec ?entry) 
+                             (CBlockEntry (read ?entry)
+                                (write ?entry) (exec ?entry)
                                 (present ?entry) true (blockindex ?entry)
                                 (blockrange ?entry)))
                           (add newBlockEntryAddr
                              (BE
-                                (CBlockEntry (read x2) (write x2) 
-                                   (exec x2) (present x2) 
+                                (CBlockEntry (read x2) (write x2)
+                                   (exec x2) (present x2)
                                    (accessible x2) (blockindex x2)
                                    (CBlock (startAddr (blockrange x2)) endaddr)))
                              (add newBlockEntryAddr
                                 (BE
-                                   (CBlockEntry (read x1) 
-                                      (write x1) (exec x1) 
-                                      (present x1) (accessible x1) 
+                                   (CBlockEntry (read x1)
+                                      (write x1) (exec x1)
+                                      (present x1) (accessible x1)
                                       (blockindex x1)
                                       (CBlock startaddr (endAddr (blockrange x1))))))))))) =
 add newBlockEntryAddr
               (BE
-                 (CBlockEntry r w e 
+                 (CBlockEntry r w e
                     true true
                     (blockindex x2)
 (CBlock (startAddr endaddr))))).
@@ -1438,15 +1439,15 @@ currentPartition := _ |}).
                          (read
                             (CBlockEntry
                                (read
-                                  (CBlockEntry r (write ?entry) 
+                                  (CBlockEntry r (write ?entry)
                                      (exec ?entry) (present ?entry)
-                                     (accessible ?entry) 
-                                     (blockindex ?entry) 
-                                     (blockrange ?entry))) w 
+                                     (accessible ?entry)
+                                     (blockindex ?entry)
+                                     (blockrange ?entry))) w
 		eexists. split. subst. f_equal.
 		eexists. split. subst. f_equal.
 		eexists. split. subst. f_equal.
-		eexists. split. 
+		eexists. split.
 2 : {	eexists. split. f_equal.
 			eexists. split. simpl. f_equal.
 		unfold isBE. simpl. split.
@@ -1495,12 +1496,12 @@ set (s' :=  {|
      currentPartition := _ |}).
    simpl in *.
 	pattern s in H.
-   instantiate (1 := fun tt s => H /\ 
+   instantiate (1 := fun tt s => H /\
              StateLib.entryFirstFreeSlot pdinsertion s.(memory) = Some newFirstFreeSlotAddr ).
 
 assert( Hlemma : forall addr1 addr2 x pointer,
-addr2 <> addr1 -> 
-entryFirstFreeSlot addr1 pointer s -> 
+addr2 <> addr1 ->
+entryFirstFreeSlot addr1 pointer s ->
 entryFirstFreeSlot addr1 pointer
   {|
   currentPartition := currentPartition s;
@@ -1511,8 +1512,8 @@ unfold entryFirstFreeSlot in *.
 cbn.
 case_eq (beqAddr addr2 addr1).
 intros. simpl. unfold beqAddr in H5. unfold not in H3. contradict H5.
-	unfold not. intro. apply H3. Search(PeanoNat.Nat.eqb). 
-	rewrite -> PeanoNat.Nat.eqb_eq in H5. 
+	unfold not. intro. apply H3. Search(PeanoNat.Nat.eqb).
+	rewrite -> PeanoNat.Nat.eqb_eq in H5.
 	destruct addr2 in *. destruct addr1 in *. apply H5.
 
 unfold not in H0.
@@ -1534,8 +1535,8 @@ destruct H. destruct H. destruct H. destruct H2.
 	pose (H'' := conj H1 H0).
 	pose (H''' := conj H' H'').
 	pattern s in H'''.
-  match type of H with 
-  | ?HT s => instantiate (1 := fun tt s => HT s /\ 
+  match type of H with
+  | ?HT s => instantiate (1 := fun tt s => HT s /\
              StateLib.entryFirstFreeSlot pdinsertion s.(memory) = Some newFirstFreeSlotAddr )
   end.
 
@@ -1545,11 +1546,11 @@ destruct H. destruct H. destruct H. destruct H2.
 
 admit. (*
  (** add the propeties about writeAccessible post conditions **)
-match type of H2 with 
-  | ?HT s => instantiate (1 := fun tt s => HT s /\ 
+match type of H2 with
+  | ?HT s => instantiate (1 := fun tt s => HT s /\
               entryUserFlag ptvaInAncestor (StateLib.getIndexOfAddr vaInAncestor fstLevel) false s /\
               isEntryPage ptvaInAncestor (StateLib.getIndexOfAddr vaInAncestor fstLevel) phypage s /\
-              entryPresentFlag ptvaInAncestor (StateLib.getIndexOfAddr vaInAncestor fstLevel) true s  ) 
+              entryPresentFlag ptvaInAncestor (StateLib.getIndexOfAddr vaInAncestor fstLevel) true s  )
   end.
   rewrite and_assoc.
    split. *)
@@ -1565,7 +1566,7 @@ match type of H2 with
 Require Import Model.Test.
 
 Lemma addMemoryBlockTest  (currentPartition idPDchild : paddr) :
-{{fun s => partitionsIsolation s   /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }} 
+{{fun s => partitionsIsolation s   /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}
 checkChildOfCurrPart3 currentPartition idPDchild
 {{fun _ s  => partitionsIsolation s   /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}.
 Proof.

@@ -1,5 +1,6 @@
 (*******************************************************************************)
-(*  © Université de Lille, The Pip Development Team (2015-2021)                *)
+(*  © Université de Lille, The Pip Development Team (2015-2022)                *)
+(*  Copyright (C) 2020-2022 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -31,7 +32,7 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(**  * Summary 
+(**  * Summary
     In this file we formalize and prove all invariants of the MAL and MALInternal functions *)
 Require Import Model.Monad Model.Lib Model.MAL.
 Require Import Core.Internal.
@@ -142,7 +143,7 @@ revert kernelstructurestart blockEntryAddr.
 						intros. simpl. intuition.
 						unfold consistency in *. intuition.
 						unfold KSIsBE in *. eauto.
-						unfold NextKSIsKS in *. 
+						unfold NextKSIsKS in *.
 						destruct H4.
 						apply H22 with kernelstructurestart x ; intuition.
 						(* Prove nextKernelStructure <> nullAddr *)
@@ -153,7 +154,7 @@ Qed.
 
 
 Lemma findBlockInKSWithAddr (idPD blockEntryAddr: paddr) (P : state -> Prop) :
-{{ fun s => P s /\ consistency s /\ isPDT idPD s}} Internal.findBlockInKSWithAddr idPD blockEntryAddr 
+{{ fun s => P s /\ consistency s /\ isPDT idPD s}} Internal.findBlockInKSWithAddr idPD blockEntryAddr
 {{fun (blockaddr : paddr) (s : state) => P s /\ consistency s /\
 																				(blockaddr = nullAddr \/
 																	(exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)

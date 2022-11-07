@@ -1,5 +1,6 @@
 (*******************************************************************************)
 (*  © Université de Lille, The Pip Development Team (2015-2022)                *)
+(*  Copyright (C) 2020-2022 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -31,8 +32,8 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary 
-    This file contains the formalization of interesting properties that we need 
+(** * Summary
+    This file contains the formalization of interesting properties that we need
     to prove *)
 Require Import Model.ADT Model.MALInternal.
 Require Import Proof.StateLib Proof.Lib.
@@ -40,31 +41,31 @@ Require Import List.
 Import List.ListNotations.
 
 (** THE VERTICAL SHARING PROPERTY:
-    All child used blocks (PD + kernel structures + mapped blocks) are mapped into 
+    All child used blocks (PD + kernel structures + mapped blocks) are mapped into
     the parent partition  *)
-Definition verticalSharing s : Prop := 
+Definition verticalSharing s : Prop :=
 
-forall parent child : paddr (*page*) , 
+forall parent child : paddr (*page*) ,
 
-  In parent (getPartitions multiplexer s) -> 
+  In parent (getPartitions multiplexer s) ->
 
-  In child (getChildren parent s) -> 
+  In child (getChildren parent s) ->
 
   (*incl (getUsedPages child s) (getMappedPages parent s).*)
   incl (getUsedBlocks child s) (getMappedBlocks parent s).
 
-(** THE ISOLATION PROPERTY BETWEEN PARTITIONS, 
-    If we take two different children of a given parent, 
+(** THE ISOLATION PROPERTY BETWEEN PARTITIONS,
+    If we take two different children of a given parent,
     then all their used blocks are different  *)
-Definition partitionsIsolation  s : Prop :=  
+Definition partitionsIsolation  s : Prop :=
 
-forall parent child1 child2 : paddr , 
+forall parent child1 child2 : paddr ,
 
-  In parent (getPartitions multiplexer s)-> 
+  In parent (getPartitions multiplexer s)->
 
-  In child1 (getChildren parent s) -> 
+  In child1 (getChildren parent s) ->
 
-  In child2 (getChildren parent s) -> 
+  In child2 (getChildren parent s) ->
 
   child1 <> child2 ->
 
@@ -79,11 +80,11 @@ forall parent child1 child2 : paddr ,
 (* TODO : include range not raw element -> the base address doesn't say anything on subblocks *)
 (*Definition kernelDataIsolation s : Prop :=
 
-forall partition1 partition2 : paddr, 
+forall partition1 partition2 : paddr,
 
   In partition1 (getPartitions multiplexer s) ->
 
-  In partition2 (getPartitions multiplexer s) -> 
+  In partition2 (getPartitions multiplexer s) ->
 
   (*disjoint (getAccessibleMappedPages partition1 s) (getConfigPages partition2 s).*)
  	(partition1 <> partition2) /\
@@ -97,8 +98,8 @@ Definition kernelDataIsolation s : Prop :=
 
 	In partition1 (getPartitions multiplexer s) ->
 
-  In partition2 (getPartitions multiplexer s) -> 
+  In partition2 (getPartitions multiplexer s) ->
 	~exists Asubblock Csubblock : paddr,
-	In Asubblock (getAccessibleMappedBlocks partition1 s) -> 
-	In Csubblock (getConfigBlocks partition2 s) -> 
+	In Asubblock (getAccessibleMappedBlocks partition1 s) ->
+	In Csubblock (getConfigBlocks partition2 s) ->
 	checkissubblock Asubblock Csubblock s \/ checkissubblock Csubblock Asubblock s.

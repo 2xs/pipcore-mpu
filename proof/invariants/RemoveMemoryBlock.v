@@ -1,5 +1,6 @@
 (*******************************************************************************)
-(*  © Université de Lille, The Pip Development Team (2015-2021)                *)
+(*  © Université de Lille, The Pip Development Team (2015-2022)                *)
+(*  Copyright (C) 2020-2022 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -46,19 +47,19 @@ Require Import Model.Monad.
 
 Module WP := WeakestPreconditions.
 
-(** * Summary 
-    This file contains the invariant of [addVaddr]. 
+(** * Summary
+    This file contains the invariant of [addVaddr].
     We prove that this PIP service preserves the isolation property *)
 
 Lemma removeMemoryBlock (idBlockToRemove: paddr) :
-{{fun s => partitionsIsolation s   /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }} 
+{{fun s => partitionsIsolation s   /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}
 removeMemoryBlock idBlockToRemove
 {{fun _ s  => partitionsIsolation s   /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}.
 Proof.
 unfold removeMemoryBlock.
 (** getCurPartition **)
 eapply WP.bindRev.
-eapply WP.weaken. 
+eapply WP.weaken.
 eapply Invariants.getCurPartition.
 cbn.
 intros.
