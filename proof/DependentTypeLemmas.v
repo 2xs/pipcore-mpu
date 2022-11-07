@@ -1181,6 +1181,32 @@ induction l.
 Qed.
 
 
+Lemma InFilterAccessibleInList a l s:
+In a (filterAccessible l s) -> In a l.
+Proof.
+intro HInFilterAccessible.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) ; intuition.
+	destruct v ; intuition.
+	destruct (accessible b) ; intuition.
+	simpl in *. intuition.
+Qed.
+
+Lemma InFilterPresentInList a l s:
+In a (filterPresent l s) -> In a l.
+Proof.
+intro HInFilterPresent.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) ; intuition.
+	destruct v ; intuition.
+	destruct (present b) ; intuition.
+	simpl in *. intuition.
+Qed.
+
 
 Lemma NoDupListNoDupFilterPresent l s :
 NoDup l -> NoDup (filterPresent l s).

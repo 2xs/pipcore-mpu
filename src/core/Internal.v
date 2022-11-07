@@ -367,8 +367,8 @@ Definition insertNewEntry 	(pdinsertion startaddr endaddr origin: paddr)
 	(** Insert the new block entry in the free slot*)
 	writeBlockStartFromBlockEntryAddr newBlockEntryAddr startaddr ;;
 	writeBlockEndFromBlockEntryAddr newBlockEntryAddr endaddr ;;
-	writeBlockAccessibleFromBlockEntryAddr newBlockEntryAddr true ;;
 	writeBlockPresentFromBlockEntryAddr newBlockEntryAddr true ;;
+	writeBlockAccessibleFromBlockEntryAddr newBlockEntryAddr true ;;
 	writeBlockRFromBlockEntryAddr newBlockEntryAddr r ;;
 	writeBlockWFromBlockEntryAddr newBlockEntryAddr w ;;
 	writeBlockXFromBlockEntryAddr newBlockEntryAddr e ;;
