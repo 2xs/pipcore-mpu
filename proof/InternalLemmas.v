@@ -12052,12 +12052,11 @@ induction (getMappedBlocks partition s0).
 Qed.
 
 
-Lemma BlockNotMappedNotAccessible partition block bentry0 s0:
-lookup block (memory s0) beqAddr = Some (BE bentry0) ->
+Lemma BlockNotMappedNotAccessible partition block s0:
 ~In block (getMappedBlocks partition s0) ->
 ~In block (getAccessibleMappedBlocks partition s0).
 Proof.
-intros Hlookupblocks0 HblockNotMapped.
+intros HblockNotMapped.
 
 unfold getAccessibleMappedBlocks.
 destruct (lookup partition (memory s0) beqAddr) ; try(intuition ; exfalso ; congruence).
@@ -12068,8 +12067,7 @@ induction (getMappedBlocks partition s0).
 	destruct (beqAddr block a) eqn:beqaddr'a ; try(exfalso ; congruence).
 	-- (* block = a *)
 		rewrite <- DependentTypeLemmas.beqAddrTrue in beqaddr'a.
-		subst a. rewrite Hlookupblocks0 in *.
-		destruct (accessible bentry0) ; intuition.
+		subst a. destruct (lookup block (memory s0) beqAddr) ; intuition.
 	-- (* addr' <> a*)
 		rewrite <- beqAddrFalse in *.
 		simpl in *.
