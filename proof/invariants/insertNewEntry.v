@@ -12264,10 +12264,12 @@ nbleft < maxIdx /\
 			rewrite Hs. simpl. trivial.
 		}
 		rewrite HcurrPartEq in *.
-		assert(HparentEq : (getPartitions multiplexer s) = (getPartitions multiplexer s0))
-			by admit. (* list equalities *)
-		rewrite HparentEq.
-		assumption.
+		destruct H31 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].
+		assert(HgetPartitionspdEq1 : getPartitions multiplexer s = getPartitions multiplexer olds)
+			by intuition.
+		assert(HgetPartitionspdEq2 : getPartitions multiplexer olds = getPartitions multiplexer s0)
+			by intuition.
+		rewrite HgetPartitionspdEq1. rewrite HgetPartitionspdEq2. intuition.
 	} (* end of currentPartitionInPartitionsList *)
 
 assert(HwellFormedShadowCutIfBlockEntry : wellFormedShadowCutIfBlockEntry s).
@@ -25855,13 +25857,6 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 		eapply NoDupListNoDupFilterPresent ; intuition.
 	} (* end of noDupMappedBlocksList *)
 
-	assert(HnoDupUsedPaddrLists : noDupUsedPaddrList s).
-	{ (* noDupUsedPaddrList s *)
-		(* equality of lists getPartitions and getChildren for already proven any partition
-				except pdinsertion whose NoDup property is already proven so immediate proof *)
-		admit.
-	} (* end of noDupUsedPaddrList *)
-
 	intuition.
 
 	- (* Final state *)
@@ -25900,5 +25895,5 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 				eexists. eexists. eexists. eexists. eexists. eexists. eexists. eexists.
 				eexists. eexists.
 				intuition.
-*)
+*
 Admitted.
