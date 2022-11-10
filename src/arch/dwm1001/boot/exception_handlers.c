@@ -52,6 +52,7 @@ extern void __attribute__((noreturn))
 Kernel_Panic(stackedContext_t *context)
 {
 	(void) context;
+	printf("PIP: UNRECOVERABLE ERROR!\n");
 	for (;;);
 }
 
@@ -141,8 +142,6 @@ Interrupt_Handler_C(stackedContext_t *context)
 	}
 
 	/* We end up here if PIP is in an unrecoverable state. */
-	printf("PIP: UNRECOVERABLE ERROR!\n");
-
 	Kernel_Panic(context);
 }
 
@@ -259,8 +258,6 @@ propagateFault(
 	}
 
 	/* We end up here if PIP is in an unrecoverable state. */
-	printf("PIP: UNRECOVERABLE ERROR!\n");
-
 	Kernel_Panic(context);
 }
 
