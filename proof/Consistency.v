@@ -273,13 +273,13 @@ DisjointKSEntries s /\
 noDupPartitionTree s /\
 isParent s /\
 isChild s /\
-accessibleChildPaddrIsAccessibleIntoParent s /\
 noDupKSEntriesList s /\
-noDupMappedBlocksList s /\
-noDupUsedPaddrList s.
+noDupMappedBlocksList s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=
+noDupUsedPaddrList s /\
+accessibleChildPaddrIsAccessibleIntoParent s /\
 sharedBlockPointsToChild s.
 
 (** ** Conjunction of all consistency properties *)

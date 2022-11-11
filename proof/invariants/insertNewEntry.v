@@ -3418,7 +3418,7 @@ nbleft < maxIdx /\
 										rewrite <- beqpdinsertionpart in *.
 										assert(HKSEntriesEq : (getKSEntries pdinsertion s) = (getKSEntries pdinsertion x0)).
 										{ intuition.
-											end0 as [optionlist (Hoptions & (Hoptionoldolds & (Hoptions0 & HnewIns0)))].
+											destruct H40 as [optionlist (Hoptions & (Hoptionoldolds & (Hoptions0 & HnewIns0)))].
 											rewrite Hoptions0 in *.
 											assumption.
 										}
@@ -25889,11 +25889,92 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 																		pdinsertion pdentry s0) ; intuition.
 				}
 				congruence.
-		-- (* lists *)
-				admit.
+		-- 	assert(HstartEq : startAddr (blockrange bentry6) = startAddr (blockrange bentry2)).
+				{ assert(HstartEq1 : startAddr (blockrange bentry6) = startAddr (blockrange bentry5)).
+					{
+						(* DUP*)
+						subst bentry6.
+						unfold CBlockEntry.
+						destruct (lt_dec (blockindex bentry5) kernelStructureEntriesNb) ; intuition.
+						destruct blockentry_d. destruct bentry5.
+						intuition.
+					}
+					assert(HstartEq2 : startAddr (blockrange bentry5) = startAddr (blockrange bentry4)).
+					{
+						(* DUP*)
+						subst bentry5.
+						unfold CBlockEntry.
+						destruct (lt_dec (blockindex bentry4) kernelStructureEntriesNb) ; intuition.
+						destruct blockentry_d. destruct bentry4.
+						intuition.
+					}
+					assert(HstartEq3 : startAddr (blockrange bentry4) = startAddr (blockrange bentry3)).
+					{
+						(* DUP*)
+						subst bentry4.
+						unfold CBlockEntry.
+						destruct (lt_dec (blockindex bentry3) kernelStructureEntriesNb) ; intuition.
+						destruct blockentry_d. destruct bentry3.
+						intuition.
+					}
+					assert(HstartEq4 : startAddr (blockrange bentry3) = startAddr (blockrange bentry2)).
+					{
+						(* DUP*)
+						subst bentry3.
+						unfold CBlockEntry.
+						destruct (lt_dec (blockindex bentry2) kernelStructureEntriesNb) ; intuition.
+						destruct blockentry_d. destruct bentry2.
+						intuition.
+					}
+					rewrite HstartEq1. rewrite HstartEq2. rewrite HstartEq3. rewrite HstartEq4.
+					trivial. 
+				}
+				assert(HendEq : endAddr (blockrange bentry6) = endAddr (blockrange bentry2)).
+				{ assert(HendEq1 : endAddr (blockrange bentry6) = endAddr (blockrange bentry5)).
+					{
+						(* DUP*)
+						subst bentry6.
+						unfold CBlockEntry.
+						destruct (lt_dec (blockindex bentry5) kernelStructureEntriesNb) ; intuition.
+						destruct blockentry_d. destruct bentry5.
+						intuition.
+					}
+					assert(HendEq2 : endAddr (blockrange bentry5) = endAddr (blockrange bentry4)).
+					{
+						(* DUP*)
+						subst bentry5.
+						unfold CBlockEntry.
+						destruct (lt_dec (blockindex bentry4) kernelStructureEntriesNb) ; intuition.
+						destruct blockentry_d. destruct bentry4.
+						intuition.
+					}
+					assert(HendEq3 : endAddr (blockrange bentry4) = endAddr (blockrange bentry3)).
+					{
+						(* DUP*)
+						subst bentry4.
+						unfold CBlockEntry.
+						destruct (lt_dec (blockindex bentry3) kernelStructureEntriesNb) ; intuition.
+						destruct blockentry_d. destruct bentry3.
+						intuition.
+					}
+					assert(HendEq4 : endAddr (blockrange bentry3) = endAddr (blockrange bentry2)).
+					{
+						(* DUP*)
+						subst bentry3.
+						unfold CBlockEntry.
+						destruct (lt_dec (blockindex bentry2) kernelStructureEntriesNb) ; intuition.
+						destruct blockentry_d. destruct bentry2.
+						intuition.
+					}
+					rewrite HendEq1. rewrite HendEq2. rewrite HendEq3. rewrite HendEq4.
+					trivial. 
+				}
+				rewrite HstartEq in *. rewrite HendEq in *.
+				destruct H31 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].
+				exists Hoptionfreeslotslists. exists olds. exists n0. exists n1. 
+				exists n2. exists nbleft. intuition.
 		-- (* intermediate steps *)
 				eexists. eexists. eexists. eexists. eexists. eexists. eexists. eexists.
 				eexists. eexists.
 				intuition.
-*
-Admitted.
+Qed.
