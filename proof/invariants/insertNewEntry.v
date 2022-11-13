@@ -242,23 +242,16 @@ Internal.insertNewEntry pdinsertion startaddr endaddr origin r w e currnbfreeslo
 					/\ getConfigBlocks pdinsertion s = getConfigBlocks pdinsertion s2
 					/\ getConfigPaddr pdinsertion s2 = getConfigPaddr pdinsertion s0
 					/\ getConfigPaddr pdinsertion s = getConfigPaddr pdinsertion s2
-					(*/\ (forall block, In block (getMappedBlocks pdinsertion s2) <->
-										In block (newBlockEntryAddr:: (getMappedBlocks pdinsertion s0)))*)
 					/\ (forall block, In block (getMappedBlocks pdinsertion s) <->
 										In block (newBlockEntryAddr:: (getMappedBlocks pdinsertion s0)))
-					(*/\ (forall addr, In addr (getMappedPaddr pdinsertion s2) <->
+					/\ ((forall addr, In addr (getMappedPaddr pdinsertion s) <->
 								In addr (getAllPaddrBlock (startAddr (blockrange bentry6)) (endAddr (blockrange bentry6))
-									 ++ getMappedPaddr pdinsertion s0))*)
-					/\ (forall addr, In addr (getMappedPaddr pdinsertion s) <->
-								In addr (getAllPaddrBlock (startAddr (blockrange bentry6)) (endAddr (blockrange bentry6))
-									 ++ getMappedPaddr pdinsertion s0))
-					(*/\ (forall block, In block (getAccessibleMappedBlocks pdinsertion s2) <->
-										In block (newBlockEntryAddr:: (getAccessibleMappedBlocks pdinsertion s0)))*)
+									 ++ getMappedPaddr pdinsertion s0)) /\
+								length (getMappedPaddr pdinsertion s) =
+								length (getAllPaddrBlock (startAddr (blockrange bentry6))
+     									(endAddr (blockrange bentry6)) ++ getMappedPaddr pdinsertion s0))
 					/\ (forall block, In block (getAccessibleMappedBlocks pdinsertion s) <->
 										In block (newBlockEntryAddr:: (getAccessibleMappedBlocks pdinsertion s0)))
-					(*/\ (forall addr, In addr (getAccessibleMappedPaddr pdinsertion s2) <->
-								In addr (getAllPaddrBlock (startAddr (blockrange bentry6)) (endAddr (blockrange bentry6))
-									 ++ getAccessibleMappedPaddr pdinsertion s0))*)
 					/\ (forall addr, In addr (getAccessibleMappedPaddr pdinsertion s) <->
 								In addr (getAllPaddrBlock (startAddr (blockrange bentry6)) (endAddr (blockrange bentry6))
 									 ++ getAccessibleMappedPaddr pdinsertion s0))
@@ -3031,9 +3024,12 @@ nbleft < maxIdx /\
 					/\ getConfigPaddr pdinsertion s = getConfigPaddr pdinsertion s2
 					/\ (forall block, In block (getMappedBlocks pdinsertion s) <->
 										In block (newBlockEntryAddr:: (getMappedBlocks pdinsertion s0)))
-					/\ (forall addr, In addr (getMappedPaddr pdinsertion s) <->
+					/\ ((forall addr, In addr (getMappedPaddr pdinsertion s) <->
 								In addr (getAllPaddrBlock (startAddr (blockrange bentry1)) (endAddr (blockrange bentry1))
-									 ++ getMappedPaddr pdinsertion s0))
+									 ++ getMappedPaddr pdinsertion s0)) /\
+								length (getMappedPaddr pdinsertion s) =
+								length (getAllPaddrBlock (startAddr (blockrange bentry1))
+     									(endAddr (blockrange bentry1)) ++ getMappedPaddr pdinsertion s0))
 					/\ getAccessibleMappedBlocks pdinsertion s2 = getAccessibleMappedBlocks pdinsertion s0
 					/\ getAccessibleMappedBlocks pdinsertion s = getAccessibleMappedBlocks pdinsertion s2
 					/\ getAccessibleMappedPaddr pdinsertion s2 = getAccessibleMappedPaddr pdinsertion s0
@@ -4125,6 +4121,55 @@ nbleft < maxIdx /\
 												by intuition.
 											rewrite HgetMappedPaddrEq1. rewrite HgetMappedPaddrEq2.
 											intuition.
+					++ assert(Heq1 : getMappedPaddr pdinsertion s = getMappedPaddr pdinsertion olds) by intuition.							assert(Heq2 : getMappedPaddr pdinsertion olds = getMappedPaddr pdinsertion x0) by intuition.
+							rewrite <- Heq2. rewrite <- Heq1.
+							eapply getMappedPaddrEqBEPresentTrueChangeLengthEquality ; intuition.
+							(* DUP *)
+								+++ rewrite Hpresent in *.
+										assert(Hf : present
+																	(CBlockEntry (read x6) (write x6) (exec x6) true 
+																		 (accessible x6) (blockindex x6) (blockrange x6)) = false) by trivial.
+										contradict Hf.
+										unfold CBlockEntry.
+										destruct (lt_dec (blockindex x6) kernelStructureEntriesNb) ; intuition.
+										destruct blockentry_d. destruct x6.
+										intuition.
+								+++ (* DUP*)
+										unfold CBlockEntry.
+										destruct (lt_dec (blockindex x6) kernelStructureEntriesNb) ; intuition.
+										destruct blockentry_d. destruct x6.
+										intuition.
+								+++ (* DUP*)
+										unfold CBlockEntry.
+										destruct (lt_dec (blockindex x6) kernelStructureEntriesNb) ; intuition.
+										destruct blockentry_d. destruct x6.
+										intuition.
+								+++ (* DUP*)
+										unfold CBlockEntry.
+										destruct (lt_dec (blockindex x6) kernelStructureEntriesNb) ; intuition.
+										destruct blockentry_d. destruct x6.
+										intuition.
+								+++ 	(* TODO : to remove*)
+											(* DUP *)
+											unfold noDupMappedBlocksList.
+											unfold getMappedBlocks.
+
+											intros part HPDTparts.
+											eapply NoDupListNoDupFilterPresent ; intuition.
+								+++ destruct H40 as [optionentrieslist Hoptionentrieslist].
+										assert(HnewBInList : In newBlockEntryAddr (filterOptionPaddr (getKSEntries pdinsertion x0))).
+										{ intuition.
+											assert(HEq : optionentrieslist = getKSEntries pdinsertion x0) by trivial.
+											rewrite <- HEq.
+											assumption.
+										}
+										assert(HKSEntriesListEq : getKSEntries pdinsertion s = getKSEntries pdinsertion x0).
+										{
+											assert(HKSEntriess : getKSEntries pdinsertion s =  optionentrieslist) by intuition.
+											rewrite HKSEntriess. intuition.
+										}
+										rewrite HKSEntriesListEq.
+										intuition.
 					++ assert(Heq1 : getAccessibleMappedBlocks pdinsertion s = getAccessibleMappedBlocks pdinsertion olds) by intuition.
 							assert(Heq2 : getAccessibleMappedBlocks pdinsertion olds = getAccessibleMappedBlocks pdinsertion x0) by intuition.
 							rewrite Heq1. rewrite Heq2. trivial.
@@ -4617,9 +4662,12 @@ nbleft < maxIdx /\
 					/\ getConfigPaddr pdinsertion s = getConfigPaddr pdinsertion s2
 					/\ (forall block, In block (getMappedBlocks pdinsertion s) <->
 										In block (newBlockEntryAddr:: (getMappedBlocks pdinsertion s0)))
-					/\ (forall addr, In addr (getMappedPaddr pdinsertion s) <->
+					/\ ((forall addr, In addr (getMappedPaddr pdinsertion s) <->
 								In addr (getAllPaddrBlock (startAddr (blockrange bentry2)) (endAddr (blockrange bentry2))
-									 ++ getMappedPaddr pdinsertion s0))
+									 ++ getMappedPaddr pdinsertion s0)) /\
+								length (getMappedPaddr pdinsertion s) =
+								length (getAllPaddrBlock (startAddr (blockrange bentry2))
+     									(endAddr (blockrange bentry2)) ++ getMappedPaddr pdinsertion s0))
 					/\ (forall block, In block (getAccessibleMappedBlocks pdinsertion s) <->
 										In block (newBlockEntryAddr:: (getAccessibleMappedBlocks pdinsertion s0)))
 					/\ (forall addr, In addr (getAccessibleMappedPaddr pdinsertion s) <->
@@ -5299,6 +5347,52 @@ nbleft < maxIdx /\
 																					(getAllPaddrBlock (startAddr (blockrange x7)) (endAddr (blockrange x7)) ++
 																					 getMappedPaddr pdinsertion x0)) by assumption.
 									specialize (HmappedPaddrEq addr).
+									assert(HstartEq : startAddr (blockrange x7) = startAddr (blockrange x6)).
+									{
+										(* DUP*)
+										subst x7.
+										unfold CBlockEntry.
+										destruct (lt_dec (blockindex x6) kernelStructureEntriesNb) ; intuition.
+										destruct blockentry_d. destruct x6.
+										intuition.
+									}
+									assert(HendEq : endAddr (blockrange x7) = endAddr (blockrange x6)).
+									{
+										(* DUP*)
+										subst x7.
+										unfold CBlockEntry.
+										destruct (lt_dec (blockindex x6) kernelStructureEntriesNb) ; intuition.
+										destruct blockentry_d. destruct x6.
+										intuition.
+									}
+									rewrite HstartEq in *. rewrite HendEq in *.
+									intuition.
+							++  (* Length equality *)
+									(* DUP *)
+									assert(Heq : getMappedPaddr pdinsertion s' = getMappedPaddr pdinsertion s).
+									{ eapply getMappedPaddrEqBEPresentNoChangeStartNoChangeEndNoChangeEquivalence with x7; intuition.
+										- (* DUP*)
+											unfold CBlockEntry.
+											destruct (lt_dec (blockindex x7) kernelStructureEntriesNb) ; intuition.
+											destruct blockentry_d. destruct x7.
+											intuition.
+										- (* DUP*)
+											unfold CBlockEntry.
+											destruct (lt_dec (blockindex x7) kernelStructureEntriesNb) ; intuition.
+											destruct blockentry_d. destruct x7.
+											intuition.
+										- (* DUP*)
+											unfold CBlockEntry.
+											destruct (lt_dec (blockindex x7) kernelStructureEntriesNb) ; intuition.
+											destruct blockentry_d. destruct x7.
+											intuition.
+									}
+									rewrite Heq in *.
+									assert(HmappedPaddrEq : forall addr : paddr,
+																			In addr (getMappedPaddr pdinsertion s) <->
+																			In addr
+																				(getAllPaddrBlock (startAddr (blockrange x6)) (endAddr (blockrange x6)) ++
+																				 getMappedPaddr pdinsertion x0)) by trivial.
 									assert(HstartEq : startAddr (blockrange x7) = startAddr (blockrange x6)).
 									{
 										(* DUP*)
@@ -6221,9 +6315,12 @@ nbleft < maxIdx /\
 					/\ getConfigPaddr pdinsertion s = getConfigPaddr pdinsertion s2
 					/\ (forall block, In block (getMappedBlocks pdinsertion s) <->
 										In block (newBlockEntryAddr:: (getMappedBlocks pdinsertion s0)))
-					/\ (forall addr, In addr (getMappedPaddr pdinsertion s) <->
+					/\ ((forall addr, In addr (getMappedPaddr pdinsertion s) <->
 								In addr (getAllPaddrBlock (startAddr (blockrange bentry2)) (endAddr (blockrange bentry2))
-									 ++ getMappedPaddr pdinsertion s0))
+									 ++ getMappedPaddr pdinsertion s0)) /\
+								length (getMappedPaddr pdinsertion s) =
+								length (getAllPaddrBlock (startAddr (blockrange bentry2))
+     									(endAddr (blockrange bentry2)) ++ getMappedPaddr pdinsertion s0))
 					/\ (forall block, In block (getAccessibleMappedBlocks pdinsertion s) <->
 										In block (newBlockEntryAddr:: (getAccessibleMappedBlocks pdinsertion s0)))
 					/\ (forall addr, In addr (getAccessibleMappedPaddr pdinsertion s) <->
@@ -6821,7 +6918,29 @@ nbleft < maxIdx /\
 																					 getMappedPaddr pdinsertion x0)) by assumption.
 									specialize (HmappedPaddrEq addr).
 									intuition.
-					++ 	assert(Heq : getAccessibleMappedBlocks pdinsertion s' = getAccessibleMappedBlocks pdinsertion s).
+							++  (* Length equality *)
+									(* DUP *)
+									assert(Heq : getMappedPaddr pdinsertion s' = getMappedPaddr pdinsertion s).
+									{ eapply getMappedPaddrEqBEPresentNoChangeStartNoChangeEndNoChangeEquivalence with x8; intuition.
+										- (* DUP*)
+											unfold CBlockEntry.
+											destruct (lt_dec (blockindex x8) kernelStructureEntriesNb) ; intuition.
+											destruct blockentry_d. destruct x8.
+											intuition.
+										- (* DUP*)
+											unfold CBlockEntry.
+											destruct (lt_dec (blockindex x8) kernelStructureEntriesNb) ; intuition.
+											destruct blockentry_d. destruct x8.
+											intuition.
+										- (* DUP*)
+											unfold CBlockEntry.
+											destruct (lt_dec (blockindex x8) kernelStructureEntriesNb) ; intuition.
+											destruct blockentry_d. destruct x8.
+											intuition.
+									}
+									rewrite Heq in *.
+									intuition.
+							++ 	assert(Heq : getAccessibleMappedBlocks pdinsertion s' = getAccessibleMappedBlocks pdinsertion s).
 									{ eapply getAccessibleMappedBlocksEqBEAccessiblePresentNoChange with x8; intuition.
 										unfold CBlockEntry.
 										destruct (lt_dec (blockindex x8) kernelStructureEntriesNb) ; intuition.
@@ -7348,9 +7467,12 @@ nbleft < maxIdx /\
 					/\ getConfigPaddr pdinsertion s = getConfigPaddr pdinsertion s2
 					/\ (forall block, In block (getMappedBlocks pdinsertion s) <->
 										In block (newBlockEntryAddr:: (getMappedBlocks pdinsertion s0)))
-					/\ (forall addr, In addr (getMappedPaddr pdinsertion s) <->
+					/\ ((forall addr, In addr (getMappedPaddr pdinsertion s) <->
 								In addr (getAllPaddrBlock (startAddr (blockrange bentry2)) (endAddr (blockrange bentry2))
-									 ++ getMappedPaddr pdinsertion s0))
+									 ++ getMappedPaddr pdinsertion s0)) /\
+								length (getMappedPaddr pdinsertion s) =
+								length (getAllPaddrBlock (startAddr (blockrange bentry2))
+     									(endAddr (blockrange bentry2)) ++ getMappedPaddr pdinsertion s0))
 					/\ (forall block, In block (getAccessibleMappedBlocks pdinsertion s) <->
 										In block (newBlockEntryAddr:: (getAccessibleMappedBlocks pdinsertion s0)))
 					/\ (forall addr, In addr (getAccessibleMappedPaddr pdinsertion s) <->
@@ -7959,6 +8081,28 @@ nbleft < maxIdx /\
 																					 getMappedPaddr pdinsertion x0)) by assumption.
 									specialize (HmappedPaddrEq addr).
 									intuition.
+							++  (* Length equality *)
+									(* DUP *)
+									assert(Heq : getMappedPaddr pdinsertion s' = getMappedPaddr pdinsertion s).
+									{ eapply getMappedPaddrEqBEPresentNoChangeStartNoChangeEndNoChangeEquivalence with x9; intuition.
+										- (* DUP*)
+											unfold CBlockEntry.
+											destruct (lt_dec (blockindex x9) kernelStructureEntriesNb) ; intuition.
+											destruct blockentry_d. destruct x9.
+											intuition.
+										- (* DUP*)
+											unfold CBlockEntry.
+											destruct (lt_dec (blockindex x9) kernelStructureEntriesNb) ; intuition.
+											destruct blockentry_d. destruct x9.
+											intuition.
+										- (* DUP*)
+											unfold CBlockEntry.
+											destruct (lt_dec (blockindex x9) kernelStructureEntriesNb) ; intuition.
+											destruct blockentry_d. destruct x9.
+											intuition.
+									}
+									rewrite Heq in *.
+									intuition.
 					++ 	(* DUP *)
 							assert(Heq : getAccessibleMappedBlocks pdinsertion s' = getAccessibleMappedBlocks pdinsertion s).
 							{ eapply getAccessibleMappedBlocksEqBEAccessiblePresentNoChange with x9; intuition.
@@ -8509,9 +8653,12 @@ nbleft < maxIdx /\
 					/\ getConfigPaddr pdinsertion s = getConfigPaddr pdinsertion s2
 					/\ (forall block, In block (getMappedBlocks pdinsertion s) <->
 										In block (newBlockEntryAddr:: (getMappedBlocks pdinsertion s0)))
-					/\ (forall addr, In addr (getMappedPaddr pdinsertion s) <->
+					/\ ((forall addr, In addr (getMappedPaddr pdinsertion s) <->
 								In addr (getAllPaddrBlock (startAddr (blockrange bentry2)) (endAddr (blockrange bentry2))
-									 ++ getMappedPaddr pdinsertion s0))
+									 ++ getMappedPaddr pdinsertion s0)) /\
+								length (getMappedPaddr pdinsertion s) =
+								length (getAllPaddrBlock (startAddr (blockrange bentry2))
+     									(endAddr (blockrange bentry2)) ++ getMappedPaddr pdinsertion s0))
 					/\ (forall block, In block (getAccessibleMappedBlocks pdinsertion s) <->
 										In block (newBlockEntryAddr:: (getAccessibleMappedBlocks pdinsertion s0)))
 					/\ (forall addr, In addr (getAccessibleMappedPaddr pdinsertion s) <->
@@ -9128,6 +9275,28 @@ nbleft < maxIdx /\
 																					(getAllPaddrBlock (startAddr (blockrange x7)) (endAddr (blockrange x7)) ++
 																					 getMappedPaddr pdinsertion x0)) by assumption.
 									specialize (HmappedPaddrEq addr).
+									intuition.
+							++  (* Length equality *)
+									(* DUP *)
+									assert(Heq : getMappedPaddr pdinsertion s' = getMappedPaddr pdinsertion s).
+									{ eapply getMappedPaddrEqBEPresentNoChangeStartNoChangeEndNoChangeEquivalence with x10; intuition.
+										- (* DUP*)
+											unfold CBlockEntry.
+											destruct (lt_dec (blockindex x10) kernelStructureEntriesNb) ; intuition.
+											destruct blockentry_d. destruct x10.
+											intuition.
+										- (* DUP*)
+											unfold CBlockEntry.
+											destruct (lt_dec (blockindex x10) kernelStructureEntriesNb) ; intuition.
+											destruct blockentry_d. destruct x10.
+											intuition.
+										- (* DUP*)
+											unfold CBlockEntry.
+											destruct (lt_dec (blockindex x10) kernelStructureEntriesNb) ; intuition.
+											destruct blockentry_d. destruct x10.
+											intuition.
+									}
+									rewrite Heq in *.
 									intuition.
 					++ 	(* DUP *)
 							assert(Heq : getAccessibleMappedBlocks pdinsertion s' = getAccessibleMappedBlocks pdinsertion s).
@@ -9950,9 +10119,12 @@ nbleft < maxIdx /\
 					/\ getConfigPaddr pdinsertion s = getConfigPaddr pdinsertion s2
 					/\ (forall block, In block (getMappedBlocks pdinsertion s) <->
 										In block (newBlockEntryAddr:: (getMappedBlocks pdinsertion s0)))
-					/\ (forall addr, In addr (getMappedPaddr pdinsertion s) <->
+					/\ ((forall addr, In addr (getMappedPaddr pdinsertion s) <->
 								In addr (getAllPaddrBlock (startAddr (blockrange bentry2)) (endAddr (blockrange bentry2))
-									 ++ getMappedPaddr pdinsertion s0))
+									 ++ getMappedPaddr pdinsertion s0)) /\
+								length (getMappedPaddr pdinsertion s) =
+								length (getAllPaddrBlock (startAddr (blockrange bentry2))
+     									(endAddr (blockrange bentry2)) ++ getMappedPaddr pdinsertion s0))
 					/\ (forall block, In block (getAccessibleMappedBlocks pdinsertion s) <->
 										In block (newBlockEntryAddr:: (getAccessibleMappedBlocks pdinsertion s0)))
 					/\ (forall addr, In addr (getAccessibleMappedPaddr pdinsertion s) <->
@@ -10476,6 +10648,12 @@ nbleft < maxIdx /\
 																						(getAllPaddrBlock (startAddr (blockrange x6)) (endAddr (blockrange x6)) ++
 																						 getMappedPaddr pdinsertion s0)) by assumption.
 										specialize (HmappedPaddrEq addr).
+										intuition.
+							++++  (* Length equality *)
+										(* DUP *)
+										assert(Heq : getMappedPaddr pdinsertion s' = getMappedPaddr pdinsertion s).
+										{ eapply getMappedPaddrEqSCE ; intuition. }
+										rewrite Heq in *.
 										intuition.
 							++++ 	assert(Heq : getAccessibleMappedBlocks pdinsertion s' = getAccessibleMappedBlocks pdinsertion s).
 										{ eapply getAccessibleMappedBlocksEqSCE ; intuition. }
@@ -24378,9 +24556,9 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s9 (CIndex maxNbPrepare)).
 																intuition.
 																subst nbleft'.
 																(* rewrite all previous getKSEntriesAux equalities *)
-																rewrite <- H64. rewrite <- H73. rewrite <- H75.
-																rewrite <- H77. rewrite <- H79. rewrite <- H81. rewrite <- H83.
-																rewrite <- H85. rewrite <- H87. rewrite <- H90.
+																rewrite <- H65. rewrite <- H74. rewrite <- H76.
+																rewrite <- H78. rewrite <- H80. rewrite <- H82. rewrite <- H84.
+																rewrite <- H86. rewrite <- H88. rewrite <- H91.
 																reflexivity.
 															}
 															assert (HksentriesEqn1 : getKSEntriesAux n1' (structure pd1entry) s (CIndex maxNbPrepare)
@@ -24768,9 +24946,9 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 															intuition.
 															subst nbleft'.
 															(* rewrite all previous getKSEntriesAux equalities *)
-															rewrite <- H70. rewrite <- H73. rewrite <- H75.
-															rewrite <- H77. rewrite <- H79. rewrite <- H81. rewrite <- H83.
-															rewrite <- H85. rewrite <- H87. rewrite <- H90.
+															rewrite <- H71. rewrite <- H74. rewrite <- H76.
+															rewrite <- H78. rewrite <- H80. rewrite <- H82. rewrite <- H84.
+															rewrite <- H86. rewrite <- H88. rewrite <- H91.
 															reflexivity.
 														}
 														assert (HfreeslotsEqn1 : getKSEntriesAux n1' (structure pd2entry) s (CIndex maxNbPrepare)
@@ -25081,9 +25259,9 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s9 (CIndex maxNbPrepare)).
 															intuition.
 															subst nbleft'.
 															(* rewrite all previous getKSEntriesAux equalities *)
-															rewrite <- H64. rewrite <- H73. rewrite <- H75.
-															rewrite <- H77. rewrite <- H79. rewrite <- H81. rewrite <- H83.
-															rewrite <- H85. rewrite <- H87. rewrite <- H90.
+															rewrite <- H65. rewrite <- H74. rewrite <- H76.
+															rewrite <- H78. rewrite <- H80. rewrite <- H82. rewrite <- H84.
+															rewrite <- H86. rewrite <- H88. rewrite <- H91.
 															reflexivity.
 														}
 														assert (HfreeslotsEqn1 : getKSEntriesAux n1' (structure pd1entry) s (CIndex maxNbPrepare)
@@ -25300,7 +25478,7 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 					rewrite <- beqAddrFalse in *.
 					repeat rewrite removeDupIdentity ; intuition.
 				}
-				subst s10. rewrite H88. (* s = currentPartition s9  ...*)
+				subst s10. rewrite H89. (* s = currentPartition s9  ...*)
 			apply getKSEntriesAuxEqSCE ; intuition.
 	}
 	intuition.
@@ -25318,10 +25496,10 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 																intuition.
 																subst nbleft''.
 																(* rewrite all previous getKSEntriesAux equalities *)
-																rewrite <- H92. rewrite <- H94.
-																rewrite <- H95. rewrite <- H96. rewrite <- H97. rewrite <- H98.
-																rewrite <- H99. rewrite <- H100. rewrite <- H101.
-																rewrite <- H103.
+																rewrite <- H93. rewrite <- H95.
+																rewrite <- H96. rewrite <- H97. rewrite <- H98. rewrite <- H99.
+																rewrite <- H100. rewrite <- H101. rewrite <- H102.
+																rewrite <- H104.
 																reflexivity.
 															}
 															assert (HfreeslotsEqn1' : getKSEntriesAux n1'' (structure pd2entry) s (CIndex maxNbPrepare)
@@ -25967,7 +26145,7 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 						intuition.
 					}
 					rewrite HendEq1. rewrite HendEq2. rewrite HendEq3. rewrite HendEq4.
-					trivial. 
+					trivial.
 				}
 				rewrite HstartEq in *. rewrite HendEq in *.
 				destruct H31 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].

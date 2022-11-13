@@ -11418,6 +11418,54 @@ induction blocklist.
 					simpl in *. intuition.
 Qed.
 
+Lemma filterPresentEqBEChangePresentTrueLengthEquality addr' newEntry s0 bentry0 blocklist:
+lookup addr' (memory s0) beqAddr = Some (BE bentry0) ->
+(present newEntry) <> (present bentry0) ->
+(present newEntry) = true ->
+NoDup blocklist ->
+In addr' blocklist ->
+length (filterPresent blocklist {|
+						currentPartition := currentPartition s0;
+						memory := add addr' (BE newEntry)
+            (memory s0) beqAddr |}) =
+length (addr'::filterPresent blocklist s0).
+Proof.
+set (s' :=   {|
+currentPartition := currentPartition s0;
+memory := _ |}).
+intros Hlookupaddr's0 HpresentNotEq Hpresent'true HNoDup HlistNotNull.
+
+induction blocklist.
+- intuition.
+- simpl in *.
+	destruct HlistNotNull as [Haddr'aEq | Haddr'InList].
+	-- apply NoDup_cons_iff in HNoDup.
+		subst a. rewrite beqAddrTrue.
+		rewrite Hpresent'true in *.
+		destruct (lookup addr' (memory s0) beqAddr) eqn:Hff ; try(exfalso ; congruence).
+		destruct v ; try(exfalso ; congruence).
+		inversion Hlookupaddr's0 as [HBEEq].
+		subst b.
+		destruct (present bentry0) eqn:beqpresent ; intuition.
+		simpl.
+		f_equal.
+		assert(HfilterPresent : filterPresent blocklist s' = filterPresent blocklist s0).
+		{ eapply filterPresentEqBENotInListNoChange ; intuition. }
+		rewrite HfilterPresent.
+		trivial.
+	-- destruct (beqAddr addr' a) eqn:Hf ; try(exfalso ; congruence).
+			--- rewrite <- DependentTypeLemmas.beqAddrTrue in Hf.
+					subst a.
+					apply NoDup_cons_iff in HNoDup. intuition.
+			--- rewrite <- beqAddrFalse in *.
+					repeat rewrite removeDupIdentity ; intuition.
+					apply NoDup_cons_iff in HNoDup.
+					destruct (lookup a (memory s0) beqAddr) ; intuition.
+					destruct v ; intuition.
+					destruct (present b) eqn:Hff ; intuition.
+					simpl in *. intuition.
+Qed.
+
 (* After state modification, if the modified entry is not in the list, no change *)
 Lemma filterAccessibleEqBENotInListNoChange addr' newEntry s0 blocklist:
 ~In addr' blocklist ->
@@ -15235,6 +15283,130 @@ In addr
 			intuition.
 			apply in_app_or in H19. (*getAllPAddrblock b ++ getAllPaddrAux filterPresent l s' s'*)
 			intuition.
+Qed.
+
+Lemma getMappedPaddrEqBEPresentTrueChangeLengthEquality partition block newEntry bentry0 s0:
+isPDT partition s0 ->
+lookup block (memory s0) beqAddr = Some (BE bentry0) ->
+(present newEntry) <> (present bentry0) ->
+(present newEntry) = true ->
+(startAddr (blockrange newEntry)) = (startAddr (blockrange bentry0)) ->
+(endAddr (blockrange newEntry)) = (endAddr (blockrange bentry0)) ->
+noDupKSEntriesList s0 ->
+noDupMappedBlocksList s0 ->
+In block (filterOptionPaddr (getKSEntries partition s0)) ->
+length (getMappedPaddr partition {|
+						currentPartition := currentPartition s0;
+						memory := add block (BE newEntry)
+            (memory s0) beqAddr |}) =
+length (getAllPaddrBlock (startAddr (blockrange bentry0)) (endAddr (blockrange bentry0))
+++ getMappedPaddr partition s0).
+Proof.
+set (s' :=   {|
+currentPartition := currentPartition s0;
+memory := _ |}).
+intros HPDTs0 Hlookupaddr's0 HpresentNotEq Hpresenttrue HstartEq HendEq.
+intros HNoDupKSEntries HNoDupMappedBlocks HaddrInKSentriess0.
+
+
+assert(HBEs0 : isBE block s0) by (unfold isBE ; rewrite Hlookupaddr's0 ; trivial).
+unfold getMappedPaddr. unfold getMappedBlocks.
+assert(HEq :  getKSEntries partition s' = getKSEntries partition s0).
+{ apply getKSEntriesEqBE ; intuition.
+}
+unfold getMappedBlocks (*in HBlockInMappeds'*).
+rewrite HEq in *.
+unfold noDupKSEntriesList in *. specialize (HNoDupKSEntries partition HPDTs0).
+assert(HfilterPresentLengthEq : length
+     (filterPresent (filterOptionPaddr (getKSEntries partition s0)) s') =
+length
+  (block :: (filterPresent (filterOptionPaddr (getKSEntries partition s0)) s0))).
+{
+	eapply filterPresentEqBEChangePresentTrueLengthEquality with bentry0 ; intuition.
+}
+
+induction ((filterOptionPaddr (getKSEntries partition s0))).
+- intuition.
+- simpl in *.
+
+ simpl in *.
+	destruct (beqAddr block a) eqn:beqaddr'a ; try(exfalso ; congruence).
+	-- (* block = a *)
+		rewrite <- DependentTypeLemmas.beqAddrTrue in beqaddr'a.
+		subst a.
+		rewrite Hpresenttrue in *. rewrite Hlookupaddr's0 in *.
+		assert(Hpresents0false : present bentry0 = false)
+				by (apply Bool.not_true_is_false ; intuition).
+		rewrite Hpresents0false in *.
+		simpl in *. rewrite beqAddrTrue in *.
+
+
+		apply NoDup_cons_iff in HNoDupKSEntries.
+
+		assert(HlFilterNoChange : filterPresent l s' = filterPresent l s0).
+		{
+			eapply filterPresentEqBENotInListNoChange ; intuition.
+		} (* cause block is not in l so remaining didn't change *)
+		rewrite HlFilterNoChange in *.
+
+		rewrite HstartEq in*. rewrite HendEq in *.
+		assert(HallpaddrEq : getAllPaddrAux (filterPresent l s0) s' = getAllPaddrAux (filterPresent l s0) s0).
+		{
+			eapply getAllPaddrAuxEqBEStartEndNoChange with bentry0; intuition.
+		}
+		rewrite HallpaddrEq. intuition.
+	-- (* block <> a *)
+			rewrite <- beqAddrFalse in *.
+			rewrite removeDupIdentity in * ; try apply not_eq_sym ; trivial.
+			(*simpl in HNoDupAllPaddrs'.*) apply NoDup_cons_iff in HNoDupKSEntries.
+			destruct (lookup a (memory s0) beqAddr) eqn:Hlookupas0 ; try (apply IHl ; intuition).
+			destruct v ; try (apply IHl ; intuition).
+			destruct (present b) ; try (apply IHl ; intuition).
+			simpl in *.
+			destruct (beqAddr block a) eqn:Hf ; try (exfalso ; congruence).
+			rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+			rewrite removeDupIdentity in * ; try apply not_eq_sym ; trivial.
+			rewrite Hlookupas0 in *.
+			assert(HNewGoal : length
+						(getAllPaddrBlock (startAddr (blockrange b)) (endAddr (blockrange b)) ++
+						 getAllPaddrAux (filterPresent l s') s') =
+					length
+						(getAllPaddrBlock (startAddr (blockrange b)) (endAddr (blockrange b)) ++
+					(getAllPaddrBlock (startAddr (blockrange bentry0))
+							 (endAddr (blockrange bentry0)) ++
+						 getAllPaddrAux (filterPresent l s0) s0)) ->
+					length
+						(getAllPaddrBlock (startAddr (blockrange b)) (endAddr (blockrange b)) ++
+						 getAllPaddrAux (filterPresent l s') s') =
+					length
+						(getAllPaddrBlock (startAddr (blockrange bentry0))
+							 (endAddr (blockrange bentry0)) ++
+						 getAllPaddrBlock (startAddr (blockrange b)) (endAddr (blockrange b)) ++
+						 getAllPaddrAux (filterPresent l s0) s0)).
+			{ repeat rewrite app_length.
+				intro Hnew.
+				assert(Hreassoc : length
+						(getAllPaddrBlock (startAddr (blockrange bentry0))
+							 (endAddr (blockrange bentry0))) +
+					(length (getAllPaddrBlock (startAddr (blockrange b)) (endAddr (blockrange b))) +
+					 length (getAllPaddrAux (filterPresent l s0) s0)) = 
+					(length (getAllPaddrBlock (startAddr (blockrange b)) (endAddr (blockrange b)))) +
+					length
+						(getAllPaddrBlock (startAddr (blockrange bentry0))
+							 (endAddr (blockrange bentry0))) +
+					 length (getAllPaddrAux (filterPresent l s0) s0)).
+				{
+					rewrite NPeano.Nat.add_assoc.
+					intuition.
+				}
+				rewrite Hnew.
+				rewrite Hreassoc.
+				intuition.
+		}
+		apply HNewGoal. clear HNewGoal.
+		repeat rewrite app_length. f_equal.
+		rewrite <- app_length.
+		apply IHl ; intuition.
 Qed.
 
 (* DUP *)
