@@ -7678,7 +7678,12 @@ assert (HblockInParent : In blockToShareInCurrPartAddr (getMappedBlocks currentP
 
 	assert(HnoDupMappedBlocksLists : noDupMappedBlocksList s).
 	{ (* noDupMappedBlocksList s *)
-		admit.
+		(* DUP *)
+		unfold noDupMappedBlocksList.
+		unfold getMappedBlocks.
+
+		intros part HPDTparts.
+		eapply NoDupListNoDupFilterPresent ; intuition.
 	} (* end of noDupMappedBlocksList *)
 
 	assert(HaccessibleChildPaddrIsAccessibleIntoParents : accessibleChildPaddrIsAccessibleIntoParent s).
