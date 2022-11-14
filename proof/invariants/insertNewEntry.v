@@ -287,6 +287,9 @@ Internal.insertNewEntry pdinsertion startaddr endaddr origin r w e currnbfreeslo
 								 getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0)
 
 				)
+			/\ (forall partition : paddr,
+						isPDT partition s = isPDT partition s0
+					)
 		)
 
 
@@ -26150,7 +26153,49 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 				rewrite HstartEq in *. rewrite HendEq in *.
 				destruct H31 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].
 				exists Hoptionfreeslotslists. exists olds. exists n0. exists n1. 
-				exists n2. exists nbleft. intuition.
+				exists n2. exists nbleft.
+				(* DUP *)
+				assert(HPDTEq : forall partition, isPDT partition s = isPDT partition s0).
+				{	intro part.
+					(* DUP *)
+					unfold isPDT.
+					rewrite Hs. simpl. repeat rewrite beqAddrTrue.
+					destruct (beqAddr sceaddr part) eqn:beqscepart ; try(exfalso ; congruence).
+					- (* sceaddr = part *)
+						rewrite <- DependentTypeLemmas.beqAddrTrue in beqscepart.
+						rewrite beqscepart in *.
+						unfold isSCE in *.
+						destruct (lookup part (memory s0) beqAddr) ; try(exfalso ; congruence).
+						destruct v ; try(exfalso ; congruence).
+						trivial.
+					- (* sceaddr = part *)
+						rewrite beqnewBsce.
+						simpl.
+						destruct (beqAddr newBlockEntryAddr part) eqn:beqnewpart; try(exfalso ; congruence).
+						-- (* newBlockEntryAddr = partition) *)
+								rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewpart.
+								rewrite beqnewpart in *.
+								unfold isPDT in *.
+								rewrite H3 in *.
+								congruence.
+						-- (* newBlockEntryAddr <> partition) *)
+								rewrite <- beqAddrFalse in *.
+								repeat rewrite removeDupIdentity; intuition.
+								cbn.
+								destruct (beqAddr pdinsertion newBlockEntryAddr) eqn:beqpdnew; try(exfalso ; congruence).
+								rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdnew. congruence.
+								cbn.
+								destruct (beqAddr pdinsertion part) eqn:beqpds0; try(exfalso ; congruence).
+								--- (* pdinsertion = part) *)
+										rewrite <- DependentTypeLemmas.beqAddrTrue in beqpds0.
+										rewrite beqpds0 in *.
+										rewrite Hpdinsertions0.
+										reflexivity.
+								--- (* pdinsertion <> partition) *)
+										rewrite <- beqAddrFalse in *.
+										repeat rewrite removeDupIdentity; intuition.
+				}
+				intuition.
 		-- (* intermediate steps *)
 				eexists. eexists. eexists. eexists. eexists. eexists. eexists. eexists.
 				eexists. eexists.
