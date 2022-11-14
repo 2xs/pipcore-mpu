@@ -7610,6 +7610,77 @@ assert (HblockInParent : In blockToShareInCurrPartAddr (getMappedBlocks currentP
 	} (* end of isChild *)
 
 
+	assert(HnoDupKSEntriesLists : noDupKSEntriesList s).
+	{ (* noDupKSEntriesList s *)
+		(* Dup from insertNewEntry *)
+		assert(Hcons0 : noDupKSEntriesList s0)
+			by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+		unfold noDupKSEntriesList.
+		intros part HPDTpds.
+			destruct (beqAddr globalIdPDChild part) eqn:beqpdinsertionpart ; try(exfalso ; congruence).
+			- (* globalIdPDChild =  part *)
+				rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdinsertionpart.
+				rewrite <- beqpdinsertionpart in *.
+				assert(HKSEntriesEq : (getKSEntries globalIdPDChild s) = (getKSEntries globalIdPDChild s0)).
+				{ intuition.
+					destruct H79 as [optionentrieslist Hoptionksentrieslist].
+					destruct Hoptionksentrieslist as [Hoptionksentrieslist1 (Hoptionksentrieslist2 & (
+																								Hoptionksentrieslist3 & Hoptionksentrieslist4))].
+					rewrite Hoptionksentrieslist2 in *. rewrite Hoptionksentrieslist1 in *.
+					assumption.
+				}
+				rewrite HKSEntriesEq.
+				unfold noDupKSEntriesList in *.
+				assert(HPDTpdinsertions0 : isPDT globalIdPDChild s0) by intuition.
+				specialize (Hcons0 globalIdPDChild HPDTpdinsertions0).
+				assumption.
+			- (* globalIdPDChild <> part *)
+				assert(HPDTpartNotidPDEq :   (forall partition : paddr,
+											isPDT partition s10 = isPDT partition s0))
+							by intuition.
+				assert(HPDTEq: isPDT part s = isPDT part s0).
+				{	specialize (HPDTpartNotidPDEq part).
+					unfold isPDT.
+					rewrite HsEq. simpl.
+					repeat rewrite beqAddrTrue.
+					(* Check all values for part *)
+					destruct (beqAddr sh1eaddr part) eqn:beqsh1parent; try(exfalso ; congruence).
+					-	(* sh1eaddr = part *)
+						rewrite <- DependentTypeLemmas.beqAddrTrue in beqsh1parent.
+						rewrite <- beqsh1parent in *.
+						unfold isSHE in *. rewrite HSHEs10Eq in *.
+						unfold isPDT in *.
+						destruct (lookup sh1eaddr (memory s0) beqAddr) ; trivial.
+						destruct v ; try(exfalso ; congruence) ; trivial.
+					-	(* sh1eaddr <> part *)
+							rewrite <- beqAddrFalse in *.
+							repeat rewrite removeDupIdentity ; intuition.
+				}
+				assert(HKSEntriesEq : (getKSEntries part s) = (getKSEntries part s0)).
+				{
+					assert(HKSEntriesEqNotInPart : forall partition : paddr,
+																				(partition = globalIdPDChild -> False) ->
+																				isPDT partition s0 ->
+																				getKSEntries partition s = getKSEntries partition s0)
+						by intuition.
+					rewrite beqAddrSym in beqpdinsertionpart.
+					rewrite <- beqAddrFalse in beqpdinsertionpart.
+					rewrite HPDTEq in HPDTpds.
+					specialize (HKSEntriesEqNotInPart part beqpdinsertionpart HPDTpds).
+					assumption.
+				}
+				rewrite HKSEntriesEq.
+				unfold noDupKSEntriesList in *.
+				rewrite HPDTEq in HPDTpds.
+				specialize (Hcons0 part HPDTpds).
+				assumption.
+	} (* end of noDupKSEntriesList *)
+
+	assert(HnoDupMappedBlocksLists : noDupMappedBlocksList s).
+	{ (* noDupMappedBlocksList s *)
+		admit.
+	} (* end of noDupMappedBlocksList *)
+
 	assert(HaccessibleChildPaddrIsAccessibleIntoParents : accessibleChildPaddrIsAccessibleIntoParent s).
 	{ (* accessibleChildPaddrIsAccessibleIntoParent s *)
 		(* DUP: similar to vertical sharing *)
@@ -7939,16 +8010,6 @@ assert (HblockInParent : In blockToShareInCurrPartAddr (getMappedBlocks currentP
 
 	} (* end of accessibleChildPaddrIsAccessibleIntoParent *)
 
-
-	assert(HnoDupKSEntriesLists : noDupKSEntriesList s).
-	{ (* noDupKSEntriesList s *)
-		admit.
-	} (* end of noDupKSEntriesList *)
-
-	assert(HnoDupMappedBlocksLists : noDupMappedBlocksList s).
-	{ (* noDupMappedBlocksList s *)
-		admit.
-	} (* end of noDupMappedBlocksList *)
 
 
 assert(Hcons1 : consistency1 s).
