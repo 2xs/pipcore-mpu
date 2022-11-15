@@ -89,7 +89,7 @@ isFull = false /\
 negb addrIsAccessible = false /\
 negb addrIsPresent = false /\
 negb pdchildIsNull = false /\
-slotIsNull = false /\ 
+slotIsNull = false /\
 beqAddr vidtBlockGlobalId blockToShareInCurrPartAddr = false
 
 
@@ -134,7 +134,7 @@ beqAddr vidtBlockGlobalId blockToShareInCurrPartAddr = false
           pdentryVidt globalIdPDChild vidtBlockGlobalId s0 /\
           bentryStartAddr blockToShareInCurrPartAddr blockstart s0 /\
           bentryEndAddr blockToShareInCurrPartAddr blockend s0
-)
+	)
 /\ (s =
      {|
        currentPartition := currentPartition s0;
@@ -157,37 +157,40 @@ beqAddr vidtBlockGlobalId blockToShareInCurrPartAddr = false
                  (add newBlockEntryAddr
                     (BE
                        (CBlockEntry (read bentry5) (write bentry5) e
-                          (present bentry5) (accessible bentry5) 
+                          (present bentry5) (accessible bentry5)
                           (blockindex bentry5) (blockrange bentry5)))
                     (add newBlockEntryAddr
                        (BE
-                          (CBlockEntry (read bentry4) w (exec bentry4)
-                             (present bentry4) (accessible bentry4)
-                             (blockindex bentry4) (blockrange bentry4)))
+                          (CBlockEntry (read bentry4) w 
+                             (exec bentry4) (present bentry4) 
+                             (accessible bentry4) (blockindex bentry4)
+                             (blockrange bentry4)))
                        (add newBlockEntryAddr
                           (BE
                              (CBlockEntry r (write bentry3) 
-                                (exec bentry3) (present bentry3) 
+                                (exec bentry3) (present bentry3)
                                 (accessible bentry3) (blockindex bentry3)
                                 (blockrange bentry3)))
                           (add newBlockEntryAddr
                              (BE
                                 (CBlockEntry (read bentry2) 
-                                   (write bentry2) (exec bentry2) true
-                                   (accessible bentry2) (blockindex bentry2)
+                                   (write bentry2) (exec bentry2) 
+                                   (present bentry2) true 
+                                   (blockindex bentry2) 
                                    (blockrange bentry2)))
                              (add newBlockEntryAddr
                                 (BE
                                    (CBlockEntry (read bentry1) 
-                                      (write bentry1) (exec bentry1)
-                                      (present bentry1) true 
+                                      (write bentry1) (exec bentry1) true
+                                      (accessible bentry1) 
                                       (blockindex bentry1) 
                                       (blockrange bentry1)))
                                 (add newBlockEntryAddr
                                    (BE
                                       (CBlockEntry (read bentry0) 
                                          (write bentry0) 
-                                         (exec bentry0) (present bentry0)
+                                         (exec bentry0) 
+                                         (present bentry0) 
                                          (accessible bentry0) 
                                          (blockindex bentry0)
                                          (CBlock (startAddr (blockrange bentry0))
@@ -206,7 +209,8 @@ beqAddr vidtBlockGlobalId blockToShareInCurrPartAddr = false
                                          (PDT
                                             {|
                                               structure := structure pdentry0;
-                                              firstfreeslot := firstfreeslot pdentry0;
+                                              firstfreeslot :=
+                                                firstfreeslot pdentry0;
                                               nbfreeslots := predCurrentNbFreeSlots;
                                               nbprepare := nbprepare pdentry0;
                                               parent := parent pdentry0;
@@ -228,9 +232,8 @@ beqAddr vidtBlockGlobalId blockToShareInCurrPartAddr = false
                                                |}) (memory s0) beqAddr) beqAddr)
                                       beqAddr) beqAddr) beqAddr) beqAddr) beqAddr)
                        beqAddr) beqAddr) beqAddr) beqAddr) beqAddr
-     |})
-
-/\ 
+     |}
+/\
  (lookup sh1eaddr (memory s0) beqAddr = Some (SHE sh1entry) /\
          lookup sh1eaddr (memory s) beqAddr = Some (SHE sh1entry1) /\
          sh1entry1 =
@@ -257,18 +260,18 @@ beqAddr vidtBlockGlobalId blockToShareInCurrPartAddr = false
          bentry4 =
          CBlockEntry r (write bentry3) (exec bentry3) (present bentry3)
            (accessible bentry3) (blockindex bentry3) (blockrange bentry3) /\
-         bentry3 =
-         CBlockEntry (read bentry2) (write bentry2) (exec bentry2) true
-           (accessible bentry2) (blockindex bentry2) (blockrange bentry2) /\
-         bentry2 =
-         CBlockEntry (read bentry1) (write bentry1) (exec bentry1) 
-           (present bentry1) true (blockindex bentry1) (blockrange bentry1) /\
+				bentry3 =
+					CBlockEntry (read bentry2) (write bentry2) (exec bentry2) 
+						(present bentry2) true (blockindex bentry2) (blockrange bentry2) /\
+				bentry2 =
+					CBlockEntry (read bentry1) (write bentry1) (exec bentry1) true
+						(accessible bentry1) (blockindex bentry1) (blockrange bentry1) /\
          bentry1 =
-         CBlockEntry (read bentry0) (write bentry0) (exec bentry0) 
+         CBlockEntry (read bentry0) (write bentry0) (exec bentry0)
            (present bentry0) (accessible bentry0) (blockindex bentry0)
            (CBlock (startAddr (blockrange bentry0)) blockend) /\
          bentry0 =
-         CBlockEntry (read bentry) (write bentry) (exec bentry) 
+         CBlockEntry (read bentry) (write bentry) (exec bentry)
            (present bentry) (accessible bentry) (blockindex bentry)
            (CBlock blockstart (endAddr (blockrange bentry))) /\
          sceaddr = CPaddr (newBlockEntryAddr + scoffset) /\
@@ -360,39 +363,11 @@ beqAddr vidtBlockGlobalId blockToShareInCurrPartAddr = false
                NoDup (filterOptionPaddr Hoptionlists) /\
                (In newBlockEntryAddr (filterOptionPaddr Hoptionlists) -> False) /\
                (exists optionentrieslist : list optionPaddr,
-                  optionentrieslist = getKSEntries globalIdPDChild olds /\
-                  getKSEntries globalIdPDChild s = optionentrieslist /\
-                  optionentrieslist = getKSEntries globalIdPDChild s0 /\
-                  In (SomePaddr newBlockEntryAddr) optionentrieslist)) /\
+										optionentrieslist = getKSEntries globalIdPDChild olds /\
+										getKSEntries globalIdPDChild s = optionentrieslist /\
+										optionentrieslist = getKSEntries globalIdPDChild s0 /\
+										In newBlockEntryAddr (filterOptionPaddr optionentrieslist))) /\
              ( isPDT multiplexer s /\
-		            (*getPartitions multiplexer olds = getPartitions multiplexer s0 /\
-		            getPartitions multiplexer s = getPartitions multiplexer olds /\
-		            getChildren globalIdPDChild olds = getChildren globalIdPDChild s0 /\
-		            getChildren globalIdPDChild s = getChildren globalIdPDChild olds /\
-		            getConfigBlocks globalIdPDChild olds =
-		            getConfigBlocks globalIdPDChild s0 /\
-		            getConfigBlocks globalIdPDChild s =
-		            getConfigBlocks globalIdPDChild olds /\
-		            getConfigPaddr globalIdPDChild olds = getConfigPaddr globalIdPDChild s0 /\
-		            getConfigPaddr globalIdPDChild s = getConfigPaddr globalIdPDChild olds /\
-		            (forall block : paddr,
-		             In block (getMappedBlocks globalIdPDChild olds) <->
-		             In block (newBlockEntryAddr :: getMappedBlocks globalIdPDChild s0)) /\
-		            (forall block : paddr,
-		             In block (getMappedBlocks globalIdPDChild s) <->
-		             In block (newBlockEntryAddr :: getMappedBlocks globalIdPDChild s0)) /\
-		            (forall addr : paddr,
-		             In addr (getMappedPaddr globalIdPDChild olds) <->
-		             In addr
-		               (getAllPaddrBlock (startAddr (blockrange bentry6))
-		                  (endAddr (blockrange bentry6)) ++
-		                getMappedPaddr globalIdPDChild s0)) /\
-		            (forall addr : paddr,
-		             In addr (getMappedPaddr globalIdPDChild s) <->
-		             In addr
-		               (getAllPaddrBlock (startAddr (blockrange bentry6))
-		                  (endAddr (blockrange bentry6)) ++
-		                getMappedPaddr globalIdPDChild s0))*)
 		            getPartitions multiplexer s = getPartitions multiplexer s0 /\
 		            getChildren globalIdPDChild s = getChildren globalIdPDChild s0 /\
 		            getConfigBlocks globalIdPDChild s = getConfigBlocks globalIdPDChild s0 /\
@@ -417,6 +392,7 @@ beqAddr vidtBlockGlobalId blockToShareInCurrPartAddr = false
                   getMappedPaddr globalIdPDChild s0)
 							)
 		)
+
 /\ (
  lookup blockToShareInCurrPartAddr (memory s) beqAddr =
          lookup blockToShareInCurrPartAddr (memory s0) beqAddr
@@ -468,10 +444,10 @@ s3 =
         memory :=
           add newBlockEntryAddr
             (BE
-               (CBlockEntry (read bentry) (write bentry) 
+               (CBlockEntry (read bentry) (write bentry)
                   (exec bentry) (present bentry) (accessible bentry)
                   (blockindex bentry)
-                  (CBlock blockstart (endAddr (blockrange bentry))))) 
+                  (CBlock blockstart (endAddr (blockrange bentry)))))
             (memory s2) beqAddr
       |}
 
@@ -483,38 +459,37 @@ s4 =
         memory :=
           add newBlockEntryAddr
             (BE
-               (CBlockEntry (read bentry0) (write bentry0) 
+               (CBlockEntry (read bentry0) (write bentry0)
                   (exec bentry0) (present bentry0) (accessible bentry0)
                   (blockindex bentry0)
-                  (CBlock (startAddr (blockrange bentry0)) blockend))) 
+                  (CBlock (startAddr (blockrange bentry0)) blockend)))
             (memory s3) beqAddr
       |}
 
 ) /\ (
 
-
- s5 =
+	s5 =
       {|
         currentPartition := currentPartition s4;
         memory :=
           add newBlockEntryAddr
             (BE
                (CBlockEntry (read bentry1) (write bentry1) 
-                  (exec bentry1) (present bentry1) true (blockindex bentry1)
-                  (blockrange bentry1))) (memory s4) beqAddr
+                  (exec bentry1) true (accessible bentry1) 
+                  (blockindex bentry1) (blockrange bentry1))) 
+            (memory s4) beqAddr
       |}
 
 ) /\ (
 
-
- s6 =
+	s6 =
       {|
         currentPartition := currentPartition s5;
         memory :=
           add newBlockEntryAddr
             (BE
                (CBlockEntry (read bentry2) (write bentry2) 
-                  (exec bentry2) true (accessible bentry2) 
+                  (exec bentry2) (present bentry2) true 
                   (blockindex bentry2) (blockrange bentry2))) 
             (memory s5) beqAddr
       |}
@@ -528,9 +503,9 @@ s7 =
         memory :=
           add newBlockEntryAddr
             (BE
-               (CBlockEntry r (write bentry3) (exec bentry3) 
-                  (present bentry3) (accessible bentry3) 
-                  (blockindex bentry3) (blockrange bentry3))) 
+               (CBlockEntry r (write bentry3) (exec bentry3)
+                  (present bentry3) (accessible bentry3)
+                  (blockindex bentry3) (blockrange bentry3)))
             (memory s6) beqAddr
       |}
 
@@ -543,9 +518,9 @@ s7 =
         memory :=
           add newBlockEntryAddr
             (BE
-               (CBlockEntry (read bentry4) w (exec bentry4) 
-                  (present bentry4) (accessible bentry4) 
-                  (blockindex bentry4) (blockrange bentry4))) 
+               (CBlockEntry (read bentry4) w (exec bentry4)
+                  (present bentry4) (accessible bentry4)
+                  (blockindex bentry4) (blockrange bentry4)))
             (memory s7) beqAddr
       |}
 ) /\ (
@@ -556,9 +531,9 @@ s9 =
         memory :=
           add newBlockEntryAddr
             (BE
-               (CBlockEntry (read bentry5) (write bentry5) e 
-                  (present bentry5) (accessible bentry5) 
-                  (blockindex bentry5) (blockrange bentry5))) 
+               (CBlockEntry (read bentry5) (write bentry5) e
+                  (present bentry5) (accessible bentry5)
+                  (blockindex bentry5) (blockrange bentry5)))
             (memory s8) beqAddr
       |}
 
@@ -692,7 +667,7 @@ firstfreeslot pdentry1 = newFirstFreeSlotAddr
 		(endAddr (blockrange bentry6) = blockend) /\
 		(startAddr (blockrange bentry6) = blockstart) /\
 		(forall addr : paddr,
-				In addr (getAccessibleMappedPaddr globalIdPDChild s) ->
+				In addr (getAccessibleMappedPaddr globalIdPDChild s) <->
 					In addr ((getAllPaddrBlock (startAddr (blockrange bentry6))
                               (endAddr (blockrange bentry6))) ++
 							(getAccessibleMappedPaddr globalIdPDChild s0)))
@@ -737,7 +712,7 @@ firstfreeslot pdentry1 = newFirstFreeSlotAddr
 							(getAccessibleMappedPaddr partition s) = getAccessibleMappedPaddr partition s0
 					)
 	)
-.
+).
 
 Lemma AddMemoryBlockVS
 idPDchild idBlockToShare
@@ -766,7 +741,7 @@ predCurrentNbFreeSlots
 sh1eaddr
 sh1entry sh1entry0 sh1entry1
 sh1entrybts
-Hoptionlists olds n0 n1 n2 nbleft 
+Hoptionlists olds n0 n1 n2 nbleft
 s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12
 s :
 
@@ -834,7 +809,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 		assert(HpdchildrenEq : getChildren globalIdPDChild s = getChildren globalIdPDChild s0)
 			by intuition. (* constructed along the way *)
 
-		assert(Hidpdchildmapped : forall addr, 
+		assert(Hidpdchildmapped : forall addr,
 			In addr (getMappedPaddr globalIdPDChild s) <->
 			In addr
 			(getAllPaddrBlock (startAddr (blockrange bentry6)) (endAddr (blockrange bentry6))
@@ -852,39 +827,41 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 				rewrite <- DependentTypeLemmas.beqAddrTrue in beqchildpd.
 				rewrite beqchildpd in *.
 
+				assert(HPDTparents0 : isPDT parent s0).
+				{ eapply partitionsArePDT ; intuition.
+					unfold consistency in * ; unfold consistency1 in * ; intuition.
+					unfold consistency in * ; unfold consistency1 in * ; intuition.
+				}
 				assert(HparentidpdNotEq : parent <> globalIdPDChild). (* child not currentPart *)
 				{
-					intro Hf. subst globalIdPDChild. subst child.
-					assert(HNoDupPartitionTree : noDupPartitionTree s0)
-						by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-					unfold noDupPartitionTree in *.
-					specialize (HNoDupPartitionTree parent).
-					contradict HNoDupPartitionTree.
-					unfold getPartitions. simpl.
-					unfold PDTFilter.
-					apply isPDTLookupEq in HPDTs0. destruct HPDTs0 as [pdcurrparts0 Hlookuppdcurrs0].
-					rewrite Hlookuppdcurrs0 in *.
-					assert(Hnext : maxAddr+1 = S maxAddr).
-					{ lia. }
-					rewrite Hnext. simpl.
-					unfold PDTFilter. rewrite Hlookuppdcurrs0 in *.
-					intro Hf.
-					apply NoDup_cons_iff in Hf. intuition.
+					eapply childparentNotEq with s0; intuition.
+					unfold consistency in * ; unfold consistency1 in * ; intuition.
+					assert(HchildrenparentEq : getChildren parent s = getChildren parent s0).
+					{ destruct (beqAddr parent globalIdPDChild) eqn:beqparentpd ; try(exfalso ; congruence).
+						- (* parent = globalIdPDChild *)
+							(* even in the false case, the children did not change for any partition *)
+							rewrite <- DependentTypeLemmas.beqAddrTrue in beqparentpd.
+							rewrite beqparentpd in *.
+							intuition.
+						- (* parent <> globalIdPDChild *)
+							rewrite <- beqAddrFalse in *.
+							eapply HChildrenEqNotInParts0 ; intuition.
+					}
+					rewrite HchildrenparentEq in *.
+					rewrite <- HpdchildrenEq in *. trivial.
 				}
 
-				assert(HPDTparents0 : isPDT parent s0)
-						by (apply partitionsArePDT with multiplexer ; intuition).
 				assert(HchildrenparentEq : getChildren parent s = getChildren parent s0).
 				{ apply HChildrenEqNotInParts0 ; intuition. }
 				rewrite HchildrenparentEq in *.
 
 				assert(Hparent : parent = currentPart).
-				{	
-					assert(HisParents0 : isParent s0) 
+				{
+					assert(HisParents0 : isParent s0)
 						by (unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency *)
-					assert(HisChilds0 : isChild s0) 
+					assert(HisChilds0 : isChild s0)
 						by (unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency *)
-					assert(In currentPart (getPartitions multiplexer s0)) 
+					assert(In currentPart (getPartitions multiplexer s0))
 						by (rewrite HcurrPartEq in * ; unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency s0*)
 					apply uniqueParent with globalIdPDChild s0; intuition.
 				}
@@ -937,7 +914,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 					subst a.
 					unfold isBE in HBEbtss0.
 					destruct (lookup blockToShareInCurrPartAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
-					destruct v ; try(exfalso ; congruence). 
+					destruct v ; try(exfalso ; congruence).
 					apply in_app_iff. left. rewrite app_nil_r in *. assumption.
 					destruct (lookup a (memory s0) beqAddr) ; intuition.
 					destruct v ; intuition.
@@ -951,7 +928,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 				rewrite <- DependentTypeLemmas.beqAddrTrue in beqparentpd.
 				rewrite beqparentpd in *.
 
-				assert(HNoDupPartTree : noDupPartitionTree s) 
+				assert(HNoDupPartTree : noDupPartitionTree s)
 						by (unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency s*)
 				assert(HglobalChildNotEq : globalIdPDChild <> child).
 				{ eapply childparentNotEq with s ; try (rewrite HparentEq in *) ; intuition. }
@@ -970,28 +947,32 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 					rewrite Hidpdchildmapped.
 					apply in_or_app. right. assumption.
 
-					-- (* parent <> globalIdPDChild *)
-							rewrite <- beqAddrFalse in *.
-							assert(Hparent : isPDT parent s0)
-								by (apply partitionsArePDT with multiplexer ; intuition).
-							assert(HchildrenparentEq : getChildren parent s = getChildren parent s0).
-							{ apply HChildrenEqNotInParts0 ; intuition. }
-							assert(Hchild : isPDT child s0).
-							{ eapply childrenArePDT with parent ; intuition.
-								unfold consistency in * ; unfold consistency1 in * ; intuition.
-								rewrite HchildrenparentEq in * ; intuition.
-							}
-							assert(HusedchildEq : getUsedPaddr child s = getUsedPaddr child s0).
-							{ apply HUsedPaddrEqNotInParts0 ; intuition.
-							}
+		-- (* parent <> globalIdPDChild *)
+				rewrite <- beqAddrFalse in *.
+				assert(HPDTparents0 : isPDT parent s0).
+				{ eapply partitionsArePDT ; intuition.
+					unfold consistency in * ; unfold consistency1 in * ; intuition.
+					unfold consistency in * ; unfold consistency1 in * ; intuition.
+				}
 
-							assert(HmappedparentEq : getMappedPaddr parent s = getMappedPaddr parent s0)
-								by (apply HMappedPaddrEqNotInParts0 ; intuition).
+				assert(HchildrenparentEq : getChildren parent s = getChildren parent s0).
+				{ apply HChildrenEqNotInParts0 ; intuition. }
+				assert(Hchild : isPDT child s0).
+				{ eapply childrenArePDT with parent ; intuition.
+					unfold consistency in * ; unfold consistency1 in * ; intuition.
+					rewrite HchildrenparentEq in * ; intuition.
+				}
+				assert(HusedchildEq : getUsedPaddr child s = getUsedPaddr child s0).
+				{ apply HUsedPaddrEqNotInParts0 ; intuition.
+				}
 
-							rewrite HusedchildEq in *. rewrite HmappedparentEq in *.
-							rewrite HchildrenparentEq in*.
-							specialize (HVs0 parent child HparentPartTree HchildIsChild addr HnAddrInUsedChild).
-							assumption.
+				assert(HmappedparentEq : getMappedPaddr parent s = getMappedPaddr parent s0)
+					by (apply HMappedPaddrEqNotInParts0 ; intuition).
+
+				rewrite HusedchildEq in *. rewrite HmappedparentEq in *.
+				rewrite HchildrenparentEq in*.
+				specialize (HVs0 parent child HparentPartTree HchildIsChild addr HnAddrInUsedChild).
+				assumption.
 }
 Qed.
 
@@ -1094,7 +1075,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 			by intuition. (* constructed along the way *)
 		rewrite HpdchildrenEq in *.
 
-		assert(Hidpdchildmapped : forall addr, 
+		assert(Hidpdchildmapped : forall addr,
 			In addr (getMappedPaddr globalIdPDChild s) <->
 			In addr
 			(getAllPaddrBlock (startAddr (blockrange bentry6)) (endAddr (blockrange bentry6))
@@ -1148,12 +1129,16 @@ destruct (beqAddr part1 globalIdPDChild) eqn:beqpart1pd ; try(exfalso ; congruen
 					unfold Lib.disjoint in *.
 					intros addr HaccessiblePaddr.
 
-					assert(HMappedPaddrEq : In addr (getAccessibleMappedPaddr globalIdPDChild s) ->
-									In addr ((getAllPaddrBlock (startAddr (blockrange bentry6))
-                                      (endAddr (blockrange bentry6))) ++
-											(getAccessibleMappedPaddr globalIdPDChild s0)))
+					assert(HMappedPaddrEq : forall addr : paddr,
+                  In addr (getAccessibleMappedPaddr globalIdPDChild s) <->
+                  In addr
+                    (getAllPaddrBlock (startAddr (blockrange bentry6))
+                       (endAddr (blockrange bentry6)) ++
+                     getAccessibleMappedPaddr globalIdPDChild s0))
 						by intuition.
 
+					specialize (HMappedPaddrEq addr).
+					destruct HMappedPaddrEq as [HMappedPaddrEq].
 					specialize (HMappedPaddrEq HaccessiblePaddr).
 					apply in_app_or in HMappedPaddrEq.
 
@@ -1185,11 +1170,11 @@ destruct (beqAddr part1 globalIdPDChild) eqn:beqpart1pd ; try(exfalso ; congruen
 						intro HaddrIsMapped.
 						apply addrInAccessibleBlockIsAccessibleMapped
 									with blockToShareInCurrPartAddr ; intuition.
-						(* cnosistency s0 : accessible in child -> accessible in parent *)
+						(* consistency s0 : accessible in child -> accessible in parent *)
 						(* case s0 *)
 						assert(HaccessibleInParents0 :
 									accessibleChildPaddrIsAccessibleIntoParent s0)
-							by (unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency s0*)
+							by (unfold consistency in * ; unfold consistency2 in * ; intuition). (* consistency s0*)
 						eapply HaccessibleInParents0 with globalIdPDChild ; intuition.
 					}
 
@@ -1200,8 +1185,12 @@ destruct (beqAddr part1 globalIdPDChild) eqn:beqpart1pd ; try(exfalso ; congruen
 
 			rewrite <- beqAddrFalse in *.
 
-			assert(HPDTpart2s0 : isPDT part2 s0)
-				by (apply partitionsArePDT with multiplexer ; intuition).
+			assert(HPDTpart2s0 : isPDT part2 s0).
+			{ eapply partitionsArePDT ; intuition.
+				unfold consistency in * ; unfold consistency1 in * ; intuition.
+				unfold consistency in * ; unfold consistency1 in * ; intuition.
+			}
+
 			assert(Hconfigchild2Eq : getConfigPaddr part2 s = getConfigPaddr part2 s0).
 			{ eapply HConfigPaddrEqNotInParts0 ; intuition. }
 			rewrite Hconfigchild2Eq in *.
@@ -1221,12 +1210,14 @@ destruct (beqAddr part1 globalIdPDChild) eqn:beqpart1pd ; try(exfalso ; congruen
 					unfold Lib.disjoint in *.
 					intros addr HaccessiblePaddr.
 
-					assert(HMappedPaddrEq : In addr (getAccessibleMappedPaddr globalIdPDChild s) ->
+					assert(HMappedPaddrEq : forall addr, In addr (getAccessibleMappedPaddr globalIdPDChild s) <->
 									In addr (getAllPaddrBlock (startAddr (blockrange bentry6))
                                       (endAddr (blockrange bentry6)) ++
 											(getAccessibleMappedPaddr globalIdPDChild s0)))
 						by intuition. (* constructed along the way *)
 
+					specialize (HMappedPaddrEq addr).
+					destruct HMappedPaddrEq as [HMappedPaddrEq].
 					specialize (HMappedPaddrEq HaccessiblePaddr).
 					apply in_app_or in HMappedPaddrEq.
 					assert(HKIparentglobals0 : kernelDataIsolation s0) by intuition.
@@ -1261,7 +1252,7 @@ destruct (beqAddr part1 globalIdPDChild) eqn:beqpart1pd ; try(exfalso ; congruen
 								(* case s0 *)
 								assert(HaccessibleInParents0 :
 											accessibleChildPaddrIsAccessibleIntoParent s0)
-									by (unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency s0*)
+									by (unfold consistency in * ; unfold consistency2 in * ; intuition). (* consistency s0*)
 								eapply HaccessibleInParents0 with globalIdPDChild ; intuition.
 					}
 
@@ -1270,8 +1261,11 @@ destruct (beqAddr part1 globalIdPDChild) eqn:beqpart1pd ; try(exfalso ; congruen
 
 	- (* part1 <> globalIdPDChild *)
 		rewrite <- beqAddrFalse in *.
-		assert(HPDTpart1s0 : isPDT part1 s0)
-			by (apply partitionsArePDT with multiplexer ; intuition).
+		assert(HPDTpart1s0 : isPDT part1 s0).
+		{ eapply partitionsArePDT ; intuition.
+			unfold consistency in * ; unfold consistency1 in * ; intuition.
+			unfold consistency in * ; unfold consistency1 in * ; intuition.
+		}
 		assert(Haccessible1Eq : getAccessibleMappedPaddr part1 s = getAccessibleMappedPaddr part1 s0)
 			by (eapply HAccessibleMappedPaddrEqNotInParts0 ; intuition).
 		rewrite Haccessible1Eq in *.
@@ -1288,8 +1282,11 @@ destruct (beqAddr part1 globalIdPDChild) eqn:beqpart1pd ; try(exfalso ; congruen
 
 		-- (* part2 <> globalIdPDChild *)
 				rewrite <- beqAddrFalse in *.
-				assert(HPDTpart2s0 : isPDT part2 s0)
-							by (apply partitionsArePDT with multiplexer ; intuition).
+				assert(HPDTpart2s0 : isPDT part2 s0).
+				{ eapply partitionsArePDT ; intuition.
+					unfold consistency in * ; unfold consistency1 in * ; intuition.
+					unfold consistency in * ; unfold consistency1 in * ; intuition.
+				}
 				assert(Hconfig2Eq : getConfigPaddr part2 s = getConfigPaddr part2 s0)
 					by (eapply HConfigPaddrEqNotInParts0 ; intuition).
 				rewrite Hconfig2Eq in *.
@@ -1327,7 +1324,7 @@ predCurrentNbFreeSlots
 sh1eaddr
 sh1entry sh1entry0 sh1entry1
 sh1entrybts
-Hoptionlists olds n0 n1 n2 nbleft 
+Hoptionlists olds n0 n1 n2 nbleft
 s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12
 s :
 
@@ -1358,7 +1355,7 @@ predCurrentNbFreeSlots
 sh1eaddr
 sh1entry sh1entry0 sh1entry1
 sh1entrybts
-Hoptionlists olds n0 n1 n2 nbleft 
+Hoptionlists olds n0 n1 n2 nbleft
 s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12
 s
 ->
@@ -1391,7 +1388,9 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 
 
 		assert(HPDTparents : isPDT parent s).
-		{ eapply partitionsArePDT. apply HparentPartTree. }
+		{ eapply partitionsArePDT ; intuition.
+			unfold consistency in * ; unfold consistency1 in * ; intuition.
+		}
 		assert(HPDTchild1s : isPDT child1 s).
 		{ eapply childrenArePDT.
 			unfold consistency in * ; unfold consistency1 in * ; intuition.
@@ -1463,7 +1462,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 			by intuition. (* constructed along the way *)
 		rewrite HpdchildrenEq in *.
 
-		assert(Hidpdchildmapped : forall addr, 
+		assert(Hidpdchildmapped : forall addr,
 			In addr (getMappedPaddr globalIdPDChild s) <->
 			In addr
 			(getAllPaddrBlock (startAddr (blockrange bentry6)) (endAddr (blockrange bentry6))
@@ -1485,10 +1484,14 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 					at s0
 					-> if it had the block at s0, then it was shared from the parent so
 						pdchild = child1, however at s0 pdchild = null so contradiction *)
+
 			assert(HNoDupPartTree : noDupPartitionTree s)
 				by (unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency s*)
-			assert(HPDTparent : isPDT parent s0)
-				by (apply partitionsArePDT with multiplexer ; intuition).
+			assert(HPDTparent : isPDT parent s0).
+			{ eapply partitionsArePDT ; intuition.
+				unfold consistency in * ; unfold consistency1 in * ; intuition.
+				unfold consistency in * ; unfold consistency1 in * ; intuition.
+			}
 			assert(HglobalChildNotEq : parent <> globalIdPDChild).
 			{ eapply childparentNotEq with s ; try (rewrite HparentEq in *) ; intuition. }
 			assert(HchildrenparentEq : getChildren parent s = getChildren parent s0).
@@ -1511,7 +1514,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 						by (unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency s0*)
 					assert(HisChilds0 : isChild s0)
 						by (unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency s0*)
-					assert(In currentPart (getPartitions multiplexer s0)) 
+					assert(In currentPart (getPartitions multiplexer s0))
 						by (rewrite HcurrPartEq in * ; unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency s0*)
 					apply uniqueParent with globalIdPDChild s0; intuition.
 					rewrite HcurrPartEq in *. assumption.
@@ -1557,7 +1560,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 					specialize (HVs0 addr HaddrInChild2s0).
 
 					assert(HsharedInChilds0 : sharedBlockPointsToChild s0)
-						by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+						by (unfold consistency in * ; unfold consistency2 in * ; intuition).
 					unfold sharedBlockPointsToChild in HsharedInChilds0.
 
 					assert(HaddrInParentBlock : In addr (getAllPaddrAux [blockToShareInCurrPartAddr] s0)).
@@ -1624,8 +1627,11 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 			(* DUP with child1 *)
 			assert(HNoDupPartTree : noDupPartitionTree s)
 				by (unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency s*)
-			assert(HPDTparent : isPDT parent s0)
-				by (apply partitionsArePDT with multiplexer ; intuition).
+			assert(HPDTparent : isPDT parent s0).
+			{ eapply partitionsArePDT ; intuition.
+				unfold consistency in * ; unfold consistency1 in * ; intuition.
+				unfold consistency in * ; unfold consistency1 in * ; intuition.
+			}
 			assert(HglobalChildNotEq : parent <> globalIdPDChild).
 			{ eapply childparentNotEq with s ; try (rewrite HparentEq in *) ; intuition. }
 			assert(HchildrenparentEq : getChildren parent s = getChildren parent s0).
@@ -1640,7 +1646,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 			}
 
 			assert(Hparent : parent = currentPart).
-			{	
+			{
 				assert(HisParents0 : isParent s0)
 						by (unfold consistency in * ; unfold consistency1 in * ; intuition).  (* consistency *)
 				assert(HisChilds0 : isChild s0)
@@ -1671,9 +1677,9 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
  			rewrite Hidpdchildmapped in HaddrInGlobalFalse.
 			assert(HlistEq : 	In addr
 						               (getConfigPaddr globalIdPDChild s0) \/
-						                In addr	
+						                In addr
 														(getAllPaddrBlock (startAddr (blockrange bentry6))
-						                   (endAddr (blockrange bentry6)) ++ 
+						                   (endAddr (blockrange bentry6)) ++
 															(getMappedPaddr globalIdPDChild s0)) ->
 														In addr (
 						               (getConfigPaddr globalIdPDChild s0 ++
@@ -1708,7 +1714,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 				unfold incl in *.
 				specialize (HVs0 addr HaddrInchildused).
 				assert(HsharedInChilds0 : sharedBlockPointsToChild s0)
-					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+					by (unfold consistency in * ; unfold consistency2 in * ; intuition).
 				unfold sharedBlockPointsToChild in HsharedInChilds0.
 
 				assert(HaddrInParentBlock : In addr (getAllPaddrAux [blockToShareInCurrPartAddr] s0)).
@@ -1764,8 +1770,12 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 --- (* child1 <> globalIdPDchild *)
 
 		rewrite <- beqAddrFalse in *.
-		assert(HPDTparent : isPDT parent s0)
-			by (apply partitionsArePDT with multiplexer ; intuition).
+		assert(HPDTparent : isPDT parent s0).
+		{ eapply partitionsArePDT ; intuition.
+			unfold consistency in * ; unfold consistency1 in * ; intuition.
+			unfold consistency in * ; unfold consistency1 in * ; intuition.
+		}
+
 		assert(HNoDupPartTree : noDupPartitionTree s)
 				by (unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency s*)
 		assert(HglobalChildNotEq1 : parent <> child1).
