@@ -110,8 +110,7 @@ Axiom RAMEndAddr: paddr.
 Record block := {
   startAddr : paddr;
   endAddr : paddr ;
-  Haddr : startAddr < endAddr ;
-	Hsize : endAddr - startAddr < maxIdx (* [startAddr ; endAddr ] because the MPU region
+	Hsize : endAddr - startAddr <= maxIdx (* [startAddr ; endAddr ] because the MPU region
 																					 end address IS included in the region,
 																					however the size is STRICTLY under maxIdx
 																					[_______________]
@@ -122,11 +121,9 @@ Record block := {
 }.
 Parameter block_d : block.
 Program Definition CBlock (startAddr endAddr : paddr) : block :=
-if (lt_dec startAddr endAddr)
-then if lt_dec (endAddr - startAddr) maxIdx
-		then Build_block startAddr endAddr _ _
-		else block_d
-else  block_d.
+if le_dec (endAddr - startAddr) maxIdx
+then Build_block startAddr endAddr _
+else block_d.
 
 Record BlockEntry : Type:=
 {

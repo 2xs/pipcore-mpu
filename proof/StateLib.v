@@ -1065,7 +1065,7 @@ end.
     this entry is equal to a given flag [flag] *)
 Definition bentryBlockIndex (*paddr*) blockentryaddr index s:= 
 match lookup blockentryaddr s.(memory) beqAddr with 
-| Some (BE entry) => index =  entry.(blockindex) /\ (index < kernelStructureEntriesNb)
+| Some (BE entry) => index =  entry.(blockindex)
 | _ => False
 end.
 

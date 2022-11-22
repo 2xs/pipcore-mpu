@@ -35,7 +35,7 @@
     	Proof of insertNewEntry *)
 Require Import Model.ADT Model.Monad Model.Lib
                Model.MAL.
-Require Import Core.Internal Core.Services.
+Require Import Core.Internal.
 Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare Proof.InternalLemmas
                Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants.
 Require Import Coq.Logic.ProofIrrelevance Lia Setoid Compare_dec (*EqNat*) List Bool.
@@ -2320,7 +2320,7 @@ nbleft < maxIdx /\
 				destruct (beqAddr newBlockEntryAddr pdinsertion) eqn:Hbeq.
 						* rewrite <- DependentTypeLemmas.beqAddrTrue in Hbeq.
 							rewrite Hbeq in *. congruence.
-						* rewrite removeDupIdentity. assumption.
+						* simpl. rewrite removeDupIdentity. assumption.
 							rewrite <- beqAddrFalse in Hbeq. intuition.
 						* destruct H26 as [Hoptionlist (olds & (n0 & (n1 & (n2 & (nbleft & Hfreeslotsolds)))))].
 							eexists. exists s.
@@ -12841,7 +12841,6 @@ assert(HKernelStructureStartFromBlockEntryAddrIsKSs : KernelStructureStartFromBl
 					rewrite <- DependentTypeLemmas.beqAddrTrue in newbentry.
 					rewrite <- newbentry in *.
 					unfold bentryBlockIndex in *. rewrite HlookupnewBs in *.
-					destruct Hblockidx as [Hblockidx Hidxnb].
 					specialize(Hcons0 newBlockEntryAddr blockidx HBEs0).
 					rewrite HlookupnewBs0 in *. intuition. rewrite Hblockindex in *.
 					intuition.
@@ -12926,7 +12925,6 @@ assert(HKernelStructureStartFromBlockEntryAddrIsKSs : KernelStructureStartFromBl
 					assert(Hblocks0 : isBE bentryaddr s0) by (rewrite HblockEq in * ; intuition).
 					apply isBELookupEq in Hlookup. destruct Hlookup as [blockentry Hlookup].
 					unfold bentryBlockIndex in *. rewrite Hlookup in *.
-					destruct Hblockidx as [Hblockidx Hidxnb].
 					specialize(Hcons0 bentryaddr blockidx Hblocks0).
 					apply isBELookupEq in Hblocks0. destruct Hblocks0 as [blockentrys0 Hblocks0].
 					rewrite Hblocks0 in *. intuition.
@@ -26038,7 +26036,7 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 		eapply NoDupListNoDupFilterPresent ; intuition.
 	} (* end of noDupMappedBlocksList *)
 
-	intuition.
+	intuition. admit.
 
 	- (* Final state *)
 		exists pdentry. exists pdentry0. exists pdentry1.
@@ -26200,4 +26198,4 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 				eexists. eexists. eexists. eexists. eexists. eexists. eexists. eexists.
 				eexists. eexists.
 				intuition.
-Qed.
+Admitted.

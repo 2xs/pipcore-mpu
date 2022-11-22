@@ -802,7 +802,7 @@ eapply bindRev.
 	intros. simpl. split. exact H.
 	intuition.
 	unfold bentryBlockIndex in *.
-	destruct H5. rewrite H4 in *. intuition.
+	destruct H5. rewrite H4 in *. subst BlockEntryIndex. apply Hidx.
 	destruct blockentryaddr. simpl. trivial.
 	destruct H5. exists x. intuition.
 }
@@ -815,8 +815,8 @@ eapply bindRev.
 		unfold KernelStructureStartFromBlockEntryAddrIsKS in *.
 		specialize(H3 blockentryaddr BlockEntryIndex H H4).
 		unfold isKS in *. rewrite <- H5 in *. rewrite H1 in *. intuition.
-	- intuition. unfold bentryBlockIndex in *. destruct H6. rewrite H5 in H4.
-	intuition.
+	- unfold bentryBlockIndex in *. destruct H6. rewrite H5 in *.
+		subst BlockEntryIndex. apply Hidx.
 }
 (* Proof : kernelStartAddr + blockindex is BE, so +sh1offset is SHE
 	blockentryindex < kernelstructurenb in entryBlockIndex*)
@@ -827,29 +827,109 @@ intro SHEAddr.
 	intuition.
 	unfold wellFormedFstShadowIfBlockEntry in *.
 	specialize (H3 blockentryaddr H0).
-	unfold isSHE in *.
+	apply isSHELookupEq in H3. destruct H3 as [sh1entry Hlookupsh1].
 	destruct H2.
 	destruct H2.
-	rewrite H6 in H1.
+	subst kernelStartAddr.
+	exists sh1entry.
+
+	assert(HKSStartFromBlockEntryAddrIsKS : KernelStructureStartFromBlockEntryAddrIsKS s)
+		by intuition.
+	unfold KernelStructureStartFromBlockEntryAddrIsKS in *.
+	specialize (HKSStartFromBlockEntryAddrIsKS blockentryaddr BlockEntryIndex
+																						H0 H5).
+	unfold isKS in *.
+
 assert (CPaddr (CPaddr (blockentryaddr - BlockEntryIndex) + sh1offset + BlockEntryIndex)
 				= CPaddr (blockentryaddr + sh1offset)).
-{ admit.
-	(*unfold CPaddr.
- 		destruct (le_dec (blockentryaddr - BlockEntryIndex) maxAddr) ; try (exfalso ; congruence). simpl.
-		destruct (le_dec (blockentryaddr - BlockEntryIndex + sh1offset + BlockEntryIndex) maxAddr) ; try (exfalso ; congruence).
+{ admit. (*(*rewrite <- paddrEqId.*)
+	unfold CPaddr in *.
+		destruct (le_dec (blockentryaddr + sh1offset) maxAddr) ; intuition.
+ 		destruct (le_dec (blockentryaddr - BlockEntryIndex) maxAddr) ; intuition.
+		destruct (le_dec
+         ({|
+            p := blockentryaddr - BlockEntryIndex;
+            Hp := ADT.CPaddr_obligation_1 (blockentryaddr - BlockEntryIndex) l0
+          |} + sh1offset + BlockEntryIndex) maxAddr) ; intuition.
 		simpl.
-		destruct (le_dec (blockentryaddr + sh1offset) maxAddr) ; try (exfalso ; congruence).
+		- (* true case *)
+
+
+
+			assert(HEq : blockentryaddr - BlockEntryIndex + sh1offset + BlockEntryIndex =
+										blockentryaddr + sh1offset).
+			{ destruct BlockEntryIndex ; simpl ; intuition. admit. }
+			assert(ADT.CPaddr_obligation_1
+      (blockentryaddr - BlockEntryIndex + sh1offset + BlockEntryIndex) l1 =
+ADT.CPaddr_obligation_1 (blockentryaddr + sh1offset) l).
+			{
+				
+
+			}
+
+			rewrite HEq.
+					clear.
+				rewrite <- PeanoNat.Nat.add_shuffle0.
+				Search (?a - ?b + ?b). destruct blockentryaddr. destruct sh1offset.
+				intuition.
+				rewrite PeanoNat.Nat.add_shuffle1.
+
+				Search (?a = ?b <-> _).
+				induction i ; simpl ; intuition.
+				rewrite PeanoNat.Nat.sub_0_r. rewrite PeanoNat.Nat.add_0_r.
+				reflexivity.
+				rewrite PeanoNat.Nat.add_shuffle0.
+				f_equal.
+				destruct (S i) ; intuition.
+				rewrite PeanoNat.Nat.sub_0_r. rewrite PeanoNat.Nat.add_0_r.
+				reflexivity.
+				destruct blockentryaddr. eauto. Set Printing All.
+				unfold Nat.sub.
+
+				rewrite PeanoNat.Nat.sub_add. reflexivity.
+				intuition.
+
+				
+
+				Search ( _ -> S ?a <= ?b).
+				apply Gt.gt_le_S.
+				assert(blockentryaddr - {| i := S i; Hi := Hi |} >= 0) by admit.
+				lia.
+				destruct kernelStartAddr ; intuition.
+
+				rewrite <- PeanoNat.Nat.add_shuffle0.
+				rewrite PeanoNat.Nat.add_shuffle3.
+
+				unfold bentryBlockIndex in *.
+				destruct (lookup blockentryaddr (memory s) beqAddr) eqn:Hlookupblock ; intuition.
+				destruct v ; intuition.
+
+
+				rewrite PeanoNat.Nat.sub_succ_r.
+				Search (S (PeanoNat.Nat.pred _)).
+				rewrite Minus.pred_of_minus.
+				rewrite <- PeanoNat.Nat.add_succ_l. f_equal.
+				simpl. cbn.
+				cbv. intuition.
+
+				Search (?a - ?a ).
+				rewrite PeanoNat.Nat.sub_diag.
+				simpl.
+			}
+			assert(ADT.CPaddr_obligation_1 (blockentryaddr - BlockEntryIndex + sh1offset + BlockEntryIndex) l1 =
+						ADT.CPaddr_obligation_1 (blockentryaddr + sh1offset) l)
+				by apply proof_irrelevance.
+
 		simpl.
 		assert (blockentryaddr - BlockEntryIndex + sh1offset + BlockEntryIndex = blockentryaddr + sh1offset).
 		destruct BlockEntryIndex. simpl. destruct blockentryaddr,sh1offset. simpl.
 		induction i. simpl. cbn. Search (?x + 0). rewrite Nat.sub_0_r. rewrite Nat.add_0_r.
 		reflexivity. Search (?x - ?y + ?y). *)
 }
-rewrite H8 in H1.
-rewrite <- H1 in H3.
-destruct (lookup SHEAddr (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
-destruct v eqn:Hv ; try (exfalso ; congruence).
-exists s0. split. reflexivity. unfold sh1entryAddr. destruct H7. rewrite H7; trivial.
+rewrite <- H3 in *.
+rewrite <- H1 in *.
+subst SHEAddr. intuition.
+unfold sh1entryAddr. destruct H7. rewrite H1. intuition.
 Admitted.
 
 (* DUP *)
@@ -967,7 +1047,8 @@ eapply bindRev.
 { (* getKernelStructureStartAddr *)
 	eapply weaken. apply getKernelStructureStartAddr.
 	intros. simpl. split. exact H. intuition.
-	unfold bentryBlockIndex in *. destruct H5. rewrite H4 in *. intuition.
+	unfold bentryBlockIndex in *. destruct H5. rewrite H4 in *.
+	subst BlockEntryIndex. apply Hidx.
 	destruct blockentryaddr. simpl. trivial. (* already done in sh1entry *)
 	apply isBELookupEq in H0.
 	destruct H0. exists x. intuition.
@@ -1333,10 +1414,9 @@ P tt {|
 																	entry.(present) entry.(accessible)
 																	entry.(blockindex) (CBlock newstartaddr entry.(blockrange).(endAddr))))
               (memory s) beqAddr |}
-
 }}
 MAL.writeBlockStartFromBlockEntryAddr entryaddr newstartaddr
-{{P }}.
+{{P}}.
 Proof.
 eapply WP.writeBlockStartFromBlockEntryAddr.
 Qed.

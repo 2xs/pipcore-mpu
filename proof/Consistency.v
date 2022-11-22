@@ -51,6 +51,14 @@ isBE pa s ->
 exists scentryaddr : paddr, isSCE scentryaddr s
 /\ scentryaddr = CPaddr (pa + scoffset).
 
+Definition wellFormedBlock s :=
+forall block startaddr endaddr,
+bentryPFlag block true s ->
+bentryStartAddr block startaddr s ->
+bentryEndAddr block endaddr s ->
+(* startaddr inferior to endaddr + size of block greater than minimum MPU size *)
+(startaddr < endaddr) /\ (Constants.minBlockSize < (endaddr - startaddr)).
+
 Definition PDTIfPDFlag s :=
 forall idPDchild sh1entryaddr,
 true = StateLib.checkChild idPDchild s sh1entryaddr /\
@@ -274,7 +282,8 @@ noDupPartitionTree s /\
 isParent s /\
 isChild s /\
 noDupKSEntriesList s /\
-noDupMappedBlocksList s.
+noDupMappedBlocksList s /\
+wellFormedBlock s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=

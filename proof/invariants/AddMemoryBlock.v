@@ -3410,7 +3410,6 @@ intros. simpl.  set (s' := {|
 												assert(HlookupnewBs : lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry6))
 													by intuition.
 												rewrite HlookupnewBs in *.
-												destruct Hblockidx as [Hblockidx Hidxnb].
 												assert(HBEnewBs0 : isBE newBlockEntryAddr s0) by intuition.
 												specialize(Hcons0 newBlockEntryAddr blockidx HBEnewBs0).
 												assert(HlookupnewBs0 : lookup newBlockEntryAddr (memory s0) beqAddr = Some (BE bentry))
@@ -3535,11 +3534,9 @@ intros. simpl.  set (s' := {|
 												apply isBELookupEq in Hlookup. destruct Hlookup as [blockentry Hlookup].
 												unfold bentryBlockIndex in *.
 												rewrite HlookupbentryEq in *. rewrite Hlookup in *.
-												destruct Hblockidx as [Hblockidx Hidxnb].
 												specialize(Hcons0 bentryaddr blockidx Hblocks0).
 												rewrite Hlookup in *.
-												assert(HblockIdx : blockidx = blockindex blockentry /\
-    													 blockidx < kernelStructureEntriesNb) by intuition.
+												assert(HblockIdx : blockidx = blockindex blockentry) by intuition.
 												specialize(Hcons0 HblockIdx).
 												(* DUP *)
 												(* Check all values *)
@@ -4031,140 +4028,124 @@ intros. simpl.  set (s' := {|
 
 		assert(HstartendEq : (endAddr (blockrange bentry6) = blockend) /\ (startAddr (blockrange bentry6) = blockstart)).
 		{
-		apply isBELookupEq in HBEbtss0. destruct HBEbtss0 as [btsentrys0 Hlookupbtss0].
-		assert(HaddrStart : bentryStartAddr blockToShareInCurrPartAddr blockstart s0)
-			by intuition.
-		assert(HaddrEnd : bentryEndAddr blockToShareInCurrPartAddr blockend s0)
-			by intuition.
-		unfold bentryStartAddr in HaddrStart. unfold bentryEndAddr in HaddrEnd.
-		rewrite Hlookupbtss0 in *.
-				assert(Hbentry6 : bentry6 =
-						CBlockEntry (read bentry5) (write bentry5) e (present bentry5)
-							(accessible bentry5) (blockindex bentry5) (blockrange bentry5)) by intuition.
-				assert(Hbentry5 : bentry5 =
-						CBlockEntry (read bentry4) w (exec bentry4) (present bentry4)
-							(accessible bentry4) (blockindex bentry4) (blockrange bentry4)) by intuition.
-				assert(Hbentry4 : bentry4 =
-						CBlockEntry r (write bentry3) (exec bentry3) (present bentry3)
-							(accessible bentry3) (blockindex bentry3) (blockrange bentry3)) by intuition.
-				assert(Hbentry3 : bentry3 =
-						CBlockEntry (read bentry2) (write bentry2) (exec bentry2)
-							(present bentry2) true (blockindex bentry2) (blockrange bentry2)) by intuition.
-				assert(Hbentry2 : bentry2 =
-						CBlockEntry (read bentry1) (write bentry1) (exec bentry1) true
-							(accessible bentry1) (blockindex bentry1) (blockrange bentry1)) by intuition.
-				assert(Hbentry1 : bentry1 =
-					 CBlockEntry (read bentry0) (write bentry0) (exec bentry0)
-						 (present bentry0) (accessible bentry0) (blockindex bentry0)
-						 (CBlock (startAddr (blockrange bentry0)) blockend)) by intuition.
-				assert(Hbentry0 : bentry0 =
-					 CBlockEntry (read bentry) (write bentry) (exec bentry)
-						 (present bentry) (accessible bentry) (blockindex bentry)
-						 (CBlock blockstart (endAddr (blockrange bentry)))) by intuition.
-				assert(Hranges6Eq : blockrange bentry6 = blockrange bentry5).
-				{
-						subst bentry6. unfold CBlockEntry.
-						destruct (lt_dec (blockindex bentry5) kernelStructureEntriesNb) ; intuition.
-						destruct blockentry_d. destruct bentry5.
-						intuition.
-				}
-				assert(Hranges5Eq : blockrange bentry5 = blockrange bentry4).
-				{
-						rewrite Hbentry5. unfold CBlockEntry.
-						destruct (lt_dec (blockindex bentry4) kernelStructureEntriesNb) ; intuition.
-						destruct blockentry_d. destruct bentry4.
-						intuition.
-				}
-				assert(Hranges4Eq : blockrange bentry4 = blockrange bentry3).
-				{
-						rewrite Hbentry4. unfold CBlockEntry.
-						destruct (lt_dec (blockindex bentry3) kernelStructureEntriesNb) ; intuition.
-						destruct blockentry_d. destruct bentry3.
-						intuition.
-				}
+			apply isBELookupEq in HBEbtss0. destruct HBEbtss0 as [btsentrys0 Hlookupbtss0].
+			assert(HaddrStart : bentryStartAddr blockToShareInCurrPartAddr blockstart s0)
+				by intuition.
+			assert(HaddrEnd : bentryEndAddr blockToShareInCurrPartAddr blockend s0)
+				by intuition.
+			unfold bentryStartAddr in HaddrStart. unfold bentryEndAddr in HaddrEnd.
+			rewrite Hlookupbtss0 in *.
+			assert(Hbentry6 : bentry6 =
+					CBlockEntry (read bentry5) (write bentry5) e (present bentry5)
+						(accessible bentry5) (blockindex bentry5) (blockrange bentry5)) by intuition.
+			assert(Hbentry5 : bentry5 =
+					CBlockEntry (read bentry4) w (exec bentry4) (present bentry4)
+						(accessible bentry4) (blockindex bentry4) (blockrange bentry4)) by intuition.
+			assert(Hbentry4 : bentry4 =
+					CBlockEntry r (write bentry3) (exec bentry3) (present bentry3)
+						(accessible bentry3) (blockindex bentry3) (blockrange bentry3)) by intuition.
+			assert(Hbentry3 : bentry3 =
+					CBlockEntry (read bentry2) (write bentry2) (exec bentry2)
+						(present bentry2) true (blockindex bentry2) (blockrange bentry2)) by intuition.
+			assert(Hbentry2 : bentry2 =
+					CBlockEntry (read bentry1) (write bentry1) (exec bentry1) true
+						(accessible bentry1) (blockindex bentry1) (blockrange bentry1)) by intuition.
+			assert(Hbentry1 : bentry1 =
+				 CBlockEntry (read bentry0) (write bentry0) (exec bentry0)
+					 (present bentry0) (accessible bentry0) (blockindex bentry0)
+					 (CBlock (startAddr (blockrange bentry0)) blockend)) by intuition.
+			assert(Hbentry0 : bentry0 =
+				 CBlockEntry (read bentry) (write bentry) (exec bentry)
+					 (present bentry) (accessible bentry) (blockindex bentry)
+					 (CBlock blockstart (endAddr (blockrange bentry)))) by intuition.
+			assert(Hranges6Eq : blockrange bentry6 = blockrange bentry5).
+			{
+					subst bentry6. unfold CBlockEntry.
+					destruct (lt_dec (blockindex bentry5) kernelStructureEntriesNb) ; intuition.
+					destruct blockentry_d. destruct bentry5.
+					intuition.
+			}
+			assert(Hranges5Eq : blockrange bentry5 = blockrange bentry4).
+			{
+					rewrite Hbentry5. unfold CBlockEntry.
+					destruct (lt_dec (blockindex bentry4) kernelStructureEntriesNb) ; intuition.
+					destruct blockentry_d. destruct bentry4.
+					intuition.
+			}
+			assert(Hranges4Eq : blockrange bentry4 = blockrange bentry3).
+			{
+					rewrite Hbentry4. unfold CBlockEntry.
+					destruct (lt_dec (blockindex bentry3) kernelStructureEntriesNb) ; intuition.
+					destruct blockentry_d. destruct bentry3.
+					intuition.
+			}
 
-				assert(Hranges3Eq : blockrange bentry3 = blockrange bentry2).
-				{
-						rewrite Hbentry3. unfold CBlockEntry.
-						destruct (lt_dec (blockindex bentry2) kernelStructureEntriesNb) ; intuition.
-						destruct blockentry_d. destruct bentry2.
-						intuition.
-				}
-				assert(Hranges2Eq : blockrange bentry2 = blockrange bentry1).
-				{		rewrite Hbentry2. simpl.
-						unfold CBlockEntry.
-						destruct (lt_dec (blockindex bentry1) kernelStructureEntriesNb) ; intuition.
-						destruct blockentry_d. destruct bentry1.
-						intuition.
-				}
-		rewrite Hranges6Eq. rewrite Hranges5Eq. rewrite Hranges4Eq. rewrite Hranges3Eq.
-		rewrite Hranges2Eq.
+			assert(Hranges3Eq : blockrange bentry3 = blockrange bentry2).
+			{
+					rewrite Hbentry3. unfold CBlockEntry.
+					destruct (lt_dec (blockindex bentry2) kernelStructureEntriesNb) ; intuition.
+					destruct blockentry_d. destruct bentry2.
+					intuition.
+			}
+			assert(Hranges2Eq : blockrange bentry2 = blockrange bentry1).
+			{		rewrite Hbentry2. simpl.
+					unfold CBlockEntry.
+					destruct (lt_dec (blockindex bentry1) kernelStructureEntriesNb) ; intuition.
+					destruct blockentry_d. destruct bentry1.
+					intuition.
+			}
+			rewrite Hranges6Eq. rewrite Hranges5Eq. rewrite Hranges4Eq. rewrite Hranges3Eq.
+			rewrite Hranges2Eq.
 
-		assert(Hstart1Eq : startAddr (blockrange bentry1) = startAddr (blockrange bentry0)). 
-		{
-			subst bentry1.
-			unfold CBlockEntry.
-			admit.
-		}
-		admit.
+			subst bentry1. simpl.
 
-		(*assert(HendEq : (endAddr (blockrange bentry6)) = blockend).
-		{
-				assert(HendEq : endAddr (blockrange bentry6) = endAddr (blockrange bentry2)).
-				{ assert(HendEq1 : endAddr (blockrange bentry6) = endAddr (blockrange bentry5)).
-					{
-						(* DUP*)
-						subst bentry6.
-						unfold CBlockEntry.
-						destruct (lt_dec (blockindex bentry5) kernelStructureEntriesNb) ; intuition.
-						destruct blockentry_d. destruct bentry5.
-						intuition.
-					}
-					assert(HendEq2 : endAddr (blockrange bentry5) = endAddr (blockrange bentry4)).
-					{
-						(* DUP*)
-						subst bentry5.
-						unfold CBlockEntry.
-						destruct (lt_dec (blockindex bentry4) kernelStructureEntriesNb) ; intuition.
-						destruct blockentry_d. destruct bentry4.
-						intuition.
-					}
-					assert(HendEq3 : endAddr (blockrange bentry4) = endAddr (blockrange bentry3)).
-					{
-						(* DUP*)
-						subst bentry4.
-						unfold CBlockEntry.
-						destruct (lt_dec (blockindex bentry3) kernelStructureEntriesNb) ; intuition.
-						destruct blockentry_d. destruct bentry3.
-						intuition.
-					}
-					assert(HendEq4 : endAddr (blockrange bentry3) = endAddr (blockrange bentry2)).
-					{
-						(* DUP*)
-						subst bentry3.
-						unfold CBlockEntry.
-						destruct (lt_dec (blockindex bentry2) kernelStructureEntriesNb) ; intuition.
-						destruct blockentry_d. destruct bentry2.
-						intuition.
-					}
-					rewrite HendEq1. rewrite HendEq2. rewrite HendEq3. rewrite HendEq4.
-					trivial.
-				}
-				rewrite HstartEq in *. rewrite HendEq in *.
-				rewrite Hranges6Eq. rewrite Hranges5Eq. rewrite Hranges4Eq. rewrite Hranges3Eq.
-				rewrite Hranges2Eq.
-				assert(Hends1Eq : (endAddr (blockrange bentry1)) = blockend).
-				{		rewrite Hbentry1. simpl.
-						unfold CBlockEntry. unfold CBlock.
-						destruct (lt_dec (blockindex bentry0) kernelStructureEntriesNb) ; intuition.
-						destruct (lt_dec (startAddr (blockrange bentry0)) blockend) ; intuition.
-						destruct (lt_dec (blockend - startAddr (blockrange bentry0)) maxIdx) ; intuition.
-						simpl.
-						admit. admit. admit. (* false cases *)
-				}
-				rewrite Hends1Eq. trivial.
-		}
-		split. assumption. assumption.*)
+			assert(HstartEq : startAddr (blockrange bentry0) = blockstart).
+			{
+				subst bentry0. simpl. trivial.
+				unfold CBlockEntry in *.
+				destruct (lt_dec (blockindex bentry) kernelStructureEntriesNb) ; intuition.
+				simpl.
+				unfold CBlock in *.
+				assert(blockstart <= maxAddr) by apply Hp.
+				assert((endAddr (blockrange bentry) <= maxAddr)) by apply Hp.
+				destruct (le_dec ((endAddr (blockrange bentry)) - blockstart) maxIdx) eqn:Hf ; try lia ; intuition.
+				rewrite <- maxIdxEqualMaxAddr in *. lia.
+				assert(blockindex bentry < kernelStructureEntriesNb) by apply Hidx.
+				intuition.
+			}
+
+			rewrite HstartEq. clear Hfreeslotss. clear Hprops. clear Hs. clear Hstates.
+
+			split.
+			{ (* blockend *)
+				subst bentry0.
+				unfold CBlockEntry in *.
+				destruct (lt_dec (blockindex bentry) kernelStructureEntriesNb) eqn:Hf1 ; intuition.
+				simpl.
+				rewrite Hf1. simpl.
+				unfold CBlock in *.
+				assert(blockstart <= maxAddr) by apply Hp.
+				assert(blockend <= maxAddr) by apply Hp.
+				destruct (le_dec (blockend - blockstart) maxIdx) eqn:Hf ; try lia ; intuition.
+				rewrite <- maxIdxEqualMaxAddr in *. lia.
+				assert(blockindex bentry < kernelStructureEntriesNb) by apply Hidx.
+				intuition.
+			}
+			{ (* blockstart *)
+				(* DUP *)
+				subst bentry0.
+				unfold CBlockEntry in *.
+				destruct (lt_dec (blockindex bentry) kernelStructureEntriesNb) eqn:Hf1 ; intuition.
+				simpl.
+				rewrite Hf1. simpl.
+				unfold CBlock in *.
+				assert(blockstart <= maxAddr) by apply Hp.
+				assert(blockend <= maxAddr) by apply Hp.
+				destruct (le_dec (blockend - blockstart) maxIdx) eqn:Hf ; try lia ; intuition.
+				rewrite <- maxIdxEqualMaxAddr in *. lia.
+				assert(blockindex bentry < kernelStructureEntriesNb) by apply Hidx.
+				intuition.
+			}
 		}
 
 		assert(HaddrInBTSIfInnewB : (forall addr : paddr,
@@ -8893,6 +8874,8 @@ assert(HVS : verticalSharing s).
   predCurrentNbFreeSlots sh1eaddr sh1entry sh1entry0 sh1entry1 sh1entrybts
   Hoptionlists olds n0 n1 n2 nbleft s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12; intuition.
 	unfold AddMemoryBlockPropagatedProperties ; intuition.
+	(* WIP prove findBlock 
+		+ add last consistency property inclMPUInBlocks *)
 	admit.
 }
 
