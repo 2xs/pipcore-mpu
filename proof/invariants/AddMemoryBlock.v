@@ -1854,6 +1854,36 @@ intros. simpl.  set (s' := {|
 							by (specialize (Hinsert partition) ; intuition).
 						assert(HPDTs00 : isPDT partition s0) by (rewrite HPDTEq in * ; intuition).
 						intuition.
+			+ { (* BlocksRangeFromKernelStartIsBE s*)
+				destruct H80 as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 & Hstates)))))))))].
+				assert(HsEq : s = s10).
+				{ intuition. subst s10. subst s9. subst s8. subst s7. subst s6. subst s5. subst s4.
+					subst s3. subst s2. subst s1. simpl. subst s.
+					f_equal.
+				}
+				rewrite HsEq in *.
+				unfold BlocksRangeFromKernelStartIsBE.
+				intros kernelentryaddr blockidx HKSs Hblockidx.
+		
+				assert(Hcons10 : BlocksRangeFromKernelStartIsBE s10)
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+				unfold BlocksRangeFromKernelStartIsBE in Hcons10.
+				intuition.
+			} (* end of BlocksRangeFromKernelStartIsBE *)
+		+ { (* nullAddrExists s*)
+			destruct H80 as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 & Hstates)))))))))].
+			assert(HsEq : s = s10).
+			{ intuition. subst s10. subst s9. subst s8. subst s7. subst s6. subst s5. subst s4.
+				subst s3. subst s2. subst s1. simpl. subst s.
+				f_equal.
+			}
+			rewrite HsEq in *.
+			unfold nullAddrExists.
+
+			assert(Hcons10 : nullAddrExists s10)
+				by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+			intuition.
+		} (* end of nullAddrExists *)
 } intros. simpl.
 eapply bindRev.
 { (** MAL.writeSh1InChildLocationFromBlockEntryAddr **)
@@ -3608,6 +3638,155 @@ intros. simpl.  set (s' := {|
 																			rewrite <- DependentTypeLemmas.beqAddrTrue in pdks'. congruence.
 																			rewrite <- beqAddrFalse in *.
 																			repeat rewrite removeDupIdentity ; intuition.
+				++ { (* BlocksRangeFromKernelStartIsBE s*)
+					destruct H90 as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 & (s11 & Hstates))))))))))].
+					assert(HsEq : s = s11).
+					{ intuition. subst s11. subst s10. subst s9. subst s8. subst s7.
+						subst s6. subst s5. subst s4.
+						subst s3. subst s2. subst s1. simpl. subst s.
+						f_equal.
+					}
+					destruct Hstates as [Hs1 (Hs2 & (Hs3 & (Hs4 & (Hs5 & (Hs6 & (Hs7 & (Hs8 & (Hs9 & (Hs10 & (Hs11 & Hstates))))))))))].
+					
+					(* DUP from final props *)
+					unfold BlocksRangeFromKernelStartIsBE.
+					intros kernelentryaddr blockidx HKSs Hblockidx.
+			
+					assert(Hcons10 : BlocksRangeFromKernelStartIsBE s10)
+						by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+					unfold BlocksRangeFromKernelStartIsBE in Hcons10.
+			
+					(* check all possible values for kernelentryaddr in the modified state s
+							-> no entry matches -> leads to s10 -> OK
+			
+						same for the BE range, no entry matches -> leads to s10 -> OK
+					*)
+			
+					destruct (beqAddr sh1eaddr kernelentryaddr) eqn:beqsh1ks; try(exfalso ; congruence).
+					*	(* sh1eaddr = kernelentryaddr *)
+						rewrite <- DependentTypeLemmas.beqAddrTrue in beqsh1ks.
+						rewrite <- beqsh1ks in *.
+						unfold isSHE in *. unfold isKS in *.
+						destruct (lookup sh1eaddr (memory s) beqAddr) eqn:Hlookupscefirst ; try(exfalso ; congruence).
+						destruct v ; try(exfalso ; congruence).
+					* (* sh1eaddr <> kernelentryaddr *)
+						assert(HlookupksEq : lookup kernelentryaddr (memory s) beqAddr = lookup kernelentryaddr (memory s10) beqAddr).
+						{
+							rewrite HsEq. rewrite Hs11.
+							cbn.
+							rewrite beqsh1ks.
+							rewrite <- beqAddrFalse in *.
+							repeat rewrite removeDupIdentity; intuition.
+						}
+						assert(HKSkss10Eq : isKS kernelentryaddr s = isKS kernelentryaddr s10)
+							by (unfold isKS ; rewrite <- HlookupksEq ; intuition).
+						assert(HKSkss10 : isKS kernelentryaddr s10) by (rewrite <- HKSkss10Eq ; intuition).
+						specialize (Hcons10 kernelentryaddr blockidx HKSkss10 Hblockidx).
+
+						(* check all values for ks + blockidx *)
+						destruct (beqAddr sh1eaddr (CPaddr (kernelentryaddr + blockidx))) eqn:beqsh1berange; try(exfalso ; congruence).
+						**	(* sh1eaddr = scentryaddr *)
+								rewrite <- DependentTypeLemmas.beqAddrTrue in beqsh1berange.
+								rewrite <- beqsh1berange in *.
+								unfold isSHE in *. unfold isBE in *.
+								destruct (lookup sh1eaddr (memory s10) beqAddr) eqn:Hsh1 ; try(exfalso ; congruence).
+								destruct v ; try(exfalso ; congruence) ; intuition.
+						** (* sh1eaddr <> scentryaddr *)
+								unfold isBE in *.
+								rewrite HsEq. rewrite Hs11.
+								cbn.
+								rewrite beqsh1berange.
+								rewrite <- beqAddrFalse in *.
+								repeat rewrite removeDupIdentity; intuition.
+					} (* end of BlocksRangeFromKernelStartIsBE *)
+				++ { (* nullAddrExists s *)
+					destruct H90 as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 & (s11 & Hstates))))))))))].
+					assert(HsEq : s = s11).
+					{ intuition. subst s11. subst s10. subst s9. subst s8. subst s7.
+						subst s6. subst s5. subst s4.
+						subst s3. subst s2. subst s1. simpl. subst s.
+						f_equal.
+					}
+					destruct Hstates as [Hs1 (Hs2 & (Hs3 & (Hs4 & (Hs5 & (Hs6 & (Hs7 & (Hs8 & (Hs9 & (Hs10 & (Hs11 & Hstates))))))))))].
+				
+					(* DUP of final props *)
+					assert(Hcons0 : nullAddrExists s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+					unfold nullAddrExists in Hcons0.
+					unfold isPADDR in Hcons0.
+		
+					unfold nullAddrExists.
+					unfold isPADDR.
+		
+					destruct (lookup nullAddr (memory s0) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
+					destruct v eqn:Hv ; try (exfalso ; congruence).
+		
+					(* check all possible values of nullAddr in s -> nothing changed a PADDR
+							so nullAddrExists at s0 prevales *)
+					destruct (beqAddr globalIdPDChild nullAddr) eqn:beqpdnull; try(exfalso ; congruence).
+					*	(* globalIdPDChild = nullAddr *)
+						rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdnull.
+						rewrite beqpdnull in *.
+						unfold isPDT in *.
+						rewrite Hlookup in *.
+						exfalso ; congruence.
+					* (* globalIdPDChild <> nullAddr *)
+						destruct (beqAddr sceaddr nullAddr) eqn:beqscenull; try(exfalso ; congruence).
+						**	(* sceaddr = nullAddr *)
+							rewrite <- DependentTypeLemmas.beqAddrTrue in beqscenull.
+							unfold isSCE in *.
+							rewrite <- beqscenull in *.
+							rewrite Hlookup in *.
+							exfalso; congruence.
+						** (* sceaddr <> nullAddr *)
+									destruct (beqAddr newBlockEntryAddr nullAddr) eqn:beqnewnull; try(exfalso ; congruence).
+									*** (* newBlockEntryAddr = nullAddr *)
+										rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewnull.
+										unfold isBE in *.
+										rewrite <- beqnewnull in *.
+										rewrite Hlookup in *.
+										exfalso; congruence.
+									*** (* newBlockEntryAddr <> nullAddr *)
+											destruct (beqAddr sh1eaddr nullAddr) eqn:beqsh1null; try(exfalso ; congruence).
+											**** (* sh1eaddr = nullAddr *)
+														rewrite <- DependentTypeLemmas.beqAddrTrue in beqsh1null.
+														unfold isSHE in *.
+														rewrite <- beqsh1null in *.
+														rewrite Hlookup in *.
+														intuition ; exfalso; congruence.
+											**** (* sh1eaddr <> nullAddr *)
+														rewrite Hs.
+														simpl. repeat rewrite beqAddrTrue.
+														rewrite beqsh1null.
+														destruct (beqAddr sh1eaddr sceaddr) eqn:beqscesh1 ; try(exfalso ; congruence).
+														rewrite <- DependentTypeLemmas.beqAddrTrue in beqscesh1. congruence.
+														simpl.
+														rewrite beqAddrSym in beqscesh1.
+														rewrite beqscesh1.
+														simpl.
+														rewrite beqscenull.
+														destruct (beqAddr newBlockEntryAddr sceaddr) eqn:beqnewblocksce ; try(exfalso ; congruence).
+														rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewblocksce. congruence.
+														simpl.
+														destruct (beqAddr newBlockEntryAddr sh1eaddr) eqn:beqnewBsh1 ; try(exfalso ; congruence).
+														rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewBsh1. congruence.
+														simpl.
+														rewrite beqnewnull.
+														simpl.
+														destruct (beqAddr globalIdPDChild newBlockEntryAddr) eqn:beqpdnewB ; try(exfalso ; congruence).
+														rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdnewB. congruence.
+														simpl.
+														rewrite <- beqAddrFalse in *.
+														repeat rewrite removeDupIdentity ; intuition.
+														simpl.
+														destruct (beqAddr globalIdPDChild newBlockEntryAddr) eqn:Hf ; try(exfalso ; congruence).
+														rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+														simpl.
+														destruct (beqAddr globalIdPDChild nullAddr) eqn:Hff; try(exfalso ; congruence).
+														rewrite <- DependentTypeLemmas.beqAddrTrue in Hff. congruence.
+														rewrite <- beqAddrFalse in *.
+														repeat rewrite removeDupIdentity ; intuition.
+														rewrite Hlookup. trivial.
+			} (* end of nullAddrExists *)
 } intros.
 	{ (** ret **)
 		eapply weaken. apply WP.ret.
