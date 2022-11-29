@@ -36,6 +36,7 @@
 #include "accessor.h"
 #include "context.h"
 #include "register.h"
+#include "regid.h"
 #include "mal.h"
 
 #define MEMMANAGE_IRQ_NUMBER 4
@@ -120,7 +121,7 @@ doAccess(
 		goto fault;
 	}
 
-	if (id >= REGISTER_ID_TO_ACCESSOR_SIZE)
+	if (id >= ARRAY_SIZE)
 	{
 		goto fault;
 	}
