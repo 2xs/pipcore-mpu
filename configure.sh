@@ -1,7 +1,7 @@
 #!/bin/sh
 ###############################################################################
-#  © Université de Lille, The Pip Development Team (2015-2022)                #
-#  Copyright (C) 2020-2022 Orange                                             #
+#  © Université de Lille, The Pip Development Team (2015-2023)                #
+#  Copyright (C) 2020-2023 Orange                                             #
 #                                                                             #
 #  This software is a computer program whose purpose is to run a minimal,     #
 #  hypervisor relying on proven properties such as memory isolation.          #
@@ -155,8 +155,8 @@ Usage: %s <MANDATORY ARGUMENTS> [OPTIONAL ARGUMENTS]
 generate_toolchains() {
 cat <<EOF > toolchain.mk
 ###############################################################################
-#  © Université de Lille, The Pip Development Team (2015-2022)                #
-#  Copyright (C) 2020-2022 Orange                                             #
+#  © Université de Lille, The Pip Development Team (2015-2023)                #
+#  Copyright (C) 2020-2023 Orange                                             #
 #                                                                             #
 #  This software is a computer program whose purpose is to run a minimal,     #
 #  hypervisor relying on proven properties such as memory isolation.          #
