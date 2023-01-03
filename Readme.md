@@ -180,3 +180,9 @@ You can pass several arguments to ```make``` to compile Pip-MPU.
 * `doc` | `doc-c` | `doc-coq` | `gettingstarted`: Documentation targets
 
 * `clean` | `realclean`: Clean targets
+
+## Funding
+
+The pipcore-mpu project is part of the TinyPART project funded by the
+MESRI-BMBF German-French cybersecurity program under grant agreements
+n°ANR-20-CYAL-0005 and 16KIS1395K.
