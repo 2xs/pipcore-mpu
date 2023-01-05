@@ -110,7 +110,7 @@ Pip-MPU retains Pip's philosophy and methodology adapted for constrained devices
 
 Pip-MPU is thus forked from the Pip original code base but completely revised to fit the MPU-empowered hardware platform.
 
-More details on Pip-MPU can be read at [Pip-MPU internals](https://gitlab.univ-lille.fr/2xs/pip/pipcore-mpu/-/blob/master/PipInternals.md).
+More details on Pip-MPU can be read at [Pip-MPU internals](PipInternals.md).
 
 Benchmarks are provided in the 'benchmark' branch.
 
