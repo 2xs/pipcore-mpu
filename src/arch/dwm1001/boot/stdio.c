@@ -144,6 +144,9 @@ typedef struct {
 static inline void _fflush(void *buffer)
 {
 #ifdef TRACE
+  /* XXX Disabled semihosting because it causes strange bugs. */
+  (void)buffer;
+/*
   asm volatile
   (
     "mov r0, %0\n"
@@ -162,6 +165,7 @@ static inline void _fflush(void *buffer)
       "memory",
       "cc"
   );
+*/
 #elif UART_DEBUG
     nrf_drv_uart_tx(&uart_instance, (const char *) buffer, strlen(buffer));
     while (nrf_drv_uart_tx_in_progress(&uart_instance)){} // Wait end of TX
