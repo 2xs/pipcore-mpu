@@ -142,12 +142,16 @@ void SVC_Handler_C(stackedContext_t *context)
 		}
 		case SVC_NUMBER_ADD_MEMORY_BLOCK:
 		{
+			bool r = (((*r2) >> 2) & 1);
+			bool w = (((*r2) >> 1) & 1);
+			bool x = ((*r2) & 1);
+
 			*r0 = (uint32_t) addMemoryBlock(
 				(paddr) *r0,
 				(paddr) *r1,
-				(bool) ((*r2 >> 2) & 1),
-				(bool) ((*r2 >> 1) & 1),
-				(bool) *r2 & 1
+				r,
+				w,
+				x
 			);
 
 			break;
