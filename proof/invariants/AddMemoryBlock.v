@@ -365,6 +365,24 @@ eapply bindRev.
 		intuition.
 		rewrite <- beqAddrFalse in *. intuition.
 	}
+	split.
+	{
+		assert(HwellFormedBlocks0 : wellFormedBlock s)
+			by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+		unfold wellFormedBlock in *.
+		assert(Hstart : bentryStartAddr blockToShareInCurrPartAddr blockstart s)
+			by intuition.
+		assert(Hend : bentryEndAddr blockToShareInCurrPartAddr blockend s)
+			by intuition.
+		assert(HPflag : bentryPFlag blockToShareInCurrPartAddr addrIsPresent s)
+			by intuition.
+		assert(Htrue : negb addrIsPresent = false) by intuition.
+		rewrite negb_false_iff in Htrue.
+		subst addrIsPresent.
+		specialize (HwellFormedBlocks0 blockToShareInCurrPartAddr blockstart blockend
+						HPflag Hstart Hend).
+		intuition.
+	}
 	pose (Hconj := conj H7 HnfbfreeslotsNotZero).
 	apply Hconj.
 }
@@ -7846,6 +7864,44 @@ assert (HblockInParent : In blockToShareInCurrPartAddr (getMappedBlocks currentP
 		eapply NoDupListNoDupFilterPresent ; intuition.
 	} (* end of noDupMappedBlocksList *)
 
+	assert(HwellFormedBlock : wellFormedBlock s).
+	{ (* wellFormedBlock s*)
+		unfold wellFormedBlock.
+		intros block startblock endblock HPflags HStarts Hends.
+
+		(* Check all possible values for block
+				-> leads to s10 -> OK
+		*)
+
+		(* 1) lookup block s in hypothesis: eliminate impossible values for block *)
+		unfold bentryPFlag in *.
+		unfold bentryStartAddr in *.
+		unfold bentryEndAddr in *.
+		destruct (beqAddr sh1eaddr block) eqn:beqsh1block ; try(exfalso ; congruence).
+		* (* sh1eaddr = block *)
+			rewrite <- DependentTypeLemmas.beqAddrTrue in beqsh1block.
+			rewrite <- beqsh1block in *.
+			unfold isSHE in *.
+			destruct (lookup sh1eaddr (memory s) beqAddr) ; try(exfalso ; congruence).
+			destruct v ; try(exfalso ; congruence).
+		* (* sh1eaddr <> block *)
+			(* leads to s10 *)
+			assert(Hcons10 : wellFormedBlock s10)
+					by (unfold consistency in * ; unfold consistency1 in *; intuition).
+			unfold wellFormedBlock in *.
+			assert(HBEeq : lookup block (memory s) beqAddr = lookup block (memory s10) beqAddr).
+			{
+				rewrite HsEq. cbn.
+				rewrite beqAddrTrue.
+				rewrite beqsh1block.
+				rewrite <- beqAddrFalse in *.
+				repeat rewrite removeDupIdentity; intuition.
+			}
+			rewrite HBEeq in *.
+			specialize(Hcons10 block startblock endblock HPflags HStarts Hends).
+			trivial.
+	} (* end of wellFormedBlock *)
+
 	assert(HaccessibleChildPaddrIsAccessibleIntoParents : accessibleChildPaddrIsAccessibleIntoParent s).
 	{ (* accessibleChildPaddrIsAccessibleIntoParent s *)
 		(* DUP: similar to vertical sharing *)
@@ -9054,7 +9110,7 @@ assert(HVS : verticalSharing s).
   Hoptionlists olds n0 n1 n2 nbleft s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12; intuition.
 	unfold AddMemoryBlockPropagatedProperties ; intuition.
 	(* WIP prove findBlock 
-		+ add last consistency property inclMPUInBlocks *)
+		+ add last consistency property MPUInAccessibleBlocks *)
 	admit.
 }
 
