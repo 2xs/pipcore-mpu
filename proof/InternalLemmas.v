@@ -8594,59 +8594,6 @@ Proof.
 intuition.
 Qed.
 
-Lemma CPaddrInjection3 addr1 :
-forall value1 s,
-lookup addr1 (memory s) beqAddr = value1 ->
-addr1 <= maxAddr.
-Proof.
-intros.
-destruct addr1. simpl in *. intuition.
-Qed.
-
-
-Lemma CPaddrInjection (addr1 addr2 : paddr):
-(*forall value1 value2 s,
-lookup addr1 (memory s) beqAddr = value1 ->
-lookup addr2 (memory s) beqAddr = value2 ->*)
-CPaddr addr1 = CPaddr addr2 -> addr1 = addr2.
-Proof.
-intros. (*
-apply CPaddrInjection3 in H.
-apply CPaddrInjection3 in H0.*)
-rewrite paddrEqId in H. rewrite paddrEqId in H. intuition.
-Qed.
-
-Lemma CPaddrInjectionNat (addr1nat addr2nat : nat) :
-addr1nat = addr2nat ->
-CPaddr addr1nat = CPaddr addr2nat.
-Proof.
-intros. rewrite H in *. reflexivity.
-Qed.
-
-Lemma CPaddrInjection4 (addr1 : paddr):
-forall value1 s,
-lookup addr1 (memory s) beqAddr = value1 ->
-exists x, x = CPaddr addr1.
-Proof.
-intros.
-eexists. intuition.
-Qed.
-
-Lemma CPaddrInjection7 (addr1 addr2: paddr) :
-CPaddr addr1 <> CPaddr addr2 ->
-(p addr1) <> (p addr2).
-Proof.
-intros. intuition.
-Qed.
-
-Lemma CPaddrInjection6 (addr1 addr2: paddr) :
-CPaddr addr1 = CPaddr addr2 ->
-addr1 = addr2.
-Proof.
-intuition.
-apply CPaddrInjection. intuition.
-Qed.
-
 Lemma isPDTMultiplexerEqPDT addr' newEntry s0:
 isPDT multiplexer s0 ->
 isPDT addr' s0 ->

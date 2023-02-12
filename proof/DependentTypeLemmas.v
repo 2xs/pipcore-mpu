@@ -188,9 +188,6 @@ Proof.
 intros.
 unfold bentryBlockIndex.
 rewrite H;trivial.
-split. reflexivity.
-destruct entry.
-trivial.
 Qed.
 
 (*DUP*)
@@ -814,17 +811,17 @@ left;right;trivial.
 right.
 apply Logic.Classical_Prop.and_not_or. intuition.
 Qed. 
-             
-             
+*)   
+
 (** ADT : index **)
 Lemma indexEqFalse : 
-forall a b : nat , a < tableSize -> b < tableSize -> a <> b -> CIndex a <> CIndex b.
+forall a b : nat , a <= maxIdx -> b <= maxIdx -> a <> b -> CIndex a <> CIndex b.
 Proof.
 intros.
 unfold CIndex.
-case_eq (lt_dec a tableSize).
+case_eq (le_dec a maxIdx).
 + intros.
-  case_eq (lt_dec b tableSize).
+  case_eq (le_dec b maxIdx).
   - intros.
     unfold not in *.
     intros.
@@ -838,7 +835,7 @@ Qed.
 Lemma indexltbTrue : 
 forall i1 i2 : index , 
 StateLib.Index.ltb i1 i2 = true -> i1 < i2.
-Proof. intros. unfold MALInternal.Index.ltb in H. 
+Proof. intros. unfold Index.ltb in H. 
 apply NPeano.Nat.ltb_lt in H.
 assumption.
 Qed. 
@@ -848,12 +845,13 @@ forall i1 i2 : index ,
 StateLib.Index.ltb i1 i2 = false -> i1 >= i2.
 Proof.
 intros.
-unfold MALInternal.Index.ltb in *. 
+unfold Index.ltb in *. 
 apply not_lt.
 apply NPeano.Nat.ltb_nlt in H.
 lia.
 Qed. 
 
+(*
 Lemma indexBoundEq : 
 forall i : index , i>= CIndex (tableSize - 1) -> i =  CIndex (tableSize - 1). 
 Proof.
@@ -875,6 +873,8 @@ assert (tableSize > tableSizeLowerBound).
 apply tableSizeBigEnough.
 unfold  tableSizeLowerBound in * . lia. lia.
 Qed.
+*)
+
 
 Lemma indexDiffLtb :
 forall i1 i2 : index, i2 < i1 \/ i1 < i2 <-> i2 <> i1.
@@ -892,25 +892,13 @@ apply H; f_equal.
 apply proof_irrelevance.
 Qed.
 
-Lemma indexEqId : 
-forall i : index, CIndex i = i. 
-Proof.
-intros.
-unfold CIndex.
-destruct i.
-simpl.
-case_eq(lt_dec i tableSize); intros.
-assert(ADT.CIndex_obligation_1 i l = Hi) by apply proof_irrelevance.
-subst. reflexivity.
-now contradict Hi.
-Qed.
 
 Lemma indexMaxEqFalseLt : 
-forall idx : index, idx <> CIndex (tableSize - 1) -> idx < tableSize - 1.
+forall idx : index, idx <> CIndex maxIdx -> idx < maxIdx.
 Proof.
 intros.
 unfold CIndex in *.
-case_eq (lt_dec (tableSize - 1) tableSize).
+case_eq (le_dec maxIdx maxIdx).
 intros .
 rewrite H0 in *.
 destruct idx.
@@ -919,16 +907,16 @@ apply not_ge.
 unfold not.
 intros.
 contradict H.
-assert (i = tableSize - 1).
+assert (i = maxIdx).
 lia.
 subst.
 f_equal.
 apply proof_irrelevance.
 intros.
-assert(tableSizeLowerBound < tableSize) by apply tableSizeBigEnough.
+assert(maxIdxLowerBound < maxIdx) by apply maxIdxBigEnough.
 lia.
 Qed.
-
+(*
 Lemma SuccOddEven :
 forall oneI twoI : index, 
 oneI < tableSize -1 -> 
@@ -1002,31 +990,33 @@ intros.
 assert(tableSizeLowerBound < tableSize) by apply tableSizeBigEnough.
 lia.
 Qed.
+*)
 
 Lemma noteqIndex a b:
-a < tableSizeLowerBound -> b < tableSizeLowerBound -> a<>b ->  
+a < maxIdx +1 -> b < maxIdx +1 -> a<>b ->  
 CIndex a <> CIndex b.
 Proof.
 intros. 
 apply indexEqFalse;
-assert (tableSize > tableSizeLowerBound).
-apply tableSizeBigEnough.
-unfold tableSizeLowerBound in *.
-lia.  apply tableSizeBigEnough.
-unfold tableSizeLowerBound in *.
-lia. apply tableSizeBigEnough. lia.
+assert (maxIdx > maxIdxLowerBound).
+apply maxIdxBigEnough.
+unfold maxIdxLowerBound in *.
+lia.  apply maxIdxBigEnough.
+unfold maxIdxLowerBound in *.
+lia. apply maxIdxBigEnough. lia.
 Qed.
 
 Lemma CIndex0lt :
-CIndex 0 < tableSize - 1.
+CIndex 0 < maxIdx.
 Proof.
 unfold CIndex.
-assert (tableSize > tableSizeLowerBound).
-apply tableSizeBigEnough.
-unfold tableSizeLowerBound in *.
-case_eq(lt_dec 0 tableSize);intros;simpl;try lia.
+assert (maxIdx > maxIdxLowerBound).
+apply maxIdxBigEnough.
+unfold maxIdxLowerBound in *.
+case_eq(lt_dec 0 maxIdx);intros;simpl;try lia.
 Qed.
 
+(*
 Lemma CIndex1lt oneI:
 StateLib.Index.succ (CIndex 0) = Some oneI-> 
 oneI < tableSize - 1.
@@ -1125,6 +1115,15 @@ Lemma MaxIdxNextEq :
 maxIdx + 1 = S maxIdx.
 Proof.
 lia.
+Qed.
+
+Lemma filterOptionPaddrSplit l1 l2 :
+filterOptionPaddr (l1 ++ l2) = filterOptionPaddr l1 ++ filterOptionPaddr l2.
+Proof.
+induction l1.
+- intuition.
+- simpl. destruct a ; intuition.
+	simpl. f_equal. intuition.
 Qed.
 
 Lemma NotInListNotInFilterPresent a l s:
@@ -1559,7 +1558,7 @@ intuition.
 	eapply IHl with x ; intuition.
 Qed.*)
 
-(*
+
 Lemma indexEqbTrue : 
 forall idx1 idx2 : index, true = StateLib.Index.eqb idx1 idx2 -> 
 idx1 = idx2.
@@ -1581,13 +1580,13 @@ forall idx : index, idx < CIndex 0 -> False.
 Proof.
 intros.
 unfold CIndex in *.
-case_eq (lt_dec 0 tableSize); intros; rewrite H0 in *.
+case_eq (le_dec 0 maxIdx); intros; rewrite H0 in *.
 destruct idx. simpl in *.
 lia.
-assert (tableSizeLowerBound < tableSize) by apply tableSizeBigEnough.
+assert (maxIdxLowerBound < maxIdx) by apply maxIdxBigEnough.
 lia.
 Qed.
-
+(*
 Lemma indexSEqbZeroOdd : 
 forall curidx idxsucc, 
 true = StateLib.Index.eqb curidx (CIndex 0) -> 
@@ -2267,9 +2266,105 @@ Proof.
 intuition.
 Qed.
 
+Lemma CPaddrInjection3 addr1 :
+forall value1 s,
+lookup addr1 (memory s) beqAddr = value1 ->
+addr1 <= maxAddr.
+Proof.
+intros.
+destruct addr1. simpl in *. intuition.
+Qed.
 
 
-(*
+Lemma CPaddrInjection (addr1 addr2 : paddr):
+CPaddr addr1 = CPaddr addr2 -> addr1 = addr2.
+Proof.
+intros.
+rewrite paddrEqId in H. rewrite paddrEqId in H. intuition.
+Qed.
+
+Lemma CPaddrInjectionNat (addr1nat addr2nat : nat) :
+addr1nat = addr2nat ->
+CPaddr addr1nat = CPaddr addr2nat.
+Proof.
+intros. rewrite H in *. reflexivity.
+Qed.
+
+Lemma CPaddrInjection4 (addr1 : paddr):
+forall value1 s,
+lookup addr1 (memory s) beqAddr = value1 ->
+exists x, x = CPaddr addr1.
+Proof.
+intros.
+eexists. intuition.
+Qed.
+
+Lemma CPaddrInjection7 (addr1 addr2: paddr) :
+CPaddr addr1 <> CPaddr addr2 ->
+(p addr1) <> (p addr2).
+Proof.
+intros. intuition.
+Qed.
+
+Lemma CPaddrInjection6 (addr1 addr2: paddr) :
+CPaddr addr1 = CPaddr addr2 ->
+addr1 = addr2.
+Proof.
+intuition.
+apply CPaddrInjection. intuition.
+Qed.
+
+Lemma CIndexInjection (addr1 addr2 : index):
+CIndex addr1 = CIndex addr2 -> addr1 = addr2.
+Proof.
+intros.
+rewrite indexEqId in H. rewrite indexEqId in H. intuition.
+Qed.
+
+
+Lemma CIndexInjectionNat (addr1nat addr2nat : nat) :
+addr1nat = addr2nat ->
+CIndex addr1nat = CIndex addr2nat.
+Proof.
+intros. rewrite H in *. reflexivity.
+Qed.
+
+Lemma CIndexNextZeroEq p:
+p <= maxIdx -> (* also p < maxIdx*)
+CIndex p = CIndex 0 ->
+p = 0.
+Proof.
+intros. intuition.
+induction p.
+- intuition.
+- unfold CIndex in *.
+	destruct (le_dec 0 maxIdx) ; intuition.
+	destruct (le_dec (S p) maxIdx) ; try (simpl in * ; congruence).
+	(*lia.*)
+Qed.
+
+Lemma CIndexNextZeroNotEq p:
+p < maxIdx ->
+CIndex (S p) <> CIndex 0.
+Proof.
+intuition.
+apply CIndexNextZeroEq in H0.
+apply PeanoNat.Nat.neq_succ_0 in H0. intuition. lia.
+Qed.
+
+Lemma CIndexLt p max :
+p <= maxIdx ->
+CIndex p < max ->
+p < max.
+Proof.
+intuition.
+induction p.
+- intuition.
+- unfold CIndex in *.
+	destruct (le_dec (S p) maxIdx) ; try (simpl in * ; congruence).
+Qed.
+
+
 Require Import List Classical_Prop.
 Lemma listIndexDecOrNot :
 forall p1 p2 : list index, p1 = p2 \/ p1<>p2.
@@ -2302,7 +2397,7 @@ apply not_or_and in H0.
 destruct H0.
 now contradict H1.
 Qed.
-
+(*
 Lemma vaddrDecOrNot :
 forall p1 p2 : vaddr, p1 = p2 \/ p1<>p2.
 Proof.
@@ -3813,8 +3908,8 @@ by trivial.
       unfold tableSizeLowerBound in *.
       lia. apply tableSizeBigEnough. lia.
       Qed.
-
-Lemma pageEqNatEqEquiv : forall (a b : page), eq (p a) (p b) <-> (eq a b).
+*)
+Lemma paddrEqNatEqEquiv : forall (a b : paddr), eq (p a) (p b) <-> (eq a b).
 Proof.
 split.
 intro.
@@ -3828,7 +3923,7 @@ rewrite H.
 reflexivity.
 Qed.
 
-Lemma pageNeqNatNeqEquiv : forall (a b : page), (p a) <> (p b) <-> a <> b.
+Lemma paddrNeqNatNeqEquiv : forall (a b : paddr), (p a) <> (p b) <-> a <> b.
 Proof.
 intro; split; intro.
 destruct a; destruct b.
@@ -3839,23 +3934,24 @@ contradict H1.
 assumption.
 
 contradict H.
-apply pageEqNatEqEquiv; assumption.
+apply paddrEqNatEqEquiv; assumption.
 Qed.
+
 
 Lemma index0Ltfalse (idx:index):
 idx < CIndex 0 -> False.
 Proof.
 intros.
 unfold CIndex in H.
-case_eq (lt_dec 0 tableSize).
+case_eq (le_dec 0 maxIdx).
 intros.
 rewrite H0 in H.
 simpl in *. lia.
 intros.
 contradict H0.
-assert (tableSize > tableSizeLowerBound).
-apply tableSizeBigEnough.
-unfold tableSizeLowerBound in *.
+assert (maxIdx > maxIdxLowerBound).
+apply maxIdxBigEnough.
+unfold maxIdxLowerBound in *.
 lia.
 Qed.
 
@@ -3873,6 +3969,8 @@ inversion H.
 subst.
 now contradict Heq.
 Qed.
+
+(*
 Lemma getNbLevelEqNat : 
 forall nbL, 
 Some nbL = StateLib.getNbLevel -> 
@@ -3897,15 +3995,14 @@ destruct x1;destruct x2;simpl in *.
 subst.
 f_equal.
 apply proof_irrelevance.
-Qed.
+Qed.*)
 
-Lemma page_eq_p:
-forall x1 x2: page, p x1 =p x2 -> x1 = x2.
+Lemma index_eq_i:
+forall x1 x2: index, i x1 =i x2 -> x1 = x2.
 Proof.
-intros. 
+intros.
 destruct x1;destruct x2;simpl in *.
 subst.
 f_equal.
 apply proof_irrelevance.
 Qed.
-*)
