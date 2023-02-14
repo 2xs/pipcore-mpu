@@ -815,6 +815,10 @@ pdentry0 = {|    structure := structure pdentry;
 															isPDT partition s0 ->
 															getMappedBlocks partition s = getMappedBlocks partition s0)
 					/\ (forall partition : paddr,
+															partition <> globalIdPDChild ->
+															isPDT partition s0 ->
+															getAccessibleMappedBlocks partition s = getAccessibleMappedBlocks partition s0)
+					/\ (forall partition : paddr,
 								partition <> globalIdPDChild ->
 								isPDT partition s0 ->
 								 getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0)
@@ -984,6 +988,10 @@ s1 = {|
 													partition <> globalIdPDChild ->
 													isPDT partition s10 ->
 													getMappedBlocks partition s10 = getMappedBlocks partition s0)
+			/\ (forall partition : paddr,
+													partition <> globalIdPDChild ->
+													isPDT partition s10 ->
+													getAccessibleMappedBlocks partition s10 = getAccessibleMappedBlocks partition s0)
 			/\ (forall partition : paddr,
 						partition <> globalIdPDChild ->
 						isPDT partition s10 ->
@@ -1792,7 +1800,37 @@ intros. simpl.  set (s' := {|
 							assert(HPDTparts : isPDT partition s) by trivial.
 							apply isPDTLookupEq in HPDTparts. destruct HPDTparts as [pdentry' Hlookupparts'].
 							eapply getMappedBlocksEqSHE ; intuition.
-					++ assert(HEq : getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0)
+					++ assert(HEq : getAccessibleMappedBlocks partition s = getAccessibleMappedBlocks partition s0)
+								by intuition.
+							rewrite <- HEq.
+
+							assert(HPDTpartEq' : isPDT partition s' = isPDT partition s).
+							{
+								(* DUP *)
+								unfold isPDT. unfold s'.
+								simpl.
+								repeat rewrite beqAddrTrue.
+								destruct (beqAddr (CPaddr (blockToShareInCurrPartAddr + sh1offset)) partition) eqn:beqsh1part; try(exfalso ; congruence).
+								-- (* sh1eaddr = partition) *)
+										rewrite <- DependentTypeLemmas.beqAddrTrue in beqsh1part.
+										rewrite beqsh1part in *.
+										unfold isPDT in *.
+										rewrite HSHEbtss in *.
+										exfalso ; congruence.
+								-- (* sh1eaddr <> partition) *)
+										simpl.
+										rewrite <- beqAddrFalse in *.
+										repeat rewrite removeDupIdentity; intuition.
+							}
+							assert(HidpdpartNotEq : partition <> globalIdPDChild) by intuition.
+							assert(HPDTparts0 : isPDT partition s0) by trivial.
+							specialize (HPDTpartEq partition HidpdpartNotEq HPDTparts0).
+							rewrite <- HPDTpartEq in *. rewrite HPDTpartEq' in *.
+							assert(HPDTparts : isPDT partition s) by trivial.
+							apply isPDTLookupEq in HPDTparts. destruct HPDTparts as [pdentry' Hlookupparts'].
+							eapply getAccessibleMappedBlocksEqSHE ; intuition.
+					++ (* DUP of getAccessibleMappedBlocks*)
+						assert(HEq : getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0)
 								by intuition.
 							rewrite <- HEq.
 
@@ -1849,6 +1887,10 @@ intros. simpl.  set (s' := {|
 						assert(HPDTs00 : isPDT partition s0) by (rewrite HPDTEq in * ; intuition).
 						intuition.
 				++ 	assert(HPDTEq : isPDT partition s = isPDT partition s0)
+							by (specialize (Hinsert partition) ; intuition).
+						assert(HPDTs00 : isPDT partition s0) by (rewrite HPDTEq in * ; intuition).
+						intuition.
+				++ assert(HPDTEq : isPDT partition s = isPDT partition s0)
 							by (specialize (Hinsert partition) ; intuition).
 						assert(HPDTs00 : isPDT partition s0) by (rewrite HPDTEq in * ; intuition).
 						intuition.
@@ -2241,6 +2283,10 @@ pdentry0 = {|    structure := structure pdentry;
 															isPDT partition s0 ->
 															getMappedBlocks partition s = getMappedBlocks partition s0)
 					/\ (forall partition : paddr,
+															partition <> globalIdPDChild ->
+															isPDT partition s0 ->
+															getAccessibleMappedBlocks partition s = getAccessibleMappedBlocks partition s0)
+					/\ (forall partition : paddr,
 								partition <> globalIdPDChild ->
 								isPDT partition s0 ->
 								 getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0)
@@ -2418,6 +2464,10 @@ s1 = {|
 													partition <> globalIdPDChild ->
 													isPDT partition s10 ->
 													getMappedBlocks partition s10 = getMappedBlocks partition s0)
+			/\ (forall partition : paddr,
+													partition <> globalIdPDChild ->
+													isPDT partition s10 ->
+													getAccessibleMappedBlocks partition s10 = getAccessibleMappedBlocks partition s0)
 			/\ (forall partition : paddr,
 						partition <> globalIdPDChild ->
 						isPDT partition s10 ->
@@ -3069,6 +3119,35 @@ intros. simpl.  set (s' := {|
 							assert(HPDTparts : isPDT partition s) by trivial.
 							apply isPDTLookupEq in HPDTparts. destruct HPDTparts as [pdentry' Hlookupparts'].
 							eapply getMappedBlocksEqSHE ; intuition.
+					++ assert(HEq : getAccessibleMappedBlocks partition s = getAccessibleMappedBlocks partition s0)
+								by intuition.
+							rewrite <- HEq.
+
+							assert(HPDTpartEq' : isPDT partition s' = isPDT partition s).
+							{
+								(* DUP *)
+								unfold isPDT. unfold s'.
+								simpl.
+								repeat rewrite beqAddrTrue.
+								destruct (beqAddr (CPaddr (blockToShareInCurrPartAddr + sh1offset)) partition) eqn:beqsh1part; try(exfalso ; congruence).
+								-- (* sh1eaddr = partition) *)
+										rewrite <- DependentTypeLemmas.beqAddrTrue in beqsh1part.
+										rewrite beqsh1part in *.
+										unfold isPDT in *. unfold isSHE in *.
+										destruct (lookup partition (memory s0) beqAddr) ; try(exfalso ; congruence).
+										destruct v ; (intuition ; exfalso ; congruence).
+								-- (* sh1eaddr <> partition) *)
+										simpl.
+										rewrite <- beqAddrFalse in *.
+										repeat rewrite removeDupIdentity; intuition.
+							}
+							assert(HidpdpartNotEq : partition <> globalIdPDChild) by intuition.
+							assert(HPDTparts0 : isPDT partition s0) by trivial.
+							specialize (HPDTpartEq partition HidpdpartNotEq HPDTparts0).
+							rewrite <- HPDTpartEq in *. rewrite HPDTpartEq' in *.
+							assert(HPDTparts : isPDT partition s) by trivial.
+							apply isPDTLookupEq in HPDTparts. destruct HPDTparts as [pdentry' Hlookupparts'].
+							eapply getAccessibleMappedBlocksEqSHE ; intuition.
 					++ assert(HEq : getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0)
 								by intuition.
 							rewrite <- HEq.
@@ -7378,6 +7457,11 @@ assert (HblockInParent : In blockToShareInCurrPartAddr (getMappedBlocks currentP
 				isPDT partition s0 ->
 				(getMappedBlocks partition s) = getMappedBlocks partition s0) by intuition.
 
+		assert(HAmappedblocksEq : forall partition : paddr,
+				partition <> globalIdPDChild ->
+				isPDT partition s0 ->
+				(getAccessibleMappedBlocks partition s) = getAccessibleMappedBlocks partition s0) by intuition.
+
 		assert(HaccessiblemappedEqNotInPart :
 			forall partition : paddr,
 			partition <> globalIdPDChild ->
@@ -7901,6 +7985,86 @@ assert (HblockInParent : In blockToShareInCurrPartAddr (getMappedBlocks currentP
 			specialize(Hcons10 block startblock endblock HPflags HStarts Hends).
 			trivial.
 	} (* end of wellFormedBlock *)
+
+	assert(HMPUFromAccessibleBlocks : MPUFromAccessibleBlocks s).
+	{ (* MPUFromAccessibleBlocks s *)
+
+		(* check all possible values for partition in the modified state s
+			-> leads to s10 -> OK
+		*)
+		assert(Hcons0 : MPUFromAccessibleBlocks s10)
+			by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+		unfold MPUFromAccessibleBlocks.
+		intros partition block MPU HMPU HblockInMPU.
+		(* Check all values *)
+		unfold pdentryMPU in *.
+		destruct (beqAddr sh1eaddr partition) eqn:beqsh1pdentry; try(exfalso ; congruence).
+		-	(* sh1eaddr = partition *)
+			rewrite <- DependentTypeLemmas.beqAddrTrue in beqsh1pdentry.
+			rewrite <- beqsh1pdentry in *.
+			unfold isSHE in *.
+			destruct (lookup sh1eaddr (memory s) beqAddr) ; try(exfalso ; congruence).
+			destruct v ; try(exfalso ; congruence).
+		-	(* sh1eaddr <> partition *)
+			assert(HMPUEq : pdentryMPU partition MPU s = pdentryMPU partition MPU s10).
+			{ 	unfold pdentryMPU.
+				rewrite HsEq.
+				cbn. rewrite beqAddrTrue.
+				rewrite beqsh1pdentry.
+				rewrite <- beqAddrFalse in *.
+				repeat rewrite removeDupIdentity ; intuition.
+			}
+			unfold pdentryMPU in HMPUEq.
+			rewrite HMPUEq in *.
+			specialize(Hcons0 partition block MPU HMPU HblockInMPU).
+
+			destruct (beqAddr globalIdPDChild partition) eqn:beqpdpdentry; try(exfalso ; congruence).
+			-- (* globalIdPDChild = partition *)
+				rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdpdentry.
+				rewrite <- beqpdpdentry in *.
+
+				assert(HAccessibleMappedBlocks : (forall block : paddr,
+						In block (getAccessibleMappedBlocks globalIdPDChild s10) <->
+						In block
+						(newBlockEntryAddr
+						:: getAccessibleMappedBlocks globalIdPDChild s0)))
+				   by intuition.
+
+				assert(HAccessibleMappedBlocks' : (forall block : paddr,
+						In block (getAccessibleMappedBlocks globalIdPDChild s) <->
+						In block
+						(newBlockEntryAddr
+						:: getAccessibleMappedBlocks globalIdPDChild s0)))
+				   by intuition.
+
+				rewrite HAccessibleMappedBlocks'. rewrite <- HAccessibleMappedBlocks.
+				trivial.
+			-- (* globalIdPDChild <> partition *)
+				rewrite beqAddrSym in beqpdpdentry.
+				rewrite <- beqAddrFalse in beqpdpdentry.
+
+				assert(HAmappedblocksEq' : forall partition : paddr,
+						partition <> globalIdPDChild ->
+						isPDT partition s10 ->
+						getAccessibleMappedBlocks partition s10 =
+						getAccessibleMappedBlocks partition s0)
+					by intuition.
+				assert(HPDTparts0 : isPDT partition s10).
+				{
+					unfold isPDT.
+					destruct (lookup partition (memory s10) beqAddr) ; try (exfalso ; congruence).
+					destruct v ; try (exfalso ; congruence).
+					trivial.
+				}
+				specialize (HAmappedblocksEq' partition beqpdpdentry HPDTparts0).
+				assert(HPDTpartNotidPDEq :   (forall partition : paddr,
+									isPDT partition s10 = isPDT partition s0))
+					by intuition.
+				specialize (HPDTpartNotidPDEq partition).
+				rewrite HPDTpartNotidPDEq in *.
+				rewrite HAmappedblocksEq' in *.
+				rewrite HAmappedblocksEq ; trivial.
+	} (* end of MPUFromAccessibleBlocks *)
 
 	assert(HaccessibleChildPaddrIsAccessibleIntoParents : accessibleChildPaddrIsAccessibleIntoParent s).
 	{ (* accessibleChildPaddrIsAccessibleIntoParent s *)
@@ -9109,9 +9273,7 @@ assert(HVS : verticalSharing s).
   predCurrentNbFreeSlots sh1eaddr sh1entry sh1entry0 sh1entry1 sh1entrybts
   Hoptionlists olds n0 n1 n2 nbleft s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12; intuition.
 	unfold AddMemoryBlockPropagatedProperties ; intuition.
-	(* WIP prove findBlock 
-		+ add last consistency property MPUInAccessibleBlocks *)
-	admit.
+	(* WIP prove findBlock *)
 }
 
 
@@ -9128,7 +9290,6 @@ assert(HKI : kernelDataIsolation s).
   predCurrentNbFreeSlots sh1eaddr sh1entry sh1entry0 sh1entry1 sh1entrybts
   Hoptionlists olds n0 n1 n2 nbleft s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12; intuition.
 	unfold AddMemoryBlockPropagatedProperties ; intuition.
-	admit.
 }
 
 
@@ -9145,7 +9306,6 @@ assert(HI : partitionsIsolation s).
   predCurrentNbFreeSlots sh1eaddr sh1entry sh1entry0 sh1entry1 sh1entrybts
   Hoptionlists olds n0 n1 n2 nbleft s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12; intuition.
 	unfold AddMemoryBlockPropagatedProperties ; intuition.
-	admit.
 }
 
 intuition.

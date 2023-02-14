@@ -17232,6 +17232,7 @@ getKSEntries partition s = getKSEntries partition s0
 /\ getConfigPaddr partition s = getConfigPaddr partition s0
 /\ getChildren partition s = getChildren partition s0
 /\ getMappedBlocks partition s = getMappedBlocks partition s0
+/\ getAccessibleMappedBlocks partition s = getAccessibleMappedBlocks partition s0
 /\ getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0.
 Proof.
 set (s' :=   {|
@@ -17247,6 +17248,7 @@ eapply getMappedPaddrEqPDTNotInPart; intuition.
 eapply getConfigPaddrEqPDTNotInPart with pdentry0 ; intuition.
 eapply getChildrenEqPDTNotInPart with pdentry0; intuition.
 eapply getMappedBlocksEqPDTNotInPart; intuition.
+eapply getAccessibleMappedBlocksEqPDTNotInPart; intuition.
 eapply getAccessibleMappedPaddrEqPDTNotInPart; intuition.
 Qed.
 

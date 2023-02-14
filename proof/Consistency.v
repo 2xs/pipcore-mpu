@@ -141,9 +141,6 @@ isPDT multiplexer s.
 
 Definition currentPartitionInPartitionsList s :=
 In (currentPartition s) (getPartitions multiplexer s).
-(*forall pdaddr,
-currentPartition s = pdaddr ->
-isPDT pdaddr s.*)
 
 Definition BlocksRangeFromKernelStartIsBE s :=
 forall kernelentryaddr : paddr, forall blockidx : index,
@@ -237,7 +234,13 @@ isPDT partition s ->
 NoDup (getUsedPaddr partition s).
 
 Definition noDupPartitionTree s :=
-NoDup (getPartitions multiplexer s) .
+NoDup (getPartitions multiplexer s).
+
+Definition MPUFromAccessibleBlocks s :=
+forall partition block blocksInMPU,
+pdentryMPU partition blocksInMPU s ->
+In block blocksInMPU ->
+In block (getAccessibleMappedBlocks partition s).
 
 Definition sharedBlockPointsToChild s :=
 forall parent child addr parentblock sh1entryaddr,
@@ -283,7 +286,8 @@ isParent s /\
 isChild s /\
 noDupKSEntriesList s /\
 noDupMappedBlocksList s /\
-wellFormedBlock s.
+wellFormedBlock s /\
+MPUFromAccessibleBlocks s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=
