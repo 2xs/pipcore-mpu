@@ -68,10 +68,11 @@ eapply WP.bindRev.
 	eapply weaken. eapply findBlockInKSWithAddr.findBlockInKSWithAddr.
 	intros. simpl.
 	(* add PDT currentPart in common hypothesis *)
-	assert(HPDTcurrPart : isPDT currentPart s) by admit. (*
-	{ 	intuition. subst currentPart. eapply currentPartIsPDT ; intuition.
-			unfold consistency in * ; unfold consistency1 in * ; unfold consistency1 in * ; intuition.
-	}*)
+	assert(HPDTcurrPart : isPDT currentPart s).
+	{ 	intuition. subst currentPart.
+		unfold consistency in * ; unfold consistency1 in *.
+		eapply currentPartIsPDT ; intuition.
+	}
 	split.
 	pose (H' := conj H HPDTcurrPart). apply H'. intuition.
 }
