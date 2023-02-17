@@ -138,10 +138,9 @@ case_eq addrIsNull.
 				(* child has been checked, we know that idPDchild is valid and isBE *)
 				destruct H10. (* exists sh1entryaddr ... checkChild ... *)
 				destruct H4. (* isChildCurrPart = checkChild ... *)
-				destruct H10. (* exists... lookup idPDchild... *)
+				destruct H10 as [(idpdbentry & Hidpd) _ ]. (* exists... lookup idPDchild... *)
 				unfold isBE. intuition.
-				assert(Hlookup : lookup idPDchild (memory s) beqAddr = Some (BE x0)) by intuition.
-				rewrite Hlookup; trivial.
+				rewrite Hidpd; trivial.
 			}
 			intro globalIdPDChild.
 			eapply WP.bindRev.
@@ -154,7 +153,7 @@ case_eq addrIsNull.
 							who is a child *)
 					repeat rewrite <- beqAddrFalse in *. rewrite negb_false_iff in *. intuition.
 					unfold bentryStartAddr in *.
-					destruct H11 as [sh1entryaddr (Hcheckchild & ( idpdchildentry & (HlookupidPDchild & (sh1entry & (Hsh1entryaddr & Hlookupshe1entryaddr)))))].
+					destruct H11 as [sh1entryaddr (Hcheckchild & ( (idpdchildentry & HlookupidPDchild) & ((sh1entry & Hlookupshe1entryaddr) & _ ) ))].
 					assert(HPDTIfPDFlag : PDTIfPDFlag s)
 							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold PDTIfPDFlag in *.
@@ -162,8 +161,9 @@ case_eq addrIsNull.
 					specialize (HPDTIfPDFlag idPDchild sh1entryaddr).
 					rewrite HlookupidPDchild in *. subst.
 					intuition.
-					destruct H4.
-					unfold isPDT. destruct H1.
+					destruct H11. (*exists startaddr : paddr, bentryStartAddr  ... & ... *)
+					intuition.
+					unfold isPDT.
 					destruct (lookup (startAddr (blockrange idpdchildentry)) (memory s) beqAddr) eqn:Hlookup ; try(exfalso ; congruence).
 					destruct v eqn:Hv ; try (exfalso ; congruence).
 					trivial.
@@ -317,7 +317,8 @@ case_eq addrIsNull.
 																		assert(HblockToShare : exists entry : BlockEntry,
 																				lookup blockToShareInCurrPartAddr (memory s) beqAddr = Some (BE entry) /\
 																				blockToShareInCurrPartAddr = idBlockToShare /\
-        																bentryPFlag blockToShareInCurrPartAddr true s)
+        																		bentryPFlag blockToShareInCurrPartAddr true s /\
+																				In blockToShareInCurrPartAddr (getMappedBlocks currentPart s))
 																			by intuition.
 																		destruct HblockToShare as [blocktoshareentry (Hlookupblocktoshare & (HblocktoshqreEq & HblockPFlgaTrue))].
 																		subst. rewrite Hlookupblocktoshare. trivial.
@@ -332,7 +333,8 @@ case_eq addrIsNull.
 																		assert(HblockToShare : exists entry : BlockEntry,
 																				lookup blockToShareInCurrPartAddr (memory s) beqAddr = Some (BE entry) /\
 																				blockToShareInCurrPartAddr = idBlockToShare /\
-        																bentryPFlag blockToShareInCurrPartAddr true s)
+        																		bentryPFlag blockToShareInCurrPartAddr true s /\
+																				In blockToShareInCurrPartAddr (getMappedBlocks currentPart s))
 																			by intuition.
 																		destruct HblockToShare as [blocktoshareentry (Hlookupblocktoshare & (HblocktoshqreEq & HblockPFlgaTrue))].
 																		subst. rewrite Hlookupblocktoshare. trivial.
@@ -535,24 +537,23 @@ exists s0,
                                (memory s0) beqAddr =
                              Some (BE entry) /\
                              blockToShareInCurrPartAddr = idBlockToShare /\
-        										bentryPFlag blockToShareInCurrPartAddr true s0)) /\
+        										bentryPFlag blockToShareInCurrPartAddr true s0 /\
+												In blockToShareInCurrPartAddr (getMappedBlocks currentPart s0))) /\
                         beqAddr nullAddr blockToShareInCurrPartAddr =
                         false /\
                        (exists entry : BlockEntry,
                           lookup blockToShareInCurrPartAddr
                             (memory s0) beqAddr =
                           Some (BE entry)) /\
-                      (isChildCurrPart = true ->
-                       exists sh1entryaddr : paddr,
-                         isChildCurrPart =
-                         checkChild idPDchild s0 sh1entryaddr /\
-                         (exists entry : BlockEntry,
-                            lookup idPDchild (memory s0) beqAddr =
-                            Some (BE entry) /\
-                            (exists sh1entry : Sh1Entry,
-                               sh1entryAddr idPDchild sh1entryaddr s0 /\
-                               lookup sh1entryaddr (memory s0) beqAddr =
-                               Some (SHE sh1entry)))) /\
+						(isChildCurrPart = true ->
+						exists sh1entryaddr : paddr,
+						isChildCurrPart = checkChild idPDchild s0 sh1entryaddr /\
+						(exists entry : BlockEntry,
+							lookup idPDchild (memory s0) beqAddr = Some (BE entry)) /\
+							(exists sh1entry : Sh1Entry,
+							(sh1entryAddr idPDchild sh1entryaddr s0 /\
+							lookup sh1entryaddr (memory s0) beqAddr = Some (SHE sh1entry)))
+						/\ In idPDchild (getMappedBlocks currentPart s0)) /\
                      bentryStartAddr idPDchild globalIdPDChild s0 /\
                     isPDT globalIdPDChild s0 /\
                    pdentryNbFreeSlots globalIdPDChild nbfreeslots s0 /\
@@ -1991,7 +1992,8 @@ exists s0,
                                (memory s0) beqAddr =
                              Some (BE entry) /\
                              blockToShareInCurrPartAddr = idBlockToShare /\
-        										bentryPFlag blockToShareInCurrPartAddr true s0)) /\
+        										bentryPFlag blockToShareInCurrPartAddr true s0 /\
+												In blockToShareInCurrPartAddr (getMappedBlocks currentPart s0))) /\
                         beqAddr nullAddr blockToShareInCurrPartAddr =
                         false /\
                        (exists entry : BlockEntry,
@@ -2004,11 +2006,12 @@ exists s0,
                          checkChild idPDchild s0 sh1entryaddr /\
                          (exists entry : BlockEntry,
                             lookup idPDchild (memory s0) beqAddr =
-                            Some (BE entry) /\
-                            (exists sh1entry : Sh1Entry,
-                               sh1entryAddr idPDchild sh1entryaddr s0 /\
+                            Some (BE entry)) /\
+							(exists sh1entry : Sh1Entry,
+                               (sh1entryAddr idPDchild sh1entryaddr s0 /\
                                lookup sh1entryaddr (memory s0) beqAddr =
-                               Some (SHE sh1entry)))) /\
+                               Some (SHE sh1entry))) /\
+							   In idPDchild (getMappedBlocks currentPart s0)) /\
                      bentryStartAddr idPDchild globalIdPDChild s0 /\
                     isPDT globalIdPDChild s0 /\
                    pdentryNbFreeSlots globalIdPDChild nbfreeslots s0 /\
@@ -4217,9 +4220,29 @@ intros. simpl.  set (s' := {|
 			subst addrIsAccessible. assumption.
 		} (* use AccessibleNoPDFlag consistency prop *)
 
-		assert(HidpdInMapped : In idPDchild (getMappedBlocks currentPart s0))
-			by admit. (*from found block : present in structure *)
-
+		assert(HidpdInMapped : In idPDchild (getMappedBlocks currentPart s0)).
+		{ (* extract from context of childCurrPart*)
+			assert(HchildCurrPart : (isChildCurrPart = true ->
+					exists sh1entryaddr : paddr,
+					isChildCurrPart = checkChild idPDchild s0 sh1entryaddr /\
+					(exists entry : BlockEntry,
+						lookup idPDchild (memory s0) beqAddr = Some (BE entry)) /\
+						(exists sh1entry : Sh1Entry,
+							(sh1entryAddr idPDchild sh1entryaddr s0 /\
+							lookup sh1entryaddr (memory s0) beqAddr =
+							Some (SHE sh1entry))) /\
+							In idPDchild (getMappedBlocks currentPart s0)))
+				by intuition.
+			assert(isChildCurrPart = true).
+			{ assert(Hchild : negb isChildCurrPart = false) by intuition.
+				apply negb_false_iff. trivial.
+			}
+			subst isChildCurrPart.
+			destruct HchildCurrPart as [Htrue HchildCurrPart]; trivial.
+			destruct HchildCurrPart as [_ (_ & (_ & HHchildCurrPart'))].
+			intuition.
+		}
+		
 		assert(HidpdIsChild : In globalIdPDChild (getChildren currentPart s0)).
 		{
 				unfold getChildren.
@@ -4232,6 +4255,33 @@ intros. simpl.  set (s' := {|
 				assert(HPDTcurrParts0 : isPDT currentPart s0) by intuition.
 				specialize (HNDupMappedBlocks currentPart HPDTcurrParts0).
 				unfold getPDs.
+				
+				(* clear context which could interfere with induction *)
+				intuition
+				clear H151. (* exists entry : BlockEntry,
+								lookup blockToShareInCurrPartAddr (memory s0) beqAddr =
+								Some (BE entry) /\
+								blockToShareInCurrPartAddr = idBlockToShare /\
+								bentryPFlag blockToShareInCurrPartAddr true s0 /\
+								In blockToShareInCurrPartAddr (getMappedBlocks currentPart s0) *)
+				assert(isChildCurrPart = true).
+				{ assert(Hchild : negb isChildCurrPart = false) by intuition.
+					apply negb_false_iff. trivial.
+				}
+				subst isChildCurrPart.
+				destruct H54 as [sh1entryaddr Hidpd]; trivial. (*true = true ->
+																exists sh1entryaddr : paddr,
+																true = checkChild idPDchild s0 sh1entryaddr /\
+																(exists entry : BlockEntry,
+																	lookup idPDchild (memory s0) beqAddr = Some (BE entry)) /\
+																(exists sh1entry : Sh1Entry,
+																	sh1entryAddr idPDchild sh1entryaddr s0 /\
+																	lookup sh1entryaddr (memory s0) beqAddr = Some (SHE sh1entry)) /\
+																In idPDchild (getMappedBlocks currentPart s0)*)
+				destruct Hidpd as [Hcheckchild ((idpdentry & Hidpd) & ((sh1entryidpd & (Hsh1entryAddridpd & Hlookupsh1idpd)) & Hmapped))].
+				clear Hmapped.
+
+				(* context cleared, induction possible *)
 				induction (getMappedBlocks currentPart s0).
 				- intuition.
 				- simpl in *.
@@ -4239,26 +4289,11 @@ intros. simpl.  set (s' := {|
 					-- (* a = idPDchild *)
 							subst a1.
 							unfold childFilter. simpl.
-							assert(isChildCurrPart = true).
-							{ assert(Hchild : negb isChildCurrPart = false) by intuition.
-								apply negb_false_iff. trivial.
-							}
-							subst isChildCurrPart.
-							destruct H54 ; trivial. (* true = true ->
-     																		 exists sh1entryaddr : paddr, ... *)
-							assert(Hidpd : true = checkChild idPDchild s0 x /\
-								(exists entry : BlockEntry,
-									 lookup idPDchild (memory s0) beqAddr = Some (BE entry) /\
-									 (exists sh1entry : Sh1Entry,
-											sh1entryAddr idPDchild x s0 /\
-											lookup x (memory s0) beqAddr = Some (SHE sh1entry)))) by intuition.
-							destruct Hidpd as [Hcheckchild (idpdentry & (Hidpd & Hsh1idpd))].
 							assert(HPDTIfPDFlag : PDTIfPDFlag s0)
 									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 							unfold PDTIfPDFlag in *.
-							destruct (Hsh1idpd) as [sh1entryidpd (Hsh1entryAddridpd & Hlookupsh1idpd)].
 							pose (Hconj := conj Hcheckchild Hsh1entryAddridpd).
-							specialize (HPDTIfPDFlag idPDchild x Hconj).
+							specialize (HPDTIfPDFlag idPDchild sh1entryaddr Hconj).
 							destruct HPDTIfPDFlag as [HAflag (HPflag & HbentryStartPD)].
 							destruct HbentryStartPD as [startaddr (HbentryStart & HentryPDT)].
 
@@ -4299,9 +4334,18 @@ intros. simpl.  set (s' := {|
 							simpl. right. intuition.
 			} (* from checkIsChild *)
 
-			assert(HglobalInPartTree : In globalIdPDChild (getPartitions multiplexer s0))
-				by admit. (* lemma isChild of currPart that belongs to tree
-											then also belongs to partition tree *)
+			assert(HglobalInPartTree : In globalIdPDChild (getPartitions multiplexer s0)).
+			{(* lemma isChild of currPart that belongs to tree
+					then also belongs to partition tree *)
+				assert(HNoDupPartTree : noDupPartitionTree s0)
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency s*)
+				apply childrenPartitionInPartitionList with currentPart; intuition.
+				assert(Hcons0 : currentPartitionInPartitionsList s0)
+					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+				unfold currentPartitionInPartitionsList in *.
+				subst currentPart.
+				assumption.
+			}
 
 		assert(HstartendEq : (endAddr (blockrange bentry6) = blockend) /\ (startAddr (blockrange bentry6) = blockstart)).
 		{
@@ -7046,8 +7090,18 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 					intuition.
 	} (* end of DisjointKSEntries *)
 
-assert (HblockInParent : In blockToShareInCurrPartAddr (getMappedBlocks currentPart s0))
-	by admit. (* from block found*)
+	assert (HblockInParent : In blockToShareInCurrPartAddr (getMappedBlocks currentPart s0)).
+	{
+		intuition.
+		destruct H153. (*  exists entry : BlockEntry,
+								lookup blockToShareInCurrPartAddr (memory s0) beqAddr =
+								Some (BE entry) /\
+								blockToShareInCurrPartAddr = idBlockToShare /\
+								bentryPFlag blockToShareInCurrPartAddr true s0 /\
+								In blockToShareInCurrPartAddr (getMappedBlocks currentPart s0)*)
+		intuition.
+	
+	} (* from block found*)
 
 	assert(HnoDupUsedPaddrLists : noDupUsedPaddrList s).
 	{ (* noDupUsedPaddrList s *)
@@ -8241,30 +8295,40 @@ assert (HblockInParent : In blockToShareInCurrPartAddr (getMappedBlocks currentP
 						unfold isPDT in HPDTparents0.
 						destruct (lookup currentPart (memory s0) beqAddr) ; try(exfalso ; congruence).
 						destruct v ; try (exfalso ; congruence).
-						clear HidpdInMapped.
+
+						assert(HAflag : bentryAFlag blockToShareInCurrPartAddr addrIsAccessible s0)
+						by intuition.
+						assert(HATrue : addrIsAccessible = true).
+						{ assert(Hneg : negb addrIsAccessible = false) by assumption.
+							rewrite negb_false_iff in Hneg ; assumption.
+						}
+
+						assert(HNoDup : noDupMappedBlocksList s0)
+						by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+
+						assert(HPDTcurrParts0 : isPDT currentPart s0) by intuition.
+						unfold noDupMappedBlocksList in *.
+						specialize (HNoDup currentPart HPDTcurrParts0).
+
+						(* clear context for induction *)
+						clear Hprops. clear Hprops0. clear Hstates. clear Hfreeslotss.
+						clear HblockInParent. clear HidpdInMapped. 
 						induction (getMappedBlocks currentPart s0).
 						- intuition.
 						- simpl in *.
+							apply NoDup_cons_iff in HNoDup.
 							destruct HparentInMappedlist as [HparentInMappedlist | HparentInMappedlist].
-							subst a1.
-							unfold isBE in HBEbtss0.
-							assert(HAflag : bentryAFlag blockToShareInCurrPartAddr addrIsAccessible s0)
-								by intuition.
-							assert(HATrue : addrIsAccessible = true).
-							{ assert(Hneg : negb addrIsAccessible = false) by assumption.
-								rewrite negb_false_iff in Hneg ; assumption.
-							}
-							subst addrIsAccessible.
-							unfold bentryAFlag in *.
-							destruct (lookup blockToShareInCurrPartAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
-							destruct v ; try(exfalso ; congruence).
-							rewrite <- HAflag.
-							simpl ; left ; trivial.
-							destruct (lookup a1 (memory s0) beqAddr) ; intuition.
-							destruct v ; intuition.
-							destruct (accessible b) ; intuition.
-							destruct v ; intuition.
-							destruct (accessible b) ; intuition.
+							-- subst a1.
+								unfold isBE in HBEbtss0.
+								subst addrIsAccessible.
+								unfold bentryAFlag in *.
+								destruct (lookup blockToShareInCurrPartAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+								destruct v ; try(exfalso ; congruence).
+								rewrite <- HAflag.
+								simpl ; left ; trivial.
+							-- 	destruct (lookup a1 (memory s0) beqAddr) ; intuition.
+								destruct v ; intuition.
+								destruct (accessible b) ; intuition.
 					}
 					induction (getAccessibleMappedBlocks currentPart s0).
 					** intuition.
@@ -9229,87 +9293,86 @@ assert (HblockInParent : In blockToShareInCurrPartAddr (getMappedBlocks currentP
 										subst sh1entryaddr. assumption.
 	} (* end of sharedBlockPointsToChild *)
 
-assert(Hcons1 : consistency1 s).
-{
-	(** consistency1 **)
-	unfold consistency1.
-	intuition.
-}
-
-(* last checkpoint of consistency2 is s0 since the Sh1 changes didn't happen
-		when inserting the entry when the last checkpoint took place *)
-assert(Hcons2 : consistency2 s).
-{
-	(** consistency2 **)
-	unfold consistency2.
-	intuition.
-}
-assert(Hconsistency : consistency s).
-{
-	unfold consistency.
-
-	split.
-	- (** consistency1 **)
+	assert(Hcons1 : consistency1 s).
+	{
+		(** consistency1 **)
+		unfold consistency1.
 		intuition.
+	}
 
-
-	- (** consistency2 **)
+	(* last checkpoint of consistency2 is s0 since the Sh1 changes didn't happen
+			when inserting the entry when the last checkpoint took place *)
+	assert(Hcons2 : consistency2 s).
+	{
+		(** consistency2 **)
+		unfold consistency2.
 		intuition.
-}
+	}
+	assert(Hconsistency : consistency s).
+	{
+		unfold consistency.
 
-split. intuition. (* consistency s*)
+		split.
+		- (** consistency1 **)
+			intuition.
 
-- (** security properties **)
 
-assert(HVS : verticalSharing s).
+		- (** consistency2 **)
+			intuition.
+	}
 
+	split. intuition. (* consistency s*)
+
+	(** security properties **)
+
+	assert(HVS : verticalSharing s).
 	{ (* verticalSharing s*)
 
-		apply AddMemoryBlockVS with idPDchild idBlockToShare r w e currentPart
-  blockToShareInCurrPartAddr addrIsNull rcheck isChildCurrPart globalIdPDChild
-  nbfreeslots zero isFull childfirststructurepointer slotIsNull addrIsAccessible
-  addrIsPresent PDChildAddr pdchildIsNull vidtBlockGlobalId blockstart blockend blockToShareChildEntryAddr
-  pdentry pdentry0 pdentry1 bentry bentry0 bentry1 bentry2 bentry3 bentry4 bentry5
-  bentry6 sceaddr scentry newBlockEntryAddr newFirstFreeSlotAddr
-  predCurrentNbFreeSlots sh1eaddr sh1entry sh1entry0 sh1entry1 sh1entrybts
-  Hoptionlists olds n0 n1 n2 nbleft s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12; intuition.
-	unfold AddMemoryBlockPropagatedProperties ; intuition.
-	(* WIP prove findBlock *)
-}
+			apply AddMemoryBlockVS with idPDchild idBlockToShare r w e currentPart
+	blockToShareInCurrPartAddr addrIsNull rcheck isChildCurrPart globalIdPDChild
+	nbfreeslots zero isFull childfirststructurepointer slotIsNull addrIsAccessible
+	addrIsPresent PDChildAddr pdchildIsNull vidtBlockGlobalId blockstart blockend blockToShareChildEntryAddr
+	pdentry pdentry0 pdentry1 bentry bentry0 bentry1 bentry2 bentry3 bentry4 bentry5
+	bentry6 sceaddr scentry newBlockEntryAddr newFirstFreeSlotAddr
+	predCurrentNbFreeSlots sh1eaddr sh1entry sh1entry0 sh1entry1 sh1entrybts
+	Hoptionlists olds n0 n1 n2 nbleft s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12; intuition.
+		unfold AddMemoryBlockPropagatedProperties ; intuition.
+	}
 
 
-assert(HKI : kernelDataIsolation s).
-
+	assert(HKI : kernelDataIsolation s).
 	{ (* kernelDataIsolation s*)
 
-		apply AddMemoryBlockKI with idPDchild idBlockToShare r w e currentPart
-  blockToShareInCurrPartAddr addrIsNull rcheck isChildCurrPart globalIdPDChild
-  nbfreeslots zero isFull childfirststructurepointer slotIsNull addrIsAccessible
-  addrIsPresent PDChildAddr pdchildIsNull vidtBlockGlobalId blockstart blockend blockToShareChildEntryAddr
-  pdentry pdentry0 pdentry1 bentry bentry0 bentry1 bentry2 bentry3 bentry4 bentry5
-  bentry6 sceaddr scentry newBlockEntryAddr newFirstFreeSlotAddr
-  predCurrentNbFreeSlots sh1eaddr sh1entry sh1entry0 sh1entry1 sh1entrybts
-  Hoptionlists olds n0 n1 n2 nbleft s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12; intuition.
-	unfold AddMemoryBlockPropagatedProperties ; intuition.
-}
+			apply AddMemoryBlockKI with idPDchild idBlockToShare r w e currentPart
+	blockToShareInCurrPartAddr addrIsNull rcheck isChildCurrPart globalIdPDChild
+	nbfreeslots zero isFull childfirststructurepointer slotIsNull addrIsAccessible
+	addrIsPresent PDChildAddr pdchildIsNull vidtBlockGlobalId blockstart blockend blockToShareChildEntryAddr
+	pdentry pdentry0 pdentry1 bentry bentry0 bentry1 bentry2 bentry3 bentry4 bentry5
+	bentry6 sceaddr scentry newBlockEntryAddr newFirstFreeSlotAddr
+	predCurrentNbFreeSlots sh1eaddr sh1entry sh1entry0 sh1entry1 sh1entrybts
+	Hoptionlists olds n0 n1 n2 nbleft s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12; intuition.
+		unfold AddMemoryBlockPropagatedProperties ; intuition.
+	}
 
 
-assert(HI : partitionsIsolation s).
+	assert(HI : partitionsIsolation s).
 
 	{ (* partitionsIsolation s*)
 
-		apply AddMemoryBlockHI with idPDchild idBlockToShare r w e currentPart
-  blockToShareInCurrPartAddr addrIsNull rcheck isChildCurrPart globalIdPDChild
-  nbfreeslots zero isFull childfirststructurepointer slotIsNull addrIsAccessible
-  addrIsPresent PDChildAddr pdchildIsNull vidtBlockGlobalId blockstart blockend blockToShareChildEntryAddr
-  pdentry pdentry0 pdentry1 bentry bentry0 bentry1 bentry2 bentry3 bentry4 bentry5
-  bentry6 sceaddr scentry newBlockEntryAddr newFirstFreeSlotAddr
-  predCurrentNbFreeSlots sh1eaddr sh1entry sh1entry0 sh1entry1 sh1entrybts
-  Hoptionlists olds n0 n1 n2 nbleft s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12; intuition.
-	unfold AddMemoryBlockPropagatedProperties ; intuition.
-}
+			apply AddMemoryBlockHI with idPDchild idBlockToShare r w e currentPart
+	blockToShareInCurrPartAddr addrIsNull rcheck isChildCurrPart globalIdPDChild
+	nbfreeslots zero isFull childfirststructurepointer slotIsNull addrIsAccessible
+	addrIsPresent PDChildAddr pdchildIsNull vidtBlockGlobalId blockstart blockend blockToShareChildEntryAddr
+	pdentry pdentry0 pdentry1 bentry bentry0 bentry1 bentry2 bentry3 bentry4 bentry5
+	bentry6 sceaddr scentry newBlockEntryAddr newFirstFreeSlotAddr
+	predCurrentNbFreeSlots sh1eaddr sh1entry sh1entry0 sh1entry1 sh1entrybts
+	Hoptionlists olds n0 n1 n2 nbleft s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12; intuition.
+		unfold AddMemoryBlockPropagatedProperties ; intuition.
+	}
 
-intuition.
+	intuition.
 
-Admitted.
+	} (* ret *)
+
+Qed.
 

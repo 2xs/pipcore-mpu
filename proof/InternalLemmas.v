@@ -2876,149 +2876,10 @@ split.
     assert (0 < nbLevel) as Hll by apply nbLevelNotZero.
     case_eq (lt_dec 0 nbLevel); intros l' Hl';[     rewrite Hl' in *; simpl in *|]; lia.
 Qed.
-
-Lemma AllPagesAll :
-forall p : page, In p getAllPages.
-Proof.
-intros.
-unfold getAllPages.
-apply in_map_iff.
-exists p.
-split.
-unfold CPage.
-case_eq (lt_dec p nbPage); intros.
-destruct p.
-simpl in *.
-f_equal.
-apply proof_irrelevance.
-destruct p.
-simpl in *. lia.
-apply in_seq.
-simpl.
-assert (0 < nbPage). apply nbPageNotZero.
-destruct p.
-simpl.
-lia.
-Qed.
+*)
 
 
-Lemma lengthNoDupPartitions :
-forall listPartitions : list page, NoDup listPartitions ->
-length listPartitions <= nbPage.
-Proof.
-intros.
-assert (forall p : page, In p getAllPages) by apply AllPagesAll.
-assert (length getAllPages <= nbPage).
-unfold getAllPages.
-rewrite map_length.
-rewrite seq_length. trivial.
-apply NoDup_incl_length with page listPartitions getAllPages in H.
-lia.
-unfold incl.
-intros.
-apply AllPagesAll.
-Qed.
-
-Lemma nextEntryIsPPgetParent partition pd s :
-nextEntryIsPP partition PPRidx pd s <->
-StateLib.getParent partition (memory s) = Some pd.
-Proof.
-split.
-intros.
-unfold nextEntryIsPP in *.
-unfold  StateLib.getParent in *.
-destruct(StateLib.Index.succ PPRidx); [| now contradict H].
-unfold  StateLib.readPhysical in *.
-destruct (lookup partition i (memory s) beqPage beqIndex); [| now contradict H].
-destruct v ; try now contradict H.
-inversion H; subst; trivial.
-intros.
-unfold nextEntryIsPP in *.
-unfold  StateLib.getParent in *.
-destruct(StateLib.Index.succ PPRidx); [| now contradict H].
-unfold  StateLib.readPhysical in *.
-destruct (lookup partition i (memory s) beqPage beqIndex); [| now contradict H].
-destruct v ; try now contradict H.
-inversion H; subst; trivial.
-Qed.
-
-
-
-Lemma nbPartition s:
-noDupPartitionTree s ->
-length (getPartitions multiplexer s) < (nbPage+1).
-Proof.
-intros.
-rewrite NPeano.Nat.add_1_r.
-apply le_lt_n_Sm.
-apply lengthNoDupPartitions.
-trivial.
-Qed.
-
-Lemma childrenPartitionInPartitionList s phyVA parent:
-noDupPartitionTree s ->
-In parent (getPartitions multiplexer s ) ->
-In phyVA (getChildren parent s) ->
-In phyVA (getPartitions multiplexer s).
-Proof.
-intro Hnodup.
-unfold getPartitions .
-assert
-(length (getPartitions multiplexer s) < (nbPage+1)).
-apply nbPartition;trivial.
-unfold getPartitions in H.
-revert H.
-generalize multiplexer.
-induction (nbPage+1); simpl.
-+ intros. now contradict H.
-+ intros.
-  simpl in *.
-  destruct H0.
-  - rewrite H0 in *.
-    clear H0.
-    right.
-    induction ((getChildren parent s)).
-    * simpl. auto.
-    * simpl in *.
-      apply in_app_iff.
-      destruct H1.
-      subst.
-      left.
-      destruct n. lia.
-      simpl.
-      left. trivial.
-      right. apply IHl.
-      intros.
-      apply IHn.
-      lia.
-      assumption.
-      right.
-      assumption.
-      apply lt_n_S.
-      apply lt_S_n in H.
-      rewrite app_length in H.
-      lia.
-      assumption.
-  - right.
-    induction (getChildren p s); simpl in *.
-    * now contradict H.
-    * simpl in *.
-      apply in_app_iff in H0.
-      apply in_app_iff .
-      destruct H0.
-      left.
-      apply IHn ; trivial.
-      apply lt_S_n in H.
-      rewrite app_length in H.
-      lia.
-      right.
-      apply IHl; trivial.
-      apply lt_n_S.
-      apply lt_S_n in H.
-      rewrite app_length in H.
-      lia.
-Qed.
-
+(*
 Lemma nbPageLL fstLL s:
 NoDup(getLLPages fstLL s (nbPage + 1))  ->
 length (getLLPages fstLL s (nbPage + 1)) <(nbPage + 1).
@@ -16249,6 +16110,112 @@ NoDup l ->
 length(l) < list_max l.
 *)
 
+Lemma lengthNoDupPartitions :
+forall listPartitions : list paddr, NoDup listPartitions ->
+length listPartitions <= maxAddr + 1.
+Proof.
+apply PaddrListBoundedLength ; intuition.
+Qed.
+
+
+(*
+Lemma nextEntryIsPPgetParent partition pd s :
+nextEntryIsPP partition PPRidx pd s <->
+StateLib.getParent partition (memory s) = Some pd.
+Proof.
+split.
+intros.
+unfold nextEntryIsPP in *.
+unfold  StateLib.getParent in *.
+destruct(StateLib.Index.succ PPRidx); [| now contradict H].
+unfold  StateLib.readPhysical in *.
+destruct (lookup partition i (memory s) beqPage beqIndex); [| now contradict H].
+destruct v ; try now contradict H.
+inversion H; subst; trivial.
+intros.
+unfold nextEntryIsPP in *.
+unfold  StateLib.getParent in *.
+destruct(StateLib.Index.succ PPRidx); [| now contradict H].
+unfold  StateLib.readPhysical in *.
+destruct (lookup partition i (memory s) beqPage beqIndex); [| now contradict H].
+destruct v ; try now contradict H.
+inversion H; subst; trivial.
+Qed.
+*)
+
+
+Lemma nbPartition s:
+noDupPartitionTree s ->
+length (getPartitions multiplexer s) <= (maxAddr+1).
+Proof.
+intros.
+apply lengthNoDupPartitions.
+trivial.
+Qed.
+
+
+Lemma childrenPartitionInPartitionList s phyVA parent:
+noDupPartitionTree s ->
+In parent (getPartitions multiplexer s ) ->
+In phyVA (getChildren parent s) ->
+In phyVA (getPartitions multiplexer s).
+Proof.
+intro Hnodup.
+unfold getPartitions .
+assert
+(HH : length (getPartitions multiplexer s) <= (maxAddr+1)).
+apply nbPartition;trivial.
+assert
+(length (getPartitions multiplexer s) < (maxAddr+2)).
+lia. clear HH.
+unfold getPartitions in H.
+revert H.
+generalize multiplexer.
+induction (maxAddr+2); simpl.
++ intros. now contradict H.
++ intros.
+  simpl in *.
+  destruct H0.
+  - rewrite H0 in *.
+    clear H0.
+    right.
+    induction ((getChildren parent s)).
+    * simpl. auto.
+    * simpl in *.
+      apply in_app_iff.
+      destruct H1.
+      subst.
+      left.
+      destruct n. simpl in *. lia.
+      left. trivial.
+      right. apply IHl.
+      intros.
+      apply IHn.
+      lia.
+      assumption.
+      right.
+      assumption.
+      rewrite app_length in H.
+      lia.
+      assumption.
+  - right.
+    induction (getChildren p s); simpl in *.
+    * now contradict H.
+    * simpl in *.
+      apply in_app_iff in H0.
+      apply in_app_iff .
+      destruct H0.
+      left.
+      apply IHn ; trivial.
+      rewrite app_length in H.
+      lia.
+      right.
+      apply IHl; trivial.
+      apply lt_n_S.
+      apply lt_S_n in H.
+      rewrite app_length in H.
+      lia.
+Qed.
 
 Lemma childrenArePDT partition child s :
 PDTIfPDFlag s ->

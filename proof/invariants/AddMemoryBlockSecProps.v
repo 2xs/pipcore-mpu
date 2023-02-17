@@ -105,7 +105,9 @@ beqAddr vidtBlockGlobalId blockToShareInCurrPartAddr = false
            (exists entry : BlockEntry,
               lookup blockToShareInCurrPartAddr (memory s0) beqAddr = Some (BE entry) /\
               blockToShareInCurrPartAddr = idBlockToShare /\
-              bentryPFlag blockToShareInCurrPartAddr true s0)) /\
+              bentryPFlag blockToShareInCurrPartAddr true s0 /\
+			  In blockToShareInCurrPartAddr (getMappedBlocks currentPart s0)
+			  )) /\
           beqAddr nullAddr blockToShareInCurrPartAddr = false /\
           (exists entry : BlockEntry,
              lookup blockToShareInCurrPartAddr (memory s0) beqAddr = Some (BE entry)) /\
@@ -113,10 +115,11 @@ beqAddr vidtBlockGlobalId blockToShareInCurrPartAddr = false
            exists sh1entryaddr : paddr,
              isChildCurrPart = checkChild idPDchild s0 sh1entryaddr /\
              (exists entry : BlockEntry,
-                lookup idPDchild (memory s0) beqAddr = Some (BE entry) /\
+                lookup idPDchild (memory s0) beqAddr = Some (BE entry)) /\
                 (exists sh1entry : Sh1Entry,
-                   sh1entryAddr idPDchild sh1entryaddr s0 /\
-                   lookup sh1entryaddr (memory s0) beqAddr = Some (SHE sh1entry)))) /\
+                   (sh1entryAddr idPDchild sh1entryaddr s0 /\
+                   lookup sh1entryaddr (memory s0) beqAddr = Some (SHE sh1entry))) /\
+				   In idPDchild (getMappedBlocks currentPart s0)) /\
           bentryStartAddr idPDchild globalIdPDChild s0 /\
           isPDT globalIdPDChild s0 /\
           pdentryNbFreeSlots globalIdPDChild nbfreeslots s0 /\
@@ -906,6 +909,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 				}
 				assert(HparentInMappedlist : In blockToShareInCurrPartAddr (getMappedBlocks currentPart s0))
 						by intuition. (* by found block or showing no modifs from s*)
+				clear Hprops0.
 				unfold getMappedPaddr.
 				induction (getMappedBlocks currentPart s0).
 				* intuition.
