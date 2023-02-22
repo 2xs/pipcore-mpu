@@ -580,7 +580,13 @@ BlockEntry_t readBlockEntryFromBlockEntryAddr(paddr blockentryaddr)
  * \brief Copies block structures at the given addresses
  */
 void copyBlock(paddr blockTarget, paddr blockSource) {
-    *((BlockEntry_t*)blockTarget) = *((BlockEntry_t*)blockSource);
+    ((blockOrError *)blockTarget)->blockAttr.blockentryaddr = blockSource;
+    ((blockOrError *)blockTarget)->blockAttr.blockrange.startAddr = ((BlockEntry_t *)blockSource)->blockrange.startAddr;
+    ((blockOrError *)blockTarget)->blockAttr.blockrange.endAddr = ((BlockEntry_t *)blockSource)->blockrange.endAddr;
+    ((blockOrError *)blockTarget)->blockAttr.read = ((BlockEntry_t *)blockSource)->read;
+    ((blockOrError *)blockTarget)->blockAttr.write = ((BlockEntry_t *)blockSource)->write;
+    ((blockOrError *)blockTarget)->blockAttr.exec = ((BlockEntry_t *)blockSource)->exec;
+    ((blockOrError *)blockTarget)->blockAttr.accessible = ((BlockEntry_t *)blockSource)->accessible;
 }
 
 /*!
