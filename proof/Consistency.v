@@ -116,17 +116,17 @@ exists optionfreeslotslist, optionfreeslotslist = getFreeSlotsList pd s /\
 wellFormedFreeSlotsList optionfreeslotslist <> False /\ (* to get rid of false induction bound constraints *)
 NoDup (filterOptionPaddr (optionfreeslotslist)).
 
-(* TODO : state the blockindexes list constraints *)
 Definition StructurePointerIsKS s :=
 forall entryaddr entry,
 lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
+entry.(structure) <> nullAddr ->
 isKS entry.(structure) s.
 
 Definition NextKSOffsetIsPADDR s :=
 forall addr nextksaddr : paddr,
 isKS addr s ->
 nextKSAddr addr nextksaddr s ->
-isPADDR nextksaddr s.
+isPADDR nextksaddr s /\ nextksaddr <> nullAddr.
 
 Definition NextKSIsKS s :=
 forall addr nextKSaddr nextKS : paddr,

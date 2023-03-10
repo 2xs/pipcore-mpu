@@ -41,7 +41,7 @@ Require Import Arith Bool NPeano List.
 Open Scope mpu_state_scope.
 
 (** Fixed fuel/timeout value to prove function termination *)
-Definition N := 100.
+Definition N := maxAddr+1.
 
 (** The 'getCurPartition' function returns the current Partition from the current state *)
 Definition getCurPartition : LLI paddr :=

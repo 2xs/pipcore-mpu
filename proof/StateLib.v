@@ -546,46 +546,37 @@ match bound with
 			       	end
 end.
 
-Fixpoint getKSEntriesAux (bound : nat) (currKernelStructure: paddr) s (maxStructNbleft : index) : list optionPaddr :=
+Fixpoint getKSEntriesAux (bound : nat) (currKernelStructure: paddr) s : list optionPaddr :=
 match bound with
 |	0 => (* NOK *) [NonePaddr]
 | S bound1 => (* Recursion on each KS *)
-							if Index.ltb maxStructNbleft zero (*<? -> == OK*)
-							then (* NOK, unreachable, should have stopped at NULL if end of list *)
-									[NonePaddr]
-							else
-									let blocks := (getKSEntriesInStructAux	(maxIdx+1)	currKernelStructure
-																					s  (CIndex kernelStructureEntriesNb)) in
-									let nextkernelstructureoffset := Paddr.addPaddrIdx currKernelStructure nextoffset in
-									match nextkernelstructureoffset with
-									| Some p =>
-											match lookup p s.(memory) beqAddr with
-											| Some (PADDR addr) => 	match lookup addr (memory s) beqAddr with
-																							| Some (BE nextkernelstructure) =>
-																												match Index.pred maxStructNbleft with
-												                								|Some p => blocks ++ (getKSEntriesAux bound1 addr s p)
-																												|None => [NonePaddr]
-																												end
-																							| Some (PADDR null) => if beqAddr addr nullAddr
-																																		then (* OK, end of list *)
-																																					blocks
-																																		else [NonePaddr]
-																							|	_ => (* Wrong entry type, trying to access unexpected entry *)
-																											[NonePaddr]
-																							end
-											|	_ => (* NOK *) [NonePaddr]
-											end
-									|	_ => (* NOK *) [NonePaddr]
-									end
+				let blocks := (getKSEntriesInStructAux	(maxIdx+1)	currKernelStructure
+																s  (CIndex (kernelStructureEntriesNb-1))) in
+				let nextkernelstructureoffset := Paddr.addPaddrIdx currKernelStructure nextoffset in
+				match nextkernelstructureoffset with
+				| Some p =>
+						match lookup p s.(memory) beqAddr with
+						| Some (PADDR addr) => 	match lookup addr (memory s) beqAddr with
+												| Some (BE nextkernelstructure) => blocks ++ (getKSEntriesAux bound1 addr s)
+												| Some (PADDR null) => if beqAddr addr nullAddr
+																		then (* OK, end of list *) blocks
+																		else (* NOK *) [NonePaddr]
+												|	_ => (* Wrong entry type, trying to access unexpected entry *)
+														[NonePaddr]
+												end
+						|	_ => (* NOK *) [NonePaddr]
+						end
+				|	_ => (* NOK *) [NonePaddr]
+				end
 end.
 
 Definition getKSEntries (partition: paddr) s :=
   match lookup partition s.(memory) beqAddr with
   | Some (PDT pdentry) => (* get all entries from all kernel structures for this pd *)
 													(* filtering the list enables to reuse the same list somewhere else *)
-													if beqAddr pdentry.(structure) nullAddr
-													then []
-													else (getKSEntriesAux (maxIdx+1) pdentry.(structure) s (CIndex maxNbPrepare))
+							if beqAddr pdentry.(structure) nullAddr
+							then []
+							else (getKSEntriesAux (maxIdx+1) pdentry.(structure) s)
   | _ => []
   end.
 

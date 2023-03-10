@@ -43,7 +43,7 @@ Import List.ListNotations.
 (*******************************************************************************)
 (* Constants (computed from USER CONSTANTS *)
 (*******************************************************************************)
-Definition kernelStructureEntriesNb := kernelStructureEntriesBits ^ 2.
+Definition kernelStructureEntriesNb := kernelStructureEntriesBits ^ 2 -1.
 Definition maxNbPrepare := nbPrepareMaxBits ^ 2.
 (*******************************************************************************)
 

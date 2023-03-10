@@ -174,6 +174,7 @@ COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/getGlobalIdPDCurrentOrChild.v
 COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/findBlockInKS.v
 COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/insertNewEntry.v
 COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/AddMemoryBlockSecProps.v
+COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/AddMemoryBlock.v
 
 # TODO: Uncomment the following lines once the proofs are done
 # Group of Coq files written by humans

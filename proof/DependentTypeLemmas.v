@@ -349,20 +349,6 @@ rewrite H;trivial.
 Qed.
 
 (*DUP*)
-Lemma lookupPDStructurePointer entryaddr s :
-forall entry , lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
-(*consistency s ->*)
-pdentryStructurePointer entryaddr (structure entry) s.
-Proof.
-intros.
-unfold pdentryStructurePointer.
-rewrite H;trivial.
-(*intuition.
-unfold consistency in *. unfold StructurePointerIsBE in *. intuition.
-specialize (H11 entryaddr entry H). trivial.*)
-Qed.
-
-(*DUP*)
 Lemma lookupPDMPU entryaddr s :
 forall entry , lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
 pdentryMPU entryaddr (MPU entry) s.
@@ -2397,6 +2383,55 @@ apply not_or_and in H0.
 destruct H0.
 now contradict H1.
 Qed.
+
+(* DUP *)
+Lemma beqIdxTrue : 
+forall addr1 addr2 , 
+addr1 = addr2 <-> 
+beqIdx addr1 addr2 = true.
+Proof.
+intros.
+unfold beqIdx.
+intuition.
+case_eq ((addr1 =? addr2)).
+intuition.
+intros.
+apply beq_nat_false in H0.
+congruence.
+apply beq_nat_true in H.
+destruct addr1, addr2. simpl in *. subst.
+assert (Hi = Hi0).
+apply proof_irrelevance. subst. trivial.
+Qed.
+
+(* DUP *)
+Lemma beqIdxFalse : 
+forall addr1 addr2 , 
+addr1 <> addr2 <-> 
+beqIdx addr1 addr2 = false.
+Proof.
+intros.
+unfold beqIdx.
+intuition.
+case_eq ((addr1 =? addr2)).
+intuition.
+contradict H.
+apply beq_nat_true in H0.
+destruct addr1, addr2. simpl in *. subst.
+assert (Hi = Hi0).
+apply proof_irrelevance. subst. trivial.
+intros. reflexivity.
+case_eq (addr1 =? addr2) ; intuition.
++ rewrite H0 in H.
+	rewrite H0 in H1.
+	congruence.
++	rewrite H0 in H1.
+	contradict H1.
+	rewrite NPeano.Nat.eqb_refl.
+	unfold not.
+	congruence.
+Qed.
+
 (*
 Lemma vaddrDecOrNot :
 forall p1 p2 : vaddr, p1 = p2 \/ p1<>p2.

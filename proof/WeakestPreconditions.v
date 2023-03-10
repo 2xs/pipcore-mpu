@@ -187,6 +187,17 @@ eapply ret .
 trivial.
 Qed.
 
+(* DUP *)
+Lemma ltb  addr1 addr2 (P : bool -> state -> Prop):
+{{ fun s : state => P (StateLib.Paddr.ltb addr1 addr2)  s }}
+  MALInternal.Paddr.ltb addr1 addr2 {{ fun s => P s}}.
+Proof.
+unfold MALInternal.Paddr.ltb, StateLib.Paddr.ltb.
+eapply weaken.
+eapply ret .
+trivial.
+Qed.
+
 Lemma subPaddr  (addr1 addr2 : paddr) (P : index -> state -> Prop):
 {{ fun s : state => addr1 >= 0 /\ addr2 >= 0 /\ addr1 - addr2 < maxIdx /\ forall Hi : addr1 - addr2 <= maxIdx,
                    P {| i := addr1 - addr2; Hi := Hi |} s }}

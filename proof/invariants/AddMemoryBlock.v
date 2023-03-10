@@ -5494,7 +5494,7 @@ intros. simpl.  set (s' := {|
 	assert(HStructurePointerIsKSs : StructurePointerIsKS s).
 	{ (* StructurePointerIsKS s *)
 		unfold StructurePointerIsKS.
-		intros pdentryaddr pdentry' Hlookup.
+		intros pdentryaddr pdentry' Hlookup HstructNotNull.
 
 		assert(Hcons10 : StructurePointerIsKS s10) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 		unfold StructurePointerIsKS in Hcons10.
@@ -5524,7 +5524,7 @@ intros. simpl.  set (s' := {|
 			}
 			assert(Hlookuppds10 : lookup pdentryaddr (memory s10) beqAddr = Some (PDT pdentry'))
 				by (rewrite <- HlookuppdEq ; intuition).
-			specialize (Hcons10 pdentryaddr pdentry' Hlookuppds10).
+			specialize (Hcons10 pdentryaddr pdentry' Hlookuppds10 HstructNotNull).
 
 			(* check all values for KS *)
 			destruct (beqAddr sh1eaddr (structure pdentry')) eqn:beqsh1ks; try(exfalso ; congruence).
@@ -5671,7 +5671,7 @@ intros. simpl.  set (s' := {|
 					rewrite <- DependentTypeLemmas.beqAddrTrue in beqsh1nextks.
 					rewrite <- beqsh1nextks in *.
 					unfold isSHE in *. unfold isPADDR in *.
-					destruct (lookup sh1eaddr (memory s10) beqAddr) eqn:Hsh1 ; try(exfalso ; congruence).
+					destruct (lookup sh1eaddr (memory s10) beqAddr) eqn:Hsh1 ; intuition ; try(exfalso ; congruence).
 					destruct v ; try(exfalso ; congruence).
 			** (* sh1eaddr <> nextksaddr *)
 					unfold isPADDR in *.

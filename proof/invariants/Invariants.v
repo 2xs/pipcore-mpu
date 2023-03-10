@@ -141,6 +141,16 @@ eapply  WeakestPreconditions.Paddr.leb.
 intros. simpl. split;trivial.
 Qed.
 
+(* DUP *)
+Lemma ltb addr1 addr2 (P : state -> Prop):
+{{ fun s : state => P s }} MALInternal.Paddr.ltb addr1 addr2
+{{ fun b s => P s /\ b = StateLib.Paddr.ltb addr1 addr2}}.
+Proof.
+eapply WP.weaken.
+eapply  WeakestPreconditions.Paddr.ltb.
+intros. simpl. split;trivial.
+Qed.
+
 (* DUP de pred *)
 Lemma subPaddr  (addr1 addr2 : paddr ) P :
 {{fun s => P s  /\ addr1 >= 0 /\ addr2 >= 0 /\ addr1 - addr2 < maxIdx}}
@@ -515,7 +525,7 @@ Qed.
 (* DUP *)
 Lemma readPDStructurePointer (pdpaddr : paddr) (P : state -> Prop) :
 {{ fun s => P s /\ isPDT pdpaddr s  }} MAL.readPDStructurePointer pdpaddr
-{{ fun (structurepointer : paddr) (s : state) => P s /\ pdentryStructurePointer pdpaddr structurepointer s }}.
+{{ fun (structurepointer : paddr) (s : state) => P s /\ (structurepointer <> nullAddr -> pdentryStructurePointer pdpaddr structurepointer s) }}.
 Proof.
 eapply WP.weaken.
 apply WP.getPDTRecordField.
@@ -1197,7 +1207,7 @@ eapply WP.bindRev.
 	unfold isKS in *. unfold nextKSAddr in H0.
 	destruct(lookup structurepaddr (memory s) beqAddr) eqn:Hlookup ; intuition.
 	destruct v eqn:Hv ; intuition.
-	apply isPADDRLookupEq in H1. destruct H1.
+	apply isPADDRLookupEq in H0. destruct H0.
 	exists x. intuition.
 	exists (CPaddr (structurepaddr + nextoffset)). intuition.
 	unfold nextKSAddr. rewrite Hlookup ; trivial.

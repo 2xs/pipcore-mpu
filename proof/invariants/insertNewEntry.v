@@ -976,7 +976,7 @@ s1 = {|
 				+ intuition.
 					exists x. exists x0. exists x1. eexists.
 					split. unfold s'. rewrite H2. intuition.
-					rewrite beqAddrTrue. (*rewrite H2.*) simpl. intuition.
+					rewrite beqAddrTrue. simpl. intuition.
 					destruct H21 as [Hoptionlist (olds & (n0 & (n1 & (nbleft & Hfreeslotsolds))))].
 					eexists. exists olds. exists s'. exists n0. exists n1. eexists ?[n2]. exists nbleft.
 					split. intuition. split. intuition. split. intuition. split. intuition.
@@ -996,7 +996,7 @@ getFreeSlotsListRec n1 newFirstFreeSlotAddr olds nbleft).
 					assert(HStructurePointerIsKSs : StructurePointerIsKS s).
 					{
 						unfold StructurePointerIsKS.
-						intros pdentryaddr pdentry' Hlookup.
+						intros pdentryaddr pdentry' Hlookup HstructureNotNull.
 
 						assert(Hcons0 : StructurePointerIsKS x) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold StructurePointerIsKS in Hcons0.
@@ -1020,10 +1020,10 @@ getFreeSlotsListRec n1 newFirstFreeSlotAddr olds nbleft).
 							assert(HpdentryEq : x1 = pdentry').
 							{ rewrite Hpdinsertions in Hlookup. inversion Hlookup. trivial. }
 							subst pdentry'.
-							specialize(Hcons0 pdinsertion x0 Hpdinsertions0).
 							assert(HstructureEq : (structure x1) = (structure x0)).
 							{ subst x1. simpl. trivial. }
-							rewrite HstructureEq.
+							rewrite HstructureEq in *.
+							specialize(Hcons0 pdinsertion x0 Hpdinsertions0 HstructureNotNull).
 							(* Check all values for structure pdentry  *)
 								destruct (beqAddr pdinsertion (structure x0)) eqn:beqpdptn; try(exfalso ; congruence).
 								** (* pdinsertion = (structure pdentry) *)
@@ -1051,7 +1051,7 @@ getFreeSlotsListRec n1 newFirstFreeSlotAddr olds nbleft).
 									}
 									assert(Hlookups0 : lookup pdentryaddr (memory x) beqAddr = Some (PDT pdentry'))
 										by (rewrite HPDEq in * ; intuition).
-									specialize(Hcons0 pdentryaddr pdentry' Hlookups0).
+									specialize(Hcons0 pdentryaddr pdentry' Hlookups0 HstructureNotNull).
 									(* Check all values *)
 										destruct (beqAddr pdinsertion (structure pdentry')) eqn:beqpdptn ; try(exfalso ; congruence).
 										** (* pdinsertion = (inChildLocation sh1entry) *)
@@ -1668,7 +1668,7 @@ nbleft < maxIdx /\
 					assert(HStructurePointerIsKSs : StructurePointerIsKS s).
 					{
 						unfold StructurePointerIsKS.
-						intros pdentryaddr pdentry' Hlookup.
+						intros pdentryaddr pdentry' Hlookup HstructureNotNull.
 
 						assert(Hcons0 : StructurePointerIsKS x) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 						unfold StructurePointerIsKS in Hcons0.
@@ -1682,23 +1682,6 @@ nbleft < maxIdx /\
 											- the structure pointer is not modified -> leads to s0 -> OK
 						*)
 						(* Check all values *)
-						(*assert(Hs : s =
-                 {|
-                   currentPartition := currentPartition oldolds;
-                   memory :=
-                     add pdinsertion
-                       (PDT
-                          {|
-                            structure := structure x1;
-                            firstfreeslot := firstfreeslot x1;
-                            nbfreeslots := predCurrentNbFreeSlots;
-                            nbprepare := nbprepare x1;
-                            parent := parent x1;
-                            MPU := MPU x1;
-                            vidtBlock := vidtBlock x1
-                          |}) (memory oldolds) beqAddr
-                 |}) by intuition.
-						rewrite Hs.*)
 
 						destruct (beqAddr pdinsertion pdentryaddr) eqn:beqpdpdentry; try(exfalso ; congruence).
 						--- (* pdinsertion = pdentryaddr *)
@@ -1709,18 +1692,10 @@ nbleft < maxIdx /\
 							assert(HpdentryEq : x2 = pdentry').
 							{ rewrite Hpdinsertions in Hlookup. inversion Hlookup. trivial. }
 							subst pdentry'.
-							(*assert(HPDToldolds : isPDT pdinsertion oldolds).
-							{
-								unfold isPDT. intuition. subst oldolds.
-								simpl. rewrite beqAddrTrue. trivial.
-							}
-							apply isPDTLookupEq in HPDToldolds.
-							destruct HPDToldolds as [pdentryoldolds Hlookuppdoldolds].*)
-							specialize(Hcons0 pdinsertion x0 Hpdinsertions0).
-
 							assert(HstructureEq : (structure x2) = (structure x0)).
 							{ subst x2. subst x1. simpl. trivial. }
-							rewrite HstructureEq.
+							rewrite HstructureEq in *.
+							specialize(Hcons0 pdinsertion x0 Hpdinsertions0 HstructureNotNull).
 							(* Check all values for structure pdentry  *)
 								destruct (beqAddr pdinsertion (structure x0)) eqn:beqpdptn; try(exfalso ; congruence).
 								** (* pdinsertion = (structure pdentry) *)
@@ -1748,7 +1723,7 @@ nbleft < maxIdx /\
 									}
 									assert(Hlookups0 : lookup pdentryaddr (memory x) beqAddr = Some (PDT pdentry'))
 										by (rewrite HPDEq in * ; intuition).
-									specialize(Hcons0 pdentryaddr pdentry' Hlookups0).
+									specialize(Hcons0 pdentryaddr pdentry' Hlookups0 HstructureNotNull).
 									(* Check all values *)
 										destruct (beqAddr pdinsertion (structure pdentry')) eqn:beqpdptn ; try(exfalso ; congruence).
 										** (* pdinsertion = (inChildLocation sh1entry) *)
@@ -1820,9 +1795,6 @@ nbleft < maxIdx /\
 								rewrite <- HlookupidpdchildEq. rewrite Hlookup.
 								subst sh1entryaddr.
 								rewrite Hlookupsh1pdchilds10 in *.
-								(*assert(Hlookupidpdchilds10  : isBE idpdchild s10)
-									by (unfold isBE ; rewrite Hlookup ; intuition).
-								apply isBELookupEq in HidPDs0. destruct Hlookupidpdchilds10 as [idpdchilds10 Hlookupidpdchilds10].*)
 								unfold sh1entryAddr.
 								rewrite <- HlookupidpdchildEq. rewrite Hlookup.
 								assert(s0 = sh1pdchild).
@@ -13826,7 +13798,7 @@ assert(Hsh1InChildLocationIsBEs : sh1InChildLocationIsBE s).
 assert(HStructurePointerIsKSs : StructurePointerIsKS s).
 { (* StructurePointerIsKS s *)
 	unfold StructurePointerIsKS.
-	intros pdentryaddr pdentry' Hlookup.
+	intros pdentryaddr pdentry' Hlookup HstructureNotNull.
 
 	assert(Hcons0 : StructurePointerIsKS s0) by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 	unfold StructurePointerIsKS in Hcons0.
@@ -13870,10 +13842,10 @@ assert(HStructurePointerIsKSs : StructurePointerIsKS s).
 					assert(HpdentryEq : pdentry1 = pdentry').
 					{ rewrite Hpdinsertions in Hlookup. inversion Hlookup. trivial. }
 					subst pdentry'.
-					specialize(Hcons0 pdinsertion pdentry Hpdinsertions0).
 					assert(HstructureEq : (structure pdentry1) = (structure pdentry)).
 					{ subst pdentry1. subst pdentry0.  simpl. trivial. }
-					rewrite HstructureEq.
+					rewrite HstructureEq in *.
+					specialize(Hcons0 pdinsertion pdentry Hpdinsertions0 HstructureNotNull).
 					(* Check all values for structure pdentry except newBlockEntryAddr *)
 					destruct (beqAddr sceaddr (structure pdentry)) eqn:beqsceptn; try(exfalso ; congruence).
 					*	(* sceaddr = (structure pdentry) *)
@@ -13939,7 +13911,7 @@ assert(HStructurePointerIsKSs : StructurePointerIsKS s).
 						}
 						assert(Hlookups0 : lookup pdentryaddr (memory s0) beqAddr = Some (PDT pdentry'))
 							by (rewrite HPDEq in * ; intuition).
-						specialize(Hcons0 pdentryaddr pdentry' Hlookups0).
+						specialize(Hcons0 pdentryaddr pdentry' Hlookups0 HstructureNotNull).
 						(* Check all values *)
 						destruct (beqAddr sceaddr (structure pdentry')) eqn:beqsceptn; try(exfalso ; congruence).
 						*	(* sceaddr = (inChildLocation sh1entry) *)
@@ -14121,7 +14093,7 @@ assert(HNextKSIsKSs : NextKSIsKS s).
 								rewrite beqscenextaddr in *.
 								unfold isSCE in *.
 								unfold isPADDR in *.
-								destruct(lookup nextksaddr (memory s0) beqAddr) eqn:Hf ; try(exfalso ; congruence).
+								destruct(lookup nextksaddr (memory s0) beqAddr) eqn:Hf ; intuition ; try(exfalso ; congruence).
 								destruct v eqn:Hv ; try(exfalso ; congruence).
 							* assert(HnewBsceNotEq : beqAddr newBlockEntryAddr sceaddr = false) by intuition.
 								rewrite HnewBsceNotEq. (*newBlock <> sce *)
@@ -14313,7 +14285,7 @@ assert(HNextKSOffsetIsPADDRs: NextKSOffsetIsPADDR s).
 					rewrite <- beqscenext in *.
 					unfold isSCE in *.
 					unfold isPADDR in *.
-					destruct (lookup sceaddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+					destruct (lookup sceaddr (memory s0) beqAddr) ; intuition ; try(exfalso ; congruence).
 					destruct v ; try(exfalso ; congruence).
 				+ (* sceaddr <> nextksaddr *)
 					destruct (beqAddr pdinsertion nextksaddr) eqn:beqpdnext; try(exfalso ; congruence).
@@ -14322,7 +14294,7 @@ assert(HNextKSOffsetIsPADDRs: NextKSOffsetIsPADDR s).
 							rewrite <- beqpdnext in *.
 							unfold isPDT in *.
 							unfold isPADDR in *.
-							destruct (lookup pdinsertion (memory s0) beqAddr) ; try(exfalso ; congruence).
+							destruct (lookup pdinsertion (memory s0) beqAddr) ; intuition ;  try(exfalso ; congruence).
 							destruct v ; try(exfalso ; congruence).
 					++ (* pdinsertion <> nextksaddr *)
 						destruct (beqAddr newBlockEntryAddr nextksaddr) eqn:beqnewnext; try(exfalso ; congruence).
@@ -14330,7 +14302,7 @@ assert(HNextKSOffsetIsPADDRs: NextKSOffsetIsPADDR s).
 								rewrite <- DependentTypeLemmas.beqAddrTrue in beqnewnext.
 								rewrite <- beqnewnext in *.
 								unfold isPADDR in *.
-								destruct (lookup newBlockEntryAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+								destruct (lookup newBlockEntryAddr (memory s0) beqAddr) ; intuition ; try(exfalso ; congruence).
 								destruct v ; try(exfalso ; congruence).
 						+++ (* pdinsertion <> nextksaddr *)
 									unfold isPADDR.
@@ -24177,11 +24149,10 @@ getFreeSlotsListRec (maxIdx + 1) (firstfreeslot entrypd0) s9 (nbfreeslots entryp
 								intuition.
 
 								assert(HKSEntriesEq :   (getKSEntriesAux (maxIdx + 1) (structure entrypd0) s
-     (CIndex maxNbPrepare)) =   (getKSEntriesAux (maxIdx + 1) (structure entrypd0) s0
-     (CIndex maxNbPrepare))).
+    ) =   (getKSEntriesAux (maxIdx + 1) (structure entrypd0) s0
+    )).
 									{
-										assert(HksentriespdEq : exists s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 n1 nbleft,
-nbleft = CIndex maxNbPrepare /\
+										assert(HksentriespdEq : exists s1 s2 s3 s4 s5 s6 s7 s8 s9 s10,
 s1 = {|
      currentPartition := currentPartition s0;
      memory := add pdinsertion
@@ -24195,10 +24166,8 @@ s1 = {|
                      MPU := MPU pdentry;
                      vidtBlock := vidtBlock pdentry
                    |}) (memory s0) beqAddr |} /\
-getKSEntriesAux n1 (structure entrypd0) s1 nbleft =
-getKSEntriesAux (maxIdx+1) (structure entrypd0) s0 nbleft
-			 /\
-	n1 <= maxIdx+1 /\ nbleft < n1
+getKSEntriesAux (maxIdx+1) (structure entrypd0) s1 =
+getKSEntriesAux (maxIdx+1) (structure entrypd0) s0
 /\ s2 = {|
      currentPartition := currentPartition s1;
      memory := add pdinsertion
@@ -24213,8 +24182,8 @@ getKSEntriesAux (maxIdx+1) (structure entrypd0) s0 nbleft
 		                vidtBlock := vidtBlock pdentry0
 		              |}
                  ) (memory s1) beqAddr |} /\
-getKSEntriesAux n1 (structure entrypd0) s2 nbleft =
-			getKSEntriesAux n1 (structure entrypd0) s1 nbleft
+getKSEntriesAux (maxIdx+1) (structure entrypd0) s2 =
+			getKSEntriesAux (maxIdx+1) (structure entrypd0) s1
 /\ s3 = {|
      currentPartition := currentPartition s2;
      memory := add newBlockEntryAddr
@@ -24225,8 +24194,8 @@ getKSEntriesAux n1 (structure entrypd0) s2 nbleft =
 	                  (blockindex bentry)
 	                  (CBlock startaddr (endAddr (blockrange bentry))))
                  ) (memory s2) beqAddr |} /\
-getKSEntriesAux n1 (structure entrypd0) s3 nbleft =
-			getKSEntriesAux n1 (structure entrypd0) s2 nbleft
+getKSEntriesAux (maxIdx+1) (structure entrypd0) s3 =
+			getKSEntriesAux (maxIdx+1) (structure entrypd0) s2
 /\ s4 = {|
      currentPartition := currentPartition s3;
      memory := add newBlockEntryAddr
@@ -24237,8 +24206,8 @@ getKSEntriesAux n1 (structure entrypd0) s3 nbleft =
                      (blockindex bentry0)
                      (CBlock (startAddr (blockrange bentry0)) endaddr))
                  ) (memory s3) beqAddr |} /\
-getKSEntriesAux n1 (structure entrypd0) s4 nbleft =
-			getKSEntriesAux n1 (structure entrypd0) s3 nbleft
+getKSEntriesAux (maxIdx+1) (structure entrypd0) s4 =
+			getKSEntriesAux (maxIdx+1) (structure entrypd0) s3
 /\ s5 = {|
      currentPartition := currentPartition s4;
      memory := add newBlockEntryAddr
@@ -24248,8 +24217,8 @@ getKSEntriesAux n1 (structure entrypd0) s4 nbleft =
                     (accessible bentry1) (blockindex bentry1)
                     (blockrange bentry1))
                  ) (memory s4) beqAddr |} /\
-getKSEntriesAux n1 (structure entrypd0) s5 nbleft =
-			getKSEntriesAux n1 (structure entrypd0) s4 nbleft
+getKSEntriesAux (maxIdx+1) (structure entrypd0) s5 =
+			getKSEntriesAux (maxIdx+1) (structure entrypd0) s4
 /\ s6 = {|
      currentPartition := currentPartition s5;
      memory := add newBlockEntryAddr
@@ -24258,8 +24227,8 @@ getKSEntriesAux n1 (structure entrypd0) s5 nbleft =
                      (exec bentry2) (present bentry2) true
                      (blockindex bentry2) (blockrange bentry2))
                  ) (memory s5) beqAddr |} /\
-getKSEntriesAux n1 (structure entrypd0) s6 nbleft =
-			getKSEntriesAux n1 (structure entrypd0) s5 nbleft
+getKSEntriesAux (maxIdx+1) (structure entrypd0) s6 =
+			getKSEntriesAux (maxIdx+1) (structure entrypd0) s5
 /\ s7 = {|
      currentPartition := currentPartition s6;
      memory := add newBlockEntryAddr
@@ -24268,8 +24237,8 @@ getKSEntriesAux n1 (structure entrypd0) s6 nbleft =
                     (present bentry3) (accessible bentry3) 
                     (blockindex bentry3) (blockrange bentry3))
                  ) (memory s6) beqAddr |} /\
-getKSEntriesAux n1 (structure entrypd0) s7 nbleft =
-			getKSEntriesAux n1 (structure entrypd0) s6 nbleft
+getKSEntriesAux (maxIdx+1) (structure entrypd0) s7 =
+			getKSEntriesAux (maxIdx+1) (structure entrypd0) s6
 /\ s8 = {|
      currentPartition := currentPartition s7;
      memory := add newBlockEntryAddr
@@ -24278,8 +24247,8 @@ getKSEntriesAux n1 (structure entrypd0) s7 nbleft =
                        (present bentry4) (accessible bentry4) 
                        (blockindex bentry4) (blockrange bentry4))
                  ) (memory s7) beqAddr |} /\
-getKSEntriesAux n1(structure entrypd0) s8 nbleft =
-			getKSEntriesAux n1 (structure entrypd0) s7 nbleft
+getKSEntriesAux (maxIdx+1) (structure entrypd0) s8 =
+			getKSEntriesAux (maxIdx+1) (structure entrypd0) s7
 /\ s9 = {|
      currentPartition := currentPartition s8;
      memory := add newBlockEntryAddr
@@ -24288,26 +24257,25 @@ getKSEntriesAux n1(structure entrypd0) s8 nbleft =
                     (present bentry5) (accessible bentry5) 
                     (blockindex bentry5) (blockrange bentry5))
                  ) (memory s8) beqAddr |} /\
-getKSEntriesAux n1 (structure entrypd0) s9 nbleft =
-			getKSEntriesAux n1 (structure entrypd0) s8 nbleft
+getKSEntriesAux (maxIdx+1) (structure entrypd0) s9 =
+			getKSEntriesAux (maxIdx+1) (structure entrypd0) s8
 /\ s10 = {|
      currentPartition := currentPartition s9;
      memory := add sceaddr 
 								(SCE {| origin := origin; next := next scentry |}
                  ) (memory s9) beqAddr |} /\
-getKSEntriesAux n1 (structure entrypd0) s10 nbleft =
-			getKSEntriesAux n1 (structure entrypd0) s9 nbleft
+getKSEntriesAux (maxIdx+1) (structure entrypd0) s10 =
+			getKSEntriesAux (maxIdx+1) (structure entrypd0) s9
 ).
 {
 	eexists ?[s1]. eexists ?[s2]. eexists ?[s3]. eexists ?[s4]. eexists ?[s5].
 	eexists ?[s6]. eexists ?[s7]. eexists ?[s8]. eexists ?[s9].
-	eexists ?[s10]. eexists ?[n1]. eexists.
-	split. intuition.
+	eexists ?[s10].
 	split. intuition.
 	set (s1 := {| currentPartition := _ |}).
 	(* prove outside *)
-	assert(Hfreeslotss1 : getKSEntriesAux ?n1 (structure entrypd0) s1 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure entrypd0) s0 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss1 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s1 =
+getKSEntriesAux (maxIdx + 1) (structure entrypd0) s0).
 	{
 		apply getKSEntriesAuxEqPDT.
 		-- (* prove wrong type if equality *)
@@ -24316,14 +24284,15 @@ getKSEntriesAux (maxIdx + 1) (structure entrypd0) s0 (CIndex maxNbPrepare)).
 					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd entrypd0 Hlookuppds0).
-				unfold isKS in *.
 				rewrite Hfirstpdeq in *.
-				rewrite Hpdinsertions0 in *. congruence.
+				rewrite <- beqAddrFalse in HstructNull.
+				unfold isKS in *.
+				rewrite Hpdinsertions0 in *. intuition.
 		-- trivial.
 	}
 	set (s2 := {| currentPartition := _ |}).
-	assert(Hfreeslotss2 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s2 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure entrypd0) s1 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss2 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s2 =
+getKSEntriesAux (maxIdx + 1) (structure entrypd0) s1).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqPDT.
@@ -24333,14 +24302,15 @@ getKSEntriesAux (maxIdx + 1) (structure entrypd0) s1 (CIndex maxNbPrepare)).
 					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd entrypd0 Hlookuppds0).
-				unfold isKS in *.
 				rewrite Hfirstpdeq in *.
-				rewrite Hpdinsertions0 in *. congruence.
+				rewrite <- beqAddrFalse in HstructNull.
+				unfold isKS in *.
+				rewrite Hpdinsertions0 in *. intuition.
 		--	unfold isPDT. unfold s1. cbn. rewrite beqAddrTrue. intuition.
 	}
 	set (s3 := {| currentPartition := _ |}).
-	assert(Hfreeslotss3 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s3 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure entrypd0) s2 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss3 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s3 =
+getKSEntriesAux (maxIdx + 1) (structure entrypd0) s2).
 	{
 		apply getKSEntriesAuxEqBE ; intuition.
 		--- unfold isBE. unfold s2. unfold s1. cbn.
@@ -24350,8 +24320,8 @@ getKSEntriesAux (maxIdx + 1) (structure entrypd0) s2 (CIndex maxNbPrepare)).
 				repeat rewrite removeDupIdentity ; intuition.
 }
 	set (s4 := {| currentPartition := currentPartition ?s3; memory := _ |}). simpl in s4. simpl in s3.
-	assert(Hfreeslotss4 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s4 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure entrypd0) s3 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss4 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s4 =
+getKSEntriesAux (maxIdx + 1) (structure entrypd0) s3).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -24363,8 +24333,8 @@ getKSEntriesAux (maxIdx + 1) (structure entrypd0) s3 (CIndex maxNbPrepare)).
 } fold s1. fold s2. fold s3. fold s4.
 	set (s5 := {| currentPartition := currentPartition ?s4; memory := _ |}).
 	simpl in s4.
-	assert(Hfreeslotss5 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s5 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure entrypd0) s4 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss5 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s5 =
+getKSEntriesAux (maxIdx + 1) (structure entrypd0) s4).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -24375,8 +24345,8 @@ getKSEntriesAux (maxIdx + 1) (structure entrypd0) s4 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5.
 	set (s6 := {| currentPartition := currentPartition ?s5; memory := _ |}).
 	simpl in s4.
-	assert(Hfreeslotss6 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s6 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure entrypd0) s5 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss6 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s6 =
+getKSEntriesAux (maxIdx + 1) (structure entrypd0) s5).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -24387,8 +24357,8 @@ getKSEntriesAux (maxIdx + 1) (structure entrypd0) s5 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6.
 	set (s7 := {| currentPartition := currentPartition ?s6; memory := _ |}).
 	simpl in s5. simpl in s6.
-	assert(Hfreeslotss7 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s7 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure entrypd0) s6 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss7 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s7 =
+getKSEntriesAux (maxIdx + 1) (structure entrypd0) s6).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -24399,8 +24369,8 @@ getKSEntriesAux (maxIdx + 1) (structure entrypd0) s6 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7.
 	set (s8 := {| currentPartition := currentPartition ?s7; memory := _ |}).
 	simpl in s7.
-	assert(Hfreeslotss8 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s8 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure entrypd0) s7 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss8 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s8 =
+getKSEntriesAux (maxIdx + 1) (structure entrypd0) s7).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -24411,8 +24381,8 @@ getKSEntriesAux (maxIdx + 1) (structure entrypd0) s7 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7. fold s8.
 	set (s9 := {| currentPartition := currentPartition ?s8; memory := _ |}).
 	simpl in s7.
-	assert(Hfreeslotss9 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s9 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure entrypd0) s8 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss9 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s9 =
+getKSEntriesAux (maxIdx + 1) (structure entrypd0) s8).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -24423,8 +24393,8 @@ getKSEntriesAux (maxIdx + 1) (structure entrypd0) s8 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7. fold s8. fold s9.
 	set (s10 := {| currentPartition := currentPartition ?s9; memory := _ |}).
 	simpl in s8. simpl in s9.
-	assert(Hfreeslotss10 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s10 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure entrypd0) s9 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss10 : getKSEntriesAux (maxIdx + 1) (structure entrypd0) s10 =
+getKSEntriesAux (maxIdx + 1) (structure entrypd0) s9).
 	{		assert(HSCEs9 : isSCE sceaddr s9).
 			{ unfold isSCE. unfold s9. cbn. rewrite beqAddrTrue.
 				destruct (beqAddr newBlockEntryAddr sceaddr) eqn:Hf ; try(exfalso ; congruence).
@@ -24445,12 +24415,9 @@ getKSEntriesAux (maxIdx + 1) (structure entrypd0) s9 (CIndex maxNbPrepare)).
 	fold s10.
 
 	intuition.
-	assert(HcurrLtmaxIdx : CIndex maxNbPrepare <= maxIdx).
-	{ intuition. apply IdxLtMaxIdx. }
-	lia.
 }
 										destruct HksentriespdEq as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 &
-																			(n1 & (nbleft & (Hnbleft & Hstates))))))))))))].
+																			Hstates)))))))))].
 										assert(HsEq : s10 = s).
 										{ intuition. subst s1. subst s2. subst s3. subst s4. subst s5. subst s6.
 											subst s7. subst s8. subst s9. subst s10.
@@ -24458,25 +24425,17 @@ getKSEntriesAux (maxIdx + 1) (structure entrypd0) s9 (CIndex maxNbPrepare)).
 										}
 										rewrite HsEq in *.
 										(* listoption2 didn't change *)
-										assert(HksentriesEq : getKSEntriesAux n1 (structure entrypd0) s (CIndex maxNbPrepare) =
-																					getKSEntriesAux (maxIdx+1) (structure entrypd0) s0 (CIndex maxNbPrepare)).
+										assert(HksentriesEq : getKSEntriesAux  (maxIdx + 1) (structure entrypd0) s =
+																					getKSEntriesAux (maxIdx+1) (structure entrypd0) s0).
 										{
 											intuition.
-											subst nbleft.
 											(* rewrite all previous getKSEntriesAux equalities *)
-											rewrite <- H35. rewrite <- H38. rewrite <- H40.
+											rewrite <- H35. rewrite <- H36. rewrite <- H38. rewrite <- H40.
 											rewrite <- H42. rewrite <- H44. rewrite <- H46. rewrite <- H48.
-											rewrite <- H50. rewrite <- H52. rewrite <- H55.
+											rewrite <- H50. rewrite <- H53.
 											reflexivity.
 										}
-										assert (HksentriesEqn1 : getKSEntriesAux n1 (structure entrypd0) s (CIndex maxNbPrepare)
-																							= getKSEntriesAux (maxIdx + 1) (structure entrypd0) s (CIndex maxNbPrepare)).
-										{ eapply getKSEntriesAuxEqN ; intuition.
-											subst nbleft. lia.
-											assert (HnbLtmaxIdx : CIndex maxNbPrepare <= maxIdx) by apply IdxLtMaxIdx.
-											lia.
-										}
-										rewrite <- HksentriesEqn1. rewrite HksentriesEq. intuition.
+										rewrite HksentriesEq. intuition.
 									}
 									rewrite HKSEntriesEq in *. intuition.
 } (* end of inclFreeSlotsBlockEntries *)
@@ -24616,8 +24575,8 @@ assert(HDisjointKSEntriess : DisjointKSEntries s).
 																+ if listoption2 has NOT changed, listoption1 at s is
 																just a subset of listoption1 at s0 so they are
 																still disjoint *)
-														assert(Hksentriespd2Eq : exists s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 n1 nbleft,
-nbleft = CIndex maxNbPrepare /\
+														assert(Hksentriespd2Eq : exists s1 s2 s3 s4 s5 s6 s7 s8 s9 s10,
+
 s1 = {|
      currentPartition := currentPartition s0;
      memory := add pdinsertion
@@ -24631,10 +24590,8 @@ s1 = {|
                      MPU := MPU pdentry;
                      vidtBlock := vidtBlock pdentry
                    |}) (memory s0) beqAddr |} /\
-getKSEntriesAux n1 (structure pd2entry) s1 nbleft =
-getKSEntriesAux (maxIdx+1) (structure pd2entry) s0 nbleft
-			 /\
-	n1 <= maxIdx+1 /\ nbleft < n1
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s1 =
+getKSEntriesAux (maxIdx+1) (structure pd2entry) s0
 /\ s2 = {|
      currentPartition := currentPartition s1;
      memory := add pdinsertion
@@ -24649,8 +24606,8 @@ getKSEntriesAux (maxIdx+1) (structure pd2entry) s0 nbleft
 		                vidtBlock := vidtBlock pdentry0
 		              |}
                  ) (memory s1) beqAddr |} /\
-getKSEntriesAux n1 (structure pd2entry) s2 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s1 nbleft
+getKSEntriesAux (maxIdx+1) (structure pd2entry) s2 =
+			getKSEntriesAux (maxIdx+1) (structure pd2entry) s1
 /\ s3 = {|
      currentPartition := currentPartition s2;
      memory := add newBlockEntryAddr
@@ -24661,8 +24618,8 @@ getKSEntriesAux n1 (structure pd2entry) s2 nbleft =
 	                  (blockindex bentry)
 	                  (CBlock startaddr (endAddr (blockrange bentry))))
                  ) (memory s2) beqAddr |} /\
-getKSEntriesAux n1 (structure pd2entry) s3 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s2 nbleft
+getKSEntriesAux (maxIdx+1) (structure pd2entry) s3 =
+			getKSEntriesAux (maxIdx+1) (structure pd2entry) s2
 /\ s4 = {|
      currentPartition := currentPartition s3;
      memory := add newBlockEntryAddr
@@ -24673,8 +24630,8 @@ getKSEntriesAux n1 (structure pd2entry) s3 nbleft =
                      (blockindex bentry0)
                      (CBlock (startAddr (blockrange bentry0)) endaddr))
                  ) (memory s3) beqAddr |} /\
-getKSEntriesAux n1 (structure pd2entry) s4 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s3 nbleft
+getKSEntriesAux (maxIdx+1) (structure pd2entry) s4 =
+			getKSEntriesAux (maxIdx+1) (structure pd2entry) s3
 /\ s5 = {|
      currentPartition := currentPartition s4;
      memory := add newBlockEntryAddr
@@ -24684,8 +24641,8 @@ getKSEntriesAux n1 (structure pd2entry) s4 nbleft =
                     (accessible bentry1) (blockindex bentry1)
                     (blockrange bentry1))
                  ) (memory s4) beqAddr |} /\
-getKSEntriesAux n1 (structure pd2entry) s5 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s4 nbleft
+getKSEntriesAux (maxIdx+1) (structure pd2entry) s5 =
+			getKSEntriesAux (maxIdx+1) (structure pd2entry) s4
 /\ s6 = {|
      currentPartition := currentPartition s5;
      memory := add newBlockEntryAddr
@@ -24694,8 +24651,8 @@ getKSEntriesAux n1 (structure pd2entry) s5 nbleft =
                      (exec bentry2) (present bentry2) true
                      (blockindex bentry2) (blockrange bentry2))
                  ) (memory s5) beqAddr |} /\
-getKSEntriesAux n1 (structure pd2entry) s6 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s5 nbleft
+getKSEntriesAux (maxIdx+1) (structure pd2entry) s6 =
+			getKSEntriesAux (maxIdx+1) (structure pd2entry) s5
 /\ s7 = {|
      currentPartition := currentPartition s6;
      memory := add newBlockEntryAddr
@@ -24704,8 +24661,8 @@ getKSEntriesAux n1 (structure pd2entry) s6 nbleft =
                     (present bentry3) (accessible bentry3) 
                     (blockindex bentry3) (blockrange bentry3))
                  ) (memory s6) beqAddr |} /\
-getKSEntriesAux n1 (structure pd2entry) s7 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s6 nbleft
+getKSEntriesAux (maxIdx+1) (structure pd2entry) s7 =
+			getKSEntriesAux (maxIdx+1) (structure pd2entry) s6
 /\ s8 = {|
      currentPartition := currentPartition s7;
      memory := add newBlockEntryAddr
@@ -24714,8 +24671,8 @@ getKSEntriesAux n1 (structure pd2entry) s7 nbleft =
                        (present bentry4) (accessible bentry4) 
                        (blockindex bentry4) (blockrange bentry4))
                  ) (memory s7) beqAddr |} /\
-getKSEntriesAux n1(structure pd2entry) s8 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s7 nbleft
+getKSEntriesAux (maxIdx+1) (structure pd2entry) s8 =
+			getKSEntriesAux (maxIdx+1) (structure pd2entry) s7
 /\ s9 = {|
      currentPartition := currentPartition s8;
      memory := add newBlockEntryAddr
@@ -24724,26 +24681,25 @@ getKSEntriesAux n1(structure pd2entry) s8 nbleft =
                     (present bentry5) (accessible bentry5) 
                     (blockindex bentry5) (blockrange bentry5))
                  ) (memory s8) beqAddr |} /\
-getKSEntriesAux n1 (structure pd2entry) s9 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s8 nbleft
+getKSEntriesAux (maxIdx+1) (structure pd2entry) s9 =
+			getKSEntriesAux (maxIdx+1) (structure pd2entry) s8
 /\ s10 = {|
      currentPartition := currentPartition s9;
      memory := add sceaddr 
 								(SCE {| origin := origin; next := next scentry |}
                  ) (memory s9) beqAddr |} /\
-getKSEntriesAux n1 (structure pd2entry) s10 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s9 nbleft
+getKSEntriesAux (maxIdx+1) (structure pd2entry) s10 =
+			getKSEntriesAux (maxIdx+1) (structure pd2entry) s9
 ).
 {
 	eexists ?[s1]. eexists ?[s2]. eexists ?[s3]. eexists ?[s4]. eexists ?[s5].
 	eexists ?[s6]. eexists ?[s7]. eexists ?[s8]. eexists ?[s9].
-	eexists ?[s10]. eexists ?[n1]. eexists.
-	split. intuition.
+	eexists ?[s10].
 	split. intuition.
 	set (s1 := {| currentPartition := _ |}).
 	(* prove outside *)
-	assert(Hfreeslotss1 : getKSEntriesAux ?n1 (structure pd2entry) s1 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s0 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss1 : getKSEntriesAux (maxIdx+1) (structure pd2entry) s1 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s0).
 	{
 		apply getKSEntriesAuxEqPDT.
 		-- (* prove wrong type if equality *)
@@ -24752,14 +24708,15 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s0 (CIndex maxNbPrepare)).
 					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd2 pd2entry Hlookuppd2s0).
-				unfold isKS in *.
 				rewrite Hfirstpdeq in *.
-				rewrite Hpdinsertions0 in *. congruence.
+				rewrite <- beqAddrFalse in Hpd2Null.
+				unfold isKS in *.
+				rewrite Hpdinsertions0 in *. intuition.
 		-- trivial.
 	}
 	set (s2 := {| currentPartition := _ |}).
-	assert(Hfreeslotss2 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s2 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s1 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss2 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s2 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s1).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqPDT.
@@ -24769,14 +24726,15 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s1 (CIndex maxNbPrepare)).
 					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd2 pd2entry Hlookuppd2s0).
-				unfold isKS in *.
 				rewrite Hfirstpdeq in *.
-				rewrite Hpdinsertions0 in *. congruence.
+				rewrite <- beqAddrFalse in Hpd2Null.
+				unfold isKS in *.
+				rewrite Hpdinsertions0 in *. intuition.
 		--	unfold isPDT. unfold s1. cbn. rewrite beqAddrTrue. intuition.
 	}
 	set (s3 := {| currentPartition := _ |}).
-	assert(Hfreeslotss3 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s3 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s2 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss3 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s3 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s2).
 	{
 		apply getKSEntriesAuxEqBE ; intuition.
 		--- unfold isBE. unfold s2. unfold s1. cbn.
@@ -24786,8 +24744,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s2 (CIndex maxNbPrepare)).
 				repeat rewrite removeDupIdentity ; intuition.
 }
 	set (s4 := {| currentPartition := currentPartition ?s3; memory := _ |}). simpl in s4. simpl in s3.
-	assert(Hfreeslotss4 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s4 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s3 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss4 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s4 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s3).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -24799,8 +24757,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s3 (CIndex maxNbPrepare)).
 } fold s1. fold s2. fold s3. fold s4.
 	set (s5 := {| currentPartition := currentPartition ?s4; memory := _ |}).
 	simpl in s4.
-	assert(Hfreeslotss5 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s5 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s4 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss5 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s5 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s4).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -24811,8 +24769,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s4 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5.
 	set (s6 := {| currentPartition := currentPartition ?s5; memory := _ |}).
 	simpl in s4.
-	assert(Hfreeslotss6 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s6 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s5 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss6 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s6 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s5).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -24823,8 +24781,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s5 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6.
 	set (s7 := {| currentPartition := currentPartition ?s6; memory := _ |}).
 	simpl in s5. simpl in s6.
-	assert(Hfreeslotss7 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s7 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s6 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss7 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s7 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s6).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -24835,8 +24793,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s6 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7.
 	set (s8 := {| currentPartition := currentPartition ?s7; memory := _ |}).
 	simpl in s7.
-	assert(Hfreeslotss8 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s8 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s7 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss8 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s8 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s7).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -24847,8 +24805,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s7 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7. fold s8.
 	set (s9 := {| currentPartition := currentPartition ?s8; memory := _ |}).
 	simpl in s7.
-	assert(Hfreeslotss9 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s8 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss9 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s8).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -24859,8 +24817,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s8 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7. fold s8. fold s9.
 	set (s10 := {| currentPartition := currentPartition ?s9; memory := _ |}).
 	simpl in s8. simpl in s9.
-	assert(Hfreeslotss10 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s10 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss10 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s10 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9).
 	{		assert(HSCEs9 : isSCE sceaddr s9).
 			{ unfold isSCE. unfold s9. cbn. rewrite beqAddrTrue.
 				destruct (beqAddr newBlockEntryAddr sceaddr) eqn:Hf ; try(exfalso ; congruence).
@@ -24881,12 +24839,9 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 	fold s10.
 
 	intuition.
-	assert(HcurrLtmaxIdx : CIndex maxNbPrepare <= maxIdx).
-	{ intuition. apply IdxLtMaxIdx. }
-	lia.
 }
 														destruct Hksentriespd2Eq as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 &
-																			(n1 & (nbleft & (Hnbleft & Hstates))))))))))))].
+																			Hstates)))))))))].
 														assert(HsEq : s10 = s).
 														{ intuition. subst s1. subst s2. subst s3. subst s4. subst s5. subst s6.
 															subst s7. subst s8. subst s9. subst s10.
@@ -24894,28 +24849,20 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 														}
 														rewrite HsEq in *.
 														(* listoption2 didn't change *)
-														assert(HksentriesEq : getKSEntriesAux n1 (structure pd2entry) s (CIndex maxNbPrepare) =
-																									getKSEntriesAux (maxIdx+1) (structure pd2entry) s0 (CIndex maxNbPrepare)).
+														assert(HksentriesEq : getKSEntriesAux (maxIdx+1) (structure pd2entry) s =
+																									getKSEntriesAux (maxIdx+1) (structure pd2entry) s0).
 														{
 															intuition.
-															subst nbleft.
 															(* rewrite all previous getKSEntriesAux equalities *)
-															rewrite <- H35. rewrite <- H38. rewrite <- H40.
+															rewrite <- H35. rewrite <- H36. rewrite <- H38. rewrite <- H40.
 															rewrite <- H42. rewrite <- H44. rewrite <- H46. rewrite <- H48.
-															rewrite <- H50. rewrite <- H52. rewrite <- H55.
+															rewrite <- H50. rewrite <- H53.
 															reflexivity.
-														}
-														assert (HksentriesEqn1 : getKSEntriesAux n1 (structure pd2entry) s (CIndex maxNbPrepare)
-																											= getKSEntriesAux (maxIdx + 1) (structure pd2entry) s (CIndex maxNbPrepare)).
-														{ eapply getKSEntriesAuxEqN ; intuition.
-															subst nbleft. lia.
-															assert (HnbLtmaxIdx : CIndex maxNbPrepare <= maxIdx) by apply IdxLtMaxIdx.
-															lia.
 														}
 														unfold getKSEntries in *.
 														rewrite Hlookuppd2Eq in *.
 														rewrite Hpdinsertions0 in *. rewrite Hpdinsertions in *.
-														rewrite <- HksentriesEqn1. rewrite HksentriesEq.
+														rewrite HksentriesEq.
 														rewrite Hpd2Null.
 														destruct H33 as [Hoptionlists (olds & (n0' & (n1' & (n2' & (nbleft' & Hfreeslotsolds')))))].
 														intuition.
@@ -25014,8 +24961,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 																					+ if listoption2 has NOT changed, listoption1 at s is
 																					equal to listoption1 at s0 so they are
 																					still disjoint *)
-																			assert(Hksentriespd1Eq : exists s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 n1 nbleft,
-nbleft = CIndex maxNbPrepare /\
+																			assert(Hksentriespd1Eq : exists s1 s2 s3 s4 s5 s6 s7 s8 s9 s10,
+
 s1 = {|
      currentPartition := currentPartition s0;
      memory := add pdinsertion
@@ -25029,10 +24976,8 @@ s1 = {|
                      MPU := MPU pdentry;
                      vidtBlock := vidtBlock pdentry
                    |}) (memory s0) beqAddr |} /\
-getKSEntriesAux n1 (structure pd1entry) s1 nbleft =
-getKSEntriesAux (maxIdx+1) (structure pd1entry) s0 nbleft
-			 /\
-	n1 <= maxIdx+1 /\ nbleft < n1
+getKSEntriesAux (maxIdx+1) (structure pd1entry) s1 =
+getKSEntriesAux (maxIdx+1) (structure pd1entry) s0
 /\ s2 = {|
      currentPartition := currentPartition s1;
      memory := add pdinsertion
@@ -25047,8 +24992,8 @@ getKSEntriesAux (maxIdx+1) (structure pd1entry) s0 nbleft
 		                vidtBlock := vidtBlock pdentry0
 		              |}
                  ) (memory s1) beqAddr |} /\
-getKSEntriesAux n1 (structure pd1entry) s2 nbleft =
-			getKSEntriesAux n1 (structure pd1entry) s1 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd1entry) s2 =
+			getKSEntriesAux (maxIdx+1)(structure pd1entry) s1
 /\ s3 = {|
      currentPartition := currentPartition s2;
      memory := add newBlockEntryAddr
@@ -25059,8 +25004,8 @@ getKSEntriesAux n1 (structure pd1entry) s2 nbleft =
 	                  (blockindex bentry)
 	                  (CBlock startaddr (endAddr (blockrange bentry))))
                  ) (memory s2) beqAddr |} /\
-getKSEntriesAux n1 (structure pd1entry) s3 nbleft =
-			getKSEntriesAux n1 (structure pd1entry) s2 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd1entry) s3 =
+			getKSEntriesAux (maxIdx+1)(structure pd1entry) s2
 /\ s4 = {|
      currentPartition := currentPartition s3;
      memory := add newBlockEntryAddr
@@ -25071,8 +25016,8 @@ getKSEntriesAux n1 (structure pd1entry) s3 nbleft =
                      (blockindex bentry0)
                      (CBlock (startAddr (blockrange bentry0)) endaddr))
                  ) (memory s3) beqAddr |} /\
-getKSEntriesAux n1 (structure pd1entry) s4 nbleft =
-			getKSEntriesAux n1 (structure pd1entry) s3 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd1entry) s4 =
+			getKSEntriesAux (maxIdx+1)(structure pd1entry) s3
 /\ s5 = {|
      currentPartition := currentPartition s4;
      memory := add newBlockEntryAddr
@@ -25082,8 +25027,8 @@ getKSEntriesAux n1 (structure pd1entry) s4 nbleft =
                     (accessible bentry1) (blockindex bentry1)
                     (blockrange bentry1))
                  ) (memory s4) beqAddr |} /\
-getKSEntriesAux n1 (structure pd1entry) s5 nbleft =
-			getKSEntriesAux n1 (structure pd1entry) s4 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd1entry) s5 =
+			getKSEntriesAux (maxIdx+1)(structure pd1entry) s4
 /\ s6 = {|
      currentPartition := currentPartition s5;
      memory := add newBlockEntryAddr
@@ -25092,8 +25037,8 @@ getKSEntriesAux n1 (structure pd1entry) s5 nbleft =
                      (exec bentry2) (present bentry2) true
                      (blockindex bentry2) (blockrange bentry2))
                  ) (memory s5) beqAddr |} /\
-getKSEntriesAux n1 (structure pd1entry) s6 nbleft =
-			getKSEntriesAux n1 (structure pd1entry) s5 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd1entry) s6 =
+			getKSEntriesAux (maxIdx+1)(structure pd1entry) s5
 /\ s7 = {|
      currentPartition := currentPartition s6;
      memory := add newBlockEntryAddr
@@ -25102,8 +25047,8 @@ getKSEntriesAux n1 (structure pd1entry) s6 nbleft =
                     (present bentry3) (accessible bentry3) 
                     (blockindex bentry3) (blockrange bentry3))
                  ) (memory s6) beqAddr |} /\
-getKSEntriesAux n1 (structure pd1entry) s7 nbleft =
-			getKSEntriesAux n1 (structure pd1entry) s6 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd1entry) s7 =
+			getKSEntriesAux (maxIdx+1)(structure pd1entry) s6
 /\ s8 = {|
      currentPartition := currentPartition s7;
      memory := add newBlockEntryAddr
@@ -25112,8 +25057,8 @@ getKSEntriesAux n1 (structure pd1entry) s7 nbleft =
                        (present bentry4) (accessible bentry4) 
                        (blockindex bentry4) (blockrange bentry4))
                  ) (memory s7) beqAddr |} /\
-getKSEntriesAux n1(structure pd1entry) s8 nbleft =
-			getKSEntriesAux n1 (structure pd1entry) s7 nbleft
+getKSEntriesAux (maxIdx+1) (structure pd1entry) s8 =
+			getKSEntriesAux (maxIdx+1)(structure pd1entry) s7
 /\ s9 = {|
      currentPartition := currentPartition s8;
      memory := add newBlockEntryAddr
@@ -25122,26 +25067,25 @@ getKSEntriesAux n1(structure pd1entry) s8 nbleft =
                     (present bentry5) (accessible bentry5) 
                     (blockindex bentry5) (blockrange bentry5))
                  ) (memory s8) beqAddr |} /\
-getKSEntriesAux n1 (structure pd1entry) s9 nbleft =
-			getKSEntriesAux n1 (structure pd1entry) s8 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd1entry) s9 =
+			getKSEntriesAux (maxIdx+1)(structure pd1entry) s8
 /\ s10 = {|
      currentPartition := currentPartition s9;
      memory := add sceaddr 
 								(SCE {| origin := origin; next := next scentry |}
                  ) (memory s9) beqAddr |} /\
-getKSEntriesAux n1 (structure pd1entry) s10 nbleft =
-			getKSEntriesAux n1 (structure pd1entry) s9 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd1entry) s10 =
+			getKSEntriesAux (maxIdx+1)(structure pd1entry) s9
 ).
 {
 	eexists ?[s1]. eexists ?[s2]. eexists ?[s3]. eexists ?[s4]. eexists ?[s5].
 	eexists ?[s6]. eexists ?[s7]. eexists ?[s8]. eexists ?[s9].
-	eexists ?[s10]. eexists ?[n1]. eexists.
-	split. intuition.
+	eexists ?[s10].
 	split. intuition.
 	set (s1 := {| currentPartition := _ |}).
 	(* prove outside *)
-	assert(Hfreeslotss1 : getKSEntriesAux ?n1 (structure pd1entry) s1 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s0 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss1 : getKSEntriesAux (maxIdx+1) (structure pd1entry) s1 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s0).
 	{
 		apply getKSEntriesAuxEqPDT.
 		-- (* prove wrong type if equality *)
@@ -25150,14 +25094,15 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s0 (CIndex maxNbPrepare)).
 					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd1 pd1entry Hlookuppd1s0).
-				unfold isKS in *.
 				rewrite Hfirstpdeq in *.
-				rewrite Hpdinsertions0 in *. congruence.
+				rewrite <- beqAddrFalse in *.
+				unfold isKS in *.
+				rewrite Hpdinsertions0 in *. intuition.
 		-- trivial.
 	}
 	set (s2 := {| currentPartition := _ |}).
-	assert(Hfreeslotss2 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s2 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s1 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss2 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s2 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s1).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqPDT.
@@ -25167,14 +25112,15 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s1 (CIndex maxNbPrepare)).
 					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd1 pd1entry Hlookuppd1s0).
-				unfold isKS in *.
 				rewrite Hfirstpdeq in *.
-				rewrite Hpdinsertions0 in *. congruence.
+				rewrite <- beqAddrFalse in *.
+				unfold isKS in *.
+				rewrite Hpdinsertions0 in *. intuition.
 		--	unfold isPDT. unfold s1. cbn. rewrite beqAddrTrue. intuition.
 	}
 	set (s3 := {| currentPartition := _ |}).
-	assert(Hfreeslotss3 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s3 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s2 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss3 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s3 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s2).
 	{
 		apply getKSEntriesAuxEqBE ; intuition.
 		--- unfold isBE. unfold s2. unfold s1. cbn.
@@ -25184,8 +25130,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s2 (CIndex maxNbPrepare)).
 				repeat rewrite removeDupIdentity ; intuition.
 }
 	set (s4 := {| currentPartition := currentPartition ?s3; memory := _ |}). simpl in s4. simpl in s3.
-	assert(Hfreeslotss4 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s4 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s3 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss4 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s4 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s3).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -25197,8 +25143,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s3 (CIndex maxNbPrepare)).
 } fold s1. fold s2. fold s3. fold s4.
 	set (s5 := {| currentPartition := currentPartition ?s4; memory := _ |}).
 	simpl in s4.
-	assert(Hfreeslotss5 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s5 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s4 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss5 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s5 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s4).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -25209,8 +25155,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s4 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5.
 	set (s6 := {| currentPartition := currentPartition ?s5; memory := _ |}).
 	simpl in s4.
-	assert(Hfreeslotss6 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s6 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s5 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss6 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s6 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s5).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -25221,8 +25167,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s5 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6.
 	set (s7 := {| currentPartition := currentPartition ?s6; memory := _ |}).
 	simpl in s5. simpl in s6.
-	assert(Hfreeslotss7 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s7 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s6 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss7 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s7 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s6).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -25233,8 +25179,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s6 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7.
 	set (s8 := {| currentPartition := currentPartition ?s7; memory := _ |}).
 	simpl in s7.
-	assert(Hfreeslotss8 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s8 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s7 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss8 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s8 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s7).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -25245,8 +25191,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s7 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7. fold s8.
 	set (s9 := {| currentPartition := currentPartition ?s8; memory := _ |}).
 	simpl in s7.
-	assert(Hfreeslotss9 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s9 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s8 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss9 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s9 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s8).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -25257,8 +25203,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s8 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7. fold s8. fold s9.
 	set (s10 := {| currentPartition := currentPartition ?s9; memory := _ |}).
 	simpl in s8. simpl in s9.
-	assert(Hfreeslotss10 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s10 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s9 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss10 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s10 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s9).
 	{		assert(HSCEs9 : isSCE sceaddr s9).
 			{ unfold isSCE. unfold s9. cbn. rewrite beqAddrTrue.
 				destruct (beqAddr newBlockEntryAddr sceaddr) eqn:Hf ; try(exfalso ; congruence).
@@ -25279,12 +25225,9 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s9 (CIndex maxNbPrepare)).
 	fold s10.
 
 	intuition.
-	assert(HcurrLtmaxIdx : CIndex maxNbPrepare <= maxIdx).
-	{ intuition. apply IdxLtMaxIdx. }
-	lia.
 }
 															destruct Hksentriespd1Eq as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 &
-																			(n1' & (nbleft' & (Hnbleft & Hstates))))))))))))].
+																			Hstates)))))))))].
 															assert(HsEq : s10 = s).
 															{ intuition. subst s1. subst s2. subst s3. subst s4. subst s5. subst s6.
 																subst s7. subst s8. subst s9. subst s10.
@@ -25292,25 +25235,17 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s9 (CIndex maxNbPrepare)).
 															}
 															rewrite HsEq in *.
 															(* listoption2 didn't change *)
-															assert(HksentriesEq : getKSEntriesAux n1' (structure pd1entry) s (CIndex maxNbPrepare) =
-																										getKSEntriesAux (maxIdx+1) (structure pd1entry) s0 (CIndex maxNbPrepare)).
+															assert(HksentriesEq : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s =
+																										getKSEntriesAux (maxIdx+1) (structure pd1entry) s0).
 															{
 																intuition.
-																subst nbleft'.
 																(* rewrite all previous getKSEntriesAux equalities *)
-																rewrite <- H68. rewrite <- H77.
+																rewrite <- H68. rewrite <- H74. rewrite <- H77.
 																rewrite <- H79. rewrite <- H81. rewrite <- H83. rewrite <- H85.
-																rewrite <- H87. rewrite <- H89. rewrite <- H91. rewrite <- H94.
+																rewrite <- H87. rewrite <- H89. rewrite <- H92.
 																reflexivity.
 															}
-															assert (HksentriesEqn1 : getKSEntriesAux n1' (structure pd1entry) s (CIndex maxNbPrepare)
-																												= getKSEntriesAux (maxIdx + 1) (structure pd1entry) s (CIndex maxNbPrepare)).
-															{ eapply getKSEntriesAuxEqN ; intuition.
-																subst nbleft'. lia.
-																assert (HnbLtmaxIdx : CIndex maxNbPrepare <= maxIdx) by apply IdxLtMaxIdx.
-																lia.
-															}
-															rewrite <- HksentriesEqn1. rewrite HksentriesEq.
+															rewrite HksentriesEq.
 															rewrite HoptionentrieslistEq.
 															assert(HKSEntries : getKSEntries pdinsertion s0 = getKSEntries pdinsertion s).
 															{
@@ -25402,8 +25337,7 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s9 (CIndex maxNbPrepare)).
 																												(* show equality between listoption2 at s and s0
 																														-> if listoption2 has NOT changed, they are
 																														still disjoint at s because lisoption1 is NIL *)
-																												assert(Hfreeslotspd2Eq : exists s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 n1 nbleft,
-nbleft = (CIndex maxNbPrepare) /\
+																												assert(Hfreeslotspd2Eq : exists s1 s2 s3 s4 s5 s6 s7 s8 s9 s10,
 s1 = {|
      currentPartition := currentPartition s0;
      memory := add pdinsertion
@@ -25417,10 +25351,8 @@ s1 = {|
                      MPU := MPU pdentry;
                      vidtBlock := vidtBlock pdentry
                    |}) (memory s0) beqAddr |} /\
-getKSEntriesAux n1 (structure pd2entry) s1 nbleft =
-getKSEntriesAux (maxIdx+1) (structure pd2entry) s0 nbleft
-			 /\
-	n1 <= maxIdx+1 /\ nbleft < n1
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s1 =
+getKSEntriesAux (maxIdx+1) (structure pd2entry) s0
 /\ s2 = {|
      currentPartition := currentPartition s1;
      memory := add pdinsertion
@@ -25435,8 +25367,8 @@ getKSEntriesAux (maxIdx+1) (structure pd2entry) s0 nbleft
 		                vidtBlock := vidtBlock pdentry0
 		              |}
                  ) (memory s1) beqAddr |} /\
-getKSEntriesAux n1 (structure pd2entry) s2 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s1 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s2 =
+			getKSEntriesAux (maxIdx+1)(structure pd2entry) s1
 /\ s3 = {|
      currentPartition := currentPartition s2;
      memory := add newBlockEntryAddr
@@ -25447,8 +25379,8 @@ getKSEntriesAux n1 (structure pd2entry) s2 nbleft =
 	                  (blockindex bentry)
 	                  (CBlock startaddr (endAddr (blockrange bentry))))
                  ) (memory s2) beqAddr |} /\
-getKSEntriesAux n1 (structure pd2entry) s3 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s2 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s3 =
+			getKSEntriesAux (maxIdx+1)(structure pd2entry) s2
 /\ s4 = {|
      currentPartition := currentPartition s3;
      memory := add newBlockEntryAddr
@@ -25459,8 +25391,8 @@ getKSEntriesAux n1 (structure pd2entry) s3 nbleft =
                      (blockindex bentry0)
                      (CBlock (startAddr (blockrange bentry0)) endaddr))
                  ) (memory s3) beqAddr |} /\
-getKSEntriesAux n1 (structure pd2entry) s4 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s3 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s4 =
+			getKSEntriesAux (maxIdx+1)(structure pd2entry) s3
 /\ s5 = {|
      currentPartition := currentPartition s4;
      memory := add newBlockEntryAddr
@@ -25470,8 +25402,8 @@ getKSEntriesAux n1 (structure pd2entry) s4 nbleft =
                     (accessible bentry1) (blockindex bentry1)
                     (blockrange bentry1))
                  ) (memory s4) beqAddr |} /\
-getKSEntriesAux n1 (structure pd2entry) s5 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s4 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s5 =
+			getKSEntriesAux (maxIdx+1)(structure pd2entry) s4
 /\ s6 = {|
      currentPartition := currentPartition s5;
      memory := add newBlockEntryAddr
@@ -25480,8 +25412,8 @@ getKSEntriesAux n1 (structure pd2entry) s5 nbleft =
                      (exec bentry2) (present bentry2) true
                      (blockindex bentry2) (blockrange bentry2))
                  ) (memory s5) beqAddr |} /\
-getKSEntriesAux n1 (structure pd2entry) s6 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s5 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s6 =
+			getKSEntriesAux (maxIdx+1)(structure pd2entry) s5
 /\ s7 = {|
      currentPartition := currentPartition s6;
      memory := add newBlockEntryAddr
@@ -25490,8 +25422,8 @@ getKSEntriesAux n1 (structure pd2entry) s6 nbleft =
                     (present bentry3) (accessible bentry3) 
                     (blockindex bentry3) (blockrange bentry3))
                  ) (memory s6) beqAddr |} /\
-getKSEntriesAux n1 (structure pd2entry) s7 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s6 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s7 =
+			getKSEntriesAux (maxIdx+1)(structure pd2entry) s6
 /\ s8 = {|
      currentPartition := currentPartition s7;
      memory := add newBlockEntryAddr
@@ -25500,8 +25432,8 @@ getKSEntriesAux n1 (structure pd2entry) s7 nbleft =
                        (present bentry4) (accessible bentry4) 
                        (blockindex bentry4) (blockrange bentry4))
                  ) (memory s7) beqAddr |} /\
-getKSEntriesAux n1(structure pd2entry) s8 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s7 nbleft
+getKSEntriesAux (maxIdx+1) (structure pd2entry) s8 =
+			getKSEntriesAux (maxIdx+1)(structure pd2entry) s7
 /\ s9 = {|
      currentPartition := currentPartition s8;
      memory := add newBlockEntryAddr
@@ -25510,26 +25442,25 @@ getKSEntriesAux n1(structure pd2entry) s8 nbleft =
                     (present bentry5) (accessible bentry5) 
                     (blockindex bentry5) (blockrange bentry5))
                  ) (memory s8) beqAddr |} /\
-getKSEntriesAux n1 (structure pd2entry) s9 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s8 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s9 =
+			getKSEntriesAux (maxIdx+1)(structure pd2entry) s8
 /\ s10 = {|
      currentPartition := currentPartition s9;
      memory := add sceaddr 
 								(SCE {| origin := origin; next := next scentry |}
                  ) (memory s9) beqAddr |} /\
-getKSEntriesAux n1 (structure pd2entry) s10 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s9 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s10 =
+			getKSEntriesAux (maxIdx+1)(structure pd2entry) s9
 ).
 {
 	eexists ?[s1]. eexists ?[s2]. eexists ?[s3]. eexists ?[s4]. eexists ?[s5].
 	eexists ?[s6]. eexists ?[s7]. eexists ?[s8]. eexists ?[s9].
-	eexists ?[s10]. eexists ?[n1]. eexists.
-	split. intuition.
+	eexists ?[s10].
 	split. intuition.
 	set (s1 := {| currentPartition := _ |}).
 	(* prove outside *)
-	assert(Hfreeslotss1 : getKSEntriesAux ?n1 (structure pd2entry) s1 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s0 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss1 : getKSEntriesAux (maxIdx+1) (structure pd2entry) s1 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s0).
 	{
 		apply getKSEntriesAuxEqPDT.
 		-- (* prove wrong type if equality *)
@@ -25538,14 +25469,15 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s0 (CIndex maxNbPrepare)).
 					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd2 pd2entry Hlookuppd2s0).
-				unfold isKS in *.
 				rewrite Hfirstpdeq in *.
-				rewrite Hpdinsertions0 in *. congruence.
+				rewrite <- beqAddrFalse in *.
+				unfold isKS in *.
+				rewrite Hpdinsertions0 in *. intuition.
 		-- trivial.
 	}
 	set (s2 := {| currentPartition := _ |}).
-	assert(Hfreeslotss2 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s2 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s1 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss2 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s2 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s1).
 	{
 		apply getKSEntriesAuxEqPDT.
 		-- (* prove wrong type if equality *)
@@ -25554,14 +25486,15 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s1 (CIndex maxNbPrepare)).
 					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd2 pd2entry Hlookuppd2s0).
-				unfold isKS in *.
 				rewrite Hfirstpdeq in *.
-				rewrite Hpdinsertions0 in *. congruence.
+				rewrite <- beqAddrFalse in *.
+				unfold isKS in *.
+				rewrite Hpdinsertions0 in *. intuition.
 		-- unfold isPDT. unfold s1. simpl. rewrite beqAddrTrue. trivial.
 	}
 	set (s3 := {| currentPartition := _ |}).
-	assert(Hfreeslotss3 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s3 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s2 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss3 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s3 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s2).
 	{
 		apply getKSEntriesAuxEqBE ; intuition.
 		--- unfold isBE. unfold s2. unfold s1. cbn.
@@ -25571,8 +25504,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s2 (CIndex maxNbPrepare)).
 				repeat rewrite removeDupIdentity ; intuition.
 }
 	set (s4 := {| currentPartition := currentPartition ?s3; memory := _ |}). simpl in s4. simpl in s3.
-	assert(Hfreeslotss4 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s4 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s3 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss4 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s4 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s3).
 	{
 		apply getKSEntriesAuxEqBE ; intuition.
 		--- unfold isBE. unfold s2. unfold s1. cbn.
@@ -25583,8 +25516,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s3 (CIndex maxNbPrepare)).
 } fold s1. fold s2. fold s3. fold s4.
 	set (s5 := {| currentPartition := currentPartition ?s4; memory := _ |}).
 	simpl in s4.
-	assert(Hfreeslotss5 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s5 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s4 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss5 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s5 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s4).
 	{
 		apply getKSEntriesAuxEqBE ; intuition.
 		--- unfold isBE. unfold s2. unfold s1. cbn.
@@ -25596,8 +25529,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s4 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5.
 	set (s6 := {| currentPartition := currentPartition ?s5; memory := _ |}).
 	simpl in s4.
-	assert(Hfreeslotss6 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s6 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s5 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss6 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s6 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s5).
 	{
 		apply getKSEntriesAuxEqBE ; intuition.
 		--- unfold isBE. unfold s2. unfold s1. cbn.
@@ -25609,8 +25542,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s5 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6.
 	set (s7 := {| currentPartition := currentPartition ?s6; memory := _ |}).
 	simpl in s5. simpl in s6.
-	assert(Hfreeslotss7 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s7 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s6 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss7 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s7 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s6).
 	{
 		apply getKSEntriesAuxEqBE ; intuition.
 		--- unfold isBE. unfold s2. unfold s1. cbn.
@@ -25622,8 +25555,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s6 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7.
 	set (s8 := {| currentPartition := currentPartition ?s7; memory := _ |}).
 	simpl in s7.
-	assert(Hfreeslotss8 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s8 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s7 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss8 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s8 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s7).
 	{
 		apply getKSEntriesAuxEqBE ; intuition.
 		--- unfold isBE. unfold s2. unfold s1. cbn.
@@ -25635,8 +25568,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s7 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7. fold s8.
 	set (s9 := {| currentPartition := currentPartition ?s8; memory := _ |}).
 	simpl in s7.
-	assert(Hfreeslotss9 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s8 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss9 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s8).
 	{
 		apply getKSEntriesAuxEqBE ; intuition.
 		--- unfold isBE. unfold s2. unfold s1. cbn.
@@ -25648,8 +25581,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s8 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7. fold s8. fold s9.
 	set (s10 := {| currentPartition := currentPartition ?s9; memory := _ |}).
 	simpl in s8. simpl in s9.
-	assert(Hfreeslotss10 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s10 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss10 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s10 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9).
 	{		assert(HSCEs9 : isSCE sceaddr s9).
 			{ unfold isSCE. unfold s9. cbn. rewrite beqAddrTrue.
 				destruct (beqAddr newBlockEntryAddr sceaddr) eqn:Hf ; try(exfalso ; congruence).
@@ -25670,37 +25603,26 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 	fold s10.
 
 	intuition.
-	assert(HcurrLtmaxIdx : CIndex maxNbPrepare <= maxIdx).
-	{ intuition. apply IdxLtMaxIdx. }
-	lia.
 }
 														destruct Hfreeslotspd2Eq as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 &
-																							(n1' & (nbleft' & (Hnbleft & Hstates))))))))))))].
+																							Hstates)))))))))].
 														assert(HsEq : s10 = s).
 														{ intuition. subst s1. subst s2. subst s3. subst s4. subst s5. subst s6.
 															subst s7. subst s8. subst s9. subst s10.
 															rewrite Hs. f_equal.
 														}
 														rewrite HsEq in *.
-														assert(HfreeslotsEq : getKSEntriesAux n1' (structure pd2entry) s (CIndex maxNbPrepare) =
-																									getKSEntriesAux (maxIdx+1) (structure pd2entry) s0 (CIndex maxNbPrepare)).
+														assert(HfreeslotsEq : getKSEntriesAux(maxIdx+1) (structure pd2entry) s =
+																									getKSEntriesAux (maxIdx+1) (structure pd2entry) s0).
 														{
 															intuition.
-															subst nbleft'.
 															(* rewrite all previous getKSEntriesAux equalities *)
-															rewrite <- H74. rewrite <- H77.
+															rewrite <- H74. rewrite <- H75. rewrite <- H77.
 															rewrite <- H79. rewrite <- H81. rewrite <- H83. rewrite <- H85.
-															rewrite <- H87. rewrite <- H89. rewrite <- H91. rewrite <- H94.
+															rewrite <- H87. rewrite <- H89. rewrite <- H92.
 															reflexivity.
 														}
-														assert (HfreeslotsEqn1 : getKSEntriesAux n1' (structure pd2entry) s (CIndex maxNbPrepare)
-																											= getKSEntriesAux (maxIdx + 1) (structure pd2entry) s (CIndex maxNbPrepare)).
-														{ eapply getKSEntriesAuxEqN ; intuition.
-															subst nbleft'. lia.
-															assert (HnbLtmaxIdx : CIndex maxNbPrepare <= maxIdx) by apply IdxLtMaxIdx.
-															lia.
-														}
-														rewrite <- HfreeslotsEqn1. rewrite HfreeslotsEq. intuition.
+														rewrite HfreeslotsEq. intuition.
 
 										------- (* listoption1 <> NIL *)
 														(* show equality beween listoption1 at s0 and at s
@@ -25709,8 +25631,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 																				and they were disjoint at s0, then they
 																				are still disjoint at s*)
 
-														assert(Hfreeslotspd1Eq : exists s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 n1 nbleft,
-nbleft = CIndex maxNbPrepare /\
+														assert(Hfreeslotspd1Eq : exists s1 s2 s3 s4 s5 s6 s7 s8 s9 s10,
+
 s1 = {|
      currentPartition := currentPartition s0;
      memory := add pdinsertion
@@ -25724,10 +25646,8 @@ s1 = {|
                      MPU := MPU pdentry;
                      vidtBlock := vidtBlock pdentry
                    |}) (memory s0) beqAddr |} /\
-getKSEntriesAux n1 (structure pd1entry) s1 nbleft =
-getKSEntriesAux (maxIdx+1) (structure pd1entry) s0 nbleft
-			 /\
-	n1 <= maxIdx+1 /\ nbleft < n1
+getKSEntriesAux (maxIdx+1)(structure pd1entry) s1 =
+getKSEntriesAux (maxIdx+1) (structure pd1entry) s0
 /\ s2 = {|
      currentPartition := currentPartition s1;
      memory := add pdinsertion
@@ -25742,8 +25662,8 @@ getKSEntriesAux (maxIdx+1) (structure pd1entry) s0 nbleft
 		                vidtBlock := vidtBlock pdentry0
 		              |}
                  ) (memory s1) beqAddr |} /\
-getKSEntriesAux n1 (structure pd1entry) s2 nbleft =
-			getKSEntriesAux n1 (structure pd1entry) s1 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd1entry) s2 =
+			getKSEntriesAux (maxIdx+1)(structure pd1entry) s1
 /\ s3 = {|
      currentPartition := currentPartition s2;
      memory := add newBlockEntryAddr
@@ -25754,8 +25674,8 @@ getKSEntriesAux n1 (structure pd1entry) s2 nbleft =
 	                  (blockindex bentry)
 	                  (CBlock startaddr (endAddr (blockrange bentry))))
                  ) (memory s2) beqAddr |} /\
-getKSEntriesAux n1 (structure pd1entry) s3 nbleft =
-			getKSEntriesAux n1 (structure pd1entry) s2 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd1entry) s3 =
+			getKSEntriesAux (maxIdx+1)(structure pd1entry) s2
 /\ s4 = {|
      currentPartition := currentPartition s3;
      memory := add newBlockEntryAddr
@@ -25766,8 +25686,8 @@ getKSEntriesAux n1 (structure pd1entry) s3 nbleft =
                      (blockindex bentry0)
                      (CBlock (startAddr (blockrange bentry0)) endaddr))
                  ) (memory s3) beqAddr |} /\
-getKSEntriesAux n1 (structure pd1entry) s4 nbleft =
-			getKSEntriesAux n1 (structure pd1entry) s3 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd1entry) s4 =
+			getKSEntriesAux (maxIdx+1)(structure pd1entry) s3
 /\ s5 = {|
      currentPartition := currentPartition s4;
      memory := add newBlockEntryAddr
@@ -25777,8 +25697,8 @@ getKSEntriesAux n1 (structure pd1entry) s4 nbleft =
                     (accessible bentry1) (blockindex bentry1)
                     (blockrange bentry1))
                  ) (memory s4) beqAddr |} /\
-getKSEntriesAux n1 (structure pd1entry) s5 nbleft =
-			getKSEntriesAux n1 (structure pd1entry) s4 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd1entry) s5 =
+			getKSEntriesAux (maxIdx+1)(structure pd1entry) s4
 /\ s6 = {|
      currentPartition := currentPartition s5;
      memory := add newBlockEntryAddr
@@ -25787,8 +25707,8 @@ getKSEntriesAux n1 (structure pd1entry) s5 nbleft =
                      (exec bentry2) (present bentry2) true
                      (blockindex bentry2) (blockrange bentry2))
                  ) (memory s5) beqAddr |} /\
-getKSEntriesAux n1 (structure pd1entry) s6 nbleft =
-			getKSEntriesAux n1 (structure pd1entry) s5 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd1entry) s6 =
+			getKSEntriesAux (maxIdx+1)(structure pd1entry) s5
 /\ s7 = {|
      currentPartition := currentPartition s6;
      memory := add newBlockEntryAddr
@@ -25797,8 +25717,8 @@ getKSEntriesAux n1 (structure pd1entry) s6 nbleft =
                     (present bentry3) (accessible bentry3) 
                     (blockindex bentry3) (blockrange bentry3))
                  ) (memory s6) beqAddr |} /\
-getKSEntriesAux n1 (structure pd1entry) s7 nbleft =
-			getKSEntriesAux n1 (structure pd1entry) s6 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd1entry) s7 =
+			getKSEntriesAux (maxIdx+1)(structure pd1entry) s6
 /\ s8 = {|
      currentPartition := currentPartition s7;
      memory := add newBlockEntryAddr
@@ -25807,8 +25727,8 @@ getKSEntriesAux n1 (structure pd1entry) s7 nbleft =
                        (present bentry4) (accessible bentry4) 
                        (blockindex bentry4) (blockrange bentry4))
                  ) (memory s7) beqAddr |} /\
-getKSEntriesAux n1(structure pd1entry) s8 nbleft =
-			getKSEntriesAux n1 (structure pd1entry) s7 nbleft
+getKSEntriesAux (maxIdx+1) (structure pd1entry) s8 =
+			getKSEntriesAux (maxIdx+1)(structure pd1entry) s7
 /\ s9 = {|
      currentPartition := currentPartition s8;
      memory := add newBlockEntryAddr
@@ -25817,26 +25737,25 @@ getKSEntriesAux n1(structure pd1entry) s8 nbleft =
                     (present bentry5) (accessible bentry5) 
                     (blockindex bentry5) (blockrange bentry5))
                  ) (memory s8) beqAddr |} /\
-getKSEntriesAux n1 (structure pd1entry) s9 nbleft =
-			getKSEntriesAux n1 (structure pd1entry) s8 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd1entry) s9 =
+			getKSEntriesAux (maxIdx+1)(structure pd1entry) s8
 /\ s10 = {|
      currentPartition := currentPartition s9;
      memory := add sceaddr 
 								(SCE {| origin := origin; next := next scentry |}
                  ) (memory s9) beqAddr |} /\
-getKSEntriesAux n1 (structure pd1entry) s10 nbleft =
-			getKSEntriesAux n1 (structure pd1entry) s9 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd1entry) s10 =
+			getKSEntriesAux (maxIdx+1)(structure pd1entry) s9
 ).
 {
 	eexists ?[s1]. eexists ?[s2]. eexists ?[s3]. eexists ?[s4]. eexists ?[s5].
 	eexists ?[s6]. eexists ?[s7]. eexists ?[s8]. eexists ?[s9].
-	eexists ?[s10]. eexists ?[n1]. eexists.
-	split. intuition.
+	eexists ?[s10].
 	split. intuition.
 	set (s1 := {| currentPartition := _ |}).
 	(* prove outside *)
-	assert(Hfreeslotss1 : getKSEntriesAux ?n1 (structure pd1entry) s1 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s0 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss1 : getKSEntriesAux (maxIdx+1) (structure pd1entry) s1 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s0).
 	{
 		apply getKSEntriesAuxEqPDT.
 		-- (* prove wrong type if equality *)
@@ -25845,14 +25764,15 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s0 (CIndex maxNbPrepare)).
 					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd1 pd1entry Hlookuppd1s0).
-				unfold isKS in *.
 				rewrite Hfirstpdeq in *.
-				rewrite Hpdinsertions0 in *. congruence.
+				rewrite <- beqAddrFalse in Hpd1Null.
+				unfold isKS in *.
+				rewrite Hpdinsertions0 in *. intuition.
 		-- trivial.
 	}
 	set (s2 := {| currentPartition := _ |}).
-	assert(Hfreeslotss2 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s2 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s1 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss2 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s2 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s1).
 	{
 		apply getKSEntriesAuxEqPDT.
 		-- (* prove wrong type if equality *)
@@ -25861,14 +25781,15 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s1 (CIndex maxNbPrepare)).
 					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd1 pd1entry Hlookuppd1s0).
-				unfold isKS in *.
 				rewrite Hfirstpdeq in *.
-				rewrite Hpdinsertions0 in *. congruence.
+				rewrite <- beqAddrFalse in Hpd1Null.
+				unfold isKS in *.
+				rewrite Hpdinsertions0 in *. intuition.
 		-- unfold isPDT. unfold s1. simpl. rewrite beqAddrTrue. trivial.
 	}
 	set (s3 := {| currentPartition := _ |}).
-	assert(Hfreeslotss3 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s3 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s2 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss3 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s3 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s2).
 	{
 		apply getKSEntriesAuxEqBE ; intuition.
 		--- unfold isBE. unfold s2. unfold s1. cbn.
@@ -25878,8 +25799,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s2 (CIndex maxNbPrepare)).
 				repeat rewrite removeDupIdentity ; intuition.
 }
 	set (s4 := {| currentPartition := currentPartition ?s3; memory := _ |}). simpl in s4. simpl in s3.
-	assert(Hfreeslotss4 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s4 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s3 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss4 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s4 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s3).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -25891,8 +25812,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s3 (CIndex maxNbPrepare)).
 } fold s1. fold s2. fold s3. fold s4.
 	set (s5 := {| currentPartition := currentPartition ?s4; memory := _ |}).
 	simpl in s4.
-	assert(Hfreeslotss5 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s5 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s4 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss5 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s5 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s4).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -25905,8 +25826,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s4 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5.
 	set (s6 := {| currentPartition := currentPartition ?s5; memory := _ |}).
 	simpl in s4.
-	assert(Hfreeslotss6 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s6 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s5 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss6 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s6 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s5).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -25919,8 +25840,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s5 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6.
 	set (s7 := {| currentPartition := currentPartition ?s6; memory := _ |}).
 	simpl in s5. simpl in s6.
-	assert(Hfreeslotss7 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s7 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s6 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss7 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s7 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s6).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -25933,8 +25854,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s6 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7.
 	set (s8 := {| currentPartition := currentPartition ?s7; memory := _ |}).
 	simpl in s7.
-	assert(Hfreeslotss8 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s8 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s7 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss8 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s8 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s7).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -25947,8 +25868,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s7 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7. fold s8.
 	set (s9 := {| currentPartition := currentPartition ?s8; memory := _ |}).
 	simpl in s7.
-	assert(Hfreeslotss9 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s9 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s8 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss9 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s9 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s8).
 	{
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -25961,8 +25882,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s8 (CIndex maxNbPrepare)).
 	fold s1. fold s2. fold s3. fold s4. fold s5. fold s6. fold s7. fold s8. fold s9.
 	set (s10 := {| currentPartition := currentPartition ?s9; memory := _ |}).
 	simpl in s8. simpl in s9.
-	assert(Hfreeslotss10 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s10 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd1entry) s9 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss10 : getKSEntriesAux (maxIdx + 1) (structure pd1entry) s10 =
+getKSEntriesAux (maxIdx + 1) (structure pd1entry) s9).
 	{		assert(HSCEs9 : isSCE sceaddr s9).
 			{ unfold isSCE. unfold s9. cbn. rewrite beqAddrTrue.
 				destruct (beqAddr newBlockEntryAddr sceaddr) eqn:Hf ; try(exfalso ; congruence).
@@ -25983,35 +25904,24 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s9 (CIndex maxNbPrepare)).
 	fold s10.
 
 	intuition.
-	assert(HcurrLtmaxIdx : CIndex maxNbPrepare <= maxIdx).
-	{ intuition. apply IdxLtMaxIdx. }
-	lia.
 }
 														destruct Hfreeslotspd1Eq as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 &
-																													(n1' & (nbleft' & (Hnbleft & Hstates))))))))))))].
+																													Hstates)))))))))].
 														assert(HsEq : s10 = s).
 														{ intuition. subst s1. subst s2. subst s3. subst s4. subst s5. subst s6.
 															subst s7. subst s8. subst s9. subst s10.
 															rewrite Hs. f_equal.
 														}
 														rewrite HsEq in *.
-														assert(HfreeslotsEq : getKSEntriesAux n1' (structure pd1entry) s (CIndex maxNbPrepare) =
-																									getKSEntriesAux (maxIdx+1) (structure pd1entry) s0 (CIndex maxNbPrepare)).
+														assert(HfreeslotsEq : getKSEntriesAux (maxIdx+1) (structure pd1entry) s =
+																									getKSEntriesAux (maxIdx+1) (structure pd1entry) s0).
 														{
 															intuition.
-															subst nbleft'.
 															(* rewrite all previous getKSEntriesAux equalities *)
-															rewrite <- H68. rewrite <- H77.
+															rewrite <- H68. rewrite <- H74. rewrite <- H77.
 															rewrite <- H79. rewrite <- H81. rewrite <- H83. rewrite <- H85.
-															rewrite <- H87. rewrite <- H89. rewrite <- H91. rewrite <- H94.
+															rewrite <- H87. rewrite <- H89. rewrite <- H92.
 															reflexivity.
-														}
-														assert (HfreeslotsEqn1 : getKSEntriesAux n1' (structure pd1entry) s (CIndex maxNbPrepare)
-																											= getKSEntriesAux (maxIdx + 1) (structure pd1entry) s (CIndex maxNbPrepare)).
-														{ eapply getKSEntriesAuxEqN ; intuition.
-															subst nbleft'. lia.
-															assert (HnbLtmaxIdx : (CIndex maxNbPrepare) <= maxIdx) by apply IdxLtMaxIdx.
-															lia.
 														}
 														(* specialize disjoint for pd1 and pd2 at s0 *)
 														assert(HDisjointpd1pd2s0 : DisjointKSEntries s0)
@@ -26027,68 +25937,60 @@ getKSEntriesAux (maxIdx + 1) (structure pd1entry) s9 (CIndex maxNbPrepare)).
 														unfold getKSEntries.
 														unfold getKSEntries in Hoptionfreeslotslistpd1.
 														unfold getKSEntries in Hoptionfreeslotslistpd2.
-														(*rewrite Hlookuppd1Eq. *)rewrite Hlookuppd2Eq.
+														rewrite Hlookuppd2Eq.
 														rewrite Hlookuppd1s0 in *.
 														rewrite Hlookuppd2s0 in *.
-														(*destruct (beqAddr (structure pd1entry) nullAddr) eqn:HfirstfreeNullpd1 ; try(exfalso ; congruence).*)
 														destruct (beqAddr (structure pd2entry) nullAddr) eqn:HfirstfreeNullpd2 ; try(exfalso ; congruence).
 														+ (* listoption2 = NIL *)
 															(* always disjoint with nil *)
 															subst optionfreeslotslistpd1.
 															intuition.
 															(* we are in the case listoption1 is equal at s and s0 *)
-															rewrite <- HfreeslotsEqn1. subst nbleft'.
 															rewrite Hpd1Null.
 															intuition.
 														+ (* listoption2 = NIL *)
 															(* show list equality for listoption2 *)
 															subst optionfreeslotslistpd1. subst optionfreeslotslistpd2.
 															intuition.
-															rewrite <- HfreeslotsEqn1. subst nbleft'.
 															rewrite Hpd1Null.
 															intuition.
 
 															(* state already cut into intermediate states *)
-															assert(Hfreeslotspd2Eq : exists n1 nbleft,
-nbleft = (CIndex maxNbPrepare) /\
-getKSEntriesAux n1 (structure pd2entry) s1 nbleft =
-getKSEntriesAux (maxIdx+1) (structure pd2entry) s0 nbleft
-			 /\
-	n1 <= maxIdx+1 /\ nbleft < n1
+															assert(Hfreeslotspd2Eq :
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s1 =
+getKSEntriesAux (maxIdx+1) (structure pd2entry) s0
 /\
-getKSEntriesAux n1 (structure pd2entry) s2 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s1 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s2 =
+			getKSEntriesAux (maxIdx+1)(structure pd2entry) s1
 /\
-getKSEntriesAux n1 (structure pd2entry) s3 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s2 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s3 =
+			getKSEntriesAux (maxIdx+1)(structure pd2entry) s2
 /\
-getKSEntriesAux n1 (structure pd2entry) s4 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s3 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s4 =
+			getKSEntriesAux (maxIdx+1)(structure pd2entry) s3
 /\
-getKSEntriesAux n1 (structure pd2entry) s5 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s4 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s5 =
+			getKSEntriesAux (maxIdx+1)(structure pd2entry) s4
 /\
-getKSEntriesAux n1 (structure pd2entry) s6 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s5 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s6 =
+			getKSEntriesAux (maxIdx+1)(structure pd2entry) s5
 /\
-getKSEntriesAux n1 (structure pd2entry) s7 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s6 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s7 =
+			getKSEntriesAux (maxIdx+1)(structure pd2entry) s6
 /\
-getKSEntriesAux n1(structure pd2entry) s8 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s7 nbleft
+getKSEntriesAux (maxIdx+1) (structure pd2entry) s8 =
+			getKSEntriesAux (maxIdx+1)(structure pd2entry) s7
 /\
-getKSEntriesAux n1 (structure pd2entry) s9 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s8 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s9 =
+			getKSEntriesAux (maxIdx+1)(structure pd2entry) s8
 /\
-getKSEntriesAux n1 (structure pd2entry) s10 nbleft =
-			getKSEntriesAux n1 (structure pd2entry) s9 nbleft
+getKSEntriesAux (maxIdx+1)(structure pd2entry) s10 =
+			getKSEntriesAux (maxIdx+1)(structure pd2entry) s9
 ).
-{
-	eexists ?[n1]. eexists.
-	split. intuition.
+{	
 	(* prove outside *)
-	assert(Hfreeslotss1 : getKSEntriesAux ?n1 (structure pd2entry) s1 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s0 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss1 : getKSEntriesAux (maxIdx+1) (structure pd2entry) s1 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s0).
 {		subst s1.
 		apply getKSEntriesAuxEqPDT.
 		-- (* prove wrong type if equality *)
@@ -26097,13 +25999,14 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s0 (CIndex maxNbPrepare)).
 					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd2 pd2entry Hlookuppd2s0).
-				unfold isKS in *.
 				rewrite Hfirstpdeq in *.
-				rewrite Hpdinsertions0 in *. congruence.
+				rewrite <- beqAddrFalse in *.
+				unfold isKS in *.
+				rewrite Hpdinsertions0 in *. intuition.
 		-- trivial.
 	}
-	assert(Hfreeslotss2 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s2 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s1 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss2 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s2 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s1).
 	{ subst s2.
 		apply getKSEntriesAuxEqPDT.
 		-- (* prove wrong type if equality *)
@@ -26112,13 +26015,14 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s1 (CIndex maxNbPrepare)).
 					by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 				unfold StructurePointerIsKS in *.
 				specialize (HStructurePointerIsKSs0 pd2 pd2entry Hlookuppd2s0).
-				unfold isKS in *.
 				rewrite Hfirstpdeq in *.
-				rewrite Hpdinsertions0 in *. congruence.
+				rewrite <- beqAddrFalse in *.
+				unfold isKS in *.
+				rewrite Hpdinsertions0 in *. intuition.
 		-- unfold isPDT. subst s1. simpl. rewrite beqAddrTrue. trivial.
 	}
-	assert(Hfreeslotss3 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s3 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s2 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss3 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s3 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s2).
 	{	subst s3.
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -26129,8 +26033,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s2 (CIndex maxNbPrepare)).
 				repeat rewrite removeDupIdentity ; intuition.
 }
 	simpl in s4. simpl in s3.
-	assert(Hfreeslotss4 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s4 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s3 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss4 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s4 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s3).
 	{	subst s4.
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -26141,8 +26045,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s3 (CIndex maxNbPrepare)).
 				repeat rewrite removeDupIdentity ; intuition.
 }
 	simpl in s4.
-	assert(Hfreeslotss5 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s5 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s4 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss5 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s5 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s4).
 	{	subst s5.
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -26153,8 +26057,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s4 (CIndex maxNbPrepare)).
 				repeat rewrite removeDupIdentity ; intuition.
 }
 	simpl in s4.
-	assert(Hfreeslotss6 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s6 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s5 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss6 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s6 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s5).
 	{	subst s6.
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -26165,8 +26069,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s5 (CIndex maxNbPrepare)).
 				repeat rewrite removeDupIdentity ; intuition.
 }
 	simpl in s5. simpl in s6.
-	assert(Hfreeslotss7 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s7 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s6 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss7 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s7 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s6).
 	{	subst s7.
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -26177,8 +26081,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s6 (CIndex maxNbPrepare)).
 				repeat rewrite removeDupIdentity ; intuition.
 }
 	simpl in s7.
-	assert(Hfreeslotss8 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s8 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s7 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss8 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s8 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s7).
 	{	subst s8.
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -26190,8 +26094,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s7 (CIndex maxNbPrepare)).
 				repeat rewrite removeDupIdentity ; intuition.
 }
 	simpl in s7.
-	assert(Hfreeslotss9 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s8 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss9 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s8).
 	{ subst s9.
 		(* DUP *)
 		apply getKSEntriesAuxEqBE ; intuition.
@@ -26203,8 +26107,8 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s8 (CIndex maxNbPrepare)).
 				repeat rewrite removeDupIdentity ; intuition.
 }
 	simpl in s8. simpl in s9.
-	assert(Hfreeslotss10 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s10 (CIndex maxNbPrepare) =
-getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
+	assert(Hfreeslotss10 : getKSEntriesAux (maxIdx + 1) (structure pd2entry) s10 =
+getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9).
 	{			assert(HSCEs9 : isSCE sceaddr s9).
 				{ unfold isSCE. subst s9. subst s8. subst s7. subst s6. subst s5.
 					subst s4. subst s3. subst s2. subst s1. cbn. rewrite beqAddrTrue.
@@ -26220,38 +26124,24 @@ getKSEntriesAux (maxIdx + 1) (structure pd2entry) s9 (CIndex maxNbPrepare)).
 					rewrite <- beqAddrFalse in *.
 					repeat rewrite removeDupIdentity ; intuition.
 				}
-				subst s10. rewrite H92. (* s = currentPartition s9  ...*)
+				subst s10. rewrite H90. (* s = currentPartition s9  ...*)
 			apply getKSEntriesAuxEqSCE ; intuition.
 	}
 	intuition.
-	assert(HcurrLtmaxIdx : (CIndex maxNbPrepare) <= maxIdx).
-	{ intuition. apply IdxLtMaxIdx. }
-	intuition.
-	assert(Hmax : maxIdx + 1 = S maxIdx) by (apply MaxIdxNextEq).
-	rewrite Hmax. apply Lt.le_lt_n_Sm. intuition.
 }
-															destruct Hfreeslotspd2Eq as [n1'' (nbleft'' & Hstates)].
 															rewrite HsEq in *.
-															assert(HfreeslotsEqpd2 : getKSEntriesAux n1'' (structure pd2entry) s (CIndex maxNbPrepare) =
-																										getKSEntriesAux (maxIdx+1) (structure pd2entry) s0 (CIndex maxNbPrepare)).
+															assert(HfreeslotsEqpd2 : getKSEntriesAux (maxIdx+1) (structure pd2entry) s =
+																										getKSEntriesAux (maxIdx+1) (structure pd2entry) s0).
 															{
 																intuition.
-																subst nbleft''.
 																(* rewrite all previous getKSEntriesAux equalities *)
-																rewrite <- H96. rewrite <- H98. rewrite <- H99.
-																rewrite <- H100. rewrite <- H101. rewrite <- H102.
-																rewrite <- H103. rewrite <- H104. rewrite <- H105.
-																rewrite <- H107.
+																rewrite <- H91. rewrite <- H94. rewrite <- H93.
+																rewrite <- H95. rewrite <- H96. rewrite <- H97.
+																rewrite <- H98. rewrite <- H99. rewrite <- H100.
+																rewrite <- H102.
 																reflexivity.
 															}
-															assert (HfreeslotsEqn1' : getKSEntriesAux n1'' (structure pd2entry) s (CIndex maxNbPrepare)
-																												= getKSEntriesAux (maxIdx + 1) (structure pd2entry) s (CIndex maxNbPrepare)).
-															{ eapply getKSEntriesAuxEqN ; intuition.
-																subst nbleft''. lia.
-																assert (HnbLtmaxIdx : (CIndex maxNbPrepare) <= maxIdx) by apply IdxLtMaxIdx.
-																lia.
-															}
-															rewrite <- HfreeslotsEqn1'. rewrite HfreeslotsEqpd2. intuition.
+															rewrite HfreeslotsEqpd2. intuition.
 } (* end of DisjointKSEntries *)
 
 	assert(HnoDupPartitionTrees : noDupPartitionTree s).
