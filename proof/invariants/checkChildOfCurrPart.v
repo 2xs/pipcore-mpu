@@ -39,15 +39,18 @@ Require Import Core.Internal.
 Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
                Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants
 							 Proof.invariants.findBlockInKSWithAddr.
+Require Import List.
+Import List.ListNotations.
 
 Lemma checkChildOfCurrPart (currentPartition idPDchild : paddr) P :
 {{ fun s => P s /\ consistency s /\ isPDT currentPartition s}}
 Internal.checkChildOfCurrPart  currentPartition idPDchild
 {{fun isChild s => P s
 /\ (isChild = true -> exists sh1entryaddr, isChild = StateLib.checkChild idPDchild s sh1entryaddr
-										/\ exists entry, lookup idPDchild s.(memory) beqAddr = Some (BE entry)
-										/\ exists sh1entry, (sh1entryAddr idPDchild sh1entryaddr s
-												/\ lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry))
+										/\ (exists entry, lookup idPDchild s.(memory) beqAddr = Some (BE entry))
+										/\ (exists sh1entry, (sh1entryAddr idPDchild sh1entryaddr s
+												/\ lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry)))
+										/\ In idPDchild (getMappedBlocks currentPartition s)
 										)
 }}.
 Proof.
@@ -95,10 +98,15 @@ case_eq addrIsNull0.
 				(*blockInParentPartAddr can't be NULL and not NULL at the same time *)
 				apply beqAddrFalse in H3. exfalso ; congruence.
 				destruct H2. destruct H2. exists x0.
-				split. unfold checkChild. destruct H5. intuition. subst. 
-				rewrite H2. rewrite H8.
-				unfold sh1entryPDflag in *. rewrite -> H8 in *. assumption.
-				destruct H5. exists x1. split. intuition. subst. assumption.
+				assert(HcheckChilds : true = checkChild idPDchild s x0).
+				{ unfold checkChild. destruct H5. intuition. subst. 
+						rewrite H2. rewrite H8.
+						unfold sh1entryPDflag in *. rewrite -> H8 in *. assumption.
+				}
+				split. intuition.
+				destruct H5.
+				split. exists x1. intuition. subst. assumption.
+				split.
 				exists x. intuition.
 				subst blockInParentPartAddr.
 
@@ -108,6 +116,7 @@ case_eq addrIsNull0.
 				exists x. assumption.
 				apply isSHELookupEq in Hsh1.
 				unfold sh1entryAddr in H11. rewrite H2 in H11. assumption.
+				intuition. subst idPDchild. assumption.
 			}
 	 	+ (* ischild = false : sh1entry exists but PDflag = 0 *)
 			simpl. intros.

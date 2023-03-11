@@ -80,8 +80,8 @@ case_eq isCurrentPart.
 		{ (** MAL.readBlockStartFromBlockEntryAddr *)
 			eapply weaken. apply readBlockStartFromBlockEntryAddr.
 			intros. simpl. split. apply H1. intuition.
-			destruct H5. intuition. destruct H7.
-			unfold isBE. intuition. rewrite H7 ; trivial.
+			destruct H5. intuition. destruct H3.
+			unfold isBE. intuition. rewrite H3 ; trivial.
 		}
 		intro idPDChild.
 		{ (** ret *)
@@ -89,14 +89,15 @@ case_eq isCurrentPart.
 		simpl. intros. intuition.
 		destruct H6.
 		assert(HPDTIfPDFlag : PDTIfPDFlag s) by
-			(unfold consistency in * ; intuition).
+			(unfold consistency in * ; unfold consistency1 in * ; intuition).
 		unfold PDTIfPDFlag in *.
-		intuition. unfold entryPDT in *. destruct H9. intuition.
-		destruct H10 as [Hsh1entry Hsh1entryaddr]. destruct Hsh1entryaddr.
-		assert(Hconj := conj H8 H6).
+		intuition. unfold entryPDT in *. destruct H6. intuition.
+		destruct H9 as [Hsh1entry Hsh1entryaddr].
+		destruct Hsh1entryaddr.
+		assert(Hconj := conj H8 H9).
 		specialize (HPDTIfPDFlag idPDToCheck x Hconj).
-		destruct HPDTIfPDFlag. intuition.
-		unfold bentryStartAddr in *. rewrite H9 in *. subst.
+		destruct HPDTIfPDFlag as [HAFlag (HPFlag & (startaddr & HPDTIfPDFlag))]. intuition.
+		unfold bentryStartAddr in *. rewrite H6 in *. subst.
 		unfold isPDT.
 		destruct (lookup (startAddr (blockrange x0)) (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
 		destruct v eqn:Hv ; try (exfalso ; congruence) ; trivial.
