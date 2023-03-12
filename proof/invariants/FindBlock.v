@@ -37,7 +37,7 @@
 
 Require Import Model.ADT Core.Services.
 Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPreconditions
-Proof.StateLib Proof.DependentTypeLemmas.
+Proof.StateLib Proof.DependentTypeLemmas Proof.InternalLemmas.
 Require Import Invariants getGlobalIdPDCurrentOrChild findBlockInKS.
 Require Import Compare_dec.
 
@@ -54,13 +54,17 @@ unfold Services.findBlock.
 eapply bindRev.
 { (** getCurPartition **)
 	eapply weaken. apply getCurPartition.
-	intros. simpl. split. apply H. intuition.
+	intros. simpl. apply H.
 }
 intro currentPart.
 eapply bindRev.
 { (** Internal.getGlobalIdPDCurrentOrChild **)
 	eapply weaken. apply getGlobalIdPDCurrentOrChild.
 	intros. simpl. split. apply H. intuition.
+	subst currentPart.
+	apply currentPartIsPDT ;
+	unfold consistency in * ; unfold consistency1 in * ;
+	intuition.
 }
 intro globalIdPD.
 eapply bindRev.
@@ -106,8 +110,8 @@ case_eq addrIsNull.
 			intros. simpl. split. apply H1. intuition.
 			- (* blockAddr = nullAddr, this is false since we are in the branch
 						where we found the block *)
-				contradict H12. apply beqAddrFalse in H3. congruence.
-			- unfold isBE. destruct H12. rewrite H6;trivial.
+				contradict H11. apply beqAddrFalse in H3. congruence.
+			- unfold isBE. destruct H11. rewrite H6;trivial.
 		}
 		intro blockentry.
 		{ (** ret *)

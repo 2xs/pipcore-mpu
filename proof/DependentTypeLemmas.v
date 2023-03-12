@@ -34,11 +34,317 @@
 (** * Summary 
     This file contains required lemmas to help in proving some properties
     on our dependent types defined into [Model.ADT] *)
-Require Import Model.ADT Model.MALInternal Model.Lib.
+Require Import Model.ADT Model.MALInternal Model.Lib Model.Monad.
 
-Require Import Proof.StateLib.
+Require Import Proof.StateLib Proof.Consistency.
 
-Require Import Coq.Logic.ProofIrrelevance Arith Lia Bool.
+Require Import Coq.Logic.ProofIrrelevance Arith Lia Bool List.
+Import List.ListNotations.
+
+(* DUP *)
+Lemma isPDTLookupEq (pd : paddr) s :
+isPDT pd s -> exists entry : PDTable,
+  lookup pd (memory s) beqAddr = Some (PDT entry).
+Proof.
+intros.
+unfold isPDT in H.
+destruct (lookup pd (memory s) beqAddr); try now contradict H.
+destruct v; try now contradict H.
+eexists;repeat split;trivial.
+Qed.
+
+(* DUP *)
+Lemma isBELookupEq (blockentryaddr : paddr) s :
+isBE blockentryaddr s <-> exists entry : BlockEntry,
+  lookup blockentryaddr (memory s) beqAddr = Some (BE entry).
+Proof.
+intros. split.
+- intros.
+unfold isBE in H.
+destruct (lookup blockentryaddr (memory s) beqAddr); try now contradict H.
+destruct v; try now contradict H.
+eexists;repeat split;trivial.
+- intros. unfold isBE. destruct H. rewrite H ; trivial.
+Qed.
+
+(* DUP *)
+Lemma isSHELookupEq (sh1entryaddr : paddr) s :
+isSHE sh1entryaddr s <-> exists entry : Sh1Entry,
+  lookup sh1entryaddr (memory s) beqAddr = Some (SHE entry).
+Proof.
+intros. split.
+- intros. unfold isSHE in H.
+	destruct (lookup sh1entryaddr (memory s) beqAddr); try now contradict H.
+	destruct v; try now contradict H.
+	eexists;repeat split;trivial.
+- intros. unfold isSHE. destruct H. rewrite H ; trivial.
+Qed.
+
+(* DUP *)
+Lemma isSCELookupEq (scentryaddr : paddr) s :
+isSCE scentryaddr s <-> exists entry : SCEntry,
+  lookup scentryaddr (memory s) beqAddr = Some (SCE entry).
+Proof.
+intros. split.
+- intros. unfold isSCE in H.
+destruct (lookup scentryaddr (memory s) beqAddr); try now contradict H.
+destruct v; try now contradict H.
+eexists;repeat split;trivial.
+- intros. unfold isSCE. destruct H. rewrite H ; trivial.
+Qed.
+
+(* DUP *)
+Lemma isKSLookupEq (addr : paddr) s :
+isKS addr s -> exists entry : BlockEntry,
+  lookup addr (memory s) beqAddr = Some (BE entry)
+	/\ entry.(blockindex) = zero.
+Proof.
+intros.
+unfold isKS in H.
+destruct (lookup addr (memory s) beqAddr); try now contradict H.
+destruct v; try now contradict H.
+eexists;repeat split;trivial.
+Qed.
+
+(* DUP *)
+Lemma isPADDRLookupEq (addr : paddr) s :
+isPADDR addr s -> exists addr' : paddr,
+  lookup addr (memory s) beqAddr = Some (PADDR addr').
+Proof.
+intros.
+unfold isPADDR in H.
+destruct (lookup addr (memory s) beqAddr); try now contradict H.
+destruct v; try now contradict H.
+eexists;repeat split;trivial.
+Qed.
+
+(* DUP*)
+Lemma lookupBEntryAccessibleFlag entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (BE entry) ->
+bentryAFlag entryaddr (accessible entry) s.
+Proof.
+intros.
+unfold bentryAFlag.
+rewrite H;trivial.
+Qed.
+
+(* DUP*)
+Lemma lookupBEntryPresentFlag entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (BE entry) ->
+bentryPFlag entryaddr (present entry) s.
+Proof.
+intros.
+unfold bentryPFlag.
+rewrite H;trivial.
+Qed.
+
+(* DUP*)
+Lemma lookupBEntryReadFlag entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (BE entry) ->
+bentryRFlag entryaddr (read entry) s.
+Proof.
+intros.
+unfold bentryRFlag.
+rewrite H;trivial.
+Qed.
+
+(* DUP*)
+Lemma lookupBEntryWriteFlag entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (BE entry) ->
+bentryWFlag entryaddr (write entry) s.
+Proof.
+intros.
+unfold bentryWFlag.
+rewrite H;trivial.
+Qed.
+
+(* DUP *)
+Lemma lookupBEntryExecFlag entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (BE entry) ->
+bentryXFlag entryaddr (exec entry) s.
+Proof.
+intros.
+unfold bentryXFlag.
+rewrite H;trivial.
+Qed.
+
+Lemma lookupBEntryBlockIndex entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (BE entry) ->
+bentryBlockIndex entryaddr (blockindex entry) s.
+Proof.
+intros.
+unfold bentryBlockIndex.
+rewrite H;trivial.
+Qed.
+
+(*DUP*)
+Lemma lookupBEntryStartAddr entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (BE entry) ->
+bentryStartAddr entryaddr (startAddr (blockrange entry)) s.
+Proof.
+intros.
+unfold bentryStartAddr.
+rewrite H;trivial.
+Qed.
+
+(*DUP*)
+Lemma lookupBEntryEndAddr entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (BE entry) ->
+bentryEndAddr entryaddr (endAddr (blockrange entry)) s.
+Proof.
+intros.
+unfold bentryEndAddr.
+rewrite H;trivial.
+Qed.
+
+(* DUP *)
+Lemma lookupSh1EntryPDflag paddr s :
+forall entry , lookup paddr (memory s) beqAddr = Some (SHE entry) ->
+sh1entryPDflag paddr (PDflag entry) s.
+Proof.
+intros.
+unfold sh1entryPDflag.
+rewrite H;trivial.
+Qed.
+
+Lemma lookupSh1EntryPDchild paddr s :
+forall entry , lookup paddr (memory s) beqAddr = Some (SHE entry) ->
+sh1entryPDchild paddr (PDchild entry) s.
+Proof.
+intros.
+unfold sh1entryPDchild.
+rewrite H;trivial.
+Qed.
+
+Lemma lookupSh1EntryInChildLocation paddr s :
+forall entry , lookup paddr (memory s) beqAddr = Some (SHE entry) ->
+consistency s ->
+sh1entryInChildLocation paddr (inChildLocation entry) s.
+Proof.
+intros.
+unfold sh1entryInChildLocation.
+rewrite H;trivial.
+intuition.
+unfold consistency in *.
+unfold consistency1 in *.
+unfold sh1InChildLocationIsBE in *. intuition.
+eauto. (* specialize (H10 paddr entry H H1). trivial. *)
+Qed.
+
+Lemma lookupSCEntryOrigin paddr s :
+forall entry , lookup paddr (memory s) beqAddr = Some (SCE entry) ->
+scentryOrigin paddr (origin entry) s.
+Proof.
+intros.
+unfold scentryOrigin.
+rewrite H;trivial.
+Qed.
+
+Lemma lookupSCEntryNext paddr s :
+forall entry , lookup paddr (memory s) beqAddr = Some (SCE entry) ->
+scentryNext paddr (next entry) s.
+Proof.
+intros.
+unfold scentryNext.
+rewrite H;trivial.
+Qed.
+
+(*DUP*)
+Lemma lookupPDEntryFirstFreeSlot entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
+pdentryFirstFreeSlot entryaddr (firstfreeslot entry) s.
+Proof.
+intros.
+unfold pdentryFirstFreeSlot.
+rewrite H;trivial.
+Qed.
+
+
+(*DUP*)
+Lemma lookupPDEntryNbFreeSlots entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
+pdentryNbFreeSlots entryaddr (nbfreeslots entry) s.
+Proof.
+intros.
+unfold pdentryNbFreeSlots.
+rewrite H;trivial.
+Qed.
+
+(*DUP*)
+Lemma lookupPDEntryStructurePointer entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
+(*consistency s ->*)
+pdentryStructurePointer entryaddr (structure entry) s.
+Proof.
+intros.
+unfold pdentryStructurePointer.
+rewrite H;trivial.
+(*intuition.
+unfold consistency in *. unfold StructurePointerIsBE in *. intuition.
+specialize (H11 entryaddr entry H). trivial.*)
+Qed.
+
+(*DUP*)
+Lemma lookupPDEntryNbPrepare entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
+pdentryNbPrepare entryaddr (nbprepare entry) s.
+Proof.
+intros.
+unfold pdentryNbPrepare.
+rewrite H;trivial.
+Qed.
+
+(*DUP*)
+Lemma lookupPDEntryMPU entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
+pdentryMPU entryaddr (MPU entry) s.
+Proof.
+intros.
+unfold pdentryMPU.
+rewrite H;trivial.
+Qed.
+
+(*DUP*)
+Lemma lookupPDEntryVidt entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
+pdentryVidt entryaddr (vidtBlock entry) s.
+Proof.
+intros.
+unfold pdentryVidt.
+rewrite H;trivial.
+Qed.
+
+(* DUP*)
+Lemma lookupSh1EntryAddr entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (BE entry) ->
+sh1entryAddr entryaddr (CPaddr (entryaddr + sh1offset)) s.
+Proof.
+intros.
+unfold sh1entryAddr.
+rewrite H;trivial.
+Qed.
+
+
+(* DUP*)
+Lemma lookupSCEntryAddr entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (BE entry) ->
+scentryAddr entryaddr (CPaddr (entryaddr + scoffset)) s.
+Proof.
+intros.
+unfold scentryAddr.
+rewrite H;trivial.
+Qed.
+
+(*DUP*)
+Lemma lookupPDMPU entryaddr s :
+forall entry , lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
+pdentryMPU entryaddr (MPU entry) s.
+Proof.
+intros.
+unfold pdentryMPU.
+rewrite H;trivial.
+Qed.
+
 (*
 (** ADT : level **)
 Lemma levelEqBEqNatTrue :
@@ -478,17 +784,17 @@ left;right;trivial.
 right.
 apply Logic.Classical_Prop.and_not_or. intuition.
 Qed. 
-             
-             
+*)   
+
 (** ADT : index **)
 Lemma indexEqFalse : 
-forall a b : nat , a < tableSize -> b < tableSize -> a <> b -> CIndex a <> CIndex b.
+forall a b : nat , a <= maxIdx -> b <= maxIdx -> a <> b -> CIndex a <> CIndex b.
 Proof.
 intros.
 unfold CIndex.
-case_eq (lt_dec a tableSize).
+case_eq (le_dec a maxIdx).
 + intros.
-  case_eq (lt_dec b tableSize).
+  case_eq (le_dec b maxIdx).
   - intros.
     unfold not in *.
     intros.
@@ -502,7 +808,7 @@ Qed.
 Lemma indexltbTrue : 
 forall i1 i2 : index , 
 StateLib.Index.ltb i1 i2 = true -> i1 < i2.
-Proof. intros. unfold MALInternal.Index.ltb in H. 
+Proof. intros. unfold Index.ltb in H. 
 apply NPeano.Nat.ltb_lt in H.
 assumption.
 Qed. 
@@ -512,12 +818,13 @@ forall i1 i2 : index ,
 StateLib.Index.ltb i1 i2 = false -> i1 >= i2.
 Proof.
 intros.
-unfold MALInternal.Index.ltb in *. 
+unfold Index.ltb in *. 
 apply not_lt.
 apply NPeano.Nat.ltb_nlt in H.
 lia.
 Qed. 
 
+(*
 Lemma indexBoundEq : 
 forall i : index , i>= CIndex (tableSize - 1) -> i =  CIndex (tableSize - 1). 
 Proof.
@@ -539,6 +846,8 @@ assert (tableSize > tableSizeLowerBound).
 apply tableSizeBigEnough.
 unfold  tableSizeLowerBound in * . lia. lia.
 Qed.
+*)
+
 
 Lemma indexDiffLtb :
 forall i1 i2 : index, i2 < i1 \/ i1 < i2 <-> i2 <> i1.
@@ -556,25 +865,13 @@ apply H; f_equal.
 apply proof_irrelevance.
 Qed.
 
-Lemma indexEqId : 
-forall i : index, CIndex i = i. 
-Proof.
-intros.
-unfold CIndex.
-destruct i.
-simpl.
-case_eq(lt_dec i tableSize); intros.
-assert(ADT.CIndex_obligation_1 i l = Hi) by apply proof_irrelevance.
-subst. reflexivity.
-now contradict Hi.
-Qed.
 
 Lemma indexMaxEqFalseLt : 
-forall idx : index, idx <> CIndex (tableSize - 1) -> idx < tableSize - 1.
+forall idx : index, idx <> CIndex maxIdx -> idx < maxIdx.
 Proof.
 intros.
 unfold CIndex in *.
-case_eq (lt_dec (tableSize - 1) tableSize).
+case_eq (le_dec maxIdx maxIdx).
 intros .
 rewrite H0 in *.
 destruct idx.
@@ -583,16 +880,16 @@ apply not_ge.
 unfold not.
 intros.
 contradict H.
-assert (i = tableSize - 1).
+assert (i = maxIdx).
 lia.
 subst.
 f_equal.
 apply proof_irrelevance.
 intros.
-assert(tableSizeLowerBound < tableSize) by apply tableSizeBigEnough.
+assert(maxIdxLowerBound < maxIdx) by apply maxIdxBigEnough.
 lia.
 Qed.
-
+(*
 Lemma SuccOddEven :
 forall oneI twoI : index, 
 oneI < tableSize -1 -> 
@@ -666,31 +963,33 @@ intros.
 assert(tableSizeLowerBound < tableSize) by apply tableSizeBigEnough.
 lia.
 Qed.
+*)
 
 Lemma noteqIndex a b:
-a < tableSizeLowerBound -> b < tableSizeLowerBound -> a<>b ->  
+a < maxIdx +1 -> b < maxIdx +1 -> a<>b ->  
 CIndex a <> CIndex b.
 Proof.
 intros. 
 apply indexEqFalse;
-assert (tableSize > tableSizeLowerBound).
-apply tableSizeBigEnough.
-unfold tableSizeLowerBound in *.
-lia.  apply tableSizeBigEnough.
-unfold tableSizeLowerBound in *.
-lia. apply tableSizeBigEnough. lia.
+assert (maxIdx > maxIdxLowerBound).
+apply maxIdxBigEnough.
+unfold maxIdxLowerBound in *.
+lia.  apply maxIdxBigEnough.
+unfold maxIdxLowerBound in *.
+lia. apply maxIdxBigEnough. lia.
 Qed.
 
 Lemma CIndex0lt :
-CIndex 0 < tableSize - 1.
+CIndex 0 < maxIdx.
 Proof.
 unfold CIndex.
-assert (tableSize > tableSizeLowerBound).
-apply tableSizeBigEnough.
-unfold tableSizeLowerBound in *.
-case_eq(lt_dec 0 tableSize);intros;simpl;try lia.
+assert (maxIdx > maxIdxLowerBound).
+apply maxIdxBigEnough.
+unfold maxIdxLowerBound in *.
+case_eq(lt_dec 0 maxIdx);intros;simpl;try lia.
 Qed.
 
+(*
 Lemma CIndex1lt oneI:
 StateLib.Index.succ (CIndex 0) = Some oneI-> 
 oneI < tableSize - 1.
@@ -727,7 +1026,438 @@ apply CIndex0ltKSEntriesNb.
 assumption.
 Qed.
 
+Lemma indexEqId :
+forall i : index, CIndex i = i.
+Proof.
+intros.
+unfold CIndex.
+destruct i.
+simpl.
+case_eq(le_dec i maxIdx); intros.
+assert(ADT.CIndex_obligation_1 i l = Hi) by apply proof_irrelevance.
+subst. reflexivity.
+now contradict Hi.
+Qed.
+
+
+Lemma KSIsBE s :
+forall addr : paddr,
+isKS addr s ->
+isBE addr s.
+Proof.
+intuition.
+unfold isKS in *.
+unfold isBE.
+destruct (lookup addr (Monad.memory s) beqAddr) ; try(exfalso ; congruence).
+destruct v ; try(exfalso ; congruence).
+trivial.
+Qed.
+
+Lemma FreeSlotIsBE s :
+forall addr : paddr,
+isFreeSlot addr s ->
+isBE addr s.
+Proof.
+intuition.
+unfold isFreeSlot in *.
+unfold isBE.
+destruct (lookup addr (Monad.memory s) beqAddr) ; try(exfalso ; congruence).
+destruct v ; try(exfalso ; congruence).
+trivial.
+Qed.
+
 (*
+Lemma FreeSlotsAreBE s :
+forall pd sceaddr optionfreeslotslist,
+consistency s ->
+optionfreeslotslist = getFreeSlotsList pd s /\
+wellFormedFreeSlotsList optionfreeslotslist <> False ->
+isSCE sceaddr s ->
+~ In sceaddr (filterOption optionfreeslotslist).
+Proof.
+Qed.*)
+
+Lemma IdxLtMaxIdx (idx : index) :
+idx <= maxIdx.
+Proof.
+destruct idx. simpl.
+intuition.
+Qed.
+
+Lemma MaxIdxNextEq :
+maxIdx + 1 = S maxIdx.
+Proof.
+lia.
+Qed.
+
+Lemma filterOptionPaddrSplit l1 l2 :
+filterOptionPaddr (l1 ++ l2) = filterOptionPaddr l1 ++ filterOptionPaddr l2.
+Proof.
+induction l1.
+- intuition.
+- simpl. destruct a ; intuition.
+	simpl. f_equal. intuition.
+Qed.
+
+Lemma NotInListNotInFilterPresent a l s:
+~In a l -> ~In a (filterPresent l s).
+Proof.
+intro HNotInList.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) ; intuition.
+	destruct v ; intuition.
+	destruct (present b) ; intuition.
+	simpl in *. intuition.
+Qed.
+
+Lemma NotInListNotInFilterPresentContra a l s:
+In a (filterPresent l s) -> In a l.
+Proof.
+intro HBlockInList.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) ; intuition.
+	destruct v ; intuition.
+	destruct (present b) ; intuition.
+	simpl in *. intuition.
+Qed.
+
+Lemma NotInListNotInFilterAccessible a l s:
+~In a l -> ~In a (filterAccessible l s).
+Proof.
+intro HNotInList.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) ; intuition.
+	destruct v ; intuition.
+	destruct (accessible b) ; intuition.
+	simpl in *. intuition.
+Qed.
+
+Lemma NotInListNotInFilter a l s:
+~In a l -> ~In a (filter (childFilter s) l).
+Proof.
+intro HNotInList.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) ; intuition.
+	destruct (childFilter s a0) ; intuition.
+	simpl in *. intuition.
+	destruct (childFilter s a0) ; intuition.
+	simpl in *. intuition.
+Qed.
+
+
+Lemma InFilterAccessibleInList a l s:
+In a (filterAccessible l s) -> In a l.
+Proof.
+intro HInFilterAccessible.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) ; intuition.
+	destruct v ; intuition.
+	destruct (accessible b) ; intuition.
+	simpl in *. intuition.
+Qed.
+
+Lemma InFilterPresentInList a l s:
+In a (filterPresent l s) -> In a l.
+Proof.
+intro HInFilterPresent.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) ; intuition.
+	destruct v ; intuition.
+	destruct (present b) ; intuition.
+	simpl in *. intuition.
+Qed.
+
+
+Lemma NoDupListNoDupFilterPresent l s :
+NoDup l -> NoDup (filterPresent l s).
+Proof.
+intro HNoDup.
+induction l.
+- intuition.
+- simpl in *. apply NoDup_cons_iff in HNoDup.
+	destruct (lookup a (memory s) beqAddr) ; intuition.
+	destruct v ; intuition.
+	destruct (present b) ; intuition.
+	apply NoDup_cons_iff.
+	simpl in *. intuition.
+	eapply NotInListNotInFilterPresent with a l s in H.
+	congruence.
+Qed.
+
+Lemma NotInPaddrListNotInPaddrFilterAccessible a l s:
+~ In a (getAllPaddrAux l s) -> ~ In a (getAllPaddrAux (filterAccessible l s) s).
+Proof.
+intro HNotInList.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) eqn:Hlookupas ; intuition.
+	destruct v ; intuition.
+	destruct (accessible b) ; intuition.
+	simpl in *. intuition.
+	rewrite Hlookupas in *.
+	apply in_app_or in H.
+	simpl in *. intuition.
+Qed.
+
+Lemma NotInPaddrListNotInPaddrFilterAccessibleContra a l s:
+In a (getAllPaddrAux (filterAccessible l s) s) ->
+In a (getAllPaddrAux l s).
+Proof.
+intro HBlockInList.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) eqn:Hlookupas ; intuition.
+	destruct v ; intuition.
+	destruct (accessible b) ; intuition.
+	simpl in *. rewrite Hlookupas in *.
+	apply in_app_or in HBlockInList.
+	apply in_app_iff. intuition.
+Qed.
+
+Lemma NoDupPaddrListNoDupPaddrFilterAccessible l s :
+NoDup (getAllPaddrAux l s) -> NoDup (getAllPaddrAux (filterAccessible l s) s).
+Proof.
+intro HNoDup.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a (memory s) beqAddr) eqn:Hlookupas ; intuition.
+	destruct v ; intuition.
+	destruct (accessible b) ; intuition.
+	simpl. rewrite Hlookupas in *.
+	apply Lib.NoDupSplitInclIff in HNoDup.
+	apply Lib.NoDupSplitInclIff.
+	simpl in *. intuition.
+	unfold Lib.disjoint in*.
+	intros addr HaddrIn. specialize (H0 addr HaddrIn).
+	eapply NotInPaddrListNotInPaddrFilterAccessible with addr l s in H0.
+	congruence.
+	apply Lib.NoDupSplit in HNoDup. intuition.
+Qed.
+
+Lemma addrInBlockisBE a block s :
+In a (getAllPaddrAux [block] s) ->
+isBE block s.
+Proof.
+intro HaddrIn.
+simpl in *.
+unfold isBE.
+destruct (lookup block (memory s) beqAddr) ; intuition.
+destruct v ; intuition.
+Qed.
+
+
+Lemma addrNotInAllPaddrBlock offset1 offset2 startaddr left :
+offset1 < offset2 ->
+~In (CPaddr (offset1 + startaddr))
+  (getAllPaddrBlockAux offset2 startaddr left).
+Proof.
+revert offset1 offset2.
+induction left.
+- intuition.
+- intros. simpl in *.
+	destruct (le_dec (S (offset1 + startaddr)) maxAddr) ; intuition.
+	destruct (le_dec (offset2 + startaddr) maxAddr) ; intuition.
+	simpl in *.
+	intuition.
+	inversion H1.
+	contradict H2.
+	unfold CPaddr.
+	destruct (le_dec (offset1 + startaddr) maxAddr) ; intuition.
+	inversion H0.
+	apply Nat.add_cancel_r in H3.
+	apply NPeano.Nat.lt_neq in H. congruence.
+	specialize (IHleft offset1 (S offset2)) ; intuition.
+	destruct (le_dec (offset2 + startaddr) maxAddr) ; intuition.
+	simpl in *.
+	intuition.
+	contradict H1.
+	unfold CPaddr.
+	destruct (le_dec (offset1 + startaddr) maxAddr) ; intuition.
+	inversion H0.
+	apply Nat.add_cancel_r in H2.
+	apply NPeano.Nat.lt_neq in H. congruence.
+	inversion H0. apply plus_is_O in H2.
+ 	intuition. subst offset2.
+	apply Nat.nlt_0_r in H. congruence.
+	contradict H1.
+	unfold CPaddr.
+	destruct (le_dec (offset1 + startaddr) maxAddr) ; intuition.
+	eapply IHleft. instantiate (1:= S offset2). instantiate (1:= S offset1).
+	intuition. intuition.
+	unfold CPaddr.
+	destruct (le_dec (S offset1 + startaddr) maxAddr) ; intuition.
+	simpl.
+	contradict H0.
+	specialize (IHleft offset1 (S offset2)) ; intuition.
+	apply Nat.lt_lt_succ_r in H.
+	intuition. unfold CPaddr in *.
+	destruct (le_dec (offset1 + startaddr) maxAddr ) ; intuition.
+	assert(l0 = l1). apply proof_irrelevance.
+	subst l0. intuition.
+	specialize (IHleft 0 (S offset2)) ; intuition.
+	assert( 0 < S offset2) by apply NPeano.Nat.lt_0_succ.
+	intuition.
+	unfold CPaddr in *.
+	destruct (le_dec (0 + startaddr) maxAddr ) ; intuition.
+	contradict H0.
+	clear.
+	revert offset2.
+	induction left.
+	--- intuition.
+	--- intro offset2. simpl.
+			destruct (le_dec (S (offset2 + startaddr)) maxAddr) ; intuition.
+			simpl in *.
+			intuition.
+			---- inversion H0.
+			---- specialize (IHleft (S offset2)). intuition.
+Qed.
+
+Lemma NoDupPaddrBlockAux offset startaddr left :
+NoDup (getAllPaddrBlockAux offset startaddr left).
+Proof.
+revert offset startaddr.
+induction left.
+- intros. simpl. apply NoDup_nil.
+- intros. simpl in *.
+	destruct (le_dec (offset + startaddr) maxAddr); try (apply NoDup_nil).
+	apply NoDup_cons_iff.
+	split.
+	--
+			revert offset l.
+			intros.
+			specialize (addrNotInAllPaddrBlock offset (S offset) startaddr left).
+			(*assert(forall offset startaddr left, ~In (CPaddr (offset + startaddr))
+  (getAllPaddrBlockAux (S offset) startaddr left)) by admit.
+			intros. specialize (H offset startaddr left).*)
+			unfold CPaddr in *.
+			destruct (le_dec (offset + startaddr) maxAddr) ; intuition.
+			unfold ADT.CPaddr_obligation_1 in *.
+			assert({| p := offset + startaddr; Hp := l |} = {| p := offset + startaddr; Hp := l0 |}).
+			f_equal.
+			eapply proof_irrelevance.
+			rewrite H1 in *.
+			intuition.
+	-- intuition.
+Qed.
+
+
+Lemma NoDupPaddrBlock startaddr endaddr :
+NoDup (getAllPaddrBlock startaddr endaddr).
+Proof.
+unfold getAllPaddrBlock.
+revert startaddr endaddr.
+intros.
+apply (NoDupPaddrBlockAux 0 startaddr (endaddr-startaddr)).
+Qed.
+
+Lemma blockIsMappedAddrInPaddrList block addr l s :
+In block l ->
+In addr (getAllPaddrAux [block] s) ->
+In addr (getAllPaddrAux l s).
+Proof.
+intros.
+induction l.
+- intuition.
+- simpl. simpl in H.
+	intuition.
+	+ subst a. simpl in *.
+		destruct (lookup block (memory s) beqAddr ) ; intuition.
+		destruct v ; intuition.
+		apply in_or_app. left. rewrite app_nil_r in *. intuition.
+	+ destruct (lookup a (memory s) beqAddr ) ; intuition.
+		destruct v ; intuition.
+Qed.
+
+Lemma DisjointPaddrInPart partition block1 block2 addr s :
+noDupUsedPaddrList s ->
+isPDT partition s ->
+In block1 (getMappedBlocks partition s) ->
+In block2 (getMappedBlocks partition s) ->
+block1 <> block2 ->
+In addr (getAllPaddrAux [block1] s) ->
+~ In addr (getAllPaddrAux [block2] s).
+Proof.
+intros HNoDupPaddr HPDTs Hblock1 Hblock2 Hblock1block2NotEq HaddrIn.
+simpl in *.
+unfold noDupUsedPaddrList in *.
+specialize (HNoDupPaddr partition HPDTs).
+unfold getUsedPaddr in *.
+apply Lib.NoDupSplit in HNoDupPaddr.
+intuition.
+unfold getMappedPaddr in *.
+induction ((getMappedBlocks partition s)).
+- intuition.
+- simpl in *.
+	intuition.
+	+	subst a. subst block1. congruence.
+	+	subst a.
+		specialize (blockIsMappedAddrInPaddrList block2 addr l s H3).
+		simpl in *. intuition.
+		destruct (lookup block1 (memory s) beqAddr) ; intuition.
+		destruct v ; intuition.
+		destruct (lookup block2 (memory s) beqAddr) ; intuition.
+		destruct v ; intuition.
+		apply Lib.NoDupSplitInclIff in H1.
+		intuition.
+		rewrite app_nil_r in *.
+		specialize (H5 addr HaddrIn).
+		congruence.
+	+ subst a.
+		specialize (blockIsMappedAddrInPaddrList block1 addr l s H2).
+		simpl in *. intuition.
+		destruct (lookup block1 (memory s) beqAddr) ; intuition.
+		destruct v ; intuition.
+		destruct (lookup block2 (memory s) beqAddr) ; intuition.
+		destruct v ; intuition.
+		apply Lib.NoDupSplitInclIff in H1.
+		intuition.
+		rewrite app_nil_r in *.
+		specialize (H6 addr H).
+		congruence.
+	+ destruct (lookup a (memory s) beqAddr) ; intuition.
+		destruct v ; intuition.
+		apply Lib.NoDupSplit in H1.
+		intuition.
+Qed.
+
+Lemma uniqueParent child parent parent' s:
+isChild s ->
+isParent s ->
+In parent (getPartitions multiplexer s) ->
+In parent' (getPartitions multiplexer s) ->
+In child (getPartitions multiplexer s) ->
+In child (getChildren parent s) ->
+In child (getChildren parent' s) ->
+parent = parent'.
+Proof.
+intros HisChild HisParent Hparent Hparent' Hchild Hchildparent Hchildparent'.
+unfold isChild in *.
+unfold isParent in *.
+pose proof (isChild1 := HisChild child parent Hchild).
+pose proof (isChild2 := HisChild child parent' Hchild).
+pose proof (isParent1 := HisParent child parent Hparent Hchildparent).
+pose proof (isParent2 := HisParent child parent' Hparent' Hchildparent').
+unfold pdentryParent in *.
+destruct (lookup child (memory s) beqAddr)  ; intuition.
+destruct v ; intuition.
+subst parent. subst parent'. intuition.
+Qed.
+
 Lemma indexEqbTrue : 
 forall idx1 idx2 : index, true = StateLib.Index.eqb idx1 idx2 -> 
 idx1 = idx2.
@@ -749,13 +1479,13 @@ forall idx : index, idx < CIndex 0 -> False.
 Proof.
 intros.
 unfold CIndex in *.
-case_eq (lt_dec 0 tableSize); intros; rewrite H0 in *.
+case_eq (le_dec 0 maxIdx); intros; rewrite H0 in *.
 destruct idx. simpl in *.
 lia.
-assert (tableSizeLowerBound < tableSize) by apply tableSizeBigEnough.
+assert (maxIdxLowerBound < maxIdx) by apply maxIdxBigEnough.
 lia.
 Qed.
-
+(*
 Lemma indexSEqbZeroOdd : 
 forall curidx idxsucc, 
 true = StateLib.Index.eqb curidx (CIndex 0) -> 
@@ -1398,7 +2128,140 @@ apply Nat.eqb_neq. apply Nat.eqb_neq in H. unfold not in *.
 intros. intuition. 
 Qed.
 
-(*
+Lemma paddrEqId :
+forall p : paddr, CPaddr p = p.
+Proof.
+intros.
+unfold CPaddr.
+destruct p.
+simpl.
+case_eq(le_dec p maxAddr); intros.
+assert(ADT.CPaddr_obligation_1 p l = Hp) by apply proof_irrelevance.
+subst. reflexivity.
+now contradict Hp.
+Qed.
+
+Lemma PaddrSym :
+forall addr1 addr2 : paddr,
+addr1 = addr2 -> addr2 = addr1.
+Proof.
+intuition.
+Qed.
+
+Lemma PaddrNatTrue :
+forall addr1 addr2 : paddr,
+beqAddr addr1 addr2 = true <->
+PeanoNat.Nat.eqb (p addr1) (p addr2) = true.
+Proof.
+intuition.
+Qed.
+
+Lemma PaddrNatFalse :
+forall addr1 addr2 : paddr,
+beqAddr addr1 addr2 = false <->
+PeanoNat.Nat.eqb (p addr1) (p addr2) = false.
+Proof.
+intuition.
+Qed.
+
+Lemma CPaddrInjection3 addr1 :
+forall value1 s,
+lookup addr1 (memory s) beqAddr = value1 ->
+addr1 <= maxAddr.
+Proof.
+intros.
+destruct addr1. simpl in *. intuition.
+Qed.
+
+
+Lemma CPaddrInjection (addr1 addr2 : paddr):
+CPaddr addr1 = CPaddr addr2 -> addr1 = addr2.
+Proof.
+intros.
+rewrite paddrEqId in H. rewrite paddrEqId in H. intuition.
+Qed.
+
+Lemma CPaddrInjectionNat (addr1nat addr2nat : nat) :
+addr1nat = addr2nat ->
+CPaddr addr1nat = CPaddr addr2nat.
+Proof.
+intros. rewrite H in *. reflexivity.
+Qed.
+
+Lemma CPaddrInjection4 (addr1 : paddr):
+forall value1 s,
+lookup addr1 (memory s) beqAddr = value1 ->
+exists x, x = CPaddr addr1.
+Proof.
+intros.
+eexists. intuition.
+Qed.
+
+Lemma CPaddrInjection7 (addr1 addr2: paddr) :
+CPaddr addr1 <> CPaddr addr2 ->
+(p addr1) <> (p addr2).
+Proof.
+intros. intuition.
+Qed.
+
+Lemma CPaddrInjection6 (addr1 addr2: paddr) :
+CPaddr addr1 = CPaddr addr2 ->
+addr1 = addr2.
+Proof.
+intuition.
+apply CPaddrInjection. intuition.
+Qed.
+
+Lemma CIndexInjection (addr1 addr2 : index):
+CIndex addr1 = CIndex addr2 -> addr1 = addr2.
+Proof.
+intros.
+rewrite indexEqId in H. rewrite indexEqId in H. intuition.
+Qed.
+
+
+Lemma CIndexInjectionNat (addr1nat addr2nat : nat) :
+addr1nat = addr2nat ->
+CIndex addr1nat = CIndex addr2nat.
+Proof.
+intros. rewrite H in *. reflexivity.
+Qed.
+
+Lemma CIndexNextZeroEq p:
+p <= maxIdx -> (* also p < maxIdx*)
+CIndex p = CIndex 0 ->
+p = 0.
+Proof.
+intros. intuition.
+induction p.
+- intuition.
+- unfold CIndex in *.
+	destruct (le_dec 0 maxIdx) ; intuition.
+	destruct (le_dec (S p) maxIdx) ; try (simpl in * ; congruence).
+Qed.
+
+Lemma CIndexNextZeroNotEq p:
+p < maxIdx ->
+CIndex (S p) <> CIndex 0.
+Proof.
+intuition.
+apply CIndexNextZeroEq in H0.
+apply PeanoNat.Nat.neq_succ_0 in H0. intuition. lia.
+Qed.
+
+Lemma CIndexLt p max :
+p <= maxIdx ->
+CIndex p < max ->
+p < max.
+Proof.
+intuition.
+induction p.
+- intuition.
+- unfold CIndex in *.
+	destruct (le_dec (S p) maxIdx) ; try (simpl in * ; congruence).
+Qed.
+
+
 Require Import List Classical_Prop.
 Lemma listIndexDecOrNot :
 forall p1 p2 : list index, p1 = p2 \/ p1<>p2.
@@ -1432,6 +2295,55 @@ destruct H0.
 now contradict H1.
 Qed.
 
+(* DUP *)
+Lemma beqIdxTrue : 
+forall addr1 addr2 , 
+addr1 = addr2 <-> 
+beqIdx addr1 addr2 = true.
+Proof.
+intros.
+unfold beqIdx.
+intuition.
+case_eq ((addr1 =? addr2)).
+intuition.
+intros.
+apply beq_nat_false in H0.
+congruence.
+apply beq_nat_true in H.
+destruct addr1, addr2. simpl in *. subst.
+assert (Hi = Hi0).
+apply proof_irrelevance. subst. trivial.
+Qed.
+
+(* DUP *)
+Lemma beqIdxFalse : 
+forall addr1 addr2 , 
+addr1 <> addr2 <-> 
+beqIdx addr1 addr2 = false.
+Proof.
+intros.
+unfold beqIdx.
+intuition.
+case_eq ((addr1 =? addr2)).
+intuition.
+contradict H.
+apply beq_nat_true in H0.
+destruct addr1, addr2. simpl in *. subst.
+assert (Hi = Hi0).
+apply proof_irrelevance. subst. trivial.
+intros. reflexivity.
+case_eq (addr1 =? addr2) ; intuition.
++ rewrite H0 in H.
+	rewrite H0 in H1.
+	congruence.
++	rewrite H0 in H1.
+	contradict H1.
+	rewrite NPeano.Nat.eqb_refl.
+	unfold not.
+	congruence.
+Qed.
+
+(*
 Lemma vaddrDecOrNot :
 forall p1 p2 : vaddr, p1 = p2 \/ p1<>p2.
 Proof.
@@ -2942,8 +3854,8 @@ by trivial.
       unfold tableSizeLowerBound in *.
       lia. apply tableSizeBigEnough. lia.
       Qed.
-
-Lemma pageEqNatEqEquiv : forall (a b : page), eq (p a) (p b) <-> (eq a b).
+*)
+Lemma paddrEqNatEqEquiv : forall (a b : paddr), eq (p a) (p b) <-> (eq a b).
 Proof.
 split.
 intro.
@@ -2957,7 +3869,7 @@ rewrite H.
 reflexivity.
 Qed.
 
-Lemma pageNeqNatNeqEquiv : forall (a b : page), (p a) <> (p b) <-> a <> b.
+Lemma paddrNeqNatNeqEquiv : forall (a b : paddr), (p a) <> (p b) <-> a <> b.
 Proof.
 intro; split; intro.
 destruct a; destruct b.
@@ -2968,23 +3880,24 @@ contradict H1.
 assumption.
 
 contradict H.
-apply pageEqNatEqEquiv; assumption.
+apply paddrEqNatEqEquiv; assumption.
 Qed.
+
 
 Lemma index0Ltfalse (idx:index):
 idx < CIndex 0 -> False.
 Proof.
 intros.
 unfold CIndex in H.
-case_eq (lt_dec 0 tableSize).
+case_eq (le_dec 0 maxIdx).
 intros.
 rewrite H0 in H.
 simpl in *. lia.
 intros.
 contradict H0.
-assert (tableSize > tableSizeLowerBound).
-apply tableSizeBigEnough.
-unfold tableSizeLowerBound in *.
+assert (maxIdx > maxIdxLowerBound).
+apply maxIdxBigEnough.
+unfold maxIdxLowerBound in *.
 lia.
 Qed.
 
@@ -3002,6 +3915,8 @@ inversion H.
 subst.
 now contradict Heq.
 Qed.
+
+(*
 Lemma getNbLevelEqNat : 
 forall nbL, 
 Some nbL = StateLib.getNbLevel -> 
@@ -3026,15 +3941,14 @@ destruct x1;destruct x2;simpl in *.
 subst.
 f_equal.
 apply proof_irrelevance.
-Qed.
+Qed.*)
 
-Lemma page_eq_p:
-forall x1 x2: page, p x1 =p x2 -> x1 = x2.
+Lemma index_eq_i:
+forall x1 x2: index, i x1 =i x2 -> x1 = x2.
 Proof.
-intros. 
+intros.
 destruct x1;destruct x2;simpl in *.
 subst.
 f_equal.
 apply proof_irrelevance.
 Qed.
-*)
