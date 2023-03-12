@@ -38,8 +38,9 @@
 Require Import Model.Monad Model.Lib Model.MAL.
 Require Import Core.Internal.
 Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
-               Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants.
-Require Import Compare_dec Bool.
+               Proof.Isolation Proof.StateLib Proof.WeakestPreconditions
+			   Proof.invariants.Invariants Proof.InternalLemmas.
+Require Import Compare_dec Bool List Coq.Logic.ProofIrrelevance Lia.
 
 Lemma findBlockComp  (entryaddr referenceaddr : paddr) (comparator : index) (P : state -> Prop)  : 
 {{fun s  =>  P s
@@ -119,7 +120,14 @@ Lemma findBlockInKSInStructAux n (currentidx : index)
 Internal.findBlockInKSInStructAux n currentidx currentkernelstructure referenceaddr compoption
 {{fun (blockaddr : paddr) (s : state) => P s /\ consistency s /\
 		(blockaddr = nullAddr
-				\/ (exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)))
+				\/ (exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)
+					/\ bentryPFlag blockaddr true s
+					/\ exists finalidx, (In blockaddr (filterOptionPaddr(getKSEntriesInStructAux (maxIdx+1)
+																								currentkernelstructure
+																								s
+																								finalidx))
+										/\ finalidx < kernelStructureEntriesNb)
+))
 }}.
 Proof.
 (* revert mandatory to generalize the induction hypothesis *)
@@ -132,12 +140,12 @@ induction n.
 		eapply WP.ret. intros. simpl. intuition.
 	}
 - (* n = S n*)
-	(*unfold Internal.findBlockInKSInStructAux.*)
 	intros.
 	eapply bindRev.
 	{ (** getBlockEntryAddrFromKernelStructureStart *)
 		eapply weaken. apply getBlockEntryAddrFromKernelStructureStart.
-		intros. split. apply H. unfold consistency in *. cbn. intuition.
+		intros. split. apply H. unfold consistency in *. unfold consistency1 in *.
+		cbn. intuition.
 	}
 	intro entryaddr.
 	eapply bindRev.
@@ -157,7 +165,52 @@ induction n.
 		intros.
 		{ (** ret *)
 			eapply weaken. apply ret.
-			intros. simpl. intuition. right. apply isBELookupEq. intuition.
+			intros. simpl. intuition. right.
+			assert(HBEentryaddr : isBE entryaddr s)
+				by intuition.
+			apply isBELookupEq in HBEentryaddr.
+			destruct HBEentryaddr as [bentry Hlookups].
+			exists bentry. intuition.
+			assert(HpresentTrue : ispresent = true).
+			{
+				rewrite andb_true_iff in *. intuition.
+			}
+			rewrite HpresentTrue in *. intuition.
+			exists currentidx.
+			assert(HmaxIdx : maxIdx + 1 = S maxIdx) by (apply MaxIdxNextEq).
+			rewrite HmaxIdx. simpl.
+			unfold Paddr.addPaddrIdx.
+			simpl in *. rewrite PeanoNat.Nat.add_0_r in *.
+			unfold CPaddr in *.
+			destruct (le_dec (currentkernelstructure + currentidx) maxAddr) ; intuition.
+			-	assert(HpEq : ADT.CPaddr_obligation_1 (currentkernelstructure + currentidx) l =
+										StateLib.Paddr.addPaddrIdx_obligation_1 currentkernelstructure
+               currentidx l).
+				{ apply proof_irrelevance. }
+				rewrite HpEq in *.
+				subst entryaddr.
+				rewrite Hlookups in *.
+				destruct (beqIdx currentidx zero) eqn:beqcurrIdxZero.
+				-- simpl. left. trivial.
+				-- unfold beqIdx in beqcurrIdxZero. rewrite PeanoNat.Nat.eqb_neq in beqcurrIdxZero.
+						destruct (StateLib.Index.pred currentidx) eqn:HpredIdx ; intuition.
+						simpl. left. trivial.
+						unfold StateLib.Index.pred in *.
+						destruct (gt_dec currentidx 0) ; try(exfalso ; congruence).
+						unfold zero in *. unfold CIndex in *. destruct (le_dec 0 maxIdx) ; intuition.
+						simpl in *. lia. (* contradiction *)
+			- destruct entryaddr. simpl in *.
+				inversion H0 as [Heq]. (* {| p := p; Hp := Hp |} =
+										{| p := 0; Hp := ADT.CPaddr_obligation_2 |}*)
+				subst p.
+				assert(HnullAddrExistss : nullAddrExists s)
+						by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+				unfold nullAddrExists in *. unfold isPADDR in *. unfold nullAddr in *.
+				unfold CPaddr in *. destruct (le_dec 0 maxAddr) ; intuition.
+				assert(HpEq : Hp = ADT.CPaddr_obligation_1 0 l ).
+				{ apply proof_irrelevance. }
+				rewrite <- HpEq in *.
+				rewrite Hlookups in *. congruence.
 		}
 	+ (* case_eq ispresent && matchcomp = false *)
 		intros.
@@ -187,19 +240,24 @@ induction n.
 		* (* case_eq isnotlastidx = true *)
 			intros.
 			{ (** induction hypothesis *)
-				eapply weaken. apply IHn.
-				intros. intuition.
+				fold findBlockInKSInStructAux.
+				eapply weaken. eapply strengthen. eapply IHn.
+				intros. simpl. intuition. intuition. intuition.
+				- intros. simpl in *. intuition.
 				- (* nextidx < kernelStructureEntriesNb checked before *)
+					intros. intuition.
 					unfold StateLib.Index.ltb in *.
-					apply eq_sym in H3.
-					apply PeanoNat.Nat.ltb_lt in H3. subst.
+					assert(HnextidxLTB : true = StateLib.Index.ltb nextidx maxentriesnb)
+							by intuition.
+					apply eq_sym in HnextidxLTB.
+					apply PeanoNat.Nat.ltb_lt in HnextidxLTB. subst.
 					unfold CIndex in *. destruct (le_dec kernelStructureEntriesNb maxIdx).
 					simpl in *. assumption.
 					contradict n0. apply PeanoNat.Nat.lt_le_incl.
 					apply NPeano.Nat.lt_pred_lt.
 					rewrite Minus.pred_of_minus.
 					apply KSEntriesNbLessThanMaxIdx.
-		}
+			}
 		* (* case_eq isnotlastidx = false *)
 			intros.
 			{ (** ret *)
@@ -214,11 +272,16 @@ Lemma findBlockInKSAux n (currentkernelstructure idblock : paddr)
 										/\ isKS currentkernelstructure s}}
 Internal.findBlockInKSAux n currentkernelstructure idblock compoption
 {{fun (blockaddr : paddr) (s : state) => P s /\ consistency s /\
-																				(blockaddr = nullAddr \/
-																	(exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry))) }}.
+(blockaddr = nullAddr \/
+	(exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)
+		/\ bentryPFlag blockaddr true s
+		/\  (In blockaddr (filterOptionPaddr(getKSEntriesAux n currentkernelstructure s )))
+	)
+)
+}}.
 Proof.
 (* revert mandatory to generalize the induction hypothesis *)
-revert currentkernelstructure idblock compoption.
+revert currentkernelstructure idblock compoption P.
 induction n.
 - (* n = 0 *)
 	intros;simpl.
@@ -256,7 +319,8 @@ induction n.
 		eapply bindRev.
 		{ (** MAL.readNextFromKernelStructureStart *)
 			eapply weaken. apply readNextFromKernelStructureStart.
-			intros. simpl. split. apply H0. unfold consistency in *. intuition.
+			intros. simpl. split. apply H0. unfold consistency in *.
+			unfold consistency1 in *. intuition.
 		}
 		intro nextkernelstructure.
 		eapply bindRev.
@@ -275,35 +339,365 @@ induction n.
 		* (* case_eq nextKSisnull = false *)
 			intros.
 			{ (** induction hypothesis *)
-				eapply weaken. apply IHn.
-				intros. simpl. split. apply H1. split. apply H1. intuition.
-				- destruct H4. unfold consistency in *. intuition.
-				unfold NextKSIsKS in *.
-				apply beqAddrFalse in H3.
-				eauto.
-				- (* impossible, foundblock is null *)
-					contradict H9.
-					apply beqAddrTrue in H5. subst.
-					unfold consistency in *.
+				fold findBlockInKSAux.
+				eapply strengthen. eapply weaken.
+						
+				+ eapply IHn.
+				+ intros. simpl. split. apply H1.
+
+				assert(isKS nextkernelstructure s).
+				{ 
+					assert(HKS : isKS currentkernelstructure s)
+						by intuition.
+					intuition.
+					* (* foundblock = nullAddr *)
+						apply isKSLookupEq in HKS. destruct HKS as [x (HKS&Hblockidx)].
+						destruct H4. (* exists offset : paddr, ...*)
+						intuition.
+						assert(HnextKSIsKS : NextKSIsKS s)
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+						unfold NextKSIsKS in *.
+						subst x0.
+						apply HnextKSIsKS with 	(addr:=currentkernelstructure)
+												(nextKSaddr:=CPaddr (currentkernelstructure + nextoffset))
+												(nextKS:=nextkernelstructure) ;
+						intuition.
+						(* Prove nextKernelStructure <> nullAddr *)
+						rewrite <- beqAddrFalse in *. congruence.
+					* (* foundblock in current ks structure*)
+						(* DUP *)
+						apply isKSLookupEq in HKS. destruct HKS as [x (HKS&Hblockidx)].
+						destruct H4. (* exists offset : paddr, ...*)
+						intuition.
+						assert(HnextKSIsKS : NextKSIsKS s)
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+						unfold NextKSIsKS in *.
+						subst x0.
+						apply HnextKSIsKS with 	(addr:=currentkernelstructure)
+																		(nextKSaddr:=CPaddr (currentkernelstructure + nextoffset))
+																		(nextKS:=nextkernelstructure) ;
+						intuition.
+						(* Prove nextKernelStructure <> nullAddr *)
+						rewrite <- beqAddrFalse in *. congruence.
+				}
+				intuition.
+
+			+ simpl. intros. intuition.
+				* (*foundblock = nullAddr *)
+					right.
+					destruct H11 as [aentry Ha]. (*exists entry : BlockEntry,
+												lookup a (memory s) beqAddr = Some (BE entry) ...*)
+					exists aentry. intuition.
+					subst.
+					destruct H6 as [offset Hoffset]. (*exists offset : paddr,
+														(offset = CPaddr ...*)
+					destruct Hoffset as [Hoffset HnextKSentry].
+					destruct Hoffset as [Hoffset HnextKSaddr].
+					assert(HNextKSOffsetIsPADDR : NextKSOffsetIsPADDR s)
+						by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+					unfold NextKSOffsetIsPADDR in *.
+					assert(HisKScurr : isKS currentkernelstructure s) by intuition.
+					specialize (HNextKSOffsetIsPADDR currentkernelstructure
+													(CPaddr (currentkernelstructure + nextoffset))
+													HisKScurr).
+					assert(HNextKSIsKS : NextKSIsKS s)
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+					unfold NextKSIsKS in *.
+					specialize (HNextKSIsKS currentkernelstructure
+														(CPaddr (currentkernelstructure + nextoffset))).
+					unfold nextKSAddr in *.
+					unfold isKS in *.
+					destruct (lookup currentkernelstructure (memory s) beqAddr) eqn:Hlookupcurr ; try(exfalso ; congruence).
+					destruct v ; try(exfalso ; congruence).
+					unfold isPADDR in *.
+					intuition.
+					unfold nextKSentry in *. subst.
+
+					unfold Paddr.addPaddrIdx.
+					unfold CPaddr in *.
+					simpl in *.
+					destruct (le_dec (currentkernelstructure + nextoffset) maxAddr) eqn:Hnextoffset ; try lia.
+					---	(* nextaddr is well formed *)
+						assert(HpEq : ADT.CPaddr_obligation_1 (currentkernelstructure + nextoffset) l =
+												StateLib.Paddr.addPaddrIdx_obligation_1 currentkernelstructure
+									nextoffset l).
+						{ apply proof_irrelevance. }
+						rewrite HpEq in *.
+
+						destruct (lookup
+										{|
+										p := currentkernelstructure + nextoffset;
+										Hp :=
+											StateLib.Paddr.addPaddrIdx_obligation_1 currentkernelstructure
+											nextoffset l
+										|} (memory s) beqAddr) eqn:Hlookupnext ; intuition.
+												destruct v ; intuition.
+
+						specialize (HNextKSIsKS	p HisKScurr).
+						intuition.
+						subst.
+
+						destruct (beqAddr p nullAddr) eqn:beqpNull.
+						---- (* p = nullAddr *)
+								(* there is no following struct *)
+								rewrite <- DependentTypeLemmas.beqAddrTrue in beqpNull.
+								rewrite beqpNull in *.
+
+								assert(HnullAddrExists : nullAddrExists s)
+									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+								unfold nullAddrExists in *. unfold isPADDR in *.
+
+								destruct (lookup nullAddr (memory s) beqAddr) eqn:Hlookupp ; intuition ; try(exfalso ; congruence).
+						---- (* p <> nullAddr *)
+								(* DUP *)
+								rewrite <- beqAddrFalse in beqpNull.
+								intuition.
+
+								assert(maxNbPrepare > 0)
+									by apply maxNbPrepareNotZero.
+								
+								assert(CIndex maxNbPrepare > MALInternal.zero).
+								{
+									unfold MALInternal.zero.
+									unfold CIndex.
+									destruct (le_dec 0 maxIdx) ; intuition.
+									assert(maxNbPrepare < maxIdx-1)
+										by apply maxNbPrepareNbLessThanMaxIdx.
+									destruct (le_dec maxNbPrepare maxIdx) ; intuition ; try lia.
+								}
+								unfold StateLib.Index.leb.
+								destruct (PeanoNat.Nat.leb (CIndex maxNbPrepare) MALInternal.zero) eqn:Hcong ; intuition ; try lia.
+								rewrite PeanoNat.Nat.leb_le in *. lia.
+
+								destruct (lookup p (memory s) beqAddr) eqn:Hlookupp ; intuition.
+								destruct v ; intuition.
+								rewrite filterOptionPaddrSplit.
+								rewrite in_app_iff. right.
+								simpl.
+								intuition.
+								--- (* false *)
+								unfold nullAddr in *.
+								unfold CPaddr in *.
+								destruct (le_dec 0 maxAddr) ; intuition.
+								assert(HpEq : ADT.CPaddr_obligation_2 =
+										ADT.CPaddr_obligation_1 0 l)
+									by apply proof_irrelevance.
+								rewrite HpEq in *.
+								congruence.
+				* (* impossible, foundblock is null *)
+					rewrite <- DependentTypeLemmas.beqAddrTrue in *.
+					subst.
+					unfold consistency in *. unfold consistency1 in *.
 					unfold nullAddrExists in *.
 					intuition. unfold isPADDR in *.
-					destruct H.
-					rewrite H in *. congruence.
-			}
+					destruct H5 as [bentryNull (HlookupNull & _)].
+					rewrite HlookupNull in *. exfalso ; congruence.
+		}
 	+ (* case_eq foundblockisnull = false *)
 		intros. simpl.
 		{ (** ret *)
 			eapply weaken. apply ret.
 			intros. simpl. intuition.
-		}
+			right.
+			destruct H6 as [bentry Hbentry]. (*exists entry : BlockEntry,
+											lookup foundblock (memory s) beqAddr = ...*)
+			exists bentry. intuition.
+			destruct H9 as [finalidx HBlockInStructAux]. (*exists finalidx : index, ...*)
+			assert(HNextKSOffsetIsPADDR : NextKSOffsetIsPADDR s)
+						by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+					unfold NextKSOffsetIsPADDR in *.
+					assert(HisKScurr : isKS currentkernelstructure s) by intuition.
+					specialize (HNextKSOffsetIsPADDR currentkernelstructure
+													(CPaddr (currentkernelstructure + nextoffset))
+													HisKScurr).
+					assert(HNextKSIsKS : NextKSIsKS s)
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+					unfold NextKSIsKS in *.
+					specialize (HNextKSIsKS currentkernelstructure
+														(CPaddr (currentkernelstructure + nextoffset))).
+					unfold nextKSAddr in *.
+					unfold isKS in *.
+					destruct (lookup currentkernelstructure (memory s) beqAddr) eqn:Hlookupcurr ; try(exfalso ; congruence).
+					destruct v ; try(exfalso ; congruence).
+					unfold isPADDR in *.
+					intuition.
+					unfold nextKSentry in *. subst.
+					unfold Paddr.addPaddrIdx.
+					unfold CPaddr in *.
+					simpl in *.
+					destruct (le_dec (currentkernelstructure + nextoffset) maxAddr) eqn:Hnextoffset ; try lia.
+					---	(* nextaddr is well formed *)
+						assert(HpEq : ADT.CPaddr_obligation_1 (currentkernelstructure + nextoffset) l =
+												StateLib.Paddr.addPaddrIdx_obligation_1 currentkernelstructure
+									nextoffset l).
+						{ apply proof_irrelevance. }
+						rewrite HpEq in *.
+
+						destruct (lookup
+										{|
+										p := currentkernelstructure + nextoffset;
+										Hp :=
+											StateLib.Paddr.addPaddrIdx_obligation_1 currentkernelstructure
+											nextoffset l
+										|} (memory s) beqAddr) eqn:Hlookupnext ; intuition.
+												destruct v ; intuition.
+
+						specialize (HNextKSIsKS	p HisKScurr).
+						intuition.
+						subst.
+
+						destruct (beqAddr p nullAddr) eqn:beqpNull.
+						---- (* p = nullAddr *)
+								(* there is no following struct *)
+								rewrite <- DependentTypeLemmas.beqAddrTrue in beqpNull.
+								rewrite beqpNull in *.
+
+								assert(HnullAddrExists : nullAddrExists s)
+									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+								unfold nullAddrExists in *. unfold isPADDR in *.
+
+								destruct (lookup nullAddr (memory s) beqAddr) eqn:Hlookupp ; intuition ; try(exfalso ; congruence).
+								destruct v ; intuition.
+								subst p.
+								(* DUP *)
+								eapply getKSEntriesInStructAuxInside with (idx := finalidx)(n:=(maxIdx + 1))(m:= (maxIdx+1))  ; intuition ; try lia.
+								+++ unfold isKS. rewrite Hlookupcurr. assumption.
+								+++ destruct finalidx.
+									assert(HidxEq : CIndex 7 = CIndex (kernelStructureEntriesNb-1)).
+									{
+										unfold CIndex. simpl in *.
+										destruct (le_dec 7 maxIdx) ; trivial.
+									}
+									rewrite HidxEq.
+									unfold CIndex.
+									assert(kernelStructureEntriesNb < maxIdx-1)
+										by (apply KSEntriesNbLessThanMaxIdx).
+									destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx) ; intuition ; try lia.
+								+++ assert(HidxEq : CIndex 7 = CIndex (kernelStructureEntriesNb-1)).
+									{
+										unfold CIndex. simpl in *.
+										destruct (le_dec 7 maxIdx) ; trivial.
+									}
+									rewrite HidxEq.
+									unfold CIndex.
+									assert(kernelStructureEntriesNb < maxIdx-1)
+										by (apply KSEntriesNbLessThanMaxIdx).
+									destruct (le_dec (kernelStructureEntriesNb-1) maxIdx) ; intuition ; simpl ; try lia.
+									simpl in *. lia.
+								+++ assert(HidxEq : CIndex 7 = CIndex (kernelStructureEntriesNb-1)).
+									{
+										unfold CIndex. simpl in *.
+										destruct (le_dec 7 maxIdx) ; trivial.
+									}
+									rewrite HidxEq.
+									unfold CIndex.
+									assert(kernelStructureEntriesNb < maxIdx-1)
+										by (apply KSEntriesNbLessThanMaxIdx).
+									destruct (le_dec (kernelStructureEntriesNb-1) maxIdx) ; intuition ; simpl ; try lia.
+									simpl in *. lia.
+								+++ assert(HidxEq : CIndex 7 = CIndex (kernelStructureEntriesNb-1)).
+									{
+										unfold CIndex. simpl in *.
+										destruct (le_dec 7 maxIdx) ; trivial.
+									}
+									rewrite HidxEq.
+									unfold CIndex.
+									assert(kernelStructureEntriesNb < maxIdx-1)
+										by (apply KSEntriesNbLessThanMaxIdx).
+									destruct (le_dec (kernelStructureEntriesNb-1) maxIdx) ; intuition ; simpl ; try lia.
+						---- (* p <> nullAddr *)
+								(* DUP *)
+								rewrite <- beqAddrFalse in beqpNull.
+								intuition.
+
+								assert(maxNbPrepare > 0)
+									by apply maxNbPrepareNotZero.
+								
+								assert(CIndex maxNbPrepare > MALInternal.zero).
+								{
+									unfold MALInternal.zero.
+									unfold CIndex.
+									destruct (le_dec 0 maxIdx) ; intuition.
+									assert(maxNbPrepare < maxIdx-1)
+										by apply maxNbPrepareNbLessThanMaxIdx.
+									destruct (le_dec maxNbPrepare maxIdx) ; intuition ; try lia.
+								}
+								unfold StateLib.Index.leb.
+								destruct (PeanoNat.Nat.leb (CIndex maxNbPrepare) MALInternal.zero) eqn:Hcong ; intuition ; try lia.
+								rewrite PeanoNat.Nat.leb_le in *. lia.
+
+								destruct (lookup p (memory s) beqAddr) eqn:Hlookupp ; intuition.
+								destruct v ; intuition.
+								rewrite filterOptionPaddrSplit.
+								rewrite in_app_iff. left.
+
+								(* DUP *)
+								eapply getKSEntriesInStructAuxInside with (idx := finalidx)(n:=(maxIdx + 1))(m:= (maxIdx+1))  ; intuition ; try lia.
+								+++ unfold isKS. rewrite Hlookupcurr. assumption.
+								+++ destruct finalidx.
+									assert(HidxEq : CIndex 7 = CIndex (kernelStructureEntriesNb-1)).
+									{
+										unfold CIndex. simpl in *.
+										destruct (le_dec 7 maxIdx) ; trivial.
+									}
+									rewrite HidxEq.
+									unfold CIndex.
+									assert(kernelStructureEntriesNb < maxIdx-1)
+										by (apply KSEntriesNbLessThanMaxIdx).
+									destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx) ; intuition ; try lia.
+								+++ assert(HidxEq : CIndex 7 = CIndex (kernelStructureEntriesNb-1)).
+									{
+										unfold CIndex. simpl in *.
+										destruct (le_dec 7 maxIdx) ; trivial.
+									}
+									rewrite HidxEq.
+									unfold CIndex.
+									assert(kernelStructureEntriesNb < maxIdx-1)
+										by (apply KSEntriesNbLessThanMaxIdx).
+									destruct (le_dec (kernelStructureEntriesNb-1) maxIdx) ; intuition ; simpl ; try lia.
+									simpl in *. lia.
+								+++ assert(HidxEq : CIndex 7 = CIndex (kernelStructureEntriesNb-1)).
+									{
+										unfold CIndex. simpl in *.
+										destruct (le_dec 7 maxIdx) ; trivial.
+									}
+									rewrite HidxEq.
+									unfold CIndex.
+									assert(kernelStructureEntriesNb < maxIdx-1)
+										by (apply KSEntriesNbLessThanMaxIdx).
+									destruct (le_dec (kernelStructureEntriesNb-1) maxIdx) ; intuition ; simpl ; try lia.
+									simpl in *. lia.
+								+++ assert(HidxEq : CIndex 7 = CIndex (kernelStructureEntriesNb-1)).
+									{
+										unfold CIndex. simpl in *.
+										destruct (le_dec 7 maxIdx) ; trivial.
+									}
+									rewrite HidxEq.
+									unfold CIndex.
+									assert(kernelStructureEntriesNb < maxIdx-1)
+										by (apply KSEntriesNbLessThanMaxIdx).
+									destruct (le_dec (kernelStructureEntriesNb-1) maxIdx) ; intuition ; simpl ; try lia.
+
+					--- (* false, null is not null -> contradiction  *)
+						unfold nullAddr in *.
+						unfold CPaddr in *.
+						destruct (le_dec 0 maxAddr) ; intuition.
+						assert(HpEq : ADT.CPaddr_obligation_2 =
+								ADT.CPaddr_obligation_1 0 l)
+							by apply proof_irrelevance.
+						rewrite HpEq in *.
+						congruence.
+	}
 Qed.
+
 
 Lemma findBelongingBlock (idPD referenceaddr: paddr) (P : state -> Prop) :
 {{ fun s => P s /\ consistency s /\ isPDT idPD s}}
 Internal.findBelongingBlock idPD referenceaddr 
 {{fun (blockaddr : paddr) (s : state) => P s /\ consistency s /\
 			(blockaddr = nullAddr
-					\/ (exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)))
+					\/ (exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)
+						/\ bentryPFlag blockaddr true s))
 }}.
 Proof.
 unfold Internal.findBelongingBlock.
@@ -318,7 +712,6 @@ eapply bindRev.
 	eapply weaken. apply Index.succ.
 	intros. simpl. split. apply H.
 	intuition. rewrite H1. unfold CIndex. destruct (le_dec 0 maxIdx).
-(*	simpl. rewrite <- PeanoNat.Nat.lt_add_lt_sub_l.*)
 	simpl. apply PeanoNat.Nat.lt_le_incl. apply maxIdxBigEnough.
 	contradict n. apply PeanoNat.Nat.lt_le_incl. apply maxIdxNotZero.
 }
@@ -329,18 +722,43 @@ eapply bindRev.
 	intros. simpl. split. apply H. intuition.
 }
 intro kernelstructurestart.
-{ (** Internal.findBlockInKSAux *)
-	eapply weaken. apply findBlockInKSAux.
-	intros. simpl. intuition.
-	unfold pdentryStructurePointer in *.
-	unfold isPDT in *.
-	destruct (lookup idPD (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
-	destruct v eqn:Hv ; try (exfalso ; congruence).
-	unfold consistency in *.
-	unfold StructurePointerIsKS in *. intuition.
-	subst.
-	apply H16 with idPD. assumption.
+eapply bindRev.
+{ (** Internal.compareAddrToNull *)
+	eapply weaken. apply compareAddrToNull.
+	intros. simpl. apply H.
 }
+intro kernelstructureisnull.
+case_eq kernelstructureisnull.
++ (* case_eq kernelstructureisnull = true *)
+	intros.
+	{ (** ret *)
+		eapply weaken. apply ret.
+		intros. simpl. intuition.
+	}
++ (* case_eq kernelstructureisnull = false *)
+	intro Hkernelstructureisnull.
+	{ (** Internal.findBlockInKSAux *)
+		eapply weaken. eapply strengthen.
+		eapply findBlockInKSAux with (P:= P).
+		intros. simpl. intuition.
+		eapply H. apply H.
+		intuition.
+		right. intuition.
+		destruct H1 as [bentry (Hbentry & (HbentryPFlag & Hleft))]. (*exists entry : BlockEntry, ...*)
+		exists bentry. intuition.
+		intros. simpl. intuition.
+		rewrite <- beqAddrFalse in *. intuition.
+		assert(HPDT : isPDT idPD s)
+			by assumption.
+		apply isPDTLookupEq in HPDT. destruct HPDT as [pdentry Hlookuppd].
+
+		assert(HStructurePointerIsKS : StructurePointerIsKS s)
+			by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+		unfold StructurePointerIsKS in *.
+		specialize (HStructurePointerIsKS idPD pdentry Hlookuppd).
+		unfold pdentryStructurePointer in *.
+		rewrite Hlookuppd in *. subst. intuition.
+	}
 Qed.
 
 Lemma findBlockInKS (idPD blockEntryAddr: paddr) (P : state -> Prop) :
@@ -348,7 +766,9 @@ Lemma findBlockInKS (idPD blockEntryAddr: paddr) (P : state -> Prop) :
 Internal.findBlockInKS idPD blockEntryAddr 
 {{fun (blockaddr : paddr) (s : state) => P s /\ consistency s /\
 			(blockaddr = nullAddr
-			\/ (exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)))
+			\/ (exists entry, lookup blockaddr s.(memory) beqAddr = Some (BE entry)
+						/\ bentryPFlag blockaddr true s
+						/\ In blockaddr (getMappedBlocks idPD s) ) )
 }}.
 Proof.
 unfold Internal.findBlockInKS.
@@ -364,17 +784,68 @@ eapply bindRev.
 	intros. simpl. split. apply H. intuition.
 }
 intro kernelstructurestart.
-{ (** Internal.findBlockInKSAux *)
-	eapply weaken. apply findBlockInKSAux.
-	intros. simpl. intuition.
-	unfold pdentryStructurePointer in *.
-	unfold isPDT in *.
-	destruct (lookup idPD (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
-	destruct v eqn:Hv ; try (exfalso ; congruence).
-	unfold consistency in *.
-	unfold StructurePointerIsKS in *. intuition.
-	subst.
-	apply H15 with idPD. assumption.
+eapply bindRev.
+{ (** Internal.compareAddrToNull *)
+	eapply weaken. apply compareAddrToNull.
+	intros. simpl. apply H.
 }
-Qed.
+intro kernelstructureisnull.
+case_eq kernelstructureisnull.
++ (* case_eq kernelstructureisnull = true *)
+	intros.
+	{ (** ret *)
+		eapply weaken. apply ret.
+		intros. simpl. intuition.
+	}
++ (* case_eq kernelstructureisnull = false *)
+	intro Hkernelstructureisnull.
+	{ (** Internal.findBlockInKSAux *)
+		eapply strengthen. eapply weaken.
+		apply findBlockInKSAux.
+		intros. simpl. split. apply H. intuition.
 
+		rewrite <- beqAddrFalse in *. intuition.
+		assert(HPDT : isPDT idPD s)
+			by assumption.
+		apply isPDTLookupEq in HPDT. destruct HPDT as [pdentry Hlookuppd].
+
+		assert(HStructurePointerIsKS : StructurePointerIsKS s)
+			by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+		unfold StructurePointerIsKS in *.
+		specialize (HStructurePointerIsKS idPD pdentry Hlookuppd).
+		unfold pdentryStructurePointer in *.
+		rewrite Hlookuppd in *. subst. intuition.
+
+		intros. simpl. intuition.
+		apply H. apply H.
+
+		rewrite <- beqAddrFalse in *.
+		intuition.
+		right.
+		destruct H6 as [bentry (Hbentry & (HbentryPFlag & Hksentries))]. (*exists entry : BlockEntry, ...*)
+		exists bentry. intuition.
+		unfold getMappedBlocks.
+		unfold getKSEntries.
+		assert(HPDT : isPDT idPD s) by assumption.
+		apply isPDTLookupEq in HPDT. destruct HPDT as [idpdentry Hlookupidpd].
+		unfold pdentryStructurePointer in *.
+		unfold isPDT in *.
+		rewrite Hlookupidpd in *.
+		subst.
+		destruct (beqAddr (structure idpdentry) nullAddr) eqn:HksNull ; trivial.
+		- 	(* (structure idpdentry) = nullAddr *)
+			(* contradiction
+				-> nulladdr cannot have a valid nextoffset *)
+			rewrite <- DependentTypeLemmas.beqAddrTrue in HksNull.
+			rewrite HksNull in *.
+			exfalso ; congruence.
+		-	(* (structure idpdentry) <> nullAddr *)
+			induction ((filterOptionPaddr (getKSEntriesAux maxNbPrepare (structure idpdentry) s))) ; simpl in * ; intuition.
+			subst.
+			unfold bentryPFlag in *. rewrite Hbentry in *.
+			destruct (present bentry) ; simpl ; try lia ; intuition.
+			destruct (lookup a0 (memory s) beqAddr) ; intuition.
+			destruct v;  intuition.
+			destruct (present b) ; intuition.
+	}
+Qed.

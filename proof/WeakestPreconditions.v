@@ -34,6 +34,7 @@
 (** * Summary
     In this file we formalize and prove the weakest precondition of the
     MAL and MALInternal functions *)
+
 Require Import Model.ADT Model.Monad Model.MAL Model.Lib Proof.Consistency Model.MALInternal
 Lia List StateLib Hoare Compare_dec.
 Lemma ret  (A : Type) (a : A) (P : A -> state -> Prop) : {{ P a }} ret a {{ P }}.
@@ -186,6 +187,17 @@ eapply ret .
 trivial.
 Qed.
 
+(* DUP *)
+Lemma ltb  addr1 addr2 (P : bool -> state -> Prop):
+{{ fun s : state => P (StateLib.Paddr.ltb addr1 addr2)  s }}
+  MALInternal.Paddr.ltb addr1 addr2 {{ fun s => P s}}.
+Proof.
+unfold MALInternal.Paddr.ltb, StateLib.Paddr.ltb.
+eapply weaken.
+eapply ret .
+trivial.
+Qed.
+
 Lemma subPaddr  (addr1 addr2 : paddr) (P : index -> state -> Prop):
 {{ fun s : state => addr1 >= 0 /\ addr2 >= 0 /\ addr1 - addr2 < maxIdx /\ forall Hi : addr1 - addr2 <= maxIdx,
                    P {| i := addr1 - addr2; Hi := Hi |} s }}
@@ -280,6 +292,7 @@ eapply bind .
        case_eq v; intros; eapply weaken; try eapply undefined ;simpl;
        subst;
        cbn; intros;
+
        try destruct H as (Hs & x & H1 & Hp); subst;
        try rewrite H1 in Hpage; inversion Hpage; subst; try assumption.
        eapply modify .
@@ -438,7 +451,7 @@ eapply bind .
   - intro s. simpl.
    case_eq (lookup entryaddr s.(memory) beqAddr).
      + intros v Hpage.
-       instantiate (1:= fun s s0 => s = s0 /\ exists entry , lookup entryaddr s.(memory) beqAddr = Some (BE entry) /\
+       instantiate (1:= fun s s0 => s = s0 /\ exists entry, lookup entryaddr s.(memory) beqAddr = Some (BE entry) /\
                                               P tt {| currentPartition := currentPartition s;
                                                       memory := add entryaddr
                                                              (BE (CBlockEntry 	entry.(read) entry.(write) flag
@@ -666,6 +679,7 @@ eapply bind .
   - eapply weaken. eapply get . intuition.
 Qed.
 
+
 Lemma getBlockRecordField {X : Type } field blockentryaddr (P : X -> state -> Prop) :
 {{fun s =>  exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry) /\
              P entry.(field) s }}
@@ -718,11 +732,10 @@ eapply bind .
  			unfold Monad.ret.
        eassumption.
      + intros Hpage; eapply weaken; try eapply undefined ;simpl.
-       intros s0 H0.  destruct H0 as (Hs & p1 & Hpage' & Hret) .
-       rewrite Hpage in Hpage'.
-       subst. inversion Hpage'.
-  - eapply weaken.
-   eapply get . intuition.
+       intros s0 H0. destruct H0 as (Hs & x & H1 & Hp).
+       rewrite H1 in Hpage.
+       inversion Hpage.
+  - eapply weaken. eapply get . intuition.
 Qed.
 
 (* DUP local changes *)
@@ -853,16 +866,22 @@ Lemma WPsubPaddrIdx  (n : paddr) (m: index) (P: paddr -> state -> Prop) :
 Proof.
 apply wpIsPrecondition.
 Qed.
-
+(*
 Lemma subPaddrIdx  (n : paddr) (m: index)
 																	(P : paddr -> state -> Prop) :
 {{fun s => P n s}}
 MALInternal.Paddr.subPaddrIdx n m
 {{P}}.
 Proof.
-Admitted.
-(*
+unfold MALInternal.Paddr.subPaddrIdx.
+destruct (le_dec (n - m) maxAddr) ; intuition.
+eapply weaken. eapply ret.
+intros.
+unfold MALInternal.Paddr.subPaddrIdx_obligation_1. eapply H.
+ intuition.
 eapply weaken.
+
+
 apply WPsubPaddrIdx.
 intros. unfold wp. destruct (Paddr.subPaddrIdx n m s) eqn:sub.
 destruct p. intuition. unfold val in sub. eapply (H p s0). assert(H2 := conj p s0 H).*)
@@ -871,18 +890,13 @@ destruct p. intuition. unfold val in sub. eapply (H p s0). assert(H2 := conj p s
 Lemma getSh1EntryAddrFromKernelStructureStart  (kernelStartAddr : paddr) (BlockEntryIndex : index)
 																	(P : paddr -> state -> Prop) :
 {{fun s =>  wellFormedFstShadowIfBlockEntry s /\ exists entry, lookup kernelStartAddr s.(memory) beqAddr = Some (BE entry)
-					/\ P (CPaddr (kernelStartAddr + sh1offset + BlockEntryIndex)) s }}
+					/\ P (CPaddr(kernelStartAddr + sh1offset + BlockEntryIndex)) s }}
 MAL.getSh1EntryAddrFromKernelStructureStart kernelStartAddr BlockEntryIndex
 {{P}}.
 Proof.
-unfold MAL.getSh1EntryAddrFromKernelStructureStart.
-eapply weaken.
-apply ret.
-intros.
-destruct H.
-destruct H0.
-destruct H0.
-apply H1.
+unfold getSh1EntryAddrFromKernelStructureStart.
+eapply weaken. eapply ret.
+intros. destruct H. destruct H0. intuition.
 Qed.
 
 (* TODO : move getsh1entry here *)
