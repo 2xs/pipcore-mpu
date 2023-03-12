@@ -54,112 +54,239 @@ isBE pa s ->
 exists scentryaddr : paddr, isSCE scentryaddr s
 /\ scentryaddr = CPaddr (pa + scoffset).
 
+Definition wellFormedBlock s :=
+forall block startaddr endaddr,
+bentryPFlag block true s ->
+bentryStartAddr block startaddr s ->
+bentryEndAddr block endaddr s ->
+(* startaddr inferior to endaddr + size of block greater than minimum MPU size *)
+(startaddr < endaddr) /\ (Constants.minBlockSize < (endaddr - startaddr)).
+
 Definition PDTIfPDFlag s :=
 forall idPDchild sh1entryaddr,
-true = StateLib.checkChild idPDchild s sh1entryaddr ->
-(exists entry, lookup idPDchild s.(memory) beqAddr = Some (BE entry)
-/\ entryPDT idPDchild entry.(blockrange).(startAddr) s).
+true = StateLib.checkChild idPDchild s sh1entryaddr /\
+sh1entryAddr idPDchild sh1entryaddr s ->
+bentryAFlag idPDchild false s /\
+bentryPFlag idPDchild true s /\
+exists startaddr, bentryStartAddr idPDchild startaddr s /\
+ entryPDT idPDchild startaddr s.
 
-(* TODO : check if needed *)
+Definition AccessibleNoPDFlag s :=
+forall block sh1entryaddr,
+isBE block s ->
+sh1entryAddr block sh1entryaddr s ->
+bentryAFlag block true s ->
+sh1entryPDflag sh1entryaddr false s.
+
 Definition nullAddrExists s :=
-(*forall n,
-getNullAddr s = Some n.*)
 isPADDR nullAddr s.
 
-Definition FirstFreeSlotPointerIsBE s :=
-forall entryaddr entry,
-lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
-exists slotentry, lookup entry.(firstfreeslot) s.(memory) beqAddr = Some (BE slotentry).
+(* TODO : to remove -> consequence of freeSlotsListIsFreeSlot and FreeSlotIsBE
+	-> but convenient for now so keep it *)
+Definition FirstFreeSlotPointerIsBEAndFreeSlot s :=
+forall pdentryaddr pdentry,
+lookup pdentryaddr (memory s) beqAddr = Some (PDT pdentry) ->
+pdentry.(firstfreeslot) <> nullAddr ->
+isBE pdentry.(firstfreeslot) s /\
+isFreeSlot pdentry.(firstfreeslot) s.
 
-Definition StructurePointerIsBE s :=
-forall entryaddr entry,
-lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
-isBE entry.(structure) s.
+(* TODO : when removing the unecessary check in addMemoryBlock if this holds *)
+Definition NbFreeSlotsISNbFreeSlotsInList s :=
+forall pd nbfreeslots,
+isPDT pd s ->
+pdentryNbFreeSlots pd nbfreeslots s ->
+exists optionfreeslotslist, optionfreeslotslist = getFreeSlotsList pd s /\
+wellFormedFreeSlotsList optionfreeslotslist <> False /\ (* to get rid of false induction bound constraints *)
+nbfreeslots.(i) (* nat *) = length (*(filterOption*) (optionfreeslotslist).
+
+Definition DisjointFreeSlotsLists s :=
+forall pd1 pd2,
+isPDT pd1 s ->
+isPDT pd2 s ->
+pd1 <> pd2 ->
+exists optionfreeslotslist1 optionfreeslotslist2,
+optionfreeslotslist1 = getFreeSlotsList pd1 s /\
+wellFormedFreeSlotsList optionfreeslotslist1 <> False /\ (* to get rid of false induction bound constraints *)
+optionfreeslotslist2 = getFreeSlotsList pd2 s /\
+wellFormedFreeSlotsList optionfreeslotslist2 <> False /\ (* to get rid of false induction bound constraints *)
+disjoint (filterOptionPaddr (optionfreeslotslist1))(filterOptionPaddr (optionfreeslotslist2)).
+
+
+Definition NoDupInFreeSlotsList s :=
+forall pd pdentry,
+lookup pd (memory s) beqAddr = Some (PDT pdentry) ->
+exists optionfreeslotslist, optionfreeslotslist = getFreeSlotsList pd s /\
+wellFormedFreeSlotsList optionfreeslotslist <> False /\ (* to get rid of false induction bound constraints *)
+NoDup (filterOptionPaddr (optionfreeslotslist)).
 
 Definition StructurePointerIsKS s :=
 forall entryaddr entry,
 lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
+entry.(structure) <> nullAddr ->
 isKS entry.(structure) s.
-
 
 Definition NextKSOffsetIsPADDR s :=
 forall addr nextksaddr : paddr,
 isKS addr s ->
-nextksaddr = CPaddr (addr + nextoffset) /\
-isPADDR nextksaddr s.
+nextKSAddr addr nextksaddr s ->
+isPADDR nextksaddr s /\ nextksaddr <> nullAddr.
 
 Definition NextKSIsKS s :=
-forall addr nextksaddr nextKS : paddr,
+forall addr nextKSaddr nextKS : paddr,
 isKS addr s ->
-nextksaddr = CPaddr (addr + nextoffset) /\
-nextKSAddr nextksaddr nextKS s ->
+nextKSAddr addr nextKSaddr s ->
+nextKSentry nextKSaddr nextKS s ->
 nextKS <> nullAddr ->
 isKS nextKS s.
 
-Definition KSIsBE s :=
-forall addr : paddr,
-isKS addr s ->
-isBE addr s.
+Definition multiplexerIsPDT s :=
+isPDT multiplexer s.
 
+Definition currentPartitionInPartitionsList s :=
+In (currentPartition s) (getPartitions multiplexer s).
 
-Definition CurrentPartIsPDT s :=
-forall pdaddr,
-currentPartition s = pdaddr ->
-isPDT pdaddr s.
-
-Definition KernelStartIsBE s :=
-forall blockentryaddr,
-exists blockentry : BlockEntry,
-lookup blockentryaddr (memory s) beqAddr = Some (BE blockentry) ->
-exists kernelstartaddr : paddr,
-StateLib.Paddr.subPaddrIdx blockentryaddr blockentry.(blockindex) = Some kernelstartaddr
-/\ isBE kernelstartaddr s.
-
-Definition BlockEntryAddrInBlocksRangeIsBE s :=
-forall blockentryaddr : paddr, forall blockidx : index,
-isBE blockentryaddr s ->
+Definition BlocksRangeFromKernelStartIsBE s :=
+forall kernelentryaddr : paddr, forall blockidx : index,
+isKS kernelentryaddr s ->
 blockidx < kernelStructureEntriesNb ->
-isBE (CPaddr (blockentryaddr + blkoffset + blockidx)) s.
+isBE (CPaddr (kernelentryaddr + blockidx)) s.
 
-Definition KernelStructureStartFromBlockEntryAddrIsBE s :=
-forall blockentryaddr : paddr, forall entry : BlockEntry,
-lookup blockentryaddr (memory s) beqAddr = Some (BE entry) ->
-isBE (CPaddr (blockentryaddr - entry.(blockindex))) s.
-
-Definition PDchildIsBE s :=
-forall sh1entryaddr sh1entry,
-lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
-sh1entry.(PDchild) <> nullAddr ->
-isBE sh1entry.(PDchild) s.
+Definition KernelStructureStartFromBlockEntryAddrIsKS s :=
+forall (blockentryaddr : paddr) (blockidx : index),
+isBE blockentryaddr s ->
+bentryBlockIndex blockentryaddr blockidx s ->
+isKS (CPaddr (blockentryaddr - blockidx)) s.
 
 Definition sh1InChildLocationIsBE s :=
 forall sh1entryaddr sh1entry,
 lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
 sh1entry.(inChildLocation) <> nullAddr ->
 isBE sh1entry.(inChildLocation) s.
+Definition freeSlotsListIsFreeSlot s :=
+forall pd freeslotaddr optionfreeslotslist freeslotslist,
+isPDT pd s ->
+optionfreeslotslist = getFreeSlotsList pd s /\
+wellFormedFreeSlotsList optionfreeslotslist <> False -> (* to get rid of false induction bound constraints *)
+freeslotslist = filterOptionPaddr(optionfreeslotslist) /\
+In freeslotaddr freeslotslist ->
+freeslotaddr <> nullAddr ->
+isFreeSlot freeslotaddr s.
 
-Definition scNextIsBE s :=
-forall scentryaddr scentry,
-lookup scentryaddr (memory s) beqAddr = Some (SCE scentry) ->
-scentry.(next) <> nullAddr ->
-isBE scentry.(next) s.
+Definition inclFreeSlotsBlockEntries s :=
+forall pd,
+isPDT pd s ->
+incl (getFreeSlotsList pd s) (getKSEntries pd s).
 
-(** ** Conjunction of all consistency properties *)
-Definition consistency s :=
+
+Definition DisjointKSEntries s :=
+forall pd1 pd2,
+isPDT pd1 s ->
+isPDT pd2 s ->
+pd1 <> pd2 ->
+exists optionentrieslist1 optionentrieslist2,
+optionentrieslist1 = getKSEntries pd1 s /\
+optionentrieslist2 = getKSEntries pd2 s /\
+disjoint (filterOptionPaddr (optionentrieslist1))(filterOptionPaddr (optionentrieslist2)).
+
+(* Prove DisjointKSEntries -> DisjointFreeSlotsList because of inclusion *)
+
+(** ** The [isChild] specifies that a given partition should be a child of the
+        physical page stored as parent into the associated partition descriptor
+    (11) **)
+Definition isChild  s :=
+forall partition parent : paddr,
+In partition (getPartitions multiplexer s) ->
+pdentryParent partition parent s ->
+In partition (getChildren parent s).
+
+
+(** ** The [isParent] specifies that if we take any child into the children list of any
+partition into the partition list so this partition should be the parent of this child
+ (..) **)
+Definition isParent  s :=
+forall partition parent : paddr,
+In parent (getPartitions multiplexer s) ->
+In partition (getChildren parent s) ->
+pdentryParent partition parent s.
+
+(* TODO: remove, consequence of noDupKSEntriesList*)
+Definition noDupMappedBlocksList s :=
+forall (partition : paddr),
+isPDT partition s ->
+NoDup (getMappedBlocks partition s).
+
+Definition noDupKSEntriesList s :=
+forall (partition : paddr),
+isPDT partition s ->
+NoDup (filterOptionPaddr (getKSEntries partition s)).
+
+Definition noDupUsedPaddrList s :=
+forall (partition : paddr),
+isPDT partition s ->
+NoDup (getUsedPaddr partition s).
+
+Definition noDupPartitionTree s :=
+NoDup (getPartitions multiplexer s).
+
+Definition MPUFromAccessibleBlocks s :=
+forall partition block blocksInMPU,
+pdentryMPU partition blocksInMPU s ->
+In block blocksInMPU ->
+In block (getAccessibleMappedBlocks partition s).
+
+Definition sharedBlockPointsToChild s :=
+forall parent child addr parentblock sh1entryaddr,
+In parent (getPartitions multiplexer s) ->
+In child (getChildren parent s) ->
+In addr (getUsedPaddr child s) ->
+In addr (getAllPaddrAux [parentblock] s) ->
+In parentblock (getMappedBlocks parent s) ->
+sh1entryAddr parentblock sh1entryaddr s ->
+(sh1entryPDchild (CPaddr (parentblock + sh1offset)) child s \/
+sh1entryPDflag (CPaddr (parentblock + sh1offset)) true s).
+
+Definition accessibleChildPaddrIsAccessibleIntoParent s :=
+ forall parent child addr,
+In parent (getPartitions multiplexer s) ->
+In child (getChildren parent s) ->
+In addr (getAccessibleMappedPaddr child s) ->
+In addr (getAccessibleMappedPaddr parent s).
+
+(** ** First batch of consistency properties *)
+Definition consistency1 s :=
+nullAddrExists s /\
 wellFormedFstShadowIfBlockEntry s /\
 PDTIfPDFlag s /\
-nullAddrExists s /\
-FirstFreeSlotPointerIsBE s /\
-CurrentPartIsPDT s /\
-KernelStartIsBE s /\
+AccessibleNoPDFlag s /\
+FirstFreeSlotPointerIsBEAndFreeSlot s /\
+multiplexerIsPDT s /\
+currentPartitionInPartitionsList s /\
 wellFormedShadowCutIfBlockEntry s /\
-BlockEntryAddrInBlocksRangeIsBE s /\
-KernelStructureStartFromBlockEntryAddrIsBE s /\
-PDchildIsBE s /\
+BlocksRangeFromKernelStartIsBE s /\
+KernelStructureStartFromBlockEntryAddrIsKS s /\
 sh1InChildLocationIsBE s /\
-StructurePointerIsBE s /\
 StructurePointerIsKS s /\
 NextKSIsKS s /\
 NextKSOffsetIsPADDR s /\
-KSIsBE s /\
-scNextIsBE s.
+NoDupInFreeSlotsList s /\
+freeSlotsListIsFreeSlot s /\
+DisjointFreeSlotsLists s /\
+inclFreeSlotsBlockEntries s /\
+DisjointKSEntries s /\
+noDupPartitionTree s /\
+isParent s /\
+isChild s /\
+noDupKSEntriesList s /\
+noDupMappedBlocksList s /\
+wellFormedBlock s /\
+MPUFromAccessibleBlocks s.
+
+(** ** Second batch of consistency properties *)
+Definition consistency2 s :=
+noDupUsedPaddrList s /\
+accessibleChildPaddrIsAccessibleIntoParent s /\
+sharedBlockPointsToChild s.
+
+(** ** Conjunction of all consistency properties *)
+Definition consistency s :=
+consistency1 s /\ consistency2 s.
