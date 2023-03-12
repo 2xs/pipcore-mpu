@@ -546,7 +546,7 @@ case_eq kernelstructureisnull.
 		intros. simpl. intuition.
 	}
 + (* case_eq kernelstructureisnull = false *)
-	intro Hkernelstructureisnull. simpl.
+	intro Hkernelstructureisnull.
 	{ (** findBlockInKSWithAddrAux *)
 	eapply strengthen. eapply weaken. apply findBlockInKSWithAddrAux ; intuition.
 	intros. simpl in *. split. apply H. intuition.
@@ -583,10 +583,7 @@ case_eq kernelstructureisnull.
 		rewrite <- DependentTypeLemmas.beqAddrTrue in HstructureNull.
 		exfalso ; congruence.
 	-  (* (structure pdentry) <> nullAddr *)
-		unfold N in *. assert(HmaxEq :  maxIdx = maxAddr) by apply maxIdxEqualMaxAddr.
-		rewrite HmaxEq in *.
-
-		induction ((filterOptionPaddr (getKSEntriesAux (maxAddr + 1) (structure pdentry) s (*(CIndex maxNbPrepare)*)))).
+		induction ((filterOptionPaddr (getKSEntriesAux maxNbPrepare (structure pdentry) s (*(CIndex maxNbPrepare)*)))).
 		-- intuition.
 		-- simpl in *. intuition.
 			--- (* a = blockEntryAddr *)

@@ -350,7 +350,7 @@ Definition getKSEntries (partition: paddr) s :=
 													(* filtering the list enables to reuse the same list somewhere else *)
 							if beqAddr pdentry.(structure) nullAddr
 							then []
-							else (getKSEntriesAux (maxIdx+1) pdentry.(structure) s)
+							else (getKSEntriesAux maxNbPrepare pdentry.(structure) s)
   | _ => []
   end.
 

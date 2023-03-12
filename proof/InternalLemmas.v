@@ -8964,18 +8964,16 @@ memory := _ |}).
 intros Hlookuppds0 HstructKS HstructEq.
 assert(HPDTs0 : isPDT addr' s0) by (unfold isPDT ; rewrite Hlookuppds0 ; trivial).
 unfold getKSEntries.
-unfold s'. simpl.
+unfold s' at 1. simpl lookup.
 destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 - (* addr' = partition *)
 	rewrite <- DependentTypeLemmas.beqAddrTrue in beqpartaddr.
 	subst addr'.
 	rewrite Hlookuppds0.
 	rewrite HstructEq.
-
 	destruct (beqAddr (structure pdentry0) nullAddr) eqn:structNull ; intuition.
-	fold s'.
-	assert(HEq :  (getKSEntriesAux (maxIdx + 1) (structure pdentry0) s') =
-  (getKSEntriesAux (maxIdx + 1) (structure pdentry0) s0)).
+	assert(HEq :  (getKSEntriesAux maxNbPrepare (structure pdentry0) s') =
+  (getKSEntriesAux maxNbPrepare (structure pdentry0) s0)).
 	{ apply getKSEntriesAuxEqPDT ; intuition.
 		unfold StructurePointerIsKS in *.
 		specialize (HstructKS partition pdentry0 Hlookuppds0).
@@ -8994,9 +8992,8 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 	destruct (lookup partition (memory s0) beqAddr) eqn:Hlookupparts0 ; intuition.
 	destruct v ; intuition.
 	destruct (beqAddr (structure p) nullAddr) eqn:structNull ; intuition.
-	fold s'.
-	assert(HEq :  (getKSEntriesAux (maxIdx + 1) (structure p) s') =
-  (getKSEntriesAux (maxIdx + 1) (structure p) s0)).
+	assert(HEq :  (getKSEntriesAux maxNbPrepare (structure p) s') =
+  (getKSEntriesAux maxNbPrepare (structure p) s0)).
 	{
 		apply getKSEntriesAuxEqPDT ; intuition.
 		unfold StructurePointerIsKS in *.
@@ -9028,7 +9025,7 @@ currentPartition := currentPartition s0;
 memory := _ |}).
 intros Hlookupaddr's0 HpartNotEq HstructKS.
 unfold getKSEntries.
-unfold s'. simpl.
+unfold s' at 1. simpl lookup.
 destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 - (* addr' = partition *)
 	rewrite <- DependentTypeLemmas.beqAddrTrue in beqpartaddr.
@@ -9041,8 +9038,8 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 	destruct v ; intuition.
 	destruct (beqAddr (structure p) nullAddr) eqn:structNull ; intuition.
 	fold s'.
-	assert(HEq :  (getKSEntriesAux (maxIdx + 1) (structure p) s') =
-  (getKSEntriesAux (maxIdx + 1) (structure p) s0)).
+	assert(HEq :  (getKSEntriesAux maxNbPrepare (structure p) s') =
+  (getKSEntriesAux maxNbPrepare (structure p) s0)).
 	{
 		apply getKSEntriesAuxEqPDT ; intuition.
 		unfold StructurePointerIsKS in *.
@@ -9187,7 +9184,7 @@ currentPartition := currentPartition s0;
 memory := _ |}).
 intros Hlookuppds0 HPDTaddrs0 (*HstructKS HstructEq*).
 unfold getKSEntries.
-unfold s'. simpl.
+unfold s' at 1. simpl lookup.
 destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 - (* addr' = partition *)
 	rewrite <- DependentTypeLemmas.beqAddrTrue in beqpartaddr.
@@ -9201,8 +9198,8 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 	rewrite Hlookuppds0.
 	destruct (beqAddr (structure pdentry0) nullAddr) eqn:structNull ; intuition.
 	fold s'.
-	assert(HEq :  (getKSEntriesAux (maxIdx + 1) (structure pdentry0) s') =
-  (getKSEntriesAux (maxIdx + 1) (structure pdentry0) s0)).
+	assert(HEq :  (getKSEntriesAux maxNbPrepare (structure pdentry0) s') =
+  (getKSEntriesAux maxNbPrepare (structure pdentry0) s0)).
 	{
 		apply getKSEntriesAuxEqSCE ; intuition.
 	}
@@ -9339,7 +9336,7 @@ currentPartition := currentPartition s0;
 memory := _ |}).
 intros Hlookuppds0 HPDTaddrs0.
 unfold getKSEntries.
-unfold s'. simpl.
+unfold s' at 1. simpl lookup.
 destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 - (* addr' = partition *)
 	rewrite <- DependentTypeLemmas.beqAddrTrue in beqpartaddr.
@@ -9353,8 +9350,8 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 	rewrite Hlookuppds0.
 	destruct (beqAddr (structure pdentry0) nullAddr) eqn:structNull ; intuition.
 	fold s'.
-	assert(HEq :  (getKSEntriesAux (maxIdx + 1) (structure pdentry0) s') =
-  (getKSEntriesAux (maxIdx + 1) (structure pdentry0) s0)).
+	assert(HEq :  (getKSEntriesAux maxNbPrepare (structure pdentry0) s') =
+  (getKSEntriesAux maxNbPrepare (structure pdentry0) s0)).
 	{
 		apply getKSEntriesAuxEqSHE ; intuition.
 	}
@@ -9508,7 +9505,7 @@ currentPartition := currentPartition s0;
 memory := _ |}).
 intros Hlookupaddr's0.
 unfold getKSEntries.
-unfold s'. simpl.
+unfold s' at 1. simpl lookup.
 destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 - (* addr' = partition *)
 	rewrite <- DependentTypeLemmas.beqAddrTrue in beqpartaddr.
@@ -9523,9 +9520,8 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 	destruct (lookup partition (memory s0) beqAddr) ; try(exfalso ; congruence) ; intuition.
 	destruct v ; try(exfalso ; congruence) ; intuition.
 	destruct (beqAddr (structure p) nullAddr) eqn:structNull ; intuition.
-	fold s'.
-	assert(HEq :  (getKSEntriesAux (maxIdx + 1) (structure p) s') =
-  (getKSEntriesAux (maxIdx + 1) (structure p) s0)).
+	assert(HEq :  (getKSEntriesAux maxNbPrepare (structure p) s') =
+  (getKSEntriesAux maxNbPrepare (structure p) s0)).
 	{	eapply getKSEntriesAuxEqBE ; intuition.
 	}
 	rewrite HEq.

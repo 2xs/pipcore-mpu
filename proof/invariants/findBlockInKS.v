@@ -798,7 +798,7 @@ case_eq kernelstructureisnull.
 		intros. simpl. intuition.
 	}
 + (* case_eq kernelstructureisnull = false *)
-	intro Hkernelstructureisnull. simpl.
+	intro Hkernelstructureisnull.
 	{ (** Internal.findBlockInKSAux *)
 		eapply strengthen. eapply weaken.
 		apply findBlockInKSAux.
@@ -832,8 +832,6 @@ case_eq kernelstructureisnull.
 		unfold isPDT in *.
 		rewrite Hlookupidpd in *.
 		subst.
-		unfold N in *. assert(HmaxEq :  maxIdx = maxAddr) by apply maxIdxEqualMaxAddr.
-		rewrite <- HmaxEq in *.
 		destruct (beqAddr (structure idpdentry) nullAddr) eqn:HksNull ; trivial.
 		- 	(* (structure idpdentry) = nullAddr *)
 			(* contradiction
@@ -842,7 +840,7 @@ case_eq kernelstructureisnull.
 			rewrite HksNull in *.
 			exfalso ; congruence.
 		-	(* (structure idpdentry) <> nullAddr *)
-			induction ((filterOptionPaddr (getKSEntriesAux (maxIdx + 1) (structure idpdentry) s))) ; simpl in * ; intuition.
+			induction ((filterOptionPaddr (getKSEntriesAux maxNbPrepare (structure idpdentry) s))) ; simpl in * ; intuition.
 			subst.
 			unfold bentryPFlag in *. rewrite Hbentry in *.
 			destruct (present bentry) ; simpl ; try lia ; intuition.
