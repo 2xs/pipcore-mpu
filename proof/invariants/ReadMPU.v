@@ -38,7 +38,7 @@
 
 Require Import Model.ADT Core.Services.
 Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPreconditions
-Proof.StateLib Proof.DependentTypeLemmas.
+Proof.StateLib Proof.DependentTypeLemmas Proof.InternalLemmas.
 Require Import Invariants getGlobalIdPDCurrentOrChild findBlockInKS.
 Require Import Compare_dec Bool.
 
@@ -55,13 +55,17 @@ unfold Services.readMPU.
 eapply bindRev.
 { (** getCurPartition **)
 	eapply weaken. apply getCurPartition.
-	intros. simpl. split. apply H. intuition.
+	intros. simpl. apply H.
 }
 intro currentPart.
 eapply bindRev.
 { (** Internal.getGlobalIdPDCurrentOrChild **)
 	eapply weaken. apply getGlobalIdPDCurrentOrChild.
 	intros. simpl. split. apply H. intuition.
+	subst currentPart.
+	apply currentPartIsPDT ;
+	unfold consistency in * ; unfold consistency1 in * ;
+	intuition.
 }
 intro globalIdPD.
 eapply bindRev.

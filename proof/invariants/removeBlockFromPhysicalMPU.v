@@ -32,84 +32,75 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary
-    This file contains the invariant of [getGlobalIdPDCurrentOrChild].
-*)
+(**  * Summary 
+    In this file we formalize and prove all invariants of the MAL and MALInternal functions *)
+Require Import Model.Monad Model.Lib Model.MAL.
+Require Import Core.Internal.
+Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
+               Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants.
+Require Import Compare_dec Bool.
+(*
 
-Require Import Model.ADT Core.Services Model.MALInternal Model.Lib.
-Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPreconditions
-Proof.StateLib Proof.DependentTypeLemmas.
-Require Import invariants.Invariants invariants.checkChildOfCurrPart.
-
-Require Import Model.Monad (* for visibility *).
-
-Module WP := WeakestPreconditions.
-
-Lemma getGlobalIdPDCurrentOrChild (currentPartition idPDToCheck : paddr) (P : state -> Prop):
-{{fun s => P s /\ consistency s
-					/\ isPDT currentPartition s}}
-Internal.getGlobalIdPDCurrentOrChild currentPartition idPDToCheck
-{{fun idPDChild s  => P s /\ consistency s /\
-										(idPDChild <> nullAddr -> isPDT idPDChild s) }}.
+Lemma removeBlockFromPhysicalMPUAux (blockentryaddr : paddr) (realMPU : list paddr) (P : state -> Prop) :
+{{  fun s : state => P s /\ consistency s}}
+MAL.removeBlockFromPhysicalMPUAux blockentryaddr realMPU
+{{fun (realMPUentries : list paddr) (s : state) => P s /\ consistency s 
+																				 }}.
 Proof.
-unfold Internal.getGlobalIdPDCurrentOrChild.
-eapply bindRev.
-{ (** MALInternal.getBeqAddr **)
-	eapply weaken. apply getBeqAddr.
-	intros. simpl. apply H.
-}
-intro isCurrentPart.
-case_eq isCurrentPart.
-- (* case_eq isCurrentPart = true *)
-	intros.
-	{ (** ret *)
-	eapply weaken. apply WP.ret.
-  simpl. intros. intuition.
-	}
-- (* case_eq isCurrentPart = false *)
-	intros.
+(* revert mandatory to generalize the induction hypothesis *)
+revert kernelstructurestart blockEntryAddr.
+	induction n.
+- (* n = 0 *)
+	intros;simpl.
+	(* MALInternal.getNullAddr *)
+	eapply weaken. unfold MALInternal.getNullAddr.
+	eapply WP.ret. intros. simpl. intuition.
+- (* n = S n*)
+	intros. simpl.
 	eapply bindRev.
-	{ (** Internal.checkChildOfCurrPart *)
-		eapply weaken. apply checkChildOfCurrPart.
-		intros. simpl. split. apply H0. intuition.
-	}
-	intro isChildCurrPart.
-	case_eq isChildCurrPart.
-	+ (* case_eq isChildCurrPart = true *)
-		intros.
-		eapply bindRev.
-		{ (** MAL.readBlockStartFromBlockEntryAddr *)
-			eapply weaken. apply readBlockStartFromBlockEntryAddr.
-			intros. simpl. split. apply H1. intuition.
-			destruct H5. intuition. destruct H3.
-			unfold isBE. intuition. rewrite H3 ; trivial.
-		}
-		intro idPDChild.
-		{ (** ret *)
-		eapply weaken. apply WP.ret.
-		simpl. intros. intuition.
-		destruct H6.
-		assert(HPDTIfPDFlag : PDTIfPDFlag s) by
-			(unfold consistency in * ; unfold consistency1 in * ; intuition).
-		unfold PDTIfPDFlag in *.
-		intuition. unfold entryPDT in *. destruct H6. intuition.
-		destruct H9 as [Hsh1entry Hsh1entryaddr].
-		destruct Hsh1entryaddr.
-		assert(Hconj := conj H8 H9).
-		specialize (HPDTIfPDFlag idPDToCheck x Hconj).
-		destruct HPDTIfPDFlag as [HAFlag (HPFlag & (startaddr & HPDTIfPDFlag))]. intuition.
-		unfold bentryStartAddr in *. rewrite H6 in *. subst.
-		unfold isPDT.
-		destruct (lookup (startAddr (blockrange x0)) (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
-		destruct v eqn:Hv ; try (exfalso ; congruence) ; trivial.
-		}
-	+ (* case_eq isChildCurrPart = false *)
-		intros.
-		{ (** ret *)
-		eapply weaken. apply WP.ret.
-		simpl. intros. intuition.
-		}
-Qed.
 
 
+Qed.*)
 
+Lemma removeBlockFromPhysicalMPU (pd : paddr) (blockentryaddr : paddr) (P : state -> Prop) :
+{{ fun s => partitionsIsolation s /\ verticalSharing s /\ kernelDataIsolation s /\ consistency s
+						/\ isPDT pd s
+						/\ isBE blockentryaddr s}}
+MAL.removeBlockFromPhysicalMPU pd blockentryaddr
+{{fun (_ : unit) (s : state) => partitionsIsolation s /\ verticalSharing s /\ kernelDataIsolation s  /\ consistency s}}.
+Proof.
+unfold MAL.removeBlockFromPhysicalMPU.
+eapply bindRev.
+{ (** MAL.readPDMPU *)
+	eapply weaken. apply readPDMPU.
+	intros. simpl. split. apply H. intuition.
+}
+intro realMPU.
+eapply bind. intros. eapply weaken. apply ret. intros. simpl. apply H.
+eapply weaken. apply writePDMPU.
+intros. simpl.
+unfold pdentryMPU in *.
+destruct (lookup pd (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; intuition ; congruence).
+destruct v eqn:Hv ; try (exfalso ; intuition ; congruence).
+exists p. set (s' := {|
+       currentPartition := currentPartition s;
+       memory := _ |}). intuition.
+- unfold partitionsIsolation. intros. simpl.
+	unfold Lib.disjoint. intros.
+	unfold getUsedBlocks. unfold getConfigBlocks.
+	unfold getMappedBlocks.
+	destruct (lookup child2 (memory s') beqAddr) eqn:Hlookup' ; try (exfalso ; congruence).
+	destruct v ; try (exfalso ; congruence). intuition. admit. admit.
+- unfold verticalSharing. intros parent child.
+	unfold verticalSharing in *.
+	specialize (H0 parent child).
+	apply H0 with parent child ; trivial.
+
+eapply bindRev.
+{ (** writePDMPU *)
+	eapply weaken. apply writePDMPU.
+	intros. simpl. intuition.
+	unfold pdentryMPU in *.
+	destruct (lookup pd (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
+	destruct v eqn:Hv ; try (exfalso ; congruence).
+	exists p. intuition.

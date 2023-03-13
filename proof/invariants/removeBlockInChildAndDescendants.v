@@ -42,7 +42,6 @@ Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
 Require Import Proof.invariants.findBlockInKSWithAddr Proof.invariants.checkBlockCut.
 Require Import Coq.Logic.ProofIrrelevance Lia Setoid Compare_dec (*EqNat*) List Bool.
 
-
 Lemma checkRemoveSubblocksRecAux n (subblockAddr : paddr) (P : state -> Prop) :
 {{  fun s : state => P s /\ consistency s
 										/\ isBE subblockAddr s}}
@@ -198,7 +197,6 @@ intros. simpl. intuition.
 Qed.
 
 
-
 Lemma removeBlockInChildAndDescendants (currentPart
 																				blockToRemoveInCurrPartAddr
 																				idPDchild
@@ -316,7 +314,3 @@ case_eq isBlockCut.
 		eapply weaken. apply ret.
 		intros. simpl. intuition.
 Qed.
-
-
-
-

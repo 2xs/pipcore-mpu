@@ -45,61 +45,44 @@ Import List.ListNotations.
     the parent partition  *)
 Definition verticalSharing s : Prop :=
 
-forall parent child : paddr (*page*) ,
-
+forall parent child : paddr,
   In parent (getPartitions multiplexer s) ->
 
   In child (getChildren parent s) ->
 
-  (*incl (getUsedPages child s) (getMappedPages parent s).*)
-  incl (getUsedBlocks child s) (getMappedBlocks parent s).
+	incl (getUsedPaddr child s) (getMappedPaddr parent s).
+
 
 (** THE ISOLATION PROPERTY BETWEEN PARTITIONS,
     If we take two different children of a given parent,
     then all their used blocks are different  *)
 Definition partitionsIsolation  s : Prop :=
-
 forall parent child1 child2 : paddr ,
 
-  In parent (getPartitions multiplexer s)->
+  In parent (getPartitions multiplexer s) ->
 
   In child1 (getChildren parent s) ->
 
   In child2 (getChildren parent s) ->
 
-  child1 <> child2 ->
+	child1 <> child2 ->
 
-  (*disjoint (getUsedPages child1 s)(getUsedPages child2 s).*)
-  disjoint (getUsedBlocks child1 s)(getUsedBlocks child2 s).
+	disjoint (getUsedPaddr child1 s) (getUsedPaddr child2 s).
+
 
 (** THE ISOLATION PROPERTY BETWEEN THE KERNEL DATA AND PARTITIONS
     kernel data is the configuration pages of partitions.
     All configuration tables of a given partition are inaccessible by all
     partitions *)
 
-(* TODO : include range not raw element -> the base address doesn't say anything on subblocks *)
-(*Definition kernelDataIsolation s : Prop :=
-
-forall partition1 partition2 : paddr,
-
-  In partition1 (getPartitions multiplexer s) ->
-
-  In partition2 (getPartitions multiplexer s) ->
-
-  (*disjoint (getAccessibleMappedPages partition1 s) (getConfigPages partition2 s).*)
- 	(partition1 <> partition2) /\
-	disjoint (getAccessibleMappedBlocks partition1 s) (getConfigBlocks partition2 s)
-	\/
- 	(partition1 = partition2) /\
-	disjoint (getAccessibleBlocks partition1 s) (getConfigBlocks partition2 s).*)
-
+(* the config blocks are NOT the inaccessible blocks within a partition but
+	its PDT + its kernel structures *)
 Definition kernelDataIsolation s : Prop :=
+
 	forall partition1 partition2 : paddr,
 
 	In partition1 (getPartitions multiplexer s) ->
 
   In partition2 (getPartitions multiplexer s) ->
-	~exists Asubblock Csubblock : paddr,
-	In Asubblock (getAccessibleMappedBlocks partition1 s) ->
-	In Csubblock (getConfigBlocks partition2 s) ->
-	checkissubblock Asubblock Csubblock s \/ checkissubblock Csubblock Asubblock s.
+
+	disjoint (getAccessibleMappedPaddr partition1 s) (getConfigPaddr partition2 s).

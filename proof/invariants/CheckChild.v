@@ -37,7 +37,7 @@
 Require Import Isolation Consistency WeakestPreconditions List
 Core.Internal Invariants Model.MAL StateLib Model.Hardware
 Model.ADT DependentTypeLemmas Model.Lib GetTableAddr InternalLemmas.
-Require Import Coq.Logic.ProofIrrelevance Omega.
+Require Import Coq.Logic.ProofIrrelevance Lia.
 
 Lemma checkChild (parent : page) (va : vaddr) (nbL : level) (P : state -> Prop) :
 {{fun s => P s /\ consistency s /\ parent = currentPartition s /\ Some nbL = getNbLevel}}
@@ -145,9 +145,9 @@ assert(  (getTableAddrRoot' ptsh1 sh1idx parent va s /\ ptsh1 = defaultPage )\/
           assert (tableSize > tableSizeLowerBound).
           apply tableSizeBigEnough.
           unfold tableSizeLowerBound in *.
-          omega.  apply tableSizeBigEnough.
+          lia.  apply tableSizeBigEnough.
           unfold tableSizeLowerBound in *.
-          omega. apply tableSizeBigEnough. omega.
+          lia. apply tableSizeBigEnough. lia.
        - contradict Hfalse.
           unfold sh1idx.
           unfold sh2idx.
@@ -155,9 +155,9 @@ assert(  (getTableAddrRoot' ptsh1 sh1idx parent va s /\ ptsh1 = defaultPage )\/
           assert (tableSize > tableSizeLowerBound).
           apply tableSizeBigEnough.
           unfold tableSizeLowerBound in *.
-          omega.  apply tableSizeBigEnough.
+          lia.  apply tableSizeBigEnough.
           unfold tableSizeLowerBound in *.
-          omega. apply tableSizeBigEnough. omega. }
+          lia. apply tableSizeBigEnough. lia. }
 assert (HP := conj H0 H).
 pattern s in HP.
 eapply HP.
@@ -217,20 +217,20 @@ case_eq isNullptSh1; intros HisNullptSh1.
   inversion Hlvl.
   rewrite <- H4.
   assert (getIndirection p va nbL (nbLevel - 1) s = Some defaultPage) as Hstopgt.
-  apply getIndirectionStopLevelGT2 with (nbL + 1); try omega.
+  apply getIndirectionStopLevelGT2 with (nbL + 1); try lia.
   rewrite H4.
   simpl in *. trivial.
   apply NPeano.Nat.lt_eq_cases in Hstop2.
   clear H Hrootstruc Hlvl Htmp H1.
   destruct Hstop2.
-  apply getIndirectionRetDefaultLtNbLevel with stop2; trivial. omega.
-  apply getIndirectionStopLevelGT with stop2;trivial. omega.
+  apply getIndirectionRetDefaultLtNbLevel with stop2; trivial. lia.
+  apply getIndirectionStopLevelGT with stop2;trivial. lia.
   rewrite Hstopgt.
   destruct H.
   assert ((defaultPage =? defaultPage) = true).
   symmetry. apply beq_nat_refl.
   rewrite H5. trivial.
-  assert (0 < nbLevel) by apply nbLevelNotZero. omega.
+  assert (0 < nbLevel) by apply nbLevelNotZero. lia.
   trivial.
   trivial.
   destruct Hx as (_ & Hfalse & _).
@@ -312,7 +312,7 @@ case_eq isNullptSh1; intros HisNullptSh1.
         inversion Hlvl.
         rewrite <- H13.
         assert (getIndirection p va nbL (nbLevel - 1) s = Some ptsh1) as Hstopgt.
-        apply getIndirectionStopLevelGT2 with (nbL + 1); try omega.
+        apply getIndirectionStopLevelGT2 with (nbL + 1); try lia.
         rewrite H13.
         simpl in *. trivial.
         assumption.
@@ -333,7 +333,7 @@ case_eq isNullptSh1; intros HisNullptSh1.
         rewrite Hfalse.
         rewrite H5.
         destruct ( pd v0); trivial.
-        assert (0 < nbLevel) by apply nbLevelNotZero. omega.
+        assert (0 < nbLevel) by apply nbLevelNotZero. lia.
         trivial.
         rewrite H10 in Hsh1.
         now contradict Hsh1.

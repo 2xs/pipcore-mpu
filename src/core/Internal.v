@@ -39,6 +39,13 @@ Require Import Bool Arith List.
 
 Open Scope mpu_state_scope.
 
+(** Fixed fuel/timeout value to prove function termination *)
+Definition N := maxAddr+1.
+
+(** The [getPd] function returns the page directory of a given partition *)
+Definition getPd partition :=
+  readPDTable partition.
+
 (** The [compareAddrToNull] returns true if the given addr is equal to the fixed
     default addr (null) *)
 Definition compareAddrToNull (p : paddr) : LLI bool :=
@@ -171,7 +178,10 @@ Fixpoint findBlockInKSAux (timeout : nat)
 Definition findBlockInKS (idPD : paddr) (idBlock: paddr) : LLI paddr :=
 	perform zero := Index.zero in (* Comparator 1 *)
 	perform kernelstructurestart := readPDStructurePointer idPD in
-	findBlockInKSAux N kernelstructurestart idBlock zero.
+	perform isnull :=  compareAddrToNull kernelstructurestart in
+	if isnull
+	then ret nullAddr
+	else findBlockInKSAux maxNbPrepare kernelstructurestart idBlock zero.
 
 (* TODO: return Some blockentry or None *)
 (** The [findBelongingBlock] function fixes the timeout value of [findBlockInKSAux]
@@ -181,7 +191,10 @@ Definition findBelongingBlock (idPD : paddr) (referenceaddr: paddr) : LLI paddr 
 	perform zero := Index.zero in
 	perform one := Index.succ zero in (* Comparator 2 *)
 	perform kernelstructurestart := readPDStructurePointer idPD in
-	findBlockInKSAux N kernelstructurestart referenceaddr one.
+	perform isnull :=  compareAddrToNull kernelstructurestart in
+	if isnull
+	then ret nullAddr
+	else findBlockInKSAux maxNbPrepare kernelstructurestart referenceaddr one.
 
 
 (** The [findBlockInKSWithAddrAux] function recursively search by going through
@@ -210,7 +223,7 @@ Fixpoint findBlockInKSWithAddrAux 	(timeout : nat)
 										perform maxEntryAddrInStructure :=  getSh1EntryAddrFromKernelStructureStart
 																													currentkernelstructure
 																													zero in
-										perform isEntryAddrBelowEnd := Paddr.leb blockEntryAddr maxEntryAddrInStructure in
+										perform isEntryAddrBelowEnd := MALInternal.Paddr.ltb blockEntryAddr maxEntryAddrInStructure in
 										if isEntryAddrAboveStart && isEntryAddrBelowEnd
 										then (* the provided address lies in this kernel structure*)
 												(** Check the block entry exists and is present*)
@@ -241,14 +254,16 @@ Fixpoint findBlockInKSWithAddrAux 	(timeout : nat)
 	end.
 
 
-(* TODO: return Some blockentry or None *)
 (** The [findBlockInKSWithAddr] function fixes the timeout value of
 		[findBlockInKSWithAddrAux] *)
 Definition findBlockInKSWithAddr (idPD blockEntryAddr: paddr) : LLI paddr :=
 	(** All checks done before*)
 	(** go through the Blocks structure finding the block (== start address of block entry)*)
 	perform kernelstructurestart := readPDStructurePointer idPD in
-	findBlockInKSWithAddrAux N kernelstructurestart blockEntryAddr.
+	perform isnull :=  compareAddrToNull kernelstructurestart in
+	if isnull
+	then ret nullAddr
+	else findBlockInKSWithAddrAux maxNbPrepare kernelstructurestart blockEntryAddr.
 
 (** The [checkBlockCut] function checks if the block at <blockentryaddr> has been
 		cut or if it is a subblock of some other block*)
@@ -361,8 +376,8 @@ Definition insertNewEntry 	(pdinsertion startaddr endaddr origin: paddr)
 	(** Insert the new block entry in the free slot*)
 	writeBlockStartFromBlockEntryAddr newBlockEntryAddr startaddr ;;
 	writeBlockEndFromBlockEntryAddr newBlockEntryAddr endaddr ;;
-	writeBlockAccessibleFromBlockEntryAddr newBlockEntryAddr true ;;
 	writeBlockPresentFromBlockEntryAddr newBlockEntryAddr true ;;
+	writeBlockAccessibleFromBlockEntryAddr newBlockEntryAddr true ;;
 	writeBlockRFromBlockEntryAddr newBlockEntryAddr r ;;
 	writeBlockWFromBlockEntryAddr newBlockEntryAddr w ;;
 	writeBlockXFromBlockEntryAddr newBlockEntryAddr e ;;

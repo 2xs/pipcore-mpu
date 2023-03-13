@@ -38,13 +38,13 @@
 				as well as enriched datatypes used by the Services
 *)
 
-Require Import List Bool Arith Omega Model.UserConstants.
+Require Import List Bool Arith Model.UserConstants.
 Import List.ListNotations.
 
 (*******************************************************************************)
 (* Constants (computed from USER CONSTANTS *)
 (*******************************************************************************)
-Definition kernelStructureEntriesNb := kernelStructureEntriesBits ^ 2.
+Definition kernelStructureEntriesNb := kernelStructureEntriesBits ^ 2 -1.
 Definition maxNbPrepare := nbPrepareMaxBits ^ 2.
 (*******************************************************************************)
 
@@ -77,6 +77,7 @@ Axiom MPURegionsNbNotZero: MPURegionsNb > 0.
 Axiom KSEntriesNbNotZero: kernelStructureEntriesNb > 0.
 Axiom KSEntriesNbLessThanMaxIdx: kernelStructureEntriesNb < maxIdx - 1.
 Axiom maxNbPrepareNotZero: maxNbPrepare > 0.
+Axiom maxNbPrepareNbLessThanMaxIdx: maxNbPrepare < maxIdx - 1.
 
 (*******************************************************************************)
 (* Elementary datatypes *)
@@ -93,9 +94,13 @@ if (le_dec p maxIdx) then Build_index p _ else  index_d.
 Record paddr := {
   p :> nat;
   Hp : p <= maxAddr }.
-Parameter paddr_d : paddr. (* default paddr : NULL *)
+(*Parameter paddr_d : paddr.*) (* default paddr : NULL *)
 Program Definition CPaddr (p : nat) : paddr :=
-if (le_dec p maxAddr) then Build_paddr p _ else  paddr_d.
+if (le_dec p maxAddr) then Build_paddr p _ else  Build_paddr 0 _. (*paddr_d*)
+Next Obligation.
+intuition.
+Qed.
+
 Axiom RAMStartAddr: paddr.
 Axiom RAMEndAddr: paddr.
 
@@ -106,8 +111,7 @@ Axiom RAMEndAddr: paddr.
 Record block := {
   startAddr : paddr;
   endAddr : paddr ;
-  Haddr : startAddr < endAddr ;
-	Hsize : endAddr - startAddr < maxIdx (* [startAddr ; endAddr ] because the MPU region
+	Hsize : endAddr - startAddr <= maxIdx (* [startAddr ; endAddr ] because the MPU region
 																					 end address IS included in the region,
 																					however the size is STRICTLY under maxIdx
 																					[_______________]
@@ -118,11 +122,9 @@ Record block := {
 }.
 Parameter block_d : block.
 Program Definition CBlock (startAddr endAddr : paddr) : block :=
-if (lt_dec startAddr endAddr)
-then if lt_dec (endAddr - startAddr) maxIdx
-		then Build_block startAddr endAddr _ _
-		else block_d
-else  block_d.
+if le_dec (endAddr - startAddr) maxIdx
+then Build_block startAddr endAddr _
+else block_d.
 
 Record BlockEntry : Type:=
 {

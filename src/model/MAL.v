@@ -37,12 +37,12 @@
   write data into physical memory  *)
 Require Export Model.MALInternal Model.ADT.
 Require Import Model.Monad Model.Lib.
-Require Import Arith Bool NPeano List Omega.
+Require Import Arith Bool NPeano List.
 
 Open Scope mpu_state_scope.
 
 (** Fixed fuel/timeout value to prove function termination *)
-Definition N := 100.
+Definition N := maxAddr+1.
 
 (** The 'getCurPartition' function returns the current Partition from the current state *)
 Definition getCurPartition : LLI paddr :=
@@ -55,12 +55,17 @@ Definition getKernelStructureStartAddr (blockentryaddr : paddr) (blockindex : in
   ret kernelStartAddr.
 
 Definition getBlockEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (BlockEntryIndex : index) : LLI paddr :=
-  let blockEntryAddr := CPaddr (kernelStartAddr + blkoffset + BlockEntryIndex) in
-  ret blockEntryAddr.
+  (*perform blockStartEntryAddr := Paddr.addPaddrIdx kernelStartAddr blkoffset in
+	perform blockEntryAddr := Paddr.addPaddrIdx blockStartEntryAddr BlockEntryIndex in*)
+  ret (CPaddr(kernelStartAddr + blkoffset + BlockEntryIndex)).
 
 Definition getSh1EntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (BlockEntryIndex : index) : LLI paddr :=
-  let sh1EntryAddr := CPaddr (kernelStartAddr + sh1offset + BlockEntryIndex) in
-  ret sh1EntryAddr.
+  (*perform sh1StartEntryAddr := Paddr.addPaddrIdx kernelStartAddr sh1offset in
+	perform sh1EntryAddr := Paddr.addPaddrIdx sh1StartEntryAddr BlockEntryIndex in
+  ret sh1EntryAddr.*)
+ (* perform sh1StartEntryAddr := Paddr.addPaddrIdx kernelStartAddr sh1offset in
+	perform sh1EntryAddr := Paddr.addPaddrIdx sh1StartEntryAddr BlockEntryIndex in*)
+  ret (CPaddr (kernelStartAddr + sh1offset + BlockEntryIndex)).
 
 Definition getSCEntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (BlockEntryIndex : index) : LLI paddr :=
   let scEntryAddr := CPaddr (kernelStartAddr + scoffset + BlockEntryIndex) in
@@ -253,15 +258,6 @@ Definition writePDVidt (pdtablepaddr: paddr) (vidtAddr : paddr) : LLI unit :=
   end.
 
 
-Definition readBlockStartFromBlockEntryAddr  (paddr : paddr) : LLI ADT.paddr :=
-  perform s := get in
-  let entry := lookup paddr s.(memory) beqAddr in
-  match entry with
-  | Some (BE a) => ret a.(blockrange).(startAddr)
-  | Some _ => undefined 12
-  | None => undefined 11
-  end.
-
 Definition writeBlockStartFromBlockEntryAddr  (paddr : paddr) (newstartaddr : ADT.paddr) : LLI unit :=
   perform s := get in
   let entry := lookup paddr s.(memory) beqAddr in
@@ -281,16 +277,6 @@ Definition writeBlockStartFromBlockEntryAddr  (paddr : paddr) (newstartaddr : AD
   |})
   | Some _ => undefined 60
   | None => undefined 59
-  end.
-
-
-Definition readBlockEndFromBlockEntryAddr  (paddr : paddr) : LLI ADT.paddr :=
-  perform s := get in
-  let entry := lookup paddr s.(memory) beqAddr in
-  match entry with
-  | Some (BE a) => ret a.(blockrange).(endAddr)
-  | Some _ => undefined 12
-  | None => undefined 11
   end.
 
 Definition writeBlockEndFromBlockEntryAddr  (paddr : paddr) (newendaddr : ADT.paddr) : LLI unit :=
@@ -322,6 +308,14 @@ Definition getBlockRecordField {Y : Type} (field : BlockEntry -> Y) (addr : padd
   | Some _ => undefined 12
   | None => undefined 11
   end.
+
+Definition readBlockStartFromBlockEntryAddr  (addr : paddr) : LLI paddr :=
+	perform blockrange := getBlockRecordField blockrange addr in
+	ret (blockrange.(startAddr)).
+
+Definition readBlockEndFromBlockEntryAddr  (addr : paddr) : LLI paddr :=
+	perform blockrange := getBlockRecordField blockrange addr in
+	ret (blockrange.(endAddr)).
 
 Definition readBlockAccessibleFromBlockEntryAddr  (addr : paddr) : LLI bool :=
 	getBlockRecordField accessible addr.
@@ -489,7 +483,6 @@ Definition getSh1EntryAddrFromBlockEntryAddr (blockentryaddr : paddr) : LLI padd
 	perform SHEAddr := getSh1EntryAddrFromKernelStructureStart kernelStartAddr BlockEntryIndex in
 	ret SHEAddr.
 
-
 Definition getSh1RecordField {Y : Type} (field : Sh1Entry -> Y) (addr : paddr) : LLI Y :=
 	perform s := get in
   let entry :=  lookup addr s.(memory) beqAddr in
@@ -520,7 +513,6 @@ Definition writeSh1PDChildFromBlockEntryAddr2 (Sh1EAddr pdchild : paddr) : LLI u
   | Some _ => undefined 12
   | None => undefined 11
   end.
-
 
 Definition writeSh1PDChildFromBlockEntryAddr (blockentryaddr pdchild : paddr) : LLI unit :=
 	perform Sh1EAddr := getSh1EntryAddrFromBlockEntryAddr blockentryaddr in
@@ -593,7 +585,6 @@ Definition getSCEntryAddrFromBlockEntryAddr (blockentryaddr : paddr) : LLI paddr
 	perform kernelStartAddr := getKernelStructureStartAddr blockentryaddr BlockEntryIndex in
 	perform SCEAddr := getSCEntryAddrFromKernelStructureStart kernelStartAddr BlockEntryIndex in
 	ret SCEAddr.
-
 
 Definition getSCRecordField {Y : Type} (field : SCEntry -> Y) (addr : paddr) : LLI Y :=
 	perform s := get in

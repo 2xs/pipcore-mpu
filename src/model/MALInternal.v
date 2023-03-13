@@ -37,7 +37,7 @@
     and the module definition of each abstract data type in which we define required
     monadic functions  *)
 Require Import Model.ADT Model.Monad.
-Require Import List Arith Omega.
+Require Import List Arith.
 
 Open Scope mpu_state_scope.
 
@@ -211,6 +211,6 @@ Notation indexEqM x y := (ret (indexEq x y)) (only parsing).
 Notation beqIdx x y := (indexEq x y) (only parsing).
 (* #[deprecated(note="Use indexEqM instead.")] *)
 Notation getBeqIdx x y := (indexEqM x y) (only parsing).
-
+Definition zero : index := CIndex 0.
 Definition getAddr (paddr : paddr) : LLI ADT.paddr := ret paddr.
 
