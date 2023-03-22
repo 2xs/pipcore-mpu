@@ -38,6 +38,9 @@
 				as well as enriched datatypes used by the Services
 *)
 
+(* NB: entry types are not represented within a superstructure in the model.
+	However, they cannot be mixed, intertwined, or overlap because of the consistency properties. *)
+
 Require Import List Bool Arith Model.UserConstants.
 Import List.ListNotations.
 
