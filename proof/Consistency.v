@@ -36,16 +36,19 @@
 (** * Summary
     This file contains the formalization of the consistency properties :
 for each one we summarize the description of its definition *)
-Require Import Model.ADT Model.Monad Model.MAL Model.Lib Lib (*Isolation*)
-StateLib.
+Require Import Model.ADT Model.Monad Model.MAL Model.Lib Lib StateLib.
 Require Import List Coq.Logic.ProofIrrelevance.
 Import List.ListNotations.
 
+(** **  Type SHE is linked to a particular BE entry by an offset sh1offset in
+    the metadata superstructure. **)
 Definition wellFormedFstShadowIfBlockEntry s :=
 forall pa,
 isBE pa s ->
 isSHE (CPaddr (pa + sh1offset)) s.
 
+(** **  Type SCE is linked to a particular BE entry by an offset scoffset in
+    the metadata superstructure. **)
 Definition wellFormedShadowCutIfBlockEntry s :=
 forall pa,
 isBE pa s ->
@@ -60,6 +63,8 @@ bentryEndAddr block endaddr s ->
 (* startaddr inferior to endaddr + size of block greater than minimum MPU size *)
 (startaddr < endaddr) /\ (Constants.minBlockSize < (endaddr - startaddr)).
 
+(** **  If the PDflag of a Shadow 1 entry is set, then
+    the linked block in the Blocks structure hosts a PD structure. **)
 Definition PDTIfPDFlag s :=
 forall idPDchild sh1entryaddr,
 true = StateLib.checkChild idPDchild s sh1entryaddr /\
@@ -69,6 +74,7 @@ bentryPFlag idPDchild true s /\
 exists startaddr, bentryStartAddr idPDchild startaddr s /\
  entryPDT idPDchild startaddr s.
 
+(** **  An accessible block cannot host a metadata structure (type PDT). **)
 Definition AccessibleNoPDFlag s :=
 forall block sh1entryaddr,
 isBE block s ->
@@ -76,11 +82,14 @@ sh1entryAddr block sh1entryaddr s ->
 bentryAFlag block true s ->
 sh1entryPDflag sh1entryaddr false s.
 
+(** **  Address 0 is a special entry in the memory model taking on the role of
+    the empty address. It must be of type PADDR. **)
 Definition nullAddrExists s :=
 isPADDR nullAddr s.
 
 (* TODO : to remove -> consequence of freeSlotsListIsFreeSlot and FreeSlotIsBE
 	-> but convenient for now so keep it *)
+(** **  The reference to the first free slot has the type BE and is free. **)
 Definition FirstFreeSlotPointerIsBEAndFreeSlot s :=
 forall pdentryaddr pdentry,
 lookup pdentryaddr (memory s) beqAddr = Some (PDT pdentry) ->
@@ -97,6 +106,7 @@ exists optionfreeslotslist, optionfreeslotslist = getFreeSlotsList pd s /\
 wellFormedFreeSlotsList optionfreeslotslist <> False /\ (* to get rid of false induction bound constraints *)
 nbfreeslots.(i) (* nat *) = length (*(filterOption*) (optionfreeslotslist).
 
+(** **  Given all partitions of a partition tree, all free slots lists are disjoint. **)
 Definition DisjointFreeSlotsLists s :=
 forall pd1 pd2,
 isPDT pd1 s ->
@@ -109,7 +119,7 @@ optionfreeslotslist2 = getFreeSlotsList pd2 s /\
 wellFormedFreeSlotsList optionfreeslotslist2 <> False /\ (* to get rid of false induction bound constraints *)
 disjoint (filterOptionPaddr (optionfreeslotslist1))(filterOptionPaddr (optionfreeslotslist2)).
 
-
+(** **  Each element of a free slots list is unique. **)
 Definition NoDupInFreeSlotsList s :=
 forall pd pdentry,
 lookup pd (memory s) beqAddr = Some (PDT pdentry) ->
@@ -117,18 +127,22 @@ exists optionfreeslotslist, optionfreeslotslist = getFreeSlotsList pd s /\
 wellFormedFreeSlotsList optionfreeslotslist <> False /\ (* to get rid of false induction bound constraints *)
 NoDup (filterOptionPaddr (optionfreeslotslist)).
 
+(** **  The reference to the first superstructure is the start of a superstructure. **)
 Definition StructurePointerIsKS s :=
 forall entryaddr entry,
 lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
 entry.(structure) <> nullAddr ->
 isKS entry.(structure) s.
 
+(** **  The value of the reference to the next linked superstructure has the type PADDR. **)
 Definition NextKSOffsetIsPADDR s :=
 forall addr nextksaddr : paddr,
 isKS addr s ->
 nextKSAddr addr nextksaddr s ->
 isPADDR nextksaddr s /\ nextksaddr <> nullAddr.
 
+(** **  The reference to the next element of the linked list of
+    superstructures is the start of another superstructure. **)
 Definition NextKSIsKS s :=
 forall addr nextKSaddr nextKS : paddr,
 isKS addr s ->
@@ -140,27 +154,33 @@ isKS nextKS s.
 Definition multiplexerIsPDT s :=
 isPDT multiplexer s.
 
+(** **  The current partition belongs to the partition tree. **)
 Definition currentPartitionInPartitionsList s :=
 In (currentPartition s) (getPartitions multiplexer s).
 
+(** **  Each block entry has the type BE. The kernelStructureEntriesNb parameter
+    bounds the index to an arbitrary value. **)
 Definition BlocksRangeFromKernelStartIsBE s :=
 forall kernelentryaddr : paddr, forall blockidx : index,
 isKS kernelentryaddr s ->
 blockidx < kernelStructureEntriesNb ->
 isBE (CPaddr (kernelentryaddr + blockidx)) s.
 
+(** **  The start of a superstructure has the type BE. **)
 Definition KernelStructureStartFromBlockEntryAddrIsKS s :=
 forall (blockentryaddr : paddr) (blockidx : index),
 isBE blockentryaddr s ->
 bentryBlockIndex blockentryaddr blockidx s ->
 isKS (CPaddr (blockentryaddr - blockidx)) s.
 
+(** **  The reference to a block’s location in the child partition has the type BE. **)
 Definition sh1InChildLocationIsBE s :=
 forall sh1entryaddr sh1entry,
 lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
 sh1entry.(inChildLocation) <> nullAddr ->
 isBE sh1entry.(inChildLocation) s.
 
+(** **  Each element of a free slots list are free. **)
 Definition freeSlotsListIsFreeSlot s :=
 forall pd freeslotaddr optionfreeslotslist freeslotslist,
 isPDT pd s ->
@@ -171,12 +191,13 @@ In freeslotaddr freeslotslist ->
 freeslotaddr <> nullAddr ->
 isFreeSlot freeslotaddr s.
 
+(** **  The free slots list is included in the Blocks structure. **)
 Definition inclFreeSlotsBlockEntries s :=
 forall pd,
 isPDT pd s ->
 incl (getFreeSlotsList pd s) (getKSEntries pd s).
 
-
+(** **  Given all partitions in a partition tree, all slots are unique. **)
 Definition DisjointKSEntries s :=
 forall pd1 pd2,
 isPDT pd1 s ->
@@ -189,9 +210,7 @@ disjoint (filterOptionPaddr (optionentrieslist1))(filterOptionPaddr (optionentri
 
 (* Prove DisjointKSEntries -> DisjointFreeSlotsList because of inclusion *)
 
-(** ** The [isChild] specifies that a given partition should be a child of the
-        physical page stored as parent into the associated partition descriptor
-    (11) **)
+(** ** All partitions pointing to the same parent are children of this parent. **)
 Definition isChild  s :=
 forall partition parent : paddr,
 In partition (getPartitions multiplexer s) ->
@@ -199,9 +218,7 @@ pdentryParent partition parent s ->
 In partition (getChildren parent s).
 
 
-(** ** The [isParent] specifies that if we take any child into the children list of any
-partition into the partition list so this partition should be the parent of this child
- (..) **)
+(** **  All children of a parent partition points to this unique parent. **)
 Definition isParent  s :=
 forall partition parent : paddr,
 In parent (getPartitions multiplexer s) ->
@@ -209,30 +226,39 @@ In partition (getChildren parent s) ->
 pdentryParent partition parent s.
 
 (* TODO: remove, consequence of noDupKSEntriesList*)
+(** **  In a given partition, each mapped block is unique. **)
 Definition noDupMappedBlocksList s :=
 forall (partition : paddr),
 isPDT partition s ->
 NoDup (getMappedBlocks partition s).
 
+(** **  In a given partition, each slot is unique. **)
 Definition noDupKSEntriesList s :=
 forall (partition : paddr),
 isPDT partition s ->
 NoDup (filterOptionPaddr (getKSEntries partition s)).
 
+(** **  In a given partition, no block overlaps another
+    (the set of addresses they contain are disjoint). **)
 Definition noDupUsedPaddrList s :=
 forall (partition : paddr),
 isPDT partition s ->
 NoDup (getUsedPaddr partition s).
 
+(** **  All partitions belonging to the partition tree are unique. **)
 Definition noDupPartitionTree s :=
 NoDup (getPartitions multiplexer s).
 
+(** **  In a given partition, all blocks configured
+    in the MPU are accessible blocks belonging to that partition. **)
 Definition MPUFromAccessibleBlocks s :=
 forall partition block blocksInMPU,
 pdentryMPU partition blocksInMPU s ->
 In block blocksInMPU ->
 In block (getAccessibleMappedBlocks partition s).
 
+(** ** Each block in a child partition has a corresponding block in the parent partition
+    that contains the same addresses; block which points to the child (in the Shadow 1 structure). **)
 Definition sharedBlockPointsToChild s :=
 forall parent child addr parentblock sh1entryaddr,
 In parent (getPartitions multiplexer s) ->
@@ -244,6 +270,9 @@ sh1entryAddr parentblock sh1entryaddr s ->
 (sh1entryPDchild (CPaddr (parentblock + sh1offset)) child s \/
 sh1entryPDflag (CPaddr (parentblock + sh1offset)) true s).
 
+(** ** All accessible addresses
+in a partition (union of all addresses contained in the accessible mapped blocks) are
+mapped and accessible in their parent. **)
 Definition accessibleChildPaddrIsAccessibleIntoParent s :=
  forall parent child addr,
 In parent (getPartitions multiplexer s) ->
