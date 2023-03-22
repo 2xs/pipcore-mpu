@@ -42,6 +42,9 @@ Require Import Proof.StateLib Proof.Consistency.
 Require Import Coq.Logic.ProofIrrelevance Arith Lia Bool List.
 Import List.ListNotations.
 
+(** ** This file has not been cleaned up from Pip (MMU) legacy in case
+      some left over lemmas could be adapted **)
+
 (* DUP *)
 Lemma isPDTLookupEq (pd : paddr) s :
 isPDT pd s -> exists entry : PDTable,
@@ -1066,17 +1069,6 @@ destruct (lookup addr (Monad.memory s) beqAddr) ; try(exfalso ; congruence).
 destruct v ; try(exfalso ; congruence).
 trivial.
 Qed.
-
-(*
-Lemma FreeSlotsAreBE s :
-forall pd sceaddr optionfreeslotslist,
-consistency s ->
-optionfreeslotslist = getFreeSlotsList pd s /\
-wellFormedFreeSlotsList optionfreeslotslist <> False ->
-isSCE sceaddr s ->
-~ In sceaddr (filterOption optionfreeslotslist).
-Proof.
-Qed.*)
 
 Lemma IdxLtMaxIdx (idx : index) :
 idx <= maxIdx.
