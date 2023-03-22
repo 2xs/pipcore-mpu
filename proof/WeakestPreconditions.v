@@ -264,10 +264,6 @@ Lemma writeBlockAccessibleFromBlockEntryAddr  (entryaddr : paddr) (flag : bool) 
 P tt {|
   currentPartition := currentPartition s;
   memory := add entryaddr
-              (*(BE {| read := entry.(read); write :=entry.(write); exec := entry.(exec);
-                     present := entry.(present); accessible := flag;
-											blockindex := entry.(blockindex) ; blockrange := entry.(blockrange) ;
-										Hidx := entry.(Hidx) |})*)
 								(BE (CBlockEntry 	entry.(read) entry.(write) entry.(exec)
 																	entry.(present) flag
 																	entry.(blockindex) entry.(blockrange)))
@@ -281,10 +277,6 @@ eapply bind .
        instantiate (1:= fun s s0 => s = s0 /\ exists entry , lookup entryaddr s.(memory) beqAddr = Some (BE entry) /\
                                               P tt {| currentPartition := currentPartition s;
                                                       memory := add entryaddr
-                                                                  (*(BE {| read := entry.(read); write :=entry.(write); exec := entry.(exec);
-																																				 present := entry.(present); accessible := flag;
-																																					blockindex := entry.(blockindex) ; blockrange := entry.(blockrange) ;
-																																					Hidx := entry.(Hidx) |})*)
 																							(BE (CBlockEntry entry.(read) entry.(write) entry.(exec)
 																													entry.(present) flag
 																													entry.(blockindex) entry.(blockrange)))
@@ -313,9 +305,6 @@ Lemma writeBlockPresentFromBlockEntryAddr  (entryaddr : paddr) (flag : bool)  (P
 P tt {|
   currentPartition := currentPartition s;
   memory := add entryaddr
-              (*(BE {| read := entry.(read); write :=entry.(write); exec := entry.(exec);
-                     present := flag; accessible := entry.(accessible);
-											blockindex := entry.(blockindex) ; blockrange := entry.(blockrange) |})*)
 								(BE (CBlockEntry 	entry.(read) entry.(write) entry.(exec)
 																	flag entry.(accessible)
 																	entry.(blockindex) entry.(blockrange)))
@@ -329,9 +318,6 @@ eapply bind .
        instantiate (1:= fun s s0 => s = s0 /\ exists entry , lookup entryaddr s.(memory) beqAddr = Some (BE entry) /\
                                               P tt {| currentPartition := currentPartition s;
                                                       memory := add entryaddr
-                                                                  (*(BE {| read := entry.(read); write :=entry.(write); exec := entry.(exec);
-																																				 present := flag; accessible := entry.(accessible) ;
-																																					blockindex := entry.(blockindex) ; blockrange := entry.(blockrange) |})*)
 																																	(BE (CBlockEntry 	entry.(read) entry.(write) entry.(exec)
 																																										flag entry.(accessible)
 																																										entry.(blockindex) entry.(blockrange)))
@@ -868,25 +854,6 @@ Lemma WPsubPaddrIdx  (n : paddr) (m: index) (P: paddr -> state -> Prop) :
 Proof.
 apply wpIsPrecondition.
 Qed.
-(*
-Lemma subPaddrIdx  (n : paddr) (m: index)
-																	(P : paddr -> state -> Prop) :
-{{fun s => P n s}}
-MALInternal.Paddr.subPaddrIdx n m
-{{P}}.
-Proof.
-unfold MALInternal.Paddr.subPaddrIdx.
-destruct (le_dec (n - m) maxAddr) ; intuition.
-eapply weaken. eapply ret.
-intros.
-unfold MALInternal.Paddr.subPaddrIdx_obligation_1. eapply H.
- intuition.
-eapply weaken.
-
-
-apply WPsubPaddrIdx.
-intros. unfold wp. destruct (Paddr.subPaddrIdx n m s) eqn:sub.
-destruct p. intuition. unfold val in sub. eapply (H p s0). assert(H2 := conj p s0 H).*)
 
 
 Lemma getSh1EntryAddrFromKernelStructureStart  (kernelStartAddr : paddr) (BlockEntryIndex : index)
@@ -901,7 +868,6 @@ eapply weaken. eapply ret.
 intros. destruct H. destruct H0. intuition.
 Qed.
 
-(* TODO : move getsh1entry here *)
 Lemma getSCEntryAddrFromKernelStructureStart  (kernelStartAddr : paddr) (BlockEntryIndex : index)
 																	(P : paddr -> state -> Prop) :
 {{fun s => P (CPaddr (kernelStartAddr + scoffset + BlockEntryIndex)) s /\
@@ -922,7 +888,6 @@ Qed.
 (* DUP *)
 Lemma writeSCOriginFromBlockEntryAddr2  (neworigin SCEAddr : paddr) (P : unit -> state -> Prop) :
 {{fun  s => (*exists blockentry , lookup entryaddr s.(memory) beqAddr = Some (BE blockentry) /\*)
-						(*wellFormedShadowCutIfBlockEntry s /\*)
 						exists entry , lookup SCEAddr s.(memory) beqAddr = Some (SCE entry) /\
 P tt {|
   currentPartition := currentPartition s;
@@ -961,7 +926,6 @@ Qed.
 (* DUP *)
 Lemma writeSh1PDChildFromBlockEntryAddr2  (Sh1EAddr pdchild : paddr) (P : unit -> state -> Prop) :
 {{fun  s => (*exists blockentry , lookup entryaddr s.(memory) beqAddr = Some (BE blockentry) /\*)
-						(*wellFormedShadowCutIfBlockEntry s /\*)
 						exists entry , lookup Sh1EAddr s.(memory) beqAddr = Some (SHE entry) /\
 P tt {|
   currentPartition := currentPartition s;
@@ -1005,7 +969,6 @@ Qed.
 (* DUP *)
 Lemma writeSh1InChildLocationFromBlockEntryAddr2  (Sh1EAddr newinchildlocation : paddr) (P : unit -> state -> Prop) :
 {{fun  s => (*exists blockentry , lookup entryaddr s.(memory) beqAddr = Some (BE blockentry) /\*)
-						(*wellFormedShadowCutIfBlockEntry s /\*)
 						exists entry , lookup Sh1EAddr s.(memory) beqAddr = Some (SHE entry) /\
 P tt {|
   currentPartition := currentPartition s;
@@ -1047,19 +1010,14 @@ eapply bind .
 Qed.
 
 Lemma checkEntry  (kernelstructurestart blockentryaddr : paddr) (P : bool -> state -> Prop) :
-{{fun s => P (entryExists blockentryaddr s.(memory)) s
-
-(*/\ exists bentry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE bentry)*) }}
+{{fun s => P (entryExists blockentryaddr s.(memory)) s }}
 MAL.checkEntry kernelstructurestart blockentryaddr
 {{P}}.
-(*{{fun isValidentry s => P s /\ (isValidentry = true -> isBE blockentryaddr s)}}.*)
 Proof.
 unfold MAL.checkEntry.
 eapply bind. intro s.
 case_eq (lookup blockentryaddr (memory s) beqAddr).
-- intros. instantiate (1:= fun s s0 => s=s0 (*/\ exists p1 ,
-                   lookup blockentryaddr s.(memory) beqAddr =
-                   Some (BE p1) *) /\ P (entryExists blockentryaddr s0.(memory)) s0).
+- intros. instantiate (1:= fun s s0 => s=s0  /\ P (entryExists blockentryaddr s0.(memory)) s0).
 	destruct v eqn:Hv. eapply weaken. apply ret.
 	intros. simpl. intuition. unfold entryExists in *. subst. rewrite H in H2. assumption.
 	eapply weaken. apply ret.

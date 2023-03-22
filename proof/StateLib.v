@@ -129,13 +129,9 @@ match lookup blockentryaddr s.(memory) beqAddr with
 | _ => False
 end.
 
-(** The [getCurPartition] function returns the current partition descriptor of a given state *)
-(*Definition getCurPartition s : paddr :=
-currentPartition s. *)
-
-(** The [readPhysical] function returns the physical page stored into a given 
-    page at a given position in physical memory. The table should contain only Physical pages 
-    (The type [PP] is already defined into [Model.ADT]) *)
+(** The [readPDTable] function returns the PD structure page stored
+	at a given position in physical memory.
+    (The type [PDT] is already defined in [Model.ADT]) *)
 Definition readPDTable (paddr : paddr) memory: option PDTable :=
 let entry :=  lookup paddr memory beqAddr  in 
   match entry with
@@ -157,61 +153,65 @@ Fixpoint getAllPaddrBlockAux (pos offset count: nat) : list paddr :=
                  end
   end.
 
-(** The [getAllIndicesAux] function returns the list of all indices  *)
+(** The [getAllPaddrBlock] function returns the list of all addresses within a range *)
 Definition getAllPaddrBlock (startaddr endaddr : paddr) : list paddr :=
 getAllPaddrBlockAux 0 startaddr (endaddr-startaddr).
 
+(** The [getAllPaddrAux] function returns the list of all addresses contained in the listed blocks *)
 Fixpoint getAllPaddrAux (blocklist : list paddr) (s : state) :=
 match blocklist with
 | [] => []
 | block::list1 => match lookup block (memory s) beqAddr with
-									| Some (BE bentry) => getAllPaddrBlock bentry.(blockrange).(startAddr)
-																													bentry.(blockrange).(endAddr) ++
-																				getAllPaddrAux list1 s
-									| _ => getAllPaddrAux list1 s
-									end
+				| Some (BE bentry) => getAllPaddrBlock bentry.(blockrange).(startAddr)
+																								bentry.(blockrange).(endAddr) ++
+															getAllPaddrAux list1 s
+				| _ => getAllPaddrAux list1 s
+				end
 end.
 
+(** The [checkChild] function checks the presence of the PDflag at the given SHE entry 
+	and that the entry is valid considering the base BE entry *)
 Definition checkChild (blockentryaddr : paddr) (s : state) (sh1entryaddr : paddr) : bool :=
 match lookup blockentryaddr s.(memory) beqAddr  with
 | Some (BE entry) => match lookup sh1entryaddr s.(memory) beqAddr  with
-										| Some (SHE sh1entry) => sh1entry.(PDflag)
-										|	_ => false
-										end
+					| Some (SHE sh1entry) => sh1entry.(PDflag)
+					|	_ => false
+					end
 |	_ => false
 end.
 
+(** The [childFilter] function checks the presence of the PDflag for the given BE entry *)
 Definition childFilter (s : state) (blockentryaddr : paddr) : bool :=
 match lookup blockentryaddr s.(memory) beqAddr  with
 | Some (BE entry) => let sh1entryaddr := Paddr.addPaddrIdx blockentryaddr sh1offset in
-											match sh1entryaddr with
-											| Some p =>	match lookup p s.(memory) beqAddr  with
-																	| Some (SHE sh1entry) => sh1entry.(PDflag)
-																	|	_ => false
-																	end
-											|	_ => (* NOK *) false
-											end
+					match sh1entryaddr with
+					| Some p =>	match lookup p s.(memory) beqAddr  with
+								| Some (SHE sh1entry) => sh1entry.(PDflag)
+								|	_ => false
+								end
+					|	_ => (* NOK *) false
+					end
 |	_ => false
 end.
 
+(** The [getPDsPaddr] function returns the start fields of all the given BE entries *)
 Definition getPDsPaddr (paList : list paddr) s :=
 map (fun bentryaddr => match lookup bentryaddr (memory s) beqAddr with
-												| Some (BE bentry) => bentry.(blockrange).(startAddr)
-												| _ => nullAddr
-											end
+						| Some (BE bentry) => bentry.(blockrange).(startAddr)
+						| _ => nullAddr
+						end
 		) paList.
 
-(** The [getPdsVAddr] function returns the list of virtual addresses used as
+(** The [getPDs] function returns the list of physical addresses used as
     partition descriptor into a given partition *)
 Definition getPDs (paList : list paddr) s :=
 getPDsPaddr (filter (childFilter s) paList) s.
 
 
-(** The [filterOption] function removes the option type from the list and filters
+(** The [filterOptionPaddr] function removes the option type from the list and filters
 		out all	unreachable paddr.
 		As we use the MAL functions, these paddr aren't accessible by Pip anyways in
-		its operations.
-TODO check explanation*)
+		its operations. *)
 Fixpoint filterOptionPaddr (l : list optionPaddr) := 
 match l with 
 | [] => []
@@ -219,6 +219,7 @@ match l with
 | _ :: l1 => filterOptionPaddr l1
 end.
 
+(** The [getConfigBlocksAux] function recursively returns all chained superstructures *)
 Fixpoint getConfigBlocksAux (bound : nat) (currKernelStructure: paddr) s (maxStructNbleft : index) : list optionPaddr :=
 match bound with
 |	0 => (* NOK *) [NonePaddr]
@@ -234,58 +235,65 @@ match bound with
 												| Some p =>
 														match lookup p s.(memory) beqAddr with
 														| Some (PADDR addr) => 	match Index.pred maxStructNbleft with
-													          								|Some p => [SomePaddr currKernelStructure]++(getConfigBlocksAux bound1 addr s p)
-																										|None => [NonePaddr]
-																										end
+																				|Some p => [SomePaddr currKernelStructure]++(getConfigBlocksAux bound1 addr s p)
+																				|None => [NonePaddr]
+																				end
 
 														|	_ => (* NOK *) [NonePaddr]
 														end
 												|	_ => (* NOK *) [NonePaddr]
 												end
 									| Some (PADDR null) => if beqAddr null nullAddr
-																					then (* OK, end of list *)
-																								[]
-																					else [NonePaddr]
+															then (* OK, end of list *)
+																	[]
+															else [NonePaddr]
 									|	_ => (* Wrong entry type, trying to access unexpected entry *)
-													[NonePaddr]
+											[NonePaddr]
 									end
 end.
 
+(** The [getConfigBlocksAux] function returns all superstructures of a given partition *)
 Definition getConfigBlocks (partition : paddr) (s : state) : list paddr :=
 match lookup partition s.(memory) beqAddr with
 | Some (PDT pdentry) => (filterOptionPaddr (getConfigBlocksAux (maxIdx+1) pdentry.(structure) s (CIndex maxNbPrepare)))
 | _ => []
 end.
 
-
+(** The [getAllPaddrConfigAux] function recursively returns all physical addresses forming the superstructure
+	of the given list *)
 Fixpoint getAllPaddrConfigAux (kslist : list paddr) (s : state) :=
 match kslist with
 | [] => []
 | ks::list1 => match lookup ks (memory s) beqAddr with
-									| Some (BE bentry) => getAllPaddrBlockAux 0
-																														ks
-																														(ks + Constants.kernelStructureTotalLength) ++
-																				getAllPaddrConfigAux list1 s
-									| _ => getAllPaddrConfigAux list1 s
-									end
+				| Some (BE bentry) => getAllPaddrBlockAux 0
+															ks
+															(ks + Constants.kernelStructureTotalLength) ++
+															getAllPaddrConfigAux list1 s
+				| _ => getAllPaddrConfigAux list1 s
+				end
 end.
 
+(** The [getAllPaddrPDTAux] function returns all physical addresses forming the PDT structure
+	of a given partition. *)
 Fixpoint getAllPaddrPDTAux (pdtlist : list paddr) (s : state) :=
 match pdtlist with
 | [] => []
 | pd::list1 => match lookup pd (memory s) beqAddr with
-									| Some (PDT bentry) => getAllPaddrBlockAux 0
-																														pd
-																														(pd + Constants.PDStructureTotalLength) ++
-																					getAllPaddrPDTAux list1 s
-									| _ => getAllPaddrPDTAux list1 s
-									end
+				| Some (PDT bentry) => getAllPaddrBlockAux 0
+															pd
+															(pd + Constants.PDStructureTotalLength) ++
+																getAllPaddrPDTAux list1 s
+				| _ => getAllPaddrPDTAux list1 s
+				end
 end.
 
+(** The [getConfigPaddr] function returns all physical addresses forming the PDT structure
+	of a given partition and all its superstructures. *)
 Definition getConfigPaddr (partition : paddr) (s : state) : list paddr :=
 let ksList := getConfigBlocks partition s in
 getAllPaddrPDTAux [partition] s ++ getAllPaddrConfigAux ksList s.
 
+(** The [getKSEntriesInStructAux] function returns all block entries from a single superstructure. *)
 Fixpoint getKSEntriesInStructAux (bound : nat) (currKernelStructure: paddr) (s : state) (iterleft : index) : list optionPaddr :=
 match bound with
 |	0 => (* NOK *) [NonePaddr]
@@ -306,13 +314,15 @@ match bound with
 												                |None => [NonePaddr]
 																				end
 								|_ => (* Wrong entry type, trying to access unexpected entry *)
-											[NonePaddr]
+									[NonePaddr]
 		         		end
 							|_ => (* Wrong entry type, trying to access unexpected entry *)
-											[NonePaddr]
+								[NonePaddr]
 			       	end
 end.
 
+(** The [getKSEntriesAux] function returns all block entries for the
+	chained superstructures. *)
 Fixpoint getKSEntriesAux (bound : nat) (currKernelStructure: paddr) s : list optionPaddr :=
 match bound with
 |	0 => (* NOK *) [NonePaddr]
@@ -337,6 +347,8 @@ match bound with
 				end
 end.
 
+(** The [getKSEntriesAux] function returns all block entries for all
+	superstructures of a given partition. *)
 Definition getKSEntries (partition: paddr) s :=
   match lookup partition s.(memory) beqAddr with
   | Some (PDT pdentry) => (* get all entries from all kernel structures for this pd *)
@@ -348,41 +360,44 @@ Definition getKSEntries (partition: paddr) s :=
   end.
 
 (* only the BE interests us, the other types that modify the state do not change the list *)
+(** The [filterPresent] function filters out block entries without the present flag. *)
 Fixpoint filterPresent (l : list paddr) (s : state):= 
 match l with 
 | [] => []
 | blockaddr :: l1 => match lookup blockaddr (memory s) beqAddr with
-											| Some (BE blockentry) => if blockentry.(present)
-																								then blockaddr :: filterPresent l1 s
-																								else filterPresent l1 s
-											| _ => filterPresent l1 s
-											end
+					| Some (BE blockentry) => if blockentry.(present)
+												then blockaddr :: filterPresent l1 s
+												else filterPresent l1 s
+					| _ => filterPresent l1 s
+					end
 end.
 
+(** The [getMappedBlocks] function returns all block entries where the present flag is set. *)
 Definition getMappedBlocks (partition : paddr) (s : state) : list paddr :=
 (* get all entries from all kernel structures for this pd *)
 (* filtering the list in the last step enables to reuse the same list somewhere else *)
 filterPresent (filterOptionPaddr (getKSEntries partition s)) s.
 
-(** The [getMappedPages] function Returns all present pages of a given partition *)
+(** The [getMappedPaddr] function returns all physical addresses contained in all present blocks of a given partition *)
 Definition getMappedPaddr (partition : paddr) s : list paddr :=
 let blockList := getMappedBlocks partition s in
 getAllPaddrAux blockList s.
 
+(** The [filterAccessible] function filters out block entries without the accessible flag. *)
 Fixpoint filterAccessible (l : list paddr) (s : state):= 
 match l with 
 | [] => []
 | blockaddr :: l1 => match lookup blockaddr (memory s) beqAddr with
-											| Some (BE blockentry) => if blockentry.(accessible)
-																								then blockaddr :: filterAccessible l1 s
-																								else filterAccessible l1 s
-											| _ => filterAccessible l1 s
-											end
+					| Some (BE blockentry) => if blockentry.(accessible)
+												then blockaddr :: filterAccessible l1 s
+												else filterAccessible l1 s
+					| _ => filterAccessible l1 s
+					end
 end.
 
 
-(** The [getAccessibleMappedPages] function Returns all present and
-    accessible pages of a given partition *)
+(** The [getAccessibleMappedBlocks] function returns all present and
+    accessible blocks of a given partition *)
 Definition getAccessibleMappedBlocks (partition : paddr) s : list paddr :=
 	let entry :=  lookup partition s.(memory) beqAddr in
   match entry with
@@ -390,12 +405,14 @@ Definition getAccessibleMappedBlocks (partition : paddr) s : list paddr :=
   | _ => []
   end.
 
-(** The [getMappedPages] function Returns all present pages of a given partition *)
+(** The [getAccessibleMappedPaddr] function returns all physical addresses within
+	accessible blocks of a given partition *)
 Definition getAccessibleMappedPaddr (partition : paddr) s : list paddr :=
 let blockList := getAccessibleMappedBlocks partition s in
 getAllPaddrAux blockList s.
 
-(** The [getMappedPages] function Returns all present pages of a given partition *)
+(** The [getUsedPaddr] function returns all used physical addresses (from present blocks
+	or framing the superstructures) of a given partition *)
 Definition getUsedPaddr (partition : paddr) s : list paddr :=
 let ksList := getConfigPaddr partition s in
 let mappedblockList := getMappedPaddr partition s in
@@ -409,9 +426,7 @@ Definition getChildren (partition : paddr) s :=
 	|_ => []
 end.
 
-(** The [geTrdShadows] returns physical pages used to keep informations about
-    configuration pages
-*)
+(** The [getFreeSlotsListAux] returns all chained free slots entries *)
 Definition getFreeSlotsListAux bound FuncAux (blockentryaddr : paddr) s (nbfreeslotsleft : index) : list optionPaddr:=
 match bound with
 |0 => (* NOK *) [NonePaddr]
@@ -424,23 +439,26 @@ match bound with
 								                    |None => [NonePaddr]
 								                    end
 							| Some (PADDR entry) => if beqAddr blockentryaddr nullAddr
-																			then (* OK, end of list *) []
-																			else (* NOK, only acceptable PADDR is NULL *) [NonePaddr]
+													then (* OK, end of list *) []
+													else (* NOK, only acceptable PADDR is NULL *) [NonePaddr]
 		          |_ => (* Wrong entry type, trying to access unexpected entry *) [NonePaddr]
 		         end
 end.
 
+(** The [getFreeSlotsListRec] returns all chained free slots entries (display convenience) *)
 Fixpoint getFreeSlotsListRec (bound : nat) (blockentryaddr : paddr) s (nbfreeslotsleft : index) {struct bound} := getFreeSlotsListAux bound getFreeSlotsListRec blockentryaddr s nbfreeslotsleft.
 
+(** The [getFreeSlotsList] returns all chained free slots entries from a given partition *)
 Definition getFreeSlotsList (partition : paddr) s :=
   match lookup partition s.(memory) beqAddr with
   | Some (PDT pdentry) => if beqAddr pdentry.(firstfreeslot) nullAddr
-													then []
-													else getFreeSlotsListRec (maxIdx+1) pdentry.(firstfreeslot) s pdentry.(nbfreeslots)
-																(* as nbfreeslots is of type index, it must be < maxIdx, so case 0 never reached*)
+							then []
+							else getFreeSlotsListRec (maxIdx+1) pdentry.(firstfreeslot) s pdentry.(nbfreeslots)
+										(* as nbfreeslots is of type index, it must be < maxIdx, so case 0 never reached*)
 	|_ => []
 end.
 
+(** The [wellFormedFreeSlotsList] returns True only if the list is well-formed (with SomePaddr) *)
 Fixpoint wellFormedFreeSlotsList (l : list optionPaddr) :=
 match l with
 | [] => True
@@ -448,11 +466,13 @@ match l with
 | _ => (* undef because of recursion *) False
 end.
 
+(** The [FreeSlotsListRec_unroll] is a convenience lemma to unroll the definition of getFreeSlotsListRec *)
 Lemma FreeSlotsListRec_unroll :
 forall blockentryaddr s bound nbfreeslotsleft, getFreeSlotsListRec bound blockentryaddr s nbfreeslotsleft = getFreeSlotsListAux bound getFreeSlotsListRec blockentryaddr s nbfreeslotsleft.
 destruct bound; simpl;reflexivity.
 Qed.
 
+(** The [getPartitionsAux] returns the partition tree from a given root partition *)
 Fixpoint getPartitionsAux (bound : nat)  (partitionRoot : paddr) (s : state) {struct bound} :=
 match bound with
 |	0 => (* end of fuel *) []
@@ -465,8 +485,7 @@ Definition getPartitions (root : paddr) (s : state) : list paddr  :=
 getPartitionsAux (maxAddr+2) root s.
 
 (** Propositions *)
-(** The [isPE] proposition reutrns True if the entry at position [idx]
-    into the given page [table] is type of [PE] *)
+(** The [isBE] proposition returns True if the entry is type of [BE] *)
 Definition isBE paddr s: Prop :=
 match lookup paddr s.(memory) beqAddr with
              |Some (BE _) => True
@@ -474,8 +493,7 @@ match lookup paddr s.(memory) beqAddr with
 end.
 
 (*DUP*)
-(** The [isSHE] proposition reutrns True if the entry at position [idx]
-    into the given page [table] is type of [PE] *)
+(** The [isSHE] proposition returns True if the entry is type of [SHE] *)
 Definition isSHE paddr s: Prop :=
 match lookup paddr s.(memory) beqAddr with
              |Some (SHE _) => True
@@ -483,8 +501,7 @@ match lookup paddr s.(memory) beqAddr with
 end.
 
 (*DUP*)
-(** The [isSCE] proposition reutrns True if the entry at position [idx]
-    into the given page [table] is type of [PE] *)
+(** The [isSCE] proposition returns True if the entry is type of [SCE] *)
 Definition isSCE paddr s: Prop :=
 match lookup paddr s.(memory) beqAddr with
              |Some (SCE _) => True
@@ -492,8 +509,7 @@ match lookup paddr s.(memory) beqAddr with
 end.
 
 (*DUP*)
-(** The [isSHE] proposition reutrns True if the entry at position [idx]
-    into the given page [table] is type of [PE] *)
+(** The [isPDT] proposition returns True if the entry is type of [PDT] *)
 Definition isPDT paddr s: Prop :=
 match lookup paddr s.(memory) beqAddr with
              |Some (PDT _) => True
@@ -501,8 +517,7 @@ match lookup paddr s.(memory) beqAddr with
 end.
 
 (*DUP*)
-(** The [isSHE] proposition reutrns True if the entry at position [idx]
-    into the given page [table] is type of [PE] *)
+(** The [isPADDR] proposition returns True if the entry is type of [PADDR] *)
 Definition isPADDR paddr s: Prop :=
 match lookup paddr s.(memory) beqAddr with
              |Some (PADDR _) => True
@@ -510,10 +525,8 @@ match lookup paddr s.(memory) beqAddr with
 end.
 
 (*DUP*)
-(** The [isSHE] proposition reutrns True if the entry at position [idx]
-    into the given page [table] is type of [PE] *)
-(* isKS is not distinguishable by the match but onmly constructed after some specific instructions
-		like readNextFromKernelStructureStart *)
+(** The [isKS] proposition returns True if the entry is type of [BE] and
+	the index is zero in the superstructure *)
 Definition isKS paddr s: Prop := 
 match lookup paddr s.(memory) beqAddr with 
              |Some (BE bentry) => bentry.(blockindex) = zero
@@ -521,8 +534,7 @@ match lookup paddr s.(memory) beqAddr with
 end.
 
 (*DUP*)
-(** The [isSHE] proposition reutrns True if the entry at position [idx]
-    into the given page [table] is type of [PE] *)
+(** The [isFreeSlot] proposition returns all default attributes for a free slot entry *)
 Definition isFreeSlot paddr s: Prop :=
 match lookup paddr s.(memory) beqAddr with 
 |Some (BE entry) => match lookup (CPaddr (paddr + sh1offset)) s.(memory) beqAddr with
@@ -544,144 +556,131 @@ match lookup paddr s.(memory) beqAddr with
 |_ => False
 end.
 
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
+
+(* BE attributes *)
+(** The [bentryRFlag] proposition returns True if the entry is type of [BE] and
+	the read flag stored into this entry is equal to a given flag [flag] *)
 Definition bentryRFlag entryaddr flag s:=
 match lookup entryaddr s.(memory) beqAddr with
 | Some (BE entry) => flag =  entry.(read)
 | _ => False
 end.
 
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
+(** The [bentryWFlag] proposition returns True if the entry is type of [BE] and
+	the read flag stored into this entry is equal to a given flag [flag] *)
 Definition bentryWFlag entryaddr flag s:=
 match lookup entryaddr s.(memory) beqAddr with
 | Some (BE entry) => flag =  entry.(write)
 | _ => False
 end.
 
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
+(** The [bentryXFlag] proposition returns True if the entry is type of [BE] and
+	the read flag stored into this entry is equal to a given flag [flag] *)
 Definition bentryXFlag entryaddr flag s:=
 match lookup entryaddr s.(memory) beqAddr with
 | Some (BE entry) => flag =  entry.(exec)
 | _ => False
 end.
 
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
+(** The [bentryStartAddr] proposition returns True if the entry is type of [BE] and
+	the start address stored into this entry is equal to a given address [start] *)
 Definition bentryStartAddr entryaddr start s:=
 match lookup entryaddr s.(memory) beqAddr with
 | Some (BE entry) => start =  entry.(blockrange).(startAddr)
 | _ => False
 end.
 
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
+(** The [bentryEndAddr] proposition returns True if the entry is type of [BE] and
+	the end address stored into this entry is equal to a given address [endaddr] *)
 Definition bentryEndAddr entryaddr endaddr s:=
 match lookup entryaddr s.(memory) beqAddr with
 | Some (BE entry) => endaddr =  entry.(blockrange).(endAddr)
 | _ => False
 end.
 
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
-Definition bentryBlockIndex (*paddr*) blockentryaddr index s:= 
+(** The [bentryBlockIndex] proposition returns True if the entry is type of [BE] and
+	the end address stored into this entry is equal to a given index [index] *)
+Definition bentryBlockIndex blockentryaddr index s:= 
 match lookup blockentryaddr s.(memory) beqAddr with 
 | Some (BE entry) => index =  entry.(blockindex)
 | _ => False
 end.
 
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
+(** The [bentryAFlag] proposition returns True if the entry is type of [BE] and
+	the accessible flag stored into this entry is equal to a given flag [flag] *)
+Definition bentryAFlag paddr flag s:=
+match lookup paddr s.(memory) beqAddr with
+| Some (BE entry) => flag =  entry.(accessible)
+| _ => False
+end.
+
+(** The [bentryPFlag] proposition returns True if the entry is type of [BE] and
+	the present flag stored into this entry is equal to a given flag [flag] *)
+Definition bentryPFlag paddr flag s:=
+match lookup paddr s.(memory) beqAddr with
+| Some (BE entry) => flag =  entry.(present)
+| _ => False
+end.
+
+(** The [entryBE] proposition returns True if the entry is type of [BE] and
+	the entry is equal to a given entry [entryaddr] *)
 Definition entryBE entryaddr be s:=
 match lookup entryaddr s.(memory) beqAddr with
 | Some (BE entry) => be = entry
 | _ => False
 end.
 
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
+(* PDT attributes *)
 Definition pdentryFirstFreeSlot entryaddr firstfreeslotaddr s:=
 match lookup entryaddr s.(memory) beqAddr with
 | Some (PDT entry) => firstfreeslotaddr =  entry.(firstfreeslot)
 | _ => False
 end.
 
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
 Definition pdentryNbFreeSlots entryaddr nbFreeSlots s:=
 match lookup entryaddr s.(memory) beqAddr with
 | Some (PDT entry) => nbFreeSlots =  entry.(nbfreeslots)
 | _ => False
 end.
 
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
 Definition pdentryNbPrepare entryaddr nbPrepare s:=
 match lookup entryaddr s.(memory) beqAddr with
 | Some (PDT entry) => nbPrepare =  entry.(nbprepare)
 | _ => False
 end.
 
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
 Definition pdentryStructurePointer entryaddr structurepointer s:=
 match lookup entryaddr s.(memory) beqAddr with
 | Some (PDT entry) => structurepointer =  entry.(structure) (*/\ isBE structurepointer s*)
 | _ => False
 end.
 
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
 Definition pdentryMPU entryaddr mpu s:=
 match lookup entryaddr s.(memory) beqAddr with
 | Some (PDT entry) => mpu =  entry.(MPU)
 | _ => False
 end.
 
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
 Definition pdentryMPUblock entryaddr index mpublock s:=
 match lookup entryaddr s.(memory) beqAddr with
 | Some (PDT entry) => mpublock =  readElementAt index entry.(MPU) nullAddr
 | _ => False
 end.
 
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
 Definition pdentryVidt entryaddr vidtblock s:=
 match lookup entryaddr s.(memory) beqAddr with
 | Some (PDT entry) => vidtblock = entry.(vidtAddr)
 | _ => False
 end.
 
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
 Definition pdentryParent entryaddr parent s:=
 match lookup entryaddr s.(memory) beqAddr with
 | Some (PDT entry) => parent =  entry.(ADT.parent)
 | _ => False
 end.
 
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
+(** The [entryPDT] proposition returns True if the entry is type of [PDT] and
+	the entry is equal to a given entry [entryaddr] *)
 Definition entryPDT entryaddr pd s:=
 match lookup entryaddr s.(memory) beqAddr with
 | Some (BE entry) => match lookup entry.(blockrange).(startAddr) s.(memory) beqAddr with
@@ -691,46 +690,10 @@ match lookup entryaddr s.(memory) beqAddr with
 | _ => False
 end.
 
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
-Definition scentryOrigin scentryaddr scorigin s:=
-match lookup scentryaddr s.(memory) beqAddr with
-| Some (SCE entry) => scorigin =  entry.(origin)
-| _ => False
-end.
 
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
-Definition scentryNext scentryaddr scnext s:=
-match lookup scentryaddr s.(memory) beqAddr with
-| Some (SCE entry) => scnext =  entry.(next)
-| _ => False
-end.
 
 (* DUP *)
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
-Definition bentryAFlag paddr flag s:=
-match lookup paddr s.(memory) beqAddr with
-| Some (BE entry) => flag =  entry.(accessible)
-| _ => False
-end.
-
-(* DUP *)
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
-Definition bentryPFlag paddr flag s:=
-match lookup paddr s.(memory) beqAddr with
-| Some (BE entry) => flag =  entry.(present)
-| _ => False
-end.
-
-(* DUP *)
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
+(** The [entryUserFlag] proposition returns True if the entry at position [idx]
     into the given physical page [table] is type of [VE] and the user flag stored into
     this entry is equal to a given flag [flag] *)
 Definition sh1entryAddr paddr sh1entryaddr s:=
@@ -739,7 +702,7 @@ match lookup paddr s.(memory) beqAddr with
 | _ => False
 end.
 
-(** The [entryPDFlag]  proposition reutrns True if the entry at position [idx]
+(** The [entryPDFlag]  proposition returns True if the entry at position [idx]
     into the given physical page [table] is type of [VE] and the pd flag stored into
     this entry is equal to a given flag [flag] *)
 Definition sh1entryPDflag (*paddr*) sh1entryaddr flag s:=
@@ -748,7 +711,7 @@ match lookup sh1entryaddr s.(memory) beqAddr with
 | _ => False
 end.
 
-(** The [entryPDFlag]  proposition reutrns True if the entry at position [idx]
+(** The [entryPDFlag]  proposition returns True if the entry at position [idx]
     into the given physical page [table] is type of [VE] and the pd flag stored into
     this entry is equal to a given flag [flag] *)
 Definition sh1entryPDchild (*paddr*) sh1entryaddr pdchild s:=
@@ -758,7 +721,7 @@ match lookup sh1entryaddr s.(memory) beqAddr with
 end.
 
 
-(** The [entryPDFlag]  proposition reutrns True if the entry at position [idx]
+(** The [entryPDFlag]  proposition returns True if the entry at position [idx]
     into the given physical page [table] is type of [VE] and the pd flag stored into
     this entry is equal to a given flag [flag] *)
 Definition sh1entryInChildLocation (*paddr*) sh1entryaddr inchildlocation s:=
@@ -769,26 +732,37 @@ match lookup sh1entryaddr s.(memory) beqAddr with
 end.
 
 
-(* DUP *)
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
+(* SCE attributes *)
+
+Definition scentryOrigin scentryaddr scorigin s:=
+match lookup scentryaddr s.(memory) beqAddr with
+| Some (SCE entry) => scorigin =  entry.(origin)
+| _ => False
+end.
+
+Definition scentryNext scentryaddr scnext s:=
+match lookup scentryaddr s.(memory) beqAddr with
+| Some (SCE entry) => scnext =  entry.(next)
+| _ => False
+end.
+
+(** The [scentryAddr] proposition returns True if the entry is type of [SCE] and
+	the entry is equal to a given entry [entryaddr] *)
 Definition scentryAddr paddr scentryaddr s:=
 match lookup paddr s.(memory) beqAddr with
 | Some (BE entry) => scentryaddr =  CPaddr (paddr + scoffset)
 | _ => False
 end.
 
-(* DUP *)
-(** The [entryUserFlag] proposition reutrns True if the entry at position [idx]
-    into the given physical page [table] is type of [VE] and the user flag stored into
-    this entry is equal to a given flag [flag] *)
+(* NextKS attributes *)
 Definition nextKSAddr paddr nextKSaddr s:=
 match lookup paddr s.(memory) beqAddr with
 | Some (BE entry) => nextKSaddr =  CPaddr (paddr + nextoffset)
 | _ => False
 end.
 
+(** The [nextKSentry] proposition returns True if the entry is type of [PADDR] and
+	the entry is equal to a given entry [nextKS] *)
 Definition nextKSentry nextKSaddr nextKS s:=
 match lookup nextKSaddr s.(memory) beqAddr with
 | Some (PADDR entry) => nextKS =  entry
