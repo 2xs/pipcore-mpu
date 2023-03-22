@@ -561,9 +561,6 @@ NoDup (filterOptionPaddr (optionfreeslotslist)) /\
 						 isPDT partition s0 ->
 						  getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0)
 		 )
-(*/\ StructurePointerIsKS s
-/\ PDTIfPDFlag s
-/\ noDupKSEntriesList s*)
 )
 )
 
@@ -2345,9 +2342,7 @@ NoDup (filterOptionPaddr (optionfreeslotslist)) /\
 						 isPDT partition s0 ->
 						  getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0)
 		 )
-(*/\ StructurePointerIsKS s2*)
 /\ PDTIfPDFlag s2
-(*/\ noDupKSEntriesList s2*)
 )
 )). 	intros. simpl.  set (s' := {|
 currentPartition :=  _|}).
@@ -3170,9 +3165,7 @@ NoDup (filterOptionPaddr (optionfreeslotslist))/\
 						 isPDT partition s0 ->
 						  getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0)
  )
-(*/\ StructurePointerIsKS s2*)
 /\ PDTIfPDFlag s2
-(*/\ noDupKSEntriesList s2*)
 )
 )). 	intros. simpl.  set (s' := {|
 currentPartition :=  _|}).
@@ -4866,9 +4859,7 @@ NoDup (filterOptionPaddr (optionfreeslotslist))/\
 						 isPDT partition s0 ->
 						  getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0)
 		 )
-(*/\ StructurePointerIsKS s2*)
 /\ PDTIfPDFlag s2
-(*/\ noDupKSEntriesList s2*)
 )
 )). 	intros. simpl.  set (s' := {|
 currentPartition :=  _|}).
@@ -6578,9 +6569,7 @@ NoDup (filterOptionPaddr (optionfreeslotslist)) /\
 						 isPDT partition s0 ->
 						  getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0)
  )
-(*/\ StructurePointerIsKS s2*)
 /\ PDTIfPDFlag s2
-(*/\ noDupKSEntriesList s2*)
 )
 )). 	intros. simpl.  set (s' := {|
 currentPartition :=  _|}).
@@ -7787,9 +7776,7 @@ NoDup (filterOptionPaddr (optionfreeslotslist))/\
 						 isPDT partition s0 ->
 						  getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0)
  )
-(*/\ StructurePointerIsKS s2*)
 /\ PDTIfPDFlag s2
-(*/\ noDupKSEntriesList s2*)
 )
 )). 	intros. simpl.  set (s' := {|
 currentPartition :=  _|}).
@@ -9032,9 +9019,7 @@ NoDup (filterOptionPaddr (optionfreeslotslist))/\
 						 isPDT partition s0 ->
 						  getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0)
  )
-(*/\ StructurePointerIsKS s2*)
 /\ PDTIfPDFlag s2
-(*/\ noDupKSEntriesList s2*)
 )
 )). 	intros. simpl.  set (s' := {|
 currentPartition :=  _|}).
@@ -10819,9 +10804,6 @@ NoDup (filterOptionPaddr (optionfreeslotslist))/\
 						 isPDT partition s0 ->
 						  getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0)
  )
-(*/\ StructurePointerIsKS s2*)
-(*/\ PDTIfPDFlag s2*)
-(*/\ noDupKSEntriesList s2*)
 )
 )). 	intros. simpl.  set (s' := {|
 currentPartition :=  _|}).
@@ -26474,10 +26456,6 @@ assert(HisChilds : isChild s).
 			 --- (* pdinsertion = pd *)
 					 rewrite <- DependentTypeLemmas.beqAddrTrue in beqpdpd.
 					 subst pd.
-					 (*assert(HpdentryEq : partpdentry = pdentry1).
-					 {
-						 rewrite Hlookuppds in *. inversion Hpdinsertions. trivial.
-					 }*)
 
 					 assert(HparententryEq : pdentryParent pdinsertion parent s = pdentryParent pdinsertion parent s0).
 					 {
