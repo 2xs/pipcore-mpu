@@ -43,6 +43,13 @@
 #include "memlayout.h"
 #include "stdio.h"
 
+/**
+ * @brief   Initial program status register value for the root partition
+ *
+ * In the initial state, only the Thumb mode-bit is set
+ */
+#define INITIAL_XPSR (0x01000000)
+
 extern void __attribute__((noreturn))
 Boot_Handler(void)
 {
@@ -102,6 +109,7 @@ Boot_Handler(void)
 	rootPartCtx.basicFrame.r0 = sp;
 	rootPartCtx.basicFrame.pc = (uint32_t) &__root;
 	rootPartCtx.basicFrame.sp = sp;
+	rootPartCtx.basicFrame.xpsr = INITIAL_XPSR;
 	rootPartCtx.pipflags      = 0;
 
 	/* Switch to unprivileged Thread mode. */
