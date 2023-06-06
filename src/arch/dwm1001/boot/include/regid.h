@@ -196,7 +196,9 @@
 
 #define NRF_UART0_INSTANCE(base, macro_a, macro_b) \
 	macro_a(NRF_UART_UART0, TASKS_STARTRX, registerAccessReadWrite, base, 0x000), \
+	macro_b(NRF_UART_UART0, TASKS_STOPRX, registerAccessReadWrite, base, 0x004), \
 	macro_b(NRF_UART_UART0, TASKS_STARTTX, registerAccessReadWrite, base, 0x008), \
+	macro_b(NRF_UART_UART0, TASKS_STOPTX, registerAccessReadWrite, base, 0x00C), \
 	macro_b(NRF_UART_UART0, TASKS_SUSPEND, registerAccessReadWrite, base, 0x01C), \
 	macro_b(NRF_UART_UART0, EVENTS_RXDRDY, registerAccessReadWrite, base, 0x108), \
 	macro_b(NRF_UART_UART0, EVENTS_TXDRDY, registerAccessReadWrite, base, 0x11C), \
