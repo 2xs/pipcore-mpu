@@ -1,5 +1,6 @@
 (*******************************************************************************)
-(*  © Université de Lille, The Pip Development Team (2015-2022)                *)
+(*  © Université de Lille, The Pip Development Team (2015-2023)                *)
+(*  Copyright (C) 2020-2023 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -31,15 +32,15 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(** * Summary 
+(** * Summary
     This file contains the invariant of [checkChild] some associated lemmas *)
-Require Import Isolation Consistency WeakestPreconditions List 
-Core.Internal Invariants Model.MAL StateLib Model.Hardware 
+Require Import Isolation Consistency WeakestPreconditions List
+Core.Internal Invariants Model.MAL StateLib Model.Hardware
 Model.ADT DependentTypeLemmas Model.Lib GetTableAddr InternalLemmas.
-Require Import Coq.Logic.ProofIrrelevance Omega.
+Require Import Coq.Logic.ProofIrrelevance Lia.
 
-Lemma checkChild (parent : page) (va : vaddr) (nbL : level) (P : state -> Prop) : 
-{{fun s => P s /\ consistency s /\ parent = currentPartition s /\ Some nbL = getNbLevel}} 
+Lemma checkChild (parent : page) (va : vaddr) (nbL : level) (P : state -> Prop) :
+{{fun s => P s /\ consistency s /\ parent = currentPartition s /\ Some nbL = getNbLevel}}
 Internal.checkChild parent nbL va
 {{fun isChild s => P s /\ isChild = StateLib.checkChild parent nbL s va}}.
 Proof.
@@ -74,7 +75,7 @@ split.
 pattern s in H.
 eassumption.
 split.
-intuition. 
+intuition.
 destruct H.
 instantiate (2 := parent).
 split.
@@ -82,11 +83,11 @@ intuition.
 subst.
 unfold consistency in *.
 destruct H1 as (_ & _& _& _& H1 & _).
-unfold currentPartitionInPartitionsList in H1; assumption. 
+unfold currentPartitionInPartitionsList in H1; assumption.
 split.
 instantiate(1 :=  sh1idx).
 right.
-left; trivial.  
+left; trivial.
 exists sh1.
 split.
 destruct H; trivial.
@@ -96,7 +97,7 @@ assert (partitionDescriptorEntry s) as Hdesc by intuition.
 assert (parent = currentPartition s) as Hparent by intuition.
 assert ( currentPartitionInPartitionsList s ) as HpartList by intuition.
 destruct H as (_ & Hsh1).
-subst. 
+subst.
 unfold partitionDescriptorEntry in Hdesc.
 unfold currentPartitionInPartitionsList in *.
 generalize (Hdesc (currentPartition s) HpartList); clear Hdesc; intros Hdesc.
@@ -106,10 +107,10 @@ apply Hdesc in Htmp.
 destruct Htmp as (_ & _ & Hroot).
 destruct Hroot as (pg & Hroot & Hnotnull).
 clear Hdesc.
-unfold nextEntryIsPP in *. 
+unfold nextEntryIsPP in *.
 destruct (Index.succ sh1idx); [ | now contradict Hroot].
 destruct (lookup (currentPartition s) i (memory s) beqPage beqIndex)
-as [v |]; [ destruct v as [ p |v|p|v|ii] ; [ now contradict Hroot | now contradict Hroot | 
+as [v |]; [ destruct v as [ p |v|p|v|ii] ; [ now contradict Hroot | now contradict Hroot |
 subst ; assumption| now contradict Hroot | now contradict Hroot ]  |now contradict Hroot] .
 left.
 split;trivial.
@@ -127,7 +128,7 @@ assert(  (getTableAddrRoot' ptsh1 sh1idx parent va s /\ ptsh1 = defaultPage )\/
           StateLib.getIndexOfAddr va fstLevel = idx ->
           isVE ptsh1 idx s))).
   { destruct H1 as [H1 |H1].
-    + left. trivial. 
+    + left. trivial.
     + right.
        destruct H1 as (Hnew & H1).
        split; trivial.
@@ -144,9 +145,9 @@ assert(  (getTableAddrRoot' ptsh1 sh1idx parent va s /\ ptsh1 = defaultPage )\/
           assert (tableSize > tableSizeLowerBound).
           apply tableSizeBigEnough.
           unfold tableSizeLowerBound in *.
-          omega.  apply tableSizeBigEnough.
+          lia.  apply tableSizeBigEnough.
           unfold tableSizeLowerBound in *.
-          omega. apply tableSizeBigEnough. omega.
+          lia. apply tableSizeBigEnough. lia.
        - contradict Hfalse.
           unfold sh1idx.
           unfold sh2idx.
@@ -154,9 +155,9 @@ assert(  (getTableAddrRoot' ptsh1 sh1idx parent va s /\ ptsh1 = defaultPage )\/
           assert (tableSize > tableSizeLowerBound).
           apply tableSizeBigEnough.
           unfold tableSizeLowerBound in *.
-          omega.  apply tableSizeBigEnough.
+          lia.  apply tableSizeBigEnough.
           unfold tableSizeLowerBound in *.
-          omega. apply tableSizeBigEnough. omega. }
+          lia. apply tableSizeBigEnough. lia. }
 assert (HP := conj H0 H).
 pattern s in HP.
 eapply HP.
@@ -171,11 +172,11 @@ intros isNullptSh1.
 simpl.
 (** case isNullptSh1 **)
 case_eq isNullptSh1; intros HisNullptSh1.
-{ (** ret false**) 
+{ (** ret false**)
   eapply weaken.
   apply WP.ret.
   simpl;intros.
-  split. 
+  split.
   intuition.
   unfold checkChild.
   assert (nextEntryIsPP parent sh1idx sh1 s) as Hsh1 by intuition.
@@ -186,7 +187,7 @@ case_eq isNullptSh1; intros HisNullptSh1.
   rewrite H0 in Hsh1.
   assert (parent = currentPartition s) as Hparent by intuition.
   subst.
-  case_eq (lookup (currentPartition s) i (memory s) beqPage beqIndex); intros.  
+  case_eq (lookup (currentPartition s) i (memory s) beqPage beqIndex); intros.
   rewrite H1 in Hsh1.
   case_eq v ; intros; trivial.
   rewrite H2 in Hsh1.
@@ -210,26 +211,26 @@ case_eq isNullptSh1; intros HisNullptSh1.
   subst.
   clear Hnbl.
   unfold getNbLevel in Hlvl.
-  clear H2. 
+  clear H2.
   case_eq(gt_dec nbLevel 0); intros.
   rewrite H2 in Hlvl.
   inversion Hlvl.
   rewrite <- H4.
   assert (getIndirection p va nbL (nbLevel - 1) s = Some defaultPage) as Hstopgt.
-  apply getIndirectionStopLevelGT2 with (nbL + 1); try omega.
+  apply getIndirectionStopLevelGT2 with (nbL + 1); try lia.
   rewrite H4.
   simpl in *. trivial.
   apply NPeano.Nat.lt_eq_cases in Hstop2.
-  clear H Hrootstruc Hlvl Htmp H1.  
+  clear H Hrootstruc Hlvl Htmp H1.
   destruct Hstop2.
-  apply getIndirectionRetDefaultLtNbLevel with stop2; trivial. omega.
-  apply getIndirectionStopLevelGT with stop2;trivial. omega.
+  apply getIndirectionRetDefaultLtNbLevel with stop2; trivial. lia.
+  apply getIndirectionStopLevelGT with stop2;trivial. lia.
   rewrite Hstopgt.
   destruct H.
   assert ((defaultPage =? defaultPage) = true).
   symmetry. apply beq_nat_refl.
   rewrite H5. trivial.
-  assert (0 < nbLevel) by apply nbLevelNotZero. omega.
+  assert (0 < nbLevel) by apply nbLevelNotZero. lia.
   trivial.
   trivial.
   destruct Hx as (_ & Hfalse & _).
@@ -248,9 +249,9 @@ case_eq isNullptSh1; intros HisNullptSh1.
   subst.
   f_equal.
   apply proof_irrelevance.
-  trivial. trivial.   
+  trivial. trivial.
   }
-(** readPDflag **) 
+(** readPDflag **)
   {(*  eapply strengthen.
     + *) eapply weaken.
       - eapply WP.readPDflag.
@@ -265,7 +266,7 @@ case_eq isNullptSh1; intros HisNullptSh1.
       unfold isVE in H3.
       case_eq(lookup ptsh1 (getIndexOfAddr va fstLevel) (memory s) beqPage beqIndex);
       intros; rewrite H5 in *;
-        
+
       try now contradict H3.
       case_eq v; intros; rewrite H8 in *; try now contradict H3.
       subst.
@@ -280,7 +281,7 @@ case_eq isNullptSh1; intros HisNullptSh1.
         case_eq (Index.succ sh1idx); intros.
         rewrite H8 in Hsh1.
         subst.
-        case_eq (lookup (currentPartition s) i (memory s) beqPage beqIndex); intros.  
+        case_eq (lookup (currentPartition s) i (memory s) beqPage beqIndex); intros.
         rewrite H10 in Hsh1.
         case_eq v ; intros; trivial; try rewrite H2 in Hsh1;
         subst; try
@@ -311,7 +312,7 @@ case_eq isNullptSh1; intros HisNullptSh1.
         inversion Hlvl.
         rewrite <- H13.
         assert (getIndirection p va nbL (nbLevel - 1) s = Some ptsh1) as Hstopgt.
-        apply getIndirectionStopLevelGT2 with (nbL + 1); try omega.
+        apply getIndirectionStopLevelGT2 with (nbL + 1); try lia.
         rewrite H13.
         simpl in *. trivial.
         assumption.
@@ -332,7 +333,7 @@ case_eq isNullptSh1; intros HisNullptSh1.
         rewrite Hfalse.
         rewrite H5.
         destruct ( pd v0); trivial.
-        assert (0 < nbLevel) by apply nbLevelNotZero. omega.
+        assert (0 < nbLevel) by apply nbLevelNotZero. lia.
         trivial.
         rewrite H10 in Hsh1.
         now contradict Hsh1.
@@ -348,12 +349,12 @@ Lemma checkChildInv vaInCurrentPartition vaChild currentPart descChild level:
          vaInCurrentPartition defaultIndex) = false) /\
      (Kidx =? List.nth (length vaChild - (nbLevel - 1 + 2)) vaChild defaultIndex) =
      false) /\ currentPart = currentPartition s) /\
-   Some level = StateLib.getNbLevel  }} 
-  Internal.checkChild currentPart level descChild {{  fun res s => 
-  (res = false /\ 
+   Some level = StateLib.getNbLevel  }}
+  Internal.checkChild currentPart level descChild {{  fun res s =>
+  (res = false /\
   partitionsIsolation s /\
-             kernelDataIsolation s /\ verticalSharing s /\ consistency s) \/ 
-             (res = true /\ 
+             kernelDataIsolation s /\ verticalSharing s /\ consistency s) \/
+             (res = true /\
   exists currentShadow1
 idxRefChild ptRefChild ,
 
@@ -365,8 +366,8 @@ partitionsIsolation s /\
      (Kidx =? List.nth (length vaChild - (nbLevel - 1 + 2)) vaChild defaultIndex) =
      false /\ currentPart = currentPartition s /\
    Some level = StateLib.getNbLevel /\
-        
-             
+
+
         nextEntryIsPP currentPart sh1idx currentShadow1 s /\
        StateLib.getIndexOfAddr descChild fstLevel = idxRefChild /\
       (getTableAddrRoot' ptRefChild sh1idx currentPart descChild s /\
@@ -379,7 +380,7 @@ partitionsIsolation s /\
 Proof.
 { eapply bindRev.
   (** getFstShadow **)
-  eapply WP.weaken. 
+  eapply WP.weaken.
   eapply Invariants.getFstShadow. cbn.
   intros s H.
   split.
@@ -390,7 +391,7 @@ Proof.
   intuition.
   simpl.
   intros currentShadow1.
-  (** StateLib.getIndexOfAddr **)                
+  (** StateLib.getIndexOfAddr **)
   eapply WP.bindRev.
   eapply WP.weaken.
   eapply Invariants.getIndexOfAddr.
@@ -400,51 +401,51 @@ Proof.
    intro idxRefChild. simpl.
 (** getTableAddr **)
   eapply WP.bindRev.
-  eapply WP.weaken. 
+  eapply WP.weaken.
   apply getTableAddr.
   simpl.
   intros s H.
   split.
-  pattern s in H. 
+  pattern s in H.
   eexact H. subst.
-  split. 
+  split.
   intuition.
-  split. 
+  split.
   instantiate (1:= currentPart).
-  intuition. 
+  intuition.
   subst.
-  unfold consistency in *. 
-  unfold  currentPartitionInPartitionsList in *. 
+  unfold consistency in *.
+  unfold  currentPartitionInPartitionsList in *.
   intuition.
   instantiate (1:= sh1idx).
   split. intuition.
   assert(Hcons : consistency s) by intuition.
-  assert(Hlevel : Some level = StateLib.getNbLevel) by intuition. 
+  assert(Hlevel : Some level = StateLib.getNbLevel) by intuition.
   assert(Hcp : currentPart = currentPartition s) by intuition.
   assert (H0 : nextEntryIsPP currentPart sh1idx currentShadow1 s) by intuition.
   exists currentShadow1.
   split. intuition.
   unfold consistency in *.
-  destruct Hcons as (Hpd & _ & _ &_  & Hpr & _). 
+  destruct Hcons as (Hpd & _ & _ &_  & Hpr & _).
   unfold partitionDescriptorEntry in Hpd.
   assert (sh1idx = PDidx \/ sh1idx = sh1idx \/ sh1idx = sh2idx \/  sh1idx  = sh3idx
-  \/  sh1idx  = PPRidx \/  sh1idx = PRidx) as Htmp 
+  \/  sh1idx  = PPRidx \/  sh1idx = PRidx) as Htmp
   by auto.
       generalize (Hpd  (currentPartition s)  Hpr); clear Hpd; intros Hpd.
   generalize (Hpd sh1idx Htmp); clear Hpd; intros Hpd.
-  destruct Hpd as (Hidxpd & _& Hentry). 
+  destruct Hpd as (Hidxpd & _& Hentry).
   destruct Hentry as (page1 & Hpd & Hnotnull).
   subst.
-  split. 
+  split.
    unfold nextEntryIsPP in *; destruct (StateLib.Index.succ sh1idx);
    [destruct (lookup (currentPartition s) i (memory s) beqPage beqIndex)
-   as [v |]; [ destruct v as [ p |v|p|v|ii] ; [ now contradict H0 | 
-   now contradict H0 | 
-   subst;assumption | now contradict H0| now contradict H0 ]  
+   as [v |]; [ destruct v as [ p |v|p|v|ii] ; [ now contradict H0 |
+   now contradict H0 |
+   subst;assumption | now contradict H0| now contradict H0 ]
    |now contradict H0] | now contradict H0].
   subst. left. split;intuition.
   intro ptRefChild. simpl.
-(** simplify the new precondition **)     
+(** simplify the new precondition **)
   eapply WP.weaken.
   intros.
   Focus 2.
@@ -455,20 +456,20 @@ Proof.
   StateLib.getIndexOfAddr descChild fstLevel = idx ->
   isVE ptRefChild idx s /\ getTableAddrRoot ptRefChild sh1idx currentPart descChild s  )).
   { destruct H1 as [H1 |(Hi & Hi1 & H1)].
-    + left. trivial. 
+    + left. trivial.
     + right. intros idx Hidx.
       generalize (H1 idx Hidx);clear H1;intros H1.
       destruct H1 as [(Hpe &Htrue) |[ (_& Hfalse) | (_&Hfalse) ]].
       - split; assumption.
-      - contradict Hfalse. 
-        symmetrynot. 
+      - contradict Hfalse.
+        symmetrynot.
         apply idxSh2idxSh1notEq.
-      - contradict Hfalse. 
+      - contradict Hfalse.
         symmetrynot. apply idxPDidxSh1notEq.  }
   assert (HP := conj H0 H).
   pattern s in HP.
   eapply HP.
-(** comparePageToNull **) 
+(** comparePageToNull **)
   eapply WP.bindRev.
   eapply Invariants.comparePageToNull.
   intro childListSh1Isnull. simpl.
@@ -480,7 +481,7 @@ Proof.
       left.
       intuition.
       }
-  intros HchildListSh1Isnull. 
+  intros HchildListSh1Isnull.
   subst.
 (* readPDflag *)
 eapply strengthen.
@@ -511,5 +512,5 @@ right.
 split. trivial.
 exists currentShadow1,idxRefChild, ptRefChild.
 intuition.
-left. intuition. }      
-Qed. 
+left. intuition. }
+Qed.

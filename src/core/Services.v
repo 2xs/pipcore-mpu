@@ -1,5 +1,6 @@
 (*******************************************************************************)
-(*  © Université de Lille, The Pip Development Team (2015-2022)                *)
+(*  © Université de Lille, The Pip Development Team (2015-2023)                *)
+(*  Copyright (C) 2020-2023 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -340,7 +341,7 @@ Definition prepare (idPD : paddr)
 									(projectedSlotsNb : index)
 									(idRequisitionedBlock : paddr) : LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
-    perform currentPart := getCurPartition in
+		perform currentPart := getCurPartition in
 
 		(** Checks**)
 
@@ -394,12 +395,20 @@ Definition prepare (idPD : paddr)
 		if isBlockTooSmall then (* block is smaller than minimum  *) ret false else
 
 		(* Check block is accessible and present*)
+		(* TODO : No need to check if present since it has been found *)
 		perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr
 																	requisitionedBlockInCurrPartAddr in
 		if negb addrIsAccessible then (* block is inaccessible *) ret false else
 		perform addrIsPresent := readBlockPresentFromBlockEntryAddr
 																	requisitionedBlockInCurrPartAddr in
 		if negb addrIsPresent then (** block is not present *) ret false else
+
+		(** Check the block is not shared *)
+		(* if accessible, then PDflag can't be set, we just need to check PDchild is null*)
+		perform PDChildAddr := readSh1PDChildFromBlockEntryAddr
+															requisitionedBlockInCurrPartAddr in
+		perform PDChildAddrIsNull := compareAddrToNull PDChildAddr in
+		if negb PDChildAddrIsNull (*shouldn't be null*) then (*shared*) ret false else
 
 		(* Init kernel structure (erase first) *)
 		perform requisitionedBlockStart := readBlockStartFromBlockEntryAddr
@@ -474,17 +483,17 @@ Definition prepare (idPD : paddr)
 Definition addMemoryBlock (idPDchild idBlockToShare: paddr) (r w e : bool)
 																																: LLI paddr :=
 		(** Get the current partition (Partition Descriptor) *)
-    perform currentPart := getCurPartition in
+		perform currentPart := getCurPartition in
 
 		(* Find the block to share in the current partition (with block entry address) *)
-    perform blockToShareInCurrPartAddr := findBlockInKSWithAddr 	currentPart
+    	perform blockToShareInCurrPartAddr := findBlockInKSWithAddr 	currentPart
 																																idBlockToShare in
 		perform addrIsNull := compareAddrToNull	blockToShareInCurrPartAddr in
 		if addrIsNull then(* no block found, stop *) ret nullAddr else
 
 		(* Check rights *)
 		perform rcheck := checkRights blockToShareInCurrPartAddr r w e in
-    if negb rcheck then (* new rights not OK, stop *) ret nullAddr else
+    	if negb rcheck then (* new rights not OK, stop *) ret nullAddr else
 
 		(** Checks (blockToShareInCurrPartAddr checked before)*)
 
@@ -500,7 +509,15 @@ Definition addMemoryBlock (idPDchild idBlockToShare: paddr) (r w e : bool)
 		perform isFull := Index.leb currentFreeSlotsNb zero in
 		if isFull then (* no free slots left, stop*) ret nullAddr else
 
+		(* Check first free slot in the child is not null *)
+		(* Useless check by knowing nbfreeslots > 0
+				-> TODO : use NbFreeSlotsISNbFreeSlotsInList consistency property instead *)
+		perform firstfreeslotInChild := readPDFirstFreeSlotPointer globalIdPDChild in
+		perform slotIsNull := compareAddrToNull	firstfreeslotInChild in
+		if slotIsNull	then (* first free slot is null, stop *) ret nullAddr else
+
 		(* Check block is accessible and present*)
+		(* TODO : no need to check present since it has been found, so it is present *)
 		perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr
 																	blockToShareInCurrPartAddr in
 		if negb addrIsAccessible then (* block not accessible *) ret nullAddr else
@@ -508,11 +525,16 @@ Definition addMemoryBlock (idPDchild idBlockToShare: paddr) (r w e : bool)
 																	blockToShareInCurrPartAddr in
 		if negb addrIsPresent then (** block is not present *) ret nullAddr else
 
-                (* Check that the block to add is not the block
-                 * containing the VIDT of the current partition. *)
-                perform vidtAddr := readPDVidt globalIdPDChild in
-                perform vidtBlock := findBelongingBlock globalIdPDChild vidtAddr in
-                if (beqAddr blockToShareInCurrPartAddr vidtBlock) then ret nullAddr else
+		(** Check the block is not shared *)
+		(* if accessible, then PDflag can't be set, we just need to check PDchild is null*)
+		perform PDChildAddr := readSh1PDChildFromBlockEntryAddr	blockToShareInCurrPartAddr in
+		perform PDChildAddrIsNull := compareAddrToNull PDChildAddr in
+		if negb PDChildAddrIsNull (*shouldn't be null*) then (*shared*) ret nullAddr else
+
+		(* Check that the block to add is not the block
+		 * containing the VIDT of the current partition. *)
+		perform vidtBlockGlobalId := readPDVidt globalIdPDChild in
+		if (beqAddr vidtBlockGlobalId blockToShareInCurrPartAddr) then ret nullAddr else
 
 		(** Child: set the block to share in the child's first free slot*)
 		(* the block start is set as origin in the child*)
@@ -550,7 +572,7 @@ Definition addMemoryBlock (idPDchild idBlockToShare: paddr) (r w e : bool)
 *)
 Definition removeMemoryBlock (idBlockToRemove: paddr) : LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
-    perform currentPart := getCurPartition in
+		perform currentPart := getCurPartition in
 
 		(** Checks *)
 		(* Find the block to remove in the current partition (with block entry address) *)
@@ -570,11 +592,10 @@ Definition removeMemoryBlock (idBlockToRemove: paddr) : LLI bool :=
 		perform blockInChildIsNull := compareAddrToNull blockToRemoveInChildAddr in
 		if blockInChildIsNull then(* block not shared or PD, stop *) ret false else
 
-                (* Check that the block to remove is not the block
-                 * containing the VIDT of the current partition. *)
-                perform vidtAddr := readPDVidt idPDchild in
-                perform vidtBlock := findBelongingBlock idPDchild vidtAddr in
-                if (beqAddr blockToRemoveInCurrPartAddr vidtBlock) then ret false else
+		(* Check that the block to remove is not the block
+		* containing the VIDT of the current partition. *)
+		perform vidtBlockGlobalId := readPDVidt idPDchild in
+		if (beqAddr vidtBlockGlobalId blockToRemoveInCurrPartAddr) then ret false else
 
 		(** Child (and grand-children): remove block if possible *)
 		perform blockIsRemoved := removeBlockInChildAndDescendants
@@ -602,7 +623,7 @@ Definition removeMemoryBlock (idBlockToRemove: paddr) : LLI bool :=
 *)
 Definition deletePartition (idPDchildToDelete: paddr) : LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
-    perform currentPart := getCurPartition in
+		perform currentPart := getCurPartition in
 
 		(* Find the block to delete in the current partition *)
     perform blockToDeleteInCurrPartAddr := findBlockInKSWithAddr
@@ -654,7 +675,7 @@ Definition deletePartition (idPDchildToDelete: paddr) : LLI bool :=
 *)
 Definition collect (idPD: paddr) : LLI paddr :=
 		(** Get the current partition (Partition Descriptor) *)
-    perform currentPart := getCurPartition in
+		perform currentPart := getCurPartition in
 
 		(** Checks *)
 
@@ -700,7 +721,7 @@ Definition mapMPU 	(idPD: paddr)
 									(idBlockToEnable : paddr)
 									(MPURegionNb : index) : LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
-    perform currentPart := getCurPartition in
+		perform currentPart := getCurPartition in
 
 		(** Checks the idPD is current or child partition, block exists, accessible
 				and present *)
@@ -751,7 +772,7 @@ Definition mapMPU 	(idPD: paddr)
 *)
 Definition readMPU (idPD: paddr) (MPURegionNb : index) : LLI paddr :=
 		(** Get the current partition (Partition Descriptor) *)
-    perform currentPart := getCurPartition in
+		perform currentPart := getCurPartition in
 
 		(** Checks the idPD is current or child partition *)
 
@@ -781,10 +802,13 @@ Definition readMPU (idPD: paddr) (MPURegionNb : index) : LLI paddr :=
 
     <<idPD>>	the current partition or a child (resp. id = global id or local id)
     <<addrInBlock>>	the address stemming from the block to find
+	<<blockResult>> the block id were to write the attributes of the found block (if any)
+
+	TODO: distinguish argument errors from block not found
 *)
 Definition findBlock (idPD: paddr) (addrInBlock : paddr) (blockResult: paddr) : LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
-    perform currentPart := getCurPartition in
+		perform currentPart := getCurPartition in
 
 		(** Checks the idPD is current or child partition *)
 
@@ -794,18 +818,25 @@ Definition findBlock (idPD: paddr) (addrInBlock : paddr) (blockResult: paddr) : 
 		if addrIsNull
 		then (* idPD is neither itself or a child partition, stop*) ret false
 		else
-		(* Check that addrInBlock is available in globalIdPD *)
+		(* Check that addrInBlock is present in globalIdPD *)
 		perform blockAddr := findBelongingBlock globalIdPD addrInBlock in
 		perform addrIsNull := compareAddrToNull	blockAddr in
 		if addrIsNull then(* no block found, stop *) ret false else
 
-		(* Check that blockResult is available in currentPart *)
-                perform blockAddr := findBelongingBlock currentPart blockResult in
-		perform addrIsNull := compareAddrToNull	blockAddr in
+		(* Check that blockResult is present and available in currentPart *)
+		perform blockResultAddr := findBlockInKSWithAddr currentPart blockResult in
+		perform addrIsNull := compareAddrToNull	blockResultAddr in
 		if addrIsNull then(* no block found, stop *) ret false else
-                (* TODO: Check here that we are allowed to write a full block
-                   at blockResult, not only its first byte *)
-                copyBlock blockResult blockAddr ;;
+			(* Check block result is accessible *)
+			perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr blockResultAddr in
+			if negb addrIsAccessible then (* block is not accessible *) ret false else
+			(* Check block result has RW rights *)
+			perform r := readBlockRFromBlockEntryAddr blockResultAddr in
+			perform w := readBlockWFromBlockEntryAddr blockResultAddr in
+			if negb r then (* not readable, stop *) ret false else
+			if negb w then (* not writable, stop *) ret false else
+			(* Copy block attributes in block result *)
+            copyBlock blockResultAddr blockAddr ;;
 		ret true.
 
 (**

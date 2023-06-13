@@ -110,11 +110,13 @@ Pip-MPU retains Pip's philosophy and methodology adapted for constrained devices
 
 Pip-MPU is thus forked from the Pip original code base but completely revised to fit the MPU-empowered hardware platform.
 
-More details on Pip-MPU can be read at [Pip-MPU internals](https://gitlab.univ-lille.fr/2xs/pip/pipcore-mpu/-/blob/master/PipInternals.md).
+More details on Pip-MPU can be read at [Pip-MPU internals](PipInternals.md).
+
+Benchmarks are provided in the 'benchmark' branch.
 
 ### Pip-MPU services
 
-Pip-MPU provides 13 system calls:
+Pip-MPU provides 15 system calls:
 
 * `createPartition`: creates a child partition
 
@@ -178,3 +180,9 @@ You can pass several arguments to ```make``` to compile Pip-MPU.
 * `doc` | `doc-c` | `doc-coq` | `gettingstarted`: Documentation targets
 
 * `clean` | `realclean`: Clean targets
+
+## Funding
+
+The pipcore-mpu project is part of the TinyPART project funded by the
+MESRI-BMBF German-French cybersecurity program under grant agreements
+n°ANR-20-CYAL-0005 and 16KIS1395K.

@@ -1,5 +1,6 @@
 (*******************************************************************************)
-(*  © Université de Lille, The Pip Development Team (2015-2021)                *)
+(*  © Université de Lille, The Pip Development Team (2015-2023)                *)
+(*  Copyright (C) 2020-2023 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -80,20 +81,26 @@ case_eq isCurrentPart.
 		{ (** MAL.readBlockStartFromBlockEntryAddr *)
 			eapply weaken. apply readBlockStartFromBlockEntryAddr.
 			intros. simpl. split. apply H1. intuition.
-			destruct H5. intuition. destruct H7.
-			unfold isBE. intuition. rewrite H7 ; trivial.
+			destruct H5. intuition. destruct H3.
+			unfold isBE. intuition. rewrite H3 ; trivial.
 		}
 		intro idPDChild.
 		{ (** ret *)
 		eapply weaken. apply WP.ret.
 		simpl. intros. intuition.
-		destruct H6. unfold consistency in *. unfold PDTIfPDFlag in *.
-		intuition. unfold entryPDT in *. destruct H10. intuition.
-		specialize (H6 idPDToCheck x H2).
-		destruct H6. intuition.
-		unfold bentryStartAddr in *. rewrite H10 in *. subst.
+		destruct H6.
+		assert(HPDTIfPDFlag : PDTIfPDFlag s) by
+			(unfold consistency in * ; unfold consistency1 in * ; intuition).
+		unfold PDTIfPDFlag in *.
+		intuition. unfold entryPDT in *. destruct H6. intuition.
+		destruct H9 as [Hsh1entry Hsh1entryaddr].
+		destruct Hsh1entryaddr.
+		assert(Hconj := conj H8 H9).
+		specialize (HPDTIfPDFlag idPDToCheck x Hconj).
+		destruct HPDTIfPDFlag as [HAFlag (HPFlag & (startaddr & HPDTIfPDFlag))]. intuition.
+		unfold bentryStartAddr in *. rewrite H6 in *. subst.
 		unfold isPDT.
-		destruct (lookup (startAddr (blockrange x1)) (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
+		destruct (lookup (startAddr (blockrange x0)) (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
 		destruct v eqn:Hv ; try (exfalso ; congruence) ; trivial.
 		}
 	+ (* case_eq isChildCurrPart = false *)

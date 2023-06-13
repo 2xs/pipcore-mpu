@@ -1,5 +1,6 @@
 (*******************************************************************************)
-(*  © Université de Lille, The Pip Development Team (2015-2022)                *)
+(*  © Université de Lille, The Pip Development Team (2015-2023)                *)
+(*  Copyright (C) 2020-2023 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -31,7 +32,7 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(**  * Summary 
+(**  * Summary
     This file contains the invariants of [sizeOfBlock].
 *)
 Require Import Model.Monad Model.Lib Model.MAL.

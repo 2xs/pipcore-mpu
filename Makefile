@@ -1,5 +1,6 @@
 ###############################################################################
-#  © Université de Lille, The Pip Development Team (2015-2022)                #
+#  © Université de Lille, The Pip Development Team (2015-2023)                #
+#  Copyright (C) 2020-2023 Orange                                             #
 #                                                                             #
 #  This software is a computer program whose purpose is to run a minimal,     #
 #  hypervisor relying on proven properties such as memory isolation.          #
@@ -173,6 +174,11 @@ COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/findBlockInKSWithAddr.v
 COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/checkChildOfCurrPart.v
 COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/getGlobalIdPDCurrentOrChild.v
 COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/findBlockInKS.v
+COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/FindBlock.v
+COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/ReadMPU.v
+COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/insertNewEntry.v
+COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/AddMemoryBlockSecProps.v
+COQ_PROOF_FILES+=$(COQ_INVARIANTS_DIR)/AddMemoryBlock.v
 
 # TODO: Uncomment the following lines once the proofs are done
 # Group of Coq files written by humans

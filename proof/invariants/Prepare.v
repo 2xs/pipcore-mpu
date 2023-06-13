@@ -1,5 +1,6 @@
 (*******************************************************************************)
-(*  © Université de Lille, The Pip Development Team (2015-2022)                *)
+(*  © Université de Lille, The Pip Development Team (2015-2023)                *)
+(*  Copyright (C) 2020-2023 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -47,7 +48,7 @@ Module WP := WeakestPreconditions.
 Lemma prepare (idPD : paddr)
 							(projectedSlotsNb : index)
 							(idRequisitionedBlock : paddr) :
-{{fun s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }} 
+{{fun s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}
 Services.prepare idPD projectedSlotsNb idRequisitionedBlock
 {{fun _ s  => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}.
 Proof.
@@ -58,10 +59,13 @@ eapply bindRev.
 	intros. simpl. split. apply H. intuition.
 }
 intro currentPart.
-eapply bindRev.
 { (** Internal.getGlobalIdPDCurrentOrChild **)
 	eapply weaken. apply getGlobalIdPDCurrentOrChild.
 	intros. simpl. split. apply H. intuition.
+	subst currentPart.
+	apply currentPartIsPDT ;
+	unfold consistency in * ; unfold consistency1 in * ;
+	intuition.
 }
 intro globalIdPD.
 eapply bindRev.

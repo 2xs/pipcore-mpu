@@ -1,5 +1,6 @@
 (*******************************************************************************)
-(*  © Université de Lille, The Pip Development Team (2015-2022)                *)
+(*  © Université de Lille, The Pip Development Team (2015-2023)                *)
+(*  Copyright (C) 2020-2023 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -37,7 +38,7 @@
 
 Require Import Model.ADT Core.Services.
 Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPreconditions
-Proof.StateLib Proof.DependentTypeLemmas.
+Proof.StateLib Proof.DependentTypeLemmas Proof.InternalLemmas.
 Require Import Invariants getGlobalIdPDCurrentOrChild findBlockInKS.
 Require Import Compare_dec Bool.
 
@@ -54,13 +55,17 @@ unfold Services.readMPU.
 eapply bindRev.
 { (** getCurPartition **)
 	eapply weaken. apply getCurPartition.
-	intros. simpl. split. apply H. intuition.
+	intros. simpl. apply H.
 }
 intro currentPart.
 eapply bindRev.
 { (** Internal.getGlobalIdPDCurrentOrChild **)
 	eapply weaken. apply getGlobalIdPDCurrentOrChild.
 	intros. simpl. split. apply H. intuition.
+	subst currentPart.
+	apply currentPartIsPDT ;
+	unfold consistency in * ; unfold consistency1 in * ;
+	intuition.
 }
 intro globalIdPD.
 eapply bindRev.

@@ -1,5 +1,6 @@
 (*******************************************************************************)
-(*  © Université de Lille, The Pip Development Team (2015-2022)                *)
+(*  © Université de Lille, The Pip Development Team (2015-2023)                *)
+(*  Copyright (C) 2020-2023 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -36,7 +37,7 @@ Import List.ListNotations.
 
 Fixpoint lookup {A C: Type} (a : A)  (assoc : list (A*C))  (eqA : A -> A -> bool) :=
   match assoc with
-    | nil => None  
+    | nil => None
     | (x, y) :: assoc' => if eqA x a then Some y else lookup a assoc' eqA
   end.
 

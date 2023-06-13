@@ -1,5 +1,6 @@
 (*******************************************************************************)
-(*  © Université de Lille, The Pip Development Team (2015-2021)                *)
+(*  © Université de Lille, The Pip Development Team (2015-2023)                *)
+(*  Copyright (C) 2020-2023 Orange                                             *)
 (*                                                                             *)
 (*  This software is a computer program whose purpose is to run a minimal,     *)
 (*  hypervisor relying on proven properties such as memory isolation.          *)
@@ -31,7 +32,7 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-(**  * Summary 
+(**  * Summary
     In this file we formalize and prove all invariants of the MAL and MALInternal functions *)
 Require Import (*Model.ADT*) Model.Monad Model.Lib
                Model.MAL.
@@ -40,7 +41,6 @@ Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
                Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants.
 Require Import Proof.invariants.findBlockInKSWithAddr Proof.invariants.checkBlockCut.
 Require Import Coq.Logic.ProofIrrelevance Lia Setoid Compare_dec (*EqNat*) List Bool.
-
 
 Lemma checkRemoveSubblocksRecAux n (subblockAddr : paddr) (P : state -> Prop) :
 {{  fun s : state => P s /\ consistency s
@@ -197,7 +197,6 @@ intros. simpl. intuition.
 Qed.
 
 
-
 Lemma removeBlockInChildAndDescendants (currentPart
 																				blockToRemoveInCurrPartAddr
 																				idPDchild
@@ -315,7 +314,3 @@ case_eq isBlockCut.
 		eapply weaken. apply ret.
 		intros. simpl. intuition.
 Qed.
-
-
-
-
