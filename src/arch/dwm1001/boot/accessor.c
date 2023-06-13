@@ -35,6 +35,7 @@
 
 #include "accessor.h"
 #include "context.h"
+#include "nrf52.h"
 #include "register.h"
 #include "regid.h"
 #include "mal.h"
@@ -59,6 +60,13 @@ registerAccessRead(
 	}
 
 	*val = *reg;
+	/*
+	 * To guarantee that the side effects of a previous SCS access
+	 * are visible, software can execute a DSB instruction followed
+	 * by an ISB instruction.
+	 */
+	__DSB();
+	__ISB();
 
 	return 1;
 }
@@ -75,6 +83,13 @@ registerAccessWrite(
 	}
 
 	*reg = *val;
+	/*
+	 * To guarantee that the side effects of a previous SCS access
+	 * are visible, software can execute a DSB instruction followed
+	 * by an ISB instruction.
+	 */
+	__DSB();
+	__ISB();
 
 	return 1;
 }
@@ -90,11 +105,27 @@ registerAccessReadWrite(
 		case REGISTER_ACCESS_READ:
 		{
 			*val = *reg;
+			/*
+			 * To guarantee that the side effects of a
+			 * previous SCS access are visible, software can
+			 * execute a DSB instruction followed by an ISB
+			 * instruction.
+			 */
+			__DSB();
+			__ISB();
 			break;
 		}
 		case REGISTER_ACCESS_WRITE:
 		{
 			*reg = *val;
+			/*
+			 * To guarantee that the side effects of a
+			 * previous SCS access are visible, software can
+			 * execute a DSB instruction followed by an ISB
+			 * instruction.
+			 */
+			__DSB();
+			__ISB();
 			break;
 		}
 		default:
