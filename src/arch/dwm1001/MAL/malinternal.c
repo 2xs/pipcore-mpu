@@ -46,7 +46,9 @@
 
 uint32_t N = 1000;
 
- uint32_t min_mpu_region;
+uint32_t min_mpu_region;
+
+uint32_t maxNbPrepare = MAXNBPREPARE;
 
 paddr nullAddr = NULL;
 

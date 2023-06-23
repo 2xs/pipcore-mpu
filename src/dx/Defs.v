@@ -84,6 +84,7 @@ Definition cLt := cBinOp Cop.Olt.
 Module PipPrimitives.
   Definition paddrEqPrim := MkPrimitive funPaddrPaddrBoolType MALInternal.beqAddr cEq.
   Definition paddrLePrim := MkPrimitive funPaddrPaddrBoolType MALInternal.paddrLe cLe.
+  Definition paddrLtPrim := MkPrimitive funPaddrPaddrBoolType MALInternal.paddrLt cLt.
   Definition indexEqPrim := MkPrimitive funIndexIndexBoolType MALInternal.indexEq cEq.
   Definition indexLePrim := MkPrimitive funIndexIndexBoolType MALInternal.indexLe cLe.
   Definition indexLtPrim := MkPrimitive funIndexIndexBoolType MALInternal.indexLt cLt.
@@ -113,6 +114,7 @@ GenerateIntermediateRepresentation
   PipTypes
   PipPrimitives
 
+  ADT.maxNbPrepare
   MALInternal
   MAL
 

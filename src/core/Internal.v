@@ -39,9 +39,6 @@ Require Import Bool Arith List.
 
 Open Scope mpu_state_scope.
 
-(** Fixed fuel/timeout value to prove function termination *)
-Definition N := maxAddr+1.
-
 (** The [getPd] function returns the page directory of a given partition *)
 Definition getPd partition :=
   readPDTable partition.
