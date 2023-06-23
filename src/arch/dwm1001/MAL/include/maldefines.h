@@ -68,7 +68,6 @@ extern uint32_t getVidtSize(void);
 
 extern paddr nullAddr;
 
-#define maxNbPrepare MAXNBPREPARE
 #define getMaxNbPrepare getMaxNbPrepare
 #define kernelStructureEntriesNb KERNELSTRUCTUREENTRIESNB
 
