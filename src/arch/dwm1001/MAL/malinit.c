@@ -171,7 +171,7 @@ createAndRegisterRootPartition(void)
 		(paddr) addressMinusOne(&__mpuRegion2End),
 		(paddr) &__mpuRegion2Start,
 		(bool) true,
-		(bool) false,
+		(bool) true,
 		(bool) true,
 		readPDNbFreeSlots(&rootPartDesc)
 	);
