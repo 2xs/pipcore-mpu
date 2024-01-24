@@ -227,6 +227,11 @@ ARCH_ASFLAGS  = $arch_asflags
 DEBUG_CFLAGS  = -g
 DEBUG_CFLAGS += -Og
 
+# Binary related options
+ARCH_BIFLAGS  = $arch_biflags
+PADDING_VALUE = $padding_value
+PADDING_POW2  = $padding_pow2
+
 # If the DEBUG variable is set, the output binary will
 # be in debug mode. Otherwise, if the DEBUG variable is
 # not set, the output binary will be in released mode.
@@ -565,6 +570,14 @@ configure_global_variables() {
 
 			arch_asflags="$arch_cflags"
 			arch_asflags="$arch_asflags"' -c'
+
+			### BIFLAGS for the selected architecture
+
+			arch_biflags='--input-target=elf32-littlearm'
+			arch_biflags="$arch_biflags"' --output-target=binary'
+
+			padding_value='0xff'
+			padding_pow2='32'
 
 			return 0
 			;;

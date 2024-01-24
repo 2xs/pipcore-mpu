@@ -67,6 +67,8 @@ COQFLAGS := $(shell $(CAT) _CoqProject)
 COQCFLAGS := $(COQFLAGS) -w all,-nonprimitive-projection-syntax,-disj-pattern-notation
 COQCEXTRFLAGS := $(shell $(SED) 's/-[RQ]  */&..\//g' _CoqProject) -w all,-extraction
 
+BIFLAGS=$(ARCH_BIFLAGS)
+
 #####################################################################
 ##                      Directory variables                        ##
 #####################################################################
@@ -250,7 +252,7 @@ JSONS:=$(addprefix $(GENERATED_FILES_DIR)/, $(JSONS))
 ##                    Default Makefile target                      ##
 #####################################################################
 
-all: pip.elf
+all: pip.bin
 
 #####################################################################
 ##                    Code compilation targets                     ##
@@ -460,6 +462,14 @@ $(C_TARGET_MAL_OBJ):\
                         -c -o $@ $<
 
 ######################### Pip + Partition ELF #######################
+
+
+pip.bin: pip.elf
+	$(BI) $(BIFLAGS) $< $@
+	$(BI) $(BIFLAGS)\
+          --pad-to=$$((($$(wc -c < $@) + $(PADDING_POW2) - 1) & ~($(PADDING_POW2) - 1)))\
+          --gap-fill=$(PADDING_VALUE)\
+        $< $@
 
 # $(AS_TARGET_BOOT_OBJ) must be the first object file arg to the linker
 pip.elf: $(C_SRC_TARGET_DIR)/link.ld\
