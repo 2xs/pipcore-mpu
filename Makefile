@@ -531,6 +531,6 @@ clean:
 	rm -rf $(COQ_COMPILED_FILES)
 	rm -rf $(GENERATED_FILES_DIR)
 	rm -f $(OBJECT_FILES)
-	rm -f pip.elf
+	rm -f pip.elf pip.bin
 
 .PHONY: all doc doc-c doc-coq gettingstarted realclean clean
