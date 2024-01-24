@@ -79,6 +79,12 @@ typedef struct interface_s
 	void *root;
 
 	/*!
+	 * \brief The start address of the unused
+	 * ROM.
+	 */
+	void *unusedRomStart;
+
+	/*!
 	 * \brief The end address of the ROM.
 	 */
 	void *romEnd;

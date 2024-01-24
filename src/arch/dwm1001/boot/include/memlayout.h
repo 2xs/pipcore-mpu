@@ -113,6 +113,13 @@ extern void *__rootVidtEnd;
 extern void *__root;
 
 /*!
+ * \brief The start address of the available ROM to the root.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__unusedRomStart;
+
+/*!
  * \brief The end address of the ROM.
  *
  * \see The definition in the link.ld file.
@@ -120,7 +127,7 @@ extern void *__root;
 extern void *__romEnd;
 
 /*!
- * \brief The start address of the available ROM to the root.
+ * \brief The start address of the available RAM to the root.
  *
  * \see The definition in the link.ld file.
  */
