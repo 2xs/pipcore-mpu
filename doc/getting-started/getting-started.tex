@@ -42,6 +42,11 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{comment}
+\usepackage{multirow}
+
+\lstset{columns=fullflexible}
 
 \title{Get Started with Pip}
 
@@ -96,8 +101,8 @@ showstringspaces=false,
     urlcolor=black
 }
 
-\author{Nicolas Dejon - Damien Amara}
-\title{Pip-MPU 101 -  Tutorial \\ Getting started on ARM Cortex-M \\ Example with the scheduler partition on the DWM1001-DEV (Arm Cortex-M4) board\\}
+\author{Nicolas Dejon - Damien Amara - Claire Soyez-Martin}
+\title{Pip-MPU 101 -  Tutorial \\ Getting started on ARM Cortex-M \\ Example with a simple Hello world and a scheduler partition on the DWM1001-DEV (Arm Cortex-M4) board\\}
 
 \begin{document}
 \maketitle
@@ -113,9 +118,10 @@ It assumes Ubuntu 22.04 LTS users for the commands, but Pip-MPU is known to buil
 The tutorial targets the \href{https://www.qorvo.com/products/d/da007952}{DWM1001-DEV board} by Qorvo which relies on the \href{https://www.nordicsemi.com/products/nrf52832}{nRF52832 chip} (ARM Cortex-M4) by Nordic Semiconductor.
 
 The tutorial is split into three parts.
-The first part \ref{first} sets up a working build environment and builds the Pip-MPU kernel.
-The second part \ref{second} builds a partition and links it with the kernel in an executable file.
-The thrid part \ref{third} addresses the flash and run of the executable on a real, local or remote, board.
+The first part, \cref{first}, sets up a working build environment and builds the Pip-MPU kernel.
+The second part, \cref{second}, builds a simple Hello world program and links it with the kernel in an executable file.
+The third part, \cref{third}, explains how to build a partition, using the example of a scheduler.
+The fourth part, \cref{fourth}, addresses the flash and run of the executable on a real, local or remote, board.
 
 \section{Background}
 
@@ -132,12 +138,12 @@ The kernel is divided into three parts.
 \subsection{Executable workflow}
 The Pip-MPU kernel and its partitions are compiled separately.
 
-Concerning Pip-MPU, Pip-MPU's services (Core folder) are written in Gallina, which is automatically translated in the C language by the Digger tool.
-HAL and Boot are written in C/ASM.
+Concerning Pip-MPU, Pip-MPU's services (Core folder) are written in Gallina, which is automatically translated in the C language by the dx tool 
+(or, in more ancient commits, by the Digger tool). HAL and Boot are written in C/ASM.
 Pip-MPU's \texttt{Makefile} includes Digger's translation into C, before compiling the whole as any C project.
 
 Concerning the partitions, they are written in C/ASM.
-They have their own \texttt{Makefile} and compiles as any other project.
+They have their own \texttt{Makefile} and compile as any other project.
 
 Hence, in order to get an executable file, a script links together the Pip-MPU kernel and the partitions compiled separately to form a unique executable.
 You will get through all these steps in the following.
@@ -161,17 +167,17 @@ reason why GDB is not mandatory but highly recommended.
 
 
 \index{stack}\marginlabel{Haskell Stack:}
-Pip-MPU uses Digger, a home-made extractor to convert Coq code into C code.
+In old versions of the project, Pip-MPU used Digger, a home-made extractor to convert Coq code into C code.
 In order to compile this Extractor, which is written in Haskell, we use the Stack tool to download and install automatically the required GHC and libraries.
 
-The last working versions of stack is v2.7.5 and of Digger is v0.3.0.0.
+The last working version of Stack is v2.7.5 and Digger's is v0.3.0.0.
 
 \index{coq}\marginlabel{Coq Proof Assistant:}
 Pip-MPU's source code and formal proof of its memory isolation properties are written
 using the Coq proof assistant. In order to compile Coq files and
 generate the required intermediate files for the kernel to build, you will need the 8.13.1 version of Coq.
 
-The last working version of Coq is 8.13.1.
+This was also tested successfully with Coq 8.15.0.
 
 \index{opam} \marginlabel{OCaml Package Manager:}
 Opam is the package manager for the OCaml programming language, the language in
@@ -198,9 +204,24 @@ Update the apt package index before installing the packages:
 > sudo apt install git make opam gdb-multiarch texlive-latex-base doxygen haskell-stack
 \end{lstlisting}
 
+In addition to these packages, it is necessary to install the ARM GNU toolchain. As of today, it is preferable to to so manually\footnote{See the first 
+answer in \url{https://askubuntu.com/questions/1243252/how-to-install-arm-none-eabi-gdb-on-ubuntu-20-04-lts-focal-fossa}}, by downloading the latest version
+on \url{https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads} and creating the links to make the binaries accesible system-wide. On an Ubuntu system, 
+these links are created as follows:
+\begin{lstlisting}[style=BashStyle]
+> sudo ln -s /usr/share/gcc-arm-none-eabi-YOUR-VERSION/bin/arm-none-eabi-gcc /usr/bin/arm-none-eabi-gcc 
+> sudo ln -s /usr/share/gcc-arm-none-eabi-YOUR-VERSION/bin/arm-none-eabi-g++ /usr/bin/arm-none-eabi-g++
+> sudo ln -s /usr/share/gcc-arm-none-eabi-YOUR-VERSION/bin/arm-none-eabi-gdb /usr/bin/arm-none-eabi-gdb
+> sudo ln -s /usr/share/gcc-arm-none-eabi-YOUR-VERSION/bin/arm-none-eabi-ld /usr/bin/arm-none-eabi-ld
+> sudo ln -s /usr/share/gcc-arm-none-eabi-YOUR-VERSION/bin/arm-none-eabi-size /usr/bin/arm-none-eabi-size
+> sudo ln -s /usr/share/gcc-arm-none-eabi-YOUR-VERSION/bin/arm-none-eabi-objcopy /usr/bin/arm-none-eabi-objcopy
+\end{lstlisting}
+
+Note that only some of these tools (arm-none-eabi-gcc and arm-none-eabi-ld) are necessary for this project.
+
 \subsection{Get the source}
 \index{Pipsrc}\marginlabel{Pip-MPU source:}
-Once your development environment is ready, open a terminal emulator and clone the Pip-MPU repository at \texttt{https://github.com/2xs/pipcore-mpu}.
+Once your development environment is ready, open a terminal and clone the Pip-MPU repository from \texttt{https://github.com/2xs/pipcore-mpu}.
 \textit{Warning:} replace by this repository's name.
 
 \begin{lstlisting}[style=BashStyle]
@@ -208,27 +229,41 @@ Once your development environment is ready, open a terminal emulator and clone t
 > cd pipcore-mpu
 \end{lstlisting}
 
-Get Pip-MPU's version compatible with the scheduler example.
+Pip-MPU's last version should be compatible with the two example projects. If a problem arises, try this version:
 
 \begin{lstlisting}[style=BashStyle]
-> git checkout 35aa9a72047541b3c4a6174c715cf64c25a7b4f4
+> git checkout 2472b956494caa20b9932e8348c2310a949440ff
 \end{lstlisting}
 
 This repository contains Pip-MPU's kernel, proof and documentation. Still,
 it is not ready to compile yet, as it provides no partition to run.
-This is covered in the next section "\textit{Scheduler tutorial}".
+This is covered in \cref{second}.
 
 \index{diggersrc}\marginlabel{Set up Digger:}
-As said previously, we use an extractor to convert Coq code into C code.
-The source is included in Pip-MPU's main repository as a submodule.
+As said previously, old versions of Pip-MPU used an extractor to convert Coq code into C code.
+For the sake of completion, here is how to get it: the source is included in Pip-MPU's main repository as a submodule.
 \begin{lstlisting}[style=BashStyle]
 > pipcore-mpu$ git submodule init
 # checkout to expected version
 > pipcore-mpu$ git submodule update
-# build Digger, these could take some minutes
+# build Digger, these could take a few minutes
 > pipcore-mpu$ make -C tools/digger
 \end{lstlisting}
 The compilation might complain about a missing GHC version : type in the asked command to install the required GHC version (usually "\texttt{stack setup}"), and type in \texttt{make} again to grab the required libraries and build the extractor.
+
+\index{dxsrc}\marginlabel{Set up dx:}
+The most recent version of pipcore-mpu uses dx instead of Digger to get the C code. The README 
+of that project details the necessary steps to compile it, but here is an abridged version.
+
+\begin{lstlisting}[style=BashStyle]
+> git clone https://gitlab.univ-lille.fr/2xs/dx
+> cd dx
+> opam repository add coq-released https://coq.inria.fr/opam/released
+> opam install -b coq coq-elpi coq-compcert
+> opam pin .
+\end{lstlisting}
+
+Once both pipcore-mpu and dx are compiled, it is possible to use dx in the execution of pipcore-mpu by adding an optionnal argument, as explained below.
 
 \index{coqcsrc}\marginlabel{Set up the Coq 8.13.1 environment:}
 We use opam to install Coq tools required to extract the code base.
@@ -237,7 +272,7 @@ We use opam to install Coq tools required to extract the code base.
 > opam switch create coq8.13.1 4.10.2
 > opam init
 > eval $(opam env)
-# pin Coq version to 8.13.1, these could take some minutes
+# pin Coq version to 8.13.1, these could take a few minutes
 > opam pin add coq 8.13.1
 # test installation, the command must end successfully
 > coqc -v
@@ -250,94 +285,402 @@ Then, compile the kernel.
 % TODO: remove --no-command-check
 Note that the partitions use the same building toolchain as Pip-MPU's.
 
+To compile the kernel, the path to the dx library is required. That path can change depending on how dx was installed. 
+If it was installed using opam, the path should be of the form
+
+\begin{lstlisting}[style=BashStyle]
+/home/<user>/.opam/coq8.13.1/lib/dx
+\end{lstlisting}
+
+where $<$user$>$ is the username used on your computer. Then, using this path, it is possible to compile the kernel with 
+the following commands:
+
 \begin{lstlisting}[style=BashStyle]
 # configure the building toolchain
-> pipcore-mpu$ ./configure.sh --architecture=dwm1001 --debugging-mode=semihosting --no-command-check
+> pipcore-mpu$ ./configure.sh --architecture=dwm1001 --debugging-mode=semihosting --no-command-check  --boot-sequence=default --dx=<path to dx>
 # compile the kernel
 > pipcore-mpu$ make all
 # check Pip-MPU has successfully compiled:
-> pipcore-mpu$ ls | grep pip.elf
+> pipcore-mpu$ ls | grep pip.bin
 \end{lstlisting}
 
-If the last instruction returns \textit{pip.elf} file as output, congratulations, you successfully compiled Pip-MPU!
+If the last instruction returns \textit{pip.bin} as output, congratulations, you successfully compiled Pip-MPU!
 
-\section{Part II: Link the kernel with the scheduler partition example} \label{second}
-Now that Pip-MPU is built, we will launch a partition based on the \href{(https://gitlab.univ-lille.fr/2xs/pip/pip-mpu-scheduler)}{scheduler partition example}
-For that, you must compile the partition separately and package it with the kernel in order to get the final binary.
+\section{Part II: Link the kernel to another program with the example of a Hello world} \label{second}
 
-\subsection{Download the partition source}
-Clone the example in another directory \textit{"scheduler partition dir"}, outside the Pip-MPU kernel.
+Now that Pip-MPU is built, we can link it to the executable file of another project. For that, it is necessary to compile that project 
+separately and then package it with the kernel in order to get the final binary. In order to illustrate this part, we consider a simple 
+Hello world program, that can be found \href{(https://gitlab.univ-lille.fr/2xs/pip/pip-mpu-hello-world)}{here}.
+
+\subsection{Download the source}
+Clone the example in another directory \textit{"hello world dir"}, outside the Pip-MPU kernel.
 
 \begin{lstlisting}[style=BashStyle]
 > cd <another directory>
-> git clone https://gitlab.univ-lille.fr/2xs/pip/pip-mpu-scheduler.git
-> cd pip-mpu-scheduler
+> git clone https://gitlab.univ-lille.fr/2xs/pip/pip-mpu-hello-world.git
+> cd pip-mpu-hello-world
 \end{lstlisting}
 
-\subsection{Compile the partition}
-Partitions inherit Pip-MPU's toolchain configuration (set up at \ref{buildpip}).
+\subsection{Compile the project}
+This project inherits Pip-MPU's toolchain configuration (set up at \ref{buildpip}).
 It is then enough to invoke the \texttt{make} command.
 
 \begin{lstlisting}[style=BashStyle]
-> pip-mpu-scheduler$ make
+> pip-mpu-hello-world$ make
 \end{lstlisting}
 
-\subsection{Link the partition with the kernel}
-Return to the kernel's directory and link Pip-MPU's binary with the partition's binary.
+\subsection{Link the project with the kernel}
+Return to the kernel's directory and link Pip-MPU's binary with the project's binary. To do so, it suffices to concatenate 
+them as follows:
 
 \begin{lstlisting}[style=BashStyle]
-> pipcore-mpu$ ./root-partition-linker.sh pip.bin <another directory>/pip-mpu-scheduler/pip-mpu-scheduler.bin
+> pipcore-mpu$ cat pip.bin <another directory>/pip-mpu-hello-world/pip-mpu-hello-world.bin > pip+root.bin
 \end{lstlisting}
 
-The script produces the final binary.
+The script produces the final binary, that can then be flashed and run, as shown in \cref{fourth}.
 
-\section{Part III: Flash and run} \label{third}
-At this step, you have a binary file including the kernel and a partition (e.g. the sheduler partition).
+\subsection{Structure}\label{subsec:structure}
+The binaries of the project and of Pip-MPU's kernel have been concatenated, so that the project runs only after Pip-MPU is 
+initialized. That initialization sets up the memory so that Pip-MPU has a reserved memory block isolated from the rest of the system, 
+meaning that nothing in the system can access that memory. Moreover, Pip-MPU's initialization retrieves information about that memory 
+block, notably the exact physical addresses included in it, and creates a root partition, that is to be initialized in another project 
+(in our case, the hello-word project). This creates some information about that root partition, that is passed down to the other 
+project using an interface.
+
+The hello-world project is compiled using a file named \textit{link.ld}, which indicates in which order the different parts should be 
+put in the final executable file. Notably, it indicates that the first function to be executed after Pip-MPU's initialization is the 
+\textit{\_start} function from the file \textit{crt0.c}. That function stores the necessary data about the available memory, then calls 
+the \textit{main} function from the file \textit{main.c}, to which it gives as parameter the interface it received from Pip-MPU. That 
+interface gives information about the root partition initialized by Pip-MPU, notably the ID of its partition descriptor, which is used 
+in most of Pip-MPU's primitives. %TODO detail that?
+
+In this project, the \textit{main} function does not look at any parameter it might receive nor returns anything. The fact that it does 
+not look at its parameters is specific to simple programs, but the absence of a return value characterizes the programs handled by Pip-MPU. 
+Indeed, this kind of program is supposed to be launched then to run indefinitely, needing no external interventions to continue if there 
+are no errors. Thus, the  \textit{main} function first calls the auxilliary function \textit{puts} to print the string "Hello World!" and 
+begin a new line, then it loops forever.
+
+\begin{lstlisting}[language=C]
+void main(void)
+{
+    puts("Hello World!\n");
+    for (;;);
+}
+\end{lstlisting}
+
+The \textit{puts} function prints a string, and uses the assembly language to communicate with the hosting system.
+%TODO detail that?
+
+\section{Part III: Tutorial on partitions} \label{third}
+
+This part is intended to give a more complete tutorial on Pip, by explaining how to construct the partition presented in the 
+\href{(https://gitlab.univ-lille.fr/2xs/pip/pip-mpu-scheduler)}{partition example}. This project can be compiled exactly as 
+the one presented in \cref{second}, and linked to Pip-MPU, as it is a partition, an thus inherits Pip-MPU's toolchain configuration.
+The idea of the project is to create a child partition and to alternate between it and the root partition to print messages, all 
+using Pip's interface. Here, we will see how to use this interface to create the project.
+
+\subsection{Download and compile the project}
+
+\marginlabel{Download the source}
+
+Clone the project in another directory, outside the Pip-MPU kernel.
+
+\begin{lstlisting}[style=BashStyle]
+> cd <another directory>
+> git clone https://gitlab.univ-lille.fr/2xs/pip/pip-mpu-launcher.git
+> cd pip-mpu-launcher
+\end{lstlisting}
+
+\marginlabel{Compilation}
+
+This project inherits Pip-MPU's toolchain configuration (set up at \ref{buildpip}). It is then enough to invoke the \texttt{make} 
+command.
+
+\begin{lstlisting}[style=BashStyle]
+> pip-mpu-launcher$ make
+\end{lstlisting}
+
+This command produces a binary file pip-mpu-launcher{.}bin, which can ben used to produce the final binary with a call to cat:
+
+\begin{lstlisting}[style=BashStyle]
+> pip-mpu-launcher$ cat <Pip-MPU directory>/pip.bin pip-mpu-launcher.bin > pip+root.bin
+\end{lstlisting}
+
+That final binary can then be flashed on the target board (see \cref{fourth}).
+
+\subsection{Overview}\label{subsec:overview}
+
+This subsection is intended to give a general overview of how to write a program dealing with partitions using Pip. It focuses on 
+the most important primitives, leaving aside the parts that deal with memory blocks.
+
+\subsubsection{Structure}
+
+There are several ways to write a project compatible with Pip. The one presented here is hopefully the simplest to understand, but 
+not the most efficient, so feel free to improve it. The project presented here is structured with three folders:
+\begin{itemize}
+    \item include contains the libraries necessary for the compilation,
+    \item child contains the files necessary for the compilation of the child partition,
+    \item root contains the files necessary for the compilation of the root partition.
+\end{itemize}
+
+In this project, the "include" folder contains only one file, that enables semihosting and that will not be detailed here.
+
+Both the "child" and "root" folders have the same structure: a "relocator" folder whose files deal with the structure of the memory, 
+a "link{.}ld" file that deals with the structure of the final binary file, a "main{.}c" file containing the partition's program, and 
+a Makefile that defines the command \texttt{make} for that folder. This structure allows each partition to be separately compiled, 
+even though the goal is to combine the binaries. In what follows, we focus on the contents of the "main{.}c" files, as the others 
+deal with memory alignments and contain a lot of technical details.
+
+\subsubsection{The child partition}
+
+\marginlabel{The code}
+
+Before talking about how to deal with partitions, let's talk about what we want our child partition to do. That partition is rather 
+simple, as it does not have to deal with memory: its memory has already been allocated and initialized by the root partition, and 
+it has no child partition. Consequently, all it has to do is to execute its own program and call back the root partition at least 
+once, when it is done. In this example project, we want to show how Pip's primitives work, so the child partition will call the 
+root several times. The goal is to proceed as follows:
+\begin{itemize}
+    \item print "3" on the screen, then call back the parent (in our case, the root),
+    \item if the child is called again, print "2" on the screen, then call back the parent,
+    \item if the child is called a third time, print "1" on the screen, then call back the parent,
+    \item if the child is called more than three times, loop indefinitely without doing anything.
+\end{itemize}
+The entry point of the child partition is the function \textit{start} of the file child/main{.}c, defined as follows:
+\begin{lstlisting}[language=C]
+void start(void)
+{
+    ...
+
+	for (;;);
+}
+\end{lstlisting}
+Note the infinite loop, which is the last instruction of the function start. A program on an MPU is not supposed to stop unless an error 
+occurs, and this is how we emulate it.
+
+The rest of the function is dealt with by two functions. To print strings, we use the function \textit{puts}, defined in the file 
+include/semihosting{.}h, which takes a constant string of characters and prints it. The change of partition is done through the function 
+\textit{Pip\_yield}, which takes the ID of the partition to switch to and information about how to store and restore the contexts, and 
+yields to the indicated partition, restoring the indicated context with the indicated flags. That function uses particular tables, called 
+VIDTs. Each partition has exactly one VIDT, in which it stores contexts of execution. Each index of a VIDT corresponds to an interruption, 
+or to a way of changing the partition. In this project, we do not use interruptions, so we will always store and retrieve the contexts at 
+the index 0 of the VIDTs. Formally, the function Pip\_yield takes five parameters:
+\begin{itemize}
+    \item a pointer calleePartDescBlockId, which indicates the ID of the memory block containing the partition description of the 
+    partition we want to yield to (a value of 0 calls the parent of the current partition, which is the partition itself when it is the 
+    root),
+    \item an integer userTargetInterrupt, which gives the index of the callee's VIDT where to retrieve the context of execution needed by 
+    that partition,
+    \item an integer userCallerContextSaveIndex, which gives the index of the caller's VIDT where to store the current context of 
+    execution,
+    \item an integer flagsOnYield, which sets the interruption flags during the yield operation (not important in ou case, so we always 
+    leave it at 1),
+    \item an integer flagsOnWake, which sets the interruption flags when the partition is reawakened (not important in ou case, so we always 
+    leave it at 1).
+\end{itemize}
+Consequently, to print "3" then call back its parent, the child must use the following code:
+\begin{lstlisting}[language=C]
+puts("3\n");
+Pip_yield(0, 0, 0, 1, 1);
+\end{lstlisting}
+In the call to Pip\_yield, we call the parent by setting the first parameter to 0, we store the current context at the index 0 of the 
+child's VIDT, and we retrive the parent's context at the index 0 of its VIDT.
+
+Since we want to repeat that three times, we repeat these two lines, changing only the string in the call to puts. Each time Pip\_yield is 
+called, the current context of execution is stored so that, if the parent calls back the child partition, the execution is resumed at the 
+line where it yielded to the parent, causing the child to print "3, then yield, then print "2" if it is called back, instead of printing "3" 
+again.
+
+\marginlabel{Separate execution}
+
+The child program is supposed to be called by a parent disjoint from it, but it can be executed as the root partition. In that case, the 
+calls to Pip\_yield will store the child's context then immediately restore it. Thus, the program would print "3", then "2", then "1", and 
+loop indefinitely, doing nothing more. %TODO say here how to compile the project?
+
+\subsubsection{Dealing with partitions: the root partition}
+
+The goal of this tutorial is to show how to deal with partitions using Pip, so we define a root partition that will create a partition for 
+the child defined above, yields three times, then deletes the partition to clean the memory, and loops indefinitely. The entry point for 
+that root partition is the function \textit{start} of the file root/main{.}c, defined as follows:
+\begin{lstlisting}[language=C]
+void start(interface_t *interface)
+{
+    ...
+
+    for (;;);
+}
+\end{lstlisting}
+Note that, contrary to the child's entry point, this function does not ignore its parameters, instead taking a pointer to a structure. That 
+structure contains all the necessary information about the memory to correctly set the partitions. However, here we will not detail how to 
+use it.
+
+The code for the root partition can be separated into five parts, each having a distinct goal. Four of them are handled by functions 
+defined in the "main{.}c" file:
+\begin{itemize}
+    \item \textit{root\_memory\_init} sets up the memory blocks necessary for both the root and the child partitions, and uses the 
+    interface given by Pip-MPU to do so,
+    \item \textit{root\_partition\_create} creates the child partition and gives it the memory blocks it needs,
+    \item \textit{root\_partition\_delete} deletes the child partition,
+    \item \textit{root\_memory\_cleanup} cleans the memory using interface given by Pip-MPU.
+\end{itemize}
+
+These four functions are called in order, and the fifth code part is used between the calls to root\_partition\_create and 
+root\_partition\_delete. The purpose of that fifth part is to yield three times to the child partition, in order to let it execute 
+completely its program. If we do not take into account the error codes that can be returned by the four functions, the main code of 
+the function start is as follows:
+
+\begin{lstlisting}[language=C]
+root_memory_init(interface);
+root_partition_create();
+
+size_t i;
+for (i = 0; i < 3; i++) {
+    Pip_yield(child_pd_id, 0, 0, 1, 1);
+}
+
+root_partition_delete();
+root_memory_cleanup(interface);
+\end{lstlisting}
+
+Now let's talk a bit about what the four functions do.
+
+\marginlabel{Set up the memory}
+
+Setting up the memory for the partitions and cleaning it can be tedious, so we will not detail it here. The idea is that, before 
+calling the root partition, Pip initializes everything needed. Once Pip's initialization is complete, it has reserved two memory 
+blocks, one in the RAM, the other in the flash memory. These two blocks are already guaranteed to be isolated from the rest of the 
+system. Some parts of these blocks are already used and should not be touched by the user:
+\begin{itemize}
+    \item the end of the memory block in the RAM is reserved for Pip,
+    \item the beginning of the memory block in the flash memory is reserved for Pip,
+    \item the beginning of memory block in the RAM ($R0$ in the table below) serves as the stack of the root partition.
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{l|c|c|c|}
+    \cline{2-4}
+    RAM:\hspace{0.5cm} & \hspace{0.5cm}$R0$\hspace{0.5cm} & \hspace{0.5cm}$R1$\hspace{0.5cm} & \hspace{0.3cm}Pip\hspace{0.3cm}\hspace{0.3cm}\\
+    \cline{2-4}
+\end{tabular}
+
+\begin{tabular}{l|c|c|}
+    \cline{2-3}
+    flash:\hspace{0.64cm} & \hspace{0.4cm}Pip\hspace{0.4cm} & \hspace{1.35cm}$R2$\hspace{1.35cm}\hspace{1cm}\\
+    \cline{2-3}
+\end{tabular}
+\end{center}
+
+The first step, performed by root\_memory\_init, is to cut $R1$ and $R2$ into isolated blocks and to initialize those blocks to 
+prepare for the creation of the child partition. %More details about that will be given in \cref{subsec:details}, but the state 
+%of the memory after this initialization is as follows:
+The state of the memory after this initialization looks like this:
+
+\begin{center}
+\hspace{-2cm}\begin{tabular}{l|c|c|c|c|c|c|c|c|}
+    \cline{2-9}
+    \multirow{2}*{RAM:\hspace{0.1cm}} & \multirow{2}*{\hspace{0.05cm}$R0$\hspace{0.05cm}} & \multirow{2}*{kernel} & child's & child's & child's stack & child's & \hspace{0.3cm} & \multirow{2}*{\hspace{0.05cm}Pip\hspace{0.05cm}}\\
+     & & & descriptor & kernel & + VIDT & context & & \\
+    \cline{2-9}
+\end{tabular}
+
+\begin{tabular}{l|c|c|c|}
+    \cline{2-4}
+    flash:\hspace{0.3cm} & \hspace{0.3cm}Pip\hspace{0.3cm} & \hspace{0.2cm}child's text\hspace{0.2cm} & \hspace{3cm}\hspace{1cm}\\
+    \cline{2-4}
+\end{tabular}
+\end{center}
+
+\marginlabel{Create the child partition}
+
+When the previous step is done, the memory is cut into isolated blocks, but all of these blocks still belong to the root partition. 
+At this point, we need to create the child partition, give it the blocks it needs, and initialize them. We will not cover the 
+initialization here, only an idea of what root\_partition\_create does.
+
+The first important part here is the creation of the child partition. To that end, we can use  the function \textit{Pip\_createPartition}. 
+Formally, that function takes only one parameter, a pointer blockLocalId that indicates the index of the child's partition descriptor. 
+That index is obtained while allocating the memory space necessary for the child partition, as the return value of the function 
+\textit{Pip\_cutMemoryBlock}. Each time we cut a block, we store that ID, and we can use it to refer to the next block. Thus, to 
+create a child partition assigned to the block associated to the ID \textit{child\_pd\_id}, we need to run the following line:
+
+\begin{lstlisting}[language=C]
+Pip_createPartition(child_pd_id);
+\end{lstlisting}
+
+However, this adds only the partition descriptor block to the child partition. The other blocks must be separately given to it, using the 
+function \textit{Pip\_addMemoryBlock}. That function takes the ID of a child of the current partition, and shares a block with it, with the 
+rights given as parameters. Formally, the function has five parameters:
+\begin{itemize}
+    \item a pointer childPartDescBlockLocalId, which gives the ID of the child we want to give a block to,
+    \item a pointer blockToShareLocalId, which gives the ID of the block to share,
+    \item an integer r that should differ from 0 if the child should be able to read the contents of the block,
+    \item an integer w that should differ from 0 if the child should be able to write in the block,
+    \item an integer e that should differ from 0 if the child should be able to execute the contents of the block.
+\end{itemize}
+
+Note that the rights a partition can give using this function do not exceed the ones it has. For example, if a partition does not have the 
+right to write in a block, it cannot give that right to any of its children.
+
+%TODO give the code using addMemoryBlock?
+
+Once all the blocks have been added, we initialize them and the corresponding MPU memory. Then, we can yield to the child.
+
+\marginlabel{The main code}
+
+Once all is correctly initialized, the root partition yields three times to its child, to let it execute completly its code. To do so, we 
+use the following loop:
+\begin{lstlisting}[language=C]
+for (i = 0; i < 3; i++) {
+    Pip_yield(child_pd_id, 0, 0, 1, 1);
+}
+\end{lstlisting}
+
+\marginlabel{Delete the child partition}
+
+Once the child partition's execution is done, we want to clean the memory before looping indefinitely. To do so, we call 
+root\_partition\_delete, which begins by uninitializing the child's blocks, and removing them from the child partition using 
+\textit{Pip\_removeMemoryBlock}. That function takes only one parameter, a pointer blockToRemoveLocalId that gives the ID (inside 
+the parent) of the block to remove from a child of the current partition, and removes it. The block still exists and is isolated 
+from the others, but the child partition has no longer access to it. Once the uninitialization and the removal of the blocks are 
+done, the child partition is empty, save for its partition descriptor. At this point, we can delete the child partition using the 
+function \textit{Pip\_deletePartition}. It takes only one parameter, a pointer childPartDescBlockLocalId, which indicates the ID 
+of the child partition. This deletes the child partition, leaving all the blocks inside it isolated from one another. So, we use 
+the following line:
+\begin{lstlisting}[language=C]
+Pip_deletePartition(child_pd_id)
+\end{lstlisting}
+
+Now, what's left to do is to merge the blocks to get the memory back in its initial state. The blocks that belonged to the child 
+partition are handled by root\_partition\_delete, while the ones belonging only to the root are handled by root\_memory\_cleanup.
+
+%\subsection{Managing the memory with Pip}\label{subsec:details}
+
+%This subsection gives detailled explanations about the auxilliary functions mentionned in \cref{subsec:overview}.
+
+%TODO someday
+
+\section{Part IV: Flash and run} \label{fourth}
+At this step, you have a binary file including the Pip-MPU kernel and the two partitions of the example project.
 The final step is to flash the binary on the target board.
 
 There are many options to flash the executable binary on the target, locally on a board if at disposal or even remotely.
-The tutorial covers the flash on a local DWM1001-DEV board using \textit{openocd} (option 1, preferred)) or SEGGER's tools (option 2).
-The required tools differ for the two options but the flash and control of the board is the same via \textit{gdb-multiarch}.
+The tutorial covers the flash on a local DWM1001-DEV board using \textit{openocd}.
 
 Another option could be conducting an experiment on a board from the \href{https://www.iot-lab.info/}{FIT IoT-Lab platform}.
 
-\subsection{Option 1: openocd}
-
-\subsubsection{Install required tools}
+\subsection{Install required tools}
 \begin{lstlisting}[style=BashStyle]
 > sudo apt install openocd
 \end{lstlisting}
 
-\subsubsection{Run openocd}
+\subsection{Run openocd}
 After the installation of openocd, run it in a Terminal (Terminal 1):
 
 \begin{lstlisting}[style=BashStyle]
-> openocd -c 'adapter driver jlink; transport select swd; source [find target/nrf52.cfg]' -c init -c "reset init" -c halt
+> openocd -c 'source [find interface/jlink.cfg]' -c 'transport select swd' -c 'source [find target/nrf52.cfg]' -c 'tcl_port 0' -c 'telnet_port 0' -c 'gdb_port 3333' -c 'init' -c 'targets' -c 'reset halt' -c 'flash write_image erase "pip+root.bin" 0' -c 'verify_image "pip+root.bin" 0' -c 'reset run' -c 'halt'
 \end{lstlisting}
-Note: if the file \textit{nrf52.cfg} is not found, check its presence at \texttt{/usr/share/openocd/scripts/target/nrf52.cfg} and if it is, run the command again by replacing \texttt{[find .../nrf52.cfg]} by the absolute path.
-
-
-\subsection{Option 2: Segger}
-\subsubsection{Install required tools}
-Install the J-Link Software and Documentation pack from \href{https://www.segger.com/downloads/jlink/#J-LinkSoftwareAndDocumentationPack}{SEGGER's website}.
-
-%Install the Arm GNU Toolchain from \href{https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads}{Arm's website}.
-
-\subsubsection{Run JLinkGDBServer}
-After the installation of the JLink tools, open JLinkGDBServer in a Terminal (Terminal 1):
-
-\begin{lstlisting}[style=BashStyle]
-> pipcore-mpu$ /opt/SEGGER/JLink/JLinkGDBServer -device nRF52832_xxAA -endian little -if SWD -port 3333 -swoport 2332 -telnetport 4444 -vd -ir -localhostonly 1 -strict -timeout 0 -nogui
-\end{lstlisting}
-This command starts the \texttt{JLinkGDBServer} to connect to the SWD port of nRF52832 chip on the DWM1001 and
-\begin{itemize}
-	\item specifies the \textit{gdb} port to 3333
-	\item specifies the \textit{telnet} port to 4444
-	\item ir: initializes the CPU registers
-	\item vd: verifies the data after downloading
-	\item timeout: sets a timeout of 0 ms to fail directly if no target is connected
-	\item strict: checks the settings
-\end{itemize}
+Note: if the file \textit{nrf52.cfg} is not found, check if it is present using the absolute path 
+\texttt{/usr/share/openocd/scripts/target/nrf52.cfg}. If it is present, run the command again by replacing 
+\texttt{[find .../nrf52.cfg]} by the absolute path.
 
 \subsection{Flash}
 \textbf{In another terminal (Terminal 2)}, run \texttt{gdb-multiarch} in the main repository to connect to the board and load the binary (also works with \texttt{arm-none-eabi-gdb}).
@@ -346,8 +689,6 @@ This command starts the \texttt{JLinkGDBServer} to connect to the SWD port of nR
 > pipcore-mpu$ gdb-multiarch
 (gdb) set architecture arm
 (gdb) target extended-remote :3333
-(gdb) file pip.elf
-(gdb) load
 (gdb) monitor halt
 (gdb) monitor reset
 \end{lstlisting}
@@ -361,7 +702,7 @@ In order to view the \textit{semihosting} outputs, you need to enable it.
 
 In the \texttt{gdb-multiarch} terminal (Terminal 2):
 \begin{lstlisting}[style=BashStyle]
-(gdb) monitor semihosting enable
+(gdb) monitor arm semihosting enable
 (gdb) continue
 \end{lstlisting}
 
