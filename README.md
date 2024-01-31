@@ -27,6 +27,8 @@ The Pip Development Team:
 
 * David Nowak <david.nowak@univ-lille.fr>
 
+* Claire Soyez-Martin <claire.soyezmartin@univ-lille.fr>
+
 * Florian Vanhems <florian.vanhems.etu@univ-lille.fr>
 
 Past members of the Pip Development Team:
