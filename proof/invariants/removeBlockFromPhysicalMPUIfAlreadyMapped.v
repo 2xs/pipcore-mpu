@@ -98,16 +98,51 @@ unfold MAL.replaceBlockInPhysicalMPU.
 eapply bindRev.
 - (** MAL.readPDMPU **)
   eapply weaken. eapply readPDMPU.
-  simpl. intros s H. intuition.
-  exact H6. (* Does it matter which hypothesis I take? *)
-  apply H2. intro HglobalIdPDNull.
-  apply beqAddrFalse in H1. contradict H1. rewrite HglobalIdPDNull. reflexivity.
-- intro a. simpl. eapply bindRev.
+  simpl. intros s H.
+  assert (Hprops: (partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s /\
+    currentPart = currentPartition s /\ isPDT globalIdPD s) /\ isPDT globalIdPD s).
+  {
+    destruct H as [H1 HglobNotNull]. destruct H1 as [H1 Himpl].
+    assert (HisPDT: isPDT globalIdPD s).
+    {
+      apply Himpl. apply beqAddrFalse in HglobNotNull. apply not_eq_sym. exact HglobNotNull.
+    }
+    intuition.
+  }
+  exact Hprops.
+- intro realMPU. simpl. eapply bindRev.
   + (** MAL.writePDMPU **)
     eapply weaken. eapply writePDMPU. (* TODO is that lemma really the right one? *)
     intros. simpl.
-    admit.
-    (*destruct H as [Hcons HpdEntry]. admit.*)
+    intuition.
+    assert (Htable: exists entry : PDTable, lookup globalIdPD (memory s) beqAddr = Some (PDT entry)).
+    { apply isPDTLookupEq. apply H6. }
+    destruct Htable as [entry Hlookup].
+    exists entry. split.
+    * exact Hlookup.
+    * admit.
+(* Need :
+(fun (_ : unit) (s0 : state) =>
+ (fun s1 : state =>
+  (((partitionsIsolation s1 /\ kernelDataIsolation s1 /\ verticalSharing s1 /\ consistency s1) /\
+    currentPart = currentPartition s1) /\ (globalIdPD <> nullAddr -> isPDT globalIdPD s1)) /\
+  beqAddr nullAddr globalIdPD = false) s0) tt
+  {|
+    currentPartition := currentPartition s;
+    memory :=
+      add globalIdPD
+        (PDT
+           {|
+             structure := structure entry;
+             firstfreeslot := firstfreeslot entry;
+             nbfreeslots := nbfreeslots entry;
+             nbprepare := nbprepare entry;
+             parent := parent entry;
+             MPU := addElementAt MPURegionNb blockToEnableAddr realMPU nullAddr;
+             vidtAddr := vidtAddr entry
+           |}) (memory s) beqAddr
+  |}
+*)
   + intro a0. eapply weaken. eapply WP.ret.
     intros s HQ. exact HQ.
 Admitted.
