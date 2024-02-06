@@ -90,8 +90,9 @@ case_eq addrIsNull.
 	+ (* case_eq blockIsNull = true *)
 		intros.
 		{ (** Internal.enableBlockInMPU *)
-			eapply weaken. eapply enableBlockInMPU. tauto.
-			simpl. intros. intuition. apply H6.
+			eapply weaken. eapply strengthen. eapply enableBlockInMPU.
+      * intros s a. simpl. intro Hprops. intuition.
+      * simpl. intros. intuition. apply H6.
 		}
 	+ (* case_eq blockIsNull = false *)
 		intros.
@@ -154,9 +155,21 @@ case_eq addrIsNull.
     { (** Internal.removeBlockFromPhysicalMPUIfAlreadyMapped **)
       eapply weaken.
       * eapply removeBlockFromPhysicalMPUIfAlreadyMapped.
-      * intros. intuition. apply H14. apply H14.
+      * intros.
+        intuition; rewrite negb_false_iff in H2; subst addrIsAccessible; rewrite negb_false_iff in H3; subst addrIsPresent.
+        apply H14.
+        apply H10.
+        apply H7.
+        apply H6.
+        apply H14.
+        apply H10.
+        right. apply H17.
+        apply H7.
+        apply H6.
     }
     { (** Internal.enableBlockInMPU **)
-      intros. apply enableBlockInMPU. tauto.
+      intros. eapply weaken. eapply strengthen. apply enableBlockInMPU.
+      * intros s a0. simpl. intro Hprops. intuition.
+      * intro s. simpl. intro Hprops. eapply Hprops.
     }
 Qed.
