@@ -36,7 +36,7 @@ Require Import Model.ADT Model.Monad Model.MALInternal Model.Lib.
 Require Import Core.Internal.
 Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.StateLib Proof.WeakestPreconditions.
 Require Import Proof.InternalLemmas Proof.DependentTypeLemmas.
-Require Import Invariants.
+Require Import Invariants MapMPUSecProps.
 
 Require Import Lia Classical.
 
@@ -100,7 +100,8 @@ eapply bindRev.
   eapply weaken. eapply readPDMPU.
   simpl. intros s H.
   assert (Hprops: (partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s /\
-    currentPart = currentPartition s /\ isPDT globalIdPD s) /\ isPDT globalIdPD s).
+    currentPart = currentPartition s /\ isPDT globalIdPD s /\ beqAddr nullAddr globalIdPD = false)
+    /\ isPDT globalIdPD s).
   {
     destruct H as [H1 HglobNotNull]. destruct H1 as [H1 Himpl].
     assert (HisPDT: isPDT globalIdPD s).
@@ -129,17 +130,34 @@ eapply bindRev.
        memory := _ |}).
       assert (Hgoal: P tt s').
       {
-        unfold P. intuition.
-        -- unfold partitionsIsolation in *.
-           intros parent child1 child2 HInParent HInChild1 HInChild2 HDifChildren.
-	         unfold Lib.disjoint. intros x HInX. unfold getUsedPaddr. unfold getConfigPaddr.
-	         unfold getMappedPaddr.
-            admit.
+        unfold P.
+        (** security properties **)
+
+	      assert(HVS : verticalSharing s').
+	      { (* verticalSharing s' *)
+		      apply MapMPUVS with currentPart globalIdPD blockToEnableAddr MPURegionNb realMPU s entry.
+	        unfold MapMPUPropagatedProperties ; intuition.
+	      }
+
+	      assert(HKI : kernelDataIsolation s').
+	      { (* kernelDataIsolation s' *)
+			    apply MapMPUKI with currentPart globalIdPD blockToEnableAddr MPURegionNb realMPU s entry.
+		      unfold MapMPUPropagatedProperties ; intuition.
+	      }
+
+	      assert(HI : partitionsIsolation s').
+	      { (* partitionsIsolation s' *)
+		      apply MapMPUHI with currentPart globalIdPD blockToEnableAddr MPURegionNb realMPU s entry.
+		      unfold MapMPUPropagatedProperties ; intuition.
+	      }
+        intuition.
         -- admit.
-        -- admit.
-        -- admit.
-        -- admit.
-        -- admit.
+        -- unfold isPDT in *. unfold s'. simpl.
+           assert (HtrivEq: beqAddr globalIdPD globalIdPD = true).
+           {
+             apply (beqAddrTrue globalIdPD). reflexivity.
+           }
+           rewrite HtrivEq. trivial.
       }
       exact Hgoal.
   + intro a0. eapply weaken. eapply WP.ret.
@@ -226,7 +244,7 @@ eapply bindRev.
          assert(kernelStructureEntriesNb < maxIdx-1) by apply KSEntriesNbLessThanMaxIdx.
          destruct (Compare_dec.le_dec kernelStructureEntriesNb maxIdx) ; simpl in * ; try lia.
          assert (HBigEnough: maxIdx > kernelStructureEntriesNb) by apply maxIdxBiggerThanNbOfKernels.
-         Search (?a > ?b). apply Gt.gt_le_S. apply HBigEnough.
+         apply Gt.gt_le_S. apply HBigEnough.
   + intro defaultidx. eapply bindRev.
     { (** MAL.findBlockIdxInPhysicalMPU **)
       eapply findBlockIdxInPhysicalMPU.
