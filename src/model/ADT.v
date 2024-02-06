@@ -72,6 +72,7 @@ Axiom maxIdx: nat. (* max prepare * kernel entries nb *)
 Definition maxIdxLowerBound := 1. (* at minimum, we need to count to 1 *)
 Axiom maxIdxNotZero: maxIdx > 0.
 Axiom maxIdxBigEnough : maxIdx > maxIdxLowerBound.
+Axiom maxIdxBiggerThanNbOfKernels: maxIdx > kernelStructureEntriesNb.
 Axiom maxIdxEqualMaxAddr: maxIdx = maxAddr.
 
 Axiom MPURegionsNb: nat.

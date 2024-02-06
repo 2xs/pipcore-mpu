@@ -112,37 +112,36 @@ eapply bindRev.
   exact Hprops.
 - intro realMPU. simpl. eapply bindRev.
   + (** MAL.writePDMPU **)
-    eapply weaken. eapply writePDMPU. (* TODO is that lemma really the right one? *)
+    eapply weaken. eapply writePDMPU.
     intros. simpl.
-    intuition.
     assert (Htable: exists entry : PDTable, lookup globalIdPD (memory s) beqAddr = Some (PDT entry)).
-    { apply isPDTLookupEq. apply H6. }
+    { apply isPDTLookupEq. intuition. }
     destruct Htable as [entry Hlookup].
     exists entry. split.
     * exact Hlookup.
-    * admit.
-(* Need :
-(fun (_ : unit) (s0 : state) =>
- (fun s1 : state =>
-  (((partitionsIsolation s1 /\ kernelDataIsolation s1 /\ verticalSharing s1 /\ consistency s1) /\
-    currentPart = currentPartition s1) /\ (globalIdPD <> nullAddr -> isPDT globalIdPD s1)) /\
-  beqAddr nullAddr globalIdPD = false) s0) tt
-  {|
-    currentPartition := currentPartition s;
-    memory :=
-      add globalIdPD
-        (PDT
-           {|
-             structure := structure entry;
-             firstfreeslot := firstfreeslot entry;
-             nbfreeslots := nbfreeslots entry;
-             nbprepare := nbprepare entry;
-             parent := parent entry;
-             MPU := addElementAt MPURegionNb blockToEnableAddr realMPU nullAddr;
-             vidtAddr := vidtAddr entry
-           |}) (memory s) beqAddr
-  |}
-*)
+    * set (fun (a:unit) (s1:state) =>
+          ((((partitionsIsolation s1 /\ kernelDataIsolation s1 /\ verticalSharing s1 /\ consistency s1)
+             /\ currentPart = currentPartition s1)
+            /\ (globalIdPD <> nullAddr -> isPDT globalIdPD s1))
+           /\ beqAddr nullAddr globalIdPD = false)).
+      set (s' := {|
+       currentPartition := currentPartition s;
+       memory := _ |}).
+      assert (Hgoal: P tt s').
+      {
+        unfold P. intuition.
+        -- unfold partitionsIsolation in *.
+           intros parent child1 child2 HInParent HInChild1 HInChild2 HDifChildren.
+	         unfold Lib.disjoint. intros x HInX. unfold getUsedPaddr. unfold getConfigPaddr.
+	         unfold getMappedPaddr.
+            admit.
+        -- admit.
+        -- admit.
+        -- admit.
+        -- admit.
+        -- admit.
+      }
+      exact Hgoal.
   + intro a0. eapply weaken. eapply WP.ret.
     intros s HQ. exact HQ.
 Admitted.
@@ -216,44 +215,26 @@ unfold Internal.removeBlockFromPhysicalMPUIfAlreadyMapped.
 eapply bindRev.
 - eapply getKernelStructureEntriesNb.
 - intro kernelentriesnb. eapply bindRev.
-  + eapply weaken. eapply Index.succ. simpl. intros s Hprops. split.
+  + eapply weaken. eapply Invariants.Index.succ. simpl. intros s Hprops. split.
     * eapply Hprops.
-    * intuition. apply beqAddrFalse in H4. contradict H4. rewrite H13. reflexivity.
-      destruct H13 as [entry H13]. intuition. subst kernelentriesnb.
-      (*assert (HBE: isBE blockToEnableAddr s).
-      {
-        unfold isBE. rewrite H7. tauto.
-      }
-      assert(kernelStructureEntriesNb < maxIdx-1) by apply KSEntriesNbLessThanMaxIdx.
-      assert(HwellFormedSh1 : wellFormedFstShadowIfBlockEntry s)
-        by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-      specialize (HwellFormedSh1 blockToEnableAddr HBE).
-      unfold isSHE in *.
-      unfold CPaddr in HwellFormedSh1.
-      unfold sh1offset in *. unfold blkoffset in *.
-      simpl in *. unfold CIndex in *.
-      rewrite maxIdxEqualMaxAddr in *.
-      destruct (Compare_dec.le_dec kernelStructureEntriesNb maxIdx); simpl; try lia.*)
-      admit.
-(*unfold indexSuccM. destruct (Compare_dec.le_dec (kernelentriesnb + 1) maxIdx) eqn: HeqSucca.
-    {
-      eapply weaken. eapply WP.ret.
-      intros. unfold MALInternal.indexSuccM_obligation_1. intuition.
-      * apply beqAddrFalse in H4. contradict H4. rewrite H13. reflexivity.
-      * destruct H13 as [entry H13]. intuition. Search (maxIdx). admit.
-    }
-    {
-      eapply weaken. eapply undefined.
-      simpl. intros. destruct H as [H1 Heqa]. subst kernelentriesnb. intuition.
-      * apply beqAddrFalse in H3. contradict H3. rewrite H12. reflexivity.
-      * destruct H12 as [entry H12]. intuition. admit.
-    }*)
+    * assert (HleqIdx: CIndex (kernelentriesnb + 1) <= maxIdx) by apply IdxLtMaxIdx.
+      unfold CIndex in HleqIdx.
+      destruct (Compare_dec.le_dec (kernelentriesnb + 1) maxIdx).
+      -- exact l.
+      -- destruct Hprops as [Hprops Hkern]. subst kernelentriesnb.
+         unfold CIndex in *.
+         assert(kernelStructureEntriesNb < maxIdx-1) by apply KSEntriesNbLessThanMaxIdx.
+         destruct (Compare_dec.le_dec kernelStructureEntriesNb maxIdx) ; simpl in * ; try lia.
+         assert (HBigEnough: maxIdx > kernelStructureEntriesNb) by apply maxIdxBiggerThanNbOfKernels.
+         Search (?a > ?b). apply Gt.gt_le_S. apply HBigEnough.
   + intro defaultidx. eapply bindRev.
     { (** MAL.findBlockIdxInPhysicalMPU **)
-      eapply findBlockIdxInPhysicalMPU. (*TODO: create a lemma*)
+      eapply findBlockIdxInPhysicalMPU.
     }
     {
       intro oldMPURegionNb. destruct (indexEq oldMPURegionNb defaultidx) eqn: HindexEq.
+      -- (** case HindexEq : indexEq a1 a0 = false **)
+         eapply weaken. eapply WP.ret. intros. simpl. exact H.
       -- (** case HindexEq : indexEq a1 a0 = true **)
          eapply bindRev.
         ++ (** enableBlockInMPU **)
@@ -261,8 +242,6 @@ eapply bindRev.
            simpl. intros s Hprops. exact Hprops.
         ++ intro a2. eapply weaken. eapply WP.ret.
            intros. simpl. exact H.
-      -- (** case HindexEq : indexEq a1 a0 = false **)
-         eapply weaken. eapply WP.ret. intros. simpl. exact H.
     }
-Admitted.
+Qed.
 
