@@ -1221,10 +1221,10 @@ Definition removeBlockFromPhysicalMPUIfAlreadyMapped (idPD : paddr)
 																											blockentryaddr
 																											defaultidx in
 	if beqIdx oldMPURegionNb defaultidx
-	then (* block was already mapped, remove it*)
+	then ret tt
+	else (* block was already mapped, remove it*)
 		enableBlockInMPU idPD nullAddr oldMPURegionNb ;;
-		ret tt
-	else ret tt.
+		ret tt.
 
 (** The [getGlobalIdPDCurrentOrChild] function returns the <idPDToCheck>'s global id.
 
