@@ -72,7 +72,15 @@
             "affiliation": [
                 {
                     "@type": "Organization",
+                    "name": "Université de Lille"
+                },
+                {
+                    "@type": "Organization",
                     "name": "CRIStAL"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "2XS"
                 }
             ]
         },
@@ -83,7 +91,15 @@
             "affiliation": [
                 {
                     "@type": "Organization",
+                    "name": "Université de Lille"
+                },
+                {
+                    "@type": "Organization",
                     "name": "CRIStAL"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "2XS"
                 }
             ]
         },
@@ -94,7 +110,15 @@
             "affiliation": [
                 {
                     "@type": "Organization",
+                    "name": "Université de Lille"
+                },
+                {
+                    "@type": "Organization",
                     "name": "CRIStAL"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "2XS"
                 }
             ]
         },
@@ -105,7 +129,15 @@
             "affiliation": [
                 {
                     "@type": "Organization",
+                    "name": "Orange Labs Caen"
+                },
+                {
+                    "@type": "Organization",
                     "name": "CRIStAL"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "2XS"
                 }
             ]
         },
@@ -116,7 +148,15 @@
             "affiliation": [
                 {
                     "@type": "Organization",
+                    "name": "Université de Lille"
+                },
+                {
+                    "@type": "Organization",
                     "name": "CRIStAL"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "2XS"
                 }
             ]
         },
@@ -127,7 +167,15 @@
             "affiliation": [
                 {
                     "@type": "Organization",
+                    "name": "Université de Lille"
+                },
+                {
+                    "@type": "Organization",
                     "name": "CRIStAL"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "2XS"
                 }
             ]
         },
@@ -138,7 +186,15 @@
             "affiliation": [
                 {
                     "@type": "Organization",
+                    "name": "CNRS"
+                },
+                {
+                    "@type": "Organization",
                     "name": "CRIStAL"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "2XS"
                 }
             ]
         },
@@ -149,7 +205,15 @@
             "affiliation": [
                 {
                     "@type": "Organization",
+                    "name": "Université de Lille"
+                },
+                {
+                    "@type": "Organization",
                     "name": "CRIStAL"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "2XS"
                 }
             ]
         },
@@ -160,7 +224,15 @@
             "affiliation": [
                 {
                     "@type": "Organization",
+                    "name": "Université de Lille"
+                },
+                {
+                    "@type": "Organization",
                     "name": "CRIStAL"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "2XS"
                 }
             ]
         },
@@ -171,7 +243,15 @@
             "affiliation": [
                 {
                     "@type": "Organization",
+                    "name": "CNRS"
+                },
+                {
+                    "@type": "Organization",
                     "name": "CRIStAL"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "2XS"
                 }
             ]
         },
@@ -182,7 +262,15 @@
             "affiliation": [
                 {
                     "@type": "Organization",
+                    "name": "Université de Lille"
+                },
+                {
+                    "@type": "Organization",
                     "name": "CRIStAL"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "2XS"
                 }
             ]
         },
@@ -193,7 +281,15 @@
             "affiliation": [
                 {
                     "@type": "Organization",
+                    "name": "Université de Lille"
+                },
+                {
+                    "@type": "Organization",
                     "name": "CRIStAL"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "2XS"
                 }
             ]
         },
@@ -204,7 +300,15 @@
             "affiliation": [
                 {
                     "@type": "Organization",
+                    "name": "Université de Lille"
+                },
+                {
+                    "@type": "Organization",
                     "name": "CRIStAL"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "2XS"
                 }
             ]
         },
@@ -215,7 +319,15 @@
             "affiliation": [
                 {
                     "@type": "Organization",
+                    "name": "Université de Lille"
+                },
+                {
+                    "@type": "Organization",
                     "name": "CRIStAL"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "2XS"
                 }
             ]
         }
