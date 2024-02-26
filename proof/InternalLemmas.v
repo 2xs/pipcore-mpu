@@ -8319,6 +8319,44 @@ rewrite HPDTs in *.
 destruct (Index.ltb i zero) ; try (cbn in * ; congruence).
 Qed.
 
+(* DUP of newFirstPDNotEq *)
+Lemma firstBlockPDNotEq firstFreeAddr pdinsertion x s :
+lookup pdinsertion (memory s) beqAddr = Some (PDT x) ->
+pdentryFirstFreeSlot pdinsertion firstFreeAddr s ->
+(exists firstfreepointer, pdentryFirstFreeSlot pdinsertion firstfreepointer s /\
+		firstfreepointer <> nullAddr) ->
+consistency s ->
+firstFreeAddr <> pdinsertion.
+Proof.
+intros HPDTs Hfirstfree HfirstNotNull Hcons.
+intro HnewFirstPDEq. (* pdinsertion would be in the free slots list so it would loop -> contradiction *)
+assert(HfirstIsBE : FirstFreeSlotPointerIsBEAndFreeSlot s)
+							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
+specialize(HfirstIsBE pdinsertion x HPDTs).
+destruct HfirstNotNull. unfold pdentryFirstFreeSlot in *.
+rewrite HPDTs in *. intuition. subst x0. subst firstFreeAddr.
+specialize(HfirstIsBE H1). destruct (HfirstIsBE) as [_ HfreeNewFirst].
+assert(HNoDupInFreeSlotsList : NoDupInFreeSlotsList s)
+	by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+unfold NoDupInFreeSlotsList in *.
+specialize(HNoDupInFreeSlotsList pdinsertion x HPDTs).
+destruct HNoDupInFreeSlotsList.
+unfold getFreeSlotsList in *. rewrite HPDTs in *.
+destruct (beqAddr (firstfreeslot x) nullAddr) eqn:Hf.
+rewrite <- DependentTypeLemmas.beqAddrTrue in Hf. congruence.
+assert(Hfreeslots : x0 = getFreeSlotsListRec (maxIdx + 1) (firstfreeslot x) s (nbfreeslots x)) by intuition.
+rewrite FreeSlotsListRec_unroll in Hfreeslots.
+unfold getFreeSlotsListAux in *.
+assert(Hiter1 : maxIdx +1 = S maxIdx). apply PeanoNat.Nat.add_1_r.
+rewrite Hiter1 in *.
+destruct HfirstIsBE as [HfirstIsBE HfirstIsFreeSlot].
+apply isBELookupEq in HfirstIsBE. destruct HfirstIsBE.
+unfold bentryEndAddr in *.
+rewrite H0 in *.
+destruct (StateLib.Index.ltb (nbfreeslots x) zero) eqn:Hff ; try (subst ; cbn in * ; congruence).
+Qed.
+
 Lemma newFirstSCENotEq scentryaddr scentry newBlockEntryAddr newFirstFreeSlotAddr pdinsertion x s :
 lookup pdinsertion (memory s) beqAddr = Some (PDT x) ->
 lookup scentryaddr (memory s) beqAddr = Some (SCE scentry) ->

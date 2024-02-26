@@ -250,11 +250,12 @@ Definition noDupPartitionTree s :=
 NoDup (getPartitions multiplexer s).
 
 (** **  In a given partition, all blocks configured
-    in the MPU are accessible blocks belonging to that partition. **)
+    in the MPU that are not null are accessible blocks belonging to that partition. **)
 Definition MPUFromAccessibleBlocks s :=
 forall partition block blocksInMPU,
 pdentryMPU partition blocksInMPU s ->
 In block blocksInMPU ->
+block <> nullAddr ->
 In block (getAccessibleMappedBlocks partition s).
 
 (** ** Each block in a child partition has a corresponding block in the parent partition
