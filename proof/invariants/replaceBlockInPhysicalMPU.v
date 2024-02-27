@@ -85,7 +85,8 @@ Lemma replaceBlockInPhysicalMPU (globalIdPD blockToEnableAddr: paddr)
 }}
 MAL.replaceBlockInPhysicalMPU globalIdPD blockToEnableAddr MPURegionNb
 {{ fun (_: unit) (s : state)=>
-  exists s0, P s0 /\ consistency s
+  exists s0, P s0 /\ consistency s0 /\ isPDT globalIdPD s0
+  /\ consistency s
   /\ globalIdPD <> nullAddr
   /\ (exists pdentry : PDTable, exists pdentry1: PDTable,
      (*exists bentry: BlockEntry,*)

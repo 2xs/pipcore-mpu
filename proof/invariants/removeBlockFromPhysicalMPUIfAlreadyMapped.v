@@ -45,23 +45,13 @@ Require Import Lia Classical List.
 
 Module WP := WeakestPreconditions.
 
-Lemma findBlockIdxInPhysicalMPU (kernelentriesnb defaultidx: index)
-    (globalIdPD blockToEnableAddr idBlockToEnable currentPart: paddr) :
+Lemma findBlockIdxInPhysicalMPU (defaultidx: index) (globalIdPD blockToEnableAddr currentPart: paddr) (P: state -> Prop):
 {{ fun s : state =>
-   partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s /\
+   P s /\ consistency s /\
    currentPart = currentPartition s /\ globalIdPD <> nullAddr /\
-   isPDT globalIdPD s /\ beqAddr nullAddr idBlockToEnable = false /\
-   (blockToEnableAddr = nullAddr \/
-     (exists entry : BlockEntry,
-        lookup blockToEnableAddr (memory s) beqAddr = Some (BE entry) /\
-        blockToEnableAddr = idBlockToEnable /\
-        bentryPFlag blockToEnableAddr true s /\
-        List.In blockToEnableAddr (getMappedBlocks globalIdPD s))) /\
-    beqAddr nullAddr blockToEnableAddr = false /\ bentryAFlag blockToEnableAddr true s /\
-    bentryPFlag blockToEnableAddr true s /\ kernelentriesnb = CIndex kernelStructureEntriesNb /\
-    StateLib.Index.succ kernelentriesnb = Some defaultidx }} 
+   isPDT globalIdPD s }}
 MAL.findBlockIdxInPhysicalMPU globalIdPD blockToEnableAddr defaultidx
-{{ fun _ (s: state) => (((partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s)
+{{ fun _ (s: state) => (((P s /\ consistency s)
                          /\ currentPart = currentPartition s)
                         /\ globalIdPD <> nullAddr)
                        /\ isPDT globalIdPD s }}.
@@ -85,7 +75,8 @@ Lemma enableBlockInMPU (globalIdPD blockToEnableAddr: paddr) (MPURegionNb: index
       -> (In blockToEnableAddr (getAccessibleMappedBlocks globalIdPD s))) }}
 Internal.enableBlockInMPU globalIdPD blockToEnableAddr MPURegionNb 
 {{fun (enabled: bool) (s : state) =>
-   exists s0, P s0 /\ consistency s
+   exists s0, P s0 /\ consistency s0 /\ isPDT globalIdPD s0
+    /\ consistency s
     /\ globalIdPD <> nullAddr
     /\ isPDT globalIdPD s0
     /\ isPDT globalIdPD s
@@ -131,7 +122,7 @@ Internal.enableBlockInMPU globalIdPD blockToEnableAddr MPURegionNb
        /\ (forall partition : paddr,
 			       isPDT partition s = isPDT partition s0
 		       )
-       /\ is_true enabled -> (exists pdentry1: PDTable,
+       /\ (is_true enabled -> (exists pdentry1: PDTable,
           s = {|
           currentPartition := currentPartition s0;
           memory := add globalIdPD
@@ -154,8 +145,8 @@ Internal.enableBlockInMPU globalIdPD blockToEnableAddr MPURegionNb
 								             vidtAddr := vidtAddr pdentry |}
           (* propagate new properties *)
           /\ pdentryNbFreeSlots globalIdPD (nbfreeslots pdentry) s
-       )
-       /\ ~ is_true enabled -> s = s0
+       ))
+       /\ (~ is_true enabled -> s = s0)
     )
 }}.
 Proof.
@@ -175,7 +166,8 @@ unfold enableBlockInMPU. eapply bindRev.
            intros s HQ. simpl. exists s. intuition.
            assert(Hlookups: exists entry:PDTable, lookup globalIdPD (memory s) beqAddr = Some (PDT entry))
                 by (apply isPDTLookupEq; assumption).
-           destruct Hlookups as [pdentry Hlookups]. exists pdentry. intuition.
+           destruct Hlookups as [pdentry Hlookups]. exists pdentry.
+           unfold consistency in *; unfold consistency1 in *; intuition.
          }
          { (** case (isBelowZero || isAboveMPURegionsNb) = false **)
            eapply bindRev.
@@ -189,31 +181,45 @@ unfold enableBlockInMPU. eapply bindRev.
                  --- apply eq_sym. eapply H0.
            ++ intro. eapply weaken. eapply WP.ret.
               intros s Hprops. simpl. destruct Hprops as [s0 Hprops]. exists s0. intuition.
-              destruct H5 as [pdentry1 Hprops]. destruct Hprops as [pdentry2 Hprops]. intuition.
-              destruct H5 as [pdentry1 Hprops]. destruct Hprops as [pdentry2 Hprops]. exists pdentry1. intuition.
+              destruct H9 as [pdentry1 Hprops]. destruct Hprops as [pdentry2 Hprops]. intuition.
+              destruct H9 as [pdentry1 Hprops]. destruct Hprops as [pdentry2 Hprops]. exists pdentry1. intuition.
+              ** rewrite H9.
+                 apply getKSEntriesEqPDT with pdentry1; unfold consistency in *; unfold consistency1 in *; intuition.
+              ** exists pdentry2. intuition.
          }
 Qed.
 
 (* Comes from Internal -> TODO put in InternalLemmas? *)
-Lemma removeBlockFromPhysicalMPUIfAlreadyMapped (globalIdPD blockToEnableAddr idBlockToEnable currentPart: paddr) :
+Lemma removeBlockFromPhysicalMPUIfAlreadyMapped (globalIdPD blockToEnableAddr currentPart: paddr)
+                                                (P: state -> Prop) :
 {{fun s =>
-  partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s
+  P s /\ consistency s
   /\ currentPart = currentPartition s
-  /\ consistency s /\ globalIdPD <> nullAddr
-  /\ isPDT globalIdPD s /\ beqAddr nullAddr idBlockToEnable = false
-  /\ (blockToEnableAddr = nullAddr \/
-       (exists entry : BlockEntry,
-          lookup blockToEnableAddr (memory s) beqAddr = Some (BE entry)
-         /\ blockToEnableAddr = idBlockToEnable
-         /\ bentryPFlag blockToEnableAddr true s
-         /\ List.In blockToEnableAddr (getMappedBlocks globalIdPD s)))
-  /\ beqAddr nullAddr blockToEnableAddr = false
-  /\ bentryAFlag blockToEnableAddr true s
-  /\ bentryPFlag blockToEnableAddr true s}}
+  /\ globalIdPD <> nullAddr
+  /\ isPDT globalIdPD s}}
 Internal.removeBlockFromPhysicalMPUIfAlreadyMapped globalIdPD blockToEnableAddr
 {{fun _ s  => 
-  partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s
-   /\ globalIdPD <> nullAddr
+  exists s0, P s0 /\ consistency s0 /\ isPDT globalIdPD s0
+      /\ (exists pdentry : PDTable,
+        (lookup globalIdPD (memory s0) beqAddr = Some (PDT pdentry)
+        /\ (s = s0
+            \/ exists MPURegionNb,
+               (*MPURegionNb =
+                indexOf blockToEnableAddr (CIndex 0) (MPU pdentry) beqAddr (S (CIndex kernelStructureEntriesNb))
+               /\*) s = {|
+                  currentPartition := currentPartition s0;
+                  memory := add globalIdPD
+                          (PDT
+                           {|
+                           structure := structure pdentry;
+                           firstfreeslot := firstfreeslot pdentry;
+                           nbfreeslots := nbfreeslots pdentry;
+                           nbprepare := nbprepare pdentry;
+                           parent := parent pdentry;
+                           MPU := addElementAt MPURegionNb nullAddr (MPU pdentry) nullAddr;
+					                     vidtAddr := vidtAddr pdentry |}) (memory s0) beqAddr |})))
+  /\ consistency s
+  /\ globalIdPD <> nullAddr
   /\ isPDT globalIdPD s}}.
 Proof.
 unfold Internal.removeBlockFromPhysicalMPUIfAlreadyMapped.
@@ -234,30 +240,34 @@ eapply bindRev.
          apply Gt.gt_le_S. apply HBigEnough.
   + intro defaultidx. eapply bindRev.
     { (** MAL.findBlockIdxInPhysicalMPU **)
-      eapply weaken. eapply findBlockIdxInPhysicalMPU. intros s Hprops. simpl. intuition.
-      * eapply H5.
-      * eapply H9.
-      * subst kernelentriesnb. assumption.
-      * assumption.
-      * assumption.
-      * right. destruct H13 as [entry Hprops]. exists entry. intuition.
-      * subst kernelentriesnb. assumption.
+      eapply weaken. apply findBlockIdxInPhysicalMPU. intros s Hprops. simpl.
+      split. eapply Hprops. intuition.
+      * eapply H3.
     }
     {
       intro oldMPURegionNb. destruct (indexEq oldMPURegionNb defaultidx) eqn: HindexEq.
-      -- (** case HindexEq : indexEq a1 a0 = false **)
-         eapply weaken. eapply WP.ret. intros. simpl. intuition.
-      -- (** case HindexEq : indexEq a1 a0 = true **)
+      -- (** case HindexEq : indexEq oldMPURegionNb defaultidx = true **)
+         eapply weaken. eapply WP.ret. intros. simpl. exists s. intuition. apply isPDTLookupEq in H10.
+         destruct H10 as [entry Hlookup]. exists entry. intuition.
+      -- (** case HindexEq : indexEq oldMPURegionNb defaultidx = false **)
          eapply bindRev.
         ++ (** enableBlockInMPU **)
-           eapply weaken. eapply enableBlockInMPU.
-           simpl. intros s Hprops. split. eapply Hprops. intuition.
-        ++ intro a2. eapply weaken. eapply WP.ret.
-           intros. simpl. destruct H as [s0 Hprops]. intuition.
-           ** (* partitionsIsolation s *)
-           ** (* kernelDataIsolation s *)
-           ** (* verticalSharing s *)
-           ** (* isPDT globalIdPD s *)
+           set(block:= nullAddr).
+           assert(Hweak: forall s : state,
+               (((P s /\ consistency s) /\ currentPart = currentPartition s) /\ globalIdPD <> nullAddr)
+                  /\ isPDT globalIdPD s
+             -> P s /\ consistency s /\ globalIdPD <> nullAddr /\ isPDT globalIdPD s
+                /\ (block <> nullAddr -> (In block (getAccessibleMappedBlocks globalIdPD s)))).
+           { intros s Hprops. intuition. }
+           apply weaken with (Q:= fun s:state => P s /\ consistency s /\ globalIdPD <> nullAddr /\ isPDT globalIdPD s
+                /\ (block <> nullAddr -> (In block (getAccessibleMappedBlocks globalIdPD s)))).
+           apply enableBlockInMPU. intros s Hprops. intuition.
+        ++ intro is_mapped. eapply weaken. eapply WP.ret.
+           intros s Hprops. simpl. destruct Hprops as [s0 Hprops]. exists s0. intuition. destruct H7 as [entry Hprops].
+           exists entry. intuition. destruct is_mapped eqn:Hmapped.
+           ** right. exists oldMPURegionNb. assert(Htrue: is_true true) by intuition. apply H11 in Htrue.
+              destruct Htrue as [pdentry1 Hprops]. intuition.
+           ** left. assert(Htrue: is_true false -> False) by intuition. apply H14 in Htrue. assumption.
     }
-Admitted.
+Qed.
 
