@@ -36,7 +36,7 @@ Require Import Model.ADT Model.Monad Model.MALInternal Model.Lib.
 Require Import Core.Internal.
 Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.StateLib Proof.WeakestPreconditions.
 Require Import Proof.InternalLemmas Proof.DependentTypeLemmas.
-Require Import Invariants MapMPUSecProps.
+Require Import Invariants.
 
 Require Import Lia Classical List.
 

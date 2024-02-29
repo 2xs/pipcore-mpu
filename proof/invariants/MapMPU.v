@@ -39,6 +39,7 @@ Require Import Model.ADT Core.Services.
 Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPreconditions
 Proof.StateLib Proof.DependentTypeLemmas Proof.InternalLemmas.
 Require Import Invariants getGlobalIdPDCurrentOrChild findBlockInKS removeBlockFromPhysicalMPUIfAlreadyMapped.
+Require Import MapMPUSecProps.
 Require Import Compare_dec Bool FunctionalExtensionality List.
 
 Require Import Model.Monad Model.MALInternal Model.Lib (* for visibility *).
@@ -109,7 +110,21 @@ case_eq addrIsNull.
          /\ (blockToEnableAddr <> nullAddr
             -> (In blockToEnableAddr (getAccessibleMappedBlocks globalIdPD s)))).
 		eapply strengthen. apply enableBlockInMPU.
-    * simpl. intros s is_mapped. intro Hprops. destruct Hprops as [s0 Hprops]. admit.
+    * simpl. intros s is_mapped. intro Hprops. destruct Hprops as [s0 Hprops]. clear Hweak. subst Psep.
+      simpl in Hprops.
+      destruct Hprops as [HsecProps (Hconsts0 & (HPDTs0 & (Hconsts & (HGlobNotNull & (HPDTs0Bis & (HPDTs
+                        & Hprops))))))].
+      destruct Hprops as [entry0 Hprops].
+      intuition.
+      -- (* partitionsIsolation s *)
+         apply MapMPUHI with globalIdPD blockToEnableAddr MPURegionNb is_mapped s0 s0 entry0 entry0.
+         unfold MapMPUPropagatedProperties; intuition.
+      -- (* kernelDataIsolation s *)
+         apply MapMPUKI with globalIdPD blockToEnableAddr MPURegionNb is_mapped s0 s0 entry0 entry0.
+         unfold MapMPUPropagatedProperties; intuition.
+      -- (* verticalSharing s *)
+         apply MapMPUVS with globalIdPD blockToEnableAddr MPURegionNb is_mapped s0 s0 entry0 entry0.
+         unfold MapMPUPropagatedProperties; intuition.
     * simpl. intros s Hprops. subst Psep. intuition.
 	+ (* case_eq blockIsNull = false *)
 		intros.
@@ -197,7 +212,8 @@ case_eq addrIsNull.
              beqAddr nullAddr blockToEnableAddr = false) /\
              bentryAFlag blockToEnableAddr addrIsAccessible s) /\
              bentryPFlag blockToEnableAddr addrIsPresent s
-        -> P s /\ consistency s /\ currentPart = currentPartition s /\ globalIdPD <> nullAddr /\ isPDT globalIdPD s).
+        -> P s /\ consistency s /\ currentPart = currentPartition s /\ globalIdPD <> nullAddr
+                /\ isPDT globalIdPD s).
       {
         intros s Hprops. subst P. simpl.
         rewrite negb_false_iff in H2; subst addrIsAccessible; rewrite negb_false_iff in H3;
@@ -275,21 +291,24 @@ case_eq addrIsNull.
                            |})))
                   /\ consistency s /\ globalIdPD <> nullAddr /\ isPDT globalIdPD s)
               -> Psep s /\ consistency s /\ globalIdPD <> nullAddr /\ isPDT globalIdPD s
-                /\ (blockToEnableAddr <> nullAddr -> In blockToEnableAddr (getAccessibleMappedBlocks globalIdPD s))).
+                /\ (blockToEnableAddr <> nullAddr
+                      -> In blockToEnableAddr (getAccessibleMappedBlocks globalIdPD s))).
       {
         intros s Hprops. subst Psep. simpl.
         destruct Hprops as [s0 Hprops]. split.
         * exists s0. intuition. right. destruct H17 as [bentry Hprops]. exists bentry. intuition.
         * intuition.
           unfold getAccessibleMappedBlocks. apply isPDTLookupEq in H16. destruct H16 as [entry Hlookups].
-          rewrite Hlookups. destruct H17 as [bentry (HlookupBentry & (HblockEq & (HisPresent & HinMappedBlocks)))].
+          rewrite Hlookups.
+          destruct H17 as [bentry (HlookupBentry & (HblockEq & (HisPresent & HinMappedBlocks)))].
           destruct H9 as [pdentry (Hlookups0 & Hprops)].
           assert(HmappedBlocksEq: getMappedBlocks globalIdPD s = getMappedBlocks globalIdPD s0).
           {
             destruct Hprops as [Hunchanged | HnewState].
             -- rewrite Hunchanged. reflexivity.
             -- destruct HnewState as [MPURegionNb0 Hs]. rewrite Hs.
-               unfold consistency in *; unfold consistency1 in *; apply getMappedBlocksEqPDT with pdentry; intuition.
+               unfold consistency in *; unfold consistency1 in *; apply getMappedBlocksEqPDT with pdentry
+               ; intuition.
           }
           rewrite HmappedBlocksEq in *.
           assert(HfilterEq: filterAccessible (getMappedBlocks globalIdPD s0) s
@@ -316,10 +335,29 @@ case_eq addrIsNull.
                                       /\ (blockToEnableAddr <> nullAddr
                                           -> In blockToEnableAddr (getAccessibleMappedBlocks globalIdPD s))).
       eapply strengthen. apply enableBlockInMPU.
-      * intros s is_mapped. simpl. intro Hprops. destruct Hprops as [s0 Hprops]. intuition.
-        -- (* partitionsIsolation s *) admit.
-        -- (* kernelDataIsolation s *) admit.
-        -- (* verticalSharing s *) admit.
+      * intros s is_mapped. simpl. intro Hprops. destruct Hprops as [s1 Hprops]. clear Hweak.
+        destruct Hprops as [Hlinks0s1 Hprops]. subst Psep. simpl in Hlinks0s1.
+        destruct Hlinks0s1 as [s0 Hlinks0s1].
+        destruct Hlinks0s1 as [HPIs0 (HKIs0 & (HVSs0 & (Hconsts0 & (HidBlockNotNull & (Hbentry & (HblockNotNull
+                                & Hlinks0s1))))))].
+        rewrite <-beqAddrFalse in *. destruct Hbentry as [Hcontra | Hbentry]; try(congruence).
+        destruct Hbentry as [bentry0 Hbentry].
+        destruct Hlinks0s1 as [entry0 Hlinks0s1].
+        destruct Hprops as [Hconsts1 (HPDTs1 & (Hconsts & (HGlobNotNull & (HPDTs1Bis & (HPDTs & Hprops)))))].
+        destruct Hprops as [entry1 Hprops].
+        assert(isPDT globalIdPD s0).
+        { unfold isPDT. destruct Hlinks0s1 as [Hlookups0 Hlinks0s1]. rewrite Hlookups0. trivial. }
+        split; try(split; try(split)).
+        -- (* partitionsIsolation s *)
+           apply MapMPUHI with globalIdPD blockToEnableAddr MPURegionNb is_mapped s0 s1 entry0 entry1.
+           unfold MapMPUPropagatedProperties; intuition.
+        -- (* kernelDataIsolation s *)
+           apply MapMPUKI with globalIdPD blockToEnableAddr MPURegionNb is_mapped s0 s1 entry0 entry1.
+           unfold MapMPUPropagatedProperties; intuition.
+        -- (* verticalSharing s *)
+           apply MapMPUVS with globalIdPD blockToEnableAddr MPURegionNb is_mapped s0 s1 entry0 entry1.
+           unfold MapMPUPropagatedProperties; intuition.
+        -- intuition.
       * intro s. simpl. intro Hprops. apply Hweak. apply Hprops.
     }
-Admitted.
+Qed.
