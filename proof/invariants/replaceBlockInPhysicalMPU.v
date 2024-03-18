@@ -2064,7 +2064,8 @@ eapply bindRev.
 		             rewrite <- beqAddrFalse in Hpd1Null.
 		             unfold isKS in *. rewrite H20 in *.
 		             rewrite Hlookups0 in *. intuition.
-              -- subst optionentrieslist2. apply eq_sym. rewrite <-HsEq. apply getKSEntriesEqPDT with pdentry; intuition.
+              -- subst optionentrieslist2. apply eq_sym. rewrite <-HsEq.
+                 apply getKSEntriesEqPDT with pdentry; intuition.
         (* END DisjointKSEntries *)
       }
 
@@ -2983,6 +2984,123 @@ eapply bindRev.
 						destruct v ; try(exfalso ; congruence).
 						subst sh1entryaddr. assumption.
         (* END sharedBlockPointsToChild *)
+      }
+
+      assert(HNbFreeSlotsISNbFreeSlotsInList: NbFreeSlotsISNbFreeSlotsInList s).
+      { (* BEGIN NbFreeSlotsISNbFreeSlotsInList s *)
+        assert(Hcons0: NbFreeSlotsISNbFreeSlotsInList s0)
+                by (unfold consistency in *; unfold consistency1 in *; intuition).
+        unfold NbFreeSlotsISNbFreeSlotsInList in *. intros pd nbfreeslots HisPDTPd HnbFreeSlots.
+        destruct (beqAddr globalIdPD pd) eqn:HbeqGlobPd.
+        - (* globalIdPD = pd *)
+          rewrite <-beqAddrTrue in HbeqGlobPd. rewrite <-HbeqGlobPd in *.
+          assert(HnbFreeSlotsEq: pdentryNbFreeSlots globalIdPD nbfreeslots s
+                                = pdentryNbFreeSlots globalIdPD nbfreeslots s0).
+          {
+            unfold pdentryNbFreeSlots. rewrite <-HsEq. simpl. rewrite InternalLemmas.beqAddrTrue.
+            rewrite Hlookups0. simpl. f_equal.
+          }
+          rewrite HnbFreeSlotsEq in HnbFreeSlots.
+          specialize(Hcons0 globalIdPD nbfreeslots H0 HnbFreeSlots). destruct Hcons0 as [optionfreeslotslist Hcons0].
+          exists optionfreeslotslist. intuition. subst optionfreeslotslist. rewrite <-HsEq. apply eq_sym.
+          unfold getFreeSlotsList. simpl. rewrite InternalLemmas.beqAddrTrue. simpl. rewrite Hlookups0.
+          destruct (beqAddr (firstfreeslot pdentry) nullAddr); try(reflexivity).
+          apply getFreeSlotsListRecEqPDT.
+          + intro HfirstFreeIsGlob.
+            assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
+			              by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+            unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
+            specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 globalIdPD pdentry Hlookups0).
+            destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
+            * intro HfirstfreeNull.
+              assert(HnullAddrExistss0 : nullAddrExists s0)
+                      by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+              unfold nullAddrExists in *. unfold isPADDR in *.
+              rewrite HfirstfreeNull in *. destruct (lookup nullAddr (memory s0) beqAddr); try(exfalso ; congruence).
+            * rewrite HfirstFreeIsGlob in *. unfold isBE in *.
+              destruct (lookup globalIdPD (memory s0) beqAddr) ; try (exfalso ; congruence).
+              destruct v ; try(exfalso ; congruence).
+          + unfold isBE. rewrite Hlookups0. intuition.
+          + unfold isPADDR. rewrite Hlookups0. intuition.
+        - (* globalIdPD <> pd *)
+          assert(HisPDTEq: isPDT pd s = isPDT pd s0).
+          {
+            rewrite <-HsEq. unfold isPDT. simpl. rewrite HbeqGlobPd. rewrite <-beqAddrFalse in HbeqGlobPd.
+            rewrite removeDupIdentity; intuition.
+          }
+          rewrite HisPDTEq in HisPDTPd.
+          assert(HnbFreeSlotsEq: pdentryNbFreeSlots pd nbfreeslots s
+                                = pdentryNbFreeSlots pd nbfreeslots s0).
+          {
+            unfold pdentryNbFreeSlots. rewrite <-HsEq. simpl. rewrite HbeqGlobPd.
+            rewrite <-beqAddrFalse in HbeqGlobPd. rewrite removeDupIdentity; intuition.
+          }
+          rewrite HnbFreeSlotsEq in HnbFreeSlots. specialize(Hcons0 pd nbfreeslots HisPDTPd HnbFreeSlots).
+          destruct Hcons0 as [optionfreeslotslist Hcons0]. exists optionfreeslotslist. intuition.
+          subst optionfreeslotslist. rewrite <-HsEq. apply eq_sym. unfold getFreeSlotsList. simpl.
+          rewrite HbeqGlobPd. simpl. rewrite <-beqAddrFalse in HbeqGlobPd.
+          rewrite removeDupIdentity; intuition. assert(isPDT pd s0) by intuition. unfold isPDT in HisPDTPd.
+          destruct (lookup pd (memory s0) beqAddr) eqn:HlookupPd; try(exfalso; congruence).
+          destruct v; try(exfalso; congruence).
+          destruct (beqAddr (firstfreeslot p) nullAddr) eqn:HfirstIsNull; try(reflexivity).
+          apply getFreeSlotsListRecEqPDT.
+          + intro HfirstFreeIsGlob.
+            assert(HFirstFreeSlotPointerIsBEAndFreeSlots0 : FirstFreeSlotPointerIsBEAndFreeSlot s0)
+			              by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+            unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
+            specialize (HFirstFreeSlotPointerIsBEAndFreeSlots0 pd p HlookupPd).
+            destruct HFirstFreeSlotPointerIsBEAndFreeSlots0.
+            * intro HfirstfreeNull.
+              assert(HnullAddrExistss0 : nullAddrExists s0)
+                      by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+              unfold nullAddrExists in *. unfold isPADDR in *.
+              rewrite HfirstfreeNull in *. destruct (lookup nullAddr (memory s0) beqAddr); try(exfalso; congruence).
+            * rewrite HfirstFreeIsGlob in *. unfold isBE in *.
+              destruct (lookup globalIdPD (memory s0) beqAddr); try (exfalso ; congruence).
+              destruct v; try(exfalso ; congruence).
+          + unfold isBE. rewrite Hlookups0. intuition.
+          + unfold isPADDR. rewrite Hlookups0. intuition.
+        (* END NbFreeSlotsISNbFreeSlotsInList *)
+      }
+
+      assert(HparentOfPartitionIsPartition: parentOfPartitionIsPartition s).
+      { (* BEGIN parentOfPartitionIsPartition s *)
+        assert(Hcons0: parentOfPartitionIsPartition s0)
+                by (unfold consistency in *; unfold consistency1 in *; intuition).
+        unfold parentOfPartitionIsPartition in *. intros partition entry Hlookup HpartitionNotRoot.
+        destruct (beqAddr globalIdPD partition) eqn:HbeqGlobPart.
+        - (* globalIdPD = partition *)
+          rewrite <-beqAddrTrue in HbeqGlobPart. rewrite HbeqGlobPart in *.
+          destruct (beqAddr partition (parent entry)) eqn:HbeqPartParent.
+          + (* partition = parent entry *)
+            rewrite <-beqAddrTrue in HbeqPartParent. rewrite <-HbeqPartParent in *.
+            exists newpdentry. rewrite Hlookups. reflexivity.
+          + (* partition <> parent entry *)
+            specialize(Hcons0 partition pdentry Hlookups0 HpartitionNotRoot).
+            destruct Hcons0 as [parentEntry HlookupParent].
+            exists parentEntry. rewrite <-HlookupParent.
+            rewrite <-HsEq. simpl. rewrite HbeqPartParent.
+            rewrite <-beqAddrFalse in HbeqPartParent.
+            rewrite removeDupIdentity; intuition.
+            rewrite Hlookups in *. injection Hlookup. intro HentryEq. rewrite <-HentryEq.
+            rewrite HnewPd. simpl. reflexivity.
+        - (* globalIdPD <> partition *)
+          assert(HlookupEq: lookup partition (memory s) beqAddr = lookup partition (memory s0) beqAddr).
+          {
+            rewrite <-HsEq. simpl. rewrite HbeqGlobPart.
+            rewrite <-beqAddrFalse in HbeqGlobPart. rewrite removeDupIdentity; intuition.
+          }
+          rewrite HlookupEq in Hlookup.
+          destruct (beqAddr globalIdPD (parent entry)) eqn:HbeqGlobParent.
+          + (* partition = parent entry *)
+            rewrite <-beqAddrTrue in HbeqGlobParent. rewrite <-HbeqGlobParent in *.
+            exists newpdentry. assumption.
+          + (* partition <> parent entry *)
+            specialize(Hcons0 partition entry Hlookup HpartitionNotRoot).
+            destruct Hcons0 as [parentEntry HlookupParent]. exists parentEntry.
+            rewrite <-HsEq. simpl. rewrite HbeqGlobParent.
+            rewrite <-beqAddrFalse in HbeqGlobParent. rewrite removeDupIdentity; intuition.
+        (* END parentOfPartitionIsPartition *)
       }
 
       intuition.

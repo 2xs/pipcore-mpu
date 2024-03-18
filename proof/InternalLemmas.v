@@ -126,6 +126,64 @@ induction (getMappedBlocks partition s).
 			destruct v ; intuition.
 Qed.
 
+Lemma firstFreeSlotPointerIsFirstFree (pd:paddr) (s:state) (pdentry:PDTable) (slotListPd:list optionPaddr)
+                                      (nbfreeslots:index):
+slotListPd = getFreeSlotsList pd s
+/\ lookup pd (memory s) beqAddr = Some (PDT pdentry)
+/\ firstfreeslot pdentry <> nullAddr
+/\ length (getFreeSlotsList pd s) = nbfreeslots
+/\ pdentryNbFreeSlots pd nbfreeslots s
+/\ consistency1 s
+-> exists remainsSlotsList b newNbFree,
+    getFreeSlotsList pd s = SomePaddr (firstfreeslot pdentry)::remainsSlotsList
+    /\ lookup (firstfreeslot pdentry) (memory s) beqAddr = Some (BE b)
+    /\ StateLib.Index.pred (ADT.nbfreeslots pdentry) = Some newNbFree
+    /\ remainsSlotsList = getFreeSlotsListRec maxIdx (endAddr (blockrange b)) s newNbFree.
+Proof.
+intro Hprops.
+destruct Hprops as [HgetFreeSlotsList (HlookupPd & (HfirstFreeNotNull & (HnbfreeIsLength & 
+(HnbfreeIsNbFreeSlots & Hconsistency))))].
+assert(Hsucc: maxIdx + 1 = S maxIdx) by lia.
+destruct (getFreeSlotsList pd s) as [ | firstSlotPd slotList] eqn:HfreeSlotsListsPd;
+  unfold getFreeSlotsList in HfreeSlotsListsPd; rewrite HlookupPd in HfreeSlotsListsPd;
+  rewrite beqAddrFalse in HfirstFreeNotNull; rewrite HfirstFreeNotNull in HfreeSlotsListsPd;
+  rewrite FreeSlotsListRec_unroll in HfreeSlotsListsPd; unfold getFreeSlotsListAux in HfreeSlotsListsPd;
+  rewrite Hsucc in HfreeSlotsListsPd.
+{
+  destruct (StateLib.Index.ltb (ADT.nbfreeslots pdentry) zero); try(exfalso; congruence).
+  destruct (lookup (firstfreeslot pdentry) (memory s) beqAddr); try(exfalso; congruence).
+  destruct v; try(exfalso; congruence).
+  - destruct (StateLib.Index.pred (ADT.nbfreeslots pdentry)); try(exfalso; congruence).
+  - rewrite HfirstFreeNotNull in HfreeSlotsListsPd. congruence.
+}
+assert(HnbfreeIsPos: StateLib.Index.ltb (ADT.nbfreeslots pdentry) zero = false).
+{
+  unfold StateLib.Index.ltb. rewrite PeanoNat.Nat.ltb_nlt. unfold zero. intro Hcontra.
+  apply indexLtZero with (ADT.nbfreeslots pdentry). assumption.
+}
+rewrite HnbfreeIsPos in HfreeSlotsListsPd.
+assert(HfirstFreeBE: FirstFreeSlotPointerIsBEAndFreeSlot s) by (unfold consistency1 in *; intuition).
+rewrite <-beqAddrFalse in HfirstFreeNotNull.
+specialize(HfirstFreeBE pd pdentry HlookupPd HfirstFreeNotNull).
+destruct HfirstFreeBE as [HfirstPisBE HfirstPisFree]. unfold isBE in HfirstPisBE.
+destruct (lookup (firstfreeslot pdentry) (memory s) beqAddr) eqn:HlookupFirstFreeP; try(exfalso; congruence).
+destruct v; try(exfalso; congruence). unfold pdentryNbFreeSlots in HnbfreeIsNbFreeSlots.
+rewrite HlookupPd in HnbfreeIsNbFreeSlots. rewrite HnbfreeIsNbFreeSlots in *. simpl in HnbfreeIsLength.
+assert(Hpred: exists newNbFree, StateLib.Index.pred (ADT.nbfreeslots pdentry) = Some newNbFree).
+{
+  unfold Index.pred in *. destruct (Compare_dec.gt_dec (ADT.nbfreeslots pdentry) 0); try(lia).
+  set(newNbFree := {|
+                     i := ADT.nbfreeslots pdentry - 1;
+                     Hi := StateLib.Index.pred_obligation_1 (ADT.nbfreeslots pdentry) g
+                   |}).
+  exists newNbFree. reflexivity.
+}
+destruct Hpred as [newNbFree Hpred]. rewrite Hpred in *.
+apply eq_sym in HfreeSlotsListsPd.
+set(getFreeRemain:= getFreeSlotsListRec maxIdx (endAddr (blockrange b)) s newNbFree).
+exists getFreeRemain. exists b. exists newNbFree. subst getFreeRemain. intuition.
+Qed.
+
 Lemma addrInAccessibleBlockIsAccessibleMapped partition block addr s:
 In addr (getAllPaddrAux [block] s) ->
 In block (getMappedBlocks partition s) -> (* by block found *)

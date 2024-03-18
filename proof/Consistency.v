@@ -61,7 +61,7 @@ bentryPFlag block true s ->
 bentryStartAddr block startaddr s ->
 bentryEndAddr block endaddr s ->
 (* startaddr inferior to endaddr + size of block greater than minimum MPU size *)
-(startaddr < endaddr) /\ (Constants.minBlockSize < (endaddr - startaddr)).
+(startaddr < endaddr) /\ (Constants.minBlockSize <= (endaddr - startaddr +1)).
 
 (** **  If the PDflag of a Shadow 1 entry is set, then
     the linked block in the Blocks structure hosts a PD structure. **)
@@ -281,6 +281,14 @@ In child (getChildren parent s) ->
 In addr (getAccessibleMappedPaddr child s) ->
 In addr (getAccessibleMappedPaddr parent s).
 
+(** ** The parent of a partition is either null or a partition **)
+Definition parentOfPartitionIsPartition s :=
+forall (partition : paddr), forall (entry : PDTable),
+lookup partition (memory s) beqAddr = Some (PDT entry)
+-> partition <> constantRootPartM
+-> exists childEntry, lookup (parent entry) (memory s) beqAddr = Some (PDT childEntry).
+
+
 (** ** First batch of consistency properties *)
 Definition consistency1 s :=
 nullAddrExists s /\
@@ -308,7 +316,9 @@ isChild s /\
 noDupKSEntriesList s /\
 noDupMappedBlocksList s /\
 wellFormedBlock s /\
-MPUFromAccessibleBlocks s.
+MPUFromAccessibleBlocks s /\
+parentOfPartitionIsPartition s /\
+NbFreeSlotsISNbFreeSlotsInList s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=
