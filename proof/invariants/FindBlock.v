@@ -86,7 +86,7 @@ case_eq addrIsNull.
 	eapply bindRev.
 	{ (** Internal.findBelongingBlock *)
 		eapply weaken. apply findBlockInKS.findBelongingBlock.
-		intros. simpl. split. apply H0. intuition.
+		intros. simpl. split. apply H0. unfold consistency in H0; intuition.
 		apply H5. intros. apply beqAddrFalse in H2. congruence.
 	}
 	intro blockAddr.

@@ -3067,23 +3067,34 @@ eapply bindRev.
       { (* BEGIN parentOfPartitionIsPartition s *)
         assert(Hcons0: parentOfPartitionIsPartition s0)
                 by (unfold consistency in *; unfold consistency1 in *; intuition).
-        unfold parentOfPartitionIsPartition in *. intros partition entry Hlookup HpartitionNotRoot.
+        unfold parentOfPartitionIsPartition in *. intros partition entry Hlookup.
         destruct (beqAddr globalIdPD partition) eqn:HbeqGlobPart.
         - (* globalIdPD = partition *)
           rewrite <-beqAddrTrue in HbeqGlobPart. rewrite HbeqGlobPart in *.
+          assert(HparentEq: parent pdentry = parent entry).
+          {
+            rewrite Hlookups in Hlookup. injection Hlookup as HentryEq. rewrite <-HentryEq. rewrite HnewPd.
+            simpl. reflexivity.
+          }
           destruct (beqAddr partition (parent entry)) eqn:HbeqPartParent.
           + (* partition = parent entry *)
             rewrite <-beqAddrTrue in HbeqPartParent. rewrite <-HbeqPartParent in *.
-            exists newpdentry. rewrite Hlookups. reflexivity.
+            specialize(Hcons0 partition pdentry Hlookups0). destruct Hcons0 as [HparentIsPart HparentOfRoot]. split.
+            * intro HpartNotRoot. exists entry. assumption.
+            * intro HpartIsRoot. specialize(HparentOfRoot HpartIsRoot).
+              rewrite HparentEq in HparentOfRoot. assumption.
           + (* partition <> parent entry *)
-            specialize(Hcons0 partition pdentry Hlookups0 HpartitionNotRoot).
-            destruct Hcons0 as [parentEntry HlookupParent].
-            exists parentEntry. rewrite <-HlookupParent.
-            rewrite <-HsEq. simpl. rewrite HbeqPartParent.
-            rewrite <-beqAddrFalse in HbeqPartParent.
-            rewrite removeDupIdentity; intuition.
-            rewrite Hlookups in *. injection Hlookup. intro HentryEq. rewrite <-HentryEq.
-            rewrite HnewPd. simpl. reflexivity.
+            specialize(Hcons0 partition pdentry Hlookups0). destruct Hcons0 as [HparentIsPart HparentOfRoot]. split.
+            * intro HpartNotRoot. specialize(HparentIsPart HpartNotRoot).
+              destruct HparentIsPart as [parentEntry HlookupParent].
+              exists parentEntry. rewrite <-HlookupParent.
+              rewrite <-HsEq. simpl. rewrite HbeqPartParent.
+              rewrite <-beqAddrFalse in HbeqPartParent.
+              rewrite removeDupIdentity; intuition.
+              rewrite Hlookups in *. injection Hlookup. intro HentryEq. rewrite <-HentryEq.
+              rewrite HnewPd. simpl. reflexivity.
+            * intro HpartIsRoot. specialize(HparentOfRoot HpartIsRoot).
+              rewrite HparentEq in HparentOfRoot. assumption.
         - (* globalIdPD <> partition *)
           assert(HlookupEq: lookup partition (memory s) beqAddr = lookup partition (memory s0) beqAddr).
           {
@@ -3093,13 +3104,19 @@ eapply bindRev.
           rewrite HlookupEq in Hlookup.
           destruct (beqAddr globalIdPD (parent entry)) eqn:HbeqGlobParent.
           + (* partition = parent entry *)
-            rewrite <-beqAddrTrue in HbeqGlobParent. rewrite <-HbeqGlobParent in *.
-            exists newpdentry. assumption.
+            rewrite <-beqAddrTrue in HbeqGlobParent. rewrite <-HbeqGlobParent in *. split.
+            * intro. exists newpdentry. assumption.
+            * intro HpartIsRoot. specialize(Hcons0 partition entry Hlookup).
+              destruct Hcons0 as [HparentIsPart HparentOfRoot]. specialize(HparentOfRoot HpartIsRoot).
+              rewrite HbeqGlobParent. assumption.
           + (* partition <> parent entry *)
-            specialize(Hcons0 partition entry Hlookup HpartitionNotRoot).
-            destruct Hcons0 as [parentEntry HlookupParent]. exists parentEntry.
-            rewrite <-HsEq. simpl. rewrite HbeqGlobParent.
-            rewrite <-beqAddrFalse in HbeqGlobParent. rewrite removeDupIdentity; intuition.
+            specialize(Hcons0 partition entry Hlookup).
+            destruct Hcons0 as [HparentIsPart HparentOfRoot]. split.
+            * intro HpartNotRoot. specialize(HparentIsPart HpartNotRoot).
+              destruct HparentIsPart as [parentEntry HlookupParent]. exists parentEntry.
+              rewrite <-HsEq. simpl. rewrite HbeqGlobParent.
+              rewrite <-beqAddrFalse in HbeqGlobParent. rewrite removeDupIdentity; intuition.
+            * intro HpartIsRoot. specialize(HparentOfRoot HpartIsRoot). assumption.
         (* END parentOfPartitionIsPartition *)
       }
 

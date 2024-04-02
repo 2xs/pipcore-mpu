@@ -285,8 +285,10 @@ In addr (getAccessibleMappedPaddr parent s).
 Definition parentOfPartitionIsPartition s :=
 forall (partition : paddr), forall (entry : PDTable),
 lookup partition (memory s) beqAddr = Some (PDT entry)
--> partition <> constantRootPartM
--> exists childEntry, lookup (parent entry) (memory s) beqAddr = Some (PDT childEntry).
+-> (partition <> constantRootPartM
+    -> exists childEntry, lookup (parent entry) (memory s) beqAddr = Some (PDT childEntry))
+   /\ (partition = constantRootPartM
+    -> parent entry = nullAddr).
 
 
 (** ** First batch of consistency properties *)

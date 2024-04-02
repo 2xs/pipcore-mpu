@@ -27004,7 +27004,7 @@ assert(HparentOfPartitionIsPartition: parentOfPartitionIsPartition s).
 { (* BEGIN parentOfPartitionIsPartition s *)
   assert(Hcons0: parentOfPartitionIsPartition s0)
           by (unfold consistency in *; unfold consistency1 in *; intuition).
-  unfold parentOfPartitionIsPartition in *. intros partition entry Hlookup HpartitionNotRoot.
+  unfold parentOfPartitionIsPartition in *. intros partition entry Hlookup.
   (* Check all values *)
   destruct (beqAddr pdinsertion partition) eqn:HbeqPdPart ; try(exfalso ; congruence).
   - (* pdinsertion = partition *)
@@ -27012,7 +27012,17 @@ assert(HparentOfPartitionIsPartition: parentOfPartitionIsPartition s).
     destruct (beqAddr partition (parent entry)) eqn:HbeqPartParent.
     + (* partition = parent entry *)
       rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqPartParent. rewrite <-HbeqPartParent in *.
-      exists entry. assumption.
+      split.
+      * intro HpartNotRoot. exists entry. assumption.
+      * intro HpartIsRoot. specialize(Hcons0 partition pdentry Hpdinsertions0).
+        destruct Hcons0 as [HparentIsPart HparentOfRoot]. specialize(HparentOfRoot HpartIsRoot).
+        rewrite <-HparentOfRoot.
+        assert(HparentEq: parent entry = parent pdentry).
+        {
+          rewrite Hpdinsertions in Hlookup. injection Hlookup. intro HentryEq. rewrite <-HentryEq. subst pdentry1.
+          simpl. subst pdentry0. simpl. reflexivity.
+        }
+        rewrite <-HparentEq. assumption.
     + (* partition <> parent entry *)
       assert(HparentEq: parent entry = parent pdentry).
       {
@@ -27020,28 +27030,31 @@ assert(HparentOfPartitionIsPartition: parentOfPartitionIsPartition s).
         simpl. subst pdentry0. simpl. reflexivity.
       }
       rewrite HparentEq in *.
-      specialize(Hcons0 partition pdentry Hpdinsertions0 HpartitionNotRoot).
-      destruct Hcons0 as [parentEntry HlookupParent]. exists parentEntry.
-      rewrite Hs. simpl. rewrite beqAddrTrue.
-      destruct (beqAddr sceaddr (parent pdentry)) eqn:HbeqSceaddrParent.
-      { (* sceaddr = parent pdentry *)
-        rewrite <- DependentTypeLemmas.beqAddrTrue in HbeqSceaddrParent. rewrite HbeqSceaddrParent in *.
-        unfold isSCE in *. rewrite HlookupParent in *. exfalso; congruence.
-      }
-      (* sceaddr <> parent pdentry *)
-      rewrite beqnewBsce. simpl.
-      destruct (beqAddr newBlockEntryAddr (parent pdentry)) eqn:HbeqnewBlockParent.
-      { (* newBlockEntryAddr = parent pdentry *)
-        rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqnewBlockParent. rewrite <-HbeqnewBlockParent in *.
-        rewrite HlookupParent in *. exfalso; congruence.
-      }
-      (* newBlockEntryAddr <> parent pdentry *)
-      assert(HbeqPartNewBlock: beqAddr partition newBlockEntryAddr = false)
-              by (apply beqAddrFalse; intuition).
-      rewrite HbeqPartNewBlock. rewrite <-beqAddrFalse in beqnewBsce.
-      rewrite <-beqAddrFalse in HbeqnewBlockParent. rewrite <-beqAddrFalse in HbeqSceaddrParent.
-      repeat rewrite removeDupIdentity; intuition. simpl. rewrite HbeqPartParent. rewrite beqAddrTrue.
-      rewrite <-beqAddrFalse in *. repeat rewrite removeDupIdentity; intuition.
+      specialize(Hcons0 partition pdentry Hpdinsertions0).
+      destruct Hcons0 as [HparentIsPart HpartIsRoot]. split.
+      * intro HpartNotRoot. specialize(HparentIsPart HpartNotRoot).
+        destruct HparentIsPart as [parentEntry HlookupParent]. exists parentEntry.
+        rewrite Hs. simpl. rewrite beqAddrTrue.
+        destruct (beqAddr sceaddr (parent pdentry)) eqn:HbeqSceaddrParent.
+        { (* sceaddr = parent pdentry *)
+          rewrite <- DependentTypeLemmas.beqAddrTrue in HbeqSceaddrParent. rewrite HbeqSceaddrParent in *.
+          unfold isSCE in *. rewrite HlookupParent in *. exfalso; congruence.
+        }
+        (* sceaddr <> parent pdentry *)
+        rewrite beqnewBsce. simpl.
+        destruct (beqAddr newBlockEntryAddr (parent pdentry)) eqn:HbeqnewBlockParent.
+        { (* newBlockEntryAddr = parent pdentry *)
+          rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqnewBlockParent. rewrite <-HbeqnewBlockParent in *.
+          rewrite HlookupParent in *. exfalso; congruence.
+        }
+        (* newBlockEntryAddr <> parent pdentry *)
+        assert(HbeqPartNewBlock: beqAddr partition newBlockEntryAddr = false)
+                by (apply beqAddrFalse; intuition).
+        rewrite HbeqPartNewBlock. rewrite <-beqAddrFalse in beqnewBsce.
+        rewrite <-beqAddrFalse in HbeqnewBlockParent. rewrite <-beqAddrFalse in HbeqSceaddrParent.
+        repeat rewrite removeDupIdentity; intuition. simpl. rewrite HbeqPartParent. rewrite beqAddrTrue.
+        rewrite <-beqAddrFalse in *. repeat rewrite removeDupIdentity; intuition.
+      * intro HpartRoot. specialize(HpartIsRoot HpartRoot). assumption.
   - (* pdinsertion <> partition *)
     destruct (beqAddr sceaddr partition) eqn:HbeqSceaddrPart.
     { (* sceaddr = partition *)
@@ -27064,29 +27077,32 @@ assert(HparentOfPartitionIsPartition: parentOfPartitionIsPartition s).
       rewrite HbeqPdPartCopy. rewrite beqAddrTrue. repeat rewrite removeDupIdentity; intuition.
     }
     rewrite HlookupEq in Hlookup.
-    specialize(Hcons0 partition entry Hlookup HpartitionNotRoot).
-    destruct Hcons0 as [parentEntry HlookupParent].
-    rewrite Hs. simpl. rewrite beqAddrTrue.
-    destruct (beqAddr sceaddr (parent entry)) eqn:HbeqSceaddrParent.
-    { (* sceaddr = parent entry *)
-      rewrite <- DependentTypeLemmas.beqAddrTrue in HbeqSceaddrParent. rewrite HbeqSceaddrParent in *.
-      unfold isSCE in *. rewrite HlookupParent in *. exfalso; congruence.
-    }
-    (* sceaddr <> parent entry *)
-    destruct (beqAddr newBlockEntryAddr (parent entry)) eqn:HbeqnewBlockParent.
-    { (* newBlockEntryAddr = parent entry *)
-      rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqnewBlockParent. rewrite <-HbeqnewBlockParent in *.
-      rewrite HlookupParent in *. exfalso; congruence.
-    }
-    (* newBlockEntryAddr <> parent entry *)
-    rewrite beqnewBsce. simpl. rewrite HbeqnewBlockParent. rewrite beqpdnewB. rewrite <-beqAddrFalse in *.
-    repeat rewrite removeDupIdentity; try(intro;congruence). simpl. rewrite beqAddrTrue.
-    destruct (beqAddr pdinsertion (parent entry)) eqn:HbeqPdParent.
-    { (* pdinsertion = parent entry *)
-      exists pdentry1. subst pdentry1. reflexivity.
-    }
-    (* pdinsertion <> parent entry *)
-    rewrite <-beqAddrFalse in *. exists parentEntry. repeat rewrite removeDupIdentity; intuition.
+    specialize(Hcons0 partition entry Hlookup).
+    destruct Hcons0 as [HparentIsPart HparentOfRoot]. split.
+    * intro HpartNotRoot. specialize(HparentIsPart HpartNotRoot).
+      destruct HparentIsPart as [parentEntry HlookupParent].
+      rewrite Hs. simpl. rewrite beqAddrTrue.
+      destruct (beqAddr sceaddr (parent entry)) eqn:HbeqSceaddrParent.
+      { (* sceaddr = parent entry *)
+        rewrite <- DependentTypeLemmas.beqAddrTrue in HbeqSceaddrParent. rewrite HbeqSceaddrParent in *.
+        unfold isSCE in *. rewrite HlookupParent in *. exfalso; congruence.
+      }
+      (* sceaddr <> parent entry *)
+      destruct (beqAddr newBlockEntryAddr (parent entry)) eqn:HbeqnewBlockParent.
+      { (* newBlockEntryAddr = parent entry *)
+        rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqnewBlockParent. rewrite <-HbeqnewBlockParent in *.
+        rewrite HlookupParent in *. exfalso; congruence.
+      }
+      (* newBlockEntryAddr <> parent entry *)
+      rewrite beqnewBsce. simpl. rewrite HbeqnewBlockParent. rewrite beqpdnewB. rewrite <-beqAddrFalse in *.
+      repeat rewrite removeDupIdentity; try(intro;congruence). simpl. rewrite beqAddrTrue.
+      destruct (beqAddr pdinsertion (parent entry)) eqn:HbeqPdParent.
+      { (* pdinsertion = parent entry *)
+        exists pdentry1. subst pdentry1. reflexivity.
+      }
+      (* pdinsertion <> parent entry *)
+      rewrite <-beqAddrFalse in *. exists parentEntry. repeat rewrite removeDupIdentity; intuition.
+    * intro HpartIsRoot. specialize(HparentOfRoot HpartIsRoot). assumption.
   (* END parentOfPartitionIsPartition *)
 }
 
