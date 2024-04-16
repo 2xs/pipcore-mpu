@@ -239,6 +239,22 @@ This repository contains Pip-MPU's kernel, proof and documentation. Still,
 it is not ready to compile yet, as it provides no partition to run.
 This is covered in \cref{second}.
 
+% Opam setup is required to initialize dx in the further steps.
+% It might be relevant to guide the user through opam installation first. 
+
+\index{coqcsrc}\marginlabel{Set up the Coq 8.13.1 environment:}
+We use opam to install Coq tools required to extract the code base.
+
+\begin{lstlisting}[style=BashStyle]
+> opam switch create coq8.13.1 4.10.2
+> opam init
+> eval $(opam env)
+# pin Coq version to 8.13.1, these could take a few minutes
+> opam pin add coq 8.13.1
+# test installation, the command must end successfully
+> coqc -v
+\end{lstlisting}
+
 \index{diggersrc}\marginlabel{Set up Digger:}
 As said previously, old versions of Pip-MPU used an extractor to convert Coq code into C code.
 For the sake of completion, here is how to get it: the source is included in Pip-MPU's main repository as a submodule.
@@ -264,19 +280,6 @@ of that project details the necessary steps to compile it, but here is an abridg
 \end{lstlisting}
 
 Once both pipcore-mpu and dx are compiled, it is possible to use dx in the execution of pipcore-mpu by adding an optionnal argument, as explained below.
-
-\index{coqcsrc}\marginlabel{Set up the Coq 8.13.1 environment:}
-We use opam to install Coq tools required to extract the code base.
-
-\begin{lstlisting}[style=BashStyle]
-> opam switch create coq8.13.1 4.10.2
-> opam init
-> eval $(opam env)
-# pin Coq version to 8.13.1, these could take a few minutes
-> opam pin add coq 8.13.1
-# test installation, the command must end successfully
-> coqc -v
-\end{lstlisting}
 
 \subsection{Build Pip-MPU} \label{buildpip}
 Before doing anything else, you need to configure the partition building toolchain for the dwm1001 board.
