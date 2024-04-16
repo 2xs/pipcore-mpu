@@ -179,12 +179,7 @@ This is unintended, and here is a quick walkthrough to let you build the Getting
 You will first have to install opam, a package manager for the OCaml programming language, which Coq is based on.  
 A brief procedure will be given below, but if you want to follow a more specific installation, you can find more about installing opam [here](https://opam.ocaml.org/doc/Install.html).
 
-First, install curl if it isn't installed on your machine yet. `apt install curl`, then run the following command.
-```bash
-bash -c "sh <(curl -fsSL https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh)"
-```
-
-Run `opam init` to initialise opam.
+Run `apt install opam` then `opam init` to initialise opam.
 *Answer Yes to everything ???*
 
 
