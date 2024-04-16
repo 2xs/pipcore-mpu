@@ -128,6 +128,7 @@ git.h
 ### Toolchain configuration files
 ################################################################
 toolchain.mk
+tools
 
 ################################################################
 ### Documentation directories
