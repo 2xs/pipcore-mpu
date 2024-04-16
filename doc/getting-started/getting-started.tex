@@ -327,8 +327,10 @@ Clone the example in another directory \textit{"hello world dir"}, outside the P
 \subsection{Compile the project}
 This project inherits Pip-MPU's toolchain configuration (set up at \ref{buildpip}).
 It is then enough to invoke the \texttt{make} command.
+Note that it will require a matching version of elftools. Install it using pip install -r.
 
 \begin{lstlisting}[style=BashStyle]
+> pip-mpu-hello-world$ pip install -r relocator/requirements.txt
 > pip-mpu-hello-world$ make
 \end{lstlisting}
 
