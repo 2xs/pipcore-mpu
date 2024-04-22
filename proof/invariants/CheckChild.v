@@ -35,8 +35,8 @@
 (** * Summary
     This file contains the invariant of [checkChild] some associated lemmas *)
 Require Import Isolation Consistency WeakestPreconditions List
-Core.Internal Invariants Model.MAL StateLib Model.Hardware
-Model.ADT DependentTypeLemmas Model.Lib GetTableAddr InternalLemmas.
+Core.Internal Invariants Model.MAL StateLib (*Model.Hardware*)
+Model.ADT DependentTypeLemmas Model.Lib (*GetTableAddr*) InternalLemmas.
 Require Import Coq.Logic.ProofIrrelevance Lia.
 
 Lemma checkChild (parent : page) (va : vaddr) (nbL : level) (P : state -> Prop) :

@@ -2604,12 +2604,13 @@ eapply bindRev.
         (* END noDupUsedPaddrList *)
       }
 
-      assert(HaccessibleChildPaddrIsAccessibleIntoParents : accessibleChildPaddrIsAccessibleIntoParent s).
-	    { (* BEGIN accessibleChildPaddrIsAccessibleIntoParent s *)
-        assert(Hcons0: accessibleChildPaddrIsAccessibleIntoParent s0)
+      assert(HaccessibleParentPaddrIsAccessibleIntoChild : accessibleParentPaddrIsAccessibleIntoChild s).
+	    { (* BEGIN accessibleParentPaddrIsAccessibleIntoChild s *)
+        assert(Hcons0: accessibleParentPaddrIsAccessibleIntoChild s0)
 	        by (unfold consistency in * ; unfold consistency2 in * ; intuition).
-        unfold accessibleChildPaddrIsAccessibleIntoParent in *.
-        intros parent child addr HparentInPartTree HchildInChildList HaddrInAccessibleMappedChilds.
+        unfold accessibleParentPaddrIsAccessibleIntoChild in *.
+        intros parent child addr HparentInPartTree HchildInChildList HaddrInAccessibleMappedParents
+                HaddrInMappedChilds.
         assert(HPDTparents : isPDT parent s).
         {
 	        apply partitionsArePDT ; intuition.
@@ -2688,10 +2689,12 @@ eapply bindRev.
 						  by intuition.
 					  eapply HAMappedPaddrEqNotInParts0 ; intuition.
 				  }
+          assert(HmappedPaddrEq: getMappedPaddr globalIdPD s = getMappedPaddr globalIdPD s0) by intuition.
 				  rewrite HAmappedparentEq in *.
 				  rewrite HaccessiblemappedEq in *.
+          rewrite HmappedPaddrEq in *.
           specialize(Hcons0 parent globalIdPD addr HparentInPartTree HchildInChildList 
-                                                                  HaddrInAccessibleMappedChilds).
+                                                                  HaddrInAccessibleMappedParents HaddrInMappedChilds).
           assumption.
         - (* child <> globalIdPD *)
 			    destruct (beqAddr parent globalIdPD) eqn:HbeqParentGlob ; try(exfalso ; congruence).
@@ -2705,7 +2708,7 @@ eapply bindRev.
 					  assert(HglobalChildNotEq : child <> globalIdPD).
 					  { apply not_eq_sym. eapply childparentNotEq with s0 ; try (rewrite HparentEq in *) ; intuition. }
 						specialize (Hcons0 globalIdPD child addr HparentInPartTree HchildInChildList).
-						rewrite HaccessiblemappedEq.
+						rewrite HaccessiblemappedEq in *.
 						assert(HaccessibleMappedEq : getAccessibleMappedPaddr child s = getAccessibleMappedPaddr child s0).
             {
               assert (H': forall partition : paddr,
@@ -2726,7 +2729,16 @@ eapply bindRev.
               rewrite HPDTEq in *. specialize (H' HPDTchilds). assumption.
             }
 						rewrite HaccessibleMappedEq in *.
-            specialize (Hcons0 HaddrInAccessibleMappedChilds). assumption.
+						assert(HmappedChildEq : getMappedPaddr child s = getMappedPaddr child s0).
+            {
+              unfold getAccessibleMappedPaddr in HaccessibleMappedEq.
+              unfold getAccessibleMappedBlocks in HaccessibleMappedEq.
+              unfold isPDT in HPDTchilds. rewrite <-HsEq in HaccessibleMappedEq. rewrite <-HsEq in HPDTchilds.
+              simpl in HaccessibleMappedEq. simpl in HPDTchilds. rewrite beqAddrSym in HbeqChildGlob.
+              rewrite HbeqChildGlob in *. rewrite removeDupIdentity in *; intuition.
+            }
+            rewrite HmappedChildEq in *.
+            specialize (Hcons0 HaddrInAccessibleMappedParents HaddrInMappedChilds). assumption.
 			    + (* parent <> globalIdPDChild *)
 						rewrite <- beqAddrFalse in *.
 						assert(HPDTparents0 : isPDT parent s0).
@@ -2748,8 +2760,18 @@ eapply bindRev.
 						assert(HAccessibleMappedchildEq : getAccessibleMappedPaddr child s =
 																			getAccessibleMappedPaddr child s0)
 							by intuition.
-						rewrite HAccessibleMappedchildEq in *. intuition.
-				(* END accessibleChildPaddrIsAccessibleIntoParent *)
+						rewrite HAccessibleMappedchildEq in *.
+						assert(HmappedChildEq : getMappedPaddr child s = getMappedPaddr child s0).
+            {
+              unfold getAccessibleMappedPaddr in HAccessibleMappedchildEq.
+              unfold getAccessibleMappedBlocks in HAccessibleMappedchildEq.
+              unfold isPDT in HPDTchilds. rewrite <-HsEq in HAccessibleMappedchildEq. rewrite <-HsEq in HPDTchilds.
+              simpl in HAccessibleMappedchildEq. simpl in HPDTchilds. rewrite beqAddrFalse in HbeqChildGlob.
+              rewrite beqAddrSym in HbeqChildGlob. rewrite HbeqChildGlob in *.
+              rewrite <-beqAddrFalse in HbeqChildGlob. rewrite removeDupIdentity in *; intuition.
+            }
+            rewrite HmappedChildEq in *. intuition.
+				(* END accessibleParentPaddrIsAccessibleIntoChild *)
       }
 
 	    assert(HsharedBlockPointsToChilds : sharedBlockPointsToChild s).
@@ -3079,12 +3101,12 @@ eapply bindRev.
           destruct (beqAddr partition (parent entry)) eqn:HbeqPartParent.
           + (* partition = parent entry *)
             rewrite <-beqAddrTrue in HbeqPartParent. rewrite <-HbeqPartParent in *.
-            specialize(Hcons0 partition pdentry Hlookups0). destruct Hcons0 as [HparentIsPart HparentOfRoot]. split.
-            * intro HpartNotRoot. exists entry. assumption.
-            * intro HpartIsRoot. specialize(HparentOfRoot HpartIsRoot).
-              rewrite HparentEq in HparentOfRoot. assumption.
+            specialize(Hcons0 partition pdentry Hlookups0).
+            destruct Hcons0 as [HparentIsPart (HparentOfRoot & HpartNotParent)]. rewrite HparentEq in *.
+            exfalso; congruence.
           + (* partition <> parent entry *)
-            specialize(Hcons0 partition pdentry Hlookups0). destruct Hcons0 as [HparentIsPart HparentOfRoot]. split.
+            specialize(Hcons0 partition pdentry Hlookups0).
+            destruct Hcons0 as [HparentIsPart (HparentOfRoot & HpartNotParent)]. split.
             * intro HpartNotRoot. specialize(HparentIsPart HpartNotRoot).
               destruct HparentIsPart as [parentEntry HlookupParent].
               exists parentEntry. rewrite <-HlookupParent.
@@ -3093,8 +3115,8 @@ eapply bindRev.
               rewrite removeDupIdentity; intuition.
               rewrite Hlookups in *. injection Hlookup. intro HentryEq. rewrite <-HentryEq.
               rewrite HnewPd. simpl. reflexivity.
-            * intro HpartIsRoot. specialize(HparentOfRoot HpartIsRoot).
-              rewrite HparentEq in HparentOfRoot. assumption.
+            * split. intro HpartIsRoot. specialize(HparentOfRoot HpartIsRoot).
+              rewrite HparentEq in HparentOfRoot. assumption. rewrite HparentEq in *. assumption.
         - (* globalIdPD <> partition *)
           assert(HlookupEq: lookup partition (memory s) beqAddr = lookup partition (memory s0) beqAddr).
           {
@@ -3106,18 +3128,44 @@ eapply bindRev.
           + (* partition = parent entry *)
             rewrite <-beqAddrTrue in HbeqGlobParent. rewrite <-HbeqGlobParent in *. split.
             * intro. exists newpdentry. assumption.
-            * intro HpartIsRoot. specialize(Hcons0 partition entry Hlookup).
-              destruct Hcons0 as [HparentIsPart HparentOfRoot]. specialize(HparentOfRoot HpartIsRoot).
-              rewrite HbeqGlobParent. assumption.
+            * specialize(Hcons0 partition entry Hlookup).
+              destruct Hcons0 as [HparentIsPart (HparentOfRoot & HpartNotParent)]. split.
+              intro HpartIsRoot. specialize(HparentOfRoot HpartIsRoot). rewrite HbeqGlobParent. assumption.
+              rewrite <-beqAddrFalse in HbeqGlobPart. assumption.
           + (* partition <> parent entry *)
             specialize(Hcons0 partition entry Hlookup).
-            destruct Hcons0 as [HparentIsPart HparentOfRoot]. split.
+            destruct Hcons0 as [HparentIsPart (HparentOfRoot & HparentNotPart)]. split.
             * intro HpartNotRoot. specialize(HparentIsPart HpartNotRoot).
               destruct HparentIsPart as [parentEntry HlookupParent]. exists parentEntry.
               rewrite <-HsEq. simpl. rewrite HbeqGlobParent.
               rewrite <-beqAddrFalse in HbeqGlobParent. rewrite removeDupIdentity; intuition.
-            * intro HpartIsRoot. specialize(HparentOfRoot HpartIsRoot). assumption.
+            * split. intro HpartIsRoot. specialize(HparentOfRoot HpartIsRoot). assumption. assumption.
         (* END parentOfPartitionIsPartition *)
+      }
+
+      assert(maxNbPrepareIsMaxNbKernels s).
+      { (* BEGIN maxNbPrepareIsMaxNbKernels s *)
+        assert(Hcons0: maxNbPrepareIsMaxNbKernels s0)
+                by (unfold consistency in *; unfold consistency1 in *; intuition).
+        unfold maxNbPrepareIsMaxNbKernels in *. intros partition kernList HkernListIsListOfKern.
+        assert(HkernListIsListOfKerns0: isListOfKernels kernList partition s0).
+        {
+          rewrite <-HsEq in HkernListIsListOfKern.
+          apply isListOfKernelsEqPDT with globalIdPD ({|
+                                                        structure := structure pdentry;
+                                                        firstfreeslot := firstfreeslot pdentry;
+                                                        nbfreeslots := nbfreeslots pdentry;
+                                                        nbprepare := nbprepare pdentry;
+                                                        parent := parent pdentry;
+                                                        MPU :=
+                                                          addElementAt MPURegionNb blockToEnableAddr (MPU pdentry)
+                                                               nullAddr;
+                                                        vidtAddr := vidtAddr pdentry
+                                                      |}) pdentry; try(assumption).
+          simpl. reflexivity.
+        }
+        specialize(Hcons0 partition kernList HkernListIsListOfKerns0). assumption.
+        (* END maxNbPrepareIsMaxNbKernels *)
       }
 
       intuition.

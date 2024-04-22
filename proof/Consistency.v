@@ -274,21 +274,57 @@ sh1entryPDflag (CPaddr (parentblock + sh1offset)) true s).
 (** ** All accessible addresses
 in a partition (union of all addresses contained in the accessible mapped blocks) are
 mapped and accessible in their parent. **)
-Definition accessibleChildPaddrIsAccessibleIntoParent s :=
+(*Definition accessibleChildPaddrIsAccessibleIntoParent s :=
  forall parent child addr,
 In parent (getPartitions multiplexer s) ->
 In child (getChildren parent s) ->
 In addr (getAccessibleMappedPaddr child s) ->
-In addr (getAccessibleMappedPaddr parent s).
+In addr (getAccessibleMappedPaddr parent s).*)
 
-(** ** The parent of a partition is either null or a partition **)
+(** ** All accessible addresses
+in a partition (union of all addresses contained in the accessible mapped blocks) are
+mapped and accessible in their parent. **)
+Definition accessibleParentPaddrIsAccessibleIntoChild s :=
+ forall parent child addr,
+In parent (getPartitions multiplexer s) ->
+In child (getChildren parent s) ->
+In addr (getAccessibleMappedPaddr parent s) ->
+In addr (getMappedPaddr child s) -> (*hypothesis necessary to say that the address is in a block given to child*)
+In addr (getAccessibleMappedPaddr child s).
+
+(** ** The parent of a partition is either null or a partition, but is never equal to the child **)
 Definition parentOfPartitionIsPartition s :=
 forall (partition : paddr), forall (entry : PDTable),
 lookup partition (memory s) beqAddr = Some (PDT entry)
 -> (partition <> constantRootPartM
     -> exists childEntry, lookup (parent entry) (memory s) beqAddr = Some (PDT childEntry))
    /\ (partition = constantRootPartM
-    -> parent entry = nullAddr).
+    -> parent entry = nullAddr)
+   /\ parent entry <> partition.
+
+(*TODO put that elsewhere; in StateLib?*)
+Fixpoint isListOfKernelsAux kernList initKern s :=
+match kernList with
+| [] => True
+| kern::nextKernList => lookup (CPaddr (initKern + nextoffset)) (memory s) beqAddr = Some (PADDR kern)
+                       /\ kern <> nullAddr (*do we want that?*)
+                       /\ isListOfKernelsAux nextKernList kern s
+end.
+
+Definition isListOfKernels kernList idPD s :=
+match kernList with
+| [] => True
+| kern::nextKernList => exists pdentry, lookup idPD (memory s) beqAddr = Some (PDT pdentry)
+                          /\ structure pdentry <> nullAddr /\ structure pdentry = kern
+                          /\ isListOfKernelsAux nextKernList kern s
+end.
+
+
+Definition maxNbPrepareIsMaxNbKernels s :=
+forall (partition : paddr) (kernList: list paddr),
+isListOfKernels kernList partition s -> length kernList <= maxNbPrepare.
+
+
 
 
 (** ** First batch of consistency properties *)
@@ -320,12 +356,13 @@ noDupMappedBlocksList s /\
 wellFormedBlock s /\
 MPUFromAccessibleBlocks s /\
 parentOfPartitionIsPartition s /\
-NbFreeSlotsISNbFreeSlotsInList s.
+NbFreeSlotsISNbFreeSlotsInList s /\
+maxNbPrepareIsMaxNbKernels s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=
 noDupUsedPaddrList s /\
-accessibleChildPaddrIsAccessibleIntoParent s /\
+accessibleParentPaddrIsAccessibleIntoChild s /\
 sharedBlockPointsToChild s.
 
 (** ** Conjunction of all consistency properties *)

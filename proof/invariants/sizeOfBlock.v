@@ -72,7 +72,7 @@ eapply bindRev.
 	unfold bentryStartAddr in *.
 	unfold bentryEndAddr in *.
 	rewrite Hlookup in *. subst.
-	destruct b. destruct blockrange. intuition.
+	destruct b. destruct blockrange. simpl. intuition.
 }
 intro size.
 { (** MALInternal.Index.succ *)

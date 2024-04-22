@@ -27011,18 +27011,12 @@ assert(HparentOfPartitionIsPartition: parentOfPartitionIsPartition s).
 	  rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqPdPart. rewrite HbeqPdPart in *.
     destruct (beqAddr partition (parent entry)) eqn:HbeqPartParent.
     + (* partition = parent entry *)
-      rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqPartParent. rewrite <-HbeqPartParent in *.
-      split.
-      * intro HpartNotRoot. exists entry. assumption.
-      * intro HpartIsRoot. specialize(Hcons0 partition pdentry Hpdinsertions0).
-        destruct Hcons0 as [HparentIsPart HparentOfRoot]. specialize(HparentOfRoot HpartIsRoot).
-        rewrite <-HparentOfRoot.
-        assert(HparentEq: parent entry = parent pdentry).
-        {
-          rewrite Hpdinsertions in Hlookup. injection Hlookup. intro HentryEq. rewrite <-HentryEq. subst pdentry1.
-          simpl. subst pdentry0. simpl. reflexivity.
-        }
-        rewrite <-HparentEq. assumption.
+      rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqPartParent.
+      specialize(Hcons0 partition pdentry Hpdinsertions0). rewrite Hlookup in H14.
+      injection H14 as HentriesEq. rewrite H15 in HentriesEq. rewrite HentriesEq in HbeqPartParent.
+      simpl in HbeqPartParent. rewrite H16 in HbeqPartParent. simpl in HbeqPartParent.
+      destruct Hcons0 as [HpartIsPart (HrootIsPart & Hcontra)]. rewrite HbeqPartParent in Hcontra.
+      exfalso; congruence.
     + (* partition <> parent entry *)
       assert(HparentEq: parent entry = parent pdentry).
       {
@@ -27031,7 +27025,7 @@ assert(HparentOfPartitionIsPartition: parentOfPartitionIsPartition s).
       }
       rewrite HparentEq in *.
       specialize(Hcons0 partition pdentry Hpdinsertions0).
-      destruct Hcons0 as [HparentIsPart HpartIsRoot]. split.
+      destruct Hcons0 as [HparentIsPart (HpartIsRoot & HpartNotParent)]. split.
       * intro HpartNotRoot. specialize(HparentIsPart HpartNotRoot).
         destruct HparentIsPart as [parentEntry HlookupParent]. exists parentEntry.
         rewrite Hs. simpl. rewrite beqAddrTrue.
@@ -27054,7 +27048,7 @@ assert(HparentOfPartitionIsPartition: parentOfPartitionIsPartition s).
         rewrite <-beqAddrFalse in HbeqnewBlockParent. rewrite <-beqAddrFalse in HbeqSceaddrParent.
         repeat rewrite removeDupIdentity; intuition. simpl. rewrite HbeqPartParent. rewrite beqAddrTrue.
         rewrite <-beqAddrFalse in *. repeat rewrite removeDupIdentity; intuition.
-      * intro HpartRoot. specialize(HpartIsRoot HpartRoot). assumption.
+      * split. intro HpartRoot. specialize(HpartIsRoot HpartRoot). assumption. assumption.
   - (* pdinsertion <> partition *)
     destruct (beqAddr sceaddr partition) eqn:HbeqSceaddrPart.
     { (* sceaddr = partition *)
@@ -27078,7 +27072,7 @@ assert(HparentOfPartitionIsPartition: parentOfPartitionIsPartition s).
     }
     rewrite HlookupEq in Hlookup.
     specialize(Hcons0 partition entry Hlookup).
-    destruct Hcons0 as [HparentIsPart HparentOfRoot]. split.
+    destruct Hcons0 as [HparentIsPart (HparentOfRoot & HpartNotParent)]. split.
     * intro HpartNotRoot. specialize(HparentIsPart HpartNotRoot).
       destruct HparentIsPart as [parentEntry HlookupParent].
       rewrite Hs. simpl. rewrite beqAddrTrue.
@@ -27102,7 +27096,7 @@ assert(HparentOfPartitionIsPartition: parentOfPartitionIsPartition s).
       }
       (* pdinsertion <> parent entry *)
       rewrite <-beqAddrFalse in *. exists parentEntry. repeat rewrite removeDupIdentity; intuition.
-    * intro HpartIsRoot. specialize(HparentOfRoot HpartIsRoot). assumption.
+    * split. intro HpartIsRoot. specialize(HparentOfRoot HpartIsRoot). assumption. assumption.
   (* END parentOfPartitionIsPartition *)
 }
 
@@ -27654,7 +27648,37 @@ assert(HNbFreeSlotsISNbFreeSlotsInList: NbFreeSlotsISNbFreeSlotsInList s).
   (* END NbFreeSlotsISNbFreeSlotsInList *)
 }
 
-(* TODO remaning consistency properties *)
+assert(maxNbPrepareIsMaxNbKernels s).
+{ (* BEGIN maxNbPrepareIsMaxNbKernels s *)
+  assert(Hcons0: maxNbPrepareIsMaxNbKernels s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+  unfold maxNbPrepareIsMaxNbKernels in *. intros partition kernList HkernListIsListOfKern.
+  assert(HkernListIsListOfKerns0: isListOfKernels kernList partition s0).
+  {
+    apply isListOfKernelsEqPDT with pdinsertion pdentry0 pdentry; try(assumption).
+    { subst pdentry0. simpl. reflexivity. }
+    apply isListOfKernelsEqPDT with pdinsertion pdentry1 pdentry0; try(assumption).
+    { simpl. rewrite beqAddrTrue. reflexivity. }
+    { subst pdentry1. simpl. reflexivity. }
+    simpl.
+    (*set(s1 := {|
+                currentPartition := currentPartition s0;
+                memory :=
+                  add pdinsertion (PDT pdentry1) (add pdinsertion (PDT pdentry0) (memory s0) beqAddr) beqAddr
+              |}).*)
+    apply isListOfKernelsEqBE with newBlockEntryAddr bentry0. simpl.
+    apply isListOfKernelsEqBE with newBlockEntryAddr bentry1. simpl.
+    apply isListOfKernelsEqBE with newBlockEntryAddr bentry2. simpl.
+    apply isListOfKernelsEqBE with newBlockEntryAddr bentry3. simpl.
+    apply isListOfKernelsEqBE with newBlockEntryAddr bentry4. simpl.
+    apply isListOfKernelsEqBE with newBlockEntryAddr bentry5. simpl.
+    apply isListOfKernelsEqBE with newBlockEntryAddr bentry6. simpl.
+    apply isListOfKernelsEqSCE with sceaddr ({| origin := origin; next := next scentry |}). simpl.
+    rewrite Hs in HkernListIsListOfKern. rewrite H16. rewrite H15. rewrite H11. rewrite H10.
+    rewrite H9. rewrite H8. rewrite H7. rewrite H6. rewrite H4. assumption.
+  }
+  specialize(Hcons0 partition kernList HkernListIsListOfKerns0). assumption.
+  (* END maxNbPrepareIsMaxNbKernels *)
+}
 
 intuition.
 

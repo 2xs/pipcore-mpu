@@ -40,6 +40,7 @@ Require Import Proof.Isolation Proof.Consistency Proof.StateLib.
 Require Import DependentTypeLemmas.
 
 Require Import List Coq.Logic.ProofIrrelevance Lia Classical_Prop Compare_dec EqNat Lt Minus.
+Require Import Coq.Program.Equality.
 
 Import List.ListNotations.
 
@@ -9593,6 +9594,142 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 	intuition.
 Qed.
 
+Lemma isListOfKernelsAuxEqBE partition addr' newEntry kernList s0:
+isListOfKernelsAux kernList partition {|
+                                        currentPartition := currentPartition s0;
+                                        memory := add addr' (BE newEntry)
+                                                    (memory s0) beqAddr
+                                      |}
+-> isListOfKernelsAux kernList partition s0.
+Proof.
+revert partition. induction kernList.
+- intuition.
+- intros partition HlistIsListOkKerns. simpl in *.
+  destruct (beqAddr addr' (CPaddr (partition + nextoffset))) eqn:HbeqAddrNextOffset;
+        try(exfalso; intuition; congruence).
+  rewrite <-beqAddrFalse in HbeqAddrNextOffset. rewrite removeDupIdentity in HlistIsListOkKerns; intuition.
+Qed.
+
+Lemma isListOfKernelsEqBE partition addr' newEntry kernList s0:
+isListOfKernels kernList partition {|
+                                     currentPartition := currentPartition s0;
+                                     memory := add addr' (BE newEntry)
+                                                 (memory s0) beqAddr
+                                   |}
+-> isListOfKernels kernList partition s0.
+Proof.
+intro HisKernLists. destruct kernList.
+- intuition.
+- simpl in *. destruct HisKernLists as [pdentry HisKernLists]. exists pdentry.
+  destruct (beqAddr addr' partition) eqn:HbeqAddrPart;
+        try(exfalso; intuition; congruence).
+  rewrite <-beqAddrFalse in HbeqAddrPart. rewrite removeDupIdentity in HisKernLists; intuition.
+  apply isListOfKernelsAuxEqBE with addr' newEntry; assumption.
+Qed.
+
+Lemma isListOfKernelsAuxEqSCE partition addr' newEntry kernList s0:
+isListOfKernelsAux kernList partition {|
+                                        currentPartition := currentPartition s0;
+                                        memory := add addr' (SCE newEntry)
+                                                    (memory s0) beqAddr
+                                      |}
+-> isListOfKernelsAux kernList partition s0.
+Proof.
+revert partition. induction kernList.
+- intuition.
+- intros partition HlistIsListOkKerns. simpl in *.
+  destruct (beqAddr addr' (CPaddr (partition + nextoffset))) eqn:HbeqAddrNextOffset;
+        try(exfalso; intuition; congruence).
+  rewrite <-beqAddrFalse in HbeqAddrNextOffset. rewrite removeDupIdentity in HlistIsListOkKerns; intuition.
+Qed.
+
+Lemma isListOfKernelsEqSCE partition addr' newEntry kernList s0:
+isListOfKernels kernList partition {|
+                                     currentPartition := currentPartition s0;
+                                     memory := add addr' (SCE newEntry)
+                                                 (memory s0) beqAddr
+                                   |}
+-> isListOfKernels kernList partition s0.
+Proof.
+intro HisKernLists. destruct kernList.
+- intuition.
+- simpl in *. destruct HisKernLists as [pdentry HisKernLists]. exists pdentry.
+  destruct (beqAddr addr' partition) eqn:HbeqAddrPart;
+        try(exfalso; intuition; congruence).
+  rewrite <-beqAddrFalse in HbeqAddrPart. rewrite removeDupIdentity in HisKernLists; intuition.
+  apply isListOfKernelsAuxEqSCE with addr' newEntry; assumption.
+Qed.
+
+Lemma isListOfKernelsAuxEqSHE partition addr' newEntry kernList s0:
+isListOfKernelsAux kernList partition {|
+                                        currentPartition := currentPartition s0;
+                                        memory := add addr' (SHE newEntry)
+                                                    (memory s0) beqAddr
+                                      |}
+-> isListOfKernelsAux kernList partition s0.
+Proof.
+revert partition. induction kernList.
+- intuition.
+- intros partition HlistIsListOkKerns. simpl in *.
+  destruct (beqAddr addr' (CPaddr (partition + nextoffset))) eqn:HbeqAddrNextOffset;
+        try(exfalso; intuition; congruence).
+  rewrite <-beqAddrFalse in HbeqAddrNextOffset. rewrite removeDupIdentity in HlistIsListOkKerns; intuition.
+Qed.
+
+Lemma isListOfKernelsEqSHE partition addr' newEntry kernList s0:
+isListOfKernels kernList partition {|
+                                     currentPartition := currentPartition s0;
+                                     memory := add addr' (SHE newEntry)
+                                                 (memory s0) beqAddr
+                                   |}
+-> isListOfKernels kernList partition s0.
+Proof.
+intro HisKernLists. destruct kernList.
+- intuition.
+- simpl in *. destruct HisKernLists as [pdentry HisKernLists]. exists pdentry.
+  destruct (beqAddr addr' partition) eqn:HbeqAddrPart;
+        try(exfalso; intuition; congruence).
+  rewrite <-beqAddrFalse in HbeqAddrPart. rewrite removeDupIdentity in HisKernLists; intuition.
+  apply isListOfKernelsAuxEqSHE with addr' newEntry; assumption.
+Qed.
+
+Lemma isListOfKernelsAuxEqPDT partition addr' newEntry kernList s0:
+isListOfKernelsAux kernList partition {|
+                                        currentPartition := currentPartition s0;
+                                        memory := add addr' (PDT newEntry)
+                                                    (memory s0) beqAddr
+                                      |}
+-> isListOfKernelsAux kernList partition s0.
+Proof.
+revert partition. induction kernList.
+- intuition.
+- intros partition HlistIsListOkKerns. simpl in *.
+  destruct (beqAddr addr' (CPaddr (partition + nextoffset))) eqn:HbeqAddrNextOffset;
+        try(exfalso; intuition; congruence).
+  rewrite <-beqAddrFalse in HbeqAddrNextOffset. rewrite removeDupIdentity in HlistIsListOkKerns; intuition.
+Qed.
+
+Lemma isListOfKernelsEqPDT partition addr' newEntry kernList pdentry s0:
+lookup addr' (memory s0) beqAddr = Some (PDT pdentry) ->
+structure pdentry = structure newEntry ->
+isListOfKernels kernList partition {|
+                                     currentPartition := currentPartition s0;
+                                     memory := add addr' (PDT newEntry)
+                                                 (memory s0) beqAddr
+                                   |}
+-> isListOfKernels kernList partition s0.
+Proof.
+intros HlookupAddr HstructureEq HisKernLists. destruct kernList.
+- intuition.
+- simpl in *. destruct HisKernLists as [newPdentry HisKernLists].
+  destruct (beqAddr addr' partition) eqn:HbeqAddrPart.
+  + destruct HisKernLists as [Hlookups HisKernLists]. injection Hlookups as HpdentriesEq. subst newPdentry.
+    rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqAddrPart. subst addr'. rewrite <-HstructureEq in *.
+    exists pdentry. intuition. apply isListOfKernelsAuxEqPDT with partition newEntry; assumption.
+  + exists newPdentry. rewrite <-beqAddrFalse in HbeqAddrPart. rewrite removeDupIdentity in HisKernLists; intuition.
+    apply isListOfKernelsAuxEqPDT with addr' newEntry; assumption.
+Qed.
+
 
 Lemma getConfigBlocksAuxEqPDT structure addr' newEntry s0 n entriesleft:
 isPDT addr' s0 ->
@@ -14960,6 +15097,123 @@ In addr
 			destruct (lookup partition (memory s0) beqAddr) ; try(exfalso ; congruence).
 Qed.
 
+Lemma presentIsInFilterPresent addr bentry addrList s:
+lookup addr (memory s) beqAddr = Some(BE bentry)
+-> present bentry = true
+-> In addr addrList
+-> In addr (filterPresent addrList s).
+Proof.
+intros Hlookup Hpresent HinList. induction addrList.
+- (* addrList = [] *)
+  simpl in HinList. exfalso; congruence.
+- (* addrList = a::l *)
+  simpl in HinList. destruct HinList as [HaIsAddr | Hrec].
+  + (* a = addr *)
+    subst a. simpl. rewrite Hlookup. rewrite Hpresent. simpl. left. reflexivity.
+  + (* In addr addrList *)
+    simpl. destruct (lookup a (memory s) beqAddr); try(apply IHaddrList; assumption).
+    destruct v; try(apply IHaddrList; assumption).
+    destruct (present b); try(apply IHaddrList; assumption).
+    simpl. right. apply IHaddrList. assumption.
+Qed.
+
+Lemma accessibleIsInFilterAccessible addr bentry addrList s:
+lookup addr (memory s) beqAddr = Some(BE bentry)
+-> accessible bentry = true
+-> In addr addrList
+-> In addr (filterAccessible addrList s).
+Proof.
+intros Hlookup Haccess HinList. induction addrList.
+- (* addrList = [] *)
+  simpl in HinList. exfalso; congruence.
+- (* addrList = a::l *)
+  simpl in HinList. destruct HinList as [HaIsAddr | Hrec].
+  + (* a = addr *)
+    subst a. simpl. rewrite Hlookup. rewrite Haccess. simpl. left. reflexivity.
+  + (* In addr addrList *)
+    simpl. destruct (lookup a (memory s) beqAddr); try(apply IHaddrList; assumption).
+    destruct v; try(apply IHaddrList; assumption).
+    destruct (accessible b); try(apply IHaddrList; assumption).
+    simpl. right. apply IHaddrList. assumption.
+Qed.
+
+
+(* DUP *)
+Lemma getAccessibleMappedPaddrEqBEPresentTrueNoChangeAccessibleFalseChangeInclusion partition block addr
+newEntry bentry0 s0:
+isPDT partition s0 ->
+lookup block (memory s0) beqAddr = Some (BE bentry0) ->
+(present newEntry) = (present bentry0) ->
+(present newEntry) = true ->
+(accessible newEntry) <> (accessible bentry0) ->
+(accessible newEntry) = false ->
+(startAddr (blockrange newEntry)) = (startAddr (blockrange bentry0)) ->
+(endAddr (blockrange newEntry)) = (endAddr (blockrange bentry0)) ->
+noDupMappedBlocksList s0 ->
+In block (filterOptionPaddr (getKSEntries partition s0)) ->
+In addr
+(getAccessibleMappedPaddr partition {|
+						currentPartition := currentPartition s0;
+						memory := add block (BE newEntry)
+            (memory s0) beqAddr |}) ->
+In addr (getAccessibleMappedPaddr partition s0).
+Proof.
+set (s' :=   {|
+currentPartition := currentPartition s0;
+memory := _ |}).
+intros HPDTs0 Hlookupaddr's0 HpresentEq Hpresenttrue HaccessibleNotEq HaccessibleFalse HstartEq HendEq.
+intros HNoDupMappedBlocks HaddrInKSentriess0.
+assert(HPDTs0' : isPDT partition s0) by intuition.
+apply isPDTLookupEq in HPDTs0'. destruct HPDTs0' as [pdentry0 Hlookuppds0].
+
+assert(Haddr'NotMapped : ~In block (getAccessibleMappedBlocks partition s')).
+{
+	apply BlockAccessibleFalseNotMapped with newEntry; intuition. subst s'. simpl. rewrite beqAddrTrue.
+  reflexivity.
+}
+
+assert(HgetMappedEq: getMappedBlocks partition s' = getMappedBlocks partition s0).
+{
+  subst s'. apply getMappedBlocksEqBENoChange with bentry0; assumption.
+}
+
+intro HaddrMappeds'.
+unfold getAccessibleMappedPaddr in HaddrMappeds'. unfold getAccessibleMappedBlocks in HaddrMappeds'.
+subst s'. simpl in HaddrMappeds'.
+destruct (beqAddr block partition) eqn:HbeqBlockPart; try(simpl in HaddrMappeds'; exfalso; congruence).
+rewrite <-beqAddrFalse in HbeqBlockPart. rewrite removeDupIdentity in HaddrMappeds'; try(intuition; congruence).
+rewrite Hlookuppds0 in HaddrMappeds'. rewrite HgetMappedEq in HaddrMappeds'.
+
+unfold getAccessibleMappedBlocks in Haddr'NotMapped. simpl in Haddr'NotMapped.
+rewrite beqAddrFalse in HbeqBlockPart. rewrite HbeqBlockPart in Haddr'NotMapped.
+rewrite <-beqAddrFalse in HbeqBlockPart. rewrite removeDupIdentity in Haddr'NotMapped; try(intuition; congruence).
+rewrite Hlookuppds0 in Haddr'NotMapped.
+
+unfold getAccessibleMappedPaddr. unfold getAccessibleMappedBlocks. rewrite Hlookuppds0.
+clear HgetMappedEq. induction (getMappedBlocks partition s0).
+- (* getMappedBlocks partition s0 = [] *)
+  simpl in HaddrMappeds'. exfalso; congruence.
+- (* getMappedBlocks partition s0 = a::l *)
+  simpl in HaddrMappeds'. destruct (beqAddr block a) eqn:HbeqBlockA.
+  + (* block = a *)
+    rewrite HaccessibleFalse in HaddrMappeds'. specialize(IHl HaddrMappeds'). simpl.
+    rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqBlockA. subst a. rewrite Hlookupaddr's0.
+    rewrite HaccessibleFalse in HaccessibleNotEq. apply not_eq_sym in HaccessibleNotEq.
+    apply Bool.not_false_is_true in HaccessibleNotEq. rewrite HaccessibleNotEq.
+    simpl. rewrite Hlookupaddr's0. apply in_or_app. right. assumption.
+  + (* block <> a *)
+    rewrite <-beqAddrFalse in HbeqBlockA. rewrite removeDupIdentity in HaddrMappeds'; try(intuition; congruence).
+    simpl. destruct (lookup a (memory s0) beqAddr) eqn:HlookupA; try(specialize(IHl HaddrMappeds'); assumption).
+    destruct v; try(specialize(IHl HaddrMappeds'); assumption).
+    destruct (accessible b); try(specialize(IHl HaddrMappeds'); assumption). simpl in HaddrMappeds'. simpl.
+    rewrite beqAddrFalse in HbeqBlockA. rewrite HbeqBlockA in HaddrMappeds'.
+    rewrite <-beqAddrFalse in HbeqBlockA. rewrite removeDupIdentity in HaddrMappeds'; try(intuition; congruence).
+    rewrite HlookupA in *. apply in_or_app. apply in_app_or in HaddrMappeds'.
+    destruct HaddrMappeds' as [HaddrInFirst | Hrec].
+    * left. assumption.
+    * right. apply IHl. assumption.
+Qed.
+
 (* DUP *)
 Lemma getAccessibleMappedPaddrEqBEPresentFalseNoChange partition addr' newEntry bentry0 s0:
 isPDT partition s0 ->
@@ -16206,7 +16460,7 @@ eapply getAccessibleMappedPaddrEqPDTNotInPart; intuition.
 Qed.
 
 Lemma getKSEntriesInStructAuxInside n m p block kernelstructure idx s:
-consistency s ->
+consistency1 s ->
 isKS kernelstructure s ->
 i idx <= i p ->
 i p < n ->
@@ -16246,7 +16500,7 @@ induction i0.
 	(* impossible because range OK *)
 	1,2,3,4,5, 6: 
 	assert(HconsBlocksRanges : BlocksRangeFromKernelStartIsBE s)
-		by (unfold consistency in * ; unfold consistency1 in *  ; intuition) ;
+		by (unfold consistency1 in *  ; intuition) ;
 	unfold BlocksRangeFromKernelStartIsBE in * ;
 	assert(HisKScurr : isKS kernelstructure s) by intuition ;
 	assert(HInRange : S i < kernelStructureEntriesNb) by intuition ;
@@ -16255,7 +16509,7 @@ induction i0.
 									HisKScurr HInRange);
 	unfold isBE in * ;
 	assert(HnullAddrs : nullAddrExists s)
-		by (unfold consistency in * ; unfold consistency1 in * ; intuition) ;
+		by (unfold consistency1 in * ; intuition) ;
 	unfold nullAddrExists in * ; unfold isPADDR in * ;
 	unfold nullAddr in * ; unfold CPaddr in * ;
 	(destruct (le_dec 0 maxAddr) ; intuition );
@@ -16315,7 +16569,7 @@ induction i0.
 		(* impossible because range OK *)
 		1,2,3,4,5, 6: 
 		assert(HconsBlocksRanges : BlocksRangeFromKernelStartIsBE s)
-			by (unfold consistency in * ; unfold consistency1 in *  ; intuition) ;
+			by (unfold consistency1 in *  ; intuition) ;
 		unfold BlocksRangeFromKernelStartIsBE in * ;
 		assert(HisKScurr : isKS kernelstructure s) by intuition ;
 		assert(HInRange : S i < kernelStructureEntriesNb) by intuition ;
@@ -16324,7 +16578,7 @@ induction i0.
 										HisKScurr HInRange);
 		unfold isBE in * ;
 		assert(HnullAddrs : nullAddrExists s)
-			by (unfold consistency in * ; unfold consistency1 in * ; intuition) ;
+			by (unfold consistency1 in * ; intuition) ;
 		unfold nullAddrExists in * ; unfold isPADDR in * ;
 		unfold nullAddr in * ; unfold CPaddr in * ;
 		(destruct (le_dec 0 maxAddr) ; intuition );
