@@ -115,11 +115,12 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
 		(** set the block as not accessible anymore to the ancestors *)
 		perform blockOrigin := readSCOriginFromBlockEntryAddr blockInCurrentPartitionAddr in
 		perform blockStart := readBlockStartFromBlockEntryAddr blockInCurrentPartitionAddr in
+		perform blockEnd := readBlockEndFromBlockEntryAddr blockInCurrentPartitionAddr in
 		perform blockNext := readSCNextFromBlockEntryAddr blockInCurrentPartitionAddr in
 		if beqAddr blockOrigin blockStart && beqAddr blockNext nullAddr then
 			(* Block hasn't been cut previously, need to be set unaccessible for the ancestors *)
-			perform idBlock := readBlockStartFromBlockEntryAddr blockInCurrentPartitionAddr in
-			writeAccessibleRec currentPart idBlock false ;;
+			(*perform idBlock := readBlockStartFromBlockEntryAddr blockInCurrentPartitionAddr in*) (*already computed*)
+			writeAccessibleRec currentPart blockStart blockEnd false ;;
 			ret true
 		else (* block has been cut and is already not accessible in the ancestors *)
 			ret true.
@@ -647,6 +648,7 @@ Definition deletePartition (idPDchildToDelete: paddr) : LLI bool :=
 		(** Remove all shared blocks references in current partition (except PD child)*)
 		perform currKernelStructureStart := readPDStructurePointer currentPart in
 		perform globalIdPDChildToDelete := readBlockStartFromBlockEntryAddr idPDchildToDelete in
+		perform endPDChildToDelete := readBlockEndFromBlockEntryAddr idPDchildToDelete in
 		deleteSharedBlocksRec currentPart currKernelStructureStart globalIdPDChildToDelete ;;
 
 		(** Erase PD child entry: remove sharing and set accessible for current partition *)
@@ -659,7 +661,7 @@ Definition deletePartition (idPDchildToDelete: paddr) : LLI bool :=
 					ret true
 		else (* if the PD child block to remove isn't cut, set it accessible to
 							parent and ancestors *)
-					writeAccessibleRec currentPart globalIdPDChildToDelete true ;;
+					writeAccessibleRec currentPart globalIdPDChildToDelete endPDChildToDelete true ;;
 					ret true.
 
 (** ** The collect PIP MPU service
