@@ -776,3 +776,18 @@ Ltac symmetrynot :=
 match goal with
 | [ |- ?x <> ?y ] => unfold not ; let Hk := fresh in intro Hk ; symmetry in Hk ;contradict Hk
 end.
+
+(* Definitions with lists *)
+
+Fixpoint isParentsList (s: state) (parentsList: list paddr) (pdBase: paddr) :=
+match parentsList with
+| nil => True
+| pdparent::newParentsList => (match (lookup pdparent (memory s) beqAddr) with
+                            | Some (PDT pdentry) => pdBase <> constantRootPartM
+                                                    /\ (exists pdentry0, lookup pdBase (memory s) beqAddr
+                                                                        = Some (PDT pdentry0)
+                                                        /\ pdparent = parent pdentry0)
+                                                    /\ isParentsList s newParentsList pdparent
+                            | _ => False
+                            end)
+end.
