@@ -1105,6 +1105,24 @@ induction l.
 	simpl in *. intuition.
 Qed.
 
+Lemma NotPresentNotInFilterPresent a bentry l s:
+lookup a (memory s) beqAddr = Some (BE bentry) ->
+present bentry = false ->
+In a l ->
+NoDup l -> ~In a (filterPresent l s).
+Proof.
+intros HlookupA Hpresent HinList HnoDup.
+induction l.
+- intuition.
+- simpl in *. apply NoDup_cons_iff in HnoDup.
+  destruct HinList as [HaIsa0 | HaInList].
+  + subst a0. rewrite HlookupA. rewrite Hpresent. apply NotInListNotInFilterPresent; intuition.
+  + destruct (lookup a0 (memory s) beqAddr); intuition.
+    destruct v ; intuition.
+    destruct (present b) ; intuition.
+    simpl in *. intuition. subst a0. intuition.
+Qed.
+
 Lemma NotInListNotInFilterPresentContra a l s:
 In a (filterPresent l s) -> In a l.
 Proof.
@@ -1170,6 +1188,19 @@ induction l.
 	destruct v ; intuition.
 	destruct (present b) ; intuition.
 	simpl in *. intuition.
+Qed.
+
+Lemma InFilterPresentInListAndPresent a l s:
+In a (filterPresent l s) -> In a l /\ bentryPFlag a true s.
+Proof.
+intro HInFilterPresent.
+induction l.
+- intuition.
+- simpl in *. unfold bentryPFlag.
+	destruct (lookup a0 (memory s) beqAddr) eqn:Hlookup ; try(intuition; congruence).
+	destruct v; try(intuition; congruence).
+	destruct (present b) eqn:Hpresent; try(intuition; congruence).
+	simpl in *. intuition. subst a0. rewrite Hlookup. intuition.
 Qed.
 
 
@@ -1449,6 +1480,123 @@ unfold pdentryParent in *.
 destruct (lookup child (memory s) beqAddr)  ; intuition.
 destruct v ; intuition.
 subst parent. subst parent'. intuition.
+Qed.
+
+Lemma uniqueBlockMapped block1 block2 addr partition s:
+noDupUsedPaddrList s
+-> wellFormedBlock s
+-> isPDT partition s
+-> In block1 (getMappedBlocks partition s)
+-> In block2 (getMappedBlocks partition s)
+-> bentryStartAddr block1 addr s
+-> bentryPFlag block1 true s
+-> bentryStartAddr block2 addr s
+-> bentryPFlag block2 true s
+-> block1 = block2.
+Proof.
+intros HnoDup HwellFormed HpartIsPDT Hblock1Mapped Hblock2Mapped Hstart1 HPFlag1 Hstart2 HPFlag2.
+specialize(HnoDup partition HpartIsPDT). unfold getUsedPaddr in HnoDup. apply Lib.NoDupSplit in HnoDup.
+destruct HnoDup as [_ HnoDup]. unfold getMappedPaddr in HnoDup. induction (getMappedBlocks partition s).
+- (* getMappedBlocks partition s = [] *)
+  simpl in *. exfalso; congruence.
+- (* getMappedBlocks partition s = a::l *)
+  simpl in *. destruct Hblock1Mapped as [HaIsBlock1 | Hblock1MappedRec].
+  + (* a = block1 *)
+    assert(Hstart1Copy: bentryStartAddr block1 addr s) by assumption.
+    subst a. unfold bentryStartAddr in Hstart1.
+    destruct (lookup block1 (memory s) beqAddr) eqn:HlookupBlock1; try(exfalso; congruence).
+    destruct v; try(exfalso; congruence).
+    destruct Hblock2Mapped as [HblocksEq | Hblock2MappedRec]; try(assumption).
+    apply Lib.NoDupSplitInclIff in HnoDup. destruct HnoDup as (_ & Hdisjoint).
+    assert(HstartInBlock1: In (startAddr (blockrange b))
+                              (getAllPaddrBlock (startAddr (blockrange b)) (endAddr (blockrange b)))).
+    {
+      unfold getAllPaddrBlock. subst addr.
+      assert(Hend1: bentryEndAddr block1 (endAddr (blockrange b)) s).
+      {
+        unfold bentryEndAddr. rewrite HlookupBlock1. reflexivity.
+      }
+      specialize(HwellFormed block1 (startAddr (blockrange b)) (endAddr (blockrange b)) HPFlag1 Hstart1Copy
+                  Hend1).
+      destruct HwellFormed as [HwellFormed _].
+      assert(Hrec: endAddr (blockrange b) - startAddr (blockrange b) > 0) by lia.
+      induction (endAddr (blockrange b) - startAddr (blockrange b)); try(lia). simpl.
+      assert(startAddr (blockrange b) <= maxAddr) by (apply Hp).
+      destruct (le_dec (startAddr (blockrange b)) maxAddr); try(lia). simpl. left.
+      destruct (startAddr (blockrange b)). simpl. f_equal. apply proof_irrelevance.
+    }
+    specialize(Hdisjoint (startAddr (blockrange b)) HstartInBlock1). subst addr.
+    assert(Hcontra: In (startAddr (blockrange b)) (getAllPaddrAux l s)).
+    {
+      apply blockIsMappedAddrInPaddrList with block2. assumption. simpl.
+      assert(Hstart2Copy: bentryStartAddr block2 (startAddr (blockrange b)) s) by assumption.
+      unfold bentryStartAddr in Hstart2.
+      destruct (lookup block2 (memory s) beqAddr) eqn:HlookupBlock2; try(exfalso; congruence).
+      destruct v; try(exfalso; congruence). rewrite app_nil_r. rewrite Hstart2 in *. unfold getAllPaddrBlock.
+      assert(Hend2: bentryEndAddr block2 (endAddr (blockrange b0)) s).
+      {
+        unfold bentryEndAddr. rewrite HlookupBlock2. reflexivity.
+      }
+      specialize(HwellFormed block2 (startAddr (blockrange b0)) (endAddr (blockrange b0)) HPFlag2 Hstart2Copy
+                  Hend2).
+      destruct HwellFormed as [HwellFormed _].
+      assert(Hrec: endAddr (blockrange b0) - startAddr (blockrange b0) > 0) by lia.
+      induction (endAddr (blockrange b0) - startAddr (blockrange b0)); try(lia). simpl.
+      assert(startAddr (blockrange b0) <= maxAddr) by (apply Hp).
+      destruct (le_dec (startAddr (blockrange b0)) maxAddr); try(lia). simpl. left.
+      destruct (startAddr (blockrange b0)). simpl. f_equal. apply proof_irrelevance.
+    }
+    exfalso; congruence.
+  + (* a <> block1 *)
+    destruct Hblock2Mapped as [HblocksEq | Hblock2MappedRec].
+    * (* a = block2 *)
+      subst a. assert(Hstart2Copy: bentryStartAddr block2 addr s) by assumption.
+      unfold bentryStartAddr in Hstart2.
+      destruct (lookup block2 (memory s) beqAddr) eqn:HlookupBlock2; try(exfalso; congruence).
+      destruct v; try(exfalso; congruence). subst addr.
+      apply Lib.NoDupSplitInclIff in HnoDup. destruct HnoDup as (_ & Hdisjoint).
+      assert(HstartInBlock2: In (startAddr (blockrange b))
+                                (getAllPaddrBlock (startAddr (blockrange b)) (endAddr (blockrange b)))).
+      {
+        unfold getAllPaddrBlock.
+        assert(Hend2: bentryEndAddr block2 (endAddr (blockrange b)) s).
+        {
+          unfold bentryEndAddr. rewrite HlookupBlock2. reflexivity.
+        }
+        specialize(HwellFormed block2 (startAddr (blockrange b)) (endAddr (blockrange b)) HPFlag2 Hstart2Copy
+                    Hend2).
+        destruct HwellFormed as [HwellFormed _].
+        assert(Hrec: endAddr (blockrange b) - startAddr (blockrange b) > 0) by lia.
+        induction (endAddr (blockrange b) - startAddr (blockrange b)); try(lia). simpl.
+        assert(startAddr (blockrange b) <= maxAddr) by (apply Hp).
+        destruct (le_dec (startAddr (blockrange b)) maxAddr); try(lia). simpl. left.
+        destruct (startAddr (blockrange b)). simpl. f_equal. apply proof_irrelevance.
+      }
+      specialize(Hdisjoint (startAddr (blockrange b)) HstartInBlock2).
+      assert(Hcontra: In (startAddr (blockrange b)) (getAllPaddrAux l s)).
+      {
+        apply blockIsMappedAddrInPaddrList with block1. assumption. simpl.
+        assert(Hstart1Copy: bentryStartAddr block1 (startAddr (blockrange b)) s) by assumption.
+        unfold bentryStartAddr in Hstart1.
+        destruct (lookup block1 (memory s) beqAddr) eqn:HlookupBlock1; try(exfalso; congruence).
+        destruct v; try(exfalso; congruence). rewrite app_nil_r. rewrite Hstart1 in *. unfold getAllPaddrBlock.
+        assert(Hend1: bentryEndAddr block1 (endAddr (blockrange b0)) s).
+        {
+          unfold bentryEndAddr. rewrite HlookupBlock1. reflexivity.
+        }
+        specialize(HwellFormed block1 (startAddr (blockrange b0)) (endAddr (blockrange b0)) HPFlag1 Hstart1Copy
+                    Hend1).
+        destruct HwellFormed as [HwellFormed _].
+        assert(Hrec: endAddr (blockrange b0) - startAddr (blockrange b0) > 0) by lia.
+        induction (endAddr (blockrange b0) - startAddr (blockrange b0)); try(lia). simpl.
+        assert(startAddr (blockrange b0) <= maxAddr) by (apply Hp).
+        destruct (le_dec (startAddr (blockrange b0)) maxAddr); try(lia). simpl. left.
+        destruct (startAddr (blockrange b0)). simpl. f_equal. apply proof_irrelevance.
+      }
+      exfalso; congruence.
+    * (* a <> block2 *)
+      apply IHl; try(assumption). destruct (lookup a (memory s) beqAddr); try(assumption).
+      destruct v; try(assumption). apply Lib.NoDupSplit in HnoDup. intuition.
 Qed.
 
 Lemma indexEqbTrue : 
