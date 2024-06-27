@@ -1739,6 +1739,61 @@ eapply bindRev.
 }
 Qed.
 
+Lemma writeSCNextFromBlockEntryAddr  (addr newnext: paddr) (P: unit -> state -> Prop) :
+{{fun  s => wellFormedShadowCutIfBlockEntry s /\ KernelStructureStartFromBlockEntryAddrIsKS s
+            /\ BlocksRangeFromKernelStartIsBE s /\ nullAddrExists s
+            /\ exists entry blockIndex scentry, lookup addr s.(memory) beqAddr = Some (BE entry)
+            /\ blockIndex = blockindex entry
+            /\ lookup (CPaddr (addr + scoffset)) (memory s) beqAddr
+                                = Some (SCE scentry)
+            /\
+P tt {|
+  currentPartition := currentPartition s;
+  memory := add addr
+              (SCE {| origin := scentry.(origin) ; next := newnext |})
+              (memory s) beqAddr |} }}
+MAL.writeSCNextFromBlockEntryAddr addr newnext {{P}}.
+Proof.
+unfold MAL.writeSCNextFromBlockEntryAddr.
+eapply bind.
+- intro SCEAddr. eapply bind.
+  + intro s.
+    case_eq (lookup SCEAddr s.(memory) beqAddr).
+    * intros v Hpage.
+      instantiate (1:= fun s s0 => s = s0
+                     /\ exists entry blockIndex scentry, lookup addr s.(memory) beqAddr = Some (BE entry)
+                       /\ blockIndex = blockindex entry
+                       /\ SCEAddr = CPaddr (addr + scoffset)
+                       /\ lookup SCEAddr (memory s) beqAddr = Some (SCE scentry)
+                       /\ P tt {|
+                            currentPartition := currentPartition s;
+                            memory := add addr
+                                        (SCE {| origin := scentry.(origin) ; next := newnext |})
+                                        (memory s) beqAddr |}).
+      simpl. case_eq v; intros; eapply weaken; try eapply undefined ;simpl;
+      subst;
+      cbn; intros;
+      try destruct H as [Hs (entry & (blockIndex & (scentry & (HlookupAddr & HblockIndex & HsceAddr & HlookupSce
+                          & HP))))];
+      subst; try rewrite HlookupSce in Hpage; inversion Hpage; subst; try assumption.
+      eapply modify. intros. simpl. assumption.
+    * intros Hpage; eapply weaken; try eapply undefined ;simpl.
+      intros s0 H0. destruct H0 as [Hs (entry & (blockIndex & (scentry & (HlookupAddr & HblockIndex & HsceAddr
+                                    & HlookupSce & HP))))].
+      rewrite HlookupSce in Hpage. inversion Hpage.
+  + eapply get.
+- eapply strengthen. eapply weaken. apply getSCEntryAddrFromBlockEntryAddr.
+  + simpl. intros s Hprops. split. apply Hprops. intuition.
+    destruct H4 as [entry (blockIndex & (scentry & Hprops))]. exists entry. intuition.
+  + simpl. intros s scentryAddr Hprops. split. reflexivity.
+    destruct Hprops as [(HwellFormed & Hkernel & Hblocks & Hnull & Hprops) (scentry & (HlookupSceAddr &
+                        HscentryAddr))].
+    destruct Hprops as [entry (blockIndex & (scentryBis & (HlookupAddr & HblockIndex & HlookupSce & HP)))].
+    exists entry. exists blockIndex. exists scentry. unfold StateLib.scentryAddr in HscentryAddr.
+    rewrite HlookupAddr in HscentryAddr. rewrite <-HscentryAddr in HlookupSce.
+    rewrite HlookupSceAddr in HlookupSce. injection HlookupSce as HsceEq. subst scentryBis. intuition.
+Qed.
+
 Lemma checkEntry  (kernelstructurestart blockentryaddr : paddr) (P :  state -> Prop) :
 {{fun s => P s }}
 MAL.checkEntry kernelstructurestart blockentryaddr
