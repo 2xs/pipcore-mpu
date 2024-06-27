@@ -249,6 +249,8 @@ NoDup (getUsedPaddr partition s).
 Definition noDupPartitionTree s :=
 NoDup (getPartitions multiplexer s).
 
+(* 18/06/2024: this consistency prop is false, it IS possible to have a block mapped in a partition and in its parent,
+    removing it *)
 (** **  In a given partition, all blocks configured
     in the MPU that are not null are accessible blocks belonging to that partition. **)
 Definition MPUFromAccessibleBlocks s :=
@@ -444,7 +446,7 @@ isChild s /\
 noDupKSEntriesList s /\
 noDupMappedBlocksList s /\
 wellFormedBlock s /\
-MPUFromAccessibleBlocks s /\
+(*MPUFromAccessibleBlocks s /\*)
 parentOfPartitionIsPartition s /\
 NbFreeSlotsISNbFreeSlotsInList s /\
 maxNbPrepareIsMaxNbKernels s /\
