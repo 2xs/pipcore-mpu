@@ -413,6 +413,7 @@ false = checkChild blockParent s (CPaddr (blockParent + sh1offset))
 Definition partitionTreeIsTree s :=
 forall child pdparent parentsList,
 child <> constantRootPartM
+-> In child (getPartitions multiplexer s)
 -> pdentryParent child pdparent s
 -> isParentsList s parentsList pdparent
 -> ~ In child parentsList.
