@@ -34,7 +34,7 @@
 Require Import Model.ADT Model.Monad Model.Lib Model.MALInternal.
 Require Import Proof.WeakestPreconditions Proof.Consistency Proof.StateLib Proof.DependentTypeLemmas
               Proof.InternalLemmas Proof.Isolation.
-Require Import Hoare Invariants findBlockInKS.
+Require Import Hoare Invariants (*findBlockInKS*).
 Require Import FunctionalExtensionality List Lia Coq.Logic.ProofIrrelevance Coq.Bool.Bool Coq.Bool.BoolEq.
 Import List.ListNotations.
 

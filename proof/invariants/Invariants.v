@@ -871,7 +871,7 @@ Qed.
 (* DUP *)
 Lemma readPDStructurePointer (pdpaddr : paddr) (P : state -> Prop) :
 {{ fun s => P s /\ isPDT pdpaddr s  }} MAL.readPDStructurePointer pdpaddr
-{{ fun (structurepointer : paddr) (s : state) => P s /\ (structurepointer <> nullAddr -> pdentryStructurePointer pdpaddr structurepointer s) }}.
+{{ fun (structurepointer : paddr) (s : state) => P s /\ pdentryStructurePointer pdpaddr structurepointer s }}.
 Proof.
 eapply WP.weaken.
 apply WP.getPDTRecordField.

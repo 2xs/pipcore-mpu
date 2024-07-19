@@ -589,8 +589,8 @@ case_eq kernelstructureisnull.
 		-- simpl in *. intuition.
 			--- (* a = blockEntryAddr *)
 				subst blockEntryAddr.
-				rewrite H4. (* lookup a ... *)
-				unfold bentryPFlag in *. rewrite H4 in *.
+				rewrite H3. (* lookup a ... *)
+				unfold bentryPFlag in *. rewrite H3 in *.
 				rewrite <- H5 in *. (* true = present bentry *)
 				intuition.
 			--- destruct (lookup a (memory s) beqAddr) ; intuition.

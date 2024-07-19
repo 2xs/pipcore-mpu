@@ -37,6 +37,15 @@
 Require Import Lia List Coq.Logic.Classical_Prop Model.Lib.
 Import List.ListNotations.
 
+Lemma in_app_or_neg (A: Type) (l m: list A) (a: A):
+~In a (l++m) -> ~In a l /\ ~In a m.
+Proof.
+intro HaNotInCons. split.
+- contradict HaNotInCons. apply in_or_app. left. assumption.
+- contradict HaNotInCons. apply in_or_app. right. assumption.
+Qed.
+
+
 Lemma NoDupSplit (A: Type) :
 forall l l': list A ,
 NoDup (l++l') -> NoDup l /\ NoDup l'.

@@ -310,6 +310,7 @@ Fixpoint isListOfKernelsAux kernList initKern s :=
 match kernList with
 | [] => True
 | kern::nextKernList => lookup (CPaddr (initKern + nextoffset)) (memory s) beqAddr = Some (PADDR kern)
+                       /\ initKern + nextoffset <= maxAddr
                        /\ kern <> nullAddr (*do we want that?*)
                        /\ isListOfKernelsAux nextKernList kern s
 end.
@@ -418,7 +419,23 @@ child <> constantRootPartM
 -> isParentsList s parentsList pdparent
 -> ~ In child parentsList.
 
+Definition kernelEntriesAreValid s :=
+forall kernel index,
+isKS kernel s
+-> index <= CIndex (kernelStructureEntriesNb - 1)
+-> isBE (CPaddr (kernel + index)) s.
 
+Definition nextKernelIsValid s :=
+forall kernel,
+isKS kernel s
+-> kernel + nextoffset <= maxAddr
+    /\ exists nextAddr, (forall Hp,
+          lookup {| p:= kernel+nextoffset; Hp:= Hp |} (memory s) beqAddr = Some(PADDR nextAddr))
+          /\ (isKS nextAddr s \/ nextAddr = nullAddr).
+
+Definition noDupListOfKerns s :=
+forall partition kernList,
+isListOfKernels kernList partition s -> NoDup kernList.
 
 (** ** First batch of consistency properties *)
 Definition consistency1 s :=
@@ -452,7 +469,10 @@ parentOfPartitionIsPartition s /\
 NbFreeSlotsISNbFreeSlotsInList s /\
 maxNbPrepareIsMaxNbKernels s /\
 blockInChildHasAtLeastEquivalentBlockInParent s (*or is that in consistency2?*) /\
-partitionTreeIsTree s.
+partitionTreeIsTree s /\
+kernelEntriesAreValid s /\
+nextKernelIsValid s /\
+noDupListOfKerns s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=
