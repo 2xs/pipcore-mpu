@@ -468,7 +468,7 @@ wellFormedBlock s /\
 parentOfPartitionIsPartition s /\
 NbFreeSlotsISNbFreeSlotsInList s /\
 maxNbPrepareIsMaxNbKernels s /\
-blockInChildHasAtLeastEquivalentBlockInParent s (*or is that in consistency2?*) /\
+blockInChildHasAtLeastEquivalentBlockInParent s /\
 partitionTreeIsTree s /\
 kernelEntriesAreValid s /\
 nextKernelIsValid s /\
