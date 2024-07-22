@@ -5315,13 +5315,14 @@ writeAccessibleToAncestorsIfNotCutRec pdbasepartition entryaddr flag
       /\ kernelDataIsolation s
       /\ verticalSharing s
       /\ consistency s
-      /\ exists s0 pdentry blockOrigin blockStart (*blockEnd*) blockNext (*parentsList statesList*),
+      /\ exists s0 pdentry pdbasepart blockOrigin blockStart blockEnd blockNext parentsList statesList,
         partitionsIsolation s0
         /\ kernelDataIsolation s0
         /\ verticalSharing s0
-        (*/\ isParentsList s0 parentsList pdbasepartition
+        /\ isParentsList s0 parentsList pdbasepart
         /\ s = last statesList s0
-        /\ isBuiltFromWriteAccessibleRec s0 s statesList parentsList pdbasepartition blockStart blockEnd flag*)
+        /\ isBuiltFromWriteAccessibleRec s0 s statesList parentsList pdbasepart blockStart blockEnd flag
+        /\ isPDT pdbasepart s0
         /\ lookup pdbasepartition (memory s) beqAddr = Some (PDT pdentry)
         /\ In pdbasepartition (getPartitions multiplexer s0)
         /\ P s0
@@ -5423,7 +5424,11 @@ destruct (beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr)%bool eqn
     unfold isPDT in HPDT.
     destruct (lookup pdbasepartition (memory s) beqAddr) eqn:HlookupBases; try(exfalso; congruence).
     destruct v; try(exfalso; congruence).
-    exists s0. exists p. exists blockOrigin. exists blockOrigin. exists nullAddr. intuition.
+    exists s0. exists p. exists pdbasepart. exists blockOrigin. exists blockOrigin. exists globalEnd.
+    exists nullAddr. exists parentsList. exists statesList. intuition.
+    unfold bentryStartAddr in *. destruct (lookup entryaddr (memory s0) beqAddr); try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). subst globalIdBlock. subst blockOrigin. assumption.
+    unfold isPDT. rewrite HlookupBaseBis. trivial.
   + (* recWriteEnded = true *)
     eapply weaken. eapply WP.ret. simpl. intros s Hprops. destruct Hprops as (HPI & HKDI & HVS & Hprops).
     destruct Hprops as [s0 [pdbasepart [pdentryBase [statesList [parentsList (HPI0 & HKDI0 & HVS0 & Hprops)]]]]].
@@ -5441,12 +5446,16 @@ destruct (beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr)%bool eqn
     unfold isPDT in HPDT.
     destruct (lookup pdbasepartition (memory s) beqAddr) eqn:HlookupBases; try(exfalso; congruence).
     destruct v; try(exfalso; congruence).
-    exists s0. exists p. exists blockOrigin. exists blockOrigin. exists nullAddr. intuition.
+    exists s0. exists p. exists pdbasepart. exists blockOrigin. exists blockOrigin. exists globalEnd.
+    exists nullAddr. exists parentsList. exists statesList. intuition.
+    unfold bentryStartAddr in *. destruct (lookup entryaddr (memory s0) beqAddr); try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). subst globalIdBlock. subst blockOrigin. assumption.
+    unfold isPDT. rewrite HlookupBaseBis. trivial.
 - (* beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr = false -> block has been cut *)
   eapply weaken. eapply WP.ret. simpl. intros s Hprops.
   destruct Hprops as ((((((HPI & HKDI & HVS & HP & Hconsist & (pdentry & HlookupBase) & Hprops2) & Horigin) &
         Hstart) & Hnext) & HentryStartGlob) & HentryEndGlob). intuition.
-  exists s. exists pdentry. exists blockOrigin. exists blockStart. exists blockNext.
-  intuition.
+  exists s. exists pdentry. exists pdbasepartition. exists blockOrigin. exists blockStart. exists globalEnd.
+  exists blockNext. exists []. exists []. simpl. intuition. unfold isPDT. rewrite HlookupBase. trivial.
 Qed.
 

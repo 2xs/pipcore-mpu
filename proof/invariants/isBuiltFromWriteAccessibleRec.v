@@ -312,6 +312,43 @@ revert pdentryPart. revert pdbasepartition. revert parentsList. revert initState
       rewrite <-beqAddrFalse in HbeqBlockPart. rewrite removeDupIdentity in HlookupPartA; intuition.
 Qed.
 
+Lemma stableBEIsBuilt statesList initState parentsList pdbasepartition startaddr endaddr flag s block:
+isBE block initState
+-> isBuiltFromWriteAccessibleRec initState s statesList parentsList pdbasepartition startaddr endaddr flag
+-> isBE block s.
+Proof.
+revert pdbasepartition. revert parentsList. revert initState. induction statesList.
+- (* statesList = [] *)
+  simpl. intros initState parentsList pdbasepartition HblockIsBE HisBuilt.
+  destruct HisBuilt as [_ HssInitEq]. subst s. assumption.
+- (* statesList = a::l *)
+  simpl. intros initState parentsList pdbasepartition HblockIsBE HisBuilt.
+  destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentryBase & (pdentryPdAddr &
+                        (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & HpropsOr &
+                        (*HbaseCase &*)
+                        HnewB & HlookupBlocks0 & HlookupBlocks1 & HPFlagBlock & HstartBlock & HendBlock &
+                        HblockMappedPdAddr & HlookupBases0 & HlookupBases1 & HlookupPdAddrs0 & HlookupPdAddrs1 &
+                        HpdAddr & HbaseNotRoot & HisBuilt))))))))))].
+  assert(HblockIsBEs1: isBE block s1).
+  {
+    rewrite Hs1. unfold isBE. simpl. destruct (beqAddr blockInParentPartitionAddr block) eqn:HbeqBlocks; trivial.
+    rewrite <-beqAddrFalse in HbeqBlocks. rewrite removeDupIdentity; intuition.
+  }
+  assert(HblockIsBEa: isBE block a).
+  {
+    destruct HpropsOr as [Has1Eq | Ha].
+    - subst a. assumption.
+    - destruct Ha as [Ha _]. unfold isBE in *. rewrite Ha. simpl.
+      destruct (beqAddr pdAddr block) eqn:HbeqParentBlock.
+      {
+        rewrite <-DTL.beqAddrTrue in HbeqParentBlock. subst block. rewrite HlookupPdAddrs0 in HblockIsBE.
+        congruence.
+      }
+      rewrite <-beqAddrFalse in HbeqParentBlock. rewrite removeDupIdentity; intuition.
+  }
+  specialize(IHstatesList a newPdEntriesList pdAddr HblockIsBEa HisBuilt). assumption.
+Qed.
+
 Lemma stableBEIsBuiltRev statesList initState parentsList pdbasepartition startaddr endaddr flag s block:
 isBE block s
 -> isBuiltFromWriteAccessibleRec initState s statesList parentsList pdbasepartition startaddr endaddr flag
