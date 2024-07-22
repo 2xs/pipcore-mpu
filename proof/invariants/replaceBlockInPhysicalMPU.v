@@ -3239,7 +3239,7 @@ eapply bindRev.
       { (* BEGIN partitionTreeIsTree s *)
         assert(Hcons0: partitionTreeIsTree s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
         unfold partitionTreeIsTree in *.
-        intros child pdparent parentsList HchildNotRoot HparentIsParent HlistIsParentsList.
+        intros child pdparent parentsList HchildNotRoot HchildIsPart HparentIsParent HlistIsParentsList.
         assert(HlookupChild: exists pdentryChild, lookup child (memory s) beqAddr = Some(PDT pdentryChild)
                                                   /\ pdparent = parent pdentryChild).
         {
@@ -3295,7 +3295,7 @@ eapply bindRev.
             assert(HnotEq: globalIdPD <> pdparent) by (rewrite beqAddrFalse; assumption).
             intuition. rewrite <-HsEq. simpl. rewrite HbeqParentGlob. rewrite removeDupIdentity; intuition.
         }
-        apply Hcons0 with pdparent; assumption.
+        rewrite HgetPartitionspdEq in HchildIsPart. apply Hcons0 with pdparent; assumption.
         (* END partitionTreeIsTree *)
       }
 
@@ -3469,6 +3469,79 @@ eapply bindRev.
         }
         specialize(HinChildLocation HinChildLocationPropss0). assumption. assumption.
         (* END childsBlocksPropsInParent *)
+      }
+
+      assert(kernelEntriesAreValid s).
+      { (* BEGIN kernelEntriesAreValid s *)
+        assert(Hcons0: kernelEntriesAreValid s0)
+              by (unfold consistency in *; unfold consistency1 in *; intuition).
+        unfold kernelEntriesAreValid in *. intros kernel idx HkernelIsKS HidxValid.
+        assert(HkernelIsKSs0: isKS kernel s0).
+        {
+          unfold isKS in HkernelIsKS. rewrite <-HsEq in HkernelIsKS. simpl in HkernelIsKS.
+          destruct (beqAddr globalIdPD kernel) eqn:HbeqGlobKern; try(exfalso; congruence).
+          rewrite <-beqAddrFalse in HbeqGlobKern. rewrite removeDupIdentity in HkernelIsKS; intuition.
+        }
+        specialize(Hcons0 kernel idx HkernelIsKSs0 HidxValid).
+        unfold isBE. rewrite <-HsEq. simpl.
+        destruct (beqAddr globalIdPD (CPaddr (kernel + idx))) eqn:HbeqGlobKernIdx.
+        {
+          rewrite <-DTL.beqAddrTrue in HbeqGlobKernIdx. subst globalIdPD. unfold isBE in Hcons0.
+          rewrite Hlookups0 in Hcons0. exfalso; congruence.
+        }
+        rewrite <-beqAddrFalse in HbeqGlobKernIdx. rewrite removeDupIdentity; intuition.
+        (* END kernelEntriesAreValid *)
+      }
+
+      assert(nextKernelIsValid s).
+      { (* BEGIN nextKernelIsValid s *)
+        assert(Hcons0: nextKernelIsValid s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        unfold nextKernelIsValid in *. intros kernel HkernelIsKS.
+        assert(HkernelIsKSs0: isKS kernel s0).
+        {
+          unfold isKS in HkernelIsKS. rewrite <-HsEq in HkernelIsKS. simpl in HkernelIsKS.
+          destruct (beqAddr globalIdPD kernel) eqn:HbeqGlobKern; try(exfalso; congruence).
+          rewrite <-beqAddrFalse in HbeqGlobKern. rewrite removeDupIdentity in HkernelIsKS; intuition.
+        }
+        specialize(Hcons0 kernel HkernelIsKSs0).
+        destruct Hcons0 as (HnextAddrValid & [nextAddr (HlookupNext & HnextType)]). split. assumption.
+        exists nextAddr. split.
+        - intro Hp. specialize(HlookupNext Hp). rewrite <-HsEq. simpl.
+          destruct (beqAddr globalIdPD {| p := kernel + nextoffset; Hp := Hp |}) eqn:HbeqGlobNext.
+          {
+            rewrite <-DTL.beqAddrTrue in HbeqGlobNext. subst globalIdPD. rewrite Hlookups0 in HlookupNext.
+            exfalso; congruence.
+          }
+          rewrite <-beqAddrFalse in HbeqGlobNext. rewrite removeDupIdentity; intuition.
+        - destruct HnextType as [HKS | Hnull]; try(right; assumption). left. unfold isKS. rewrite <-HsEq. simpl.
+          destruct (beqAddr globalIdPD nextAddr) eqn:HbeqGlobNext.
+          {
+            rewrite <-DTL.beqAddrTrue in HbeqGlobNext. subst globalIdPD. unfold isKS in HKS.
+            rewrite Hlookups0 in HKS. exfalso; congruence.
+          }
+          rewrite <-beqAddrFalse in HbeqGlobNext. rewrite removeDupIdentity; intuition.
+        (* END nextKernelIsValid *)
+      }
+
+      assert(noDupListOfKerns s).
+      { (* BEGIN noDupListOfKerns s *)
+        assert(Hcons0: noDupListOfKerns s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        unfold noDupListOfKerns in *. intros part kernList HkernList.
+        assert(HkernLists0: isListOfKernels kernList part s0).
+        {
+          rewrite <-HsEq in HkernList. apply isListOfKernelsEqPDT with globalIdPD
+                    {|
+                      structure := structure pdentry;
+                      firstfreeslot := firstfreeslot pdentry;
+                      nbfreeslots := nbfreeslots pdentry;
+                      nbprepare := nbprepare pdentry;
+                      parent := parent pdentry;
+                      MPU := addElementAt MPURegionNb blockToEnableAddr (MPU pdentry) nullAddr;
+                      vidtAddr := vidtAddr pdentry
+                    |} pdentry; try(assumption). simpl. reflexivity.
+        }
+        specialize(Hcons0 part kernList HkernLists0). assumption.
+        (* END noDupListOfKerns *)
       }
 
       intuition.
