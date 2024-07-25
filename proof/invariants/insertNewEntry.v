@@ -128,7 +128,8 @@ memory := add sceaddr
 			 nbprepare := nbprepare pdentry;
 			 parent := parent pdentry;
 			 MPU := MPU pdentry;
-								 vidtAddr := vidtAddr pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+								 vidtAddr := vidtAddr pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr)
+                            beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
 /\ newBlockEntryAddr = newentryaddr
 /\ lookup newBlockEntryAddr (memory s0) beqAddr = Some (BE bentry)
 /\ lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry6) /\
