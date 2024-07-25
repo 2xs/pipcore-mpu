@@ -40,7 +40,7 @@ Proof.StateLib Proof.InternalLemmas Proof.DependentTypeLemmas.
 Require Import Invariants (*GetTableAddr UpdateShadow2Structure UpdateShadow1Structure
                PropagatedProperties MapMMUPage*) Proof.invariants.findBlockInKSWithAddr.
 
-Require Import isBuiltFromWriteAccessibleRec writeAccessibleToAncestorsIfNotCutRec.
+Require Import isBuiltFromWriteAccessibleRec writeAccessibleToAncestorsIfNotCutRec insertNewEntry.
 
 Require Import Bool List EqNat Lia.
 
@@ -449,10 +449,40 @@ case_eq PDChildAddrIsNull.
 }
 	intro blockX.
 	eapply bindRev.
-{ (* Internal.insertNewEntry *) (*TODO HERE needs an update on insertNewEntry*)
+{ (* Internal.insertNewEntry *)
 	eapply weaken. apply insertNewEntry.
-	intros s Hprops. simpl. intuition.
-  - apply isPDTLookupEq in H35. intuition.
+	intros s Hprops. simpl. pose proof Hprops as HpropsCopy.
+  destruct Hprops as ((((((HPI & HKDI & HVS & Hconsist & [s0 [pdentry [pdbasepart [blockOriginBis [blockStart
+      [blockEnd [blockNext [parentsList [statesList Hprops]]]]]]]]]) & HendBlock) & Hscentry) & HRFlag) & HWFlag)
+      & HXFlag). split. assumption. split.
+  {
+    assert(HlookupCurr: lookup currentPart (memory s) beqAddr = Some (PDT pdentry)) by intuition. exists pdentry.
+    split. assumption. intro HcurrNotRoot.
+    assert(HparentOfPart: parentOfPartitionIsPartition s)
+        by (unfold consistency in *; unfold consistency1 in *; intuition).
+    specialize(HparentOfPart currentPart pdentry HlookupCurr). destruct HparentOfPart as (HparentIsPart & _).
+    specialize(HparentIsPart HcurrNotRoot).
+    destruct HparentIsPart as ([parentEntry HlookupParent] & HparentIsPart). split. unfold isPDT.
+    rewrite HlookupParent. trivial.
+    assert(HblockEquivParent: blockInChildHasAtLeastEquivalentBlockInParent s)
+        by (unfold consistency in *; unfold consistency1 in *; intuition).
+    assert(HwellFormed: wellFormedBlock s) by (unfold consistency in *; unfold consistency1 in *; intuition).
+    split.
+    - intros addr HaddrInRange.
+      assert(HaddrInParent: childPaddrIsIntoParent s) by (apply blockInclImpliesAddrIncl; assumption).
+      unfold childPaddrIsIntoParent in HaddrInParent. apply HaddrInParent with currentPart. assumption.
+      assert(HisChild: isChild s) by (unfold consistency in *; unfold consistency1 in *; intuition).
+      unfold isChild in HisChild. apply HisChild.
+      + assert(In currentPart (getPartitions multiplexer s0)) by intuition.
+        assert(HgetPartsEq: getPartitions multiplexer s = getPartitions multiplexer s0).
+        { (*TODO HERE probably needs an update of isBuiltFromWriteAccessibleRec...*)
+          apply getPartitionsEqBuiltWithWriteAccInter with statesList parentsList blockStart blockEnd pdbasepart
+false blockBase, bentryBase.
+        }
+      + 
+      + 
+    - 
+  }
   - unfold StateLib.Index.leb in H19. apply eq_sym in H19. apply Compare_dec.leb_iff_conv in H19. lia.
   - apply isPDTLookupEq in H35. destruct H35 as [pdentry Hlookup].
     assert(pdentryFirstFreeSlot currentPart (firstfreeslot pdentry) s)
