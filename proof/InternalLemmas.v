@@ -327,6 +327,37 @@ induction (getMappedBlocks partition s).
 			apply in_or_app. right. intuition.
 Qed.
 
+Lemma accessibleBlockIsAccessibleMapped partition block s:
+In block (getMappedBlocks partition s) ->
+bentryAFlag block true s ->
+In block (getAccessibleMappedBlocks partition s).
+Proof.
+intros HBlockInMapped Haccessible.
+unfold getAccessibleMappedBlocks.
+assert(HPDT : isPDT partition s).
+{ unfold isPDT. unfold getMappedBlocks in *.
+	unfold getKSEntries in *.
+	destruct (lookup partition (memory s) beqAddr) ; intuition.
+	destruct v ; intuition.
+}
+apply isPDTLookupEq in HPDT. destruct HPDT as [pdentry Hlookupd].
+rewrite Hlookupd.
+induction (getMappedBlocks partition s).
+- intuition.
+-
+ simpl in *. unfold bentryAFlag in Haccessible.
+
+	destruct HBlockInMapped as [HblockIsA  | HBlockInl].
+	--  subst a.
+			destruct (lookup block (memory s) beqAddr) eqn:Hlookupblock ; intuition.
+			destruct v ; intuition. rewrite <-Haccessible.
+			simpl. left. reflexivity.
+	--	assert(In block (filterAccessible l s)) by (apply IHl; assumption).
+			destruct (lookup a (memory s) beqAddr) eqn:Hlookupa ; intuition.
+			destruct v ; intuition.
+			destruct (accessible b) ; intuition.
+Qed.
+
 Lemma addrInAccessibleMappedIsIsMappedPaddr partition addr s:
 In addr (getAccessibleMappedPaddr partition s) ->
 In addr (getMappedPaddr partition s).

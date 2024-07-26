@@ -5315,7 +5315,8 @@ writeAccessibleToAncestorsIfNotCutRec pdbasepartition entryaddr flag
       /\ kernelDataIsolation s
       /\ verticalSharing s
       /\ consistency s
-      /\ exists s0 pdentry pdbasepart blockOrigin blockStart blockEnd blockNext parentsList statesList,
+      /\ exists s0 pdentry pdbasepart blockOrigin blockStart blockEnd blockNext parentsList statesList blockBase
+            bentryBase bentryBases0,
         partitionsIsolation s0
         /\ kernelDataIsolation s0
         /\ verticalSharing s0
@@ -5327,6 +5328,21 @@ writeAccessibleToAncestorsIfNotCutRec pdbasepartition entryaddr flag
         /\ In pdbasepartition (getPartitions multiplexer s0)
         /\ P s0
         /\ consistency s0
+        /\ lookup blockBase (memory s0) beqAddr = Some (BE bentryBases0)
+        /\ bentryPFlag blockBase true s0
+        /\ bentryAFlag blockBase true s0
+        /\ In blockBase (getMappedBlocks pdbasepart s0)
+        /\ In blockBase (getAccessibleMappedBlocks pdbasepart s0)
+        /\ bentryStartAddr blockBase blockStart s0
+        /\ bentryEndAddr blockBase blockEnd s0
+        /\ false = checkChild blockBase s0 (CPaddr (blockBase + sh1offset))
+        /\ lookup blockBase (memory s) beqAddr = Some (BE bentryBase)
+        /\ bentryPFlag blockBase true s
+        /\ bentryAFlag blockBase true s
+        /\ In blockBase (getMappedBlocks pdbasepart s)
+        /\ bentryStartAddr blockBase blockStart s
+        /\ bentryEndAddr blockBase blockEnd s
+        /\ false = checkChild blockBase s (CPaddr (blockBase + sh1offset))
         /\ (exists (scentry : SCEntry) (scentryaddr : paddr),
               lookup scentryaddr (memory s0) beqAddr = Some (SCE scentry)
               /\ scentryNext scentryaddr blockNext s0)
@@ -5424,10 +5440,15 @@ destruct (beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr)%bool eqn
     unfold isPDT in HPDT.
     destruct (lookup pdbasepartition (memory s) beqAddr) eqn:HlookupBases; try(exfalso; congruence).
     destruct v; try(exfalso; congruence).
-    exists s0. exists p. exists pdbasepart. exists blockOrigin. exists blockOrigin. exists globalEnd.
-    exists nullAddr. exists parentsList. exists statesList. intuition.
-    unfold bentryStartAddr in *. destruct (lookup entryaddr (memory s0) beqAddr); try(exfalso; congruence).
-    destruct v; try(exfalso; congruence). subst globalIdBlock. subst blockOrigin. assumption.
+    destruct HblockBase as [blockBase [bentryBase [bentryBases0 HblockBase]]].
+    assert(Heq: globalIdBlock = blockOrigin).
+    {
+      unfold bentryStartAddr in *. destruct (lookup entryaddr (memory s0) beqAddr); try(exfalso; congruence).
+      destruct v; try(exfalso; congruence). rewrite HstartOrigin. assumption.
+    }
+    subst globalIdBlock. exists s0. exists p. exists pdbasepart. exists blockOrigin. exists blockOrigin.
+    exists globalEnd. exists nullAddr. exists parentsList. exists statesList. exists blockBase. exists bentryBase.
+    exists bentryBases0. intuition.
     unfold isPDT. rewrite HlookupBaseBis. trivial.
   + (* recWriteEnded = true *)
     eapply weaken. eapply WP.ret. simpl. intros s Hprops. destruct Hprops as (HPI & HKDI & HVS & Hprops).
@@ -5446,16 +5467,37 @@ destruct (beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr)%bool eqn
     unfold isPDT in HPDT.
     destruct (lookup pdbasepartition (memory s) beqAddr) eqn:HlookupBases; try(exfalso; congruence).
     destruct v; try(exfalso; congruence).
-    exists s0. exists p. exists pdbasepart. exists blockOrigin. exists blockOrigin. exists globalEnd.
-    exists nullAddr. exists parentsList. exists statesList. intuition.
-    unfold bentryStartAddr in *. destruct (lookup entryaddr (memory s0) beqAddr); try(exfalso; congruence).
-    destruct v; try(exfalso; congruence). subst globalIdBlock. subst blockOrigin. assumption.
+    destruct HblockBase as [blockBase [bentryBase [bentryBases0 HblockBase]]].
+    assert(Heq: globalIdBlock = blockOrigin).
+    {
+      unfold bentryStartAddr in *. destruct (lookup entryaddr (memory s0) beqAddr); try(exfalso; congruence).
+      destruct v; try(exfalso; congruence). rewrite HstartOrigin. assumption.
+    }
+    subst globalIdBlock. exists s0. exists p. exists pdbasepart. exists blockOrigin. exists blockOrigin.
+    exists globalEnd. exists nullAddr. exists parentsList. exists statesList. exists blockBase. exists bentryBase.
+    exists bentryBases0. intuition.
     unfold isPDT. rewrite HlookupBaseBis. trivial.
 - (* beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr = false -> block has been cut *)
   eapply weaken. eapply WP.ret. simpl. intros s Hprops.
   destruct Hprops as ((((((HPI & HKDI & HVS & HP & Hconsist & (pdentry & HlookupBase) & Hprops2) & Horigin) &
-        Hstart) & Hnext) & HentryStartGlob) & HentryEndGlob). intuition.
+        Hstart) & Hnext) & HentryStartGlob) & HentryEndGlob).
+  destruct Hprops2 as (HbaseIsPart & [bentryBase HlookupBlockBase] & Hprops2). intuition.
   exists s. exists pdentry. exists pdbasepartition. exists blockOrigin. exists blockStart. exists globalEnd.
-  exists blockNext. exists []. exists []. simpl. intuition. unfold isPDT. rewrite HlookupBase. trivial.
+  exists blockNext. exists []. exists []. exists entryaddr. exists bentryBase. exists bentryBase. simpl.
+  assert(false = checkChild entryaddr s (CPaddr (entryaddr + sh1offset))).
+  {
+    unfold checkChild. rewrite HlookupBlockBase.
+    assert(HPDFlag: AccessibleNoPDFlag s) by (unfold consistency in *; unfold consistency1 in *; intuition).
+    assert(HBE: isBE entryaddr s) by (unfold isBE; rewrite HlookupBlockBase; trivial).
+    assert(Hsh1: sh1entryAddr entryaddr (CPaddr (entryaddr + sh1offset)) s).
+    {
+      unfold sh1entryAddr. rewrite HlookupBlockBase. reflexivity.
+    }
+    specialize(HPDFlag entryaddr (CPaddr (entryaddr + sh1offset)) HBE Hsh1 H1). unfold sh1entryPDflag in HPDFlag.
+    destruct (lookup (CPaddr (entryaddr + sh1offset)) (memory s) beqAddr); try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). assumption.
+  }
+  intuition. unfold isPDT. rewrite HlookupBase. trivial.
+  apply accessibleBlockIsAccessibleMapped; assumption.
 Qed.
 
