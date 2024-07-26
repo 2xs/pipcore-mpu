@@ -395,7 +395,10 @@ currentPartition := currentPartition s9;
 memory := add sceaddr 
 						 (SCE {| origin := origin; next := next scentry |}
 		  ) (memory s9) beqAddr |}
-))
+)
+/\ (forall part pdentryPart parentsList, lookup part (memory s0) beqAddr = Some (PDT pdentryPart)
+          -> isParentsList s parentsList part -> isParentsList s0 parentsList part)
+/\ (forall part kernList, isListOfKernels kernList part s -> isListOfKernels kernList part s0))
 }}.
 Proof.
 
@@ -29369,4 +29372,12 @@ intuition.
 		 eexists. eexists. eexists. eexists. eexists. eexists. eexists. eexists.
 		 eexists. eexists.
 		 intuition.
+- destruct H34 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].
+  assert(Hlist: forall part pdentryPart parentsList, lookup part (memory s0) beqAddr = Some (PDT pdentryPart)
+                  -> isParentsList s parentsList part -> isParentsList s0 parentsList part) by intuition.
+  apply Hlist with pdentryPart; assumption.
+- destruct H34 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].
+  assert(Hlist: forall part kernList, isListOfKernels kernList part s -> isListOfKernels kernList part s0)
+      by intuition.
+  apply Hlist; assumption.
 Qed.
