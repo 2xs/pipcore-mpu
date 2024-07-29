@@ -43,6 +43,7 @@ Require Import Invariants (*GetTableAddr UpdateShadow2Structure UpdateShadow1Str
 Require Import isBuiltFromWriteAccessibleRec writeAccessibleToAncestorsIfNotCutRec insertNewEntry.
 
 Require Import Bool List EqNat Lia.
+Import List.ListNotations.
 
 Require Import Model.Monad.
 
@@ -385,7 +386,7 @@ case_eq PDChildAddrIsNull.
 	eapply weaken. apply readBlockEndFromBlockEntryAddr.
 	intros s Hprops. simpl. split. apply Hprops. apply isBELookupEq.
   destruct Hprops as (HPI & HKDI & HVS & Hconsist & [s0 [pdentry [pdbasepart [blokOrigin [blockStart [blockEnd
-          [blockNext [parentsList [statesList Hprops]]]]]]]]]).
+          [blockNext [parentsList [statesList [blockBase [bentryBase [bentryBases0 Hprops]]]]]]]]]]]]).
   assert(HBE: exists entry, lookup blockToShareInCurrPartAddr (memory s0) beqAddr = Some (BE entry)) by intuition.
   destruct HBE as [bentry Hlookup].
   assert(HBE: isBE blockToShareInCurrPartAddr s0) by (unfold isBE; rewrite Hlookup; trivial).
@@ -401,7 +402,7 @@ case_eq PDChildAddrIsNull.
 	eapply weaken. apply readSCOriginFromBlockEntryAddr.
 	intros s Hprops. simpl. split. apply Hprops. split. intuition.
   destruct Hprops as ((HPI & HKDI & HVS & Hconsist & [s0 [pdentry [pdbasepart [blokOrigin [blockStart [blockEnd
-          [blockNext [parentsList [statesList Hprops]]]]]]]]]) & _).
+          [blockNext [parentsList [statesList [blockBase [bentryBase [bentryBases0 Hprops]]]]]]]]]]]]) & _).
   assert(HBE: exists entry, lookup blockToShareInCurrPartAddr (memory s0) beqAddr = Some (BE entry)) by intuition.
   destruct HBE as [bentry Hlookup].
   assert(HBE: isBE blockToShareInCurrPartAddr s0) by (unfold isBE; rewrite Hlookup; trivial).
@@ -417,7 +418,7 @@ case_eq PDChildAddrIsNull.
 	eapply weaken. apply readBlockRFromBlockEntryAddr.
 	intros s Hprops. simpl. split. apply Hprops.
   destruct Hprops as (((HPI & HKDI & HVS & Hconsist & [s0 [pdentry [pdbasepart [blokOrigin [blockStart [blockEnd
-          [blockNext [parentsList [statesList Hprops]]]]]]]]]) & _) & _).
+          [blockNext [parentsList [statesList [blockBase [bentryBase [bentryBases0 Hprops]]]]]]]]]]]]) & _) & _).
   assert(HBE: exists entry, lookup blockToShareInCurrPartAddr (memory s0) beqAddr = Some (BE entry)) by intuition.
   destruct HBE as [bentry Hlookup].
   assert(HBE: isBE blockToShareInCurrPartAddr s0) by (unfold isBE; rewrite Hlookup; trivial).
@@ -429,7 +430,8 @@ case_eq PDChildAddrIsNull.
 	eapply weaken. apply readBlockWFromBlockEntryAddr.
 	intros s Hprops. simpl. split. apply Hprops.
   destruct Hprops as ((((HPI & HKDI & HVS & Hconsist & [s0 [pdentry [pdbasepart [blokOrigin [blockStart [blockEnd
-          [blockNext [parentsList [statesList Hprops]]]]]]]]]) & _) & _) & _).
+          [blockNext [parentsList [statesList [blockBase [bentryBase [bentryBases0 Hprops]]]]]]]]]]]]) & _) & _)
+          & _).
   assert(HBE: exists entry, lookup blockToShareInCurrPartAddr (memory s0) beqAddr = Some (BE entry)) by intuition.
   destruct HBE as [bentry Hlookup].
   assert(HBE: isBE blockToShareInCurrPartAddr s0) by (unfold isBE; rewrite Hlookup; trivial).
@@ -441,7 +443,8 @@ case_eq PDChildAddrIsNull.
 	eapply weaken. apply readBlockXFromBlockEntryAddr.
 	intros s Hprops. simpl. split. apply Hprops.
   destruct Hprops as (((((HPI & HKDI & HVS & Hconsist & [s0 [pdentry [pdbasepart [blokOrigin [blockStart
-          [blockEnd [blockNext [parentsList [statesList Hprops]]]]]]]]]) & _) & _) & _) & _).
+          [blockEnd [blockNext [parentsList [statesList [blockBase [bentryBase [bentryBases0 Hprops]]]]]]]]]]]])
+          & _) & _) & _) & _).
   assert(HBE: exists entry, lookup blockToShareInCurrPartAddr (memory s0) beqAddr = Some (BE entry)) by intuition.
   destruct HBE as [bentry Hlookup].
   assert(HBE: isBE blockToShareInCurrPartAddr s0) by (unfold isBE; rewrite Hlookup; trivial).
@@ -453,8 +456,8 @@ case_eq PDChildAddrIsNull.
 	eapply weaken. apply insertNewEntry.
 	intros s Hprops. simpl. pose proof Hprops as HpropsCopy.
   destruct Hprops as ((((((HPI & HKDI & HVS & Hconsist & [s0 [pdentry [pdbasepart [blockOriginBis [blockStart
-      [blockEnd [blockNext [parentsList [statesList Hprops]]]]]]]]]) & HendBlock) & Hscentry) & HRFlag) & HWFlag)
-      & HXFlag). split. assumption. split.
+      [blockEnd [blockNext [parentsList [statesList [blockBase [bentryBase [bentryBases0 Hprops]]]]]]]]]]]]) &
+      HendBlock) & Hscentry) & HRFlag) & HWFlag) & HXFlag). split. assumption. split.
   {
     assert(HlookupCurr: lookup currentPart (memory s) beqAddr = Some (PDT pdentry)) by intuition. exists pdentry.
     split. assumption. intro HcurrNotRoot.
@@ -475,35 +478,147 @@ case_eq PDChildAddrIsNull.
       unfold isChild in HisChild. apply HisChild.
       + assert(In currentPart (getPartitions multiplexer s0)) by intuition.
         assert(HgetPartsEq: getPartitions multiplexer s = getPartitions multiplexer s0).
-        { (*TODO HERE probably needs an update of isBuiltFromWriteAccessibleRec...*)
-          apply getPartitionsEqBuiltWithWriteAccInter with statesList parentsList blockStart blockEnd pdbasepart
-false blockBase, bentryBase.
+        {
+          unfold consistency in *; unfold consistency1 in *; unfold consistency2 in *; apply
+              getPartitionsEqBuiltWithWriteAccInter with statesList parentsList blockStart blockEnd pdbasepart
+              false blockBase bentryBases0; intuition.
         }
-      + 
-      + 
-    - 
+        rewrite HgetPartsEq. assumption.
+      + unfold pdentryParent. rewrite HlookupCurr. reflexivity.
+      + assert(In addr (getAllPaddrAux [blockToShareInCurrPartAddr] s)).
+        {
+          simpl. assert(Hstart: bentryStartAddr blockToShareInCurrPartAddr blockToCutStartAddr s0) by intuition.
+          unfold bentryStartAddr in Hstart.
+          destruct (lookup blockToShareInCurrPartAddr (memory s0) beqAddr) eqn:HlookupBlocks0;
+              try(exfalso; congruence). destruct v; try(exfalso; congruence).
+          assert(HisBuilt: isBuiltFromWriteAccessibleRec s0 s statesList parentsList pdbasepart blockStart
+                blockEnd false) by intuition.
+          pose proof (stableBEFieldsIsBuilt statesList s0 parentsList pdbasepart blockStart blockEnd false s
+              blockToShareInCurrPartAddr b HlookupBlocks0 HisBuilt) as Hres.
+          destruct Hres as [bentrys (HlookupBlocks & _ & _ & _ & _ & _ & HrangeEq)].
+          unfold bentryEndAddr in HendBlock. rewrite HlookupBlocks in *. rewrite app_nil_r.
+          rewrite <-HrangeEq in *. rewrite <-Hstart. rewrite <-HendBlock.
+          apply getAllPaddrBlockInclRev in HaddrInRange.
+          assert(HleCut: false = StateLib.Paddr.leb cutAddr blockToCutStartAddr) by intuition.
+          unfold StateLib.Paddr.leb in HleCut. apply eq_sym in HleCut. apply PeanoNat.Nat.leb_gt in HleCut.
+          assert(HleEnd: false = StateLib.Paddr.leb blockToCutEndAddr cutAddr) by intuition.
+          unfold StateLib.Paddr.leb in HleEnd. apply eq_sym in HleEnd. apply PeanoNat.Nat.leb_gt in HleEnd.
+          destruct HaddrInRange as (Hcut & Hend & Hbounds). apply getAllPaddrBlockIncl; lia.
+        }
+        assert(HblockMapped: In blockToShareInCurrPartAddr (getMappedBlocks currentPart s0)) by intuition.
+        assert(HmappedEq: getMappedBlocks currentPart s = getMappedBlocks currentPart s0).
+        {
+          unfold consistency in *; unfold consistency1 in *; unfold consistency2 in *;
+          apply getMappedBlocksEqBuiltWithWriteAcc with statesList parentsList blockStart blockEnd pdbasepart
+              false blockBase bentryBases0; intuition.
+        }
+        rewrite <-HmappedEq in HblockMapped. apply addrInBlockIsMapped with blockToShareInCurrPartAddr;
+            assumption.
+    - assert(HcurrIsChild: In currentPart (getChildren (parent pdentry) s)).
+      {
+        assert(HisChild: isChild s) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        unfold isChild in HisChild. apply HisChild.
+        assert(HgetPartsEq: getPartitions multiplexer s = getPartitions multiplexer s0).
+        {
+          unfold consistency in *; unfold consistency1 in *; unfold consistency2 in *; apply
+              getPartitionsEqBuiltWithWriteAccInter with statesList parentsList blockStart blockEnd pdbasepart
+              false blockBase bentryBases0; intuition.
+        }
+        rewrite HgetPartsEq in *. intuition.
+        unfold pdentryParent. rewrite HlookupCurr. reflexivity.
+      }
+      assert(HblockMapped: In blockToShareInCurrPartAddr (getMappedBlocks currentPart s0)) by intuition.
+      assert(HmappedEq: getMappedBlocks currentPart s = getMappedBlocks currentPart s0).
+      {
+        unfold consistency in *; unfold consistency1 in *; unfold consistency2 in *;
+        apply getMappedBlocksEqBuiltWithWriteAcc with statesList parentsList blockStart blockEnd pdbasepart
+            false blockBase bentryBases0; intuition.
+      }
+      rewrite <-HmappedEq in HblockMapped.
+      assert(Hstarts0: bentryStartAddr blockToShareInCurrPartAddr blockToCutStartAddr s0) by intuition.
+      assert(HPFlags0: bentryPFlag blockToShareInCurrPartAddr true s0) by intuition.
+      assert(HstartAndP: bentryStartAddr blockToShareInCurrPartAddr blockToCutStartAddr s
+                      /\ bentryPFlag blockToShareInCurrPartAddr true s).
+      {
+        unfold bentryStartAddr in Hstarts0. unfold bentryPFlag in HPFlags0.
+        destruct (lookup blockToShareInCurrPartAddr (memory s0) beqAddr) eqn:HlookupBlocks0;
+            try(exfalso; congruence). destruct v; try(exfalso; congruence).
+        assert(HisBuilt: isBuiltFromWriteAccessibleRec s0 s statesList parentsList pdbasepart blockStart
+              blockEnd false) by intuition.
+        pose proof (stableBEFieldsIsBuilt statesList s0 parentsList pdbasepart blockStart blockEnd false s
+            blockToShareInCurrPartAddr b HlookupBlocks0 HisBuilt) as Hres.
+        destruct Hres as [bentrys (HlookupBlocks & _ & _ & _ & HpresEq & _ & HrangeEq)]. split.
+        - unfold bentryStartAddr. rewrite HlookupBlocks. rewrite HrangeEq. assumption.
+        - unfold bentryPFlag. rewrite HlookupBlocks. rewrite HpresEq. assumption.
+      }
+      destruct HstartAndP as (Hstart & HPFlag).
+      specialize(HblockEquivParent (parent pdentry) currentPart blockToShareInCurrPartAddr blockToCutStartAddr
+          blockEndAddr HparentIsPart HcurrIsChild HblockMapped Hstart HendBlock HPFlag).
+      destruct HblockEquivParent as [blockParent [startParent [endParent (HblockParentMapped & HstartParent &
+          HendParent & HleStart & HleEnd)]]]. exists blockParent. exists startParent. exists endParent.
+      split. assumption. split. assumption. split. assumption. split; try(assumption).
+      assert(HleCut: false = StateLib.Paddr.leb cutAddr blockToCutStartAddr) by intuition.
+      unfold StateLib.Paddr.leb in HleCut. apply eq_sym in HleCut. apply PeanoNat.Nat.leb_gt in HleCut. lia.
   }
-  - unfold StateLib.Index.leb in H19. apply eq_sym in H19. apply Compare_dec.leb_iff_conv in H19. lia.
-  - apply isPDTLookupEq in H35. destruct H35 as [pdentry Hlookup].
-    assert(pdentryFirstFreeSlot currentPart (firstfreeslot pdentry) s)
-            by (apply lookupPDEntryFirstFreeSlot; intuition).
-    exists (firstfreeslot pdentry). split. assumption.
-    admit.
-  (*TODO we know that there are free slots, so the first one cannot be null, but how to prove that ?*)
-  - unfold bentryEndAddr in *. destruct H20 as [bentry (Hlookupb & Hbentry)]. rewrite Hlookupb in *.
-    subst blockEndAddr. subst blockToCutEndAddr. unfold StateLib.Paddr.leb in H27.
-    apply eq_sym in H27. apply Compare_dec.leb_iff_conv in H27. lia.
-  - subst minBlockSize. unfold bentryEndAddr in *. destruct H20 as [bentry (Hlookupb & Hbentry)].
-    rewrite Hlookupb in *. subst blockEndAddr. subst blockToCutEndAddr. unfold StateLib.Paddr.subPaddr in H29.
-    destruct (Compare_dec.le_dec (endAddr (blockrange bentry) - cutAddr) maxIdx) eqn:HcompEndCut; try(congruence).
-    injection H29. intro HsubBlock2. rewrite <-HsubBlock2 in H32.
-    assert(Hblock2NotTooSmall: isBlock2TooSmall = false)
-                by (eapply orb_false_elim with isBlock1TooSmall; assumption).
-    rewrite Hblock2NotTooSmall in *.
-    unfold StateLib.Index.ltb in H32. apply eq_sym in H32. apply PeanoNat.Nat.ltb_ge in H32. (*lia.*)
-    (*TODO change the check for isBlock1TooSmall and isBlock2TooSmall ?*)
-    admit.
-  - assert(Hprops: partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s
+  assert(Hs0: pdentryNbFreeSlots currentPart nbFreeSlots s0) by intuition.
+  assert(HisBuilt: isBuiltFromWriteAccessibleRec s0 s statesList parentsList pdbasepart blockStart blockEnd
+         false) by intuition.
+  assert(HleNbFree: false = StateLib.Index.leb nbFreeSlots zero) by intuition. unfold pdentryNbFreeSlots in *.
+  destruct (lookup currentPart (memory s0) beqAddr) eqn:HlookupCurrs0; try(exfalso; congruence).
+  assert(HbaseIsPDT: isPDT pdbasepart s0) by intuition. destruct v; try(exfalso; congruence).
+  pose proof (stablePDTFieldsIsBuilt statesList s0 parentsList pdbasepart p blockStart blockEnd false s
+      currentPart HbaseIsPDT HisBuilt HlookupCurrs0) as HlookupCurrs.
+  destruct HlookupCurrs as [pdentryCurrs (HlookupCurrs & _ & _ & HnbEq & _)]. rewrite <-HnbEq in Hs0.
+  unfold StateLib.Index.leb in HleNbFree. apply eq_sym in HleNbFree.
+  apply Compare_dec.leb_iff_conv in HleNbFree. split.
+  {
+    split. rewrite HlookupCurrs. assumption. lia.
+  } split.
+  {
+    assert(HnbFreeIsLen: NbFreeSlotsISNbFreeSlotsInList s)
+        by (unfold consistency in *; unfold consistency1 in *; intuition).
+    assert(HcurrIsPDT: isPDT currentPart s) by (unfold isPDT; rewrite HlookupCurrs; trivial).
+    assert(HnbFree: pdentryNbFreeSlots currentPart nbFreeSlots s)
+        by (unfold pdentryNbFreeSlots; rewrite HlookupCurrs; assumption).
+    specialize(HnbFreeIsLen currentPart nbFreeSlots HcurrIsPDT HnbFree).
+    destruct HnbFreeIsLen as [optionfreeslotslist (Hlist & HwellFormedFree & HnbFreeIsLen)].
+    subst optionfreeslotslist. unfold getFreeSlotsList in HnbFreeIsLen. rewrite HlookupCurrs in HnbFreeIsLen.
+    destruct (beqAddr (firstfreeslot pdentryCurrs) nullAddr) eqn:HbeqFirstFreeNull;
+        try(simpl in HnbFreeIsLen; lia). rewrite <-beqAddrFalse in HbeqFirstFreeNull.
+    exists (firstfreeslot pdentryCurrs). split. apply lookupPDEntryFirstFreeSlot; intuition. assumption.
+  } split; try(apply HpropsCopy).
+  assert(HleEnd: false = StateLib.Paddr.leb blockToCutEndAddr cutAddr) by intuition.
+  unfold StateLib.Paddr.leb in HleEnd. apply eq_sym in HleEnd. apply PeanoNat.Nat.leb_gt in HleEnd.
+  assert(HendBlockBis: bentryEndAddr blockToShareInCurrPartAddr blockToCutEndAddr s).
+  {
+    assert(HendBlockBiss0: bentryEndAddr blockToShareInCurrPartAddr blockToCutEndAddr s0) by intuition.
+    unfold bentryEndAddr in *.
+    destruct (lookup blockToShareInCurrPartAddr (memory s0) beqAddr) eqn:HlookupBlocks0;
+        try(exfalso; congruence). destruct v; try(exfalso; congruence).
+    pose proof (stableBEFieldsIsBuilt statesList s0 parentsList pdbasepart blockStart blockEnd false s
+        blockToShareInCurrPartAddr b HlookupBlocks0 HisBuilt) as Hres.
+    destruct Hres as [bentrys (HlookupBlocks & _ & _ & _ & _ & _ & HrangeEq)]. rewrite HlookupBlocks.
+    rewrite HrangeEq. assumption.
+  }
+  assert(blockToCutEndAddr = blockEndAddr).
+  {
+    unfold bentryEndAddr in *.
+    destruct (lookup blockToShareInCurrPartAddr (memory s) beqAddr); try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). subst blockEndAddr. assumption.
+  }
+  subst blockToCutEndAddr. split. assumption.
+  assert(Hbools: isBlock1TooSmall || isBlock2TooSmall = false) by assumption.
+  apply orb_false_iff in Hbools. destruct Hbools.
+  assert(Hsub: StateLib.Paddr.subPaddr blockEndAddr cutAddr = Some subblock2Size) by intuition.
+  assert(Hmin: minBlockSize = Constants.minBlockSize) by intuition.
+  assert(HltSub: isBlock2TooSmall = StateLib.Index.ltb subblock2Size minBlockSize) by intuition.
+  subst isBlock2TooSmall. subst minBlockSize.
+  unfold StateLib.Paddr.subPaddr in Hsub.
+  destruct (Compare_dec.le_dec (blockEndAddr - cutAddr) maxIdx) eqn:HcompEndCut; try(congruence).
+  injection Hsub as HsubBlock2. rewrite <-HsubBlock2 in HltSub.
+  unfold StateLib.Index.ltb in HltSub. apply eq_sym in HltSub. apply PeanoNat.Nat.ltb_ge in HltSub.
+  simpl in HltSub. lia.
+  (*- assert(Hprops: partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s
       /\ currentPart = currentPartition s
       /\ isPDT currentPart s
       /\ zero = CIndex 0
@@ -537,39 +652,55 @@ false blockBase, bentryBase.
       /\ isBlock1TooSmall = StateLib.Index.ltb subblock1Size minBlockSize
       /\ isBlock2TooSmall = StateLib.Index.ltb subblock2Size minBlockSize
       /\ isCutAddrValid = is32Aligned cutAddr) by intuition.
-    apply Hprops.
+    apply Hprops.*)
 }
 	intro idNewSubblock.
 	(* MALInternal.Paddr.pred *)
 	eapply bindRev.
 { eapply weaken. apply Paddr.pred.
-	intros s Hprops. simpl. split. apply Hprops. destruct Hprops as [s0 Hprops]. intuition.
-  unfold StateLib.Paddr.leb in H28. apply eq_sym in H28. apply Compare_dec.leb_iff_conv in H28. lia.
+	intros s Hprops. simpl. split. apply Hprops. destruct Hprops as [s0 Hprops].
+  destruct Hprops as (((((((_ & _ & _ & _ & [sInit [pdentry [pdbasepart [blockOriginBis [blockStart [blockEnd
+      [blockNext [parentsList [statesList [blockBase [bentryBase [bentryBases0 Hprops]]]]]]]]]]]]) & _) & _) & _)
+      & _) & _) & _).
+  assert(Hle: false = StateLib.Paddr.leb cutAddr blockToCutStartAddr) by intuition.
+  unfold StateLib.Paddr.leb in Hle. apply eq_sym in Hle. apply Compare_dec.leb_iff_conv in Hle. lia.
 }
 	intro predCutAddr. simpl.
 	(* MAL.writeBlockEndFromBlockEntryAddr *)
 	eapply bindRev.
 {	eapply weaken. apply writeBlockEndFromBlockEntryAddr.
-	intros s Hprops. simpl. destruct Hprops as [Hprops HpredCutAddr]. destruct Hprops as [s0 Hprops]. intuition.
-  destruct H11 as [pdentry Hprops]. destruct Hprops as [pdentry0 Hprops]. destruct Hprops as [pdentry1 Hprops].
+	intros s Hprops. simpl. destruct Hprops as [Hprops HpredCutAddr]. destruct Hprops as [s0 Hprops].
+  destruct Hprops as (Hprops1 & Hconsist & (Hprops2 & HparentsLists & HkernLists)).
+  destruct Hprops2 as [pdentry Hprops]. destruct Hprops as [pdentry0 Hprops].
+  destruct Hprops as [pdentry1 Hprops].
   destruct Hprops as [bentry Hprops]. destruct Hprops as [bentry0 Hprops]. destruct Hprops as [bentry1 Hprops].
   destruct Hprops as [bentry2 Hprops]. destruct Hprops as [bentry3 Hprops]. destruct Hprops as [bentry4 Hprops].
   destruct Hprops as [bentry5 Hprops]. destruct Hprops as [bentry6 Hprops]. destruct Hprops as [sceaddr Hprops].
   destruct Hprops as [scentry Hprops]. destruct Hprops as [newBlockEntryAddr Hprops].
   destruct Hprops as [newFirstFreeSlotAddr Hprops]. destruct Hprops as [predCurrentNbFreeSlots Hprops].
   destruct Hprops as [Hs Hprops].
-  destruct H23 as [bentryShare (Hlookupb & HbentryShare)]. exists bentryShare.
+  destruct Hprops1 as ((((((HPI & HKDI & HVS & Hconsists0 & [sInit [pdentryCurr [pdbasepart [blockOriginBis
+      [blockStart [blockEnd [blockNext [parentsList [statesList [blockBase [bentryBase [bentryBases0
+      Hprops1]]]]]]]]]]]]) & HendAddr) & HsceOrigin) & HRFlag) & HWFlag) & HXFlag).
+  assert(HlookupBlock: exists entry, lookup blockToShareInCurrPartAddr (memory sInit) beqAddr = Some (BE entry))
+      by intuition.
+  destruct HlookupBlock as [bentryShareInit HlookupBlockInit].
+  assert(HisBuilt: isBuiltFromWriteAccessibleRec sInit s0 statesList parentsList pdbasepart blockStart
+        blockEnd false) by intuition.
+  pose proof (stableBEFieldsIsBuilt statesList sInit parentsList pdbasepart blockStart blockEnd false s0
+      blockToShareInCurrPartAddr bentryShareInit HlookupBlockInit HisBuilt) as Hres.
+  destruct Hres as [bentryShare (HlookupBlocks0 & HpropsShare)]. exists bentryShare.
   assert(HblockToShareNotNull: blockToShareInCurrPartAddr <> nullAddr).
   {
     assert(Hnull: nullAddrExists s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
     unfold nullAddrExists in Hnull. unfold isPADDR in Hnull.
-    intro HcontraEq. rewrite HcontraEq in *. rewrite Hlookupb in *. congruence.
+    intro HcontraEq. rewrite HcontraEq in *. rewrite HlookupBlocks0 in *. congruence.
   }
 	assert(HnewBlockToShareEq : newBlockEntryAddr <> blockToShareInCurrPartAddr).
 	{
 		(* at s0, newBlockEntryAddr is a free slot, which is not the case of
-				blockToShareInCurrPartAddr *)
-		assert(HFirstFreeSlotPointerIsBEAndFreeSlot : FirstFreeSlotPointerIsBEAndFreeSlot s0)
+				blockToShareInCurrPartAddr *) (*TODO HERE use sInit instead of s0*)
+		assert(HFirstFreeSlotPointerIsBEAndFreeSlot : FirstFreeSlotPointerIsBEAndFreeSlot sInit)
 				by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 		unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 		assert(HlookupcurrParts0 : lookup currentPart (memory s0) beqAddr = Some (PDT pdentry)) by intuition.
