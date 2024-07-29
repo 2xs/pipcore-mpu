@@ -5324,6 +5324,7 @@ writeAccessibleToAncestorsIfNotCutRec pdbasepartition entryaddr flag
         /\ s = last statesList s0
         /\ isBuiltFromWriteAccessibleRec s0 s statesList parentsList pdbasepart blockStart blockEnd flag
         /\ isPDT pdbasepart s0
+        /\ In pdbasepart (getPartitions multiplexer s0)
         /\ lookup pdbasepartition (memory s) beqAddr = Some (PDT pdentry)
         /\ In pdbasepartition (getPartitions multiplexer s0)
         /\ P s0
@@ -5426,8 +5427,8 @@ destruct (beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr)%bool eqn
   + (* recWriteEnded = false *)
     eapply weaken. eapply WP.ret. simpl. intros s Hprops. destruct Hprops as (HPI & HKDI & HVS & Hprops).
     destruct Hprops as [s0 [pdbasepart [pdentryBase [statesList [parentsList (HPI0 & HKDI0 & HVS0 & Hprops)]]]]].
-    destruct Hprops as (Hprops & Hconsist0 & HparentsList & HsIsLast & HlookupBaseBis & _ & _ & Hconsist1 &
-          HnoDup & Hshared & Hrange & HchildBlockProps & HblockBase & Haccess & HisBuilt).
+    destruct Hprops as (Hprops & Hconsist0 & HparentsList & HsIsLast & HlookupBaseBis & _ & HbaseBisIsPart &
+          Hconsist1 & HnoDup & Hshared & Hrange & HchildBlockProps & HblockBase & Haccess & HisBuilt).
     destruct Hprops as ((((((_ & _ & _ & HP & _ & HPDT & HbaseIsPart & HBE & HPFlag & HAFlag & Hmapped) & Horigin)
           & HstartOrigin) & Hnext) & Hstart) & Hend).
     split. assumption. split. assumption. split. assumption. split. unfold consistency. unfold consistency2.
@@ -5453,8 +5454,8 @@ destruct (beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr)%bool eqn
   + (* recWriteEnded = true *)
     eapply weaken. eapply WP.ret. simpl. intros s Hprops. destruct Hprops as (HPI & HKDI & HVS & Hprops).
     destruct Hprops as [s0 [pdbasepart [pdentryBase [statesList [parentsList (HPI0 & HKDI0 & HVS0 & Hprops)]]]]].
-    destruct Hprops as (Hprops & Hconsist0 & HparentsList & HsIsLast & HlookupBaseBis & _ & _ & Hconsist1 &
-          HnoDup & Hshared & Hrange & HchildBlockProps & HblockBase & Haccess & HisBuilt).
+    destruct Hprops as (Hprops & Hconsist0 & HparentsList & HsIsLast & HlookupBaseBis & _ & HbaseBisIsPart &
+          Hconsist1 & HnoDup & Hshared & Hrange & HchildBlockProps & HblockBase & Haccess & HisBuilt).
     destruct Hprops as ((((((_ & _ & _ & HP & _ & HPDT & HbaseIsPart & HBE & HPFlag & HAFlag & Hmapped) & Horigin)
           & HstartOrigin) & Hnext) & Hstart) & Hend).
     split. assumption. split. assumption. split. assumption. split. unfold consistency. unfold consistency2.
