@@ -696,55 +696,65 @@ case_eq PDChildAddrIsNull.
     unfold nullAddrExists in Hnull. unfold isPADDR in Hnull.
     intro HcontraEq. rewrite HcontraEq in *. rewrite HlookupBlocks0 in *. congruence.
   }
-	assert(HnewBlockToShareEq : newBlockEntryAddr <> blockToShareInCurrPartAddr).
-	{
-		(* at s0, newBlockEntryAddr is a free slot, which is not the case of
-				blockToShareInCurrPartAddr *) (*TODO HERE use sInit instead of s0*)
-		assert(HFirstFreeSlotPointerIsBEAndFreeSlot : FirstFreeSlotPointerIsBEAndFreeSlot sInit)
+	assert(HlookupCurrParts0 : lookup currentPart (memory s0) beqAddr = Some (PDT pdentry)) by intuition.
+  assert(HbaseIsPDT: isPDT pdbasepart sInit) by intuition.
+  pose proof (stablePDTFieldsIsBuiltRev statesList sInit parentsList pdbasepart pdentry blockStart blockEnd
+      false s0 currentPart HbaseIsPDT HisBuilt HlookupCurrParts0) as HlookupCurrPartsInit.
+  destruct HlookupCurrPartsInit as [pdentryInit (HlookupCurrPartsInit & HstructEq & HfirstFreeEq & HnbFreeEq &
+      HnbPrepEq & HparentEq & HvidtEq)].
+  assert(HfreeSlot: isBE (firstfreeslot pdentryInit) sInit /\ isFreeSlot (firstfreeslot pdentry) sInit).
+  {
+    assert(HFirstFreeSlotPointerIsBEAndFreeSlot : FirstFreeSlotPointerIsBEAndFreeSlot sInit)
 				by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 		unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
-		assert(HlookupcurrParts0 : lookup currentPart (memory s0) beqAddr = Some (PDT pdentry)) by intuition.
-		specialize(HFirstFreeSlotPointerIsBEAndFreeSlot currentPart pdentry HlookupcurrParts0).
-    intro HcontraEq.
+		specialize(HFirstFreeSlotPointerIsBEAndFreeSlot currentPart pdentryInit HlookupCurrPartsInit).
 		assert(HfirstfreeNotNull : firstfreeslot pdentry <> nullAddr).
 		{
 			assert(HfirstfreecurrParts0 : pdentryFirstFreeSlot currentPart newBlockEntryAddr s0 /\
              beqAddr nullAddr newBlockEntryAddr = false).
       {
-        split. intuition. rewrite HcontraEq. rewrite <-beqAddrFalse. apply not_eq_sym. intuition.
+        split. intuition. destruct (beqAddr nullAddr newBlockEntryAddr) eqn:HbeqNullNewB; try(reflexivity).
+        exfalso. rewrite <-DTL.beqAddrTrue in HbeqNullNewB. subst newBlockEntryAddr.
+        assert(Hcontra: lookup nullAddr (memory s0) beqAddr = Some (BE bentry)) by intuition.
+        assert(Hnull: nullAddrExists s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        unfold nullAddrExists in Hnull. unfold isPADDR in Hnull. rewrite Hcontra in Hnull. congruence.
       }
-			unfold pdentryFirstFreeSlot in *. rewrite HlookupcurrParts0 in *.
+			unfold pdentryFirstFreeSlot in *. rewrite HlookupCurrParts0 in *.
 			rewrite <- beqAddrFalse in *.
 			destruct HfirstfreecurrParts0 as [HfirstfreeEq HfirstFreeNotNull].
 			subst newBlockEntryAddr. congruence.
 		}
-		specialize (HFirstFreeSlotPointerIsBEAndFreeSlot HfirstfreeNotNull).
-		assert(HnewBEq : firstfreeslot pdentry = newBlockEntryAddr)
-		      by (apply eq_sym; intuition).
-		rewrite HnewBEq in *.
+		rewrite <-HfirstFreeEq in *. specialize (HFirstFreeSlotPointerIsBEAndFreeSlot HfirstfreeNotNull).
+    assumption.
+  }
+  destruct HfreeSlot as (HBEs0 & HfreeSlot).
+	assert(HnewBlockToShareEq : newBlockEntryAddr <> blockToShareInCurrPartAddr).
+	{
+    intro HcontraEq. rewrite <-HfirstFreeEq in *.
+		assert(HnewBEq : firstfreeslot pdentryInit = newBlockEntryAddr)
+		      by (apply eq_sym; intuition). rewrite HnewBEq in *.
 		subst blockToShareInCurrPartAddr.
-		assert(HwellFormedsh1newBs0 : wellFormedFstShadowIfBlockEntry s0)
+		assert(HwellFormedsh1newBs0 : wellFormedFstShadowIfBlockEntry sInit)
 			  by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 		unfold wellFormedFstShadowIfBlockEntry in *.
-		assert(HwellFormedSCnewBs0 : wellFormedShadowCutIfBlockEntry s0)
+		assert(HwellFormedSCnewBs0 : wellFormedShadowCutIfBlockEntry sInit)
 		    by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 		unfold wellFormedShadowCutIfBlockEntry in *.
-		assert(HBEs0 : isBE newBlockEntryAddr s0) by intuition.
 		specialize (HwellFormedsh1newBs0 newBlockEntryAddr HBEs0).
 		specialize (HwellFormedSCnewBs0 newBlockEntryAddr HBEs0).
-		unfold isBE in *. unfold isSHE in *. unfold isSCE in *.
+		unfold isSHE in *. unfold isSCE in *.
 		unfold isFreeSlot in *.
 		unfold bentryAFlag in *.
-		destruct (lookup newBlockEntryAddr (memory s0) beqAddr) eqn:Hbe ; try(exfalso ; congruence).
-		destruct v ; try(exfalso ; congruence).
-		destruct (lookup (CPaddr (newBlockEntryAddr + sh1offset)) (memory s0) beqAddr) eqn:Hsh1
+		rewrite HlookupBlockInit in *.
+		destruct (lookup (CPaddr (newBlockEntryAddr + sh1offset)) (memory sInit) beqAddr) eqn:Hsh1
             ; try(exfalso ; congruence).
 		destruct v ; try(exfalso ; congruence).
 		destruct HwellFormedSCnewBs0 as [scentryaddr (HSCEs0 & HscentryEq)].
 		subst scentryaddr.
-		destruct (lookup (CPaddr (newBlockEntryAddr + scoffset))  (memory s0) beqAddr) eqn:Hsce
+		destruct (lookup (CPaddr (newBlockEntryAddr + scoffset))  (memory sInit) beqAddr) eqn:Hsce
             ; try(exfalso ; congruence).
-		destruct v ; try(exfalso ; congruence). rewrite <-H24 in *. intuition.
+		destruct v ; try(exfalso ; congruence). assert(Hcontra: true = accessible bentryShareInit) by intuition.
+    apply eq_sym in Hcontra. assert(accessible bentryShareInit = false) by intuition. congruence.
 	}
 	assert(HnewFirstFreeBlockToShareEq : newFirstFreeSlotAddr <> blockToShareInCurrPartAddr).
 	{
@@ -787,8 +797,8 @@ case_eq PDChildAddrIsNull.
 		specialize (HwellFormedsh1newBs newFirstFreeSlotAddr HBEs).
 		specialize (HwellFormedSCnewBs newFirstFreeSlotAddr HBEs).
 		unfold isBE in *. unfold isSHE in *. unfold isSCE in *.
-		unfold isFreeSlot in *.
-		unfold bentryAFlag in *.
+		unfold isFreeSlot in HFirstFreeSlotPointerIsBEAndFreeSlot.
+		unfold bentryPFlag in *. rewrite HlookupBlockInit in Hprops1.
 		destruct (lookup newFirstFreeSlotAddr (memory s) beqAddr) eqn:Hbe ; try(exfalso ; congruence).
 		destruct v ; try(exfalso ; congruence).
 		destruct (lookup (CPaddr (newFirstFreeSlotAddr + sh1offset)) (memory s) beqAddr) eqn:Hsh1
@@ -798,7 +808,7 @@ case_eq PDChildAddrIsNull.
 		subst scentryaddr.
 		destruct (lookup (CPaddr (newFirstFreeSlotAddr + scoffset))  (memory s) beqAddr) eqn:Hsce
               ; try(exfalso ; congruence).
-		destruct v ; try(exfalso ; congruence).
+		destruct v ; try(exfalso ; congruence). assert(Hcontra: true = present bentryShareInit) by intuition.
     assert(HlookupnewFirstEq: lookup newFirstFreeSlotAddr (memory s) beqAddr
                               = lookup newFirstFreeSlotAddr (memory s0) beqAddr).
     {
@@ -818,22 +828,29 @@ case_eq PDChildAddrIsNull.
       destruct (beqAddr newBlockEntryAddr newFirstFreeSlotAddr) eqn:HbeqNewBlockNewFirstFree.
       rewrite <-beqAddrTrue in HbeqNewBlockNewFirstFree. congruence.
       destruct (beqAddr currentPart newBlockEntryAddr) eqn: HbeqCurrPartNewBlock.
-      rewrite <-beqAddrTrue in HbeqCurrPartNewBlock. intuition.
-      simpl. repeat rewrite removeDupIdentity; intuition. rewrite HbeqCurrPartNewBlock. simpl.
+      rewrite <-beqAddrTrue in HbeqCurrPartNewBlock. intuition. rewrite <-beqAddrFalse in *.
+      repeat rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
       destruct (beqAddr currentPart newFirstFreeSlotAddr) eqn:HbeqCurrPartNewFirstFree.
-      rewrite <-beqAddrTrue in HbeqCurrPartNewFirstFree. intuition.
+      rewrite <-beqAddrTrue in HbeqCurrPartNewFirstFree. congruence.
       rewrite InternalLemmas.beqAddrTrue. repeat rewrite removeDupIdentity; intuition.
     }
-    rewrite <-HlookupnewFirstEq in H24. rewrite Hbe in H24. rewrite <-H24 in *. intuition.
+    rewrite <-HlookupnewFirstEq in HlookupBlocks0. rewrite Hbe in HlookupBlocks0.
+    injection HlookupBlocks0 as HentriesEq. subst b. rewrite HlookupnewFirstEq in Hbe.
+    pose proof (stableBEFieldsIsBuiltRev statesList sInit parentsList pdbasepart blockStart blockEnd false s0
+          newFirstFreeSlotAddr bentryShare Hbe HisBuilt) as HbentryInit.
+    destruct HbentryInit as [bentryShareInitBis (HlookupNewFirstBis & _ & _ & _ & HpresEq & _)].
+    rewrite HlookupNewFirstBis in HlookupBlockInit. injection HlookupBlockInit as HentriesEq.
+    subst bentryShareInitBis. rewrite HpresEq in Hcontra. assert(present bentryShare = false) by intuition.
+    congruence.
 	}
   assert(HblockToShareCurrPartEq: blockToShareInCurrPartAddr <> currentPart).
   {
     intro HbeqBlockToShareCurrPart. rewrite HbeqBlockToShareCurrPart in *. unfold isPDT in *.
-    rewrite Hlookupb in *. congruence.
+    rewrite HlookupBlockInit in HlookupCurrPartsInit. congruence.
   }
   assert(blockToShareInCurrPartAddr <> sceaddr).
   {
-    intro HcontraEq. rewrite HcontraEq in *. unfold isSCE in *. rewrite Hlookupb in *. intuition.
+    intro HcontraEq. rewrite HcontraEq in *. unfold isSCE in *. rewrite HlookupBlocks0 in *. intuition.
   }
   split.
   - rewrite Hs. simpl. rewrite InternalLemmas.beqAddrTrue.
@@ -846,8 +863,8 @@ case_eq PDChildAddrIsNull.
     rewrite <-beqAddrFalse in HbeqnewBlockSce. simpl.
     destruct (beqAddr newBlockEntryAddr blockToShareInCurrPartAddr) eqn:HbeqNewBlockToShare.
     + rewrite <-beqAddrTrue in HbeqNewBlockToShare. congruence.
-    + rewrite <-beqAddrFalse in HbeqNewBlockToShare.
-      repeat rewrite removeDupIdentity; intuition.
+    + rewrite <-beqAddrFalse in *.
+      repeat rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
       destruct (beqAddr currentPart newBlockEntryAddr) eqn:HbeqCurrNewBlock.
       {
         rewrite <-beqAddrTrue in HbeqCurrNewBlock. rewrite HbeqCurrNewBlock in *. unfold isPDT in *.
@@ -857,10 +874,10 @@ case_eq PDChildAddrIsNull.
       destruct (beqAddr currentPart blockToShareInCurrPartAddr) eqn:HbeqCurrBlockToShare.
       {
         rewrite <-beqAddrTrue in HbeqCurrBlockToShare. rewrite HbeqCurrBlockToShare in *. unfold isPDT in *.
-        rewrite Hlookupb in *. congruence.
+        rewrite HlookupBlocks0 in *. congruence.
       }
       rewrite <-beqAddrFalse in HbeqCurrBlockToShare. rewrite InternalLemmas.beqAddrTrue.
-      repeat rewrite removeDupIdentity; intuition.
+      repeat rewrite removeDupIdentity; intuition. (*TODO HERE will probably need to change the next instantiate*)
   - instantiate(1:= fun _ s => isBE idNewSubblock s
         /\ StateLib.Paddr.pred cutAddr = Some predCutAddr
         /\ zero = CIndex 0
@@ -946,7 +963,7 @@ case_eq PDChildAddrIsNull.
                 lookup scentryaddr (memory s0) beqAddr = Some (SCE scentry) /\
                 scentryOrigin scentryaddr blockOrigin s0)
            /\ bentryEndAddr blockToShareInCurrPartAddr blockEndAddr s0
-           /\ bentryAFlag blockToShareInCurrPartAddr true s0
+           (*/\ bentryAFlag blockToShareInCurrPartAddr true s0*)
            /\ (exists (sh1entry : Sh1Entry) (sh1entryaddr : paddr),
                 lookup sh1entryaddr (memory s0) beqAddr = Some (SHE sh1entry) /\
                 sh1entryPDchild sh1entryaddr PDChildAddr s0 /\
@@ -1124,118 +1141,157 @@ case_eq PDChildAddrIsNull.
                     getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0)
                 /\ (forall partition : paddr, isPDT partition s = isPDT partition s0)
           ).
-    simpl. intuition; subst newBlockEntryAddr.
-    + (* isBE idNewSubblock news *)
+    simpl. assert(newBlockEntryAddr = idNewSubblock) by intuition; subst newBlockEntryAddr. split.
+    { (* isBE idNewSubblock news *)
       unfold isBE in *. simpl.
       destruct (beqAddr blockToShareInCurrPartAddr idNewSubblock) eqn:HbeqBlockToShareIdNew. trivial.
       rewrite <-beqAddrFalse in HbeqBlockToShareIdNew.
       rewrite removeDupIdentity; intuition.
-    + (* exists (s1 s2 : state) ... *)
-      exists s0. exists s. exists pdentry. exists pdentry0. exists pdentry1. eexists. exists bentry.
-      exists bentry0. exists bentry1. exists bentry2. exists bentry3. exists bentry4. exists bentry5.
-      exists bentry6. exists bentryShare. eexists. exists scentry. exists predCurrentNbFreeSlots. exists sceaddr.
-      exists newFirstFreeSlotAddr. intuition.
-      * assert(HcurrPartEq: currentPartition s = currentPartition s0) by (subst s; simpl; reflexivity).
-        rewrite HcurrPartEq. reflexivity.
-      * destruct (beqAddr blockToShareInCurrPartAddr idNewSubblock) eqn:HbeqBlockToShareIdNew.
-        -- rewrite <-beqAddrTrue in HbeqBlockToShareIdNew. congruence.
-        -- rewrite removeDupIdentity; intuition.
-      * (* lookup blockToShareInCurrPartAddr *)
-        rewrite InternalLemmas.beqAddrTrue. reflexivity.
-      * (* sceaddr = CPaddr (firstfreeslot pdentry + scoffset) *)
-        subst idNewSubblock. intuition.
-      * (* lookup currentPart *)
-        destruct (beqAddr blockToShareInCurrPartAddr currentPart) eqn:HbeqBlockToShareCurrPart.
-        -- rewrite <-beqAddrTrue in HbeqBlockToShareCurrPart. congruence.
-        -- rewrite <-beqAddrFalse in HbeqBlockToShareCurrPart. rewrite removeDupIdentity; intuition.
-      * (* isPDT currentPart *)
-        unfold isPDT in *. simpl.
-        destruct (beqAddr blockToShareInCurrPartAddr currentPart) eqn:HbeqBlockToShareCurrPart.
-        rewrite <-beqAddrTrue in HbeqBlockToShareCurrPart. congruence.
-        rewrite <-beqAddrFalse in HbeqBlockToShareCurrPart. rewrite removeDupIdentity; intuition.
-      * (* pdentryFirstFreeSlot currentPart (firstfreeslot pdentry) s0 *)
-        subst idNewSubblock. intuition.
-      * (* bentryEndAddr (firstfreeslot pdentry) newFirstFreeSlotAddr s0 *)
-        subst idNewSubblock. intuition.
-      * (* pdentryNbFreeSlots currentPart *)
-        unfold pdentryNbFreeSlots in *. simpl.
-        destruct (beqAddr blockToShareInCurrPartAddr currentPart) eqn:HbeqBlockToShareCurrPart.
-        rewrite <-beqAddrTrue in HbeqBlockToShareCurrPart. congruence.
-        rewrite <-beqAddrFalse in HbeqBlockToShareCurrPart. rewrite removeDupIdentity; intuition.
-      * (* isBE (firstfreeslot pdentry) s0 *)
-        subst idNewSubblock. intuition.
-      * (* isBE (firstfreeslot pdentry) news *)
-        unfold isBE in *. simpl. subst idNewSubblock.
-        destruct (beqAddr blockToShareInCurrPartAddr (firstfreeslot pdentry)) eqn:HbeqBlockToShareIdNew.
-        rewrite <-beqAddrTrue in HbeqBlockToShareIdNew. congruence.
-        rewrite <-beqAddrFalse in HbeqBlockToShareIdNew. rewrite removeDupIdentity; intuition.
-      * (* isSCE sceaddr news *)
-        unfold isSCE in *. simpl.
-        destruct (beqAddr blockToShareInCurrPartAddr sceaddr) eqn:HbeqBlockToShareSceaddr.
-        -- rewrite <-beqAddrTrue in HbeqBlockToShareSceaddr. rewrite HbeqBlockToShareSceaddr in *.
-           rewrite Hlookupb in *. congruence.
-        -- rewrite <-beqAddrFalse in HbeqBlockToShareSceaddr. rewrite removeDupIdentity; intuition.
-      * subst idNewSubblock. congruence.
-      * subst idNewSubblock. congruence.
-      * subst idNewSubblock. congruence.
-      * subst idNewSubblock. congruence.
-      * (* exists (optionfreeslotslist : list optionPaddr) (s2 : state) ... *)
-        destruct H80 as [optionfreeslotslist HoptionProps]. exists optionfreeslotslist.
-        destruct HoptionProps as [s2' HoptionProps]. exists s2'.
-        destruct HoptionProps as [n0 HoptionProps]. exists n0.
-        destruct HoptionProps as [n1 HoptionProps]. exists n1.
-        destruct HoptionProps as [n2 HoptionProps]. exists n2.
-        destruct HoptionProps as [nbleft HoptionProps]. exists nbleft.
-        assert(HBEBlockToShare0: isBE blockToShareInCurrPartAddr s0)
-            by (unfold isBE; rewrite Hlookupb; intuition).
-        assert(HBEBlockToShare: isBE blockToShareInCurrPartAddr s).
-        {
-          unfold isBE in *. rewrite Hs. simpl. rewrite InternalLemmas.beqAddrTrue.
-          destruct (beqAddr sceaddr blockToShareInCurrPartAddr) eqn:HbeqSceaddrBlockToShare.
-          { rewrite <-beqAddrTrue in HbeqSceaddrBlockToShare. intuition. }
-          destruct (beqAddr idNewSubblock sceaddr) eqn:HbeqIdNewSceaddr.
-          { rewrite <-beqAddrTrue in HbeqIdNewSceaddr. intuition. }
-          simpl. destruct (beqAddr idNewSubblock blockToShareInCurrPartAddr) eqn:HbeqIdNewBlockToShare.
-          { rewrite <-beqAddrTrue in HbeqIdNewBlockToShare. intuition. }
-          destruct (beqAddr currentPart idNewSubblock) eqn:HbeqCurrPartIdNew.
-          { rewrite <-beqAddrTrue in HbeqCurrPartIdNew. intuition. }
-          repeat rewrite removeDupIdentity; intuition. simpl.
-          destruct (beqAddr currentPart blockToShareInCurrPartAddr) eqn:HbeqCurrPartBlockToShare.
-          { rewrite <-beqAddrTrue in HbeqCurrPartBlockToShare. intuition. }
-          rewrite InternalLemmas.beqAddrTrue. repeat rewrite removeDupIdentity; intuition.
-        }
-        destruct H82 as [s1 HinterStates]. destruct HinterStates as [s2 HinterStates].
-        destruct HinterStates as [s3 HinterStates]. destruct HinterStates as [s4 HinterStates].
-        destruct HinterStates as [s5 HinterStates]. destruct HinterStates as [s6 HinterStates].
-        destruct HinterStates as [s7 HinterStates]. destruct HinterStates as [s8 HinterStates].
-        destruct HinterStates as [s9 HinterStates]. destruct HinterStates as [s10 HinterStates].
-        destruct HinterStates as [Hs1 (Hs2 & (Hs3 & (Hs4 & (Hs5 & (Hs6 & (Hs7 & (Hs8 & (Hs9 & Hs10))))))))].
-        assert(Hs10sEq: s10 = s).
-        {
-          subst s10. subst s9. subst s8. subst s7. subst s6. subst s5. subst s4. subst s3. subst s2. subst s1.
-          simpl. rewrite Hs. f_equal.
-        }
-        rewrite Hs10sEq in *. subst idNewSubblock.
-        set(s':= {|
-                   currentPartition := currentPartition s;
-                   memory := _
-                 |}).
-        intuition.
-        -- destruct H104 as [optionentrieslist Hoptionentrieslist]. exists optionentrieslist. intuition.
-           subst optionentrieslist. rewrite <-H117.
-           apply getKSEntriesEqBE; intuition.
-        -- apply isPDTMultiplexerEqBE; intuition.
-        -- specialize(H102 block). apply H102. unfold getMappedBlocks in *.
-           assert(HgetKSEq: getKSEntries currentPart s' = getKSEntries currentPart s)
-                by (apply getKSEntriesEqBE; intuition).
-           rewrite HgetKSEq in *.
-           assert(HlookupBlock: exists blockBentry, lookup block (memory s') beqAddr = Some(BE blockBentry)
-                                                    /\ present blockBentry = true).
-           { apply filterPresentIsPresent; intuition. }
-        -- 
-        -- 
-        -- 
-        -- 
+    }
+    split. assumption. split. intuition. split. intuition. split. intuition. split. intuition. split. intuition.
+    split. intuition. split. intuition. split. intuition. split. intuition. split. intuition. split. intuition.
+    (* exists (s1 s2 : state) ... *)
+    exists s0. exists s. exists pdentry. exists pdentry0. exists pdentry1. exists pdentry1. exists bentry.
+    exists bentry0. exists bentry1. exists bentry2. exists bentry3. exists bentry4. exists bentry5.
+    exists bentry6. exists bentryShare. exists (CBlockEntry (read bentryShare) (write bentryShare)
+        (exec bentryShare) (present bentryShare) (accessible bentryShare) (blockindex bentryShare)
+        (CBlock (startAddr (blockrange bentryShare)) predCutAddr)). exists scentry. exists predCurrentNbFreeSlots.
+    exists sceaddr. exists newFirstFreeSlotAddr.
+    assert(HcurrPartEq: currentPartition s = currentPartition s0) by (subst s; simpl; reflexivity).
+    split. rewrite HcurrPartEq. reflexivity.
+    destruct Hprops as (_ & HlookupNewBlocks0 & HlookupNewBlocks & Hbentry6 & Hbentry5 & Hbentry4 & Hbentry3 &
+        Hbentry2 & Hbentry1 & Hbentry0 & _ & HlookupCurrParts & Hpdentry1 & Hpdentry0 & Hprops).
+    split. assumption.
+    destruct (beqAddr blockToShareInCurrPartAddr idNewSubblock) eqn:HbeqBlockToShareIdNew.
+    { rewrite <-beqAddrTrue in HbeqBlockToShareIdNew. congruence. }
+    split.
+    { rewrite <-beqAddrFalse in HbeqBlockToShareIdNew. rewrite removeDupIdentity; intuition. }
+    split. assumption. split.
+    { (* lookup blockToShareInCurrPartAddr *) rewrite InternalLemmas.beqAddrTrue. reflexivity. }
+    split. reflexivity.
+    split. assumption. split. assumption. split. assumption. split. assumption. split. assumption. split.
+    assumption. split. assumption. assert(Hsceaddr: sceaddr = CPaddr (idNewSubblock + scoffset)) by intuition.
+    assert(HnewIsFirstFree: idNewSubblock = firstfreeslot pdentry) by intuition. split.
+    { (* sceaddr = CPaddr (firstfreeslot pdentry + scoffset) *)
+      subst idNewSubblock. assumption.
+    }
+    split. assumption. destruct (beqAddr blockToShareInCurrPartAddr currentPart) eqn:HbeqBlockCurr.
+    {
+      rewrite <-beqAddrTrue in HbeqBlockCurr. subst currentPart. rewrite HlookupBlocks0 in HlookupCurrParts0.
+      congruence.
+    }
+    split.
+    { (* lookup currentPart *) rewrite <-beqAddrFalse in HbeqBlockCurr. rewrite removeDupIdentity; intuition. }
+    split. reflexivity. split. assumption. split. assumption. split. assumption. split. assumption. split.
+    assumption. split.
+    { (* currentPart = currentPartition s0*)
+      assert(HcurrPart: currentPart = currentPartition sInit) by intuition. rewrite HcurrPart.
+      apply eq_sym. revert HisBuilt. apply currentPartitionEqIsBuilt.
+    }
+    split. unfold isPDT. rewrite HlookupCurrParts0. trivial. split. assumption. split.
+    { (* isPDT currentPart *)
+      unfold isPDT. simpl. rewrite HbeqBlockCurr. rewrite <-beqAddrFalse in HbeqBlockCurr.
+      rewrite removeDupIdentity; intuition.
+    }
+    destruct Hprops as (HfirstFree & HendNewBlock & HnbFree & HpredNbFree & Hblkidx6 & Hblkidx5 & Hblkidx4 &
+        Hblkidx3 & Hblkidx2 & Hblkidx1 & Hblkidx0 & Hblkidx & Hprops).
+    split.
+    { (*pdentryNbFreeSlots currentPart nbFreeSlots s0*)
+      unfold pdentryNbFreeSlots in *. rewrite HlookupCurrParts0. rewrite HlookupCurrPartsInit in *.
+      assert(HnbFreesInit: nbFreeSlots = nbfreeslots pdentryInit) by intuition. subst nbFreeSlots. assumption.
+    }
+    split. assumption. split. assumption. split. assumption. split. assumption. split. assumption. split.
+    {
+      assert(Hsh1entryaddr: exists sh1entry sh1entryaddr,
+                  lookup sh1entryaddr (memory sInit) beqAddr = Some (SHE sh1entry) /\
+                  sh1entryPDchild sh1entryaddr PDChildAddr sInit /\
+                  sh1entryAddr blockToShareInCurrPartAddr sh1entryaddr sInit) by intuition.
+      
+      (*TODO HERE will need more properties in isBuiltFromWriteAccessibleRec*)
+    }
+    * (* pdentryFirstFreeSlot currentPart (firstfreeslot pdentry) s0 *)
+      subst idNewSubblock. intuition.
+    * (* bentryEndAddr (firstfreeslot pdentry) newFirstFreeSlotAddr s0 *)
+      subst idNewSubblock. intuition.
+    * (* pdentryNbFreeSlots currentPart *)
+      unfold pdentryNbFreeSlots in *. simpl.
+      destruct (beqAddr blockToShareInCurrPartAddr currentPart) eqn:HbeqBlockToShareCurrPart.
+      rewrite <-beqAddrTrue in HbeqBlockToShareCurrPart. congruence.
+      rewrite <-beqAddrFalse in HbeqBlockToShareCurrPart. rewrite removeDupIdentity; intuition.
+    * (* isBE (firstfreeslot pdentry) s0 *)
+      subst idNewSubblock. intuition.
+    * (* isBE (firstfreeslot pdentry) news *)
+      unfold isBE in *. simpl. subst idNewSubblock.
+      destruct (beqAddr blockToShareInCurrPartAddr (firstfreeslot pdentry)) eqn:HbeqBlockToShareIdNew.
+      rewrite <-beqAddrTrue in HbeqBlockToShareIdNew. congruence.
+      rewrite <-beqAddrFalse in HbeqBlockToShareIdNew. rewrite removeDupIdentity; intuition.
+    * (* isSCE sceaddr news *)
+      unfold isSCE in *. simpl.
+      destruct (beqAddr blockToShareInCurrPartAddr sceaddr) eqn:HbeqBlockToShareSceaddr.
+      -- rewrite <-beqAddrTrue in HbeqBlockToShareSceaddr. rewrite HbeqBlockToShareSceaddr in *.
+         rewrite Hlookupb in *. congruence.
+      -- rewrite <-beqAddrFalse in HbeqBlockToShareSceaddr. rewrite removeDupIdentity; intuition.
+    * subst idNewSubblock. congruence.
+    * subst idNewSubblock. congruence.
+    * subst idNewSubblock. congruence.
+    * subst idNewSubblock. congruence.
+    * (* exists (optionfreeslotslist : list optionPaddr) (s2 : state) ... *)
+      destruct H80 as [optionfreeslotslist HoptionProps]. exists optionfreeslotslist.
+      destruct HoptionProps as [s2' HoptionProps]. exists s2'.
+      destruct HoptionProps as [n0 HoptionProps]. exists n0.
+      destruct HoptionProps as [n1 HoptionProps]. exists n1.
+      destruct HoptionProps as [n2 HoptionProps]. exists n2.
+      destruct HoptionProps as [nbleft HoptionProps]. exists nbleft.
+      assert(HBEBlockToShare0: isBE blockToShareInCurrPartAddr s0)
+          by (unfold isBE; rewrite Hlookupb; intuition).
+      assert(HBEBlockToShare: isBE blockToShareInCurrPartAddr s).
+      {
+        unfold isBE in *. rewrite Hs. simpl. rewrite InternalLemmas.beqAddrTrue.
+        destruct (beqAddr sceaddr blockToShareInCurrPartAddr) eqn:HbeqSceaddrBlockToShare.
+        { rewrite <-beqAddrTrue in HbeqSceaddrBlockToShare. intuition. }
+        destruct (beqAddr idNewSubblock sceaddr) eqn:HbeqIdNewSceaddr.
+        { rewrite <-beqAddrTrue in HbeqIdNewSceaddr. intuition. }
+        simpl. destruct (beqAddr idNewSubblock blockToShareInCurrPartAddr) eqn:HbeqIdNewBlockToShare.
+        { rewrite <-beqAddrTrue in HbeqIdNewBlockToShare. intuition. }
+        destruct (beqAddr currentPart idNewSubblock) eqn:HbeqCurrPartIdNew.
+        { rewrite <-beqAddrTrue in HbeqCurrPartIdNew. intuition. }
+        repeat rewrite removeDupIdentity; intuition. simpl.
+        destruct (beqAddr currentPart blockToShareInCurrPartAddr) eqn:HbeqCurrPartBlockToShare.
+        { rewrite <-beqAddrTrue in HbeqCurrPartBlockToShare. intuition. }
+        rewrite InternalLemmas.beqAddrTrue. repeat rewrite removeDupIdentity; intuition.
+      }
+      destruct H82 as [s1 HinterStates]. destruct HinterStates as [s2 HinterStates].
+      destruct HinterStates as [s3 HinterStates]. destruct HinterStates as [s4 HinterStates].
+      destruct HinterStates as [s5 HinterStates]. destruct HinterStates as [s6 HinterStates].
+      destruct HinterStates as [s7 HinterStates]. destruct HinterStates as [s8 HinterStates].
+      destruct HinterStates as [s9 HinterStates]. destruct HinterStates as [s10 HinterStates].
+      destruct HinterStates as [Hs1 (Hs2 & (Hs3 & (Hs4 & (Hs5 & (Hs6 & (Hs7 & (Hs8 & (Hs9 & Hs10))))))))].
+      assert(Hs10sEq: s10 = s).
+      {
+        subst s10. subst s9. subst s8. subst s7. subst s6. subst s5. subst s4. subst s3. subst s2. subst s1.
+        simpl. rewrite Hs. f_equal.
+      }
+      rewrite Hs10sEq in *. subst idNewSubblock.
+      set(s':= {|
+                 currentPartition := currentPartition s;
+                 memory := _
+               |}).
+      intuition.
+      -- destruct H104 as [optionentrieslist Hoptionentrieslist]. exists optionentrieslist. intuition.
+         subst optionentrieslist. rewrite <-H117.
+         apply getKSEntriesEqBE; intuition.
+      -- apply isPDTMultiplexerEqBE; intuition.
+      -- specialize(H102 block). apply H102. unfold getMappedBlocks in *.
+         assert(HgetKSEq: getKSEntries currentPart s' = getKSEntries currentPart s)
+              by (apply getKSEntriesEqBE; intuition).
+         rewrite HgetKSEq in *.
+         assert(HlookupBlock: exists blockBentry, lookup block (memory s') beqAddr = Some(BE blockBentry)
+                                                  /\ present blockBentry = true).
+         { apply filterPresentIsPresent; intuition. }
+      -- 
+      -- 
+      -- 
+      -- 
 
 }
   intro.
