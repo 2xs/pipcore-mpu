@@ -14842,6 +14842,29 @@ In addr
 			intuition.
 Qed.
 
+Lemma getMappedPaddrEqBEEndLower partition block blockBis addr newEntry newEnd bentry0 s0:
+isPDT partition s0 ->
+lookup block (memory s0) beqAddr = Some (BE bentry0) ->
+(present newEntry) = (present bentry0) ->
+(startAddr (blockrange newEntry)) = (startAddr (blockrange bentry0)) ->
+(endAddr (blockrange newEntry)) = newEnd ->
+newEnd <= (endAddr (blockrange bentry0)) ->
+(*noDupKSEntriesList s0 ->
+noDupMappedBlocksList s0 ->*)
+In block (filterOptionPaddr (getKSEntries partition s0)) ->
+blockBis <> block ->
+(forall addr', In addr' (getAllPaddrAux [blockBis] s0) -> In addr (getMappedPaddr partition s0)) ->
+In addr
+(getMappedPaddr partition {|
+						currentPartition := currentPartition s0;
+						memory := add block (BE newEntry)
+            (memory s0) beqAddr |}) <->
+In addr (getMappedPaddr partition s0).
+Proof.
+(*TODO HERE*)
+Qed.
+
+
 Lemma getMappedPaddrEqBEPresentTrueChangeLengthEquality partition block newEntry bentry0 s0:
 isPDT partition s0 ->
 lookup block (memory s0) beqAddr = Some (BE bentry0) ->
