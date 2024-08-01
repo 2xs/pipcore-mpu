@@ -14842,28 +14842,6 @@ In addr
 			intuition.
 Qed.
 
-Lemma getMappedPaddrEqBEEndLower partition block blockBis addr newEntry newEnd bentry0 s0:
-isPDT partition s0 ->
-lookup block (memory s0) beqAddr = Some (BE bentry0) ->
-(present newEntry) = (present bentry0) ->
-(startAddr (blockrange newEntry)) = (startAddr (blockrange bentry0)) ->
-(endAddr (blockrange newEntry)) = newEnd ->
-newEnd <= (endAddr (blockrange bentry0)) ->
-(*noDupKSEntriesList s0 ->
-noDupMappedBlocksList s0 ->*)
-In block (filterOptionPaddr (getKSEntries partition s0)) ->
-blockBis <> block ->
-(forall addr', In addr' (getAllPaddrAux [blockBis] s0) -> In addr (getMappedPaddr partition s0)) ->
-In addr
-(getMappedPaddr partition {|
-						currentPartition := currentPartition s0;
-						memory := add block (BE newEntry)
-            (memory s0) beqAddr |}) <->
-In addr (getMappedPaddr partition s0).
-Proof.
-(*TODO HERE*)
-Qed.
-
 
 Lemma getMappedPaddrEqBEPresentTrueChangeLengthEquality partition block newEntry bentry0 s0:
 isPDT partition s0 ->
@@ -17618,6 +17596,180 @@ Proof.
 intro HaddrIn. unfold getAllPaddrBlock in HaddrIn.
 pose proof (getAllPaddrBlockInclRevAux addr 0 startaddr (endaddr - startaddr) HaddrIn) as Hres.
 destruct Hres as (HleftBound & HrightBound & HrangePos). split. lia. split; lia.
+Qed.
+
+Lemma getAllPaddrBlockEqBEEndLower addr s0 s blocklist block blockBis bentry0 newEntry bentry0Bis:
+s = {|
+      currentPartition := currentPartition s0;
+      memory := add block (BE newEntry) (memory s0) beqAddr
+    |}
+-> lookup block (memory s0) beqAddr = Some (BE bentry0)
+-> lookup blockBis (memory s0) beqAddr = Some (BE bentry0Bis)
+-> startAddr (blockrange newEntry) = startAddr (blockrange bentry0)
+-> endAddr (blockrange newEntry) <= endAddr (blockrange bentry0)
+-> ~In blockBis blocklist
+-> In block blocklist
+-> NoDup blocklist
+-> (In addr (getAllPaddrBlock (endAddr (blockrange newEntry)) (endAddr (blockrange bentry0)))
+    -> In addr (getAllPaddrAux [blockBis] s0))
+-> In addr (getAllPaddrAux blocklist s0)
+-> In addr ((getAllPaddrBlock (startAddr (blockrange bentry0Bis)) (endAddr (blockrange bentry0Bis)))
+            ++ (getAllPaddrAux blocklist s)).
+Proof.
+intros Hs HlookupBlock HlookupBlockBis HstartEq HendLe HblockBisNotInList HblockInList HnoDup HaddrRedund.
+induction blocklist; try(intuition; congruence). simpl in *. apply not_or_and in HblockBisNotInList.
+destruct HblockBisNotInList as (HbeqaBlockBis & HblockBisNotInListRec). rewrite HlookupBlockBis in HaddrRedund.
+rewrite app_nil_r in HaddrRedund. apply NoDup_cons_iff in HnoDup. destruct HnoDup as (HaNotInListRec & HnoDupRec).
+destruct HblockInList as [HaIsBlock | HblockInListRec].
+- subst a. rewrite HlookupBlock. assert(HlookupBlocks: lookup block (memory s) beqAddr = Some(BE newEntry)).
+  { rewrite Hs. simpl. rewrite beqAddrTrue. reflexivity. }
+  rewrite HlookupBlocks. rewrite HstartEq.
+  assert(HgetAllPaddrEq: getAllPaddrAux blocklist s = getAllPaddrAux blocklist s0).
+  { rewrite Hs. apply getAllPaddrAuxEqBENoInList. assumption. }
+  rewrite HgetAllPaddrEq. intro HaddrMappeds0. apply in_app_or in HaddrMappeds0. apply in_or_app.
+  destruct HaddrMappeds0 as [HaddrInBlock | HaddrMappeds0Rec]; try(right; apply in_or_app; right; assumption).
+  apply getAllPaddrBlockInclRev in HaddrInBlock. destruct HaddrInBlock as (HaboveStart & HbelowEnd & Hbounds).
+  destruct (PeanoNat.Nat.ltb addr (endAddr (blockrange newEntry))) eqn:HltAddrEnd.
+  + apply PeanoNat.Nat.ltb_lt in HltAddrEnd. right. apply in_or_app. left. apply getAllPaddrBlockIncl; lia.
+  + apply PeanoNat.Nat.ltb_ge in HltAddrEnd. left. apply HaddrRedund. apply getAllPaddrBlockIncl; lia.
+- assert(HlookupAEq: lookup a (memory s) beqAddr = lookup a (memory s0) beqAddr).
+  {
+    rewrite Hs. simpl. destruct (beqAddr block a) eqn:HbeqaBlock.
+    { rewrite <-DTL.beqAddrTrue in HbeqaBlock. subst a. exfalso; congruence. }
+    rewrite <-beqAddrFalse in HbeqaBlock. rewrite removeDupIdentity; intuition.
+  }
+  rewrite HlookupAEq. destruct (lookup a (memory s0) beqAddr); try(apply IHblocklist; assumption).
+  destruct v; try(apply IHblocklist; assumption). intro HaddrMappeds0. apply in_app_or in HaddrMappeds0.
+  apply in_or_app. destruct HaddrMappeds0 as [HaddrInA | HaddrMappeds0Rec].
+  + right. apply in_or_app. left. assumption.
+  + specialize(IHblocklist HblockBisNotInListRec HblockInListRec HnoDupRec HaddrMappeds0Rec).
+    apply in_app_or in IHblocklist.
+    destruct IHblocklist as [HaddrInBlockBis | HaddrMappedsRec]; try(left; assumption). right. apply in_or_app.
+    right. assumption.
+Qed.
+
+Lemma getAllPaddrBlockEqBEEndLowerRev addr s0 s blocklist block blockBis bentry0 newEntry bentry0Bis:
+s = {|
+      currentPartition := currentPartition s0;
+      memory := add block (BE newEntry) (memory s0) beqAddr
+    |}
+-> lookup block (memory s0) beqAddr = Some (BE bentry0)
+-> lookup blockBis (memory s0) beqAddr = Some (BE bentry0Bis)
+-> startAddr (blockrange newEntry) = startAddr (blockrange bentry0)
+-> endAddr (blockrange newEntry) <= endAddr (blockrange bentry0)
+-> ~In blockBis blocklist
+-> In block blocklist
+-> NoDup blocklist
+-> In addr (getAllPaddrAux blocklist s)
+-> In addr (getAllPaddrAux blocklist s0).
+Proof.
+intros Hs HlookupBlock HlookupBlockBis HstartEq HendLe HblockBisNotInList HblockInList HnoDup HaddrMappeds.
+induction blocklist; try(intuition; congruence). simpl in *. apply not_or_and in HblockBisNotInList.
+destruct HblockBisNotInList as (HbeqaBlockBis & HblockBisNotInListRec). apply NoDup_cons_iff in HnoDup.
+destruct HnoDup as (HaNotInListRec & HnoDupRec). destruct HblockInList as [HaIsBlock | HblockInListRec].
+- subst a. rewrite HlookupBlock. assert(HlookupBlocks: lookup block (memory s) beqAddr = Some(BE newEntry)).
+  { rewrite Hs. simpl. rewrite beqAddrTrue. reflexivity. }
+  rewrite HlookupBlocks in HaddrMappeds. rewrite HstartEq in HaddrMappeds.
+  assert(HgetAllPaddrEq: getAllPaddrAux blocklist s = getAllPaddrAux blocklist s0).
+  { rewrite Hs. apply getAllPaddrAuxEqBENoInList. assumption. }
+  rewrite HgetAllPaddrEq in HaddrMappeds. apply in_app_or in HaddrMappeds. apply in_or_app.
+  destruct HaddrMappeds as [HaddrInBlock | HaddrMappedsRec]; try(right; assumption). left.
+  apply getAllPaddrBlockInclRev in HaddrInBlock. destruct HaddrInBlock as (HaboveStart & HbelowEnd & Hbounds).
+  apply getAllPaddrBlockIncl; lia.
+- assert(HlookupAEq: lookup a (memory s) beqAddr = lookup a (memory s0) beqAddr).
+  {
+    rewrite Hs. simpl. destruct (beqAddr block a) eqn:HbeqaBlock.
+    { rewrite <-DTL.beqAddrTrue in HbeqaBlock. subst a. exfalso; congruence. }
+    rewrite <-beqAddrFalse in HbeqaBlock. rewrite removeDupIdentity; intuition.
+  }
+  rewrite HlookupAEq in HaddrMappeds. destruct (lookup a (memory s0) beqAddr); try(apply IHblocklist; assumption).
+  destruct v; try(apply IHblocklist; assumption). apply in_app_or in HaddrMappeds.
+  apply in_or_app. destruct HaddrMappeds as [HaddrInA | HaddrMappedsRec]; try(left; assumption). right.
+  apply IHblocklist; assumption.
+Qed.
+
+Lemma getMappedPaddrEqBEEndLower partition block blockBis addr newEntry newEnd bentry0 bentry0Bis s0:
+isPDT partition s0 ->
+lookup block (memory s0) beqAddr = Some (BE bentry0) ->
+lookup blockBis (memory s0) beqAddr = Some (BE bentry0Bis) ->
+(present newEntry) = (present bentry0) ->
+(startAddr (blockrange newEntry)) = (startAddr (blockrange bentry0)) ->
+(endAddr (blockrange newEntry)) = newEnd ->
+newEnd <= (endAddr (blockrange bentry0)) ->
+blockBis <> block ->
+(*noDupKSEntriesList s0 ->*)
+noDupMappedBlocksList s0 ->
+(forall addr', In addr' (getAllPaddrBlock newEnd (endAddr (blockrange bentry0)))
+              -> In addr' (getAllPaddrAux [blockBis] s0)) ->
+In block (getMappedBlocks partition s0) ->
+In blockBis (getMappedBlocks partition s0) ->
+In addr
+(getMappedPaddr partition {|
+						currentPartition := currentPartition s0;
+						memory := add block (BE newEntry)
+            (memory s0) beqAddr |}) <->
+In addr (getMappedPaddr partition s0).
+Proof.
+set (s := {|
+            currentPartition := currentPartition s0;
+            memory := _ |}).
+intros HpartIsPDT HlookupBlocks0 HlookupBlockBiss0 HpresentEq HstartEq HnewEnd HnewEndIsLower HbeqBlocks HnoDup
+    HaddrRedund HblockMapped HblockBisMapped. specialize(HnoDup partition HpartIsPDT). unfold getMappedPaddr.
+assert(HgetMappedEq: getMappedBlocks partition s = getMappedBlocks partition s0).
+{
+  unfold s. apply getMappedBlocksEqBENoChange with bentry0; assumption.
+}
+rewrite HgetMappedEq. clear HgetMappedEq. induction (getMappedBlocks partition s0); try(intuition; congruence).
+simpl in HblockMapped. simpl in HblockBisMapped. apply NoDup_cons_iff in HnoDup.
+destruct HnoDup as (HaNotInList & HnoDupRec). destruct HblockMapped as [HaIsBlock | HblockMappedRec].
+- subst a. destruct HblockBisMapped as [HblockEq | HblockBisMappedRec]; try(exfalso; congruence).
+  simpl. rewrite beqAddrTrue. rewrite HlookupBlocks0. rewrite HstartEq. subst newEnd.
+  assert(HgetAllPaddrEq: getAllPaddrAux l s = getAllPaddrAux l s0).
+  { unfold s. apply getAllPaddrAuxEqBENoInList. assumption. }
+  rewrite HgetAllPaddrEq. split.
+  + intro HaddrMappeds. apply in_or_app. apply in_app_or in HaddrMappeds.
+    destruct HaddrMappeds as [HedgeCase | HaddrMappeds0]; try(right; assumption). left.
+    apply getAllPaddrBlockInclRev in HedgeCase. destruct HedgeCase as (HaboveStart & HbelowEnd & HblockNotEmpty).
+    apply getAllPaddrBlockIncl; lia.
+  + intro HaddrMappeds0. apply in_or_app. apply in_app_or in HaddrMappeds0.
+    destruct HaddrMappeds0 as [HedgeCase | HaddrMappeds0]; try(right; assumption).
+    apply getAllPaddrBlockInclRev in HedgeCase. destruct HedgeCase as (HaboveStart & HbelowEnd & HblockNotEmpty).
+    destruct (PeanoNat.Nat.ltb addr (endAddr (blockrange newEntry))) eqn:HltAddrEnd.
+    * apply PeanoNat.Nat.ltb_lt in HltAddrEnd. left. apply getAllPaddrBlockIncl; lia.
+    * apply PeanoNat.Nat.ltb_ge in HltAddrEnd. right.
+      assert(HaddrInBlockBis: In addr (getAllPaddrAux [blockBis] s0)).
+      { apply HaddrRedund. apply getAllPaddrBlockIncl; lia. }
+      apply blockIsMappedAddrInPaddrList with blockBis; assumption.
+- destruct HblockBisMapped as [HaIsBlockBis | HblockBisMappedRec].
+  + subst a. simpl. rewrite beqAddrFalse in HbeqBlocks. rewrite beqAddrSym in HbeqBlocks. rewrite HbeqBlocks.
+    rewrite <-beqAddrFalse in HbeqBlocks. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+    rewrite HlookupBlockBiss0. subst newEnd.
+    assert(Hs: s = {|
+                     currentPartition := currentPartition s0; memory := add block (BE newEntry) (memory s0) beqAddr
+                   |}) by (unfold s; reflexivity). specialize(HaddrRedund addr). split.
+    * intro HaddrMappeds. apply in_or_app. apply in_app_or in HaddrMappeds.
+      destruct HaddrMappeds as [HedgeCase | HaddrMappeds0]; try(left; assumption). right. revert HaddrMappeds0.
+      revert HnoDupRec. revert HblockMappedRec. revert HaNotInList. revert HnewEndIsLower.
+      apply getAllPaddrBlockEqBEEndLowerRev with bentry0Bis; assumption.
+    * intro HaddrMappeds0. apply in_or_app. apply in_app_or in HaddrMappeds0.
+      destruct HaddrMappeds0 as [HedgeCase | HaddrMappeds0]; try(left; assumption).
+      pose proof (getAllPaddrBlockEqBEEndLower addr s0 s l block blockBis bentry0 newEntry bentry0Bis Hs
+            HlookupBlocks0 HlookupBlockBiss0 HstartEq HnewEndIsLower HaNotInList HblockMappedRec HnoDupRec
+            HaddrRedund HaddrMappeds0) as Hres. apply in_app_or in Hres. assumption.
+  + specialize(IHl HnoDupRec HblockMappedRec HblockBisMappedRec). simpl.
+    destruct (beqAddr block a) eqn:HbeqaBlock.
+    {
+      rewrite <-DTL.beqAddrTrue in HbeqaBlock. subst a. exfalso; congruence.
+    }
+    rewrite <-beqAddrFalse in HbeqaBlock. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+    destruct (lookup a (memory s0) beqAddr); try(assumption). destruct v; try(assumption).
+    destruct IHl as (Hleft & Hright). split.
+    * intro HaddrMappeds. apply in_or_app. apply in_app_or in HaddrMappeds.
+      destruct HaddrMappeds as [HedgeCase | HaddrMappeds0]; try(left; assumption). right. apply Hleft.
+      assumption.
+    * intro HaddrMappeds0. apply in_or_app. apply in_app_or in HaddrMappeds0.
+      destruct HaddrMappeds0 as [HedgeCase | HaddrMappeds0]; try(left; assumption). right. apply Hright.
+      assumption.
 Qed.
 
 Lemma blockInclImpliesAddrIncl s:
