@@ -40,7 +40,7 @@ Proof.StateLib Proof.InternalLemmas Proof.DependentTypeLemmas.
 Require Import Invariants (*GetTableAddr UpdateShadow2Structure UpdateShadow1Structure
                PropagatedProperties MapMMUPage*) Proof.invariants.findBlockInKSWithAddr.
 
-Require Import isBuiltFromWriteAccessibleRec writeAccessibleToAncestorsIfNotCutRec (*insertNewEntry*).
+Require Import isBuiltFromWriteAccessibleRec writeAccessibleToAncestorsIfNotCutRec insertNewEntry.
 
 Require Import Bool List EqNat Lia.
 Import List.ListNotations.
@@ -48,366 +48,6 @@ Import List.ListNotations.
 Require Import Model.Monad.
 
 Module WP := WeakestPreconditions.
-
-Lemma insertNewEntry 	(pdinsertion startaddr endaddr origin: paddr)
-									 (r w e : bool) (currnbfreeslots : index) (P : state -> Prop):
-{{ fun s => consistency s
-(* to retrieve the fields in pdinsertion *)
-/\ (exists pdentry, lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry)
-          /\ (pdinsertion <> constantRootPartM ->
-                  isPDT (parent pdentry) s
-                  /\ (forall addr, In addr (getAllPaddrBlock startaddr endaddr)
-                              -> In addr (getMappedPaddr (parent pdentry) s))
-                  /\ (exists blockParent startParent endParent,
-                          In blockParent (getMappedBlocks (parent pdentry) s)
-                          /\ bentryStartAddr blockParent startParent s
-                          /\ bentryEndAddr blockParent endParent s
-                          /\ startParent <= startaddr /\ endParent >= endaddr)))
-(* to show the first free slot pointer is not NULL *)
-/\ (pdentryNbFreeSlots pdinsertion currnbfreeslots s /\ currnbfreeslots > 0)
-/\ (exists firstfreepointer, pdentryFirstFreeSlot pdinsertion firstfreepointer s /\
- firstfreepointer <> nullAddr)
-/\ 	((startaddr < endaddr) /\ (Constants.minBlockSize <= (endaddr - startaddr +1)))
-/\ P s
-}}
-
-Internal.insertNewEntry pdinsertion startaddr endaddr origin r w e currnbfreeslots
-
-{{fun newentryaddr s =>
-(exists s0, P s0 /\ consistency1 s (* only propagate the 1st batch*)
-(* expected new state after memory writes and associated properties on the new state s *)
-/\ (exists pdentry : PDTable, exists pdentry0 pdentry1: PDTable,
- exists bentry bentry0 bentry1 bentry2 bentry3 bentry4 bentry5 bentry6: BlockEntry,
- exists sceaddr, exists scentry : SCEntry,
- exists newBlockEntryAddr newFirstFreeSlotAddr predCurrentNbFreeSlots,
-s = {|
-currentPartition := currentPartition s0;
-memory := add sceaddr
-							 (SCE {| origin := origin; next := next scentry |})
-					 (add newBlockEntryAddr
-		  (BE
-			 (CBlockEntry (read bentry5) (write bentry5) e (present bentry5)
-				(accessible bentry5) (blockindex bentry5) (blockrange bentry5)))
-					 (add newBlockEntryAddr
-		  (BE
-			 (CBlockEntry (read bentry4) w (exec bentry4) (present bentry4)
-				(accessible bentry4) (blockindex bentry4) (blockrange bentry4)))
-					 (add newBlockEntryAddr
-		  (BE
-			 (CBlockEntry r (write bentry3) (exec bentry3) (present bentry3)
-				(accessible bentry3) (blockindex bentry3) (blockrange bentry3)))
-					 (add newBlockEntryAddr
-		  (BE
-			 (CBlockEntry (read bentry2) (write bentry2) (exec bentry2)
-				(present bentry2) true (blockindex bentry2) (blockrange bentry2)))
-					 (add newBlockEntryAddr
-		  (BE
-			 (CBlockEntry (read bentry1) (write bentry1) (exec bentry1) true
-				(accessible bentry1) (blockindex bentry1) (blockrange bentry1)))
-					 (add newBlockEntryAddr
-		  (BE
-			 (CBlockEntry (read bentry0) (write bentry0) (exec bentry0)
-				(present bentry0) (accessible bentry0) (blockindex bentry0)
-				(CBlock (startAddr (blockrange bentry0)) endaddr)))
-					 (add newBlockEntryAddr
-			  (BE
-				 (CBlockEntry (read bentry) (write bentry)
-					(exec bentry) (present bentry) (accessible bentry)
-					(blockindex bentry)
-					(CBlock startaddr (endAddr (blockrange bentry)))))
-						 (add pdinsertion
-		  (PDT
-			 {|
-			 structure := structure pdentry0;
-			 firstfreeslot := firstfreeslot pdentry0;
-			 nbfreeslots := predCurrentNbFreeSlots;
-			 nbprepare := nbprepare pdentry0;
-			 parent := parent pdentry0;
-			 MPU := MPU pdentry0;
-								 vidtAddr := vidtAddr pdentry0 |})
-						 (add pdinsertion
-		  (PDT
-			 {|
-			 structure := structure pdentry;
-			 firstfreeslot := newFirstFreeSlotAddr;
-			 nbfreeslots := nbfreeslots pdentry;
-			 nbprepare := nbprepare pdentry;
-			 parent := parent pdentry;
-			 MPU := MPU pdentry;
-								 vidtAddr := vidtAddr pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr)
-                            beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
-/\ newBlockEntryAddr = newentryaddr
-/\ lookup newBlockEntryAddr (memory s0) beqAddr = Some (BE bentry)
-/\ lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry6) /\
-bentry6 = (CBlockEntry (read bentry5) (write bentry5) e (present bentry5)
-					  (accessible bentry5) (blockindex bentry5) (blockrange bentry5))
-/\
-bentry5 = (CBlockEntry (read bentry4) w (exec bentry4) (present bentry4)
-					  (accessible bentry4) (blockindex bentry4) (blockrange bentry4))
-/\
-bentry4 = (CBlockEntry r (write bentry3) (exec bentry3) (present bentry3)
-					  (accessible bentry3) (blockindex bentry3) (blockrange bentry3))
-/\
-bentry3 = (CBlockEntry (read bentry2) (write bentry2) (exec bentry2)
-					  (present bentry2) true (blockindex bentry2) (blockrange bentry2))
-/\
-bentry2 = (CBlockEntry (read bentry1) (write bentry1) (exec bentry1) true
-					  (accessible bentry1) (blockindex bentry1) (blockrange bentry1))
-/\
-bentry1 = (CBlockEntry (read bentry0) (write bentry0) (exec bentry0)
-					  (present bentry0) (accessible bentry0) (blockindex bentry0)
-					  (CBlock (startAddr (blockrange bentry0)) endaddr))
-/\
-bentry0 = (CBlockEntry (read bentry) (write bentry)
-						  (exec bentry) (present bentry) (accessible bentry)
-						  (blockindex bentry)
-						  (CBlock startaddr (endAddr (blockrange bentry))))
-/\ lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry)
-/\ lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry1) /\
-pdentry1 = {|     structure := structure pdentry0;
-				   firstfreeslot := firstfreeslot pdentry0;
-				   nbfreeslots := predCurrentNbFreeSlots;
-				   nbprepare := nbprepare pdentry0;
-				   parent := parent pdentry0;
-				   MPU := MPU pdentry0;
-									 vidtAddr := vidtAddr pdentry0 |} /\
-pdentry0 = {|    structure := structure pdentry;
-				   firstfreeslot := newFirstFreeSlotAddr;
-				   nbfreeslots := nbfreeslots pdentry;
-				   nbprepare := nbprepare pdentry;
-				   parent := parent pdentry;
-				   MPU := MPU pdentry;
-									 vidtAddr := vidtAddr pdentry|}
-(* propagate new s0 properties *)
-/\ pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s0
-/\ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s0
-
-(* propagate new properties (copied from last step) *)
-/\ pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s
-/\ StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots
-/\ blockindex bentry6 = blockindex bentry5
-/\ blockindex bentry5 = blockindex bentry4
-/\ blockindex bentry4 = blockindex bentry3
-/\ blockindex bentry3 = blockindex bentry2
-/\ blockindex bentry2 = blockindex bentry1
-/\ blockindex bentry1 = blockindex bentry0
-/\ blockindex bentry0 = blockindex bentry
-/\ blockindex bentry6 = blockindex bentry
-/\ isPDT pdinsertion s0
-/\ isPDT pdinsertion s
-/\ isBE newBlockEntryAddr s0
-/\ isBE newBlockEntryAddr s
-/\ isSCE sceaddr s0
-/\ isSCE sceaddr s
-/\ sceaddr = CPaddr (newBlockEntryAddr + scoffset)
-/\ firstfreeslot pdentry1 = newFirstFreeSlotAddr
-/\ newBlockEntryAddr = (firstfreeslot pdentry)
-/\ newFirstFreeSlotAddr <> pdinsertion
-/\ pdinsertion <> newBlockEntryAddr
-/\ newFirstFreeSlotAddr <> newBlockEntryAddr
-/\ sceaddr <> newBlockEntryAddr
-/\ sceaddr <> pdinsertion
-/\ sceaddr <> newFirstFreeSlotAddr
-(* pdinsertion's new free slots list and relation with list at s0 *)
-/\ (exists (optionfreeslotslist : list optionPaddr) (s2 : state)
-			 (n0 n1 n2 : nat) (nbleft : index),
- nbleft = CIndex (currnbfreeslots - 1) /\
- nbleft < maxIdx /\
- s =
- {|
-   currentPartition := currentPartition s0;
-   memory :=
-	 add sceaddr (SCE {| origin := origin; next := next scentry |})
-	   (memory s2) beqAddr
- |} /\
-	 ( optionfreeslotslist = getFreeSlotsListRec n1 newFirstFreeSlotAddr s2 nbleft /\
-		   getFreeSlotsListRec n2 newFirstFreeSlotAddr s nbleft = optionfreeslotslist /\
-		   optionfreeslotslist = getFreeSlotsListRec n0 newFirstFreeSlotAddr s0 nbleft /\
-		   n0 <= n1 /\
-		   nbleft < n0 /\
-		   n1 <= n2 /\
-		   nbleft < n2 /\
-		   n2 <= maxIdx + 1 /\
-		   (wellFormedFreeSlotsList optionfreeslotslist = False -> False) /\
-		   NoDup (filterOptionPaddr optionfreeslotslist) /\
-		   (In newBlockEntryAddr (filterOptionPaddr optionfreeslotslist) -> False) /\
-		   (exists optionentrieslist : list optionPaddr,
-			  optionentrieslist = getKSEntries pdinsertion s2 /\
-			  getKSEntries pdinsertion s = optionentrieslist /\
-			  optionentrieslist = getKSEntries pdinsertion s0 /\
-					 (* newB in free slots list at s0, so in optionentrieslist *)
-					 In newBlockEntryAddr (filterOptionPaddr optionentrieslist)
-				 )
-		 )
-
-	 /\ (	isPDT multiplexer s
-			 /\ getPartitions multiplexer s2 = getPartitions multiplexer s0
-			 /\ getPartitions multiplexer s = getPartitions multiplexer s2
-			 /\ getChildren pdinsertion s2 = getChildren pdinsertion s0
-			 /\ getChildren pdinsertion s = getChildren pdinsertion s2
-			 /\ getConfigBlocks pdinsertion s2 = getConfigBlocks pdinsertion s0
-			 /\ getConfigBlocks pdinsertion s = getConfigBlocks pdinsertion s2
-			 /\ getConfigPaddr pdinsertion s2 = getConfigPaddr pdinsertion s0
-			 /\ getConfigPaddr pdinsertion s = getConfigPaddr pdinsertion s2
-			 /\ (forall block, In block (getMappedBlocks pdinsertion s) <->
-								 In block (newBlockEntryAddr:: (getMappedBlocks pdinsertion s0)))
-			 /\ ((forall addr, In addr (getMappedPaddr pdinsertion s) <->
-						 In addr (getAllPaddrBlock (startAddr (blockrange bentry6)) (endAddr (blockrange bentry6))
-							  ++ getMappedPaddr pdinsertion s0)) /\
-						 length (getMappedPaddr pdinsertion s) =
-						 length (getAllPaddrBlock (startAddr (blockrange bentry6))
-								  (endAddr (blockrange bentry6)) ++ getMappedPaddr pdinsertion s0))
-			 /\ (forall block, In block (getAccessibleMappedBlocks pdinsertion s) <->
-								 In block (newBlockEntryAddr:: (getAccessibleMappedBlocks pdinsertion s0)))
-			 /\ (forall addr, In addr (getAccessibleMappedPaddr pdinsertion s) <->
-						 In addr (getAllPaddrBlock (startAddr (blockrange bentry6)) (endAddr (blockrange bentry6))
-							  ++ getAccessibleMappedPaddr pdinsertion s0))
-
-			 /\ (* if not concerned *)
-				 (forall partition : paddr,
-						 partition <> pdinsertion ->
-						 isPDT partition s0 ->
-						 getKSEntries partition s = getKSEntries partition s0)
-			 /\ (forall partition : paddr,
-						 partition <> pdinsertion ->
-						 isPDT partition s0 ->
-						  getMappedPaddr partition s = getMappedPaddr partition s0)
-			 /\ (forall partition : paddr,
-						 partition <> pdinsertion ->
-						 isPDT partition s0 ->
-						 getConfigPaddr partition s = getConfigPaddr partition s0)
-			 /\ (forall partition : paddr,
-													 partition <> pdinsertion ->
-													 isPDT partition s0 ->
-													 getPartitions partition s = getPartitions partition s0)
-			 /\ (forall partition : paddr,
-													 partition <> pdinsertion ->
-													 isPDT partition s0 ->
-													 getChildren partition s = getChildren partition s0)
-			 /\ (forall partition : paddr,
-													 partition <> pdinsertion ->
-													 isPDT partition s0 ->
-													 getMappedBlocks partition s = getMappedBlocks partition s0)
-			 /\ (forall partition : paddr,
-													 partition <> pdinsertion ->
-													 isPDT partition s0 ->
-													 getAccessibleMappedBlocks partition s = getAccessibleMappedBlocks partition s0)
-			 /\ (forall partition : paddr,
-						 partition <> pdinsertion ->
-						 isPDT partition s0 ->
-						  getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0)
-
-		 )
-	 /\ (forall partition : paddr,
-				 isPDT partition s = isPDT partition s0
-			 )
- )
-
-
-
-
-(* intermediate steps *)
-/\ exists s1 s2 s3 s4 s5 s6 s7 s8 s9 s10,
-s1 = {|
-currentPartition := currentPartition s0;
-memory := add pdinsertion
-		 (PDT
-			{|
-			  structure := structure pdentry;
-			  firstfreeslot := newFirstFreeSlotAddr;
-			  nbfreeslots := nbfreeslots pdentry;
-			  nbprepare := nbprepare pdentry;
-			  parent := parent pdentry;
-			  MPU := MPU pdentry;
-			  vidtAddr := vidtAddr pdentry
-			|}) (memory s0) beqAddr |}
-/\ s2 = {|
-currentPartition := currentPartition s1;
-memory := add pdinsertion
-			(PDT
-			   {|
-				 structure := structure pdentry0;
-				 firstfreeslot := firstfreeslot pdentry0;
-				 nbfreeslots := predCurrentNbFreeSlots;
-				 nbprepare := nbprepare pdentry0;
-				 parent := parent pdentry0;
-				 MPU := MPU pdentry0;
-				 vidtAddr := vidtAddr pdentry0
-			   |}
-		  ) (memory s1) beqAddr |}
-/\ s3 = {|
-currentPartition := currentPartition s2;
-memory := add newBlockEntryAddr
-		 (BE
-			(CBlockEntry (read bentry) 
-			   (write bentry) (exec bentry) 
-			   (present bentry) (accessible bentry)
-			   (blockindex bentry)
-			   (CBlock startaddr (endAddr (blockrange bentry))))
-		  ) (memory s2) beqAddr |}
-/\ s4 = {|
-currentPartition := currentPartition s3;
-memory := add newBlockEntryAddr
-		(BE
-		   (CBlockEntry (read bentry0) 
-			  (write bentry0) (exec bentry0) 
-			  (present bentry0) (accessible bentry0)
-			  (blockindex bentry0)
-			  (CBlock (startAddr (blockrange bentry0)) endaddr))
-		  ) (memory s3) beqAddr |}
-/\ s5 = {|
-currentPartition := currentPartition s4;
-memory := add newBlockEntryAddr
-	   (BE
-		  (CBlockEntry (read bentry1) 
-			 (write bentry1) (exec bentry1) true
-			 (accessible bentry1) (blockindex bentry1)
-			 (blockrange bentry1))
-		  ) (memory s4) beqAddr |}
-/\ s6 = {|
-currentPartition := currentPartition s5;
-memory := add newBlockEntryAddr
-		(BE
-		   (CBlockEntry (read bentry2) (write bentry2) 
-			  (exec bentry2) (present bentry2) true
-			  (blockindex bentry2) (blockrange bentry2))
-		  ) (memory s5) beqAddr |}
-/\ s7 = {|
-currentPartition := currentPartition s6;
-memory := add newBlockEntryAddr
-	   (BE
-		  (CBlockEntry r (write bentry3) (exec bentry3)
-			 (present bentry3) (accessible bentry3) 
-			 (blockindex bentry3) (blockrange bentry3))
-		  ) (memory s6) beqAddr |}
-/\ s8 = {|
-currentPartition := currentPartition s7;
-memory := add newBlockEntryAddr
-		  (BE
-			 (CBlockEntry (read bentry4) w (exec bentry4) 
-				(present bentry4) (accessible bentry4) 
-				(blockindex bentry4) (blockrange bentry4))
-		  ) (memory s7) beqAddr |}
-/\ s9 = {|
-currentPartition := currentPartition s8;
-memory := add newBlockEntryAddr
-	   (BE
-		  (CBlockEntry (read bentry5) (write bentry5) e 
-			 (present bentry5) (accessible bentry5) 
-			 (blockindex bentry5) (blockrange bentry5))
-		  ) (memory s8) beqAddr |}
-/\ s10 = {|
-currentPartition := currentPartition s9;
-memory := add sceaddr 
-						 (SCE {| origin := origin; next := next scentry |}
-		  ) (memory s9) beqAddr |}
-)
-/\ (forall part pdentryPart parentsList, lookup part (memory s0) beqAddr = Some (PDT pdentryPart)
-          -> isParentsList s parentsList part -> isParentsList s0 parentsList part)
-/\ (forall part kernList, isListOfKernels kernList part s -> isListOfKernels kernList part s0))
-}}.
-Proof.
-Admitted.
 
 (*Lemma filterPresentIsPresent block s l:
 In block (filterPresent l s)
@@ -1016,7 +656,7 @@ case_eq PDChildAddrIsNull.
 }
 	intro idNewSubblock.
 	(* MALInternal.Paddr.pred *)
-	eapply bindRev.
+	(*eapply bindRev.
 { eapply weaken. apply Paddr.pred.
 	intros s Hprops. simpl. split. apply Hprops. destruct Hprops as [s0 Hprops].
   destruct Hprops as (((((((_ & _ & _ & _ & [sInit [pdentry [pdbasepart [blockOriginBis [blockStart [blockEnd
@@ -1025,11 +665,11 @@ case_eq PDChildAddrIsNull.
   assert(Hle: false = StateLib.Paddr.leb cutAddr blockToCutStartAddr) by intuition.
   unfold StateLib.Paddr.leb in Hle. apply eq_sym in Hle. apply Compare_dec.leb_iff_conv in Hle. lia.
 }
-	intro predCutAddr. simpl.
+	intro predCutAddr.*) simpl.
 	(* MAL.writeBlockEndFromBlockEntryAddr *)
 	eapply bindRev.
 {	eapply weaken. apply writeBlockEndFromBlockEntryAddr.
-	intros s Hprops. simpl. destruct Hprops as [Hprops HpredCutAddr]. destruct Hprops as [s0 Hprops].
+	intros s Hprops. simpl. (*destruct Hprops as [Hprops HpredCutAddr].*) destruct Hprops as [s0 Hprops].
   destruct Hprops as (Hprops1 & Hconsist & (Hprops2 & HparentsLists & HkernLists)).
   destruct Hprops2 as [pdentry Hprops]. destruct Hprops as [pdentry0 Hprops].
   destruct Hprops as [pdentry1 Hprops].
@@ -1239,7 +879,7 @@ case_eq PDChildAddrIsNull.
       rewrite <-beqAddrFalse in HbeqCurrBlockToShare. rewrite InternalLemmas.beqAddrTrue.
       repeat rewrite removeDupIdentity; intuition. (*TODO HERE will probably need to change the next instantiate*)
   - instantiate(1:= fun _ s => isBE idNewSubblock s
-        /\ StateLib.Paddr.pred cutAddr = Some predCutAddr
+        (*/\ StateLib.Paddr.pred cutAddr = Some predCutAddr*)
         /\ zero = CIndex 0
         /\ false = StateLib.Index.leb nbFreeSlots zero
         /\ beqAddr nullAddr PDChildAddr = true
@@ -1263,7 +903,7 @@ case_eq PDChildAddrIsNull.
                (BE
                   (CBlockEntry (read bentryShare) (write bentryShare) (exec bentryShare)
                     (present bentryShare) (accessible bentryShare) (blockindex bentryShare)
-                    (CBlock (startAddr (blockrange bentryShare)) predCutAddr)))
+                    (CBlock (startAddr (blockrange bentryShare)) cutAddr)))
                       (memory s1) beqAddr
            |}
            /\ lookup idNewSubblock (memory s0) beqAddr = Some (BE bentry)
@@ -1272,7 +912,7 @@ case_eq PDChildAddrIsNull.
            /\ lookup blockToShareInCurrPartAddr (memory s) beqAddr = Some (BE bentry7)
            /\ bentry7 = CBlockEntry (read bentryShare) (write bentryShare) (exec bentryShare)
                         (present bentryShare) (accessible bentryShare) (blockindex bentryShare)
-                        (CBlock (startAddr (blockrange bentryShare)) predCutAddr)
+                        (CBlock (startAddr (blockrange bentryShare)) cutAddr)
            /\ bentry6 = CBlockEntry (read bentry5) (write bentry5) blockX (present bentry5)
                         (accessible bentry5) (blockindex bentry5) (blockrange bentry5)
            /\ bentry5 = CBlockEntry (read bentry4) blockW (exec bentry4) (present bentry4)
@@ -1467,7 +1107,8 @@ case_eq PDChildAddrIsNull.
                     (firstfreeslot pdentry) = block \/ In block (getAccessibleMappedBlocks currentPart s0))
                 /\ (forall addr : paddr,
                     In addr (getAccessibleMappedPaddr currentPart s) <->
-                    In addr (getAccessibleMappedPaddr currentPart s0))
+                    In addr (getAllPaddrBlock (startAddr (blockrange bentry6)) (endAddr (blockrange bentry6))
+                              ++ getAccessibleMappedPaddr currentPart s0))
                 /\ (forall partition : paddr,
                     (partition = currentPart -> False) ->
                     isPDT partition s0 -> getKSEntries partition s = getKSEntries partition s0)
@@ -1503,14 +1144,14 @@ case_eq PDChildAddrIsNull.
       rewrite <-beqAddrFalse in HbeqBlockToShareIdNew.
       rewrite removeDupIdentity; intuition.
     }
-    split. assumption. split. intuition. split. intuition. split. intuition. split. intuition. split. intuition.
+    split. intuition. split. intuition. split. intuition. split. intuition. split. intuition.
     split. intuition. split. intuition. split. intuition. split. intuition. split. intuition. split. intuition.
     (* exists (s1 s2 : state) ... *)
     exists s0. exists s. exists pdentry. exists pdentry0. exists pdentry1. exists pdentry1. exists bentry.
     exists bentry0. exists bentry1. exists bentry2. exists bentry3. exists bentry4. exists bentry5.
     exists bentry6. exists bentryShare. exists (CBlockEntry (read bentryShare) (write bentryShare)
         (exec bentryShare) (present bentryShare) (accessible bentryShare) (blockindex bentryShare)
-        (CBlock (startAddr (blockrange bentryShare)) predCutAddr)). exists scentry. exists predCurrentNbFreeSlots.
+        (CBlock (startAddr (blockrange bentryShare)) cutAddr)). exists scentry. exists predCurrentNbFreeSlots.
     exists sceaddr. exists newFirstFreeSlotAddr.
     assert(HcurrPartEq: currentPartition s = currentPartition s0) by (subst s; simpl; reflexivity).
     split. rewrite HcurrPartEq. reflexivity.
@@ -1716,7 +1357,7 @@ case_eq PDChildAddrIsNull.
     assert(HnewB: exists l,
                     CBlockEntry (read bentryShare) (write bentryShare) (exec bentryShare) 
                        (present bentryShare) (accessible bentryShare) (blockindex bentryShare)
-                       (CBlock (startAddr (blockrange bentryShare)) predCutAddr)
+                       (CBlock (startAddr (blockrange bentryShare)) cutAddr)
                     = {|
                         read := read bentryShare;
                         write := write bentryShare;
@@ -1724,7 +1365,7 @@ case_eq PDChildAddrIsNull.
                         present := present bentryShare;
                         accessible := accessible bentryShare;
                         blockindex := blockindex bentryShare;
-                        blockrange := CBlock (startAddr (blockrange bentryShare)) predCutAddr;
+                        blockrange := CBlock (startAddr (blockrange bentryShare)) cutAddr;
                         Hidx := ADT.CBlockEntry_obligation_1 (blockindex bentryShare) l
                       |}).
     {
@@ -1804,47 +1445,151 @@ case_eq PDChildAddrIsNull.
         apply addrInBlockIsMapped with blockToShareInCurrPartAddr; assumption.
       - intro HaddrMappeds0. apply HgetMappedPEquivRight. apply in_or_app. right. assumption.
     }
-    split.
+    assert(HgetMappedBCurrEqs0: getMappedBlocks currentPart s0 = getMappedBlocks currentPart sInit).
+    {
+      revert HisBuilt. unfold consistency in *; unfold consistency1 in *; unfold consistency2 in *;
+        apply getMappedBlocksEqBuiltWithWriteAcc with blockBase bentryBases0; intuition.
+    }
+    assert(HaddrMappedEquiv: forall addr, In addr (getMappedPaddr currentPart s')
+                                          <-> In addr (getMappedPaddr currentPart s)).
+    {
+      intro addr. assert(blockindex bentryShare < kernelStructureEntriesNb) by (apply Hidx).
+      apply getMappedPaddrEqBEEndLower with (firstfreeslot pdentry) cutAddr bentryShare bentry6;
+          try(assumption);
+          try(unfold CBlockEntry;
+              destruct (Compare_dec.lt_dec (blockindex bentryShare) kernelStructureEntriesNb); try(lia);
+              simpl; try(reflexivity); unfold CBlock).
+      + assert(Hstart: bentryStartAddr blockToShareInCurrPartAddr blockStart sInit) by intuition.
+        assert(HstartBis: bentryStartAddr blockToShareInCurrPartAddr blockToCutStartAddr sInit) by intuition.
+        unfold bentryStartAddr in *. rewrite HlookupBlockInit in *. rewrite <-Hstart in HstartBis.
+        rewrite <-HstartBis in *. rewrite <-HblkrgEq in Hstart. rewrite <-Hstart.
+        assert(Hle: false = StateLib.Paddr.leb cutAddr blockToCutStartAddr) by intuition.
+        unfold StateLib.Paddr.leb in Hle. apply eq_sym in Hle. apply PeanoNat.Nat.leb_gt in Hle.
+        assert(cutAddr <= maxIdx) by (rewrite maxIdxEqualMaxAddr; apply Hp).
+        destruct (Compare_dec.le_dec (cutAddr - blockToCutStartAddr) maxIdx); try(lia). simpl.
+        reflexivity.
+      + assert(cutAddr <= maxIdx) by (rewrite maxIdxEqualMaxAddr; apply Hp).
+        destruct (Compare_dec.le_dec (cutAddr - startAddr (blockrange bentryShare)) maxIdx); try(lia).
+        simpl. reflexivity.
+      + assert(HendBis: bentryEndAddr blockToShareInCurrPartAddr blockToCutEndAddr sInit) by intuition.
+        unfold bentryEndAddr in *. rewrite HlookupBlockInit in HendBis. rewrite HlookupBlocks0 in HendAddr.
+        rewrite <-HblkrgEq in HendBis. rewrite <-HendAddr in HendBis. subst blockToCutEndAddr.
+        rewrite <-HendAddr. assert(Hle: false = StateLib.Paddr.leb blockEndAddr cutAddr) by intuition.
+        unfold StateLib.Paddr.leb in Hle. apply eq_sym in Hle. apply PeanoNat.Nat.leb_gt in Hle. lia.
+      + unfold consistency1 in Hconsist. intuition.
+      + rewrite HlookupNewBlocks. rewrite app_nil_r. unfold CBlockEntry in Hbentry6.
+        assert(blockindex bentry5 < kernelStructureEntriesNb) by (apply Hidx).
+        destruct (Compare_dec.lt_dec (blockindex bentry5) kernelStructureEntriesNb); try(lia).
+        unfold CBlockEntry in Hbentry5. assert(blockindex bentry4 < kernelStructureEntriesNb) by (apply Hidx).
+        destruct (Compare_dec.lt_dec (blockindex bentry4) kernelStructureEntriesNb); try(lia).
+        unfold CBlockEntry in Hbentry4. assert(blockindex bentry3 < kernelStructureEntriesNb) by (apply Hidx).
+        destruct (Compare_dec.lt_dec (blockindex bentry3) kernelStructureEntriesNb); try(lia).
+        unfold CBlockEntry in Hbentry3. assert(blockindex bentry2 < kernelStructureEntriesNb) by (apply Hidx).
+        destruct (Compare_dec.lt_dec (blockindex bentry2) kernelStructureEntriesNb); try(lia).
+        unfold CBlockEntry in Hbentry2. assert(blockindex bentry1 < kernelStructureEntriesNb) by (apply Hidx).
+        destruct (Compare_dec.lt_dec (blockindex bentry1) kernelStructureEntriesNb); try(lia).
+        unfold CBlockEntry in Hbentry1. assert(blockindex bentry0 < kernelStructureEntriesNb) by (apply Hidx).
+        destruct (Compare_dec.lt_dec (blockindex bentry0) kernelStructureEntriesNb); try(lia).
+        unfold CBlockEntry in Hbentry0. assert(blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
+        destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia).
+        rewrite Hbentry6. simpl. rewrite Hbentry5. simpl. rewrite Hbentry4. simpl. rewrite Hbentry3. simpl.
+        rewrite Hbentry2. simpl. rewrite Hbentry1. simpl. rewrite Hbentry0. simpl. unfold CBlock.
+        assert(endAddr (blockrange bentry) <= maxIdx).
+        { rewrite maxIdxEqualMaxAddr. apply Hp. }
+        destruct (Compare_dec.le_dec (endAddr (blockrange bentry) - cutAddr) maxIdx); try(lia). simpl.
+        assert(HendBis: bentryEndAddr blockToShareInCurrPartAddr blockToCutEndAddr sInit) by intuition.
+        unfold bentryEndAddr in *. rewrite HlookupBlockInit in HendBis. rewrite HlookupBlocks0 in HendAddr.
+        rewrite <-HblkrgEq in HendBis. rewrite <-HendAddr in HendBis. subst blockToCutEndAddr.
+        rewrite <-HendAddr.
+        assert(blockEndAddr <= maxIdx).
+        { rewrite maxIdxEqualMaxAddr. apply Hp. }
+        destruct (Compare_dec.le_dec (blockEndAddr - cutAddr) maxIdx); try(lia). simpl.
+        intros addr' Haddr'Mapped. assumption.
+      + assert(HblockMapped: In blockToShareInCurrPartAddr (getMappedBlocks currentPart sInit)) by intuition.
+        rewrite <-HgetMappedBCurrEqs0 in HblockMapped. apply HgetMappedBEquiv. right. assumption.
+      + apply HgetMappedBEquiv. left. reflexivity.
+    }
+    assert(HgetMappedPEquivs': forall addr, In addr (getMappedPaddr currentPart s')
+                                            <-> In addr (getMappedPaddr currentPart s0)).
     {
       intro addr. specialize(HgetMappedPCurrEqs addr).
-      destruct HgetMappedPCurrEqs as (HgetMappedPCurrEqsLeft & HgetMappedPCurrEqsRight). split.
-      - intro HaddrMapped. apply HgetMappedPCurrEqsLeft.
-        assert(HaddrMappedEquiv: In addr (getMappedPaddr currentPart s')
-                                  <-> In addr (getMappedPaddr currentPart s)).
-        {
-          assert(blockindex bentryShare < kernelStructureEntriesNb) by (apply Hidx).
-          apply getMappedPaddrEqBEEndLower with (firstfreeslot pdentry) predCutAddr bentryShare bentry6;
-              try(assumption);
-              try(unfold CBlockEntry;
-                  destruct (Compare_dec.lt_dec (blockindex bentryShare) kernelStructureEntriesNb); try(lia);
-                  simpl; try(reflexivity); unfold CBlock).
-          + assert(Hstart: bentryStartAddr blockToShareInCurrPartAddr blockStart sInit) by intuition.
-            assert(HstartBis: bentryStartAddr blockToShareInCurrPartAddr blockToCutStartAddr sInit) by intuition.
-            unfold bentryStartAddr in *. rewrite HlookupBlockInit in *. rewrite <-Hstart in HstartBis.
-            rewrite <-HstartBis in *. rewrite <-HblkrgEq in Hstart. rewrite <-Hstart.
-            assert(Hle: false = StateLib.Paddr.leb cutAddr blockToCutStartAddr) by intuition.
-            unfold StateLib.Paddr.pred in HpredCutAddr.
-            destruct (Compare_dec.gt_dec cutAddr 0); try(exfalso; congruence). injection HpredCutAddr as Hpred.
-            subst predCutAddr. simpl. unfold StateLib.Paddr.leb in Hle. apply eq_sym in Hle.
-            apply PeanoNat.Nat.leb_gt in Hle.
-            assert(cutAddr <= maxIdx) by (rewrite maxIdxEqualMaxAddr; apply Hp).
-            destruct (Compare_dec.le_dec (cutAddr - 1 - blockToCutStartAddr) maxIdx); try(lia). simpl.
-            reflexivity.
-          + 
-          + 
-          + 
-          + 
-          + 
-          + 
-        }
-      - 
+      destruct HgetMappedPCurrEqs as (HgetMappedPCurrEqsLeft & HgetMappedPCurrEqsRight).
+      split.
+      - intro HaddrMapped. apply HgetMappedPCurrEqsLeft. apply HaddrMappedEquiv. assumption.
+      - intro HaddrMapped. apply HgetMappedPCurrEqsRight in HaddrMapped. apply HaddrMappedEquiv. assumption.
+    }
+    split. assumption. split.
+    {
+      assert(HgetAccMappedBEqs': getAccessibleMappedBlocks currentPart s'
+                                              = getAccessibleMappedBlocks currentPart s).
+      {
+        apply getAccessibleMappedBlocksEqBEAccessiblePresentNoChange with bentryShare; try(assumption);
+            unfold CBlockEntry; destruct (Compare_dec.lt_dec (blockindex bentryShare) kernelStructureEntriesNb);
+            try(lia); simpl; reflexivity.
+      }
+      rewrite HgetAccMappedBEqs'. assumption.
     }
     split.
-    {
-      
-    }
-    split.
-    {
+    { (*TODO HERE prove getAccessibleMappedPaddrEqBEEndLower in InternalLemmas*)
+      assert(HaddrAccMappedEquiv: forall addr, In addr (getAccessibleMappedPaddr currentPart s')
+                                            <-> In addr (getAccessibleMappedPaddr currentPart s)).
+      {
+        intro addr. assert(blockindex bentryShare < kernelStructureEntriesNb) by (apply Hidx).
+        apply getMappedPaddrEqBEEndLower with (firstfreeslot pdentry) cutAddr bentryShare bentry6;
+            try(assumption);
+            try(unfold CBlockEntry;
+                destruct (Compare_dec.lt_dec (blockindex bentryShare) kernelStructureEntriesNb); try(lia);
+                simpl; try(reflexivity); unfold CBlock).
+        + assert(Hstart: bentryStartAddr blockToShareInCurrPartAddr blockStart sInit) by intuition.
+          assert(HstartBis: bentryStartAddr blockToShareInCurrPartAddr blockToCutStartAddr sInit) by intuition.
+          unfold bentryStartAddr in *. rewrite HlookupBlockInit in *. rewrite <-Hstart in HstartBis.
+          rewrite <-HstartBis in *. rewrite <-HblkrgEq in Hstart. rewrite <-Hstart.
+          assert(Hle: false = StateLib.Paddr.leb cutAddr blockToCutStartAddr) by intuition.
+          unfold StateLib.Paddr.leb in Hle. apply eq_sym in Hle. apply PeanoNat.Nat.leb_gt in Hle.
+          assert(cutAddr <= maxIdx) by (rewrite maxIdxEqualMaxAddr; apply Hp).
+          destruct (Compare_dec.le_dec (cutAddr - blockToCutStartAddr) maxIdx); try(lia). simpl.
+          reflexivity.
+        + assert(cutAddr <= maxIdx) by (rewrite maxIdxEqualMaxAddr; apply Hp).
+          destruct (Compare_dec.le_dec (cutAddr - startAddr (blockrange bentryShare)) maxIdx); try(lia).
+          simpl. reflexivity.
+        + assert(HendBis: bentryEndAddr blockToShareInCurrPartAddr blockToCutEndAddr sInit) by intuition.
+          unfold bentryEndAddr in *. rewrite HlookupBlockInit in HendBis. rewrite HlookupBlocks0 in HendAddr.
+          rewrite <-HblkrgEq in HendBis. rewrite <-HendAddr in HendBis. subst blockToCutEndAddr.
+          rewrite <-HendAddr. assert(Hle: false = StateLib.Paddr.leb blockEndAddr cutAddr) by intuition.
+          unfold StateLib.Paddr.leb in Hle. apply eq_sym in Hle. apply PeanoNat.Nat.leb_gt in Hle. lia.
+        + unfold consistency1 in Hconsist. intuition.
+        + rewrite HlookupNewBlocks. rewrite app_nil_r. unfold CBlockEntry in Hbentry6.
+          assert(blockindex bentry5 < kernelStructureEntriesNb) by (apply Hidx).
+          destruct (Compare_dec.lt_dec (blockindex bentry5) kernelStructureEntriesNb); try(lia).
+          unfold CBlockEntry in Hbentry5. assert(blockindex bentry4 < kernelStructureEntriesNb) by (apply Hidx).
+          destruct (Compare_dec.lt_dec (blockindex bentry4) kernelStructureEntriesNb); try(lia).
+          unfold CBlockEntry in Hbentry4. assert(blockindex bentry3 < kernelStructureEntriesNb) by (apply Hidx).
+          destruct (Compare_dec.lt_dec (blockindex bentry3) kernelStructureEntriesNb); try(lia).
+          unfold CBlockEntry in Hbentry3. assert(blockindex bentry2 < kernelStructureEntriesNb) by (apply Hidx).
+          destruct (Compare_dec.lt_dec (blockindex bentry2) kernelStructureEntriesNb); try(lia).
+          unfold CBlockEntry in Hbentry2. assert(blockindex bentry1 < kernelStructureEntriesNb) by (apply Hidx).
+          destruct (Compare_dec.lt_dec (blockindex bentry1) kernelStructureEntriesNb); try(lia).
+          unfold CBlockEntry in Hbentry1. assert(blockindex bentry0 < kernelStructureEntriesNb) by (apply Hidx).
+          destruct (Compare_dec.lt_dec (blockindex bentry0) kernelStructureEntriesNb); try(lia).
+          unfold CBlockEntry in Hbentry0. assert(blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
+          destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia).
+          rewrite Hbentry6. simpl. rewrite Hbentry5. simpl. rewrite Hbentry4. simpl. rewrite Hbentry3. simpl.
+          rewrite Hbentry2. simpl. rewrite Hbentry1. simpl. rewrite Hbentry0. simpl. unfold CBlock.
+          assert(endAddr (blockrange bentry) <= maxIdx).
+          { rewrite maxIdxEqualMaxAddr. apply Hp. }
+          destruct (Compare_dec.le_dec (endAddr (blockrange bentry) - cutAddr) maxIdx); try(lia). simpl.
+          assert(HendBis: bentryEndAddr blockToShareInCurrPartAddr blockToCutEndAddr sInit) by intuition.
+          unfold bentryEndAddr in *. rewrite HlookupBlockInit in HendBis. rewrite HlookupBlocks0 in HendAddr.
+          rewrite <-HblkrgEq in HendBis. rewrite <-HendAddr in HendBis. subst blockToCutEndAddr.
+          rewrite <-HendAddr.
+          assert(blockEndAddr <= maxIdx).
+          { rewrite maxIdxEqualMaxAddr. apply Hp. }
+          destruct (Compare_dec.le_dec (blockEndAddr - cutAddr) maxIdx); try(lia). simpl.
+          intros addr' Haddr'Mapped. assumption.
+        + assert(HblockMapped: In blockToShareInCurrPartAddr (getMappedBlocks currentPart sInit)) by intuition.
+          rewrite <-HgetMappedBCurrEqs0 in HblockMapped. apply HgetMappedBEquiv. right. assumption.
+        + apply HgetMappedBEquiv. left. reflexivity.
+      }
       
     }
     split.
