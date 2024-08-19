@@ -211,9 +211,8 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) (MPURegionNb : index)
 																						nbFreeSlots
 																						in
 
-		(** Modify initial block: the end address becomes (cutAddress - 1)*)
-		perform predCutAddr := Paddr.pred cutAddr in
-		writeBlockEndFromBlockEntryAddr blockToCutEntryAddr predCutAddr ;;
+		(** Modify initial block: the end address becomes cutAddress*)
+		writeBlockEndFromBlockEntryAddr blockToCutEntryAddr cutAddr ;;
 		(** Reload the MPU region with the update *)
 		perform kernelentriesnb := getKernelStructureEntriesNb in
 		perform defaultidx := Index.succ kernelentriesnb in
@@ -826,11 +825,13 @@ Definition findBlock (idPD: paddr) (addrInBlock : paddr) (blockResult: paddr) : 
 		if addrIsNull then(* no block found, stop *) ret false else
 
 		(* Check that blockResult is present and available in currentPart *)
-		perform blockResultAddr := findBlockInKSWithAddr currentPart blockResult in
+		(*perform blockResultAddr := findBlockInKSWithAddr currentPart blockResult in*)
+    perform blockResultAddr := findBelongingBlock globalIdPD blockResult in
+    perform isBlockResultInKS := findBlockInKSWithAddr currentPart blockResultAddr in
 		perform addrIsNull := compareAddrToNull	blockResultAddr in
 		if addrIsNull then(* no block found, stop *) ret false else
 			(* Check block result is accessible *)
-			perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr blockResultAddr in
+			perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr isBlockResultInKS in
 			if negb addrIsAccessible then (* block is not accessible *) ret false else
 			(* Check block result has RW rights *)
 			perform r := readBlockRFromBlockEntryAddr blockResultAddr in

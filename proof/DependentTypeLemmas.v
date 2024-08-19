@@ -1149,6 +1149,22 @@ induction l.
 	simpl in *. intuition.
 Qed.
 
+Lemma NotAccNotInFilterAccessible a bentry l s:
+lookup a (memory s) beqAddr = Some(BE bentry)
+-> accessible bentry = false
+-> ~In a (filterAccessible l s).
+Proof.
+intros HlookupA Haccess.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) eqn:HlookupA0 ; try(assumption).
+	destruct v ; try(assumption).
+	destruct (accessible b) eqn:Haccess0; try(assumption).
+	simpl in *. apply Classical_Prop.and_not_or. split; try(assumption). intro Hcontra. subst a0.
+  rewrite HlookupA in HlookupA0. injection HlookupA0 as Hbeq. subst b. congruence.
+Qed.
+
 Lemma NotInListNotInFilter a l s:
 ~In a l -> ~In a (filter (childFilter s) l).
 Proof.
@@ -1250,6 +1266,19 @@ induction l.
 	simpl in *. rewrite Hlookupas in *.
 	apply in_app_or in HBlockInList.
 	apply in_app_iff. intuition.
+Qed.
+
+Lemma NoDupFilterAccessible l s :
+NoDup l -> NoDup (filterAccessible l s).
+Proof.
+intro HNoDup.
+induction l.
+- intuition.
+- simpl in *. apply NoDup_cons_iff in HNoDup. destruct HNoDup as (HaNotInL & HNoDupRec).
+	destruct (lookup a (memory s) beqAddr) eqn:Hlookupas ; intuition.
+	destruct v ; intuition.
+	destruct (accessible b) ; intuition. apply NoDup_cons_iff.
+  split; try(apply NotInListNotInFilterAccessible; assumption). assumption.
 Qed.
 
 Lemma NoDupPaddrListNoDupPaddrFilterAccessible l s :
