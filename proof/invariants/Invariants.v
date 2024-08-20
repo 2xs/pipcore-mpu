@@ -1884,3 +1884,21 @@ eapply weaken. eapply WP.copyBlock.
 intros. simpl.
 intuition.
 Qed.
+
+(*Lemma indexOf partition block index searchList comparator default (P: state -> Prop):
+{{ fun s => P s }}
+Model.Lib.indexOf block index searchList comparator default
+{{ fun idx s => P s /\ (idx = default /\ ~In block searchList
+                        \/ nth idx searchList default = block) }}.
+Proof.
+
+Qed.*)
+
+(*Lemma findBlockIdxInPhysicalMPU partition MPUlist block default (P: state -> Prop):
+{{ fun s => P s /\ pdentryMPU partition MPUlist s }}
+MAL.findBlockIdxInPhysicalMPU partition block default
+{{ fun idx s => P s /\ (idx = default /\ ~In block MPUlist
+                        \/ nth idx MPUlist default = block) }}.
+Proof.
+
+Qed.*)
