@@ -77,6 +77,7 @@ Axiom maxIdxEqualMaxAddr: maxIdx = maxAddr.
 
 Axiom MPURegionsNb: nat.
 Axiom MPURegionsNbNotZero: MPURegionsNb > 0.
+Axiom MPURegionsNbBelowMaxIdx: MPURegionsNb <= maxIdx.
 
 Axiom KSEntriesNbNotZero: kernelStructureEntriesNb > 0.
 Axiom KSEntriesNbLessThanMaxIdx: kernelStructureEntriesNb < maxIdx - 1.

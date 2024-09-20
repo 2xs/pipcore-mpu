@@ -637,7 +637,8 @@ Definition writeSCNextFromBlockEntryAddr (paddr : paddr) (newnext : ADT.paddr) :
   |} in
     modify (fun s => {|
       currentPartition := s.(currentPartition);
-      memory := add paddr (SCE newEntry) s.(memory) beqAddr
+      memory := add SCEAddr (SCE newEntry) s.(memory) beqAddr
+      (*memory := add paddr (SCE newEntry) s.(memory) beqAddr*)
   |})
   | Some _ => undefined 12
   | None => undefined 11

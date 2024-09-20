@@ -4122,3 +4122,24 @@ subst.
 f_equal.
 apply proof_irrelevance.
 Qed.
+
+Lemma indexOf block index searchList comparator default idxRes:
+idxRes = indexOf block index searchList comparator default
+-> length searchList + index <= maxIdx
+-> idxRes = default /\ (forall blockBis, In blockBis searchList -> comparator blockBis block = false)
+    \/ idxRes <= maxIdx /\ idxRes >= index /\ comparator (nth (idxRes-index) searchList nullAddr) block = true.
+Proof.
+revert index. induction searchList.
+- intuition.
+- simpl. intros index HisRes Hlen. destruct (comparator a block) eqn:Hcomp.
+  + subst idxRes. right. rewrite Nat.sub_diag. split. lia. split. lia. assumption.
+  + assert(HlenRec: length searchList + S index <= maxIdx) by lia.
+    specialize(IHsearchList (S index) HisRes HlenRec). destruct IHsearchList as [HnotPresent | Hpresent].
+    * left. destruct HnotPresent as (HresIsDef & HnotPresent). split. assumption. intros blockBis HblockBis.
+      destruct HblockBis as [HaIsBlockBis | HblockBisRec]; try(subst a; assumption). apply HnotPresent.
+      assumption.
+    * destruct Hpresent as (Hidxbounded & HgtIdxResIndex & Hpresent).
+      destruct (idxRes - index) eqn:Hindices; try(exfalso; lia). right. split. lia. split. lia.
+      assert(n = idxRes - S index) by lia. subst n. assumption.
+Qed.
+

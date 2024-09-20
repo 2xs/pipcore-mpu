@@ -155,7 +155,7 @@ Fixpoint getAllPaddrBlockAux (pos offset count: nat) : list paddr :=
 
 (** The [getAllPaddrBlock] function returns the list of all addresses within a range *)
 Definition getAllPaddrBlock (startaddr endaddr : paddr) : list paddr :=
-getAllPaddrBlockAux 0 startaddr (endaddr-startaddr).
+getAllPaddrBlockAux 0 startaddr (endaddr-startaddr). (*we do not want to include the end bound because of Coq*)
 
 (** The [getAllPaddrAux] function returns the list of all addresses contained in the listed blocks *)
 Fixpoint getAllPaddrAux (blocklist : list paddr) (s : state) :=

@@ -43,7 +43,6 @@ Require Import Coq.Logic.ProofIrrelevance Lia Setoid Compare_dec EqNat List Bool
 
 Module WP := WeakestPreconditions.
 
-
 (* COPY *)
 Lemma getCurPartition P :
 {{fun s => P s}} MAL.getCurPartition
@@ -1488,12 +1487,11 @@ Lemma readSCOriginFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Pro
 {{fun s  =>  Q s /\ consistency s /\ exists entry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
 MAL.readSCOriginFromBlockEntryAddr blockentryaddr
 {{fun origin s => Q s (*/\ consistency s*) (*/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)*)
-										/\ exists scentry : SCEntry, exists scentryaddr : paddr, lookup scentryaddr s.(memory) beqAddr = Some (SCE scentry)
-										/\ scentryOrigin scentryaddr origin s}}.
+										/\ scentryOrigin (CPaddr (blockentryaddr + scoffset)) origin s}}.
 Proof.
 unfold MAL.readSCOriginFromBlockEntryAddr.
 eapply WP.bindRev.
-+   eapply WP.weaken. apply getSCEntryAddrFromBlockEntryAddr.
++ eapply WP.weaken. apply getSCEntryAddrFromBlockEntryAddr.
 	intros. simpl. unfold consistency in H. split. apply H. split. apply H.
 	split. apply H. split. apply H. split. apply H. intuition.
 +	intro scentryaddr. simpl. eapply bind.
@@ -1501,30 +1499,31 @@ eapply WP.bindRev.
 	eapply weaken. apply getSCRecordField.
 	intros. simpl. destruct H. destruct H0. exists x.
 	split. intuition. split. apply H.
-	exists x. exists scentryaddr. split. apply H0.
-	apply lookupSCEntryOrigin. apply H0.
+	destruct H0. unfold scentryAddr in *. destruct H as (HQ & Hcons & [bentry HBE]). rewrite HBE in *.
+	apply lookupSCEntryOrigin. subst scentryaddr. assumption.
 Qed.
 
 (* DUP with changes in scentryNext + lookupSCEntryNext + changes of function names*)
 Lemma readSCNextFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Prop)  :
-{{fun s  =>  Q s /\ consistency s /\ exists entry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
+{{fun s  =>  Q s /\ consistency1 s
+            /\ exists entry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
 MAL.readSCNextFromBlockEntryAddr blockentryaddr
 {{fun next s => Q s
-										/\ exists scentry : SCEntry, exists scentryaddr : paddr, lookup scentryaddr s.(memory) beqAddr = Some (SCE scentry)
-										/\ scentryNext scentryaddr next s}}.
+					/\ scentryNext (CPaddr (blockentryaddr + scoffset)) next s}}.
 Proof.
 unfold MAL.readSCNextFromBlockEntryAddr.
 eapply WP.bindRev.
-+   eapply WP.weaken. apply getSCEntryAddrFromBlockEntryAddr.
-	intros. simpl. unfold consistency in H. split. apply H. split. apply H.
-	split. apply H. split. apply H. split. apply H. intuition.
++ eapply WP.weaken. apply getSCEntryAddrFromBlockEntryAddr.
+	intros s Hprops. simpl. unfold consistency1 in Hprops. split. apply Hprops. split. apply Hprops.
+	split. apply Hprops. split. apply Hprops. split. apply Hprops. intuition.
 +	intro scentryaddr. simpl. eapply bind.
 	intros. apply ret.
 	eapply weaken. apply getSCRecordField.
-	intros. simpl. destruct H. destruct H0. exists x.
-	split. intuition. split. apply H.
-	exists x. exists scentryaddr. split. apply H0.
-	apply lookupSCEntryNext. apply H0.
+	intros s Hprops. simpl. destruct Hprops as (Hprops & Hsce). destruct Hsce as [scentry (HlookupSce & Hsce)].
+  exists scentry. split. assumption. split. apply Hprops.
+	apply lookupSCEntryNext. unfold scentryAddr in Hsce.
+  destruct (lookup blockentryaddr (memory s) beqAddr); try(exfalso; congruence).
+  destruct v; try(exfalso; congruence). subst scentryaddr. assumption.
 Qed.
 
 Lemma readNextFromKernelStructureStart (structurepaddr : paddr) (P : state -> Prop)  :
@@ -1749,7 +1748,7 @@ Lemma writeSCNextFromBlockEntryAddr  (addr newnext: paddr) (P: unit -> state -> 
             /\
 P tt {|
   currentPartition := currentPartition s;
-  memory := add addr
+  memory := add (CPaddr (addr + scoffset))
               (SCE {| origin := scentry.(origin) ; next := newnext |})
               (memory s) beqAddr |} }}
 MAL.writeSCNextFromBlockEntryAddr addr newnext {{P}}.
@@ -1767,7 +1766,7 @@ eapply bind.
                        /\ lookup SCEAddr (memory s) beqAddr = Some (SCE scentry)
                        /\ P tt {|
                             currentPartition := currentPartition s;
-                            memory := add addr
+                            memory := add (CPaddr (addr + scoffset))
                                         (SCE {| origin := scentry.(origin) ; next := newnext |})
                                         (memory s) beqAddr |}).
       simpl. case_eq v; intros; eapply weaken; try eapply undefined ;simpl;
@@ -1885,20 +1884,62 @@ intros. simpl.
 intuition.
 Qed.
 
-(*Lemma indexOf partition block index searchList comparator default (P: state -> Prop):
-{{ fun s => P s }}
-Model.Lib.indexOf block index searchList comparator default
-{{ fun idx s => P s /\ (idx = default /\ ~In block searchList
-                        \/ nth idx searchList default = block) }}.
-Proof.
-
-Qed.*)
-
-(*Lemma findBlockIdxInPhysicalMPU partition MPUlist block default (P: state -> Prop):
-{{ fun s => P s /\ pdentryMPU partition MPUlist s }}
+Lemma findBlockIdxInPhysicalMPU partition block default (P: state -> Prop):
+{{ fun s => P s /\ MPUsizeIsBelowMax s /\ isPDT partition s }}
 MAL.findBlockIdxInPhysicalMPU partition block default
-{{ fun idx s => P s /\ (idx = default /\ ~In block MPUlist
-                        \/ nth idx MPUlist default = block) }}.
+{{ fun idx s => P s /\ exists MPUlist, pdentryMPU partition MPUlist s
+                                      /\ (idx = CIndex default /\ ~In block MPUlist
+                                          \/ nth idx MPUlist nullAddr = block) }}.
 Proof.
-
-Qed.*)
+unfold findBlockIdxInPhysicalMPU. eapply bindRev.
+{
+  eapply weaken. apply readPDMPU. simpl. instantiate(1:= fun s => P s /\ MPUsizeIsBelowMax s).
+  intuition.
+}
+intro realMPU. eapply bindRev.
+{
+  eapply weaken. apply Index.zero. intros s Hprops. simpl. apply Hprops.
+}
+intro zero. eapply strengthen. eapply weaken. apply ret.
+- intros s Hprops.
+  instantiate(1:= fun idx s =>
+                    P s /\ MPUsizeIsBelowMax s /\ pdentryMPU partition realMPU s /\ zero = CIndex 0
+                    /\ (idx = CIndex default
+                         /\ (forall blockBis, In blockBis realMPU -> beqAddr blockBis block = false)
+                       \/ idx >= zero /\ beqAddr (nth (idx - zero) realMPU nullAddr) block = true)). simpl.
+  destruct Hprops as (((HP & HMPUsize) & HrealMPU) & Hzero). split. assumption. split. assumption. split.
+  assumption. split. assumption.
+  assert(HeqTriv: Lib.indexOf block zero realMPU beqAddr default = Lib.indexOf block zero realMPU beqAddr default)
+      by reflexivity.
+  assert(HlenBounded: length realMPU + zero <= maxIdx).
+  {
+    specialize(HMPUsize partition realMPU  HrealMPU). subst zero. unfold CIndex.
+    destruct (le_dec 0 maxIdx); try(lia). simpl. rewrite PeanoNat.Nat.add_0_r.
+    assert(MPURegionsNb <= maxIdx) by (apply MPURegionsNbBelowMaxIdx). lia.
+  }
+  pose proof (indexOf block zero realMPU beqAddr default
+                (Lib.indexOf block zero realMPU beqAddr default) HeqTriv HlenBounded) as Hres. clear HeqTriv.
+  destruct Hres as [Hleft | Hright].
+  + left. destruct Hleft as (HeqDef & HnotPresent). split; try(assumption). rewrite HeqDef. reflexivity.
+  + right. destruct Hright as (HlenBelowMaxIdx & Hgt & HbeqNthBlock).
+    assert(Hcindex: i (CIndex (Lib.indexOf block zero realMPU beqAddr default))
+                    = Lib.indexOf block zero realMPU beqAddr default).
+    {
+      unfold CIndex. destruct (le_dec (Lib.indexOf block zero realMPU beqAddr default) maxIdx); try(lia).
+      simpl. reflexivity.
+    }
+    rewrite Hcindex. intuition.
+- simpl. intros s idxRes Hprops. destruct Hprops as (HP & _ & HMPU & Hzero & HpropsOr). split. assumption.
+  exists realMPU. split. assumption. destruct HpropsOr as [HnotPresent | Hpresent].
+  + left. destruct HnotPresent as (HidxIsDef & HnotPresent). split. assumption. clear HMPU.
+    induction realMPU.
+    * intuition.
+    * simpl. apply Classical_Prop.and_not_or. split.
+      -- intro Hcontra. subst a. specialize(HnotPresent block). rewrite <-beqAddrFalse in HnotPresent.
+         apply HnotPresent; try(reflexivity). simpl. left. reflexivity.
+      -- apply IHrealMPU. intros blockBis HblockBis.
+         apply HnotPresent. simpl. right. assumption.
+  + right. destruct Hpresent as (HidxRes & HbeqNthBlock). rewrite <-beqAddrTrue in HbeqNthBlock.
+    rewrite Hzero in HbeqNthBlock. unfold CIndex in HbeqNthBlock. destruct (le_dec 0 maxIdx); try(lia).
+    simpl in HbeqNthBlock. rewrite PeanoNat.Nat.sub_0_r in HbeqNthBlock. assumption.
+Qed.

@@ -211,7 +211,7 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) (MPURegionNb : index)
 																						nbFreeSlots
 																						in
 
-		(** Modify initial block: the end address becomes cutAddress*)
+		(** Modify initial block: the end address becomes cutAddress *)
 		writeBlockEndFromBlockEntryAddr blockToCutEntryAddr cutAddr ;;
 		(** Reload the MPU region with the update *)
 		perform kernelentriesnb := getKernelStructureEntriesNb in

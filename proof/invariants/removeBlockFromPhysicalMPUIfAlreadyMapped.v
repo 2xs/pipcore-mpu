@@ -178,6 +178,134 @@ unfold enableBlockInMPU. eapply bindRev.
                  --- rewrite Bool.orb_true_r in Ha.
                      assert(true <> false) by (apply Bool.diff_true_false; trivial). contradiction.
                  --- apply eq_sym. eapply H0.
+              ** unfold CIndex in *. assert(MPURegionsNb <= maxIdx) by (apply MPURegionsNbBelowMaxIdx).
+                 destruct (Compare_dec.le_dec MPURegionsNb maxIdx); try(lia). subst maxMPURegions. simpl.
+                 lia.
+           ++ intro. eapply weaken. eapply WP.ret.
+              intros s Hprops. simpl. destruct Hprops as [s0 Hprops]. exists s0. intuition.
+              destruct H9 as [pdentry1 Hprops]. destruct Hprops as [pdentry2 Hprops]. intuition.
+              destruct H9 as [pdentry1 Hprops]. destruct Hprops as [pdentry2 Hprops]. exists pdentry1. intuition.
+              ** rewrite H9.
+                 apply getKSEntriesEqPDT with pdentry1; unfold consistency in *; unfold consistency1 in *; intuition.
+              ** exists pdentry2. intuition.
+         }
+Qed.
+
+(* Comes from Internal -> TODO put in InternalLemmas? *)
+Lemma enableBlockInMPUconsist1 (globalIdPD blockToEnableAddr: paddr) (MPURegionNb: index) (P: state -> Prop) :
+{{ fun (s : state) =>
+    P s /\ consistency1 s /\ globalIdPD <> nullAddr /\ isPDT globalIdPD s
+   /\ (blockToEnableAddr <> nullAddr
+      -> (In blockToEnableAddr (getAccessibleMappedBlocks globalIdPD s))) }}
+Internal.enableBlockInMPU globalIdPD blockToEnableAddr MPURegionNb 
+{{fun (enabled: bool) (s : state) =>
+   exists s0, P s0 /\ consistency1 s0 /\ isPDT globalIdPD s0
+    /\ consistency1 s
+    /\ globalIdPD <> nullAddr
+    /\ isPDT globalIdPD s0
+    /\ isPDT globalIdPD s
+    /\ exists pdentry : PDTable,
+      (lookup globalIdPD (memory s0) beqAddr = Some (PDT pdentry) 
+       /\ getKSEntries globalIdPD s = getKSEntries globalIdPD s0
+       /\ (	isPDT multiplexer s
+		       /\
+			       (forall partition : paddr,
+					       partition <> globalIdPD ->
+					       isPDT partition s0 ->
+					       getKSEntries partition s = getKSEntries partition s0)
+		       /\ (forall partition : paddr,
+					       partition <> globalIdPD ->
+					       isPDT partition s0 ->
+					        getMappedPaddr partition s = getMappedPaddr partition s0)
+		       /\ (forall partition : paddr,
+					       partition <> globalIdPD ->
+					       isPDT partition s0 ->
+					       getConfigPaddr partition s = getConfigPaddr partition s0)
+		       /\ (forall partition : paddr,
+												       partition <> globalIdPD ->
+												       isPDT partition s0 ->
+												       getPartitions partition s = getPartitions partition s0)
+		       /\ (forall partition : paddr,
+												       partition <> globalIdPD ->
+												       isPDT partition s0 ->
+												       getChildren partition s = getChildren partition s0)
+		       /\ (forall partition : paddr,
+												       partition <> globalIdPD ->
+												       isPDT partition s0 ->
+												       getMappedBlocks partition s = getMappedBlocks partition s0)
+		       /\ (forall partition : paddr,
+												       partition <> globalIdPD ->
+												       isPDT partition s0 ->
+												       getAccessibleMappedBlocks partition s = getAccessibleMappedBlocks partition s0)
+		       /\ (forall partition : paddr,
+					       partition <> globalIdPD ->
+					       isPDT partition s0 ->
+					        getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0)
+
+	       )
+       /\ (forall partition : paddr,
+			       isPDT partition s = isPDT partition s0
+		       )
+       /\ (is_true enabled -> (exists pdentry1: PDTable,
+          s = {|
+          currentPartition := currentPartition s0;
+          memory := add globalIdPD
+	                    (PDT
+		                   {|
+		                   structure := structure pdentry;
+		                   firstfreeslot := firstfreeslot pdentry;
+		                   nbfreeslots := nbfreeslots pdentry;
+		                   nbprepare := nbprepare pdentry;
+		                   parent := parent pdentry;
+		                   MPU := addElementAt MPURegionNb blockToEnableAddr (MPU pdentry) nullAddr;
+							             vidtAddr := vidtAddr pdentry |}) (memory s0) beqAddr |}
+          /\ lookup globalIdPD (memory s) beqAddr = Some (PDT pdentry1) /\
+          pdentry1 = {|     structure := structure pdentry;
+			               firstfreeslot := firstfreeslot pdentry;
+			               nbfreeslots := nbfreeslots pdentry;
+			               nbprepare := nbprepare pdentry;
+			               parent := parent pdentry;
+			               MPU := addElementAt MPURegionNb blockToEnableAddr (MPU pdentry) nullAddr;
+								             vidtAddr := vidtAddr pdentry |}
+          (* propagate new properties *)
+          /\ pdentryNbFreeSlots globalIdPD (nbfreeslots pdentry) s
+       ))
+       /\ (~ is_true enabled -> s = s0)
+    )
+}}.
+Proof.
+unfold Internal.enableBlockInMPU. eapply bindRev.
+- eapply Index.zero.
+- intro zero. eapply bindRev.
+  + eapply weaken. eapply Invariants.Index.ltb.
+    simpl. intros s H. apply H.
+  + intro isBelowZero. eapply bindRev.
+    * eapply getMPURegionsNb.
+    * intro maxMPURegions. eapply bindRev.
+      -- eapply weaken. eapply Invariants.Index.leb.
+         simpl. intros s H. eapply H. (*?*)
+      -- intro isAboveMPURegionsNb. destruct (isBelowZero || isAboveMPURegionsNb)%bool eqn: Ha.
+         { (** case (isBelowZero || isAboveMPURegionsNb) = true **)
+           eapply weaken. eapply WP.ret.
+           intros s HQ. simpl. exists s. intuition.
+           assert(Hlookups: exists entry:PDTable, lookup globalIdPD (memory s) beqAddr = Some (PDT entry))
+                by (apply isPDTLookupEq; assumption).
+           destruct Hlookups as [pdentry Hlookups]. exists pdentry.
+           unfold consistency in *; unfold consistency1 in *; intuition.
+         }
+         { (** case (isBelowZero || isAboveMPURegionsNb) = false **)
+           eapply bindRev.
+           ++ (** MAL.replaceBlockInPhysicalMPU **)
+              eapply weaken.
+              eapply replaceBlockInPhysicalMPUconsist1.
+              intros s Hprops. simpl. split. eapply Hprops. intuition.
+              ** destruct isAboveMPURegionsNb eqn:HisAbove.
+                 --- rewrite Bool.orb_true_r in Ha.
+                     assert(true <> false) by (apply Bool.diff_true_false; trivial). contradiction.
+                 --- apply eq_sym. eapply H0.
+              ** subst maxMPURegions. unfold CIndex.
+                 assert(MPURegionsNb <= maxIdx) by (apply MPURegionsNbBelowMaxIdx).
+                 destruct (Compare_dec.le_dec MPURegionsNb maxIdx); try(lia). simpl. lia.
            ++ intro. eapply weaken. eapply WP.ret.
               intros s Hprops. simpl. destruct Hprops as [s0 Hprops]. exists s0. intuition.
               destruct H9 as [pdentry1 Hprops]. destruct Hprops as [pdentry2 Hprops]. intuition.

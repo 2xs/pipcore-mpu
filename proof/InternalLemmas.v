@@ -39,7 +39,7 @@ Require Import Model.ADT Model.Monad Model.MAL Model.Lib Core.Internal.
 Require Import Proof.Isolation Proof.Consistency Proof.StateLib.
 Require Import DependentTypeLemmas.
 
-Require Import List Coq.Logic.ProofIrrelevance Lia Classical_Prop Compare_dec EqNat Lt Minus.
+Require Import List Coq.Logic.ProofIrrelevance Lia Classical_Prop Compare_dec EqNat Lt Minus Arith.
 Require Import Coq.Program.Equality.
 
 Module DTL := DependentTypeLemmas.
@@ -17631,7 +17631,7 @@ destruct HblockInList as [HaIsBlock | HblockInListRec].
   apply getAllPaddrBlockInclRev in HaddrInBlock. destruct HaddrInBlock as (HaboveStart & HbelowEnd & Hbounds).
   destruct (PeanoNat.Nat.ltb addr (endAddr (blockrange newEntry))) eqn:HltAddrEnd.
   + apply PeanoNat.Nat.ltb_lt in HltAddrEnd. right. apply in_or_app. left. apply getAllPaddrBlockIncl; lia.
-  + apply PeanoNat.Nat.ltb_ge in HltAddrEnd. left. apply HaddrRedund. apply getAllPaddrBlockIncl; lia.
+  + apply PeanoNat.Nat.ltb_ge in HltAddrEnd. left. apply HaddrRedund. apply getAllPaddrBlockIncl; try(lia).
 - assert(HlookupAEq: lookup a (memory s) beqAddr = lookup a (memory s0) beqAddr).
   {
     rewrite Hs. simpl. destruct (beqAddr block a) eqn:HbeqaBlock.
@@ -18130,6 +18130,20 @@ induction MPU.
     simpl in *. destruct HblockInNewMPU as [HaIsBlock | HblockInMPU].
     * left. assumption.
     * right. apply IHMPU. assumption.
+Qed.
+
+Lemma removeBlockFromPhysicalMPUAuxLenEq removedBlock MPU:
+length (MAL.removeBlockFromPhysicalMPUAux removedBlock MPU) <= length MPU.
+Proof.
+induction MPU.
+- (* MPU = [] *)
+  simpl. lia.
+- (* MPU = a::l *)
+  simpl. destruct (beqAddr a removedBlock) eqn:HbeqElRemoved.
+  + (* a = removedBlock *)
+    simpl. lia.
+  + (* a <> removedBlock *)
+    simpl. lia.
 Qed.
 
 Lemma mappedBlocksEqStartEq block1 block2 partition start s:
@@ -19176,6 +19190,134 @@ exfalso. rewrite <-beqAddrFalse in HbeqBlocks. induction l.
     * apply IHl; try(assumption). destruct (lookup a (memory s) beqAddr); try(assumption).
       destruct v; try(assumption). apply Lib.NoDupSplit in HnoDup. destruct HnoDup. assumption.
 Qed.
+
+Lemma getAllPaddrBlockAuxRecInv pos startaddr count H:
+pos + startaddr + count <= maxAddr ->
+getAllPaddrBlockAux pos startaddr count ++ [{| p := pos+startaddr+count; Hp := H |}]
+= getAllPaddrBlockAux pos startaddr (S count).
+Proof.
+revert pos H. induction count.
+- intros. simpl. destruct (le_dec (pos + startaddr) maxAddr); try lia. f_equal.
+  assert(HaddNull: pos + startaddr + 0 = pos + startaddr).
+  { apply eq_sym. apply plus_n_O. }
+  rewrite HaddNull in *. apply paddrEqNatEqEquiv. simpl. lia.
+- intros pos H HlebEndMax. set(succ := S count). cbn -[succ].
+  destruct (le_dec (pos + startaddr) maxAddr) eqn:HposStart; try(lia). subst succ.
+  assert(HendRec: S pos + startaddr + count <= maxAddr) by lia.
+  specialize(IHcount (S pos) HendRec HendRec). rewrite <-IHcount. simpl. rewrite HposStart.
+  rewrite <-app_comm_cons. f_equal. f_equal. f_equal. apply paddrEqNatEqEquiv. simpl. lia.
+Qed.
+
+Lemma getAllPaddrBlockAuxCut pos startaddr cutAddr endaddr:
+startaddr <= cutAddr ->
+cutAddr <= endaddr ->
+pos + endaddr <= maxAddr ->
+getAllPaddrBlockAux pos startaddr (cutAddr - startaddr) ++ getAllPaddrBlockAux pos cutAddr (endaddr - cutAddr)
+= getAllPaddrBlockAux pos startaddr (endaddr - startaddr).
+Proof.
+intros HlebStartCut HltCutEnd HlebFinalPosMax. (*assert(endaddr - cutAddr >= 0) by lia.*)
+assert(Hend: endaddr = cutAddr + (endaddr - cutAddr)) by lia. rewrite Hend. rewrite Hend in HlebFinalPosMax.
+clear Hend. revert pos HlebFinalPosMax. induction (endaddr - cutAddr).
+- simpl. intros. rewrite <-plus_n_O. rewrite Nat.sub_diag. simpl. rewrite app_nil_r. reflexivity.
+- intros. simpl. assert(pos + cutAddr <= maxAddr) by lia.
+  replace (cutAddr + S n - cutAddr) with (S n); try(lia).
+  replace (cutAddr + S n - startaddr) with (S (cutAddr + n - startaddr)); try(lia). simpl.
+  destruct (le_dec (pos + cutAddr) maxAddr); try(exfalso; lia).
+  destruct (le_dec (pos + startaddr) maxAddr) eqn:HlebPosStartMax; try(lia).
+  assert(HlebFinalPosMaxBis: S pos + (cutAddr + n) <= maxAddr) by lia.
+  specialize(IHn (S pos) HlebFinalPosMaxBis). rewrite <-IHn.
+  replace (cutAddr + n - cutAddr) with n; try(lia).
+  assert(Hleft: getAllPaddrBlockAux pos startaddr (cutAddr - startaddr)
+                  ++ {| p := pos + cutAddr; Hp := l |} :: getAllPaddrBlockAux (S pos) cutAddr n
+                = (getAllPaddrBlockAux pos startaddr (cutAddr - startaddr) ++
+                      [{| p := pos + cutAddr; Hp := l |}])
+                  ++ getAllPaddrBlockAux (S pos) cutAddr n).
+  { rewrite app_assoc_reverse. f_equal. }
+  rewrite Hleft. clear Hleft.
+  assert(Hright: {| p := pos + startaddr; Hp := l0 |}
+                    :: getAllPaddrBlockAux (S pos) startaddr (cutAddr - startaddr)
+                    ++ getAllPaddrBlockAux (S pos) cutAddr n
+                  = ({| p := pos + startaddr; Hp := l0 |}
+                      :: getAllPaddrBlockAux (S pos) startaddr (cutAddr - startaddr))
+                    ++ getAllPaddrBlockAux (S pos) cutAddr n).
+  { rewrite <-app_comm_cons. reflexivity. }
+  rewrite Hright. clear Hright. f_equal.
+  assert(HlebPosCutMax: pos + startaddr + (cutAddr - startaddr) <= maxAddr) by lia.
+  pose proof (getAllPaddrBlockAuxRecInv pos startaddr (cutAddr - startaddr) HlebPosCutMax HlebPosCutMax)
+      as Hres.
+  assert(Hsubst: getAllPaddrBlockAux pos startaddr (cutAddr - startaddr)
+                    ++ [{| p := pos + startaddr + (cutAddr - startaddr); Hp := HlebPosCutMax |}]
+                  = getAllPaddrBlockAux pos startaddr (cutAddr - startaddr)
+                    ++ [{| p := pos + cutAddr; Hp := l |}]).
+  { f_equal. f_equal. apply paddrEqNatEqEquiv. simpl. lia. }
+  rewrite Hsubst in Hres. clear Hsubst. rewrite Hres. simpl. rewrite HlebPosStartMax. reflexivity.
+Qed.
+
+
+Lemma getMappedPaddrEqBEEndLowerChangeLengthEquality partition block newEntry newEnd bentry0 s0:
+isPDT partition s0 ->
+lookup block (memory s0) beqAddr = Some (BE bentry0) ->
+present newEntry = present bentry0 ->
+(*present newEntry = true ->*)
+startAddr (blockrange newEntry) = startAddr (blockrange bentry0) ->
+endAddr (blockrange newEntry) = newEnd ->
+newEnd <= endAddr (blockrange bentry0) ->
+startAddr (blockrange bentry0) <= endAddr (blockrange newEntry) ->
+noDupMappedBlocksList s0 ->
+In block (getMappedBlocks partition s0) ->
+length (getMappedPaddr partition {|
+						currentPartition := currentPartition s0;
+						memory := add block (BE newEntry)
+            (memory s0) beqAddr |}
+        ++ getAllPaddrBlock newEnd (endAddr (blockrange bentry0))) =
+length (getMappedPaddr partition s0).
+Proof.
+set (s' :=   {|
+currentPartition := currentPartition s0;
+memory := _ |}).
+intros HPDTs0 Hlookupaddrs0 HpresentEq (*Hpresenttrue*) HstartEq HnewEnd HlebNewEndEnd.
+intros HlebStartNewEnd HnoDup HaddrMappeds0.
+
+
+assert(HBEs0 : isBE block s0) by (unfold isBE ; rewrite Hlookupaddrs0 ; trivial).
+unfold getMappedPaddr.
+specialize(HnoDup partition HPDTs0).
+assert(HEq :  getMappedBlocks partition s' = getMappedBlocks partition s0).
+{ apply getMappedBlocksEqBENoChange with bentry0; assumption.
+}
+rewrite HEq in *. apply in_split in HaddrMappeds0. destruct HaddrMappeds0 as [mappedLeft [mappedRight Hmapped]].
+assert(HmappedBis: getMappedBlocks partition s0 = mappedLeft ++ [block] ++ mappedRight).
+{ simpl. assumption. }
+rewrite HmappedBis in *. rewrite getAllPaddrAuxSplit. rewrite getAllPaddrAuxSplit. rewrite getAllPaddrAuxSplit.
+rewrite getAllPaddrAuxSplit. apply Lib.NoDupSplitInclIff in HnoDup.
+destruct HnoDup as ((_ & HnoDupRest) & HdisjointLeftRest). apply Lib.NoDupSplitInclIff in HnoDupRest.
+destruct HnoDupRest as (_ & HdisjointBlockRight).
+assert(HblockInBlock: In block [block]) by (simpl; left; reflexivity).
+specialize(HdisjointBlockRight block HblockInBlock).
+assert(HblockNotInLeft: ~In block mappedLeft).
+{
+  intro Hcontra. specialize(HdisjointLeftRest block Hcontra). contradict HdisjointLeftRest. simpl.
+  left. reflexivity.
+}
+assert(HmappedLeftEq: getAllPaddrAux mappedLeft s' = getAllPaddrAux mappedLeft s0).
+{ apply getAllPaddrAuxEqBENoInList; assumption. }
+assert(HmappedRightEq: getAllPaddrAux mappedRight s' = getAllPaddrAux mappedRight s0).
+{ apply getAllPaddrAuxEqBENoInList; assumption. }
+rewrite HmappedLeftEq. rewrite HmappedRightEq. rewrite app_length. rewrite app_length. rewrite app_length.
+rewrite app_length. rewrite app_length.
+replace (length (getAllPaddrAux mappedLeft s0)
+        + (length (getAllPaddrAux [block] s') + length (getAllPaddrAux mappedRight s0))
+        + length (getAllPaddrBlock newEnd (endAddr (blockrange bentry0))))
+  with (length (getAllPaddrAux mappedLeft s0)
+        + ((length (getAllPaddrAux [block] s') + length (getAllPaddrAux mappedRight s0))
+          + length (getAllPaddrBlock newEnd (endAddr (blockrange bentry0))))); try(apply Nat.add_assoc).
+apply <-Nat.add_cancel_l. rewrite Nat.add_shuffle0. apply Nat.add_cancel_r. simpl.
+rewrite InternalLemmas.beqAddrTrue. rewrite Hlookupaddrs0. rewrite app_nil_r. rewrite app_nil_r. subst newEnd.
+rewrite HstartEq. rewrite <-app_length. f_equal. unfold getAllPaddrBlock.
+assert(endAddr (blockrange bentry0) <= maxAddr) by (apply Hp). apply getAllPaddrBlockAuxCut; lia.
+Qed.
+
+
 
 (*Lemma KSEntriesAuxConfigBlocksAuxEqAux :
 n >= maxNbPrepare
