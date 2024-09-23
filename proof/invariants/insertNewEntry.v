@@ -29657,7 +29657,7 @@ assert(nextImpliesBlockWasCut s).
     destruct (beqAddr pdinsertion part) eqn:HbeqPdinsPart.
     - rewrite <-DTL.beqAddrTrue in HbeqPdinsPart. subst part. exists pdentry. split. assumption.
       rewrite Hpdinsertions in HlookupPart. injection HlookupPart as Hpdentries. subst pdentryPart.
-      rewrite H19. simpl. rewrite H21. simpl. reflexivity.
+      rewrite H19. simpl. rewrite H20. simpl. reflexivity.
     - exists pdentryPart. rewrite Hs in HlookupPart. simpl in HlookupPart.
       destruct (beqAddr sceaddr part) eqn:HbeqScePart; try(exfalso; congruence).
       rewrite beqnewBsce in HlookupPart. simpl in HlookupPart.
@@ -29677,7 +29677,7 @@ assert(nextImpliesBlockWasCut s).
       rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption). split. assumption.
       reflexivity.
   }
-  destruct HlookupParts0 as [pdentryPart0 (HlookupParts0 & HparentsEq)]. (*TODO HERE does the rest work ?*)
+  destruct HlookupParts0 as [pdentryPart0 (HlookupParts0 & HparentsEq)].
   destruct H36 as [optionfreeslotslist [s2 [n0 [n1 [n2 [nbleft Hprops]]]]]].
   assert(Hnexts0: scentryNext scentryaddr scnext s0).
   {
@@ -30120,11 +30120,11 @@ intuition.
 		 eexists. eexists. eexists. eexists. eexists. eexists. eexists. eexists.
 		 eexists. eexists.
 		 intuition.
-- destruct H35 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].
+- destruct H36 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].
   assert(Hlist: forall part pdentryPart parentsList, lookup part (memory s0) beqAddr = Some (PDT pdentryPart)
                   -> isParentsList s parentsList part -> isParentsList s0 parentsList part) by intuition.
   apply Hlist with pdentryPart; assumption.
-- destruct H35 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].
+- destruct H36 as [Hoptionfreeslotslists (olds & (n0 & (n1 & (n2 & (nbleft & Hlists)))))].
   assert(Hlist: forall part kernList, isListOfKernels kernList part s -> isListOfKernels kernList part s0)
       by intuition.
   apply Hlist; assumption.
