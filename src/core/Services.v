@@ -827,20 +827,23 @@ Definition findBlock (idPD: paddr) (addrInBlock : paddr) (blockResult: paddr) : 
 		(* Check that blockResult is present and available in currentPart *)
 		(*perform blockResultAddr := findBlockInKSWithAddr currentPart blockResult in*)
     perform blockResultAddr := findBelongingBlock globalIdPD blockResult in
-    perform isBlockResultInKS := findBlockInKSWithAddr currentPart blockResultAddr in
-		perform addrIsNull := compareAddrToNull	blockResultAddr in
-		if addrIsNull then(* no block found, stop *) ret false else
-			(* Check block result is accessible *)
-			perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr isBlockResultInKS in
-			if negb addrIsAccessible then (* block is not accessible *) ret false else
-			(* Check block result has RW rights *)
-			perform r := readBlockRFromBlockEntryAddr blockResultAddr in
-			perform w := readBlockWFromBlockEntryAddr blockResultAddr in
-			if negb r then (* not readable, stop *) ret false else
-			if negb w then (* not writable, stop *) ret false else
-			(* Copy block attributes in block result *)
-            copyBlock blockResultAddr blockAddr ;;
-		ret true.
+    perform resAddrIsNull := compareAddrToNull blockResultAddr in
+    if resAddrIsNull
+    then (* no block found, stop *) ret false else
+      perform isBlockResultInKS := findBlockInKSWithAddr currentPart blockResultAddr in
+		  perform addrIsNull := compareAddrToNull	isBlockResultInKS in
+		  if addrIsNull then(* no block found, stop *) ret false else
+			  (* Check block result is accessible *)
+			  perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr isBlockResultInKS in
+			  if negb addrIsAccessible then (* block is not accessible *) ret false else
+			  (* Check block result has RW rights *)
+			  perform r := readBlockRFromBlockEntryAddr blockResultAddr in
+			  perform w := readBlockWFromBlockEntryAddr blockResultAddr in
+			  if negb r then (* not readable, stop *) ret false else
+			  if negb w then (* not writable, stop *) ret false else
+			  (* Copy block attributes in block result *)
+              copyBlock blockResultAddr blockAddr ;;
+		  ret true.
 
 (**
  * The setVIDT PIP MPU service.

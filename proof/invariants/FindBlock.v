@@ -105,114 +105,125 @@ case_eq addrIsNull.
 		}
 	+ (* case_eq addrIsNull0 = false *)
 		intros.
-		eapply bindRev.
-		{ (** Internal.findBlockInKSWithAddr *)
-			eapply weaken. apply findBlockInKSWithAddr.
-			intros. simpl. split. apply H1. intuition.
-			- 	subst currentPart.
-				unfold consistency in * ; unfold consistency1 in *.
-				eapply currentPartIsPDT ; intuition.
-			- 	subst currentPart.
-				unfold consistency in * ; unfold consistency1 in *.
-				eapply currentPartIsPDT ; intuition.
-		}
-		intro blockToShareInCurrPartAddr.
-		eapply WP.bindRev.
-		{ (** compareAddrToNull **)
-			eapply weaken. apply Invariants.compareAddrToNull.
-			intros. simpl. apply H1.
-		}
-		intro addrIsNull1.
-		case_eq addrIsNull1.
-		-- (* case_eq addrIsNull1 = true *)
-			intros.
-			{ (** ret **)
-				eapply WP.weaken. apply WP.ret.
-				simpl. intros. intuition.
-			}
-		-- (* case_eq addrIsNull1 = false *)
-			intros.
-			eapply bindRev.
-			{ (** readBlockAccessibleFromBlockEntryAddr *)
-				eapply weaken. apply readBlockAccessibleFromBlockEntryAddr.
-				intros. simpl. split. apply H2.
-				repeat rewrite <- beqAddrFalse in *.
-				intuition.
-				subst.
-				destruct H15 as [bentry (HLookupblock & _)]. (* exists entry : BlockEntry,
-																lookup blockToShareInCurrPartAddr 
-																(memory s) beqAddr = Some (BE entry) /\ ... *)
-				unfold isBE ; rewrite HLookupblock ; trivial.
-			}
-			intro addrIsAccessible.
-			case_eq (negb addrIsAccessible).
-			++ (*case_eq negb addrIsAccessible = true *)
-				intros. simpl.
-				{ (** ret **)
-					eapply weaken. apply WP.ret.
-					intros. simpl. intuition.
-				}
-			++ (*case_eq negb addrIsAccessible = false *)
-				intros.
-				eapply bindRev.
-				{ (** MAL.readBlockRFromBlockEntryAddr *)
-					eapply weaken. apply readBlockRFromBlockEntryAddr.
-					intros. simpl. split. apply H3.
-					(* DUP *)
-					repeat rewrite <- beqAddrFalse in *.
-					intuition.
-					subst.
-					destruct H17 as [bentry (HLookupblock & _)]. (* exists entry : BlockEntry,
-																	lookup blockToShareInCurrPartAddr 
-																	(memory s) beqAddr = Some (BE entry) /\ ... *)
-					unfold isBE ; rewrite HLookupblock ; trivial.
-				}
-				intro right_R.
-				eapply bindRev.
-				{ (** MAL.readBlockWFromBlockEntryAddr *)
-					eapply weaken. apply readBlockWFromBlockEntryAddr.
-					intros. simpl. split. apply H3.
-					(* DUP *)
-					repeat rewrite <- beqAddrFalse in *.
-					intuition.
-					subst.
-					destruct H18 as [bentry (HLookupblock & _)]. (* exists entry : BlockEntry,
-																	lookup blockToShareInCurrPartAddr 
-																	(memory s) beqAddr = Some (BE entry) /\ ... *)
-					unfold isBE ; rewrite HLookupblock ; trivial.
-				}
-				intro right_W.
-				case_eq (negb right_R).
-				+++ (*case_eq negb right_R = true *)
-					intros. simpl.
-					{ (** ret **)
-						eapply weaken. apply WP.ret.
-						intros. simpl. intuition.
-					}
-				+++ (*case_eq negb right_R = false *)
-					case_eq (negb right_W).
-					++++ (*case_eq negb right_W = true *)
-						intros. simpl.
-						{ (** ret **)
-							eapply weaken. apply WP.ret.
-							intros. simpl. intuition.
-						}
-					++++ (*case_eq negb right_W = false *)
-						intros.
-						eapply bindRev.
-						{ (** MAL.copyBlock *)
-							eapply weaken. apply copyBlock.
-							intros.
-							pattern s in H5.
-							repeat rewrite <- beqAddrFalse in *.
-							match type of H5 with 
-							| ?HT s => instantiate (1 := fun tt s => HT s )
-							end.
-							simpl in *. intuition.
-						}
-						intros.
-						{ (** ret *)
-							eapply weaken. apply WP.ret.
-							intros. intuition.
-						}
+    eapply bindRev.
+    { (** Internal.findBelongingBlock **)
+      eapply weaken. apply findBelongingBlock.
+      intros s Hprops. simpl. split. apply Hprops. rewrite <-beqAddrFalse in Hprops. intuition.
+    }
+    intro blockResultAddr.
+    eapply bindRev.
+    { (** compareAddrToNull **)
+	    eapply weaken. apply Invariants.compareAddrToNull.
+	    intros. simpl. apply H1.
+    }
+    intro resAddrIsNull.
+    destruct resAddrIsNull.
+    * eapply weaken. apply WP.ret. intros s Hprops. simpl. intuition.
+    * eapply bindRev.
+		  { (** Internal.findBlockInKSWithAddr *)
+			  eapply weaken. apply findBlockInKSWithAddr.
+			  intros. simpl. split. apply H1.
+        assert(Hcurr: currentPart = currentPartition s) by intuition.
+			  subst currentPart. split. intuition. unfold consistency in * ; unfold consistency1 in *.
+			  eapply currentPartIsPDT ; intuition.
+		  }
+		  intro blockToShareInCurrPartAddr.
+		  eapply WP.bindRev.
+		  { (** compareAddrToNull **)
+			  eapply weaken. apply Invariants.compareAddrToNull.
+			  intros. simpl. apply H1.
+		  }
+		  intro addrIsNull1.
+		  case_eq addrIsNull1.
+		  -- (* case_eq addrIsNull1 = true *)
+			  intros.
+			  { (** ret **)
+				  eapply WP.weaken. apply WP.ret.
+				  simpl. intros. intuition.
+			  }
+		  -- (* case_eq addrIsNull1 = false *)
+			  intros.
+			  eapply bindRev.
+			  { (** readBlockAccessibleFromBlockEntryAddr *)
+				  eapply weaken. apply readBlockAccessibleFromBlockEntryAddr.
+				  intros. simpl. split. apply H2.
+				  repeat rewrite <- beqAddrFalse in *.
+				  intuition.
+				  subst.
+				  destruct H18 as [bentry (HLookupblock & _)]. (* exists entry : BlockEntry,
+																  lookup blockToShareInCurrPartAddr 
+																  (memory s) beqAddr = Some (BE entry) /\ ... *)
+				  unfold isBE ; rewrite HLookupblock ; trivial.
+			  }
+			  intro addrIsAccessible.
+			  case_eq (negb addrIsAccessible).
+			  ++ (*case_eq negb addrIsAccessible = true *)
+				  intros. simpl.
+				  { (** ret **)
+					  eapply weaken. apply WP.ret.
+					  intros. simpl. intuition.
+				  }
+			  ++ (*case_eq negb addrIsAccessible = false *)
+				  intros.
+				  eapply bindRev.
+				  { (** MAL.readBlockRFromBlockEntryAddr *)
+					  eapply weaken. apply readBlockRFromBlockEntryAddr.
+					  intros. simpl. split. apply H3.
+					  (* DUP *)
+					  repeat rewrite <- beqAddrFalse in *.
+					  intuition.
+					  subst.
+					  destruct H9 as [bentry (HLookupblock & _)]. (* exists entry : BlockEntry,
+																	  lookup blockToShareInCurrPartAddr 
+																	  (memory s) beqAddr = Some (BE entry) /\ ... *)
+					  unfold isBE ; rewrite HLookupblock ; trivial.
+				  }
+				  intro right_R.
+				  eapply bindRev.
+				  { (** MAL.readBlockWFromBlockEntryAddr *)
+					  eapply weaken. apply readBlockWFromBlockEntryAddr.
+					  intros. simpl. split. apply H3.
+					  (* DUP *)
+					  repeat rewrite <- beqAddrFalse in *.
+					  intuition.
+					  subst.
+					  destruct H10 as [bentry (HLookupblock & _)]. (* exists entry : BlockEntry,
+																	  lookup blockToShareInCurrPartAddr 
+																	  (memory s) beqAddr = Some (BE entry) /\ ... *)
+					  unfold isBE ; rewrite HLookupblock ; trivial.
+				  }
+				  intro right_W.
+				  case_eq (negb right_R).
+				  +++ (*case_eq negb right_R = true *)
+					  intros. simpl.
+					  { (** ret **)
+						  eapply weaken. apply WP.ret.
+						  intros. simpl. intuition.
+					  }
+				  +++ (*case_eq negb right_R = false *)
+					  case_eq (negb right_W).
+					  ++++ (*case_eq negb right_W = true *)
+						  intros. simpl.
+						  { (** ret **)
+							  eapply weaken. apply WP.ret.
+							  intros. simpl. intuition.
+						  }
+					  ++++ (*case_eq negb right_W = false *)
+						  intros.
+						  eapply bindRev.
+						  { (** MAL.copyBlock *)
+							  eapply weaken. apply copyBlock.
+							  intros.
+							  pattern s in H5.
+							  repeat rewrite <- beqAddrFalse in *.
+							  match type of H5 with 
+							  | ?HT s => instantiate (1 := fun tt s => HT s )
+							  end.
+							  simpl in *. intuition.
+						  }
+						  intros.
+						  { (** ret *)
+							  eapply weaken. apply WP.ret.
+							  intros. intuition.
+						  }
 Qed.
