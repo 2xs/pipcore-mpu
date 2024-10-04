@@ -38,7 +38,7 @@ Require Import Core.Services.
 Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPreconditions
 Proof.StateLib Proof.DependentTypeLemmas Proof.InternalLemmas.
 
-Require Import Invariants checkChildOfCurrPart (*insertNewEntry*) AddMemoryBlockSecProps.
+Require Import Invariants checkChildOfCurrPart insertNewEntry AddMemoryBlockSecProps.
 
 Require Import Bool List EqNat Lia Compare_dec Coq.Logic.ProofIrrelevance.
 Import List.ListNotations.
@@ -47,7 +47,7 @@ Require Import Model.Monad.
 
 Module WP := WeakestPreconditions.
 
-Lemma insertNewEntry 	(pdinsertion startaddr endaddr origin: paddr)
+(*Lemma insertNewEntry 	(pdinsertion startaddr endaddr origin: paddr)
 									 (r w e : bool) (currnbfreeslots : index) (P : state -> Prop):
 {{ fun s => consistency s
 (* to retrieve the fields in pdinsertion *)
@@ -406,7 +406,7 @@ memory := add sceaddr
 /\ (forall part kernList, isListOfKernels kernList part s -> isListOfKernels kernList part s0))
 }}.
 Proof.
-Admitted.
+Admitted.*)
 
 (** * Summary
     This file contains the invariant of [addMemoryBlock].
@@ -723,7 +723,7 @@ eapply bindRev.
 		subst. simpl in Hnbfreeslots. intuition.
 	}
   destruct HPDTGlobalIdPDChild as [pdentry HlookupGlobs].
-	split. exists pdentry. split. assumption. intro HglobNotRoot.
+	split. exists pdentry. split. assumption. split; try(lia). intro HglobNotRoot.
   assert(HparentOfPart: parentOfPartitionIsPartition s)
         by (unfold consistency in *; unfold consistency1 in *; intuition).
   specialize(HparentOfPart globalIdPDChild pdentry HlookupGlobs).
