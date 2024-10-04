@@ -41,7 +41,7 @@
 (* NB: entry types are not represented within a superstructure in the model.
 	However, they cannot be mixed, intertwined, or overlap because of the consistency properties. *)
 
-Require Import List Bool Arith Model.UserConstants.
+Require Import List Bool Arith Model.UserConstants Lia.
 Import List.ListNotations.
 
 (*******************************************************************************)
@@ -103,7 +103,7 @@ Record paddr := {
 Program Definition CPaddr (p : nat) : paddr :=
 if (le_dec p maxAddr) then Build_paddr p _ else  Build_paddr 0 _. (*paddr_d*)
 Next Obligation.
-intuition.
+lia.
 Qed.
 
 Axiom RAMStartAddr: paddr.

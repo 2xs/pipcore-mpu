@@ -37,7 +37,7 @@
   write data into physical memory  *)
 Require Export Model.MALInternal Model.ADT.
 Require Import Model.Monad Model.Lib.
-Require Import Arith Bool NPeano List.
+Require Import Arith Bool List.
 
 Open Scope mpu_state_scope.
 

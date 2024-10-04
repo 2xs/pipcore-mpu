@@ -733,8 +733,8 @@ Definition sizeOfBlock (blockentryaddr : paddr) : LLI index :=
 	perform startAddr := readBlockStartFromBlockEntryAddr blockentryaddr in
 	perform endAddr := readBlockEndFromBlockEntryAddr blockentryaddr in
 	perform size := Paddr.subPaddr endAddr startAddr in
-	(* last address must be counted *)
-	Index.succ size.
+	(* last address must be NOT counted *)
+	ret size.
 
 (** The [initBlockEntryRec] function recursively initializes all block entries from
 		<indexCurr> to 0 of kernel structure located at <kernelStructureStartAddr>
