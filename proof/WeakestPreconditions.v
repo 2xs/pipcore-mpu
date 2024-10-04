@@ -200,7 +200,7 @@ trivial.
 Qed.
 
 Lemma subPaddr  (addr1 addr2 : paddr) (P : index -> state -> Prop):
-{{ fun s : state => addr1 >= 0 /\ addr2 >= 0 /\ addr1 - addr2 < maxIdx /\ forall Hi : addr1 - addr2 <= maxIdx,
+{{ fun s : state => addr1 >= 0 /\ addr2 >= 0 /\ addr1 - addr2 <= maxIdx /\ forall Hi : addr1 - addr2 <= maxIdx,
                    P {| i := addr1 - addr2; Hi := Hi |} s }}
 MALInternal.Paddr.subPaddr addr1 addr2
 {{ P }}.
@@ -216,7 +216,7 @@ eapply ret .
 intros. intuition.
 intros. eapply weaken.
 eapply undefined .
-simpl. intros. intuition.
+simpl. intros s Hprops. destruct Hprops as (_ & _ & Hcontra & _). lia.
 Qed.
 
 (* DUP*)

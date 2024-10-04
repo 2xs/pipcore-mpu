@@ -153,8 +153,15 @@ case_eq addrIsNull.
 		{ (** MAL.readBlockAccessibleFromBlockEntryAddr **)
 			eapply weaken. apply readBlockAccessibleFromBlockEntryAddr.
 			intros. simpl. split. apply H2.
-			repeat rewrite <- beqAddrFalse in *. intuition.
-			apply isBELookupEq. destruct H15 as [entry H15]. exists entry. intuition.
+			repeat rewrite <- beqAddrFalse in *.
+      assert(Hres: blockToEnableAddr = nullAddr \/ (exists entry,
+          lookup blockToEnableAddr (memory s) beqAddr = Some (BE entry) /\
+          blockToEnableAddr = idBlockToEnable /\
+          bentryPFlag blockToEnableAddr true s /\ In blockToEnableAddr (getMappedBlocks globalIdPD s)))
+        by intuition.
+      assert(HbeqNullBlock: nullAddr <> blockToEnableAddr) by intuition.
+      destruct Hres as [Hcontra | Hres]; try(exfalso; congruence).
+			apply isBELookupEq. destruct Hres as [entry Hres]. exists entry. intuition.
 		}
 		intro addrIsAccessible.
 		case_eq (negb addrIsAccessible).
@@ -170,8 +177,15 @@ case_eq addrIsNull.
 		{ (** MAL.readBlockPresentFromBlockEntryAddr **)
 			eapply weaken. apply readBlockPresentFromBlockEntryAddr.
 			intros. simpl. split. apply H3.
-			repeat rewrite <- beqAddrFalse in *. intuition.
-			apply isBELookupEq. destruct H17 as [entry H17]. exists entry. intuition.
+			repeat rewrite <- beqAddrFalse in *.
+      assert(Hres: blockToEnableAddr = nullAddr \/ (exists entry,
+          lookup blockToEnableAddr (memory s) beqAddr = Some (BE entry) /\
+          blockToEnableAddr = idBlockToEnable /\
+          bentryPFlag blockToEnableAddr true s /\ In blockToEnableAddr (getMappedBlocks globalIdPD s)))
+        by intuition.
+      assert(HbeqNullBlock: nullAddr <> blockToEnableAddr) by intuition.
+      destruct Hres as [Hcontra | Hres]; try(exfalso; congruence).
+			apply isBELookupEq. destruct Hres as [entry Hres]. exists entry. intuition.
 		}
 		intro addrIsPresent.
 		case_eq (negb addrIsPresent).

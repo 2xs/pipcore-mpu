@@ -238,7 +238,7 @@ assert(HpdChildrenEq : getChildren globalIdPD s = getChildren globalIdPD s0).
       destruct Htrue as [pdentry (Hs & (Hlookups & (Hpdentry & HnbFreeSlots)))].
       rewrite Hs. apply getChildrenEqPDT with entry1; intuition.
     - (* is_mapped = false *)
-      assert(Htrue: ~ is_true false) by intuition.
+      assert(Htrue: ~ is_true false) by (unfold is_true; intro; congruence).
       apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
   }
   rewrite HpdChildrenEq. apply HChildrenEqs1s0.
@@ -260,7 +260,7 @@ assert(HusedPaddrGlobEq: getUsedPaddr globalIdPD s = getUsedPaddr globalIdPD s0)
                     by (rewrite Hs; apply getMappedPaddrEqPDT with entry1; intuition).
       rewrite HconfigEq. rewrite HmappedEq. reflexivity.
     - (* is_mapped = false *)
-      assert(Htrue: ~ is_true false) by intuition.
+      assert(Htrue: ~ is_true false) by (unfold is_true; intro; congruence).
       apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
   }
   rewrite HusedPaddrGlobEq. destruct Hlinks0s1 as [Heqs0s1 | Hlinks0s1]; try(subst; intuition).
@@ -337,7 +337,7 @@ destruct (beqAddr child globalIdPD) eqn:HbeqChildGlob.
           destruct Htrue as [pdentry (Hs & (Hlookups & (Hpdentry & HnbFreeSlots)))].
           rewrite Hs; apply getMappedPaddrEqPDT with entry1; intuition.
         - (* is_mapped = false *)
-          assert(Htrue: ~ is_true false) by intuition.
+          assert(Htrue: ~ is_true false) by (unfold is_true; intro; congruence).
           apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
       }
       rewrite HmappedPaddrGlobEq. destruct Hlinks0s1 as [Heqs0s1 | Hlinks0s1]; try(subst; intuition).
@@ -367,7 +367,7 @@ destruct (beqAddr child globalIdPD) eqn:HbeqChildGlob.
                         by (apply HgetMappedPaddrEq; intuition).
           rewrite HconfigEq. rewrite HmappedEq. reflexivity.
         - (* is_mapped = false *)
-          assert(Htrue: ~ is_true false) by intuition.
+          assert(Htrue: ~ is_true false) by (unfold is_true; intro; congruence).
           apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
       }
       rewrite HusedPaddrChildEq. destruct Hlinks0s1 as [Heqs0s1 | Hlinks0s1]; try(subst; intuition).
@@ -419,7 +419,7 @@ destruct (beqAddr child globalIdPD) eqn:HbeqChildGlob.
                         by (apply HgetMappedPaddrEq; intuition).
           rewrite HconfigEq. rewrite HmappedEq. reflexivity.
         - (* is_mapped = false *)
-          assert(Htrue: ~ is_true false) by intuition.
+          assert(Htrue: ~ is_true false) by (unfold is_true; intro; congruence).
           apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
       }
       rewrite HusedPaddrChildEq. destruct Hlinks0s1 as [Heqs0s1 | Hlinks0s1]; try(subst; intuition).
@@ -507,7 +507,7 @@ assert(HaccessPaddrEq: getAccessibleMappedPaddr globalIdPD s = getAccessibleMapp
                 by (rewrite Hs; apply getAccessibleMappedPaddrEqPDT with entry1; intuition).
       rewrite HconfigEq. reflexivity.
     - (* is_mapped = false *)
-      assert(Htrue: ~ is_true false) by intuition.
+      assert(Htrue: ~ is_true false) by (unfold is_true; intro; congruence).
       apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
   }
   rewrite HaccessPaddrEq. destruct Hlinks0s1 as [Heqs0s1 | Hlinks0s1]; try(subst; intuition).
@@ -527,7 +527,7 @@ assert(HconfigPaddrEq: getConfigPaddr globalIdPD s = getConfigPaddr globalIdPD s
                 by (rewrite Hs; apply getConfigPaddrEqPDT with entry1; intuition).
       rewrite HconfigEq. reflexivity.
     - (* is_mapped = false *)
-      assert(Htrue: ~ is_true false) by intuition.
+      assert(Htrue: ~ is_true false) by (unfold is_true; intro; congruence).
       apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
   }
   rewrite HconfigPaddrEq. destruct Hlinks0s1 as [Heqs0s1 | Hlinks0s1]; try(subst; intuition).
@@ -707,7 +707,7 @@ assert(HpdChildrenEq : getChildren globalIdPD s = getChildren globalIdPD s0).
       destruct Htrue as [pdentry (Hs & (Hlookups & (Hpdentry & HnbFreeSlots)))].
       rewrite Hs. apply getChildrenEqPDT with entry1; intuition.
     - (* is_mapped = false *)
-      assert(Htrue: ~ is_true false) by intuition.
+      assert(Htrue: ~ is_true false) by (unfold is_true; intro; congruence).
       apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
   }
   rewrite HpdChildrenEq. apply HChildrenEqs1s0.
@@ -725,7 +725,7 @@ assert(HconfigPaddrEq: getConfigPaddr globalIdPD s = getConfigPaddr globalIdPD s
                 by (rewrite Hs; apply getConfigPaddrEqPDT with entry1; intuition).
       rewrite HconfigEq. reflexivity.
     - (* is_mapped = false *)
-      assert(Htrue: ~ is_true false) by intuition.
+      assert(Htrue: ~ is_true false) by (unfold is_true; intro; congruence).
       apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
   }
   rewrite HconfigPaddrEq. destruct Hlinks0s1 as [Heqs0s1 | Hlinks0s1]; try(subst; intuition).
@@ -748,7 +748,7 @@ assert(HusedPaddrGlobEq: getUsedPaddr globalIdPD s = getUsedPaddr globalIdPD s0)
                     by (rewrite Hs; apply getMappedPaddrEqPDT with entry1; intuition).
       rewrite HconfigEq. rewrite HmappedEq. reflexivity.
     - (* is_mapped = false *)
-      assert(Htrue: ~ is_true false) by intuition.
+      assert(Htrue: ~ is_true false) by (unfold is_true; intro; congruence).
       apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
   }
   rewrite HusedPaddrGlobEq. destruct Hlinks0s1 as [Heqs0s1 | Hlinks0s1]; try(subst; intuition).
@@ -798,7 +798,7 @@ destruct (beqAddr child1 globalIdPD) eqn:HbeqChild1Glob.
                       by (apply HgetMappedPaddrEq; intuition).
         rewrite HconfigEq. rewrite HmappedEq. reflexivity.
       - (* is_mapped = false *)
-        assert(Htrue: ~ is_true false) by intuition.
+        assert(Htrue: ~ is_true false) by (unfold is_true; intro; congruence).
         apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
     }
     rewrite HusedPaddrChild2Eq. destruct Hlinks0s1 as [Heqs0s1 | Hlinks0s1]; try(subst; intuition).
@@ -850,7 +850,7 @@ destruct (beqAddr child1 globalIdPD) eqn:HbeqChild1Glob.
                         by (apply HgetMappedPaddrEq; intuition).
           rewrite HconfigEq. rewrite HmappedEq. reflexivity.
         - (* is_mapped = false *)
-          assert(Htrue: ~ is_true false) by intuition.
+          assert(Htrue: ~ is_true false) by (unfold is_true; intro; congruence).
           apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
       }
       rewrite HusedPaddrChild1Eq. destruct Hlinks0s1 as [Heqs0s1 | Hlinks0s1]; try(subst; intuition).
@@ -906,7 +906,7 @@ destruct (beqAddr child1 globalIdPD) eqn:HbeqChild1Glob.
                           by (apply HgetMappedPaddrEq; intuition).
             rewrite HconfigEq. rewrite HmappedEq. reflexivity.
           - (* is_mapped = false *)
-            assert(Htrue: ~ is_true false) by intuition.
+            assert(Htrue: ~ is_true false) by (unfold is_true; intro; congruence).
             apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
         }
         rewrite HusedPaddrChild1Eq. destruct Hlinks0s1 as [Heqs0s1 | Hlinks0s1]; try(subst; intuition).
@@ -933,7 +933,7 @@ destruct (beqAddr child1 globalIdPD) eqn:HbeqChild1Glob.
                           by (apply HgetMappedPaddrEq; intuition).
             rewrite HconfigEq. rewrite HmappedEq. reflexivity.
           - (* is_mapped = false *)
-            assert(Htrue: ~ is_true false) by intuition.
+            assert(Htrue: ~ is_true false) by (unfold is_true; intro; congruence).
             apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
         }
         rewrite HusedPaddrChild2Eq. destruct Hlinks0s1 as [Heqs0s1 | Hlinks0s1]; try(subst; intuition).
@@ -988,7 +988,7 @@ destruct (beqAddr child1 globalIdPD) eqn:HbeqChild1Glob.
                           by (apply HgetMappedPaddrEq; intuition).
             rewrite HconfigEq. rewrite HmappedEq. reflexivity.
           - (* is_mapped = false *)
-            assert(Htrue: ~ is_true false) by intuition.
+            assert(Htrue: ~ is_true false) by (unfold is_true; intro; congruence).
             apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
         }
         rewrite HusedPaddrChild1Eq. destruct Hlinks0s1 as [Heqs0s1 | Hlinks0s1]; try(subst; intuition).
@@ -1015,7 +1015,7 @@ destruct (beqAddr child1 globalIdPD) eqn:HbeqChild1Glob.
                           by (apply HgetMappedPaddrEq; intuition).
             rewrite HconfigEq. rewrite HmappedEq. reflexivity.
           - (* is_mapped = false *)
-            assert(Htrue: ~ is_true false) by intuition.
+            assert(Htrue: ~ is_true false) by (unfold is_true; intro; congruence).
             apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
         }
         rewrite HusedPaddrChild2Eq. destruct Hlinks0s1 as [Heqs0s1 | Hlinks0s1]; try(subst; intuition).

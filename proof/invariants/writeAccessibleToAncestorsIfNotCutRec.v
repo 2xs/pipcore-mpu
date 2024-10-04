@@ -1672,13 +1672,12 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                 subst s'. apply <-getAccessibleMappedPaddrEqBEPresentTrueNoChangeAccessibleTrueChangeEquivalence;
                           try(subst newBentry; unfold CBlockEntry;
                             destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia);
-                            simpl);
-                        try(unfold consistency1 in *; intuition; congruence).
-                {
-                  unfold getMappedBlocks in HblockIsMappedParent.
+                            simpl); try(reflexivity); try(assumption).
+                * apply in_or_app. right. assumption.
+                * unfold getMappedBlocks in HblockIsMappedParent.
                   apply DTL.InFilterPresentInList in HblockIsMappedParent. assumption.
-                }
-                { unfold bentryPFlag in HPFlag. rewrite HlookupBlock in HPFlag. intuition. }
+                * unfold consistency1 in *; intuition; congruence.
+                * unfold bentryPFlag in HPFlag. rewrite HlookupBlock in HPFlag. intuition.
               + (* flag = false *)
                 assert(HaddrAccMappedOrInBlock:
                         In addr (getAccessibleMappedPaddr pdparent s')
@@ -2035,7 +2034,8 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                try(exfalso; congruence).
          destruct v; try(exfalso; congruence).
          unfold bentryPFlag in HPFlag. rewrite HlookupBlocks1 in HPFlag.
-         rewrite HnewBentry in HPFlag. simpl in HPFlag. rewrite <-HPFlag. intuition.
+         rewrite HnewBentry in HPFlag. simpl in HPFlag. rewrite <-HPFlag. intro Hcontra.
+         destruct Hcontra as (_ & _ & _ & _ & Hcontra & _). congruence.
        }
        assert(HgetFreeSlotsListEq: forall pd, isPDT pd s0
                                              -> lookup pd (memory s1) beqAddr = lookup pd (memory s0) beqAddr
@@ -3795,7 +3795,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                      try(exfalso; congruence).
                destruct v; try(exfalso; congruence).
                unfold bentryPFlag in HPFlag. rewrite HlookupBlocks1 in HPFlag.
-               rewrite <-HPFlag. intuition.
+               rewrite <-HPFlag. intro Hcontra. destruct Hcontra as (_ & _ & _ & _ & hcontra & _). congruence.
              }
              assert(HgetFreeSlotsListEqs: forall pd, isPDT pd s1
                                                 -> lookup pd (memory s) beqAddr = lookup pd (memory s1) beqAddr

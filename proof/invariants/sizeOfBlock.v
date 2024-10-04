@@ -40,7 +40,7 @@ Require Import Core.Internal.
 Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
                Proof.Isolation Proof.StateLib Proof.WeakestPreconditions
 							 Proof.invariants.Invariants.
-Require Import Compare_dec Bool.
+Require Import Compare_dec Bool Lia.
 Require Import Model.ADT.
 
 Lemma sizeOfBlock (blockentryaddr : paddr) (P :  state -> Prop) :
@@ -64,32 +64,8 @@ intro endAddr.
 eapply bindRev.
 { (** MALInternal.Paddr.subPaddr *)
 	eapply weaken. apply Paddr.subPaddr.
-	intros. simpl. split. apply H. intuition.
-	(* exploit the fact that it is a blockentry and this is the property Hsize *)
-	unfold isBE in *.
-	destruct (lookup blockentryaddr (memory s) beqAddr) eqn:Hlookup; try (exfalso ; congruence).
-	destruct v eqn:Hv ; try (exfalso ; congruence).
-	unfold bentryStartAddr in *.
-	unfold bentryEndAddr in *.
-	rewrite Hlookup in *. subst.
-	destruct b. destruct blockrange. simpl. intuition.
+	intros. simpl. split. apply H. split; try(split); try(lia).
+  assert(endAddr <= maxIdx) by (rewrite maxIdxEqualMaxAddr; apply Hp). lia.
 }
-intro size.
-{ (** MALInternal.Index.succ *)
-	eapply weaken. apply Proof.WeakestPreconditions.Index.succ. intuition.
-	rewrite PeanoNat.Nat.add_1_r. apply Lt.lt_le_S.
-	(* we know endAddr - startAddr < maxIdx because it comes from a BlockEntry (same as previous instruction) *)
-	unfold bentryStartAddr in *.
-	unfold bentryEndAddr in *.
-	unfold isBE in *.
-	destruct (lookup blockentryaddr (memory s) beqAddr) eqn:Hlookup; try (exfalso ; congruence).
-	destruct v eqn:Hv ; try (exfalso ; congruence).
-	destruct blockrange. subst. simpl in *.
-	(* extract that size = endAddr - startAddr *)
-	unfold StateLib.Paddr.subPaddr in *.
-	destruct (le_dec (endAddr0 - startAddr0) maxIdx); try (exfalso ; congruence).
-	destruct size. simpl.
-	inversion H1.
-	assumption.
-}
+intro size. eapply weaken. apply ret. intros s Hprops. simpl. intuition.
 Qed.

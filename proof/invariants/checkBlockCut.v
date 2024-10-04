@@ -73,7 +73,7 @@ eapply WP.bindRev.
 	eapply WP.bindRev.
 { (** readSCNextFromBlockEntryAddr *)
 	eapply weaken. apply readSCNextFromBlockEntryAddr.
-	intros. simpl. split. apply H. intuition. apply isBELookupEq. intuition.
+	intros. simpl. split. apply H. intuition. unfold consistency in *. intuition. apply isBELookupEq. intuition.
 
 }
 	intro blockNext. simpl.

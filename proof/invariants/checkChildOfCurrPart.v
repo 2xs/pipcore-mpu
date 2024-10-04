@@ -75,7 +75,7 @@ case_eq addrIsNull0.
 - (* case_eq addrIsNull0 = true*)
 	{ (** ret *)
 		intros. eapply WP.weaken. apply WP.ret.
-		intros. simpl. intuition.
+		intros. simpl. split. intuition. intro Hcontra. exfalso. congruence.
 	}
 - (* case_eq addrIsNull0 = false *)
 	intros.
@@ -123,8 +123,7 @@ case_eq addrIsNull0.
 			simpl. intros.
 			{ (** ret *)
 				eapply weaken. apply WP.ret.
-				intros. simpl. split. apply H1.
-				intuition.
+				intros. simpl. split. apply H1. intro Hcontra. exfalso. congruence.
 			}
 Qed.
 

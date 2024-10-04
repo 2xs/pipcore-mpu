@@ -44,7 +44,8 @@ Require Import Lia Classical List.
 
 Module WP := WeakestPreconditions.
 
-Lemma findBlockIdxInPhysicalMPU (defaultidx: index) (globalIdPD blockToEnableAddr currentPart: paddr) (P: state -> Prop):
+Lemma findBlockIdxInPhysicalMPU (defaultidx: index) (globalIdPD blockToEnableAddr currentPart: paddr)
+  (P: state -> Prop):
 {{ fun s : state =>
    P s /\ consistency s /\
    currentPart = currentPartition s /\ globalIdPD <> nullAddr /\
@@ -166,7 +167,10 @@ unfold enableBlockInMPU. eapply bindRev.
            assert(Hlookups: exists entry:PDTable, lookup globalIdPD (memory s) beqAddr = Some (PDT entry))
                 by (apply isPDTLookupEq; assumption).
            destruct Hlookups as [pdentry Hlookups]. exists pdentry.
+           split. assumption. split. reflexivity. split. intuition.
            unfold consistency in *; unfold consistency1 in *; intuition.
+           split. intro. reflexivity. split. unfold is_true. intro. exfalso; congruence.
+           intro. reflexivity.
          }
          { (** case (isBelowZero || isAboveMPURegionsNb) = false **)
            eapply bindRev.
@@ -184,10 +188,16 @@ unfold enableBlockInMPU. eapply bindRev.
            ++ intro. eapply weaken. eapply WP.ret.
               intros s Hprops. simpl. destruct Hprops as [s0 Hprops]. exists s0. intuition.
               destruct H9 as [pdentry1 Hprops]. destruct Hprops as [pdentry2 Hprops]. intuition.
-              destruct H9 as [pdentry1 Hprops]. destruct Hprops as [pdentry2 Hprops]. exists pdentry1. intuition.
-              ** rewrite H9.
-                 apply getKSEntriesEqPDT with pdentry1; unfold consistency in *; unfold consistency1 in *; intuition.
-              ** exists pdentry2. intuition.
+              destruct H9 as [pdentry1 Hprops]. destruct Hprops as [pdentry2 Hprops]. exists pdentry1.
+              destruct Hprops as (Hs & HlookupGlobs0 & HlookupGlobs & Hprops).
+              split. assumption. split.
+              {
+                rewrite Hs.
+                apply getKSEntriesEqPDT with pdentry1; unfold consistency in *; unfold consistency1 in *;
+                  intuition.
+              }
+              split. intuition. split. intuition. split. intro. exists pdentry2. intuition.
+              unfold is_true. intro. exfalso; congruence.
          }
 Qed.
 
@@ -291,7 +301,9 @@ unfold Internal.enableBlockInMPU. eapply bindRev.
            assert(Hlookups: exists entry:PDTable, lookup globalIdPD (memory s) beqAddr = Some (PDT entry))
                 by (apply isPDTLookupEq; assumption).
            destruct Hlookups as [pdentry Hlookups]. exists pdentry.
-           unfold consistency in *; unfold consistency1 in *; intuition.
+           split. assumption. split. reflexivity. split. intuition. unfold consistency1 in *; intuition.
+           split. intro. reflexivity. split. unfold is_true. intro. exfalso; congruence.
+           intro. reflexivity.
          }
          { (** case (isBelowZero || isAboveMPURegionsNb) = false **)
            eapply bindRev.
@@ -309,10 +321,16 @@ unfold Internal.enableBlockInMPU. eapply bindRev.
            ++ intro. eapply weaken. eapply WP.ret.
               intros s Hprops. simpl. destruct Hprops as [s0 Hprops]. exists s0. intuition.
               destruct H9 as [pdentry1 Hprops]. destruct Hprops as [pdentry2 Hprops]. intuition.
-              destruct H9 as [pdentry1 Hprops]. destruct Hprops as [pdentry2 Hprops]. exists pdentry1. intuition.
-              ** rewrite H9.
-                 apply getKSEntriesEqPDT with pdentry1; unfold consistency in *; unfold consistency1 in *; intuition.
-              ** exists pdentry2. intuition.
+              destruct H9 as [pdentry1 Hprops]. destruct Hprops as [pdentry2 Hprops]. exists pdentry1.
+              destruct Hprops as (Hs & HlookupGlobs0 & Hprops).
+              split. assumption. split.
+              {
+                rewrite Hs.
+                apply getKSEntriesEqPDT with pdentry1; unfold consistency in *; unfold consistency1 in *;
+                    intuition.
+              }
+              split. intuition. split. intuition. split. intuition. exists pdentry2. intuition. unfold is_true. intro.
+              exfalso; congruence.
          }
 Qed.
 
@@ -364,7 +382,7 @@ eapply bindRev.
          assert(kernelStructureEntriesNb < maxIdx-1) by apply KSEntriesNbLessThanMaxIdx.
          destruct (Compare_dec.le_dec kernelStructureEntriesNb maxIdx) ; simpl in * ; try lia.
          assert (HBigEnough: maxIdx > kernelStructureEntriesNb) by apply maxIdxBiggerThanNbOfKernels.
-         apply Gt.gt_le_S. apply HBigEnough.
+         unfold kernelStructureEntriesNb in *. simpl in *. lia.
   + intro defaultidx. eapply bindRev.
     { (** MAL.findBlockIdxInPhysicalMPU **)
       eapply weaken. apply findBlockIdxInPhysicalMPU. intros s Hprops. simpl.
@@ -386,15 +404,18 @@ eapply bindRev.
              -> P s /\ consistency s /\ globalIdPD <> nullAddr /\ isPDT globalIdPD s
                 /\ (block <> nullAddr -> (In block (getAccessibleMappedBlocks globalIdPD s)))).
            { intros s Hprops. intuition. }
-           apply weaken with (Q:= fun s:state => P s /\ consistency s /\ globalIdPD <> nullAddr /\ isPDT globalIdPD s
+           apply weaken with (Q:= fun s:state => P s /\ consistency s /\ globalIdPD <> nullAddr
+                /\ isPDT globalIdPD s
                 /\ (block <> nullAddr -> (In block (getAccessibleMappedBlocks globalIdPD s)))).
            apply enableBlockInMPU. intros s Hprops. intuition.
         ++ intro is_mapped. eapply weaken. eapply WP.ret.
-           intros s Hprops. simpl. destruct Hprops as [s0 Hprops]. exists s0. intuition. destruct H7 as [entry Hprops].
+           intros s Hprops. simpl. destruct Hprops as [s0 Hprops]. exists s0. intuition.
+           destruct H7 as [entry Hprops].
            exists entry. intuition. destruct is_mapped eqn:Hmapped.
            ** right. exists oldMPURegionNb. assert(Htrue: is_true true) by intuition. apply H11 in Htrue.
               destruct Htrue as [pdentry1 Hprops]. intuition.
-           ** left. assert(Htrue: is_true false -> False) by intuition. apply H14 in Htrue. assumption.
+           ** left. assert(Htrue: is_true false -> False) by (unfold is_true; intro; congruence).
+              apply H14 in Htrue. assumption.
     }
 Qed.
 

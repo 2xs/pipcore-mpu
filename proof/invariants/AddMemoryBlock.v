@@ -461,8 +461,9 @@ case_eq addrIsNull.
 		assert(HBTSNotNull : blockToShareInCurrPartAddr <> nullAddr).
 		{ rewrite <- beqAddrFalse in *. intuition. }
 		pose (Hconj := conj H0 HBTSNotNull).
-		apply Hconj. rewrite <- beqAddrFalse in *. intuition.
-		destruct H8. exists x. apply H5.
+		apply Hconj. rewrite <- beqAddrFalse in *. destruct H0 as ((_ & _ & Hblock) & HbeqNullBlock).
+		destruct Hblock as [Hcontra | Hblock]; try(exfalso; congruence). destruct Hblock as [bentry (Hlookup & _)].
+    exists bentry. assumption.
 	}
 	intro rcheck.
 	case_eq (negb rcheck).
@@ -3822,7 +3823,7 @@ intros. simpl.  set (s' := {|
 																										-- assert(Heq : CPaddr(blockToShareInCurrPartAddr + sh1offset) = nullAddr).
 																											{ rewrite nullAddrIs0.
 																												unfold CPaddr. rewrite Hj.
-																												destruct (le_dec 0 maxAddr) ; intuition.
+																												destruct (le_dec 0 maxAddr) ; try(lia).
 																												f_equal. apply proof_irrelevance.
 																											}
 																											rewrite Heq in *.
@@ -3925,7 +3926,7 @@ intros. simpl.  set (s' := {|
 												-- assert(Heq : CPaddr(blockToShareInCurrPartAddr + sh1offset) = nullAddr).
 													{ rewrite nullAddrIs0.
 														unfold CPaddr. rewrite Hj.
-														destruct (le_dec 0 maxAddr) ; intuition.
+														destruct (le_dec 0 maxAddr) ; try(lia).
 														f_equal. apply proof_irrelevance.
 													}
 													rewrite Heq in *.
@@ -4805,8 +4806,7 @@ intros. simpl.  set (s' := {|
 							}
 							rewrite HoffsetEq in *.
 							rewrite <- Hsh1entryAddridpd in *. (* x=...*) rewrite Hlookupsh1idpd in *.
-							unfold checkChild in *. rewrite Hidpd in *. rewrite Hlookupsh1idpd in *.
-							destruct (PDflag sh1entryidpd) ; intuition.
+							unfold checkChild in *. rewrite Hidpd in *. rewrite Hlookupsh1idpd in *. rewrite <-Hcheckchild.
 							simpl. left. rewrite Hidpd in *.
 							unfold bentryStartAddr in *. rewrite Hidpd in *.
 							apply eq_sym. assumption.
@@ -4814,10 +4814,10 @@ intros. simpl.  set (s' := {|
 									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 							unfold nullAddrExists in *. unfold isPADDR in *. unfold nullAddr in *.
 							unfold CPaddr in *.
-							destruct (le_dec 0 maxAddr) ; intuition.
-							assert(HnullEq : {| p := 0; Hp := ADT.CPaddr_obligation_1 0 l0 |} =
-											{| p := 0; Hp := ADT.CPaddr_obligation_2 |}).
-							{ f_equal. apply proof_irrelevance. }
+							destruct (le_dec 0 maxAddr) ; try(lia).
+							assert(HnullEq : forall n Hyp, {| p := 0; Hp := ADT.CPaddr_obligation_2 n Hyp |}
+                                              = {| p := 0; Hp := ADT.CPaddr_obligation_1 0 l0 |}).
+							{ intros. f_equal. apply proof_irrelevance. }
 							rewrite HnullEq in *. rewrite <- Hsh1entryAddridpd in *. (* x = *)
 							rewrite Hlookupsh1idpd in *. exfalso ; congruence.
 					-- (* a1 <> idPDchild*)
@@ -4942,7 +4942,7 @@ intros. simpl.  set (s' := {|
 				destruct (le_dec (blockend - blockstart) maxIdx) eqn:Hf ; try lia ; intuition.
 				rewrite <- maxIdxEqualMaxAddr in *. lia.
 				assert(blockindex bentry < kernelStructureEntriesNb) by apply Hidx.
-				intuition.
+				destruct (lt_dec (blockindex blockentry_d) kernelStructureEntriesNb); try(lia).
 			}
 			{ (* blockstart *)
 				(* DUP *)
@@ -4957,7 +4957,7 @@ intros. simpl.  set (s' := {|
 				destruct (le_dec (blockend - blockstart) maxIdx) eqn:Hf ; try lia ; intuition.
 				rewrite <- maxIdxEqualMaxAddr in *. lia.
 				assert(blockindex bentry < kernelStructureEntriesNb) by apply Hidx.
-				intuition.
+				destruct (lt_dec (blockindex blockentry_d) kernelStructureEntriesNb); try(lia).
 			}
 		}
 
@@ -5087,7 +5087,7 @@ intros. simpl.  set (s' := {|
 													-- assert(Heq : CPaddr(blockToShareInCurrPartAddr + sh1offset) = nullAddr).
 														{ rewrite nullAddrIs0.
 															unfold CPaddr. rewrite Hj.
-															destruct (le_dec 0 maxAddr) ; intuition.
+															destruct (le_dec 0 maxAddr) ; try(lia).
 															f_equal. apply proof_irrelevance.
 														}
 														rewrite Heq in *.
@@ -5230,7 +5230,7 @@ intros. simpl.  set (s' := {|
 														-- assert(Heq : CPaddr(blockToShareInCurrPartAddr + sh1offset) = nullAddr).
 															{ rewrite nullAddrIs0.
 																unfold CPaddr. rewrite Hj.
-																destruct (le_dec 0 maxAddr) ; intuition.
+																destruct (le_dec 0 maxAddr) ; try(lia).
 																f_equal. apply proof_irrelevance.
 															}
 															rewrite Heq in *.
@@ -5385,7 +5385,7 @@ intros. simpl.  set (s' := {|
 					-- assert(Heq : CPaddr(blockToShareInCurrPartAddr + sh1offset) = nullAddr).
 						{ rewrite nullAddrIs0.
 							unfold CPaddr. rewrite Hj.
-							destruct (le_dec 0 maxAddr) ; intuition.
+							destruct (le_dec 0 maxAddr) ; try(lia).
 							f_equal. apply proof_irrelevance.
 						}
 						rewrite Heq in *.
@@ -5699,7 +5699,7 @@ intros. simpl.  set (s' := {|
 										-- assert(Heq : CPaddr(blockToShareInCurrPartAddr + sh1offset) = nullAddr).
 											{ rewrite nullAddrIs0.
 												unfold CPaddr. rewrite Hj.
-												destruct (le_dec 0 maxAddr) ; intuition.
+												destruct (le_dec 0 maxAddr) ; try(lia).
 												f_equal. apply proof_irrelevance.
 											}
 											rewrite Heq in *.
@@ -6667,7 +6667,7 @@ intros. simpl.  set (s' := {|
 											-- assert(Heq : CPaddr(blockToShareInCurrPartAddr + sh1offset) = nullAddr).
 												{ rewrite nullAddrIs0.
 													unfold CPaddr. rewrite Hj.
-													destruct (le_dec 0 maxAddr) ; intuition.
+													destruct (le_dec 0 maxAddr) ; try(lia).
 													f_equal. apply proof_irrelevance.
 												}
 												rewrite Heq in *.
@@ -7214,7 +7214,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 								{ intuition. apply IdxLtMaxIdx. }
 								intuition.
 								assert(Hmax : maxIdx + 1 = S maxIdx) by (apply MaxIdxNextEq).
-								rewrite Hmax. apply Lt.le_lt_n_Sm. intuition.
+								rewrite Hmax. lia.
 							}
 							destruct Hfreeslotspd2Eq as [n1'' (nbleft'' & Hstates)].
 							rewrite <- Hs12Eq in *.
@@ -7722,7 +7722,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 					{
 						intros addr HaddrInMappedidpd.
 						specialize (HVs0 addr).
-						eapply HVs0 ; intuition.
+						eapply HVs0. apply in_or_app. right. assumption.
 					}
 
 					(* - newBlockEntryAddr and its contained addresses were not not in the child
@@ -9129,7 +9129,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 									* assert(Heq : CPaddr(parentblock + sh1offset) = nullAddr).
 										{ rewrite nullAddrIs0.
 											unfold CPaddr. rewrite Hj.
-											destruct (le_dec 0 maxAddr) ; intuition.
+											destruct (le_dec 0 maxAddr) ; try(lia).
 											f_equal. apply proof_irrelevance.
 										}
 										rewrite Heq in *.
@@ -9697,7 +9697,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 												* assert(Heq : CPaddr(parentblock + sh1offset) = nullAddr).
 													{ rewrite nullAddrIs0.
 														unfold CPaddr. rewrite Hj.
-														destruct (le_dec 0 maxAddr) ; intuition.
+														destruct (le_dec 0 maxAddr) ; try(lia).
 														f_equal. apply proof_irrelevance.
 													}
 													rewrite Heq in *.
@@ -9983,7 +9983,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
             {
               rewrite <-HpredValue. rewrite <-HpredValueBis. simpl. rewrite HnbFreeSlotss0. lia.
             }
-            apply getFreeSlotsListRecEqN with maxIdx; intuition.
+            apply getFreeSlotsListRecEqN with maxIdx; try(lia); try(assumption). reflexivity.
           }
           rewrite HgetFreeBound. apply eq_sym.
           assert(HfirstPd1IsfreeSlot: In (firstfreeslot pdentry1) (filterOptionPaddr optionFreeSlotsLists0)).

@@ -148,12 +148,10 @@ case_eq addrIsNull.
 				  eapply weaken. apply readBlockAccessibleFromBlockEntryAddr.
 				  intros. simpl. split. apply H2.
 				  repeat rewrite <- beqAddrFalse in *.
-				  intuition.
-				  subst.
-				  destruct H18 as [bentry (HLookupblock & _)]. (* exists entry : BlockEntry,
-																  lookup blockToShareInCurrPartAddr 
-																  (memory s) beqAddr = Some (BE entry) /\ ... *)
-				  unfold isBE ; rewrite HLookupblock ; trivial.
+          destruct H2 as ((_ & (_ & Hres)) & HbeqNullBlock).
+          destruct Hres as [Hcontra | Hres]; try(exfalso; congruence).
+          destruct Hres as [bentry (Hlookup & _ & _)]. unfold isBE.
+          rewrite Hlookup. trivial.
 			  }
 			  intro addrIsAccessible.
 			  case_eq (negb addrIsAccessible).
@@ -171,12 +169,10 @@ case_eq addrIsNull.
 					  intros. simpl. split. apply H3.
 					  (* DUP *)
 					  repeat rewrite <- beqAddrFalse in *.
-					  intuition.
-					  subst.
-					  destruct H9 as [bentry (HLookupblock & _)]. (* exists entry : BlockEntry,
-																	  lookup blockToShareInCurrPartAddr 
-																	  (memory s) beqAddr = Some (BE entry) /\ ... *)
-					  unfold isBE ; rewrite HLookupblock ; trivial.
+            destruct H3 as (((_ & (_ & Hres)) & HbeqNullBlock) & _).
+            destruct Hres as [Hcontra | Hres]; try(exfalso; congruence).
+            destruct Hres as [bentry (Hlookup & Heq & _)]. subst blockToShareInCurrPartAddr. unfold isBE.
+            rewrite Hlookup. trivial.
 				  }
 				  intro right_R.
 				  eapply bindRev.
@@ -185,12 +181,10 @@ case_eq addrIsNull.
 					  intros. simpl. split. apply H3.
 					  (* DUP *)
 					  repeat rewrite <- beqAddrFalse in *.
-					  intuition.
-					  subst.
-					  destruct H10 as [bentry (HLookupblock & _)]. (* exists entry : BlockEntry,
-																	  lookup blockToShareInCurrPartAddr 
-																	  (memory s) beqAddr = Some (BE entry) /\ ... *)
-					  unfold isBE ; rewrite HLookupblock ; trivial.
+            destruct H3 as ((((_ & (_ & Hres)) & HbeqNullBlock) & _) & _).
+            destruct Hres as [Hcontra | Hres]; try(exfalso; congruence).
+            destruct Hres as [bentry (Hlookup & Heq & _)]. subst blockToShareInCurrPartAddr. unfold isBE.
+            rewrite Hlookup. trivial.
 				  }
 				  intro right_W.
 				  case_eq (negb right_R).

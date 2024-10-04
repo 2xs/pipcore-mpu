@@ -813,7 +813,7 @@ Lemma indexltbTrue :
 forall i1 i2 : index ,
 StateLib.Index.ltb i1 i2 = true -> i1 < i2.
 Proof. intros. unfold Index.ltb in H. 
-apply NPeano.Nat.ltb_lt in H.
+apply Nat.ltb_lt in H.
 assumption.
 Qed.
 
@@ -824,7 +824,7 @@ Proof.
 intros.
 unfold Index.ltb in *. 
 apply not_lt.
-apply NPeano.Nat.ltb_nlt in H.
+apply Nat.ltb_nlt in H.
 lia.
 Qed.
 
@@ -863,7 +863,7 @@ simpl in *.
 intros;
 inversion H0; lia.
 intros.
-apply nat_total_order.
+apply Nat.lt_gt_cases.
 unfold not in *; intros; subst.
 apply H; f_equal.
 apply proof_irrelevance.
@@ -1211,7 +1211,7 @@ In a (filterPresent l s) -> In a l /\ bentryPFlag a true s.
 Proof.
 intro HInFilterPresent.
 induction l.
-- intuition.
+- simpl in HInFilterPresent. exfalso; congruence.
 - simpl in *. unfold bentryPFlag.
 	destruct (lookup a0 (memory s) beqAddr) eqn:Hlookup ; try(intuition; congruence).
 	destruct v; try(intuition; congruence).
@@ -1236,22 +1236,6 @@ induction l.
 	congruence.
 Qed.
 
-Lemma NotInPaddrListNotInPaddrFilterAccessible a l s:
-~ In a (getAllPaddrAux l s) -> ~ In a (getAllPaddrAux (filterAccessible l s) s).
-Proof.
-intro HNotInList.
-induction l.
-- intuition.
-- simpl in *.
-	destruct (lookup a0 (memory s) beqAddr) eqn:Hlookupas ; intuition.
-	destruct v ; intuition.
-	destruct (accessible b) ; intuition.
-	simpl in *. intuition.
-	rewrite Hlookupas in *.
-	apply in_app_or in H.
-	simpl in *. intuition.
-Qed.
-
 Lemma NotInPaddrListNotInPaddrFilterAccessibleContra a l s:
 In a (getAllPaddrAux (filterAccessible l s) s) ->
 In a (getAllPaddrAux l s).
@@ -1261,11 +1245,28 @@ induction l.
 - intuition.
 - simpl in *.
 	destruct (lookup a0 (memory s) beqAddr) eqn:Hlookupas ; intuition.
-	destruct v ; intuition.
-	destruct (accessible b) ; intuition.
+	destruct v ; intuition. apply in_or_app.
+	destruct (accessible b) ; try(right; apply IHl; assumption).
 	simpl in *. rewrite Hlookupas in *.
-	apply in_app_or in HBlockInList.
-	apply in_app_iff. intuition.
+	apply in_app_or in HBlockInList. intuition.
+Qed.
+
+Lemma NotInPaddrListNotInPaddrFilterAccessible a l s:
+~ In a (getAllPaddrAux l s) -> ~ In a (getAllPaddrAux (filterAccessible l s) s).
+Proof.
+intro HNotInList.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) eqn:Hlookupas ; intuition.
+	destruct v; try(apply IHl; assumption).
+	destruct (accessible b).
+	+ simpl in *.
+	  rewrite Hlookupas in *.
+	  apply in_app_or in H. apply HNotInList. apply in_or_app.
+	  destruct H; try(left; assumption). right. apply NotInPaddrListNotInPaddrFilterAccessibleContra.
+    assumption.
+  + apply IHl; try(assumption). intro Hcontra. apply HNotInList. apply in_or_app. right. assumption.
 Qed.
 
 Lemma NoDupFilterAccessible l s :
@@ -1330,10 +1331,10 @@ induction left.
 	inversion H1.
 	contradict H2.
 	unfold CPaddr.
-	destruct (le_dec (offset1 + startaddr) maxAddr) ; intuition.
-	inversion H0.
-	apply Nat.add_cancel_r in H3.
-	apply NPeano.Nat.lt_neq in H. congruence.
+	destruct (le_dec (offset1 + startaddr) maxAddr) ; try(lia).
+	intro Hcontra. inversion Hcontra.
+	apply Nat.add_cancel_r in H2.
+	apply Nat.lt_neq in H. congruence.
 	specialize (IHleft offset1 (S offset2)) ; intuition.
 	destruct (le_dec (offset2 + startaddr) maxAddr) ; intuition.
 	simpl in *.
@@ -1343,15 +1344,15 @@ induction left.
 	destruct (le_dec (offset1 + startaddr) maxAddr) ; intuition.
 	inversion H0.
 	apply Nat.add_cancel_r in H2.
-	apply NPeano.Nat.lt_neq in H. congruence.
-	inversion H0. apply plus_is_O in H2.
+	apply Nat.lt_neq in H. congruence.
+	inversion H0. apply Nat.eq_add_0 in H2.
  	intuition. subst offset2.
 	apply Nat.nlt_0_r in H. congruence.
 	contradict H1.
 	unfold CPaddr.
 	destruct (le_dec (offset1 + startaddr) maxAddr) ; intuition.
 	eapply IHleft. instantiate (1:= S offset2). instantiate (1:= S offset1).
-	intuition. intuition.
+	lia.
 	unfold CPaddr.
 	destruct (le_dec (S offset1 + startaddr) maxAddr) ; intuition.
 	simpl.
@@ -1363,21 +1364,10 @@ induction left.
 	assert(l0 = l1). apply proof_irrelevance.
 	subst l0. intuition.
 	specialize (IHleft 0 (S offset2)) ; intuition.
-	assert( 0 < S offset2) by apply NPeano.Nat.lt_0_succ.
+	assert( 0 < S offset2) by apply Nat.lt_0_succ.
 	intuition.
 	unfold CPaddr in *.
-	destruct (le_dec (0 + startaddr) maxAddr ) ; intuition.
-	contradict H0.
-	clear.
-	revert offset2.
-	induction left.
-	--- intuition.
-	--- intro offset2. simpl.
-			destruct (le_dec (S (offset2 + startaddr)) maxAddr) ; intuition.
-			simpl in *.
-			intuition.
-			---- inversion H0.
-			---- specialize (IHleft (S offset2)). intuition.
+	destruct (le_dec (0 + startaddr) maxAddr ) ; try(lia).
 Qed.
 
 Lemma NoDupPaddrBlockAux offset startaddr left :
@@ -1429,11 +1419,12 @@ induction l.
 - simpl. simpl in H.
 	intuition.
 	+ subst a. simpl in *.
-		destruct (lookup block (memory s) beqAddr ) ; intuition.
-		destruct v ; intuition.
+		destruct (lookup block (memory s) beqAddr ) ; try(exfalso; simpl in *; congruence).
+		destruct v ; try(exfalso; simpl in *; congruence).
 		apply in_or_app. left. rewrite app_nil_r in *. intuition.
 	+ destruct (lookup a (memory s) beqAddr ) ; intuition.
-		destruct v ; intuition.
+		destruct v ; try(assumption).
+    apply in_or_app. right. assumption.
 Qed.
 
 Lemma DisjointPaddrInPart partition block1 block2 addr s :
@@ -1635,7 +1626,7 @@ Proof.
 unfold StateLib.Index.eqb in *.
 intros.
 symmetry in H.
-apply beq_nat_true in H.
+apply Nat.eqb_eq in H.
 destruct idx1; destruct idx2.
 simpl in *.
 subst.
@@ -2251,9 +2242,9 @@ intuition.
 case_eq ((addr1 =? addr2)).
 intuition.
 intros.
-apply beq_nat_false in H0.
+apply Nat.eqb_neq in H0.
 congruence.
-apply beq_nat_true in H.
+apply Nat.eqb_eq in H.
 destruct addr1, addr2. simpl in *. subst.
 assert (Hp = Hp0).
 apply proof_irrelevance. subst. trivial.
@@ -2270,7 +2261,7 @@ intuition.
 case_eq ((addr1 =? addr2)).
 intuition.
 contradict H.
-apply beq_nat_true in H0.
+apply Nat.eqb_eq in H0.
 destruct addr1, addr2. simpl in *. subst.
 assert (Hp = Hp0).
 apply proof_irrelevance. subst. trivial.
@@ -2281,7 +2272,7 @@ case_eq (addr1 =? addr2) ; intuition.
 	congruence.
 +	rewrite H0 in H1.
 	contradict H1.
-	rewrite NPeano.Nat.eqb_refl.
+	rewrite Nat.eqb_refl.
 	unfold not.
 	congruence.
 Qed.
@@ -2292,7 +2283,7 @@ beqAddr addr1 addr2 = beqAddr addr2 addr1.
 Proof.
 intros. unfold beqAddr.
 case_eq ((addr1 =? addr2)). intuition.
-apply beq_nat_true in H. rewrite H. apply eq_sym. apply Nat.eqb_refl.
+apply Nat.eqb_eq in H. rewrite H. apply eq_sym. apply Nat.eqb_refl.
 intros. apply eq_sym.
 apply Nat.eqb_neq. apply Nat.eqb_neq in H. unfold not in *.
 intros. intuition.
@@ -2406,7 +2397,7 @@ intros. intuition.
 induction p.
 - intuition.
 - unfold CIndex in *.
-	destruct (le_dec 0 maxIdx) ; intuition.
+	destruct (le_dec 0 maxIdx) ; try(lia).
 	destruct (le_dec (S p) maxIdx) ; try (simpl in * ; congruence).
 Qed.
 
@@ -2477,9 +2468,9 @@ intuition.
 case_eq ((addr1 =? addr2)).
 intuition.
 intros.
-apply beq_nat_false in H0.
+apply Nat.eqb_neq in H0.
 congruence.
-apply beq_nat_true in H.
+apply Nat.eqb_eq in H.
 destruct addr1, addr2. simpl in *. subst.
 assert (Hi = Hi0).
 apply proof_irrelevance. subst. trivial.
@@ -2497,7 +2488,7 @@ intuition.
 case_eq ((addr1 =? addr2)).
 intuition.
 contradict H.
-apply beq_nat_true in H0.
+apply Nat.eqb_eq in H0.
 destruct addr1, addr2. simpl in *. subst.
 assert (Hi = Hi0).
 apply proof_irrelevance. subst. trivial.
@@ -2508,7 +2499,7 @@ case_eq (addr1 =? addr2) ; intuition.
 	congruence.
 +	rewrite H0 in H1.
 	contradict H1.
-	rewrite NPeano.Nat.eqb_refl.
+	rewrite Nat.eqb_refl.
 	unfold not.
 	congruence.
 Qed.
@@ -4130,7 +4121,7 @@ idxRes = indexOf block index searchList comparator default
     \/ idxRes <= maxIdx /\ idxRes >= index /\ comparator (nth (idxRes-index) searchList nullAddr) block = true.
 Proof.
 revert index. induction searchList.
-- intuition.
+- simpl. intros. left. split. assumption. intros. exfalso. congruence.
 - simpl. intros index HisRes Hlen. destruct (comparator a block) eqn:Hcomp.
   + subst idxRes. right. rewrite Nat.sub_diag. split. lia. split. lia. assumption.
   + assert(HlenRec: length searchList + S index <= maxIdx) by lia.

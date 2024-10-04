@@ -61,13 +61,13 @@ destruct MPURegionNb. induction i.
   destruct (MPUentry) eqn:HMPU.
   + simpl in HinBlock. apply not_eq_sym in HnotNull.
     destruct HinBlock as [Hcontra | HinBlock]; try(exfalso; congruence).
-    assert (Hpredi: i <= maxIdx) by intuition. specialize (IHi Hpredi MPUentry). rewrite HMPU in IHi.
+    assert (Hpredi: i <= maxIdx) by lia. specialize (IHi Hpredi MPUentry). rewrite HMPU in IHi.
     specialize (IHi HinBlock). subst l. assumption.
   + simpl in HinBlock. simpl.
     destruct HinBlock as [Hcontra | HinBlock].
     * left. assumption.
     * right.
-    assert (Hpredi: i <= maxIdx) by intuition.
+    assert (Hpredi: i <= maxIdx) by lia.
     specialize (IHi Hpredi l0). specialize (IHi HinBlock). assumption.
 Qed.
 
@@ -3322,7 +3322,10 @@ eapply bindRev.
             rewrite Hlookups0 in HlookupParent. injection HlookupParent as Heq. subst parentEntry. intuition.
           - exists parentEntry. exists pdentry.
             assert(HnotEq: globalIdPD <> pdparent) by (rewrite beqAddrFalse; assumption).
-            intuition. rewrite <-HsEq. simpl. rewrite HbeqParentGlob. rewrite removeDupIdentity; intuition.
+            rewrite <-HsEq. simpl. rewrite HbeqParentGlob.
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption). split. assumption. split. assumption.
+            split. assumption. split. reflexivity. split. intro. reflexivity.
+            intro Hcontra. exfalso; congruence.
         }
         rewrite HgetPartitionspdEq in HchildIsPart. apply Hcons0 with pdparent; assumption.
         (* END partitionTreeIsTree *)
@@ -3495,7 +3498,8 @@ eapply bindRev.
           destruct HinChildLocationProps as [Hloc HlocIsBE]. split. assumption. intro HlocNotNull.
           specialize(HlocIsBE HlocNotNull). unfold isBE in *. rewrite <-HsEq in HlocIsBE. simpl in HlocIsBE.
           destruct (beqAddr globalIdPD blockIDInChild) eqn:HbeqGlocBlock; try(exfalso; congruence).
-          rewrite <-beqAddrFalse in HbeqGlocBlock. rewrite removeDupIdentity in HlocIsBE; intuition.
+          rewrite <-beqAddrFalse in HbeqGlocBlock.
+          rewrite removeDupIdentity in HlocIsBE; try(apply not_eq_sym); assumption.
         }
         specialize(HinChildLocation HinChildLocationPropss0). assumption. assumption.
         (* END childsBlocksPropsInParent *)
@@ -7021,7 +7025,10 @@ eapply bindRev.
             rewrite Hlookups0 in HlookupParent. injection HlookupParent as Heq. subst parentEntry. intuition.
           - exists parentEntry. exists pdentry.
             assert(HnotEq: globalIdPD <> pdparent) by (rewrite beqAddrFalse; assumption).
-            intuition. rewrite <-HsEq. simpl. rewrite HbeqParentGlob. rewrite removeDupIdentity; intuition.
+            rewrite <-HsEq. simpl. rewrite HbeqParentGlob.
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption). split. assumption. split. assumption.
+            split. assumption. split. reflexivity. split. intro. reflexivity.
+            intro Hcontra. exfalso; congruence.
         }
         rewrite HgetPartitionspdEq in HchildIsPart. apply Hcons0 with pdparent; assumption.
         (* END partitionTreeIsTree *)

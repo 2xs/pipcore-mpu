@@ -40,8 +40,10 @@ Require Import Core.Internal.
 Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
                Proof.Isolation Proof.StateLib Proof.WeakestPreconditions.
 Require Import Coq.Logic.ProofIrrelevance Lia Setoid Compare_dec EqNat List Bool.
+Require Import InternalLemmas.
 
 Module WP := WeakestPreconditions.
+Module IL := InternalLemmas.
 
 (* COPY *)
 Lemma getCurPartition P :
@@ -154,7 +156,7 @@ Qed.
 
 (* DUP de pred *)
 Lemma subPaddr  (addr1 addr2 : paddr ) P :
-{{fun s => P s  /\ addr1 >= 0 /\ addr2 >= 0 /\ addr1 - addr2 < maxIdx}}
+{{fun s => P s  /\ addr1 >= 0 /\ addr2 >= 0 /\ addr1 - addr2 <= maxIdx}}
 MALInternal.Paddr.subPaddr addr1 addr2
 {{fun (idxsub : index) (s : state) => P s  /\ StateLib.Paddr.subPaddr addr1 addr2 = Some idxsub }}.
 Proof.
@@ -199,8 +201,7 @@ destruct (le_dec (addr - idx) maxAddr). intuition.
 f_equal.
 f_equal.
 apply proof_irrelevance.
-subst.
-intuition.
+subst. exfalso. congruence.
 Qed.
 
 (* DUP *)
@@ -319,12 +320,12 @@ destruct p.
   - intros. cbn in *.
     case_eq (PeanoNat.Nat.eqb p addr1).
     * intros.
-      apply beq_nat_true in H0.
-      apply beq_nat_true in H1.
+      apply PeanoNat.Nat.eqb_eq in H0.
+      apply PeanoNat.Nat.eqb_eq in H1.
 			rewrite H1 in H0.
 			apply beqAddrFalse in H.
 			unfold beqAddr in H.
-			apply beq_nat_false in H.
+			apply PeanoNat.Nat.eqb_neq in H.
 			congruence.
 
 		* intros. assumption.
@@ -1086,7 +1087,7 @@ unfold MAL.getKernelStructureStartAddr.
 eapply bindRev.
 { (** MALInternal.Paddr.subPaddrIdx *)
 	eapply weaken. apply Paddr.subPaddrIdx.
-	intros. simpl. split. apply H. intuition.
+	intros. simpl. split. apply H. split. lia. split. lia. intuition.
 	lia.
 }
 intro kernelStartAddr. simpl.
@@ -1209,7 +1210,7 @@ intro SHEAddr.
 					unfold nullAddrExists in *. unfold isPADDR in *.
 					unfold nullAddr in *.
 					unfold CPaddr in *.
-					destruct (le_dec 0 maxAddr) ; intuition.
+					destruct (le_dec 0 maxAddr) ; try(lia).
 					assert(HpEq : ADT.CPaddr_obligation_1 0 l1 = ADT.CPaddr_obligation_1 0 l)
 						by apply proof_irrelevance.
 					rewrite HpEq in *.
@@ -1225,11 +1226,11 @@ intro SHEAddr.
 					unfold nullAddrExists in *. unfold isPADDR in *.
 					unfold nullAddr in *.
 					unfold CPaddr in *.
-					destruct (le_dec 0 maxAddr) ; intuition.
-					assert(HpEq : ADT.CPaddr_obligation_1 0 l0 = ADT.CPaddr_obligation_2)
-						by apply proof_irrelevance.
+					destruct (le_dec 0 maxAddr) ; try(lia).
+					assert(HpEq : forall n Hyp, ADT.CPaddr_obligation_2 n Hyp = ADT.CPaddr_obligation_1 0 l0)
+						by (intros; apply proof_irrelevance).
 					rewrite HpEq in *.
-					destruct (lookup {| p := 0; Hp := ADT.CPaddr_obligation_2|} (memory s) beqAddr) ;
+					destruct (lookup {| p := 0; Hp := ADT.CPaddr_obligation_1 0 l0|} (memory s) beqAddr) ;
 						try (exfalso ; congruence).
 					destruct v ; try(exfalso ; congruence).
 	- (* False cause BE Null *)
@@ -1238,11 +1239,11 @@ intro SHEAddr.
 		unfold nullAddrExists in *. unfold isPADDR in *.
 		unfold nullAddr in *.
 		unfold CPaddr in *.
-		destruct (le_dec 0 maxAddr) ; intuition.
-		assert(HpEq : ADT.CPaddr_obligation_1 0 l = ADT.CPaddr_obligation_2)
-			by apply proof_irrelevance.
+		destruct (le_dec 0 maxAddr) ; try(lia).
+		assert(HpEq : forall n Hyp, ADT.CPaddr_obligation_2 n Hyp = ADT.CPaddr_obligation_1 0 l)
+			by (intros; apply proof_irrelevance).
 		rewrite HpEq in *.
-		destruct (lookup {| p := 0; Hp := ADT.CPaddr_obligation_2|} (memory s) beqAddr) ;
+		destruct (lookup {| p := 0; Hp := ADT.CPaddr_obligation_1 0 l|} (memory s) beqAddr) ;
 			try (exfalso ; congruence).
 		destruct v ; try(exfalso ; congruence).
 }
@@ -1443,7 +1444,7 @@ intro SCEAddr.
 					unfold nullAddrExists in *. unfold isPADDR in *.
 					unfold nullAddr in *.
 					unfold CPaddr in *.
-					destruct (le_dec 0 maxAddr) ; intuition.
+					destruct (le_dec 0 maxAddr) ; try(lia).
 					assert(HpEq : ADT.CPaddr_obligation_1 0 l1 = ADT.CPaddr_obligation_1 0 l)
 						by apply proof_irrelevance.
 					rewrite HpEq in *.
@@ -1459,11 +1460,11 @@ intro SCEAddr.
 					unfold nullAddrExists in *. unfold isPADDR in *.
 					unfold nullAddr in *.
 					unfold CPaddr in *.
-					destruct (le_dec 0 maxAddr) ; intuition.
-					assert(HpEq : ADT.CPaddr_obligation_1 0 l0 = ADT.CPaddr_obligation_2)
-						by apply proof_irrelevance.
+					destruct (le_dec 0 maxAddr) ; try(lia).
+					assert(HpEq : forall n Hyp, ADT.CPaddr_obligation_2 n Hyp = ADT.CPaddr_obligation_1 0 l0)
+						by (intros; apply proof_irrelevance).
 					rewrite HpEq in *.
-					destruct (lookup {| p := 0; Hp := ADT.CPaddr_obligation_2|} (memory s) beqAddr) ;
+					destruct (lookup {| p := 0; Hp := ADT.CPaddr_obligation_1 0 l0|} (memory s) beqAddr) ;
 						try (exfalso ; congruence).
 					destruct v ; try(exfalso ; congruence).
 	- (* False cause BE Null *)
@@ -1472,11 +1473,11 @@ intro SCEAddr.
 		unfold nullAddrExists in *. unfold isPADDR in *.
 		unfold nullAddr in *.
 		unfold CPaddr in *.
-		destruct (le_dec 0 maxAddr) ; intuition.
-		assert(HpEq : ADT.CPaddr_obligation_1 0 l = ADT.CPaddr_obligation_2)
-			by apply proof_irrelevance.
+		destruct (le_dec 0 maxAddr) ; try(lia).
+		assert(HpEq : forall n Hyp, ADT.CPaddr_obligation_2 n Hyp = ADT.CPaddr_obligation_1 0 l)
+			by (intros; apply proof_irrelevance).
 		rewrite HpEq in *.
-		destruct (lookup {| p := 0; Hp := ADT.CPaddr_obligation_2|} (memory s) beqAddr) ;
+		destruct (lookup {| p := 0; Hp := ADT.CPaddr_obligation_1 0 l|} (memory s) beqAddr) ;
 			try (exfalso ; congruence).
 		destruct v ; try(exfalso ; congruence).
 }
@@ -1802,7 +1803,7 @@ eapply weaken. apply WeakestPreconditions.checkEntry.
 intros.  simpl. intuition.
 unfold entryExists in *. unfold isBE.
 destruct (lookup blockentryaddr (memory s) beqAddr) eqn:Hlookup.
-destruct v eqn:Hv ; trivial ; intuition. intuition.
+destruct v eqn:Hv ; trivial ; congruence. congruence.
 Qed.
 
 Lemma checkBlockInRAM  (blockentryaddr : paddr) (P :  state -> Prop) :
@@ -1939,7 +1940,100 @@ intro zero. eapply strengthen. eapply weaken. apply ret.
          apply HnotPresent; try(reflexivity). simpl. left. reflexivity.
       -- apply IHrealMPU. intros blockBis HblockBis.
          apply HnotPresent. simpl. right. assumption.
-  + right. destruct Hpresent as (HidxRes & HbeqNthBlock). rewrite <-beqAddrTrue in HbeqNthBlock.
+  + right. destruct Hpresent as (HidxRes & HbeqNthBlock). rewrite <-DTL.beqAddrTrue in HbeqNthBlock.
     rewrite Hzero in HbeqNthBlock. unfold CIndex in HbeqNthBlock. destruct (le_dec 0 maxIdx); try(lia).
     simpl in HbeqNthBlock. rewrite PeanoNat.Nat.sub_0_r in HbeqNthBlock. assumption.
 Qed.
+
+Lemma initPDTable newPDTableAddr P:
+{{ fun s => P s }}
+MAL.initPDTable newPDTableAddr
+{{ fun _ s => exists s0, P s0
+              /\ s = {|
+                        currentPartition := currentPartition s0;
+                        memory := add newPDTableAddr
+                                    (PDT
+                                       {|
+                                          structure := nullAddr;
+                                          firstfreeslot := nullAddr;
+                                          nbfreeslots := zero;
+                                          nbprepare := zero;
+                                          parent := nullAddr;
+                                          MPU := nil;
+                                          vidtAddr := nullAddr;
+                                       |}) (memory s0) beqAddr
+                      |} }}.
+Proof.
+unfold initPDTable. eapply bindRev.
+{ (* getEmptyPDTable *)
+  unfold getEmptyPDTable. eapply bindRev.
+  { (* MALInternal.getNullAddr *)
+    unfold MALInternal.getNullAddr. eapply weaken. apply WP.ret. intros s Hprops.
+    instantiate(1 := fun retAddr s => P s /\ retAddr = nullAddr). simpl. intuition.
+  }
+  intro nulladdr. eapply bindRev.
+  { (* MALInternal.Index.zero *)
+    eapply weaken. apply Index.zero. intros s Hprops. simpl. apply Hprops.
+  }
+  intro zero. eapply weaken. apply WP.ret. intros s Hprops.
+  instantiate(1 := fun retStruct s => P s
+                                      /\ retStruct = {|
+                                                       structure := nullAddr;
+                                                       firstfreeslot := nullAddr;
+                                                       nbfreeslots := CIndex 0;
+                                                       nbprepare := CIndex 0;
+                                                       parent := nullAddr;
+                                                       MPU := nil;
+                                                       vidtAddr := nullAddr
+                                                     |}). simpl. intuition. subst nulladdr. subst zero.
+  reflexivity.
+}
+(* writePDTable *)
+intro emptytable. unfold writePDTable. eapply weaken. apply modify. intros s Hprops. simpl. exists s.
+destruct Hprops as (HP & Hempty). split. assumption. rewrite Hempty. reflexivity.
+Qed.
+
+Lemma writePDParent PDTableAddr pdentry pdparent P:
+{{ fun s => P s /\ lookup PDTableAddr (memory s) beqAddr = Some(PDT pdentry) }}
+MAL.writePDParent PDTableAddr pdparent
+{{ fun _ s => exists s0 newPDEntry, P s0
+              /\ lookup PDTableAddr (memory s) beqAddr = Some(PDT newPDEntry)
+              /\ s = {|
+                        currentPartition := currentPartition s0;
+                        memory := add PDTableAddr (PDT newPDEntry) (memory s0) beqAddr
+                      |}
+              /\ newPDEntry = {|
+                                 structure := structure pdentry;
+                                 firstfreeslot := firstfreeslot pdentry;
+                                 nbfreeslots := nbfreeslots pdentry;
+                                 nbprepare := nbprepare pdentry;
+                                 parent := pdparent;
+                                 MPU := MPU pdentry;
+                                 vidtAddr := vidtAddr pdentry
+                               |} }}.
+Proof.
+unfold writePDParent. eapply bindRev.
+{ (* Monad.get *)
+  eapply weaken. apply get. intros s Hprops. simpl.
+  instantiate(1 := fun s0 s => P s /\ lookup PDTableAddr (memory s) beqAddr = Some (PDT pdentry) /\ s0 = s).
+  simpl. intuition.
+}
+intro s. destruct (lookup PDTableAddr (memory s) beqAddr) eqn:HlookupPD.
+- destruct v; try(eapply weaken; try(apply undefined); intros s1 Hprops; simpl;
+                  destruct Hprops as (_ & HlookupContra & Hss1); subst s1; congruence).
+  eapply weaken. apply modify. intros s0 Hprops. simpl. exists s0. rewrite IL.beqAddrTrue.
+  exists {|
+            structure := structure pdentry;
+            firstfreeslot := firstfreeslot pdentry;
+            nbfreeslots := nbfreeslots pdentry;
+            nbprepare := nbprepare pdentry;
+            parent := pdparent;
+            MPU := MPU pdentry;
+            vidtAddr := vidtAddr pdentry
+          |}. destruct Hprops as (HP & HlookupPDs0 & Hss0Eq). subst s0. split. assumption.
+  rewrite HlookupPD in HlookupPDs0. injection HlookupPDs0 as HpdentriesEq. subst p. split. reflexivity.
+  split; reflexivity.
+- eapply weaken. apply undefined. intros s0 Hprops. simpl. destruct Hprops as (_ & HlookupContra & Hss0).
+  subst s0. congruence.
+Qed.
+

@@ -658,7 +658,7 @@ Proof.
  simpl. trivial.
  clear H.
  assert(length ( l1 ++ [a] ++ l2) =1+ length (l1 ++ l2)).
- do 3 rewrite app_length.
+ do 3 rewrite length_app.
  simpl.
  lia.
  contradict H0.

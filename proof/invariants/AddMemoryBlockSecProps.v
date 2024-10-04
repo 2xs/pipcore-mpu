@@ -922,7 +922,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 					destruct v ; try(exfalso ; congruence).
 					apply in_app_iff. left. rewrite app_nil_r in *. assumption.
 					destruct (lookup a (memory s0) beqAddr) ; intuition.
-					destruct v ; intuition.
+					destruct v ; try(apply in_or_app; right); assumption.
 
 				*	(* Case (getMappedPaddr globalIdPDChild s0) *)
 					apply HVs0. apply in_app_iff. right. assumption.
@@ -1542,7 +1542,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 			unfold Lib.disjoint in Hpartisolations0.
 			specialize (Hpartisolations0 addr ).
 			apply Hpartisolations0.
-			unfold getUsedPaddr. intuition.
+			unfold getUsedPaddr. apply in_or_app. left. assumption.
 
 			(* Case In addr mappedpaddr : newB or (mapped at s0) *)
 			destruct Hidpdchildmapped as [Hidpdchildmapped HidpdchildmappedR].
@@ -1617,7 +1617,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 						unfold Lib.disjoint in Hpartisolations0.
 						specialize (Hpartisolations0 addr ).
 						apply Hpartisolations0.
-						unfold getUsedPaddr. intuition.
+						unfold getUsedPaddr. apply in_or_app. right. assumption.
 
 - (* child1 <> globalIdPDChild *)
 	destruct (beqAddr child2 globalIdPDChild) eqn:beqchild2pd ; try(exfalso ; congruence).
@@ -1692,8 +1692,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 			 	apply in_app_iff. rewrite in_app_iff. intuition.
 				apply in_app_or in H. destruct H.
 			 	apply in_app_iff. rewrite in_app_iff. intuition.
-				rewrite in_app_iff.
-				intuition.
+				rewrite in_app_iff. left. apply in_or_app. right. assumption.
 			}
 			specialize (HlistEq HaddrInGlobalFalse).
 

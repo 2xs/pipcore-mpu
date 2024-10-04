@@ -189,18 +189,20 @@ revert kernelstructurestart blockEntryAddr P.
 									assert(CIndex (kernelStructureEntriesNb-1) < CIndex kernelStructureEntriesNb).
 									{
 										unfold CIndex.
-										destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx) ; intuition.
+										destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx) ; try(lia).
 										destruct (le_dec kernelStructureEntriesNb maxIdx) ; intuition.
 									}
 									assert((CIndex (kernelStructureEntriesNb - 1) < maxIdx+1)).
 									{
 										unfold CIndex. 
-										destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx) ; intuition.
+										destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx) ; simpl; try(lia).
+                    pose proof maxIdxBiggerThanNbOfKernels. unfold kernelStructureEntriesNb in *. simpl in *. lia.
 									}
 									assert(CIndex (kernelStructureEntriesNb - 1) < kernelStructureEntriesNb).
 									{
 										unfold CIndex. 
-										destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx) ; intuition.
+										destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx) ; try(lia).
+                    pose proof maxIdxBiggerThanNbOfKernels. unfold kernelStructureEntriesNb in *. simpl in *. lia.
 									}
 									rewrite andb_true_iff in H.
 
@@ -224,7 +226,7 @@ revert kernelstructurestart blockEntryAddr P.
 									{
 										unfold sh1offset. unfold blkoffset.
 										unfold CIndex.
-										destruct (le_dec 0 maxIdx) ; intuition ; simpl.
+										destruct (le_dec 0 maxIdx) ; try(lia) ; simpl.
 										destruct (le_dec kernelStructureEntriesNb maxIdx) ; intuition.
 									}
 
@@ -244,7 +246,8 @@ revert kernelstructurestart blockEntryAddr P.
 									rewrite PeanoNat.Nat.le_neq in *.
 									intuition.
 
-									destruct (le_dec (kernelstructurestart + CIndex kernelStructureEntriesNb) maxAddr) ; intuition.
+									destruct (le_dec (kernelstructurestart + CIndex kernelStructureEntriesNb) maxAddr);
+                    try(simpl in *; lia).
 
 									unfold CPaddr in *.
 									destruct (le_dec (kernelstructurestart + sh1offset) maxAddr) ; intuition.
@@ -292,10 +295,10 @@ revert kernelstructurestart blockEntryAddr P.
 									by lia.
 
 								unfold CIndex.
-								destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx) ; intuition ; try lia.
+								destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx) ; try lia.
 
-								rewrite andb_true_iff in H.
-								eapply blockInRangeInStruct ; intuition ; try lia.
+								rewrite andb_true_iff in H. destruct H.
+								eapply blockInRangeInStruct; simpl ; try lia; try(assumption).
 
 								unfold sh1offset in *. unfold blkoffset in *.
 								simpl in *.
@@ -322,7 +325,7 @@ revert kernelstructurestart blockEntryAddr P.
 								{
 									unfold sh1offset. unfold blkoffset.
 									unfold CIndex.
-									destruct (le_dec 0 maxIdx) ; intuition ; simpl.
+									destruct (le_dec 0 maxIdx) ; try(lia) ; simpl.
 									destruct (le_dec kernelStructureEntriesNb maxIdx) ; intuition.
 								}
 
@@ -334,7 +337,8 @@ revert kernelstructurestart blockEntryAddr P.
 								specialize (HwellFormedSh1 kernelstructurestart HBE).
 								unfold isSHE in *.
 
-								destruct (le_dec (kernelstructurestart + kernelStructureEntriesNb) maxAddr) ; intuition.
+								destruct (le_dec (kernelstructurestart + kernelStructureEntriesNb) maxAddr) ;
+                  try(unfold StateLib.Paddr.ltb in *; apply PeanoNat.Nat.ltb_lt in H7; simpl in *; lia).
 								
 								unfold StateLib.Paddr.leb in *.
 								simpl in *.
@@ -369,9 +373,9 @@ revert kernelstructurestart blockEntryAddr P.
 
 							unfold nullAddr in *.
 							unfold CPaddr in *.
-							destruct (le_dec 0 maxAddr) ; intuition.
-							assert(HpEq : ADT.CPaddr_obligation_1 0 l = ADT.CPaddr_obligation_2)
-								by apply proof_irrelevance.
+							destruct (le_dec 0 maxAddr) ; try(lia).
+							assert(HpEq : forall n Hhyp, ADT.CPaddr_obligation_2 n Hhyp = ADT.CPaddr_obligation_1 0 l)
+								by (intros; apply proof_irrelevance).
 							rewrite HpEq in *.
 							exfalso ; congruence.
 				-- (* case_eq isPresent = false *)
@@ -486,13 +490,7 @@ revert kernelstructurestart blockEntryAddr P.
 								---- (* p = nullAddr *)
 										(* there is no following struct *)
 										rewrite <- DependentTypeLemmas.beqAddrTrue in beqpNull.
-										rewrite beqpNull in *.
-
-										assert(HnullAddrExists : nullAddrExists s)
-											by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-										unfold nullAddrExists in *. unfold isPADDR in *.
-
-										destruct (lookup nullAddr (memory s) beqAddr) eqn:Hlookupp ; intuition ; try(exfalso ; congruence).
+										rewrite beqpNull in *. rewrite <-beqAddrFalse in H4. contradict H4. reflexivity.
 								---- (* p <> nullAddr *)
 										rewrite <- beqAddrFalse in beqpNull.
 										intuition.
@@ -506,10 +504,10 @@ revert kernelstructurestart blockEntryAddr P.
 							--- (* false, nulladdr not null *)
 								unfold nullAddr in *.
 								unfold CPaddr in *.
-								destruct (le_dec 0 maxAddr) ; intuition.
-								assert(HpEq : ADT.CPaddr_obligation_2 =
+								destruct (le_dec 0 maxAddr) ; try(lia).
+								assert(HpEq : forall n Hhyp, ADT.CPaddr_obligation_2 n Hhyp =
 										ADT.CPaddr_obligation_1 0 l)
-									by apply proof_irrelevance.
+									by (intros; apply proof_irrelevance).
 								rewrite HpEq in *.
 								congruence.
 					}
@@ -592,9 +590,9 @@ case_eq kernelstructureisnull.
 				rewrite H3. (* lookup a ... *)
 				unfold bentryPFlag in *. rewrite H3 in *.
 				rewrite <- H5 in *. (* true = present bentry *)
-				intuition.
+				simpl. left. reflexivity.
 			--- destruct (lookup a (memory s) beqAddr) ; intuition.
 				destruct v ; intuition.
-				destruct (present b) ; intuition.
+				destruct (present b) ; try(simpl; right); assumption.
 	}
 Qed.

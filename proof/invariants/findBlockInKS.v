@@ -119,7 +119,8 @@ destruct indexEq eqn:Hcomp.
 		intros.
 		{ (** ret *)
 			eapply weaken. apply ret.
-			intros. simpl. intuition. exists blockstart. subst zero. rewrite Hcomp in *. intuition.
+			intros. simpl. intuition. exists blockstart. subst zero. rewrite Hcomp in *. split. assumption. split.
+      intro Hcontra; exfalso; congruence. intro HeqTriv.
       subst aboveStart. subst belowEnd. unfold bentryEndAddr in H4.
       destruct (lookup entryaddr (memory s) beqAddr) eqn:Hlookup; try(exfalso; congruence).
       destruct v; try(exfalso; congruence). exists b. subst blockend. intuition.
@@ -128,7 +129,8 @@ destruct indexEq eqn:Hcomp.
 		intros.
 		{ (** ret *)
 			eapply weaken. apply ret.
-			intros. simpl. intuition. exists blockstart. subst zero. rewrite Hcomp in *. intuition.
+			intros. simpl. intuition. exists blockstart. subst zero. rewrite Hcomp in *. split. assumption. split.
+      intro Hcontra; exfalso; congruence. intro HeqTriv.
       subst aboveStart. subst belowEnd. unfold bentryEndAddr in H4.
       destruct (lookup entryaddr (memory s) beqAddr) eqn:Hlookup; try(exfalso; congruence).
       destruct v; try(exfalso; congruence). exists b. subst blockend. intuition.
@@ -237,7 +239,7 @@ induction n.
 						  simpl. left. trivial.
 						  unfold StateLib.Index.pred in *.
 						  destruct (gt_dec currentidx 0) ; try(exfalso ; congruence).
-						  unfold zero in *. unfold CIndex in *. destruct (le_dec 0 maxIdx) ; intuition.
+						  unfold zero in *. unfold CIndex in *. destruct (le_dec 0 maxIdx) ; try(lia).
 						  simpl in *. lia. (* contradiction *)
 			  + destruct entryaddr. simpl in *.
 				  inversion H1 as [Heq]. (* {| p := p; Hp := Hp |} =
@@ -296,10 +298,7 @@ induction n.
 					apply PeanoNat.Nat.ltb_lt in HnextidxLTB. subst.
 					unfold CIndex in *. destruct (le_dec kernelStructureEntriesNb maxIdx).
 					simpl in *. assumption.
-					contradict n0. apply PeanoNat.Nat.lt_le_incl.
-					apply NPeano.Nat.lt_pred_lt.
-					rewrite Minus.pred_of_minus.
-					apply KSEntriesNbLessThanMaxIdx.
+					contradict n0. apply PeanoNat.Nat.lt_le_incl. pose proof maxIdxBiggerThanNbOfKernels. lia.
 			}
 		* (* case_eq isnotlastidx = false *)
 			intros.
@@ -504,10 +503,8 @@ induction n.
 
 								  assert(HnullAddrExists : nullAddrExists s)
 									  by (unfold consistency1 in * ; intuition).
-								  unfold nullAddrExists in *. unfold isPADDR in *.
-
-								  destruct (lookup nullAddr (memory s) beqAddr) eqn:Hlookupp ; intuition;
-                        try(exfalso ; congruence).
+								  unfold nullAddrExists in *. unfold isPADDR in *. rewrite <-beqAddrFalse in *.
+                  exfalso; congruence.
 						  ---- (* p <> nullAddr *)
 								  (* DUP *)
 								  rewrite <- beqAddrFalse in beqpNull.
@@ -520,7 +517,7 @@ induction n.
 								  {
 									  unfold MALInternal.zero.
 									  unfold CIndex.
-									  destruct (le_dec 0 maxIdx) ; intuition.
+									  destruct (le_dec 0 maxIdx) ; try(lia).
 									  assert(maxNbPrepare < maxIdx-1)
 										  by apply maxNbPrepareNbLessThanMaxIdx.
 									  destruct (le_dec maxNbPrepare maxIdx) ; intuition ; try lia.
@@ -539,10 +536,10 @@ induction n.
 								  --- (* false *)
 								  unfold nullAddr in *.
 								  unfold CPaddr in *.
-								  destruct (le_dec 0 maxAddr) ; intuition.
-								  assert(HpEq : ADT.CPaddr_obligation_2 =
+								  destruct (le_dec 0 maxAddr) ; try(lia).
+								  assert(HpEq : forall n Hhyp, ADT.CPaddr_obligation_2 n Hhyp =
 										  ADT.CPaddr_obligation_1 0 l)
-									  by apply proof_irrelevance.
+									  by (intros; apply proof_irrelevance).
 								  rewrite HpEq in *.
 								  congruence.
           -- destruct H15 as [blockstart Hprops]. exists blockstart. intuition.
@@ -648,7 +645,8 @@ induction n.
 									  unfold CIndex.
 									  assert(kernelStructureEntriesNb < maxIdx-1)
 										  by (apply KSEntriesNbLessThanMaxIdx).
-									  destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx) ; intuition ; try lia.
+									  destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx) ; try lia.
+                    unfold kernelStructureEntriesNb in *; simpl in *. lia.
 								  +++ assert(HidxEq : CIndex 7 = CIndex (kernelStructureEntriesNb-1)).
 									  {
 										  unfold CIndex. simpl in *.
@@ -693,7 +691,7 @@ induction n.
 								  {
 									  unfold MALInternal.zero.
 									  unfold CIndex.
-									  destruct (le_dec 0 maxIdx) ; intuition.
+									  destruct (le_dec 0 maxIdx) ; try(lia).
 									  assert(maxNbPrepare < maxIdx-1)
 										  by apply maxNbPrepareNbLessThanMaxIdx.
 									  destruct (le_dec maxNbPrepare maxIdx) ; intuition ; try lia.
@@ -722,7 +720,8 @@ induction n.
 									  unfold CIndex.
 									  assert(kernelStructureEntriesNb < maxIdx-1)
 										  by (apply KSEntriesNbLessThanMaxIdx).
-									  destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx) ; intuition ; try lia.
+									  destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx) ; try lia.
+                    cbn -[kernelStructureEntriesNb] in *. lia.
 								  +++ assert(HidxEq : CIndex 7 = CIndex (kernelStructureEntriesNb-1)).
 									  {
 										  unfold CIndex. simpl in *.
@@ -759,10 +758,10 @@ induction n.
 					  --- (* false, null is not null -> contradiction  *)
 						  unfold nullAddr in *.
 						  unfold CPaddr in *.
-						  destruct (le_dec 0 maxAddr) ; intuition.
-						  assert(HpEq : ADT.CPaddr_obligation_2 =
+						  destruct (le_dec 0 maxAddr) ; try(lia).
+						  assert(HpEq : forall n Hhyp, ADT.CPaddr_obligation_2 n Hhyp =
 								  ADT.CPaddr_obligation_1 0 l)
-							  by apply proof_irrelevance.
+							  by (intros; apply proof_irrelevance).
 						  rewrite HpEq in *.
 						  congruence.
       * destruct H10 as [blockstart Hprops]. exists blockstart. intuition. exists []. exists [].
@@ -930,7 +929,7 @@ case_eq kernelstructureisnull.
 		    destruct (present bentry) ; simpl ; try lia ; intuition.
 		    destruct (lookup a0 (memory s) beqAddr) ; intuition.
 		    destruct v;  intuition.
-		    destruct (present b) ; intuition.
+		    destruct (present b); try(simpl; right) ; assumption.
     - destruct H6 as [blockstart Hprops]. exists blockstart. subst zero. intuition.
 	}
 Qed.
@@ -968,7 +967,8 @@ case_eq (beqAddr blockstart startaddr).
 	  intros.
 	  { (** ret *)
 		  eapply weaken. apply ret.
-		  intros. simpl. intuition. exists blockstart. exists blockend. intuition.
+		  intros. simpl. intuition. exists blockstart. exists blockend. split; try(split); try(assumption).
+      apply andb_true_intro. split; assumption.
 	  }
   + (* case_eq beqAddr blockend endaddr = false *)
 	  intros.
@@ -1122,7 +1122,10 @@ induction n.
              unfold StateLib.Index.pred. unfold zero in beqcurrIdxZero. unfold CIndex in beqcurrIdxZero.
              destruct (le_dec 0 maxIdx); try(lia). simpl in beqcurrIdxZero.
              destruct (gt_dec currentidx 0); try(lia). simpl. left. reflexivity.
-        + assert(Hentry: entryaddr = {| p := 0; Hp := ADT.CPaddr_obligation_2 |}) by intuition.
+        + assert(Hentry: entryaddr =
+                          {| p := 0;
+                             Hp := ADT.CPaddr_obligation_2 (p currentkernelstructure + i currentidx) n0 |})
+            by intuition.
           assert(Hnull: nullAddrExists s) by (unfold consistency1 in *; intuition).
           unfold nullAddrExists in Hnull. unfold isPADDR in Hnull.
           assert(HeqNull: entryaddr = nullAddr).
@@ -1146,7 +1149,7 @@ induction n.
           { rewrite Hentry. intro. f_equal. apply proof_irrelevance. }
           rewrite <-Hentryaddr. rewrite Hlookups.
           destruct (indexEq currentidx zero) eqn:HbeqIdxZero; try(simpl; left; reflexivity).
-          unfold indexEq in *. apply beq_nat_false in HbeqIdxZero. unfold StateLib.Index.pred.
+          unfold indexEq in *. apply PeanoNat.Nat.eqb_neq in HbeqIdxZero. unfold StateLib.Index.pred.
           unfold zero in HbeqIdxZero. unfold CIndex in HbeqIdxZero. destruct (le_dec 0 maxIdx); try(lia).
           simpl in HbeqIdxZero. destruct (gt_dec currentidx 0); try(lia). simpl. left; reflexivity.
         + assert(Hnull: nullAddrExists s) by (unfold consistency1 in *; intuition).
@@ -1258,9 +1261,9 @@ induction n.
           assert(HkernelEntries: kernelEntriesAreValid s) by (unfold consistency1 in *; intuition).
           assert(Hnull: nullAddrExists s) by (unfold consistency1 in *; intuition).
           unfold nullAddrExists in Hnull.
-          assert(HeqNull: {| p := 0; Hp := ADT.CPaddr_obligation_2 |} = nullAddr).
+          assert(HeqNull: forall n Hhyp, {| p := 0; Hp := ADT.CPaddr_obligation_2 n Hhyp |} = nullAddr).
           {
-            unfold nullAddr. unfold CPaddr. destruct (le_dec 0 maxAddr); try(lia). f_equal.
+            intros. unfold nullAddr. unfold CPaddr. destruct (le_dec 0 maxAddr); try(lia). f_equal.
             apply proof_irrelevance.
           }
           apply getKSEntriesInStructAuxRec; try(lia).
@@ -1315,9 +1318,9 @@ induction n.
           destruct (le_dec (currentkernelstructure + currentidx) maxAddr); try(lia). exfalso.
           rewrite Hentry in HBE. assert(Hnull: nullAddrExists s) by (unfold consistency1 in *; intuition).
           unfold nullAddrExists in Hnull.
-          assert(HeqNull: {| p := 0; Hp := ADT.CPaddr_obligation_2 |} = nullAddr).
+          assert(HeqNull: forall n Hhyp, {| p := 0; Hp := ADT.CPaddr_obligation_2 n Hhyp |} = nullAddr).
           {
-            unfold nullAddr. unfold CPaddr. destruct (le_dec 0 maxAddr); try(lia). f_equal.
+            intros. unfold nullAddr. unfold CPaddr. destruct (le_dec 0 maxAddr); try(lia). f_equal.
             apply proof_irrelevance.
           }
           rewrite HeqNull in HBE. unfold isBE in HBE. unfold isPADDR in Hnull.
@@ -1370,7 +1373,7 @@ induction n.
           destruct (lookup entryaddr (memory s) beqAddr); try(exfalso; congruence).
           destruct v; try(exfalso; congruence).
           destruct (indexEq currentidx zero) eqn:HbeqIdxZero; try(simpl; left; reflexivity).
-          unfold indexEq in *. apply beq_nat_false in HbeqIdxZero. unfold StateLib.Index.pred.
+          unfold indexEq in *. apply PeanoNat.Nat.eqb_neq in HbeqIdxZero. unfold StateLib.Index.pred.
           unfold zero in HbeqIdxZero. unfold CIndex in HbeqIdxZero. destruct (le_dec 0 maxIdx); try(lia).
           simpl in HbeqIdxZero. destruct (gt_dec currentidx 0); try(lia). simpl. left; reflexivity.
         }
@@ -1404,7 +1407,7 @@ induction n.
         cbn -[kernelStructureEntriesNb] in HinLeftEntries.
         unfold blkoffset in Hentry. rewrite <-plus_n_O in Hentry. unfold CPaddr in Hentry.
         destruct (le_dec (currentkernelstructure + (kernelStructureEntriesNb - 1)) maxAddr);
-              try(intuition; congruence).
+              try(exfalso; simpl in HinLeftEntries; congruence).
         assert(Hentryaddr: forall Hi, entryaddr = {| p := currentkernelstructure + (kernelStructureEntriesNb -1);
                                                      Hp := Hi |}).
         { rewrite Hentry. intro. f_equal. apply proof_irrelevance. }
@@ -1412,8 +1415,8 @@ induction n.
         destruct (lookup entryaddr (memory s) beqAddr); try(exfalso; congruence).
         destruct v; try(exfalso; congruence).
         destruct (PeanoNat.Nat.eqb (kernelStructureEntriesNb - 1) 0) eqn:HkernelNbMOneNotZero.
-        { apply beq_nat_true in HkernelNbMOneNotZero. exfalso. simpl in HkernelNbMOneNotZero. lia. }
-        unfold StateLib.Index.pred in HinLeftEntries. apply beq_nat_false in HkernelNbMOneNotZero.
+        { apply PeanoNat.Nat.eqb_eq in HkernelNbMOneNotZero. exfalso. simpl in HkernelNbMOneNotZero. lia. }
+        unfold StateLib.Index.pred in HinLeftEntries. apply PeanoNat.Nat.eqb_neq in HkernelNbMOneNotZero.
         cbn -[kernelStructureEntriesNb] in *. destruct (gt_dec (kernelStructureEntriesNb - 1) 0); try(lia).
         cbn in HinLeftEntries. destruct Hblock as [blockstart [blockend (Hstart & Hend & Hbounds)]].
         exists entryaddr. exists blockstart. exists blockend. unfold bentryStartAddr in *.
@@ -1914,9 +1917,10 @@ revert currentkernelstructure idblock endblock P. induction n.
       {
         assert(HkernelEntries: kernelEntriesAreValid s) by (unfold consistency1 in *; intuition).
         assert(Hnull: nullAddrExists s) by (unfold consistency1 in *; intuition). unfold nullAddrExists in Hnull.
-        assert(HeqNull: {| p := 0; Hp := ADT.CPaddr_obligation_2 |} = nullAddr).
+        assert(HeqNull: forall n Hhyp, {| p := 0; Hp := ADT.CPaddr_obligation_2 n Hhyp |} = nullAddr).
         {
-          unfold nullAddr. unfold CPaddr. destruct (le_dec 0 maxAddr); try(lia). f_equal. apply proof_irrelevance.
+          intros. unfold nullAddr. unfold CPaddr. destruct (le_dec 0 maxAddr); try(lia). f_equal.
+          apply proof_irrelevance.
         }
         apply getKSEntriesInStructAuxEqFuelSuffGen.
         - assert(Htriv: CIndex (kernelStructureEntriesNb - 1) <= CIndex (kernelStructureEntriesNb - 1)) by lia.
