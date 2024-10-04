@@ -335,6 +335,25 @@ destruct p.
 		intros. assumption.
 Qed.
 
+(* DUP *)
+Lemma removeDupRemoved  (l :  list (paddr * value)) :
+forall addr,
+lookup addr (removeDup addr l  beqAddr) beqAddr = None.
+Proof.
+intros.
+induction l.
+simpl. trivial.
+simpl.
+destruct a.
+destruct p.
++ case_eq (beqAddr {| p := p; Hp := Hp |} addr).
+  - intros. assumption.
+	- intros. simpl.
+		case_eq (beqAddr {| p := p; Hp := Hp |} addr).
+		intros. exfalso; congruence.
+		intros. assumption.
+Qed.
+
 Lemma removeDupDupIdentity  (l :  list (paddr * value)) :
 forall addr1 addr2 , addr1 <> addr2  ->
 lookup addr1

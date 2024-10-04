@@ -791,9 +791,10 @@ Fixpoint eraseBlockAux (timeout : nat) (startAddr currentAddr : paddr): LLI unit
 
 (** The [eraseBlock] function fixes the timeout value of [eraseBlockAux] *)
 Definition eraseBlock (startAddr endAddr : paddr) : LLI bool :=
-  perform isEndAddrBeforeStartAddr := Paddr.ltb endAddr startAddr in
+  perform isEndAddrBeforeStartAddr := Paddr.leb endAddr startAddr in
   if isEndAddrBeforeStartAddr then ret false else
-  eraseBlockAux N startAddr endAddr ;;
+  perform realEnd := Paddr.pred endAddr in
+  eraseBlockAux N startAddr realEnd ;;
   ret true.
 
 (** The [checkEntry] function checks whether the entry passed in parameter exists *)

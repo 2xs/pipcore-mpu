@@ -925,8 +925,8 @@ void writeNextFromKernelStructureStart(paddr structureaddr, paddr newnextstructu
  */
 bool eraseBlock (paddr startAddr, paddr endAddr)
 {
-	if (endAddr < startAddr) return false;
-	for (paddr curraddr = endAddr ; startAddr <= curraddr ; curraddr--)
+	if (endAddr <= startAddr) return false;
+	for (paddr curraddr = endAddr -1 ; startAddr <= curraddr ; curraddr--)
 	{
 		*(uint8_t*)curraddr = 0;
 	}
