@@ -461,6 +461,49 @@ false = checkChild blockParent s (CPaddr (blockParent + sh1offset))
           /\ (startParent = startChild -> blockIDInChild = blockChild)))
 /\ ((startParent <> startChild \/ endParent <> endChild) -> bentryAFlag blockParent false s).
 
+(* Not a consistency property, but a partial version of the previous one, to be used in some proofs where the
+    property stays true for all pairs of partitions except for one *)
+Definition childsBlocksPropsInParentPartial partition s :=
+forall child parentPart blockChild startChild endChild blockParent startParent endParent,
+parentPart <> partition ->
+In parentPart (getPartitions multiplexer s) ->
+In child (getChildren parentPart s) ->
+In blockChild (getMappedBlocks child s) ->
+bentryStartAddr blockChild startChild s ->
+bentryEndAddr blockChild endChild s ->
+bentryPFlag blockChild true s ->
+In blockParent (getMappedBlocks parentPart s) ->
+bentryStartAddr blockParent startParent s ->
+bentryEndAddr blockParent endParent s ->
+bentryPFlag blockParent true s ->
+startParent <= startChild ->
+endParent >= endChild ->
+false = checkChild blockParent s (CPaddr (blockParent + sh1offset))
+/\ (forall childGlobalID,
+      sh1entryPDchild (CPaddr (blockParent + sh1offset)) childGlobalID s
+      -> childGlobalID <> nullAddr)
+/\ (forall blockIDInChild,
+      sh1entryInChildLocation (CPaddr (blockParent + sh1offset)) blockIDInChild s
+      -> (blockIDInChild <> nullAddr
+          /\ (startParent = startChild -> blockIDInChild = blockChild)))
+/\ ((startParent <> startChild \/ endParent <> endChild) -> bentryAFlag blockParent false s).
+
+Definition childsBlocksPropsInParentLight s :=
+forall child parentPart blockChild startChild endChild blockParent startParent endParent,
+In parentPart (getPartitions multiplexer s) ->
+In child (getChildren parentPart s) ->
+In blockChild (getMappedBlocks child s) ->
+bentryStartAddr blockChild startChild s ->
+bentryEndAddr blockChild endChild s ->
+bentryPFlag blockChild true s ->
+In blockParent (getMappedBlocks parentPart s) ->
+bentryStartAddr blockParent startParent s ->
+bentryEndAddr blockParent endParent s ->
+bentryPFlag blockParent true s ->
+startParent <= startChild ->
+endParent >= endChild ->
+false = checkChild blockParent s (CPaddr (blockParent + sh1offset)).
+
 (* Ensures that the partition tree is acyclic *)
 (** ** Given a partition p and its parent, there is no chain of partitions that contains p and such that the
        parent is the first element and each element is the parent of the previous one ** **)
@@ -494,6 +537,40 @@ Definition MPUsizeIsBelowMax s :=
 forall partition MPUlist,
 pdentryMPU partition MPUlist s
 -> length MPUlist <= MPURegionsNb.
+
+Definition blocksAddressesTypes s :=
+forall block startaddr endaddr,
+bentryStartAddr block startaddr s
+-> bentryEndAddr block endaddr s
+-> (isKS startaddr s
+      /\ (forall addr, In addr (getAllPaddrBlock startaddr endaddr)
+          -> (isBE addr s \/ isSHE addr s \/ isSCE addr s))
+    \/ isPDT startaddr s
+      /\ (forall addr, In addr (getAllPaddrBlock startaddr endaddr) /\ addr <> startaddr
+          -> lookup addr (memory s) beqAddr = None)
+    \/ forall addr, In addr (getAllPaddrBlock startaddr endaddr)
+          -> lookup addr (memory s) beqAddr = None).
+
+Definition notPDTIfNotPDflag s :=
+forall block startaddr sh1entryaddr,
+bentryStartAddr block startaddr s
+-> sh1entryAddr block sh1entryaddr s
+-> sh1entryPDflag sh1entryaddr false s
+-> ~ isPDT startaddr s.
+
+Definition kernelsAreNotAccessible s :=
+forall block startaddr,
+bentryStartAddr block startaddr s
+-> isKS startaddr s
+-> bentryAFlag block false s.
+
+Definition nextKernAddrIsInSameBlock s :=
+forall block kernel startaddr endaddr,
+bentryStartAddr block startaddr s
+-> bentryEndAddr block endaddr s
+-> isKS kernel s
+-> In (CPaddr (kernel + nextoffset)) (getAllPaddrBlock startaddr endaddr)
+-> kernel = startaddr.
 
 
 (** ** First batch of consistency properties *)
