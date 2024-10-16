@@ -535,7 +535,7 @@ Definition writeSh1PDFlagFromBlockEntryAddr (paddr : paddr) (pdflag : bool) : LL
   |} in
     modify (fun s => {|
       currentPartition := s.(currentPartition);
-      memory := add paddr (SHE newEntry) s.(memory) beqAddr
+      memory := add Sh1EAddr (SHE newEntry) s.(memory) beqAddr
   |})
   | Some _ => undefined 12
   | None => undefined 11
@@ -702,7 +702,7 @@ Definition writeNextFromKernelStructureStart (structurepaddr : paddr) (newnext :
   match entry with
   | Some (PADDR a) => modify (fun s => {|
     currentPartition := s.(currentPartition);
-    memory := add structurepaddr (PADDR newnext) s.(memory) beqAddr
+    memory := add nextaddr (PADDR newnext) s.(memory) beqAddr
   |})
   | Some _ => undefined 12
   | None => undefined 11

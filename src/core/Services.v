@@ -92,7 +92,7 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
 		(* if accessible, then PDflag can't be set, we just need to check PDchild *)
 		perform PDChildAddr := readSh1PDChildFromBlockEntryAddr	blockInCurrentPartitionAddr in
 		perform PDChildAddrIsNull := compareAddrToNull PDChildAddr in
-		if negb PDChildAddrIsNull (*shouldn't be null*) then (* shared *) ret false else
+		if negb PDChildAddrIsNull (*should be null*) then (* shared *) ret false else
 
 		(** Initialize child Partition Descriptor *)
 
