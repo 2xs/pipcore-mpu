@@ -137,11 +137,12 @@ Qed.
 Lemma eraseBlock (startaddr endaddr: paddr) P:
 {{ fun s => P s }}
 MAL.eraseBlock startaddr endaddr
-{{ fun _ s => exists s0, P s0
+{{ fun succeded s => exists s0, P s0
               /\ (forall addr, In addr (getAllPaddrBlock startaddr endaddr)
                                 -> lookup addr (memory s) beqAddr = None)
               /\ (forall addr, ~In addr (getAllPaddrBlock startaddr endaddr)
-                                -> lookup addr (memory s) beqAddr = lookup addr (memory s0) beqAddr) }}.
+                                -> lookup addr (memory s) beqAddr = lookup addr (memory s0) beqAddr)
+              /\ (succeded = false -> s = s0) }}.
 Proof.
 unfold MAL.eraseBlock. eapply bindRev.
 { (* Monad.ret *)
@@ -155,7 +156,7 @@ intro isEndAddrBeforeStartAddr. destruct isEndAddrBeforeStartAddr.
   split. assumption. split.
   + intros addr Hcontra. exfalso. unfold getAllPaddrBlock in Hcontra.
     assert(Hsub: endaddr - startaddr = 0) by lia. rewrite Hsub in Hcontra. simpl in Hcontra. congruence.
-  + intros. reflexivity.
+  + split; intros; reflexivity.
 - eapply bindRev.
   {
     eapply weaken. apply WP.Paddr.pred. intros s Hprops. simpl. destruct Hprops as (HP & HleEndStart).
@@ -175,6 +176,7 @@ intro isEndAddrBeforeStartAddr. destruct isEndAddrBeforeStartAddr.
   }
   intro. eapply weaken. apply WP.ret. intros s Hprops. simpl.
   destruct Hprops as (HremovedAddr & [s0 ((HP & Hbounds & _) & HkeptAddr)]). exists s0. split. assumption.
-  split; try(assumption). intros addr HaddrInBlock. apply getAllPaddrBlockInclRev in HaddrInBlock.
+  split; try(split); try(assumption); try(intro; exfalso; congruence). intros addr HaddrInBlock.
+  apply getAllPaddrBlockInclRev in HaddrInBlock.
   destruct HaddrInBlock as (HleStartAddr & HltAddrEnd & _). apply HremovedAddr; lia.
 Qed.
