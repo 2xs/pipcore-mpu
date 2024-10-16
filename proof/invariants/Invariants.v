@@ -1283,17 +1283,19 @@ intros. simpl. intuition.
 Qed.
 
 Lemma readSh1PDChildFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Prop)  :
-{{fun s  =>  Q s /\ consistency s /\ exists entry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
+{{fun s  =>  Q s /\ wellFormedFstShadowIfBlockEntry s /\ KernelStructureStartFromBlockEntryAddrIsKS s
+              /\ BlocksRangeFromKernelStartIsBE s /\ nullAddrExists s
+              /\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
 MAL.readSh1PDChildFromBlockEntryAddr blockentryaddr
-{{fun pdchild s => Q s (*/\ consistency s*) (*/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)*)
-										/\ exists sh1entry : Sh1Entry, exists sh1entryaddr : paddr, lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry)
+{{fun pdchild s => Q s
+										/\ exists sh1entry sh1entryaddr, lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry)
 										/\ sh1entryPDchild sh1entryaddr pdchild s
 										/\ sh1entryAddr blockentryaddr sh1entryaddr s}}.
 Proof.
 unfold MAL.readSh1PDChildFromBlockEntryAddr.
 eapply WP.bindRev.
 +   eapply WP.weaken. apply getSh1EntryAddrFromBlockEntryAddr.
-	intros. simpl. unfold consistency in H. split. apply H. split. apply H.
+	intros. simpl. split. apply H. split. apply H.
 	split. apply H. split. apply H. split. apply H. intuition.
 +	intro sh1entryaddr. simpl.
 	eapply bind.
@@ -1504,7 +1506,9 @@ Qed.
 
 (* DUP *)
 Lemma readSCOriginFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Prop)  :
-{{fun s  =>  Q s /\ consistency s /\ exists entry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
+{{fun s  =>  Q s /\ wellFormedShadowCutIfBlockEntry s /\ KernelStructureStartFromBlockEntryAddrIsKS s
+              /\ BlocksRangeFromKernelStartIsBE s /\ nullAddrExists s
+              /\ exists entry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
 MAL.readSCOriginFromBlockEntryAddr blockentryaddr
 {{fun origin s => Q s (*/\ consistency s*) (*/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)*)
 										/\ scentryOrigin (CPaddr (blockentryaddr + scoffset)) origin s}}.
@@ -1519,13 +1523,14 @@ eapply WP.bindRev.
 	eapply weaken. apply getSCRecordField.
 	intros. simpl. destruct H. destruct H0. exists x.
 	split. intuition. split. apply H.
-	destruct H0. unfold scentryAddr in *. destruct H as (HQ & Hcons & [bentry HBE]). rewrite HBE in *.
+	destruct H0. unfold scentryAddr in *. destruct H as (HQ & _ & _ & _ & _ & [bentry HBE]). rewrite HBE in *.
 	apply lookupSCEntryOrigin. subst scentryaddr. assumption.
 Qed.
 
 (* DUP with changes in scentryNext + lookupSCEntryNext + changes of function names*)
 Lemma readSCNextFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Prop)  :
-{{fun s  =>  Q s /\ consistency1 s
+{{fun s  =>  Q s /\ wellFormedShadowCutIfBlockEntry s /\ KernelStructureStartFromBlockEntryAddrIsKS s
+            /\ BlocksRangeFromKernelStartIsBE s /\ nullAddrExists s
             /\ exists entry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
 MAL.readSCNextFromBlockEntryAddr blockentryaddr
 {{fun next s => Q s
@@ -2055,4 +2060,396 @@ intro s. destruct (lookup PDTableAddr (memory s) beqAddr) eqn:HlookupPD.
 - eapply weaken. apply undefined. intros s0 Hprops. simpl. destruct Hprops as (_ & HlookupContra & Hss0).
   subst s0. congruence.
 Qed.
+
+Lemma writeSh1PDFlagFromBlockEntryAddr block pdflag P:
+{{ fun s => P s /\ wellFormedFstShadowIfBlockEntry s /\ KernelStructureStartFromBlockEntryAddrIsKS s
+            /\ BlocksRangeFromKernelStartIsBE s /\ nullAddrExists s /\ isBE block s }}
+MAL.writeSh1PDFlagFromBlockEntryAddr block pdflag
+{{ fun _ s => exists s0 sh1entry, P s0
+                        /\ lookup (CPaddr (block + sh1offset)) (memory s0) beqAddr = Some(SHE sh1entry)
+                        /\ s = {|
+                                 currentPartition := currentPartition s0;
+                                 memory :=
+                                   add (CPaddr (block + sh1offset))
+                                     (SHE {|
+                                            PDchild := PDchild sh1entry;
+                                            PDflag := pdflag;
+                                            inChildLocation := inChildLocation sh1entry |})
+                                     (memory s0) beqAddr
+                               |} }}.
+Proof.
+unfold writeSh1PDFlagFromBlockEntryAddr. eapply bindRev.
+{ (* MAL.getSh1EntryAddrFromBlockEntryAddr *)
+  eapply weaken. apply getSh1EntryAddrFromBlockEntryAddr. intros s Hprops. simpl. split. apply Hprops.
+  intuition. apply isBELookupEq. assumption.
+}
+intro Sh1EAddr. eapply bindRev.
+{ (* Monad.get *)
+  eapply weaken. apply get. intros s Hprops. simpl.
+  instantiate(1 := fun resState s => P s /\ wellFormedFstShadowIfBlockEntry s
+                  /\ KernelStructureStartFromBlockEntryAddrIsKS s /\ BlocksRangeFromKernelStartIsBE s
+                  /\ nullAddrExists s /\ isBE block s
+                  /\ (exists sh1entry, lookup Sh1EAddr (memory s) beqAddr = Some (SHE sh1entry)
+                        /\ sh1entryAddr block Sh1EAddr s)
+                  /\ resState = s). intuition.
+}
+intro s. destruct (lookup Sh1EAddr (memory s) beqAddr) eqn:HlookupSh1.
+- destruct v; try(eapply weaken; try(apply undefined); intros s1 Hprops; simpl;
+      destruct Hprops as (_ & _ & _ & _ & _ & _ & Hcontra & Hs); subst s1;
+      destruct Hcontra as [sh1entry (Hcontra & _)]; congruence).
+  eapply weaken. apply modify. intros s1 Hprops. simpl. exists s. exists s0.
+  destruct Hprops as (HP & _ & _ & _ & _ & _ & HlookupSh1Bis & Hs). subst s1. split. assumption.
+  split; try(reflexivity). destruct HlookupSh1Bis as [sh1entry (HlookupSh1Bis & Hsh1)]. rewrite HlookupSh1 in *.
+  injection HlookupSh1Bis as HshentriesEq. subst s0. unfold sh1entryAddr in Hsh1.
+  destruct (lookup block (memory s) beqAddr); try(exfalso; congruence). destruct v; try(exfalso; congruence).
+  subst Sh1EAddr. assumption. destruct HlookupSh1Bis as [_ (_ & Hsh1)]. unfold sh1entryAddr in Hsh1.
+  destruct (lookup block (memory s) beqAddr); try(exfalso; congruence). destruct v; try(exfalso; congruence).
+  subst Sh1EAddr. reflexivity.
+- eapply weaken. apply undefined. intros s0 Hprops. simpl.
+  destruct Hprops as (_ & _ & _ & _ & _ & _ & Hcontra & Hs). subst s0.
+  destruct Hcontra as [sh1entry (Hcontra & _)]. congruence.
+Qed.
+
+Lemma writeSh1EntryFromBlockEntryAddr block newPdChild newPdFlag newInChildLocation P:
+{{ fun s => P s /\ wellFormedFstShadowIfBlockEntry s /\ KernelStructureStartFromBlockEntryAddrIsKS s
+            /\ BlocksRangeFromKernelStartIsBE s /\ nullAddrExists s /\ isBE block s }}
+writeSh1EntryFromBlockEntryAddr block newPdChild newPdFlag newInChildLocation
+{{ fun _ s => exists s0 sh1entry1 sh1entry0,
+                P s0
+                /\ s = {|
+                         currentPartition := currentPartition s0;
+                         memory :=
+                           add (CPaddr (block + sh1offset))
+                             (SHE {| PDchild := newPdChild;
+                                     PDflag := newPdFlag;
+                                     inChildLocation := newInChildLocation |})
+                             (add (CPaddr (block + sh1offset)) sh1entry1
+                                (add (CPaddr (block + sh1offset)) sh1entry0 (memory s0) beqAddr) beqAddr) beqAddr
+                       |}
+                /\ wellFormedFstShadowIfBlockEntry s /\ KernelStructureStartFromBlockEntryAddrIsKS s
+                /\ BlocksRangeFromKernelStartIsBE s /\ nullAddrExists s }}.
+Proof.
+unfold writeSh1EntryFromBlockEntryAddr. eapply bindRev.
+{ (* MAL.writeSh1PDChildFromBlockEntryAddr *)
+  eapply weaken. apply writeSh1PDChildFromBlockEntryAddr. intros s Hprops. simpl.
+  destruct Hprops as (HP & HwellFormedSh & HstructIsKS & HrangeIsBE & Hnull & HblockIsBE).
+  assert(HwellFormedShCopy: wellFormedFstShadowIfBlockEntry s) by assumption.
+  specialize(HwellFormedShCopy block HblockIsBE). unfold isSHE in HwellFormedShCopy.
+  destruct (lookup (CPaddr (block + sh1offset)) (memory s) beqAddr) eqn:HlookupSh1; try(exfalso; congruence).
+  destruct v; try(exfalso; congruence). exists s0. split. reflexivity.
+  instantiate(1 := fun _ s =>
+      wellFormedFstShadowIfBlockEntry s
+      /\ KernelStructureStartFromBlockEntryAddrIsKS s /\ BlocksRangeFromKernelStartIsBE s
+      /\ nullAddrExists s /\ beqAddr (CPaddr (block + sh1offset)) block = false
+      /\ exists s0 sh1entry, P s0 /\ isBE block s0
+                /\ lookup block (memory s) beqAddr = lookup block (memory s0) beqAddr
+                /\ lookup (CPaddr (block + sh1offset)) (memory s0) beqAddr = Some (SHE sh1entry)
+                /\ s = {|
+                         currentPartition := currentPartition s0;
+                         memory :=
+                           add (CPaddr (block + sh1offset))
+                             (SHE {| PDchild := newPdChild;
+                                     PDflag := PDflag sh1entry;
+                                     inChildLocation := inChildLocation sh1entry |})
+                             (memory s0) beqAddr
+                       |}). simpl. split.
+  - set(s' := {|
+                currentPartition := currentPartition s;
+                memory :=
+                  add (CPaddr (block + sh1offset))
+                    (SHE {| PDchild := newPdChild; PDflag := PDflag s0; inChildLocation := inChildLocation s0 |})
+                    (memory s) beqAddr
+              |}).
+    assert(wellFormedFstShadowIfBlockEntry s').
+    {
+      intros blockBis HblockBisIsBE. unfold isSHE. simpl.
+      destruct (beqAddr (CPaddr (block + sh1offset)) (CPaddr (blockBis + sh1offset))) eqn:HbeqBlocks; trivial.
+      rewrite <-beqAddrFalse in HbeqBlocks. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      assert(HblockBisIsBEs: isBE blockBis s).
+      {
+        unfold isBE in *. simpl in HblockBisIsBE.
+        destruct (beqAddr (CPaddr (block + sh1offset)) blockBis) eqn:HbeqBlockSh1BlockBis;
+          try(exfalso; congruence). rewrite <-beqAddrFalse in HbeqBlockSh1BlockBis.
+        rewrite removeDupIdentity in HblockBisIsBE; try(apply not_eq_sym); assumption.
+      }
+      specialize(HwellFormedSh blockBis HblockBisIsBEs). assumption.
+    }
+    assert(KernelStructureStartFromBlockEntryAddrIsKS s').
+    {
+      intros blockBis blockidx HblockBisIsBE HblockIdx.
+      assert(HblockBisIsBEs: isBE blockBis s).
+      {
+        unfold isBE in *. simpl in HblockBisIsBE.
+        destruct (beqAddr (CPaddr (block + sh1offset)) blockBis) eqn:HbeqBlockSh1BlockBis;
+          try(exfalso; congruence). rewrite <-beqAddrFalse in HbeqBlockSh1BlockBis.
+        rewrite removeDupIdentity in HblockBisIsBE; try(apply not_eq_sym); assumption.
+      }
+      assert(HblockIdxs: bentryBlockIndex blockBis blockidx s).
+      {
+        unfold bentryBlockIndex in *. simpl in HblockIdx.
+        destruct (beqAddr (CPaddr (block + sh1offset)) blockBis) eqn:HbeqBlockSh1BlockBis;
+          try(exfalso; congruence). rewrite <-beqAddrFalse in HbeqBlockSh1BlockBis.
+        rewrite removeDupIdentity in HblockIdx; try(apply not_eq_sym); assumption.
+      }
+      specialize(HstructIsKS blockBis blockidx HblockBisIsBEs HblockIdxs). unfold isKS in *. simpl.
+      destruct (beqAddr (CPaddr (block + sh1offset)) (CPaddr (blockBis - blockidx))) eqn:HbeqBlockSh1BlockBisKern.
+      {
+        rewrite <-DTL.beqAddrTrue in HbeqBlockSh1BlockBisKern. rewrite HbeqBlockSh1BlockBisKern in *.
+        rewrite HlookupSh1 in HstructIsKS. congruence.
+      }
+      rewrite <-beqAddrFalse in HbeqBlockSh1BlockBisKern. rewrite removeDupIdentity; try(apply not_eq_sym);
+        assumption.
+    }
+    assert(BlocksRangeFromKernelStartIsBE s').
+    {
+      intros kernelBis blockidx HkernIsKS HblockIdxBound.
+      assert(HkernIsKSs: isKS kernelBis s).
+      {
+        unfold isKS in *. simpl in HkernIsKS.
+        destruct (beqAddr (CPaddr (block + sh1offset)) kernelBis) eqn:HbeqBlockSh1KernBis;
+          try(exfalso; congruence). rewrite <-beqAddrFalse in HbeqBlockSh1KernBis.
+        rewrite removeDupIdentity in HkernIsKS; try(apply not_eq_sym); assumption.
+      }
+      specialize(HrangeIsBE kernelBis blockidx HkernIsKSs HblockIdxBound). unfold isBE in *. simpl.
+      destruct (beqAddr (CPaddr (block + sh1offset)) (CPaddr (kernelBis + blockidx))) eqn:HbeqBlockSh1KernIdx.
+      {
+        rewrite <-DTL.beqAddrTrue in HbeqBlockSh1KernIdx. rewrite HbeqBlockSh1KernIdx in *.
+        rewrite HlookupSh1 in HrangeIsBE. congruence.
+      }
+      rewrite <-beqAddrFalse in HbeqBlockSh1KernIdx. rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
+    }
+    assert(nullAddrExists s').
+    {
+      unfold nullAddrExists in *. unfold isPADDR in *. simpl.
+      destruct (beqAddr (CPaddr (block + sh1offset)) nullAddr) eqn:HbeqBlockSh1Null.
+      {
+        rewrite <-DTL.beqAddrTrue in HbeqBlockSh1Null. rewrite HbeqBlockSh1Null in *.
+        rewrite HlookupSh1 in Hnull. congruence.
+      }
+      rewrite <-beqAddrFalse in HbeqBlockSh1Null. rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
+    }
+    destruct (beqAddr (CPaddr (block + sh1offset)) block) eqn:HbeqBlockSh1Block.
+    {
+      exfalso. rewrite <-DTL.beqAddrTrue in HbeqBlockSh1Block. rewrite HbeqBlockSh1Block in *.
+      unfold isBE in HblockIsBE. rewrite HlookupSh1 in HblockIsBE. congruence.
+    }
+    split. assumption. split. assumption. split. assumption. split. assumption. split. reflexivity.
+    exists s. exists s0. rewrite <-beqAddrFalse in HbeqBlockSh1Block.
+    rewrite removeDupIdentity; intuition.
+  - intuition.
+}
+intro. eapply bindRev.
+{ (* MAL.writeSh1PDFlagFromBlockEntryAddr *)
+  eapply weaken. apply writeSh1PDFlagFromBlockEntryAddr. intros s Hprops. simpl. split. apply Hprops.
+  destruct Hprops as (HwellFormedSh & HstructIsKS & HrangeIsBE & Hnull & HbeqBlockSh1Block & [s0 [sh1entry (_ &
+      HblockIsBEs0 & HlookupEq & _)]]). unfold isBE in HblockIsBEs0. rewrite <-HlookupEq in HblockIsBEs0.
+  intuition.
+}
+intro. eapply bindRev.
+{ (* MAL.writeSh1InChildLocationFromBlockEntryAddr *)
+  eapply weaken. apply writeSh1InChildLocationFromBlockEntryAddr. intros s Hprops. simpl.
+  destruct Hprops as [s1 [sh1entry1 (Hprops & HlookupBlockSh1 & Hs)]].
+  set(sh1entry2 := {|
+                     PDchild := PDchild sh1entry1;
+                     PDflag := newPdFlag;
+                     inChildLocation := inChildLocation sh1entry1
+                   |}).
+  assert(HlookupBlockSh1s: lookup (CPaddr (block + sh1offset)) (memory s) beqAddr = Some (SHE sh1entry2)).
+  {
+    rewrite Hs. simpl. rewrite beqAddrTrue. reflexivity.
+  }
+  exists sh1entry2. split. assumption.
+  destruct Hprops as (HwellFormedSh & HstructIsKS & HrangeIsBE & Hnull & HbeqBlockSh1Block & [s0 [sh1entry
+      (HP & HblockIsBEs0 & HlookupBlockEq & Hprops)]]).
+  assert(HlookupBlockEqss0: lookup block (memory s) beqAddr = lookup block (memory s0) beqAddr).
+  {
+    rewrite <-HlookupBlockEq. rewrite Hs. simpl. rewrite HbeqBlockSh1Block.
+    rewrite <-beqAddrFalse in HbeqBlockSh1Block. rewrite removeDupIdentity; intuition.
+  }
+  unfold isBE. rewrite HlookupBlockEqss0.
+  assert(wellFormedFstShadowIfBlockEntry s).
+  {
+    intros blockBis HblockBisIsBE. assert(HblockBisIsBEs1: isBE blockBis s1).
+    {
+      unfold isBE in *. rewrite Hs in HblockBisIsBE. simpl in HblockBisIsBE.
+      destruct (beqAddr (CPaddr (block + sh1offset)) blockBis) eqn:HbeqBlockSh1BlockBis; try(exfalso; congruence).
+      rewrite <-beqAddrFalse in HbeqBlockSh1BlockBis. rewrite removeDupIdentity in HblockBisIsBE; intuition.
+    }
+    specialize(HwellFormedSh blockBis HblockBisIsBEs1).
+    unfold isSHE. rewrite Hs. simpl.
+    destruct (beqAddr (CPaddr (block + sh1offset)) (CPaddr (blockBis + sh1offset))) eqn:HbeqBlockSh1BlockBisSh1;
+      trivial. rewrite <-beqAddrFalse in HbeqBlockSh1BlockBisSh1. rewrite removeDupIdentity; intuition.
+  }
+  assert(KernelStructureStartFromBlockEntryAddrIsKS s).
+  {
+    intros blockBis blockidx HblockBisIsBE HblockIdx. assert(HblockBisIsBEs1: isBE blockBis s1).
+    {
+      unfold isBE in *. rewrite Hs in HblockBisIsBE. simpl in HblockBisIsBE.
+      destruct (beqAddr (CPaddr (block + sh1offset)) blockBis) eqn:HbeqBlockSh1BlockBis; try(exfalso; congruence).
+      rewrite <-beqAddrFalse in HbeqBlockSh1BlockBis. rewrite removeDupIdentity in HblockBisIsBE; intuition.
+    }
+    assert(HblockIdxs1: bentryBlockIndex blockBis blockidx s1).
+    {
+      unfold bentryBlockIndex in *. rewrite Hs in HblockIdx. simpl in HblockIdx.
+      destruct (beqAddr (CPaddr (block + sh1offset)) blockBis) eqn:HbeqBlockSh1BlockBis; try(exfalso; congruence).
+      rewrite <-beqAddrFalse in HbeqBlockSh1BlockBis. rewrite removeDupIdentity in HblockIdx; intuition.
+    }
+    specialize(HstructIsKS blockBis blockidx HblockBisIsBEs1 HblockIdxs1). unfold isKS in *. rewrite Hs. simpl.
+    destruct (beqAddr (CPaddr (block + sh1offset)) (CPaddr (blockBis - blockidx))) eqn:HbeqBlockSh1BlockBisKern.
+    {
+      rewrite <-DTL.beqAddrTrue in HbeqBlockSh1BlockBisKern. rewrite HbeqBlockSh1BlockBisKern in *.
+      rewrite HlookupBlockSh1 in HstructIsKS. congruence.
+    }
+    rewrite <-beqAddrFalse in HbeqBlockSh1BlockBisKern. rewrite removeDupIdentity; intuition.
+  }
+  assert(BlocksRangeFromKernelStartIsBE s).
+  {
+    intros kernelBis blockidx HkernIsKS HblockIdxBound.
+    assert(HkernIsKSs: isKS kernelBis s1).
+    {
+      unfold isKS in *. rewrite Hs in HkernIsKS. simpl in HkernIsKS.
+      destruct (beqAddr (CPaddr (block + sh1offset)) kernelBis) eqn:HbeqBlockSh1KernBis;
+        try(exfalso; congruence). rewrite <-beqAddrFalse in HbeqBlockSh1KernBis.
+      rewrite removeDupIdentity in HkernIsKS; try(apply not_eq_sym); assumption.
+    }
+    specialize(HrangeIsBE kernelBis blockidx HkernIsKSs HblockIdxBound). unfold isBE in *. rewrite Hs. simpl.
+    destruct (beqAddr (CPaddr (block + sh1offset)) (CPaddr (kernelBis + blockidx))) eqn:HbeqBlockSh1KernIdx.
+    {
+      rewrite <-DTL.beqAddrTrue in HbeqBlockSh1KernIdx. rewrite HbeqBlockSh1KernIdx in *.
+      rewrite HlookupBlockSh1 in HrangeIsBE. congruence.
+    }
+    rewrite <-beqAddrFalse in HbeqBlockSh1KernIdx. rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
+  }
+  assert(nullAddrExists s).
+  {
+    unfold nullAddrExists in *. unfold isPADDR in *. rewrite Hs. simpl.
+    destruct (beqAddr (CPaddr (block + sh1offset)) nullAddr) eqn:HbeqBlockSh1Null.
+    {
+      rewrite <-DTL.beqAddrTrue in HbeqBlockSh1Null. rewrite HbeqBlockSh1Null in *.
+      rewrite HlookupBlockSh1 in Hnull. congruence.
+    }
+    rewrite <-beqAddrFalse in HbeqBlockSh1Null. rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
+  }
+  instantiate(1 := fun _ s =>
+      exists s2 s1 s0 sh1entry2 sh1entry1 sh1entry0,
+          s = {|
+                currentPartition := currentPartition s2;
+                memory :=
+                  add (CPaddr (block + sh1offset))
+                    (SHE
+                       {|
+                         PDchild := PDchild sh1entry2;
+                         PDflag := PDflag sh1entry2;
+                         inChildLocation := newInChildLocation
+                       |}) (memory s2) beqAddr
+              |}
+          /\ s2 = {|
+                    currentPartition := currentPartition s1;
+                    memory :=
+                      add (CPaddr (block + sh1offset))
+                        (SHE sh1entry2) (memory s1) beqAddr
+                  |}
+          /\ sh1entry2 =
+              {|
+                PDchild := PDchild sh1entry1; PDflag := newPdFlag; inChildLocation := inChildLocation sh1entry1
+              |}
+          /\ sh1entry1 =
+              {|
+                PDchild := newPdChild; PDflag := PDflag sh1entry0; inChildLocation := inChildLocation sh1entry0
+              |}
+          /\ beqAddr (CPaddr (block + sh1offset)) block = false
+          /\ lookup (CPaddr (block + sh1offset)) (memory s2) beqAddr = Some (SHE sh1entry2)
+          /\ wellFormedFstShadowIfBlockEntry s2 /\ KernelStructureStartFromBlockEntryAddrIsKS s2
+          /\ BlocksRangeFromKernelStartIsBE s2 /\ nullAddrExists s2
+          /\ s1 = {|
+                    currentPartition := currentPartition s0;
+                    memory :=
+                      add (CPaddr (block + sh1offset))
+                        (SHE
+                           {|
+                             PDchild := newPdChild;
+                             PDflag := PDflag sh1entry0;
+                             inChildLocation := inChildLocation sh1entry0
+                           |}) (memory s0) beqAddr
+                  |}
+          /\ lookup (CPaddr (block + sh1offset)) (memory s1) beqAddr = Some (SHE sh1entry1)
+          /\ lookup block (memory s1) beqAddr = lookup block (memory s0) beqAddr
+          /\ lookup (CPaddr (block + sh1offset)) (memory s0) beqAddr = Some (SHE sh1entry0)
+          /\ isBE block s0 /\ P s0). simpl. split.
+  - exists s. exists s1. exists s0. exists sh1entry2. exists sh1entry1. exists sh1entry.
+    intuition. rewrite H4 in HlookupBlockSh1. simpl in HlookupBlockSh1. rewrite beqAddrTrue in HlookupBlockSh1.
+    injection HlookupBlockSh1 as Hres. apply eq_sym. assumption.
+  - intuition.
+}
+intro. eapply weaken. apply ret. intros s Hprops. simpl. destruct Hprops as [s2 [s1 [s0 [sh1entry2 [sh1entry1
+  [sh1entry0 (Hs & Hs2 & Hsh1entry2 & Hsh1entry1 & HbeqBlockSh1Block & HlookupBlockSh1s2 & HwellFormedSh &
+  HstructIsKS & HrangeIsBE & Hnull & Hs1 & _ & _ & _ & _ & HP)]]]]]]. exists s0.
+exists (SHE {| PDchild := newPdChild; PDflag := newPdFlag; inChildLocation := inChildLocation sh1entry0 |}).
+exists (SHE {| PDchild := newPdChild; PDflag := PDflag sh1entry0;
+               inChildLocation := inChildLocation sh1entry0 |}).
+ split. assumption. split.
+- rewrite Hs. rewrite Hs2. simpl. rewrite Hsh1entry2. simpl. rewrite Hsh1entry1. simpl. rewrite Hs1. simpl.
+  reflexivity.
+- split.
+  { (* wellFormedFstShadowIfBlockEntry s *)
+    intros blockBis HblockBisIsBE. assert(HblockBisIsBEs2: isBE blockBis s2).
+    {
+      unfold isBE in *. rewrite Hs in HblockBisIsBE. simpl in HblockBisIsBE.
+      destruct (beqAddr (CPaddr (block + sh1offset)) blockBis) eqn:HbeqBlockSh1BlockBis; try(exfalso; congruence).
+      rewrite <-beqAddrFalse in HbeqBlockSh1BlockBis. rewrite removeDupIdentity in HblockBisIsBE; intuition.
+    }
+    specialize(HwellFormedSh blockBis HblockBisIsBEs2).
+    unfold isSHE. rewrite Hs. simpl.
+    destruct (beqAddr (CPaddr (block + sh1offset)) (CPaddr (blockBis + sh1offset))) eqn:HbeqBlockSh1BlockBisSh1;
+      trivial. rewrite <-beqAddrFalse in HbeqBlockSh1BlockBisSh1. rewrite removeDupIdentity; intuition.
+  }
+  split.
+  { (* KernelStructureStartFromBlockEntryAddrIsKS s *)
+    intros blockBis blockidx HblockBisIsBE HblockIdx. assert(HblockBisIsBEs2: isBE blockBis s2).
+    {
+      unfold isBE in *. rewrite Hs in HblockBisIsBE. simpl in HblockBisIsBE.
+      destruct (beqAddr (CPaddr (block + sh1offset)) blockBis) eqn:HbeqBlockSh1BlockBis; try(exfalso; congruence).
+      rewrite <-beqAddrFalse in HbeqBlockSh1BlockBis. rewrite removeDupIdentity in HblockBisIsBE; intuition.
+    }
+    assert(HblockIdxs2: bentryBlockIndex blockBis blockidx s2).
+    {
+      unfold bentryBlockIndex in *. rewrite Hs in HblockIdx. simpl in HblockIdx.
+      destruct (beqAddr (CPaddr (block + sh1offset)) blockBis) eqn:HbeqBlockSh1BlockBis; try(exfalso; congruence).
+      rewrite <-beqAddrFalse in HbeqBlockSh1BlockBis. rewrite removeDupIdentity in HblockIdx; intuition.
+    }
+    specialize(HstructIsKS blockBis blockidx HblockBisIsBEs2 HblockIdxs2). unfold isKS in *. rewrite Hs. simpl.
+    destruct (beqAddr (CPaddr (block + sh1offset)) (CPaddr (blockBis - blockidx))) eqn:HbeqBlockSh1BlockBisKern.
+    {
+      rewrite <-DTL.beqAddrTrue in HbeqBlockSh1BlockBisKern. rewrite HbeqBlockSh1BlockBisKern in *.
+      rewrite HlookupBlockSh1s2 in HstructIsKS. congruence.
+    }
+    rewrite <-beqAddrFalse in HbeqBlockSh1BlockBisKern. rewrite removeDupIdentity; intuition.
+  }
+  split.
+  { (* BlocksRangeFromKernelStartIsBE s *)
+    intros kernelBis blockidx HkernIsKS HblockIdxBound.
+    assert(HkernIsKSs2: isKS kernelBis s2).
+    {
+      unfold isKS in *. rewrite Hs in HkernIsKS. simpl in HkernIsKS.
+      destruct (beqAddr (CPaddr (block + sh1offset)) kernelBis) eqn:HbeqBlockSh1KernBis;
+        try(exfalso; congruence). rewrite <-beqAddrFalse in HbeqBlockSh1KernBis.
+      rewrite removeDupIdentity in HkernIsKS; try(apply not_eq_sym); assumption.
+    }
+    specialize(HrangeIsBE kernelBis blockidx HkernIsKSs2 HblockIdxBound). unfold isBE in *. rewrite Hs. simpl.
+    destruct (beqAddr (CPaddr (block + sh1offset)) (CPaddr (kernelBis + blockidx))) eqn:HbeqBlockSh1KernIdx.
+    {
+      rewrite <-DTL.beqAddrTrue in HbeqBlockSh1KernIdx. rewrite HbeqBlockSh1KernIdx in *.
+      rewrite HlookupBlockSh1s2 in HrangeIsBE. congruence.
+    }
+    rewrite <-beqAddrFalse in HbeqBlockSh1KernIdx. rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
+  }
+  unfold nullAddrExists in *. unfold isPADDR in *. rewrite Hs. simpl.
+  destruct (beqAddr (CPaddr (block + sh1offset)) nullAddr) eqn:HbeqBlockSh1Null.
+  {
+    rewrite <-DTL.beqAddrTrue in HbeqBlockSh1Null. rewrite HbeqBlockSh1Null in *.
+    rewrite HlookupBlockSh1s2 in Hnull. congruence.
+  }
+  rewrite <-beqAddrFalse in HbeqBlockSh1Null. rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
+Qed.
+
 
