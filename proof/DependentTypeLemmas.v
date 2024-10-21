@@ -813,7 +813,7 @@ Lemma indexltbTrue :
 forall i1 i2 : index ,
 StateLib.Index.ltb i1 i2 = true -> i1 < i2.
 Proof. intros. unfold Index.ltb in H. 
-apply NPeano.Nat.ltb_lt in H.
+apply Nat.ltb_lt in H.
 assumption.
 Qed.
 
@@ -824,7 +824,7 @@ Proof.
 intros.
 unfold Index.ltb in *. 
 apply not_lt.
-apply NPeano.Nat.ltb_nlt in H.
+apply Nat.ltb_nlt in H.
 lia.
 Qed.
 
@@ -863,7 +863,7 @@ simpl in *.
 intros;
 inversion H0; lia.
 intros.
-apply nat_total_order.
+apply Nat.lt_gt_cases.
 unfold not in *; intros; subst.
 apply H; f_equal.
 apply proof_irrelevance.
@@ -1105,6 +1105,24 @@ induction l.
 	simpl in *. intuition.
 Qed.
 
+Lemma NotPresentNotInFilterPresent a bentry l s:
+lookup a (memory s) beqAddr = Some (BE bentry) ->
+present bentry = false ->
+In a l ->
+NoDup l -> ~In a (filterPresent l s).
+Proof.
+intros HlookupA Hpresent HinList HnoDup.
+induction l.
+- intuition.
+- simpl in *. apply NoDup_cons_iff in HnoDup.
+  destruct HinList as [HaIsa0 | HaInList].
+  + subst a0. rewrite HlookupA. rewrite Hpresent. apply NotInListNotInFilterPresent; intuition.
+  + destruct (lookup a0 (memory s) beqAddr); intuition.
+    destruct v ; intuition.
+    destruct (present b) ; intuition.
+    simpl in *. intuition. subst a0. intuition.
+Qed.
+
 Lemma NotInListNotInFilterPresentContra a l s:
 In a (filterPresent l s) -> In a l.
 Proof.
@@ -1129,6 +1147,22 @@ induction l.
 	destruct v ; intuition.
 	destruct (accessible b) ; intuition.
 	simpl in *. intuition.
+Qed.
+
+Lemma NotAccNotInFilterAccessible a bentry l s:
+lookup a (memory s) beqAddr = Some(BE bentry)
+-> accessible bentry = false
+-> ~In a (filterAccessible l s).
+Proof.
+intros HlookupA Haccess.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) eqn:HlookupA0 ; try(assumption).
+	destruct v ; try(assumption).
+	destruct (accessible b) eqn:Haccess0; try(assumption).
+	simpl in *. apply Classical_Prop.and_not_or. split; try(assumption). intro Hcontra. subst a0.
+  rewrite HlookupA in HlookupA0. injection HlookupA0 as Hbeq. subst b. congruence.
 Qed.
 
 Lemma NotInListNotInFilter a l s:
@@ -1172,6 +1206,19 @@ induction l.
 	simpl in *. intuition.
 Qed.
 
+Lemma InFilterPresentInListAndPresent a l s:
+In a (filterPresent l s) -> In a l /\ bentryPFlag a true s.
+Proof.
+intro HInFilterPresent.
+induction l.
+- simpl in HInFilterPresent. exfalso; congruence.
+- simpl in *. unfold bentryPFlag.
+	destruct (lookup a0 (memory s) beqAddr) eqn:Hlookup ; try(intuition; congruence).
+	destruct v; try(intuition; congruence).
+	destruct (present b) eqn:Hpresent; try(intuition; congruence).
+	simpl in *. intuition. subst a0. rewrite Hlookup. intuition.
+Qed.
+
 
 Lemma NoDupListNoDupFilterPresent l s :
 NoDup l -> NoDup (filterPresent l s).
@@ -1189,22 +1236,6 @@ induction l.
 	congruence.
 Qed.
 
-Lemma NotInPaddrListNotInPaddrFilterAccessible a l s:
-~ In a (getAllPaddrAux l s) -> ~ In a (getAllPaddrAux (filterAccessible l s) s).
-Proof.
-intro HNotInList.
-induction l.
-- intuition.
-- simpl in *.
-	destruct (lookup a0 (memory s) beqAddr) eqn:Hlookupas ; intuition.
-	destruct v ; intuition.
-	destruct (accessible b) ; intuition.
-	simpl in *. intuition.
-	rewrite Hlookupas in *.
-	apply in_app_or in H.
-	simpl in *. intuition.
-Qed.
-
 Lemma NotInPaddrListNotInPaddrFilterAccessibleContra a l s:
 In a (getAllPaddrAux (filterAccessible l s) s) ->
 In a (getAllPaddrAux l s).
@@ -1214,11 +1245,41 @@ induction l.
 - intuition.
 - simpl in *.
 	destruct (lookup a0 (memory s) beqAddr) eqn:Hlookupas ; intuition.
-	destruct v ; intuition.
-	destruct (accessible b) ; intuition.
+	destruct v ; intuition. apply in_or_app.
+	destruct (accessible b) ; try(right; apply IHl; assumption).
 	simpl in *. rewrite Hlookupas in *.
-	apply in_app_or in HBlockInList.
-	apply in_app_iff. intuition.
+	apply in_app_or in HBlockInList. intuition.
+Qed.
+
+Lemma NotInPaddrListNotInPaddrFilterAccessible a l s:
+~ In a (getAllPaddrAux l s) -> ~ In a (getAllPaddrAux (filterAccessible l s) s).
+Proof.
+intro HNotInList.
+induction l.
+- intuition.
+- simpl in *.
+	destruct (lookup a0 (memory s) beqAddr) eqn:Hlookupas ; intuition.
+	destruct v; try(apply IHl; assumption).
+	destruct (accessible b).
+	+ simpl in *.
+	  rewrite Hlookupas in *.
+	  apply in_app_or in H. apply HNotInList. apply in_or_app.
+	  destruct H; try(left; assumption). right. apply NotInPaddrListNotInPaddrFilterAccessibleContra.
+    assumption.
+  + apply IHl; try(assumption). intro Hcontra. apply HNotInList. apply in_or_app. right. assumption.
+Qed.
+
+Lemma NoDupFilterAccessible l s :
+NoDup l -> NoDup (filterAccessible l s).
+Proof.
+intro HNoDup.
+induction l.
+- intuition.
+- simpl in *. apply NoDup_cons_iff in HNoDup. destruct HNoDup as (HaNotInL & HNoDupRec).
+	destruct (lookup a (memory s) beqAddr) eqn:Hlookupas ; intuition.
+	destruct v ; intuition.
+	destruct (accessible b) ; intuition. apply NoDup_cons_iff.
+  split; try(apply NotInListNotInFilterAccessible; assumption). assumption.
 Qed.
 
 Lemma NoDupPaddrListNoDupPaddrFilterAccessible l s :
@@ -1270,10 +1331,10 @@ induction left.
 	inversion H1.
 	contradict H2.
 	unfold CPaddr.
-	destruct (le_dec (offset1 + startaddr) maxAddr) ; intuition.
-	inversion H0.
-	apply Nat.add_cancel_r in H3.
-	apply NPeano.Nat.lt_neq in H. congruence.
+	destruct (le_dec (offset1 + startaddr) maxAddr) ; try(lia).
+	intro Hcontra. inversion Hcontra.
+	apply Nat.add_cancel_r in H2.
+	apply Nat.lt_neq in H. congruence.
 	specialize (IHleft offset1 (S offset2)) ; intuition.
 	destruct (le_dec (offset2 + startaddr) maxAddr) ; intuition.
 	simpl in *.
@@ -1283,15 +1344,15 @@ induction left.
 	destruct (le_dec (offset1 + startaddr) maxAddr) ; intuition.
 	inversion H0.
 	apply Nat.add_cancel_r in H2.
-	apply NPeano.Nat.lt_neq in H. congruence.
-	inversion H0. apply plus_is_O in H2.
+	apply Nat.lt_neq in H. congruence.
+	inversion H0. apply Nat.eq_add_0 in H2.
  	intuition. subst offset2.
 	apply Nat.nlt_0_r in H. congruence.
 	contradict H1.
 	unfold CPaddr.
 	destruct (le_dec (offset1 + startaddr) maxAddr) ; intuition.
 	eapply IHleft. instantiate (1:= S offset2). instantiate (1:= S offset1).
-	intuition. intuition.
+	lia.
 	unfold CPaddr.
 	destruct (le_dec (S offset1 + startaddr) maxAddr) ; intuition.
 	simpl.
@@ -1303,21 +1364,10 @@ induction left.
 	assert(l0 = l1). apply proof_irrelevance.
 	subst l0. intuition.
 	specialize (IHleft 0 (S offset2)) ; intuition.
-	assert( 0 < S offset2) by apply NPeano.Nat.lt_0_succ.
+	assert( 0 < S offset2) by apply Nat.lt_0_succ.
 	intuition.
 	unfold CPaddr in *.
-	destruct (le_dec (0 + startaddr) maxAddr ) ; intuition.
-	contradict H0.
-	clear.
-	revert offset2.
-	induction left.
-	--- intuition.
-	--- intro offset2. simpl.
-			destruct (le_dec (S (offset2 + startaddr)) maxAddr) ; intuition.
-			simpl in *.
-			intuition.
-			---- inversion H0.
-			---- specialize (IHleft (S offset2)). intuition.
+	destruct (le_dec (0 + startaddr) maxAddr ) ; try(lia).
 Qed.
 
 Lemma NoDupPaddrBlockAux offset startaddr left :
@@ -1369,11 +1419,12 @@ induction l.
 - simpl. simpl in H.
 	intuition.
 	+ subst a. simpl in *.
-		destruct (lookup block (memory s) beqAddr ) ; intuition.
-		destruct v ; intuition.
+		destruct (lookup block (memory s) beqAddr ) ; try(exfalso; simpl in *; congruence).
+		destruct v ; try(exfalso; simpl in *; congruence).
 		apply in_or_app. left. rewrite app_nil_r in *. intuition.
 	+ destruct (lookup a (memory s) beqAddr ) ; intuition.
-		destruct v ; intuition.
+		destruct v ; try(assumption).
+    apply in_or_app. right. assumption.
 Qed.
 
 Lemma DisjointPaddrInPart partition block1 block2 addr s :
@@ -1451,6 +1502,123 @@ destruct v ; intuition.
 subst parent. subst parent'. intuition.
 Qed.
 
+Lemma uniqueBlockMapped block1 block2 addr partition s:
+noDupUsedPaddrList s
+-> wellFormedBlock s
+-> isPDT partition s
+-> In block1 (getMappedBlocks partition s)
+-> In block2 (getMappedBlocks partition s)
+-> bentryStartAddr block1 addr s
+-> bentryPFlag block1 true s
+-> bentryStartAddr block2 addr s
+-> bentryPFlag block2 true s
+-> block1 = block2.
+Proof.
+intros HnoDup HwellFormed HpartIsPDT Hblock1Mapped Hblock2Mapped Hstart1 HPFlag1 Hstart2 HPFlag2.
+specialize(HnoDup partition HpartIsPDT). unfold getUsedPaddr in HnoDup. apply Lib.NoDupSplit in HnoDup.
+destruct HnoDup as [_ HnoDup]. unfold getMappedPaddr in HnoDup. induction (getMappedBlocks partition s).
+- (* getMappedBlocks partition s = [] *)
+  simpl in *. exfalso; congruence.
+- (* getMappedBlocks partition s = a::l *)
+  simpl in *. destruct Hblock1Mapped as [HaIsBlock1 | Hblock1MappedRec].
+  + (* a = block1 *)
+    assert(Hstart1Copy: bentryStartAddr block1 addr s) by assumption.
+    subst a. unfold bentryStartAddr in Hstart1.
+    destruct (lookup block1 (memory s) beqAddr) eqn:HlookupBlock1; try(exfalso; congruence).
+    destruct v; try(exfalso; congruence).
+    destruct Hblock2Mapped as [HblocksEq | Hblock2MappedRec]; try(assumption).
+    apply Lib.NoDupSplitInclIff in HnoDup. destruct HnoDup as (_ & Hdisjoint).
+    assert(HstartInBlock1: In (startAddr (blockrange b))
+                              (getAllPaddrBlock (startAddr (blockrange b)) (endAddr (blockrange b)))).
+    {
+      unfold getAllPaddrBlock. subst addr.
+      assert(Hend1: bentryEndAddr block1 (endAddr (blockrange b)) s).
+      {
+        unfold bentryEndAddr. rewrite HlookupBlock1. reflexivity.
+      }
+      specialize(HwellFormed block1 (startAddr (blockrange b)) (endAddr (blockrange b)) HPFlag1 Hstart1Copy
+                  Hend1).
+      destruct HwellFormed as [HwellFormed _].
+      assert(Hrec: endAddr (blockrange b) - startAddr (blockrange b) > 0) by lia.
+      induction (endAddr (blockrange b) - startAddr (blockrange b)); try(lia). simpl.
+      assert(startAddr (blockrange b) <= maxAddr) by (apply Hp).
+      destruct (le_dec (startAddr (blockrange b)) maxAddr); try(lia). simpl. left.
+      destruct (startAddr (blockrange b)). simpl. f_equal. apply proof_irrelevance.
+    }
+    specialize(Hdisjoint (startAddr (blockrange b)) HstartInBlock1). subst addr.
+    assert(Hcontra: In (startAddr (blockrange b)) (getAllPaddrAux l s)).
+    {
+      apply blockIsMappedAddrInPaddrList with block2. assumption. simpl.
+      assert(Hstart2Copy: bentryStartAddr block2 (startAddr (blockrange b)) s) by assumption.
+      unfold bentryStartAddr in Hstart2.
+      destruct (lookup block2 (memory s) beqAddr) eqn:HlookupBlock2; try(exfalso; congruence).
+      destruct v; try(exfalso; congruence). rewrite app_nil_r. rewrite Hstart2 in *. unfold getAllPaddrBlock.
+      assert(Hend2: bentryEndAddr block2 (endAddr (blockrange b0)) s).
+      {
+        unfold bentryEndAddr. rewrite HlookupBlock2. reflexivity.
+      }
+      specialize(HwellFormed block2 (startAddr (blockrange b0)) (endAddr (blockrange b0)) HPFlag2 Hstart2Copy
+                  Hend2).
+      destruct HwellFormed as [HwellFormed _].
+      assert(Hrec: endAddr (blockrange b0) - startAddr (blockrange b0) > 0) by lia.
+      induction (endAddr (blockrange b0) - startAddr (blockrange b0)); try(lia). simpl.
+      assert(startAddr (blockrange b0) <= maxAddr) by (apply Hp).
+      destruct (le_dec (startAddr (blockrange b0)) maxAddr); try(lia). simpl. left.
+      destruct (startAddr (blockrange b0)). simpl. f_equal. apply proof_irrelevance.
+    }
+    exfalso; congruence.
+  + (* a <> block1 *)
+    destruct Hblock2Mapped as [HblocksEq | Hblock2MappedRec].
+    * (* a = block2 *)
+      subst a. assert(Hstart2Copy: bentryStartAddr block2 addr s) by assumption.
+      unfold bentryStartAddr in Hstart2.
+      destruct (lookup block2 (memory s) beqAddr) eqn:HlookupBlock2; try(exfalso; congruence).
+      destruct v; try(exfalso; congruence). subst addr.
+      apply Lib.NoDupSplitInclIff in HnoDup. destruct HnoDup as (_ & Hdisjoint).
+      assert(HstartInBlock2: In (startAddr (blockrange b))
+                                (getAllPaddrBlock (startAddr (blockrange b)) (endAddr (blockrange b)))).
+      {
+        unfold getAllPaddrBlock.
+        assert(Hend2: bentryEndAddr block2 (endAddr (blockrange b)) s).
+        {
+          unfold bentryEndAddr. rewrite HlookupBlock2. reflexivity.
+        }
+        specialize(HwellFormed block2 (startAddr (blockrange b)) (endAddr (blockrange b)) HPFlag2 Hstart2Copy
+                    Hend2).
+        destruct HwellFormed as [HwellFormed _].
+        assert(Hrec: endAddr (blockrange b) - startAddr (blockrange b) > 0) by lia.
+        induction (endAddr (blockrange b) - startAddr (blockrange b)); try(lia). simpl.
+        assert(startAddr (blockrange b) <= maxAddr) by (apply Hp).
+        destruct (le_dec (startAddr (blockrange b)) maxAddr); try(lia). simpl. left.
+        destruct (startAddr (blockrange b)). simpl. f_equal. apply proof_irrelevance.
+      }
+      specialize(Hdisjoint (startAddr (blockrange b)) HstartInBlock2).
+      assert(Hcontra: In (startAddr (blockrange b)) (getAllPaddrAux l s)).
+      {
+        apply blockIsMappedAddrInPaddrList with block1. assumption. simpl.
+        assert(Hstart1Copy: bentryStartAddr block1 (startAddr (blockrange b)) s) by assumption.
+        unfold bentryStartAddr in Hstart1.
+        destruct (lookup block1 (memory s) beqAddr) eqn:HlookupBlock1; try(exfalso; congruence).
+        destruct v; try(exfalso; congruence). rewrite app_nil_r. rewrite Hstart1 in *. unfold getAllPaddrBlock.
+        assert(Hend1: bentryEndAddr block1 (endAddr (blockrange b0)) s).
+        {
+          unfold bentryEndAddr. rewrite HlookupBlock1. reflexivity.
+        }
+        specialize(HwellFormed block1 (startAddr (blockrange b0)) (endAddr (blockrange b0)) HPFlag1 Hstart1Copy
+                    Hend1).
+        destruct HwellFormed as [HwellFormed _].
+        assert(Hrec: endAddr (blockrange b0) - startAddr (blockrange b0) > 0) by lia.
+        induction (endAddr (blockrange b0) - startAddr (blockrange b0)); try(lia). simpl.
+        assert(startAddr (blockrange b0) <= maxAddr) by (apply Hp).
+        destruct (le_dec (startAddr (blockrange b0)) maxAddr); try(lia). simpl. left.
+        destruct (startAddr (blockrange b0)). simpl. f_equal. apply proof_irrelevance.
+      }
+      exfalso; congruence.
+    * (* a <> block2 *)
+      apply IHl; try(assumption). destruct (lookup a (memory s) beqAddr); try(assumption).
+      destruct v; try(assumption). apply Lib.NoDupSplit in HnoDup. intuition.
+Qed.
+
 Lemma indexEqbTrue : 
 forall idx1 idx2 : index, true = StateLib.Index.eqb idx1 idx2 -> 
 idx1 = idx2.
@@ -1458,7 +1626,7 @@ Proof.
 unfold StateLib.Index.eqb in *.
 intros.
 symmetry in H.
-apply beq_nat_true in H.
+apply Nat.eqb_eq in H.
 destruct idx1; destruct idx2.
 simpl in *.
 subst.
@@ -2074,9 +2242,9 @@ intuition.
 case_eq ((addr1 =? addr2)).
 intuition.
 intros.
-apply beq_nat_false in H0.
+apply Nat.eqb_neq in H0.
 congruence.
-apply beq_nat_true in H.
+apply Nat.eqb_eq in H.
 destruct addr1, addr2. simpl in *. subst.
 assert (Hp = Hp0).
 apply proof_irrelevance. subst. trivial.
@@ -2093,7 +2261,7 @@ intuition.
 case_eq ((addr1 =? addr2)).
 intuition.
 contradict H.
-apply beq_nat_true in H0.
+apply Nat.eqb_eq in H0.
 destruct addr1, addr2. simpl in *. subst.
 assert (Hp = Hp0).
 apply proof_irrelevance. subst. trivial.
@@ -2104,7 +2272,7 @@ case_eq (addr1 =? addr2) ; intuition.
 	congruence.
 +	rewrite H0 in H1.
 	contradict H1.
-	rewrite NPeano.Nat.eqb_refl.
+	rewrite Nat.eqb_refl.
 	unfold not.
 	congruence.
 Qed.
@@ -2115,7 +2283,7 @@ beqAddr addr1 addr2 = beqAddr addr2 addr1.
 Proof.
 intros. unfold beqAddr.
 case_eq ((addr1 =? addr2)). intuition.
-apply beq_nat_true in H. rewrite H. apply eq_sym. apply Nat.eqb_refl.
+apply Nat.eqb_eq in H. rewrite H. apply eq_sym. apply Nat.eqb_refl.
 intros. apply eq_sym.
 apply Nat.eqb_neq. apply Nat.eqb_neq in H. unfold not in *.
 intros. intuition.
@@ -2229,7 +2397,7 @@ intros. intuition.
 induction p.
 - intuition.
 - unfold CIndex in *.
-	destruct (le_dec 0 maxIdx) ; intuition.
+	destruct (le_dec 0 maxIdx) ; try(lia).
 	destruct (le_dec (S p) maxIdx) ; try (simpl in * ; congruence).
 Qed.
 
@@ -2300,9 +2468,9 @@ intuition.
 case_eq ((addr1 =? addr2)).
 intuition.
 intros.
-apply beq_nat_false in H0.
+apply Nat.eqb_neq in H0.
 congruence.
-apply beq_nat_true in H.
+apply Nat.eqb_eq in H.
 destruct addr1, addr2. simpl in *. subst.
 assert (Hi = Hi0).
 apply proof_irrelevance. subst. trivial.
@@ -2320,7 +2488,7 @@ intuition.
 case_eq ((addr1 =? addr2)).
 intuition.
 contradict H.
-apply beq_nat_true in H0.
+apply Nat.eqb_eq in H0.
 destruct addr1, addr2. simpl in *. subst.
 assert (Hi = Hi0).
 apply proof_irrelevance. subst. trivial.
@@ -2331,7 +2499,7 @@ case_eq (addr1 =? addr2) ; intuition.
 	congruence.
 +	rewrite H0 in H1.
 	contradict H1.
-	rewrite NPeano.Nat.eqb_refl.
+	rewrite Nat.eqb_refl.
 	unfold not.
 	congruence.
 Qed.
@@ -3945,3 +4113,24 @@ subst.
 f_equal.
 apply proof_irrelevance.
 Qed.
+
+Lemma indexOf block index searchList comparator default idxRes:
+idxRes = indexOf block index searchList comparator default
+-> length searchList + index <= maxIdx
+-> idxRes = default /\ (forall blockBis, In blockBis searchList -> comparator blockBis block = false)
+    \/ idxRes <= maxIdx /\ idxRes >= index /\ comparator (nth (idxRes-index) searchList nullAddr) block = true.
+Proof.
+revert index. induction searchList.
+- simpl. intros. left. split. assumption. intros. exfalso. congruence.
+- simpl. intros index HisRes Hlen. destruct (comparator a block) eqn:Hcomp.
+  + subst idxRes. right. rewrite Nat.sub_diag. split. lia. split. lia. assumption.
+  + assert(HlenRec: length searchList + S index <= maxIdx) by lia.
+    specialize(IHsearchList (S index) HisRes HlenRec). destruct IHsearchList as [HnotPresent | Hpresent].
+    * left. destruct HnotPresent as (HresIsDef & HnotPresent). split. assumption. intros blockBis HblockBis.
+      destruct HblockBis as [HaIsBlockBis | HblockBisRec]; try(subst a; assumption). apply HnotPresent.
+      assumption.
+    * destruct Hpresent as (Hidxbounded & HgtIdxResIndex & Hpresent).
+      destruct (idxRes - index) eqn:Hindices; try(exfalso; lia). right. split. lia. split. lia.
+      assert(n = idxRes - S index) by lia. subst n. assumption.
+Qed.
+

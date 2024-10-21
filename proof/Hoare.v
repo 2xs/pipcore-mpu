@@ -73,7 +73,7 @@ destruct (m s) as [ [ a s' ] | ]; tauto.
 Qed.
 
 Definition wp {A : Type} (P : A -> state -> Prop) (m : LLI A) :=
-  fun s => match m s with val (a, s') => P a s'(*  | hlt => True *) | Err => False end.
+  fun s => match m s with val (a, s') => P a s'(*  | hlt => True *) | _Err => False end.
 
 Lemma wpIsPrecondition {A : Type} (P : A -> state -> Prop) (m : LLI A) :
   {{ wp P m }} m {{ P }}.

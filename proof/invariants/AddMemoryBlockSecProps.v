@@ -922,7 +922,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 					destruct v ; try(exfalso ; congruence).
 					apply in_app_iff. left. rewrite app_nil_r in *. assumption.
 					destruct (lookup a (memory s0) beqAddr) ; intuition.
-					destruct v ; intuition.
+					destruct v ; try(apply in_or_app; right); assumption.
 
 				*	(* Case (getMappedPaddr globalIdPDChild s0) *)
 					apply HVs0. apply in_app_iff. right. assumption.
@@ -1150,40 +1150,41 @@ destruct (beqAddr part1 globalIdPDChild) eqn:beqpart1pd ; try(exfalso ; congruen
 					assert(HKIparentglobals0 : kernelDataIsolation s0) by intuition.
 					assert(HcurrPartPartitionTree : In currentPart (getPartitions multiplexer s0))
 							by (rewrite HcurrPartEq in *; unfold consistency in * ; unfold consistency1 in * ; intuition).
-					specialize (HKIparentglobals0 currentPart globalIdPDChild
-							 HcurrPartPartitionTree Hpart1PartTree).
+					(*specialize (HKIparentglobals0 currentPart globalIdPDChild
+							 HcurrPartPartitionTree Hpart1PartTree).*)
 
 					assert(HNoDupidpdchild : NoDup (getAllPaddrBlock (startAddr (blockrange bentry6))
                     (endAddr (blockrange bentry6)) ++
                   getMappedPaddr globalIdPDChild s0)) by intuition.
 					apply Lib.NoDupSplitInclIff in HNoDupidpdchild.
-
-					assert(HaddrInAccessibleParent : In addr (getAccessibleMappedPaddr currentPart s0)).
-					{
-						rewrite HcurrPartEq in *.
-						specialize (HaddrInBTS addr).
-						assert(addrIsAccessible = true) by (apply negb_false_iff in Haccessible ; intuition).
-						subst addrIsAccessible.
-						destruct HNoDupidpdchild as [HNoDup Hdisjoint].
-						unfold Lib.disjoint in Hdisjoint.
-						specialize (Hdisjoint addr).
-						destruct HMappedPaddrEq as [HaddrInNewB | HaddrInMappedPaddrs0].
-						(* case newB*)
-						(*assert(HAccesibleIsMappedPaddr : forall (partition addr : paddr) s, In addr (getAccessibleMappedPaddr partition s) ->
-								In addr (getMappedPaddr partition s)) by admit.*)
-						specialize (addrInAccessibleMappedIsIsMappedPaddr globalIdPDChild addr s0).
-						intro HaddrIsMapped.
+					rewrite HcurrPartEq in *.
+					specialize (HaddrInBTS addr).
+					assert(addrIsAccessible = true) by (apply negb_false_iff in Haccessible ; intuition).
+					subst addrIsAccessible.
+					destruct HNoDupidpdchild as [HNoDup Hdisjoint].
+					unfold Lib.disjoint in Hdisjoint.
+					specialize (Hdisjoint addr).
+					destruct HMappedPaddrEq as [HaddrInNewB | HaddrInMappedPaddrs0].
+					(* case newB*)
+					(*assert(HAccesibleIsMappedPaddr : forall (partition addr : paddr) s, In addr (getAccessibleMappedPaddr partition s) ->
+							In addr (getMappedPaddr partition s)) by admit.*)
+          rewrite <-HcurrPartEq in HcurrPartPartitionTree.
+          specialize (HKIparentglobals0 currentPart globalIdPDChild
+						 HcurrPartPartitionTree Hpart1PartTree).
+          rewrite HcurrPartEq in HKIparentglobals0.
+					specialize (addrInAccessibleMappedIsIsMappedPaddr globalIdPDChild addr s0).
+					intro HaddrIsMapped.
+          assert(HaddrInAccessibleParent : In addr (getAccessibleMappedPaddr (currentPartition s0) s0)).
+          {
 						apply addrInAccessibleBlockIsAccessibleMapped
 									with blockToShareInCurrPartAddr ; intuition.
-						(* consistency s0 : accessible in child -> accessible in parent *)
-						(* case s0 *)
-						assert(HaccessibleInParents0 :
-									accessibleChildPaddrIsAccessibleIntoParent s0)
-							by (unfold consistency in * ; unfold consistency2 in * ; intuition). (* consistency s0*)
-						eapply HaccessibleInParents0 with globalIdPDChild ; intuition.
-					}
-
+          }
 					specialize (HKIparentglobals0 addr HaddrInAccessibleParent).
+					assumption.
+					(* case s0 *)
+          specialize (HKIparentglobals0 globalIdPDChild globalIdPDChild
+						 Hpart1PartTree Hpart2PartTree).
+          specialize(HKIparentglobals0 addr HaddrInMappedPaddrs0).
 					assumption.
 
 	-- (* part2 <> globalIdPDChild *)
@@ -1228,41 +1229,36 @@ destruct (beqAddr part1 globalIdPDChild) eqn:beqpart1pd ; try(exfalso ; congruen
 					assert(HKIparentglobals0 : kernelDataIsolation s0) by intuition.
 					assert(HcurrPartPartitionTree : In currentPart (getPartitions multiplexer s0))
 							by (rewrite HcurrPartEq in * ; unfold consistency in * ; unfold consistency1 in * ; intuition).
-					specialize (HKIparentglobals0 currentPart part2
-							 HcurrPartPartitionTree Hpart2PartTree).
 
 					assert(HNoDupidpdchild : NoDup (getAllPaddrBlock (startAddr (blockrange bentry6))
                     (endAddr (blockrange bentry6)) ++
                   getMappedPaddr globalIdPDChild s0)) by intuition.
 					apply Lib.NoDupSplitInclIff in HNoDupidpdchild.
-
-					assert(HaddrInAccessibleParent : In addr (getAccessibleMappedPaddr currentPart s0)).
+					specialize (HaddrInBTS addr).
+					assert(addrIsAccessible = true) by (apply negb_false_iff in Haccessible ; intuition).
+					subst addrIsAccessible.
+					destruct HNoDupidpdchild as [HNoDup Hdisjoint].
+					unfold Lib.disjoint in Hdisjoint.
+					specialize (Hdisjoint addr).
+					destruct HMappedPaddrEq as [HaddrInNewB | HaddrInMappedPaddrs0].
+					(* case newB*)
+					(*assert(HAccesibleIsMappedPaddr : forall (partition addr : paddr) s, In addr (getAccessibleMappedPaddr partition s) ->
+							In addr (getMappedPaddr partition s)) by admit.*)
+					specialize (HKIparentglobals0 currentPart part2
+							 HcurrPartPartitionTree Hpart2PartTree).
+          rewrite HcurrPartEq in *.
+					specialize (addrInAccessibleMappedIsIsMappedPaddr globalIdPDChild addr s0).
+					intro HaddrIsMapped.
+          assert(HaddrInAccessibleParent : In addr (getAccessibleMappedPaddr (currentPartition s0) s0)).
 					{
-								rewrite HcurrPartEq in *.
-								specialize (HaddrInBTS addr).
-								assert(addrIsAccessible = true) by (apply negb_false_iff in Haccessible ; intuition).
-								subst addrIsAccessible.
-								destruct HNoDupidpdchild as [HNoDup Hdisjoint].
-								unfold Lib.disjoint in Hdisjoint.
-								specialize (Hdisjoint addr).
-								destruct HMappedPaddrEq as [HaddrInNewB | HaddrInMappedPaddrs0].
-								(* case newB*)
-								(*assert(HAccesibleIsMappedPaddr : forall (partition addr : paddr) s, In addr (getAccessibleMappedPaddr partition s) ->
-										In addr (getMappedPaddr partition s)) by admit.*)
-								specialize (addrInAccessibleMappedIsIsMappedPaddr globalIdPDChild addr s0).
-								intro HaddrIsMapped.
-								apply addrInAccessibleBlockIsAccessibleMapped
-											with blockToShareInCurrPartAddr ; intuition.
-								(* consistency s0 : accessible in child -> accessible in parent *)
-								(* case s0 *)
-								assert(HaccessibleInParents0 :
-											accessibleChildPaddrIsAccessibleIntoParent s0)
-									by (unfold consistency in * ; unfold consistency2 in * ; intuition). (* consistency s0*)
-								eapply HaccessibleInParents0 with globalIdPDChild ; intuition.
-					}
-
-					specialize (HKIparentglobals0 addr HaddrInAccessibleParent).
+					  apply addrInAccessibleBlockIsAccessibleMapped
+								  with blockToShareInCurrPartAddr ; intuition.
+          }
+          specialize (HKIparentglobals0 addr HaddrInAccessibleParent).
 					assumption.
+					(* case s0 *)
+					specialize (HKIparentglobals0 globalIdPDChild part2 Hpart1PartTree Hpart2PartTree).
+          specialize(HKIparentglobals0 addr HaddrInMappedPaddrs0). assumption.
 
 	- (* part1 <> globalIdPDChild *)
 		rewrite <- beqAddrFalse in *.
@@ -1546,7 +1542,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 			unfold Lib.disjoint in Hpartisolations0.
 			specialize (Hpartisolations0 addr ).
 			apply Hpartisolations0.
-			unfold getUsedPaddr. intuition.
+			unfold getUsedPaddr. apply in_or_app. left. assumption.
 
 			(* Case In addr mappedpaddr : newB or (mapped at s0) *)
 			destruct Hidpdchildmapped as [Hidpdchildmapped HidpdchildmappedR].
@@ -1621,7 +1617,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 						unfold Lib.disjoint in Hpartisolations0.
 						specialize (Hpartisolations0 addr ).
 						apply Hpartisolations0.
-						unfold getUsedPaddr. intuition.
+						unfold getUsedPaddr. apply in_or_app. right. assumption.
 
 - (* child1 <> globalIdPDChild *)
 	destruct (beqAddr child2 globalIdPDChild) eqn:beqchild2pd ; try(exfalso ; congruence).
@@ -1696,8 +1692,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 			 	apply in_app_iff. rewrite in_app_iff. intuition.
 				apply in_app_or in H. destruct H.
 			 	apply in_app_iff. rewrite in_app_iff. intuition.
-				rewrite in_app_iff.
-				intuition.
+				rewrite in_app_iff. left. apply in_or_app. right. assumption.
 			}
 			specialize (HlistEq HaddrInGlobalFalse).
 

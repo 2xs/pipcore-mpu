@@ -37,7 +37,7 @@
   write data into physical memory  *)
 Require Export Model.MALInternal Model.ADT.
 Require Import Model.Monad Model.Lib.
-Require Import Arith Bool NPeano List.
+Require Import Arith Bool List.
 
 Open Scope mpu_state_scope.
 
@@ -535,7 +535,7 @@ Definition writeSh1PDFlagFromBlockEntryAddr (paddr : paddr) (pdflag : bool) : LL
   |} in
     modify (fun s => {|
       currentPartition := s.(currentPartition);
-      memory := add paddr (SHE newEntry) s.(memory) beqAddr
+      memory := add Sh1EAddr (SHE newEntry) s.(memory) beqAddr
   |})
   | Some _ => undefined 12
   | None => undefined 11
@@ -637,7 +637,8 @@ Definition writeSCNextFromBlockEntryAddr (paddr : paddr) (newnext : ADT.paddr) :
   |} in
     modify (fun s => {|
       currentPartition := s.(currentPartition);
-      memory := add paddr (SCE newEntry) s.(memory) beqAddr
+      memory := add SCEAddr (SCE newEntry) s.(memory) beqAddr
+      (*memory := add paddr (SCE newEntry) s.(memory) beqAddr*)
   |})
   | Some _ => undefined 12
   | None => undefined 11
@@ -701,7 +702,7 @@ Definition writeNextFromKernelStructureStart (structurepaddr : paddr) (newnext :
   match entry with
   | Some (PADDR a) => modify (fun s => {|
     currentPartition := s.(currentPartition);
-    memory := add structurepaddr (PADDR newnext) s.(memory) beqAddr
+    memory := add nextaddr (PADDR newnext) s.(memory) beqAddr
   |})
   | Some _ => undefined 12
   | None => undefined 11
@@ -790,9 +791,10 @@ Fixpoint eraseBlockAux (timeout : nat) (startAddr currentAddr : paddr): LLI unit
 
 (** The [eraseBlock] function fixes the timeout value of [eraseBlockAux] *)
 Definition eraseBlock (startAddr endAddr : paddr) : LLI bool :=
-  perform isEndAddrBeforeStartAddr := Paddr.ltb endAddr startAddr in
+  perform isEndAddrBeforeStartAddr := Paddr.leb endAddr startAddr in
   if isEndAddrBeforeStartAddr then ret false else
-  eraseBlockAux N startAddr endAddr ;;
+  perform realEnd := Paddr.pred endAddr in
+  eraseBlockAux N startAddr realEnd ;;
   ret true.
 
 (** The [checkEntry] function checks whether the entry passed in parameter exists *)

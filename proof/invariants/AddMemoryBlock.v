@@ -47,6 +47,367 @@ Require Import Model.Monad.
 
 Module WP := WeakestPreconditions.
 
+(*Lemma insertNewEntry 	(pdinsertion startaddr endaddr origin: paddr)
+									 (r w e : bool) (currnbfreeslots : index) (P : state -> Prop):
+{{ fun s => consistency s
+(* to retrieve the fields in pdinsertion *)
+/\ (exists pdentry, lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry)
+          /\ (pdinsertion <> constantRootPartM ->
+                  isPDT (parent pdentry) s
+                  /\ (forall addr, In addr (getAllPaddrBlock startaddr endaddr)
+                              -> In addr (getMappedPaddr (parent pdentry) s))
+                  /\ (exists blockParent endParent,
+                          In blockParent (getMappedBlocks (parent pdentry) s)
+                          /\ bentryStartAddr blockParent origin s
+                          /\ bentryEndAddr blockParent endParent s
+                          /\ origin <= startaddr /\ endParent >= endaddr)))
+(* to show the first free slot pointer is not NULL *)
+/\ (pdentryNbFreeSlots pdinsertion currnbfreeslots s /\ currnbfreeslots > 0)
+/\ (exists firstfreepointer, pdentryFirstFreeSlot pdinsertion firstfreepointer s /\
+ firstfreepointer <> nullAddr)
+/\ 	((startaddr < endaddr) /\ (Constants.minBlockSize <= (endaddr - startaddr)))
+/\ P s
+}}
+
+Internal.insertNewEntry pdinsertion startaddr endaddr origin r w e currnbfreeslots
+
+{{fun newentryaddr s =>
+(exists s0, P s0 /\ consistency1 s (* only propagate the 1st batch*)
+(* expected new state after memory writes and associated properties on the new state s *)
+/\ (exists pdentry : PDTable, exists pdentry0 pdentry1: PDTable,
+ exists bentry bentry0 bentry1 bentry2 bentry3 bentry4 bentry5 bentry6: BlockEntry,
+ exists sceaddr, exists scentry : SCEntry,
+ exists newBlockEntryAddr newFirstFreeSlotAddr predCurrentNbFreeSlots,
+s = {|
+currentPartition := currentPartition s0;
+memory := add sceaddr
+							 (SCE {| origin := origin; next := next scentry |})
+					 (add newBlockEntryAddr
+		  (BE
+			 (CBlockEntry (read bentry5) (write bentry5) e (present bentry5)
+				(accessible bentry5) (blockindex bentry5) (blockrange bentry5)))
+					 (add newBlockEntryAddr
+		  (BE
+			 (CBlockEntry (read bentry4) w (exec bentry4) (present bentry4)
+				(accessible bentry4) (blockindex bentry4) (blockrange bentry4)))
+					 (add newBlockEntryAddr
+		  (BE
+			 (CBlockEntry r (write bentry3) (exec bentry3) (present bentry3)
+				(accessible bentry3) (blockindex bentry3) (blockrange bentry3)))
+					 (add newBlockEntryAddr
+		  (BE
+			 (CBlockEntry (read bentry2) (write bentry2) (exec bentry2)
+				(present bentry2) true (blockindex bentry2) (blockrange bentry2)))
+					 (add newBlockEntryAddr
+		  (BE
+			 (CBlockEntry (read bentry1) (write bentry1) (exec bentry1) true
+				(accessible bentry1) (blockindex bentry1) (blockrange bentry1)))
+					 (add newBlockEntryAddr
+		  (BE
+			 (CBlockEntry (read bentry0) (write bentry0) (exec bentry0)
+				(present bentry0) (accessible bentry0) (blockindex bentry0)
+				(CBlock (startAddr (blockrange bentry0)) endaddr)))
+					 (add newBlockEntryAddr
+			  (BE
+				 (CBlockEntry (read bentry) (write bentry)
+					(exec bentry) (present bentry) (accessible bentry)
+					(blockindex bentry)
+					(CBlock startaddr (endAddr (blockrange bentry)))))
+						 (add pdinsertion
+		  (PDT
+			 {|
+			 structure := structure pdentry0;
+			 firstfreeslot := firstfreeslot pdentry0;
+			 nbfreeslots := predCurrentNbFreeSlots;
+			 nbprepare := nbprepare pdentry0;
+			 parent := parent pdentry0;
+			 MPU := MPU pdentry0;
+								 vidtAddr := vidtAddr pdentry0 |})
+						 (add pdinsertion
+		  (PDT
+			 {|
+			 structure := structure pdentry;
+			 firstfreeslot := newFirstFreeSlotAddr;
+			 nbfreeslots := nbfreeslots pdentry;
+			 nbprepare := nbprepare pdentry;
+			 parent := parent pdentry;
+			 MPU := MPU pdentry;
+								 vidtAddr := vidtAddr pdentry |}) (memory s0) beqAddr) beqAddr) beqAddr) beqAddr) beqAddr)
+                            beqAddr) beqAddr) beqAddr) beqAddr) beqAddr |}
+/\ newBlockEntryAddr = newentryaddr
+/\ lookup newBlockEntryAddr (memory s0) beqAddr = Some (BE bentry)
+/\ lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry6) /\
+bentry6 = (CBlockEntry (read bentry5) (write bentry5) e (present bentry5)
+					  (accessible bentry5) (blockindex bentry5) (blockrange bentry5))
+/\
+bentry5 = (CBlockEntry (read bentry4) w (exec bentry4) (present bentry4)
+					  (accessible bentry4) (blockindex bentry4) (blockrange bentry4))
+/\
+bentry4 = (CBlockEntry r (write bentry3) (exec bentry3) (present bentry3)
+					  (accessible bentry3) (blockindex bentry3) (blockrange bentry3))
+/\
+bentry3 = (CBlockEntry (read bentry2) (write bentry2) (exec bentry2)
+					  (present bentry2) true (blockindex bentry2) (blockrange bentry2))
+/\
+bentry2 = (CBlockEntry (read bentry1) (write bentry1) (exec bentry1) true
+					  (accessible bentry1) (blockindex bentry1) (blockrange bentry1))
+/\
+bentry1 = (CBlockEntry (read bentry0) (write bentry0) (exec bentry0)
+					  (present bentry0) (accessible bentry0) (blockindex bentry0)
+					  (CBlock (startAddr (blockrange bentry0)) endaddr))
+/\
+bentry0 = (CBlockEntry (read bentry) (write bentry)
+						  (exec bentry) (present bentry) (accessible bentry)
+						  (blockindex bentry)
+						  (CBlock startaddr (endAddr (blockrange bentry))))
+/\ lookup pdinsertion (memory s0) beqAddr = Some (PDT pdentry)
+/\ lookup pdinsertion (memory s) beqAddr = Some (PDT pdentry1) /\
+pdentry1 = {|     structure := structure pdentry0;
+				   firstfreeslot := firstfreeslot pdentry0;
+				   nbfreeslots := predCurrentNbFreeSlots;
+				   nbprepare := nbprepare pdentry0;
+				   parent := parent pdentry0;
+				   MPU := MPU pdentry0;
+									 vidtAddr := vidtAddr pdentry0 |} /\
+pdentry0 = {|    structure := structure pdentry;
+				   firstfreeslot := newFirstFreeSlotAddr;
+				   nbfreeslots := nbfreeslots pdentry;
+				   nbprepare := nbprepare pdentry;
+				   parent := parent pdentry;
+				   MPU := MPU pdentry;
+									 vidtAddr := vidtAddr pdentry|}
+(* propagate new s0 properties *)
+/\ pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s0
+/\ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s0
+/\ lookup sceaddr (memory s0) beqAddr = Some (SCE scentry)
+
+(* propagate new properties (copied from last step) *)
+/\ pdentryNbFreeSlots pdinsertion predCurrentNbFreeSlots s
+/\ StateLib.Index.pred currnbfreeslots = Some predCurrentNbFreeSlots
+/\ blockindex bentry6 = blockindex bentry5
+/\ blockindex bentry5 = blockindex bentry4
+/\ blockindex bentry4 = blockindex bentry3
+/\ blockindex bentry3 = blockindex bentry2
+/\ blockindex bentry2 = blockindex bentry1
+/\ blockindex bentry1 = blockindex bentry0
+/\ blockindex bentry0 = blockindex bentry
+/\ blockindex bentry6 = blockindex bentry
+/\ isPDT pdinsertion s0
+/\ isPDT pdinsertion s
+/\ isBE newBlockEntryAddr s0
+/\ isBE newBlockEntryAddr s
+/\ isSCE sceaddr s0
+/\ isSCE sceaddr s
+/\ sceaddr = CPaddr (newBlockEntryAddr + scoffset)
+/\ firstfreeslot pdentry1 = newFirstFreeSlotAddr
+/\ newBlockEntryAddr = (firstfreeslot pdentry)
+/\ newFirstFreeSlotAddr <> pdinsertion
+/\ pdinsertion <> newBlockEntryAddr
+/\ newFirstFreeSlotAddr <> newBlockEntryAddr
+/\ sceaddr <> newBlockEntryAddr
+/\ sceaddr <> pdinsertion
+/\ sceaddr <> newFirstFreeSlotAddr
+(* pdinsertion's new free slots list and relation with list at s0 *)
+/\ (exists (optionfreeslotslist : list optionPaddr) (s2 : state)
+			 (n0 n1 n2 : nat) (nbleft : index),
+ nbleft = CIndex (currnbfreeslots - 1) /\
+ nbleft < maxIdx /\
+ s =
+ {|
+   currentPartition := currentPartition s0;
+   memory :=
+	 add sceaddr (SCE {| origin := origin; next := next scentry |})
+	   (memory s2) beqAddr
+ |} /\
+	 ( optionfreeslotslist = getFreeSlotsListRec n1 newFirstFreeSlotAddr s2 nbleft /\
+		   getFreeSlotsListRec n2 newFirstFreeSlotAddr s nbleft = optionfreeslotslist /\
+		   optionfreeslotslist = getFreeSlotsListRec n0 newFirstFreeSlotAddr s0 nbleft /\
+		   n0 <= n1 /\
+		   nbleft < n0 /\
+		   n1 <= n2 /\
+		   nbleft < n2 /\
+		   n2 <= maxIdx + 1 /\
+		   (wellFormedFreeSlotsList optionfreeslotslist = False -> False) /\
+		   NoDup (filterOptionPaddr optionfreeslotslist) /\
+		   (In newBlockEntryAddr (filterOptionPaddr optionfreeslotslist) -> False) /\
+		   (exists optionentrieslist : list optionPaddr,
+			  optionentrieslist = getKSEntries pdinsertion s2 /\
+			  getKSEntries pdinsertion s = optionentrieslist /\
+			  optionentrieslist = getKSEntries pdinsertion s0 /\
+					 (* newB in free slots list at s0, so in optionentrieslist *)
+					 In newBlockEntryAddr (filterOptionPaddr optionentrieslist)
+				 )
+		 )
+
+	 /\ (	isPDT multiplexer s
+			 /\ getPartitions multiplexer s2 = getPartitions multiplexer s0
+			 /\ getPartitions multiplexer s = getPartitions multiplexer s2
+			 /\ getChildren pdinsertion s2 = getChildren pdinsertion s0
+			 /\ getChildren pdinsertion s = getChildren pdinsertion s2
+			 /\ getConfigBlocks pdinsertion s2 = getConfigBlocks pdinsertion s0
+			 /\ getConfigBlocks pdinsertion s = getConfigBlocks pdinsertion s2
+			 /\ getConfigPaddr pdinsertion s2 = getConfigPaddr pdinsertion s0
+			 /\ getConfigPaddr pdinsertion s = getConfigPaddr pdinsertion s2
+			 /\ (forall block, In block (getMappedBlocks pdinsertion s) <->
+								 In block (newBlockEntryAddr:: (getMappedBlocks pdinsertion s0)))
+			 /\ ((forall addr, In addr (getMappedPaddr pdinsertion s) <->
+						 In addr (getAllPaddrBlock (startAddr (blockrange bentry6)) (endAddr (blockrange bentry6))
+							  ++ getMappedPaddr pdinsertion s0)) /\
+						 length (getMappedPaddr pdinsertion s) =
+						 length (getAllPaddrBlock (startAddr (blockrange bentry6))
+								  (endAddr (blockrange bentry6)) ++ getMappedPaddr pdinsertion s0))
+			 /\ (forall block, In block (getAccessibleMappedBlocks pdinsertion s) <->
+								 In block (newBlockEntryAddr:: (getAccessibleMappedBlocks pdinsertion s0)))
+			 /\ (forall addr, In addr (getAccessibleMappedPaddr pdinsertion s) <->
+						 In addr (getAllPaddrBlock (startAddr (blockrange bentry6)) (endAddr (blockrange bentry6))
+							  ++ getAccessibleMappedPaddr pdinsertion s0))
+
+			 /\ (* if not concerned *)
+				 (forall partition : paddr,
+						 partition <> pdinsertion ->
+						 isPDT partition s0 ->
+						 getKSEntries partition s = getKSEntries partition s0)
+			 /\ (forall partition : paddr,
+						 partition <> pdinsertion ->
+						 isPDT partition s0 ->
+						  getMappedPaddr partition s = getMappedPaddr partition s0)
+			 /\ (forall partition : paddr,
+						 partition <> pdinsertion ->
+						 isPDT partition s0 ->
+						 getConfigPaddr partition s = getConfigPaddr partition s0)
+			 /\ (forall partition : paddr,
+													 partition <> pdinsertion ->
+													 isPDT partition s0 ->
+													 getPartitions partition s = getPartitions partition s0)
+			 /\ (forall partition : paddr,
+													 partition <> pdinsertion ->
+													 isPDT partition s0 ->
+													 getChildren partition s = getChildren partition s0)
+			 /\ (forall partition : paddr,
+													 partition <> pdinsertion ->
+													 isPDT partition s0 ->
+													 getMappedBlocks partition s = getMappedBlocks partition s0)
+			 /\ (forall partition : paddr,
+													 partition <> pdinsertion ->
+													 isPDT partition s0 ->
+													 getAccessibleMappedBlocks partition s = getAccessibleMappedBlocks partition s0)
+			 /\ (forall partition : paddr,
+						 partition <> pdinsertion ->
+						 isPDT partition s0 ->
+						  getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0)
+
+		 )
+	 /\ (forall partition : paddr,
+				 isPDT partition s = isPDT partition s0
+			 )
+ )
+
+
+
+
+(* intermediate steps *)
+/\ exists s1 s2 s3 s4 s5 s6 s7 s8 s9 s10,
+s1 = {|
+currentPartition := currentPartition s0;
+memory := add pdinsertion
+		 (PDT
+			{|
+			  structure := structure pdentry;
+			  firstfreeslot := newFirstFreeSlotAddr;
+			  nbfreeslots := nbfreeslots pdentry;
+			  nbprepare := nbprepare pdentry;
+			  parent := parent pdentry;
+			  MPU := MPU pdentry;
+			  vidtAddr := vidtAddr pdentry
+			|}) (memory s0) beqAddr |}
+/\ s2 = {|
+currentPartition := currentPartition s1;
+memory := add pdinsertion
+			(PDT
+			   {|
+				 structure := structure pdentry0;
+				 firstfreeslot := firstfreeslot pdentry0;
+				 nbfreeslots := predCurrentNbFreeSlots;
+				 nbprepare := nbprepare pdentry0;
+				 parent := parent pdentry0;
+				 MPU := MPU pdentry0;
+				 vidtAddr := vidtAddr pdentry0
+			   |}
+		  ) (memory s1) beqAddr |}
+/\ s3 = {|
+currentPartition := currentPartition s2;
+memory := add newBlockEntryAddr
+		 (BE
+			(CBlockEntry (read bentry) 
+			   (write bentry) (exec bentry) 
+			   (present bentry) (accessible bentry)
+			   (blockindex bentry)
+			   (CBlock startaddr (endAddr (blockrange bentry))))
+		  ) (memory s2) beqAddr |}
+/\ s4 = {|
+currentPartition := currentPartition s3;
+memory := add newBlockEntryAddr
+		(BE
+		   (CBlockEntry (read bentry0) 
+			  (write bentry0) (exec bentry0) 
+			  (present bentry0) (accessible bentry0)
+			  (blockindex bentry0)
+			  (CBlock (startAddr (blockrange bentry0)) endaddr))
+		  ) (memory s3) beqAddr |}
+/\ s5 = {|
+currentPartition := currentPartition s4;
+memory := add newBlockEntryAddr
+	   (BE
+		  (CBlockEntry (read bentry1) 
+			 (write bentry1) (exec bentry1) true
+			 (accessible bentry1) (blockindex bentry1)
+			 (blockrange bentry1))
+		  ) (memory s4) beqAddr |}
+/\ s6 = {|
+currentPartition := currentPartition s5;
+memory := add newBlockEntryAddr
+		(BE
+		   (CBlockEntry (read bentry2) (write bentry2) 
+			  (exec bentry2) (present bentry2) true
+			  (blockindex bentry2) (blockrange bentry2))
+		  ) (memory s5) beqAddr |}
+/\ s7 = {|
+currentPartition := currentPartition s6;
+memory := add newBlockEntryAddr
+	   (BE
+		  (CBlockEntry r (write bentry3) (exec bentry3)
+			 (present bentry3) (accessible bentry3) 
+			 (blockindex bentry3) (blockrange bentry3))
+		  ) (memory s6) beqAddr |}
+/\ s8 = {|
+currentPartition := currentPartition s7;
+memory := add newBlockEntryAddr
+		  (BE
+			 (CBlockEntry (read bentry4) w (exec bentry4) 
+				(present bentry4) (accessible bentry4) 
+				(blockindex bentry4) (blockrange bentry4))
+		  ) (memory s7) beqAddr |}
+/\ s9 = {|
+currentPartition := currentPartition s8;
+memory := add newBlockEntryAddr
+	   (BE
+		  (CBlockEntry (read bentry5) (write bentry5) e 
+			 (present bentry5) (accessible bentry5) 
+			 (blockindex bentry5) (blockrange bentry5))
+		  ) (memory s8) beqAddr |}
+/\ s10 = {|
+currentPartition := currentPartition s9;
+memory := add sceaddr 
+						 (SCE {| origin := origin; next := next scentry |}
+		  ) (memory s9) beqAddr |}
+)
+/\ (forall part pdentryPart parentsList, lookup part (memory s0) beqAddr = Some (PDT pdentryPart)
+          -> isParentsList s parentsList part -> isParentsList s0 parentsList part)
+/\ (forall part kernList, isListOfKernels kernList part s -> isListOfKernels kernList part s0))
+}}.
+Proof.
+Admitted.*)
+
 (** * Summary
     This file contains the invariant of [addMemoryBlock].
     We prove that this PIP service preserves the isolation properties as well as
@@ -100,8 +461,9 @@ case_eq addrIsNull.
 		assert(HBTSNotNull : blockToShareInCurrPartAddr <> nullAddr).
 		{ rewrite <- beqAddrFalse in *. intuition. }
 		pose (Hconj := conj H0 HBTSNotNull).
-		apply Hconj. rewrite <- beqAddrFalse in *. intuition.
-		destruct H8. exists x. apply H5.
+		apply Hconj. rewrite <- beqAddrFalse in *. destruct H0 as ((_ & _ & Hblock) & HbeqNullBlock).
+		destruct Hblock as [Hcontra | Hblock]; try(exfalso; congruence). destruct Hblock as [bentry (Hlookup & _)].
+    exists bentry. assumption.
 	}
 	intro rcheck.
 	case_eq (negb rcheck).
@@ -154,7 +516,8 @@ case_eq addrIsNull.
 							who is a child *)
 					repeat rewrite <- beqAddrFalse in *. rewrite negb_false_iff in *. intuition.
 					unfold bentryStartAddr in *.
-					destruct H11 as [sh1entryaddr (Hcheckchild & ( (idpdchildentry & HlookupidPDchild) & ((sh1entry & Hlookupshe1entryaddr) & _ ) ))].
+					destruct H11 as [sh1entryaddr (Hcheckchild & ( (idpdchildentry & HlookupidPDchild) & ((sh1entry &
+                Hlookupshe1entryaddr) & _ ) ))].
 					assert(HPDTIfPDFlag : PDTIfPDFlag s)
 							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 					unfold PDTIfPDFlag in *.
@@ -165,7 +528,8 @@ case_eq addrIsNull.
 					destruct H11. (*exists startaddr : paddr, bentryStartAddr  ... & ... *)
 					intuition.
 					unfold isPDT.
-					destruct (lookup (startAddr (blockrange idpdchildentry)) (memory s) beqAddr) eqn:Hlookup ; try(exfalso ; congruence).
+					destruct (lookup (startAddr (blockrange idpdchildentry)) (memory s) beqAddr) eqn:Hlookup ;
+                try(exfalso ; congruence).
 					destruct v eqn:Hv ; try (exfalso ; congruence).
 					trivial.
 				}
@@ -257,7 +621,7 @@ case_eq addrIsNull.
 												intros. simpl. split. apply H5.
 												repeat rewrite <- beqAddrFalse in *.
 												unfold isBE. intuition.
-												assert(HBE : exists entry : BlockEntry, lookup blockToShareInCurrPartAddr (memory s) beqAddr =
+												assert(HBE : exists entry, lookup blockToShareInCurrPartAddr (memory s) beqAddr =
 									 								Some (BE entry)) by intuition.
 												destruct HBE as [blocktoshareentry HLookupblocktoshare].
 												rewrite HLookupblocktoshare. trivial.
@@ -321,7 +685,8 @@ case_eq addrIsNull.
         																		bentryPFlag blockToShareInCurrPartAddr true s /\
 																				In blockToShareInCurrPartAddr (getMappedBlocks currentPart s))
 																			by intuition.
-																		destruct HblockToShare as [blocktoshareentry (Hlookupblocktoshare & (HblocktoshqreEq & HblockPFlgaTrue))].
+																		destruct HblockToShare as [blocktoshareentry (Hlookupblocktoshare &
+                                        (HblocktoshqreEq & HblockPFlgaTrue))].
 																		subst. rewrite Hlookupblocktoshare. trivial.
 																	}
 																	intro blockstart.
@@ -337,14 +702,15 @@ case_eq addrIsNull.
         																		bentryPFlag blockToShareInCurrPartAddr true s /\
 																				In blockToShareInCurrPartAddr (getMappedBlocks currentPart s))
 																			by intuition.
-																		destruct HblockToShare as [blocktoshareentry (Hlookupblocktoshare & (HblocktoshqreEq & HblockPFlgaTrue))].
+																		destruct HblockToShare as [blocktoshareentry (Hlookupblocktoshare &
+                                          (HblocktoshqreEq & HblockPFlgaTrue))].
 																		subst. rewrite Hlookupblocktoshare. trivial.
 																	}
 																	intro blockend.
 
 (* Start of structure modifications *)
 eapply bindRev.
-{ eapply weaken. apply insertNewEntry.insertNewEntry.
+{ eapply weaken. apply insertNewEntry.
 	intros. simpl.
 	split. intuition.
 	assert(HPDTGlobalIdPDChild : isPDT globalIdPDChild s) by intuition.
@@ -356,14 +722,80 @@ eapply bindRev.
 		apply PeanoNat.Nat.leb_gt. assert (Hzero : zero = CIndex 0) by intuition.
 		subst. simpl in Hnbfreeslots. intuition.
 	}
-	split. intuition.
+  destruct HPDTGlobalIdPDChild as [pdentry HlookupGlobs].
+	split. exists pdentry. split. assumption. split; try(lia). intro HglobNotRoot.
+  assert(HparentOfPart: parentOfPartitionIsPartition s)
+        by (unfold consistency in *; unfold consistency1 in *; intuition).
+  specialize(HparentOfPart globalIdPDChild pdentry HlookupGlobs).
+  destruct HparentOfPart as (HparentIsPart & _ & HparentNotPart). specialize(HparentIsPart HglobNotRoot).
+  destruct HparentIsPart as ([parentEntry HlookupParent] & HparentIsPart). split. unfold isPDT.
+  rewrite HlookupParent. trivial.
+  assert(HisChild: negb isChildCurrPart = false) by intuition. apply negb_false_iff in HisChild.
+  subst isChildCurrPart.
+  assert(HisChild: exists sh1entryaddr : paddr,
+                       true = checkChild idPDchild s sh1entryaddr
+                       /\ (exists entry : BlockEntry,
+                            lookup idPDchild (memory s) beqAddr = Some (BE entry))
+                       /\ (exists sh1entry : Sh1Entry,
+                          sh1entryAddr idPDchild sh1entryaddr s
+                          /\ lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry))
+                       /\ In idPDchild (getMappedBlocks currentPart s)) by intuition.
+  assert(HstartChild: bentryStartAddr idPDchild globalIdPDChild s) by intuition.
+  assert(HglobIsChild: In globalIdPDChild (getChildren currentPart s)).
+  {
+    destruct HisChild as [sh1entryaddr (Hcheck & _ & [sh1entry Hprops] & HblockIn)].
+    unfold consistency in *; unfold consistency1 in *.
+    apply mappedPDTIsChild with idPDchild sh1entryaddr; intuition.
+  }
+  assert(HparentsEq: parent pdentry = currentPart).
+  {
+    assert(In currentPart (getPartitions multiplexer s)).
+    {
+      assert(Hcurr: currentPart = currentPartition s) by intuition. rewrite Hcurr.
+      unfold consistency in *; unfold consistency1 in *; intuition.
+    }
+    assert(In globalIdPDChild (getPartitions multiplexer s)).
+    {
+      unfold consistency in *; unfold consistency1 in *; apply childrenPartitionInPartitionList with currentPart;
+        intuition.
+    }
+    apply uniqueParent with globalIdPDChild s; try(assumption).
+    - unfold consistency in *; unfold consistency1 in *; intuition.
+    - unfold consistency in *; unfold consistency1 in *; intuition.
+    - assert(HisChildProp: isChild s) by (unfold consistency in *; unfold consistency1 in *; intuition).
+      unfold isChild in HisChildProp. apply HisChildProp. assumption. unfold pdentryParent.
+      rewrite HlookupGlobs. reflexivity.
+  }
+  rewrite HparentsEq in *.
+  split. intros addr HaddrInRange.
+  assert(Hstart: bentryStartAddr blockToShareInCurrPartAddr blockstart s) by intuition.
+  assert(Hend: bentryEndAddr blockToShareInCurrPartAddr blockend s) by intuition.
+  assert(HaddrInBlock: In addr (getAllPaddrAux [blockToShareInCurrPartAddr] s)).
+  {
+    simpl. unfold bentryStartAddr in Hstart. unfold bentryEndAddr in Hend.
+    destruct (lookup blockToShareInCurrPartAddr (memory s) beqAddr); try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). rewrite app_nil_r. subst blockstart. subst blockend. assumption.
+  }
+  assert(HblockProps: exists bentry,
+                        lookup blockToShareInCurrPartAddr (memory s) beqAddr = Some (BE bentry)
+                        /\ blockToShareInCurrPartAddr = idBlockToShare
+                        /\ bentryPFlag blockToShareInCurrPartAddr true s
+                        /\ In blockToShareInCurrPartAddr (getMappedBlocks currentPart s)) by intuition.
+  destruct HblockProps as [bentry (HlookupBlock & _ & _ & HblockMapped)].
+  apply addrInBlockIsMapped with blockToShareInCurrPartAddr; assumption.
+  assert(HblockProps: exists bentry,
+                        lookup blockToShareInCurrPartAddr (memory s) beqAddr = Some (BE bentry)
+                        /\ blockToShareInCurrPartAddr = idBlockToShare
+                        /\ bentryPFlag blockToShareInCurrPartAddr true s
+                        /\ In blockToShareInCurrPartAddr (getMappedBlocks currentPart s)) by intuition.
+  destruct HblockProps as [bentry (_ & _ & _ & HblockIn)].
+  exists blockToShareInCurrPartAddr. exists blockend. intuition.
 	split. intuition.
 	(* TODO : to remove once NbFreeSlotsISNbFreeSlotsInList is proven *)
 	split.
 	{ unfold pdentryFirstFreeSlot.
-		destruct HPDTGlobalIdPDChild as [globalpdentry Hlookupglobal].
 		unfold pdentryFirstFreeSlot in *.
-		rewrite Hlookupglobal in *.
+		rewrite HlookupGlobs in *.
 		exists childfirststructurepointer.
 		rewrite <- beqAddrFalse in *.
 		intuition.
@@ -397,12 +829,12 @@ eapply bindRev.
 	intros. simpl.
 	assert(HBEbts : isBE blockToShareInCurrPartAddr s).
 	{ destruct H7 as [s0 Hprops].
-		destruct Hprops as [Hprops0 (Hcons & Hprops)].
-		destruct Hprops as [pdentry (pdentry0 & (pdentry1
+		destruct Hprops as (Hprops0 & Hcons & Hprops).
+		destruct Hprops as ([pdentry (pdentry0 & (pdentry1
 												& (bentry & (bentry0 & (bentry1 & (bentry2 & (bentry3 & (bentry4 & (bentry5 & (bentry6
 												& (sceaddr & (scentry
 												& (newBlockEntryAddr & (newFirstFreeSlotAddr
-												& (predCurrentNbFreeSlots & Hprops)))))))))))))))].
+												& (predCurrentNbFreeSlots & Hprops)))))))))))))))] & HparentsLists & HkernLists).
 		assert(beqbtsnew : newBlockEntryAddr <> blockToShareInCurrPartAddr).
 		{
 			(* at s0, newBlockEntryAddr is a free slot, which is not the case of
@@ -572,7 +1004,12 @@ exists s0,
 								beqAddr nullAddr PDChildAddr = pdchildIsNull /\
             pdentryVidt globalIdPDChild vidtBlockGlobalId s0 /\
            bentryStartAddr blockToShareInCurrPartAddr blockstart s0 /\
-          bentryEndAddr blockToShareInCurrPartAddr blockend s0)
+          bentryEndAddr blockToShareInCurrPartAddr blockend s0
+        /\ (forall part pdentryPart parentsList,
+              lookup part (memory s0) beqAddr = Some (PDT pdentryPart) ->
+              isParentsList s parentsList part -> isParentsList s0 parentsList part)
+        /\ (forall part kernList,
+              isListOfKernels kernList part s -> isListOfKernels kernList part s0))
 
 /\ (exists pdentry pdentry0 pdentry1: PDTable,
 		exists bentry bentry0 bentry1 bentry2 bentry3 bentry4 bentry5 bentry6: BlockEntry,
@@ -690,6 +1127,7 @@ pdentry0 = {|    structure := structure pdentry;
                     parent := parent pdentry;
                     MPU := MPU pdentry;
 										vidtAddr := vidtAddr pdentry|}
+/\ lookup sceaddr (memory s0) beqAddr = Some (SCE scentry)
 	(* propagate new properties (copied from last step) *)
 	/\ pdentryNbFreeSlots globalIdPDChild predCurrentNbFreeSlots s
 	/\ StateLib.Index.pred nbfreeslots = Some predCurrentNbFreeSlots
@@ -713,6 +1151,7 @@ pdentry0 = {|    structure := structure pdentry;
 	/\ sceaddr = CPaddr (newBlockEntryAddr + scoffset)
 	/\ sh1eaddr = CPaddr (blockToShareInCurrPartAddr + sh1offset)
 	/\ firstfreeslot pdentry1 = newFirstFreeSlotAddr
+  /\ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s0
 	/\ newBlockEntryAddr = (firstfreeslot pdentry)
 	/\ newBlockEntryAddr <> blockToShareInCurrPartAddr
 	/\ newFirstFreeSlotAddr <> globalIdPDChild
@@ -1003,13 +1442,56 @@ s1 = {|
 ))).
 intros. simpl.  set (s' := {|
       currentPartition :=  _|}).
-			destruct Hprops as [pdentry (pdentry0 & (pdentry1
+			destruct Hprops as ([pdentry (pdentry0 & (pdentry1
 												& (bentry & (bentry0 & (bentry1 & (bentry2 & (bentry3 & (bentry4 & (bentry5 & (bentry6
 												& (sceaddr & (scentry
 												& (newBlockEntryAddr & (newFirstFreeSlotAddr
-												& (predCurrentNbFreeSlots & (Hs & Hprops))))))))))))))))].
+												& (predCurrentNbFreeSlots & (Hs & Hprops))))))))))))))))] & HparentsLists & HkernLists).
 			intuition. subst blockToShareChildEntryAddr.
 			exists s0. intuition.
+
+      (* isParentsList *)
+      {
+        assert(HparentsList: isParentsList s' parentsList part) by assumption.
+        assert(Hlists: isParentsList s parentsList part).
+        {
+          revert HparentsList. apply isParentsListEqSHERev with sh1entrybts; try(assumption).
+          - apply isPDTLookupEq. unfold isPDT. rewrite Hs. simpl. destruct (beqAddr sceaddr part) eqn:HbeqScePart.
+            {
+              rewrite <-DTL.beqAddrTrue in HbeqScePart. subst part. congruence.
+            }
+            destruct (beqAddr newBlockEntryAddr sceaddr) eqn:HbeqNewSce.
+            { rewrite <-DTL.beqAddrTrue in HbeqNewSce. congruence. }
+            simpl. destruct (beqAddr newBlockEntryAddr part) eqn:HbeqNewPart.
+            { rewrite <-DTL.beqAddrTrue in HbeqNewPart. subst part. congruence. }
+            rewrite beqAddrTrue. destruct (beqAddr globalIdPDChild newBlockEntryAddr) eqn:HbeqGlobNew.
+            { rewrite <-DTL.beqAddrTrue in HbeqGlobNew. congruence. }
+            rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+            destruct (beqAddr globalIdPDChild part) eqn:HbeqGlobPart; try(trivial). rewrite beqAddrTrue.
+            rewrite <-beqAddrFalse in HbeqGlobPart. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            assert(HlookupPart: lookup part (memory s0) beqAddr = Some (PDT pdentryPart)) by assumption.
+            rewrite HlookupPart. trivial.
+          - unfold consistency1 in *; intuition.
+        }
+        apply HparentsLists with pdentryPart; assumption.
+      }
+
+      (* isListOfKernels *)
+      {
+        assert(HkernList: isListOfKernels kernList part s') by assumption.
+        assert(Hlists: isListOfKernels kernList part s).
+        { revert HkernList. apply isListOfKernelsEqSHE. }
+        apply HkernLists; assumption.
+      }
+
 			exists pdentry. exists pdentry0. exists pdentry1.
 			exists bentry. exists bentry0. exists bentry1. exists bentry2. exists bentry3.
 			exists bentry4. exists bentry5. exists bentry6. exists sceaddr. exists scentry.
@@ -1052,7 +1534,6 @@ intros. simpl.  set (s' := {|
 				intro Hsh1sceEq. rewrite Hsh1sceEq in *.
 				unfold isSCE in *. unfold isSHE in *.
 				destruct(lookup sceaddr (memory s0) beqAddr) eqn:Hf ; try(exfalso ; congruence).
-				destruct v ; try(exfalso ; congruence).
 			}
 			assert(Hlookupsh1btseq : lookup (CPaddr (blockToShareInCurrPartAddr + sh1offset)) (memory s) beqAddr =
 						lookup (CPaddr (blockToShareInCurrPartAddr + sh1offset)) (memory s0) beqAddr).
@@ -1299,7 +1780,7 @@ intros. simpl.  set (s' := {|
 													repeat rewrite removeDupIdentity; intuition.
 			}
 
-			destruct H80 as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 & Hstates)))))))))].
+			destruct H81 as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 & Hstates)))))))))].
 			assert(HsEq : s = s10).
 			{ intuition. subst s10. subst s9. subst s8. subst s7. subst s6. subst s5. subst s4.
 				subst s3. subst s2. subst s1. simpl. subst s.
@@ -1438,7 +1919,7 @@ intros. simpl.  set (s' := {|
 			+ rewrite <- beqAddrFalse in *. congruence.
 			+ rewrite <- beqAddrFalse in *. congruence.
 			+ rewrite <- beqAddrFalse in *. congruence.
-			+ destruct H78 as [optionfreeslotslist (s2' & (n0 & (n1 & (n2 & (nbleft & Hoptionfreeslotslist)))))].
+			+ destruct H79 as [optionfreeslotslist (s2' & (n0 & (n1 & (n2 & (nbleft & Hoptionfreeslotslist)))))].
 				exists optionfreeslotslist. exists s. exists n0. exists n1. exists n2.
 				exists nbleft. intuition.
 				++ unfold s'. f_equal. rewrite Hs. simpl. intuition.
@@ -1460,7 +1941,7 @@ intros. simpl.  set (s' := {|
 						+++ unfold isPADDR in *. unfold isSHE in *.
 								destruct (lookup (CPaddr (blockToShareInCurrPartAddr + sh1offset)) (memory s) beqAddr) ; try(exfalso ; congruence).
 								destruct v ; try(exfalso ; congruence).
-				++	destruct H113 as [optionentrieslist (Hoptionentrieslists & (Hoptionentrieslists' & Hoptionentrieslists0))].
+				++	destruct H114 as [optionentrieslist (Hoptionentrieslists & (Hoptionentrieslists' & Hoptionentrieslists0))].
 						exists optionentrieslist.
 						unfold s'. intuition.
 						remember ((CPaddr (blockToShareInCurrPartAddr + sh1offset))) as sh1eaddr.
@@ -1867,7 +2348,7 @@ intros. simpl.  set (s' := {|
 				repeat rewrite removeDupIdentity ; intuition.
 			+	exists s1. exists s2. exists s3. exists s4. exists s5. exists s6.
 				exists s7. exists s8. exists s9. exists s10. eexists.
-				destruct H78 as [optionfreeslotslist (s2' & (n0 & (n1 & (n2 & (nbleft & Hoptionfreeslotslist)))))].
+				destruct H79 as [optionfreeslotslist (s2' & (n0 & (n1 & (n2 & (nbleft & Hoptionfreeslotslist)))))].
 				rewrite <- HsEq in *.
 				assert(Hinsert : (forall partition : paddr,
 						isPDT partition s = isPDT partition s0
@@ -1918,7 +2399,7 @@ intros. simpl.  set (s' := {|
 						assert(HPDTs00 : isPDT partition s0) by (rewrite HPDTEq in * ; intuition).
 						intuition.
 			+ { (* BlocksRangeFromKernelStartIsBE s*)
-				destruct H80 as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 & Hstates)))))))))].
+				destruct H81 as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 & Hstates)))))))))].
 				assert(HsEq : s = s10).
 				{ intuition. subst s10. subst s9. subst s8. subst s7. subst s6. subst s5. subst s4.
 					subst s3. subst s2. subst s1. simpl. subst s.
@@ -1934,7 +2415,7 @@ intros. simpl.  set (s' := {|
 				intuition.
 			} (* end of BlocksRangeFromKernelStartIsBE *)
 		+ { (* nullAddrExists s*)
-			destruct H80 as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 & Hstates)))))))))].
+			destruct H81 as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 & Hstates)))))))))].
 			assert(HsEq : s = s10).
 			{ intuition. subst s10. subst s9. subst s8. subst s7. subst s6. subst s5. subst s4.
 				subst s3. subst s2. subst s1. simpl. subst s.
@@ -2031,8 +2512,6 @@ exists s0,
             pdentryVidt globalIdPDChild vidtBlockGlobalId s0 /\
            bentryStartAddr blockToShareInCurrPartAddr blockstart s0 /\
           bentryEndAddr blockToShareInCurrPartAddr blockend s0)
-
-
 
 /\ (exists pdentry pdentry0 pdentry1: PDTable,
 		exists bentry bentry0 bentry1 bentry2 bentry3 bentry4 bentry5 bentry6: BlockEntry,
@@ -2159,6 +2638,7 @@ pdentry0 = {|    structure := structure pdentry;
                     parent := parent pdentry;
                     MPU := MPU pdentry;
 										vidtAddr := vidtAddr pdentry|}
+/\ lookup sceaddr (memory s0) beqAddr = Some(SCE scentry)
 	(* propagate new properties (copied from last step) *)
 	/\ pdentryNbFreeSlots globalIdPDChild predCurrentNbFreeSlots s
 	/\ StateLib.Index.pred nbfreeslots = Some predCurrentNbFreeSlots
@@ -2182,6 +2662,7 @@ pdentry0 = {|    structure := structure pdentry;
 	/\ sceaddr = CPaddr (newBlockEntryAddr + scoffset)
 	/\ sh1eaddr = CPaddr (blockToShareInCurrPartAddr + sh1offset)
 	/\ firstfreeslot pdentry1 = newFirstFreeSlotAddr
+  /\ bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s0
 	/\ newBlockEntryAddr = (firstfreeslot pdentry)
 	/\ newBlockEntryAddr <> blockToShareInCurrPartAddr
 	/\ newFirstFreeSlotAddr <> globalIdPDChild
@@ -2425,6 +2906,11 @@ s1 = {|
 /\ (forall partition : paddr,
 		isPDT partition s10 = isPDT partition s0
 		)
+/\ (forall part pdentryPart parentsList,
+       lookup part (memory s0) beqAddr = Some (PDT pdentryPart) ->
+       isParentsList s11 parentsList part -> isParentsList s0 parentsList part)
+/\ (forall part kernList,
+        isListOfKernels kernList part s11 -> isListOfKernels kernList part s0)
 /\ (	isPDT multiplexer s10
 			/\ getPartitions multiplexer s10 = getPartitions multiplexer s0
 			/\ getChildren globalIdPDChild s10 = getChildren globalIdPDChild s0
@@ -2481,8 +2967,7 @@ s1 = {|
 )))).
 intros. simpl.  set (s' := {|
       currentPartition :=  _|}).
-			destruct Hprops as [Hs Hprops].
-			split.
+			destruct Hprops as [Hs Hprops]. split.
 			exists s0. split. intuition.
 			exists pdentry. exists pdentry0. exists pdentry1.
 			exists bentry. exists bentry0. exists bentry1. exists bentry2. exists bentry3.
@@ -2516,7 +3001,7 @@ intros. simpl.  set (s' := {|
 			assert(HPDTIfPDFlags : PDTIfPDFlag s).
 			{ (*PDTIfPDFlag *)
 				intuition.
-				destruct H90 as [s1 (s2' & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 & (s11 & Hstates))))))))))].
+				destruct H94 as [s1 (s2' & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 & (s11 & Hstates))))))))))].
 
 				assert(HsEq : s = s11).
 				{ intuition. subst s11. subst s10. subst s9. subst s8. subst s7.
@@ -2778,7 +3263,7 @@ intros. simpl.  set (s' := {|
 				repeat rewrite removeDupIdentity ; intuition.
 			+ unfold isSHE. unfold s'.
 				cbn. rewrite beqAddrTrue. trivial.
-			+ destruct H87 as [optionfreeslotslist (s2 & (n0 & (n1 & (n2 & (nbleft & Hoptionfreeslotslist)))))].
+			+ destruct H91 as [optionfreeslotslist (s2 & (n0 & (n1 & (n2 & (nbleft & Hoptionfreeslotslist)))))].
 				exists optionfreeslotslist. exists s. exists n0. exists n1. exists n2.
 				exists nbleft. intuition.
 				++ unfold s'. f_equal. rewrite Hs. simpl. intuition.
@@ -2802,7 +3287,7 @@ intros. simpl.  set (s' := {|
 						+++ unfold isPADDR in *. unfold isSHE in *.
 								destruct (lookup (CPaddr (blockToShareInCurrPartAddr + sh1offset)) (memory s) beqAddr) ; try(exfalso ; congruence).
 								destruct v ; try(exfalso ; congruence).
-				++	destruct H115 as [optionentrieslist (Hoptionentrieslists & (Hoptionentrieslists' & Hoptionentrieslists0))].
+				++	destruct H119 as [optionentrieslist (Hoptionentrieslists & (Hoptionentrieslists' & Hoptionentrieslists0))].
 						exists optionentrieslist.
 						unfold s'. intuition.
 						remember ((CPaddr (blockToShareInCurrPartAddr + sh1offset))) as sh1eaddr.
@@ -3185,9 +3670,16 @@ intros. simpl.  set (s' := {|
 			+	destruct (beqAddr (CPaddr (blockToShareInCurrPartAddr + sh1offset)) blockToShareInCurrPartAddr) eqn:btssh1bts ; try(exfalso ; congruence).
 				rewrite <- beqAddrFalse in *.
 				repeat rewrite removeDupIdentity ; intuition.
-			+ destruct H90 as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 & (s11 & Hstates))))))))))].
+			+ destruct H94 as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 & (s11 & Hstates))))))))))].
 				exists s1. exists s2. exists s3. exists s4. exists s5. exists s6.
 				exists s7. exists s8. exists s9. exists s10. exists s11.
+        assert(HsBis: s = s11).
+        {
+          destruct Hstates as (Hs1 & Hs2 & Hs3 & Hs4 & Hs5 & Hs6 & Hs7 & Hs8 & Hs9 & Hs10 & Hs11 & Hstates).
+          rewrite Hs. rewrite Hs11. rewrite Hs10. rewrite Hs9. rewrite Hs8. rewrite Hs7. rewrite Hs6. rewrite Hs5.
+          rewrite Hs4. rewrite Hs3. rewrite Hs2. rewrite Hs1. reflexivity.
+        }
+        rewrite <-HsBis in *.
 				eexists. intuition.
 		+ assert(HbtsNotNull : blockToShareInCurrPartAddr <> nullAddr)
 				by (rewrite <- beqAddrFalse in * ; intuition).
@@ -3331,7 +3823,7 @@ intros. simpl.  set (s' := {|
 																										-- assert(Heq : CPaddr(blockToShareInCurrPartAddr + sh1offset) = nullAddr).
 																											{ rewrite nullAddrIs0.
 																												unfold CPaddr. rewrite Hj.
-																												destruct (le_dec 0 maxAddr) ; intuition.
+																												destruct (le_dec 0 maxAddr) ; try(lia).
 																												f_equal. apply proof_irrelevance.
 																											}
 																											rewrite Heq in *.
@@ -3434,7 +3926,7 @@ intros. simpl.  set (s' := {|
 												-- assert(Heq : CPaddr(blockToShareInCurrPartAddr + sh1offset) = nullAddr).
 													{ rewrite nullAddrIs0.
 														unfold CPaddr. rewrite Hj.
-														destruct (le_dec 0 maxAddr) ; intuition.
+														destruct (le_dec 0 maxAddr) ; try(lia).
 														f_equal. apply proof_irrelevance.
 													}
 													rewrite Heq in *.
@@ -3741,7 +4233,7 @@ intros. simpl.  set (s' := {|
 																			rewrite <- beqAddrFalse in *.
 																			repeat rewrite removeDupIdentity ; intuition.
 				++ { (* BlocksRangeFromKernelStartIsBE s*)
-					destruct H90 as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 & (s11 & Hstates))))))))))].
+					destruct H94 as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 & (s11 & Hstates))))))))))].
 					assert(HsEq : s = s11).
 					{ intuition. subst s11. subst s10. subst s9. subst s8. subst s7.
 						subst s6. subst s5. subst s4.
@@ -3802,7 +4294,7 @@ intros. simpl.  set (s' := {|
 								repeat rewrite removeDupIdentity; intuition.
 					} (* end of BlocksRangeFromKernelStartIsBE *)
 				++ { (* nullAddrExists s *)
-					destruct H90 as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 & (s11 & Hstates))))))))))].
+					destruct H94 as [s1 (s2 & (s3 & (s4 & (s5 & (s6 & (s7 & (s8 & (s9 & (s10 & (s11 & Hstates))))))))))].
 					assert(HsEq : s = s11).
 					{ intuition. subst s11. subst s10. subst s9. subst s8. subst s7.
 						subst s6. subst s5. subst s4.
@@ -4258,8 +4750,8 @@ intros. simpl.  set (s' := {|
 				unfold getPDs.
 				
 				(* clear context which could interfere with induction *)
-				intuition
-				clear H151. (* exists entry : BlockEntry,
+				intuition.
+				clear H155. (* exists entry : BlockEntry,
 								lookup blockToShareInCurrPartAddr (memory s0) beqAddr =
 								Some (BE entry) /\
 								blockToShareInCurrPartAddr = idBlockToShare /\
@@ -4314,8 +4806,7 @@ intros. simpl.  set (s' := {|
 							}
 							rewrite HoffsetEq in *.
 							rewrite <- Hsh1entryAddridpd in *. (* x=...*) rewrite Hlookupsh1idpd in *.
-							unfold checkChild in *. rewrite Hidpd in *. rewrite Hlookupsh1idpd in *.
-							destruct (PDflag sh1entryidpd) ; intuition.
+							unfold checkChild in *. rewrite Hidpd in *. rewrite Hlookupsh1idpd in *. rewrite <-Hcheckchild.
 							simpl. left. rewrite Hidpd in *.
 							unfold bentryStartAddr in *. rewrite Hidpd in *.
 							apply eq_sym. assumption.
@@ -4323,10 +4814,10 @@ intros. simpl.  set (s' := {|
 									by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 							unfold nullAddrExists in *. unfold isPADDR in *. unfold nullAddr in *.
 							unfold CPaddr in *.
-							destruct (le_dec 0 maxAddr) ; intuition.
-							assert(HnullEq : {| p := 0; Hp := ADT.CPaddr_obligation_1 0 l0 |} =
-											{| p := 0; Hp := ADT.CPaddr_obligation_2 |}).
-							{ f_equal. apply proof_irrelevance. }
+							destruct (le_dec 0 maxAddr) ; try(lia).
+							assert(HnullEq : forall n Hyp, {| p := 0; Hp := ADT.CPaddr_obligation_2 n Hyp |}
+                                              = {| p := 0; Hp := ADT.CPaddr_obligation_1 0 l0 |}).
+							{ intros. f_equal. apply proof_irrelevance. }
 							rewrite HnullEq in *. rewrite <- Hsh1entryAddridpd in *. (* x = *)
 							rewrite Hlookupsh1idpd in *. exfalso ; congruence.
 					-- (* a1 <> idPDchild*)
@@ -4451,7 +4942,7 @@ intros. simpl.  set (s' := {|
 				destruct (le_dec (blockend - blockstart) maxIdx) eqn:Hf ; try lia ; intuition.
 				rewrite <- maxIdxEqualMaxAddr in *. lia.
 				assert(blockindex bentry < kernelStructureEntriesNb) by apply Hidx.
-				intuition.
+				destruct (lt_dec (blockindex blockentry_d) kernelStructureEntriesNb); try(lia).
 			}
 			{ (* blockstart *)
 				(* DUP *)
@@ -4466,7 +4957,7 @@ intros. simpl.  set (s' := {|
 				destruct (le_dec (blockend - blockstart) maxIdx) eqn:Hf ; try lia ; intuition.
 				rewrite <- maxIdxEqualMaxAddr in *. lia.
 				assert(blockindex bentry < kernelStructureEntriesNb) by apply Hidx.
-				intuition.
+				destruct (lt_dec (blockindex blockentry_d) kernelStructureEntriesNb); try(lia).
 			}
 		}
 
@@ -4596,7 +5087,7 @@ intros. simpl.  set (s' := {|
 													-- assert(Heq : CPaddr(blockToShareInCurrPartAddr + sh1offset) = nullAddr).
 														{ rewrite nullAddrIs0.
 															unfold CPaddr. rewrite Hj.
-															destruct (le_dec 0 maxAddr) ; intuition.
+															destruct (le_dec 0 maxAddr) ; try(lia).
 															f_equal. apply proof_irrelevance.
 														}
 														rewrite Heq in *.
@@ -4739,7 +5230,7 @@ intros. simpl.  set (s' := {|
 														-- assert(Heq : CPaddr(blockToShareInCurrPartAddr + sh1offset) = nullAddr).
 															{ rewrite nullAddrIs0.
 																unfold CPaddr. rewrite Hj.
-																destruct (le_dec 0 maxAddr) ; intuition.
+																destruct (le_dec 0 maxAddr) ; try(lia).
 																f_equal. apply proof_irrelevance.
 															}
 															rewrite Heq in *.
@@ -4894,7 +5385,7 @@ intros. simpl.  set (s' := {|
 					-- assert(Heq : CPaddr(blockToShareInCurrPartAddr + sh1offset) = nullAddr).
 						{ rewrite nullAddrIs0.
 							unfold CPaddr. rewrite Hj.
-							destruct (le_dec 0 maxAddr) ; intuition.
+							destruct (le_dec 0 maxAddr) ; try(lia).
 							f_equal. apply proof_irrelevance.
 						}
 						rewrite Heq in *.
@@ -5208,7 +5699,7 @@ intros. simpl.  set (s' := {|
 										-- assert(Heq : CPaddr(blockToShareInCurrPartAddr + sh1offset) = nullAddr).
 											{ rewrite nullAddrIs0.
 												unfold CPaddr. rewrite Hj.
-												destruct (le_dec 0 maxAddr) ; intuition.
+												destruct (le_dec 0 maxAddr) ; try(lia).
 												f_equal. apply proof_irrelevance.
 											}
 											rewrite Heq in *.
@@ -6176,7 +6667,7 @@ intros. simpl.  set (s' := {|
 											-- assert(Heq : CPaddr(blockToShareInCurrPartAddr + sh1offset) = nullAddr).
 												{ rewrite nullAddrIs0.
 													unfold CPaddr. rewrite Hj.
-													destruct (le_dec 0 maxAddr) ; intuition.
+													destruct (le_dec 0 maxAddr) ; try(lia).
 													f_equal. apply proof_irrelevance.
 												}
 												rewrite Heq in *.
@@ -6723,7 +7214,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 								{ intuition. apply IdxLtMaxIdx. }
 								intuition.
 								assert(Hmax : maxIdx + 1 = S maxIdx) by (apply MaxIdxNextEq).
-								rewrite Hmax. apply Lt.le_lt_n_Sm. intuition.
+								rewrite Hmax. lia.
 							}
 							destruct Hfreeslotspd2Eq as [n1'' (nbleft'' & Hstates)].
 							rewrite <- Hs12Eq in *.
@@ -7094,7 +7585,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 	assert (HblockInParent : In blockToShareInCurrPartAddr (getMappedBlocks currentPart s0)).
 	{
 		intuition.
-		destruct H153. (*  exists entry : BlockEntry,
+		destruct H157. (*  exists entry : BlockEntry,
 								lookup blockToShareInCurrPartAddr (memory s0) beqAddr =
 								Some (BE entry) /\
 								blockToShareInCurrPartAddr = idBlockToShare /\
@@ -7231,7 +7722,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 					{
 						intros addr HaddrInMappedidpd.
 						specialize (HVs0 addr).
-						eapply HVs0 ; intuition.
+						eapply HVs0. apply in_or_app. right. assumption.
 					}
 
 					(* - newBlockEntryAddr and its contained addresses were not not in the child
@@ -8042,7 +8533,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 			trivial.
 	} (* end of wellFormedBlock *)
 
-	assert(HMPUFromAccessibleBlocks : MPUFromAccessibleBlocks s).
+	(*assert(HMPUFromAccessibleBlocks : MPUFromAccessibleBlocks s).
 	{ (* MPUFromAccessibleBlocks s *)
 
 		(* check all possible values for partition in the modified state s
@@ -8120,16 +8611,17 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 				rewrite HPDTpartNotidPDEq in *.
 				rewrite HAmappedblocksEq' in *.
 				rewrite HAmappedblocksEq ; trivial.
-	} (* end of MPUFromAccessibleBlocks *)
+	} (* end of MPUFromAccessibleBlocks *)*)
 
-	assert(HaccessibleChildPaddrIsAccessibleIntoParents : accessibleChildPaddrIsAccessibleIntoParent s).
-	{ (* accessibleChildPaddrIsAccessibleIntoParent s *)
+	assert(HaccessibleParentPaddrIsAccessibleIntoChilds : accessibleParentPaddrIsAccessibleIntoChild s).
+	{ (* accessibleParentPaddrIsAccessibleIntoChild s *)
 		(* DUP: similar to vertical sharing *)
-		assert(Hcons0: accessibleChildPaddrIsAccessibleIntoParent s0)
+		assert(Hcons0: accessibleParentPaddrIsAccessibleIntoChild s0)
 			by (unfold consistency in * ; unfold consistency2 in * ; intuition).
-		unfold accessibleChildPaddrIsAccessibleIntoParent in *.
+		unfold accessibleParentPaddrIsAccessibleIntoChild in *.
 
-		intros parent child addr HparentInPartTree HchildInChildList HaddrInAccessibleMappedChilds.
+		intros parent child addr HparentInPartTree HchildInChildList HaddrInAccessibleMappedParents
+          HaddrInMappedChild.
 		assert(HPDTparents : isPDT parent s).
 		{
 			apply partitionsArePDT ; intuition.
@@ -8150,7 +8642,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 		}
 		rewrite HgetPartitionspdEq in *.
 
-		assert(forall block, In block (getAccessibleMappedBlocks globalIdPDChild s) <->
+		assert(HgetAccMappedGlobEquiv: forall block, In block (getAccessibleMappedBlocks globalIdPDChild s) <->
 										In block (newBlockEntryAddr:: (getAccessibleMappedBlocks globalIdPDChild s0)))
 				by intuition.
 
@@ -8260,92 +8752,15 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 						by intuition.
 					eapply HAMappedPaddrEqNotInParts0 ; intuition.
 				}
+        rewrite HAmappedparentEq in HaddrInAccessibleMappedParents.
 
-				assert(Hparent : parent = currentPart).
-				{
-					assert(HisParents0 : isParent s0)
-						by (unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency *)
-					assert(HisChilds0 : isChild s0)
-						by (unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency *)
-					assert(HcurrPartEq : currentPart = currentPartition s0) by intuition.
-					assert(In currentPart (getPartitions multiplexer s0))
-						by (rewrite HcurrPartEq in * ; unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency s0*)
-					apply uniqueParent with globalIdPDChild s0; intuition.
-				}
-				subst parent.
+        apply Hidpdchildmapped in HaddrInMappedChild. apply in_app_or in HaddrInMappedChild.
 
-				rewrite HAmappedparentEq in *.
-				specialize (HaccessiblemappedEq addr).
-				rewrite HaccessiblemappedEq in *.
-				apply in_app_or in HaddrInAccessibleMappedChilds.
-				destruct HaddrInAccessibleMappedChilds as [HaddrInAccessibleMappedChilds | HaddrInAccessibleMappedChilds].
-				(* Case (getAllPaddrBlock (startAddr (blockrange bentry6))
-							                (endAddr (blockrange bentry6))) *)
-				(* -> addr accessible at s0 in parent *)
-
-				* assert(HparentInMappedlist : In blockToShareInCurrPartAddr (getMappedBlocks currentPart s0))
-							by intuition. (* by found block or showing no modifs from s*)
-
-						assert(HaddrInParentBlocks0 : In addr (getAllPaddrAux [blockToShareInCurrPartAddr] s0)).
-									{ eapply HaddrInBTSIfInnewB ; intuition. }
-					unfold getAccessibleMappedPaddr.
-					assert(HbtsInAccessibleList : In blockToShareInCurrPartAddr
-											(getAccessibleMappedBlocks currentPart s0)).
-					{
-						unfold getAccessibleMappedBlocks.
-						unfold isPDT in HPDTparents0.
-						destruct (lookup currentPart (memory s0) beqAddr) ; try(exfalso ; congruence).
-						destruct v ; try (exfalso ; congruence).
-
-						assert(HAflag : bentryAFlag blockToShareInCurrPartAddr addrIsAccessible s0)
-						by intuition.
-						assert(HATrue : addrIsAccessible = true).
-						{ assert(Hneg : negb addrIsAccessible = false) by assumption.
-							rewrite negb_false_iff in Hneg ; assumption.
-						}
-
-						assert(HNoDup : noDupMappedBlocksList s0)
-						by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-
-						assert(HPDTcurrParts0 : isPDT currentPart s0) by intuition.
-						unfold noDupMappedBlocksList in *.
-						specialize (HNoDup currentPart HPDTcurrParts0).
-
-						(* clear context for induction *)
-						clear Hprops. clear Hprops0. clear Hstates. clear Hfreeslotss.
-						clear HblockInParent. clear HidpdInMapped. 
-						induction (getMappedBlocks currentPart s0).
-						- intuition.
-						- simpl in *.
-							apply NoDup_cons_iff in HNoDup.
-							destruct HparentInMappedlist as [HparentInMappedlist | HparentInMappedlist].
-							-- subst a1.
-								unfold isBE in HBEbtss0.
-								subst addrIsAccessible.
-								unfold bentryAFlag in *.
-								destruct (lookup blockToShareInCurrPartAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
-								destruct v ; try(exfalso ; congruence).
-								rewrite <- HAflag.
-								simpl ; left ; trivial.
-							-- 	destruct (lookup a1 (memory s0) beqAddr) ; intuition.
-								destruct v ; intuition.
-								destruct (accessible b) ; intuition.
-					}
-					induction (getAccessibleMappedBlocks currentPart s0).
-					** intuition.
-					** simpl. simpl in HbtsInAccessibleList. simpl in HaddrInParentBlocks0.
-							destruct HbtsInAccessibleList as [HbtsInAccessibleList | HbtsInAccessibleList].
-							subst a1.
-							unfold isBE in HBEbtss0.
-							destruct (lookup blockToShareInCurrPartAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
-							destruct v ; try(exfalso ; congruence).
-							apply in_app_iff. left. rewrite app_nil_r in *. assumption.
-							destruct (lookup a1 (memory s0) beqAddr) ; intuition.
-							destruct v ; intuition.
-
-				*	(* Case (getAccessibleMappedPaddr globalIdPDChild s0) -> no change *)
-					specialize (Hcons0 currentPart globalIdPDChild addr HparentInPartTree HchildInChildList).
-					apply Hcons0. assumption.
+        apply <-HaccessiblemappedEq. apply in_or_app.
+        destruct HaddrInMappedChild as [HedgeCase | HaddrInMappedChild].
+        + left. assumption.
+        + right. specialize(Hcons0 parent globalIdPDChild addr HparentInPartTree HchildInChildList
+            HaddrInAccessibleMappedParents HaddrInMappedChild). assumption.
 		-	(* child <> globalIdPDChild -> no change *)
 			destruct (beqAddr parent globalIdPDChild) eqn:beqparentpd ; try(exfalso ; congruence).
 			-- (* parent = globalIdPDChild *)
@@ -8357,64 +8772,135 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 					assert(HglobalChildNotEq : globalIdPDChild <> child).
 					{ eapply childparentNotEq with s0 ; try (rewrite HparentEq in *) ; intuition. }
 
-						specialize (Hcons0 globalIdPDChild child addr HparentInPartTree HchildInChildList).
+          apply HaccessiblemappedEq in HaddrInAccessibleMappedParents.
+          apply in_app_or in HaddrInAccessibleMappedParents.
+          assert(HgetMappedEq: forall partition : paddr,
+                 partition <> globalIdPDChild ->
+                 isPDT partition s0 -> getMappedPaddr partition s = getMappedPaddr partition s0) by intuition.
+          apply not_eq_sym in HglobalChildNotEq.
+		      assert(HPDTchilds0: isPDT child s0).
+		      {
+			      unfold consistency in *; unfold consistency1 in *; eapply childrenArePDT with globalIdPDChild;
+            intuition.
+		      }
+          specialize(HgetMappedEq child HglobalChildNotEq HPDTchilds0).
+          rewrite HgetMappedEq in HaddrInMappedChild.
+          assert(HgetAccMappedEq: forall partition : paddr,
+                       partition <> globalIdPDChild ->
+                       isPDT partition s0 ->
+                       getAccessibleMappedPaddr partition s = getAccessibleMappedPaddr partition s0) by intuition.
+          specialize(HgetAccMappedEq child HglobalChildNotEq HPDTchilds0).
+          rewrite HgetAccMappedEq.
+          assert(HcurrPartEq: currentPart = currentPartition s0) by intuition.
+          assert(HcurrPartIsPart: In currentPart (getPartitions multiplexer s0)).
+          {
+            rewrite HcurrPartEq. unfold consistency in *; unfold consistency1 in *;
+            unfold currentPartitionInPartitionsList in *; intuition.
+          }
+          destruct HaddrInAccessibleMappedParents as [HedgeCase | HaddrInAccessibleMappedParents].
+          + apply HaddrInBTSIfInnewB in HedgeCase.
 
-						specialize (HaccessiblemappedEq addr).
-						rewrite HaccessiblemappedEq.
-						assert(HPDTpartNotidPDEq :   (forall partition : paddr,
-											isPDT partition s10 = isPDT partition s0))
-							by intuition.
-						assert(HPDTEq : isPDT child s = isPDT child s0).
-						{	specialize (HPDTpartNotidPDEq child).
-							unfold isPDT.
-							rewrite HsEq. simpl.
-							repeat rewrite beqAddrTrue.
-							(* Check all values for part *)
-							destruct (beqAddr sh1eaddr child) eqn:beqsh1parent; try(exfalso ; congruence).
-							-	(* sh1eaddr = child *)
-								rewrite <- DependentTypeLemmas.beqAddrTrue in beqsh1parent.
-								rewrite <- beqsh1parent in *.
-								unfold isSHE in *. rewrite HSHEs10Eq in *.
-								unfold isPDT in *.
-								destruct (lookup sh1eaddr (memory s0) beqAddr) ; trivial.
-								destruct v ; try(exfalso ; congruence) ; trivial.
-							-	(* sh1eaddr <> child *)
-									rewrite <- beqAddrFalse in *.
-									repeat rewrite removeDupIdentity ; intuition.
+					  (* - newBlockEntryAddr and its contained addresses were not not in the child
+								  at s0 otherwise the parent block would have been shared already
+									  which is not the case *)
+					  assert(HBlockNotIn: ~ In addr (getMappedPaddr globalIdPDChild s0)).
+					  {
+						  intro HaddrInMappedChilds0.
+					    assert(HsharedBlockPointsToChilds0 : sharedBlockPointsToChild s0)
+						      by (unfold consistency in * ; unfold consistency2 in * ; intuition).
+						  specialize (HsharedBlockPointsToChilds0 currentPart globalIdPDChild
+																					  addr
+																					  blockToShareInCurrPartAddr
+																					  sh1eaddr
+																					  HcurrPartIsPart
+																					  HidpdIsChild).
+						  assert(HaddrInUsed: In addr (getUsedPaddr globalIdPDChild s0)).
+						  {
+							  unfold getUsedPaddr.
+							  apply in_or_app. intuition.
+						  }
+						  assert(HaddrInParentBlock : In addr (getAllPaddrAux [blockToShareInCurrPartAddr] s0)).
+						  {	simpl.
+							  specialize (HaddrInBTSIfInnewB addr) ; intuition.
+						  }
+						  assert(Hsh1entry : sh1entryAddr blockToShareInCurrPartAddr sh1eaddr s0).
+						  {
+							  intuition.
+							  assert(Hsh1s0 : exists (sh1entry : Sh1Entry) (sh1entryaddr : paddr),
+														  lookup sh1entryaddr (memory s0) beqAddr = Some (SHE sh1entry) /\
+														  sh1entryPDchild sh1entryaddr PDChildAddr s0 /\
+														  sh1entryAddr blockToShareInCurrPartAddr sh1entryaddr s0)
+								  by intuition.
+							  destruct Hsh1s0 as [Hsh1 (Hsh1addr & Hsh1s0)].
+							  intuition.
+							  unfold sh1entryAddr in *.
+							  apply isBELookupEq in HBEbtss0. destruct HBEbtss0 as [Hbentrybts Hlookupbtss0].
+							  rewrite Hlookupbtss0 in *.
+							  intuition.
+						  }
+						  specialize (HsharedBlockPointsToChilds0 HaddrInUsed
+																										  HaddrInParentBlock
+																										  HblockInParent
+																										  Hsh1entry).
+						  (* Contradict *)
+						  rewrite <- HSh1Offset in *.
+						  unfold isSHE in *.
+						  unfold sh1entryPDchild in *. unfold sh1entryPDflag in *.
+						  destruct (lookup sh1eaddr (memory s0)) eqn:Hlookupsh1s0 ; try(exfalso ; congruence).
+						  destruct v ; try(exfalso ; congruence).
+						  destruct HsharedBlockPointsToChilds0 as [Hsh1entrypdchilds0 | sh1entrypdflags0].
+						  (*destruct HsharedInChilds0 as [Hsh1entryaddrs0 | Hsh1entrychilds0].*)
+						  + (* case pdchild = child1 *)
+							  rewrite <- Hsh1PDchildbtsNulls0 in *.
+							  subst globalIdPDChild. rewrite Hsh1entrypdchilds0 in *.
+							  assert(HnullAddrExists0 : nullAddrExists s0)
+								  by (unfold consistency in * ; unfold consistency1 in * ; intuition).
+							  unfold nullAddrExists in *. unfold isPADDR in *.
+							  unfold isPDT in *.
+							  destruct (lookup nullAddr (memory s0) beqAddr) ; try(exfalso ; congruence).
+							  destruct v ; try(exfalso ; congruence).
+						  + (* case pdflag is set *)
+							  rewrite <- sh1entrypdflags0 in *. congruence.
+					  }
+            exfalso. assert(HVS: verticalSharing s0) by intuition.
+            specialize(HVS globalIdPDChild child HparentInPartTree HchildInChildList).
+            assert(Hcontra: In addr (getUsedPaddr child s0)).
+            {
+              unfold getUsedPaddr. apply in_or_app. right. assumption.
+            }
+            unfold incl in HVS. specialize(HVS addr Hcontra). congruence.
+          + specialize(Hcons0 globalIdPDChild child addr HparentInPartTree HchildInChildList
+                    HaddrInAccessibleMappedParents HaddrInMappedChild). assumption.
+        -- (* parent <> globalIdPDChild *)
+						rewrite <- beqAddrFalse in *.
+						assert(HPDTparents0 : isPDT parent s0).
+						{ eapply partitionsArePDT ; intuition.
+							unfold consistency in * ; unfold consistency1 in * ; intuition.
+							unfold consistency in * ; unfold consistency1 in * ; intuition.
 						}
-						rewrite HPDTEq in *.
-						assert(HaccessibleMappedEq : getAccessibleMappedPaddr child s = getAccessibleMappedPaddr child s0)
+
+						assert(HchildrenparentEq : getChildren parent s = getChildren parent s0)
 							by intuition.
-						rewrite HaccessibleMappedEq in *.
-						apply in_or_app. right. apply Hcons0 ; intuition.
+						assert(Hchild : isPDT child s0).
+						{ eapply childrenArePDT with parent ; intuition.
+							unfold consistency in * ; unfold consistency1 in * ; intuition.
+							rewrite HchildrenparentEq in * ; intuition.
+						}
 
-						-- (* parent <> globalIdPDChild *)
-								rewrite <- beqAddrFalse in *.
-								assert(HPDTparents0 : isPDT parent s0).
-								{ eapply partitionsArePDT ; intuition.
-									unfold consistency in * ; unfold consistency1 in * ; intuition.
-									unfold consistency in * ; unfold consistency1 in * ; intuition.
-								}
-
-								assert(HchildrenparentEq : getChildren parent s = getChildren parent s0)
-									by intuition.
-								assert(Hchild : isPDT child s0).
-								{ eapply childrenArePDT with parent ; intuition.
-									unfold consistency in * ; unfold consistency1 in * ; intuition.
-									rewrite HchildrenparentEq in * ; intuition.
-								}
-
-								assert(HAccessibleMappedparentEq : getAccessibleMappedPaddr parent s =
-																					getAccessibleMappedPaddr parent s0)
-									by intuition.
-								rewrite HAccessibleMappedparentEq in *.
-								rewrite HchildrenparentEq in*.
-								specialize (Hcons0 parent child addr HparentInPartTree HchildInChildList).
-								assert(HAccessibleMappedchildEq : getAccessibleMappedPaddr child s =
-																					getAccessibleMappedPaddr child s0)
-									by intuition.
-								rewrite HAccessibleMappedchildEq in *. intuition.
-	} (* end of accessibleChildPaddrIsAccessibleIntoParent *)
+						assert(HAccessibleMappedparentEq : getAccessibleMappedPaddr parent s =
+																			getAccessibleMappedPaddr parent s0)
+							by intuition.
+						rewrite HAccessibleMappedparentEq in *.
+						rewrite HchildrenparentEq in*.
+						specialize (Hcons0 parent child addr HparentInPartTree HchildInChildList).
+						assert(HAccessibleMappedchildEq : getAccessibleMappedPaddr child s =
+																			getAccessibleMappedPaddr child s0)
+							by intuition.
+						assert(HmappedchildEq : getMappedPaddr child s =
+																			getMappedPaddr child s0)
+							by intuition.
+						rewrite HAccessibleMappedchildEq in *. rewrite HmappedchildEq in *. intuition.
+	} (* end of accessibleParentPaddrIsAccessibleIntoChild *)
 
 	assert(HsharedBlockPointsToChilds : sharedBlockPointsToChild s).
 	{ (* sharedBlockPointsToChild s*)
@@ -8643,7 +9129,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 									* assert(Heq : CPaddr(parentblock + sh1offset) = nullAddr).
 										{ rewrite nullAddrIs0.
 											unfold CPaddr. rewrite Hj.
-											destruct (le_dec 0 maxAddr) ; intuition.
+											destruct (le_dec 0 maxAddr) ; try(lia).
 											f_equal. apply proof_irrelevance.
 										}
 										rewrite Heq in *.
@@ -9211,7 +9697,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 												* assert(Heq : CPaddr(parentblock + sh1offset) = nullAddr).
 													{ rewrite nullAddrIs0.
 														unfold CPaddr. rewrite Hj.
-														destruct (le_dec 0 maxAddr) ; intuition.
+														destruct (le_dec 0 maxAddr) ; try(lia).
 														f_equal. apply proof_irrelevance.
 													}
 													rewrite Heq in *.
@@ -9294,6 +9780,2776 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 										subst sh1entryaddr. assumption.
 	} (* end of sharedBlockPointsToChild *)
 
+  assert(HparentOfPartition: parentOfPartitionIsPartition s).
+  { (* BEGIN parentOfPartitionIsPartition s *)
+    assert(Hcons0: parentOfPartitionIsPartition s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+    unfold parentOfPartitionIsPartition in *.
+    intros partition entry HlookupPart.
+    (* Check all possible values for partition *)
+    destruct (beqAddr sh1eaddr partition) eqn:HbeqSh1Part.
+    { (* sh1eaddr = partition *)
+      rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqSh1Part. rewrite HbeqSh1Part in *.
+      rewrite HSHEs in HlookupPart. exfalso; congruence.
+    }
+    (* sh1eaddr <> partition *)
+    assert(HlookupParts10 : lookup partition (memory s10) beqAddr = Some (PDT entry)).
+    {
+      rewrite HsEq in HlookupPart. simpl in HlookupPart. rewrite beqAddrTrue in HlookupPart.
+      rewrite HbeqSh1Part in HlookupPart. rewrite <-beqAddrFalse in HbeqSh1Part.
+      do 2 rewrite removeDupIdentity in HlookupPart; intuition.
+    }
+    destruct (beqAddr sceaddr partition) eqn:HbeqScePart.
+    { (* sceaddr = partition *)
+      rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqScePart. rewrite HbeqScePart in *.
+      unfold isSCE in HSCEs10. rewrite HlookupParts10 in HSCEs10. exfalso; congruence.
+    }
+    (* sceaddr <> partition *)
+    destruct (beqAddr newBlockEntryAddr partition) eqn: HbeqNewBlockPart.
+    { (* newBlockEntryAddr = partition *)
+      rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqNewBlockPart. rewrite HbeqNewBlockPart in *.
+      unfold isBE in HBEs10. rewrite HlookupParts10 in HBEs10. exfalso; congruence.
+    }
+    (* newBlockEntryAddr <> partition *)
+    assert(HlookupParts0 : exists entry0, lookup partition (memory s0) beqAddr = Some (PDT entry0)
+                                /\ parent entry0 = parent entry).
+    {
+      rewrite Hs in HlookupPart. simpl in HlookupPart. rewrite beqAddrTrue in HlookupPart.
+      rewrite HbeqSh1Part in HlookupPart. rewrite beqnewBsce in HlookupPart. rewrite beqscesh1 in HlookupPart.
+      rewrite <-beqAddrFalse in beqscesh1. rewrite <-beqAddrFalse in HbeqSh1Part.
+      rewrite removeDupIdentity in HlookupPart; try(intuition; congruence). simpl in HlookupPart.
+      rewrite HbeqScePart in HlookupPart. rewrite beqnewBsh1 in HlookupPart. simpl in HlookupPart.
+      rewrite HbeqNewBlockPart in HlookupPart. rewrite beqpdnewB in HlookupPart. rewrite beqAddrTrue in HlookupPart.
+      rewrite <-beqAddrFalse in *. do 8 (rewrite removeDupIdentity in HlookupPart); try(intuition; congruence).
+      simpl in HlookupPart. destruct (beqAddr globalIdPDChild partition) eqn:HbeqGlobPart.
+      - (* globalIdPDChild = partition *)
+        rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqGlobPart. rewrite HbeqGlobPart in *.
+        exists pdentry. split. assumption.
+        injection HlookupPart as Hentry. rewrite <-Hentry. simpl. intuition. subst pdentry0. simpl. reflexivity.
+      - (* globalIdPDChild <> partition *)
+        rewrite beqAddrTrue in HlookupPart. rewrite <-beqAddrFalse in HbeqGlobPart.
+        do 3 rewrite removeDupIdentity in HlookupPart; try(intuition; congruence).
+        exists entry. split. assumption. reflexivity.
+    }
+    destruct HlookupParts0 as [entry0 (HlookupParts0 & HparentsEq)].
+    destruct (beqAddr sceaddr (parent entry)) eqn:HbeqSceParents10.
+    { (* sceaddr = parent entry *)
+      rewrite <-HparentsEq in HbeqSceParents10. specialize(Hcons0 partition entry0 HlookupParts0).
+      rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqSceParents10. rewrite HbeqSceParents10 in *.
+      destruct Hcons0 as [HparentIsPart (HparentOfRoot & HparentNotPart)]. split.
+      - intro HpartNotRoot. specialize(HparentIsPart HpartNotRoot).
+        destruct HparentIsPart as ([parentEntry HparentIsPart] & _).
+        unfold isSCE in HSCEs0. rewrite HparentIsPart in HSCEs0. exfalso; congruence.
+      - split. intro HpartIsRoot. specialize(HparentOfRoot HpartIsRoot). rewrite HparentOfRoot in *.
+        assert(HnullExists: nullAddrExists s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        unfold nullAddrExists in HnullExists. unfold isPADDR in HnullExists.
+        unfold isSCE in HSCEs0.
+        destruct (lookup nullAddr (memory s0) beqAddr); try(exfalso; congruence).
+        destruct v; try(exfalso; congruence).
+        rewrite <-HparentsEq. assumption.
+    }
+    (* sceaddr <> parent entry *)
+    specialize(Hcons0 partition entry0 HlookupParts0). (*rewrite HparentsEq in Hcons0.*)
+    destruct Hcons0 as [HparentIsPart (HparentOfRoot & HparentNotPart)]. split.
+    - intro HpartNotRoot. specialize(HparentIsPart HpartNotRoot). rewrite Hs. simpl.
+      destruct HparentIsPart as ([parentEntry HlookupParent] & HparentIsPart).
+      destruct (beqAddr sh1eaddr (parent entry)) eqn:HbeqSh1Parent.
+      { (* sh1eaddr = parent entry *)
+        rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqSh1Parent. rewrite HbeqSh1Parent in *.
+        rewrite <-HparentsEq in *. rewrite <-HSHEs10Eq in HlookupParent.
+        unfold isSHE in HSHEs10. rewrite HlookupParent in HSHEs10. exfalso; congruence.
+      }
+      (* sh1eaddr <> parent entry *)
+      rewrite beqAddrTrue. rewrite <-beqAddrFalse in HbeqSh1Parent.
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption). rewrite beqscesh1. simpl.
+      rewrite HbeqSceParents10. rewrite beqnewBsce. rewrite <-beqAddrFalse in HbeqSceParents10.
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+      destruct (beqAddr newBlockEntryAddr (parent entry)) eqn:HbeqNewBlockParent.
+      { (* newBlockEntryAddr = parent entry *)
+        rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqNewBlockParent. rewrite HbeqNewBlockParent in *.
+        rewrite <-HparentsEq in *. unfold isBE in HBEs0. rewrite HlookupParent in HBEs0. exfalso; congruence.
+      }
+      (* newBlockEntryAddr <> parent entry *)
+      rewrite beqAddrTrue. rewrite beqpdnewB. rewrite <-beqAddrFalse in *.
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      simpl.
+      destruct (beqAddr globalIdPDChild (parent entry)) eqn:HbeqGlobParent.
+      + (* globalIdPDChild = parent entry *)
+        rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqGlobParent. rewrite HbeqGlobParent in *. split.
+        exists pdentry1. intuition. subst pdentry1. reflexivity.
+        rewrite <-HparentEq in HglobalInPartTree. rewrite Hs in HglobalInPartTree. assumption.
+      + (* globalIdPDChild <> parent entry *)
+        rewrite beqAddrTrue. rewrite <-beqAddrFalse in HbeqGlobParent.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite <-HparentsEq. split. exists parentEntry. assumption. rewrite <-HparentEq in HparentIsPart.
+        rewrite Hs in HparentIsPart. assumption.
+    - split. intro HpartIsRoot. specialize(HparentOfRoot HpartIsRoot). rewrite HparentsEq in HparentOfRoot.
+      assumption. rewrite <-HparentsEq. assumption.
+    (* END parentOfPartitionIsPartition s *)
+  }
+
+  assert(HnbFreeSlots: NbFreeSlotsISNbFreeSlotsInList s).
+  { (* BEGIN NbFreeSlotsISNbFreeSlotsInList s *)
+    assert(Hcons0: NbFreeSlotsISNbFreeSlotsInList s0)
+            by (unfold consistency in *; unfold consistency1 in *; intuition).
+    unfold NbFreeSlotsISNbFreeSlotsInList in *.
+    intros pd nbfreeslotsPd HisPDT HnbFreeSlots.
+    destruct (beqAddr globalIdPDChild pd) eqn:HbeqGlobPd.
+    - (* globalIdPDChild = pd *)
+      rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqGlobPd. rewrite HbeqGlobPd in *.
+      assert(HisPDTs0: isPDT pd s0).
+      {
+        unfold isPDT. rewrite Hpdinsertions0. trivial.
+      }
+      assert(HnbFreeSlotss0: pdentryNbFreeSlots pd nbfreeslots s0) by intuition.
+      specialize(Hcons0 pd nbfreeslots HisPDTs0 HnbFreeSlotss0).
+      destruct Hcons0 as [optionFreeSlotsLists0 (HfreeSlotsLists0 & (HwellFormeds0 & Hnbfreeslots))].
+      assert(HfreeSlotsLists0Copy: optionFreeSlotsLists0 = getFreeSlotsList pd s0) by intuition.
+      unfold getFreeSlotsList. unfold getFreeSlotsList in HfreeSlotsLists0. rewrite Hpdinsertions.
+      rewrite Hpdinsertions0 in HfreeSlotsLists0. rewrite <-HnewB in HfreeSlotsLists0.
+      destruct (beqAddr newBlockEntryAddr nullAddr) eqn:HbeqNewBlockNull; try(exfalso ; congruence).
+			{ (* newBlockEntryAddr = nullAddr *)
+        rewrite HfreeSlotsLists0 in Hnbfreeslots. simpl in Hnbfreeslots. unfold StateLib.Index.leb in *.
+        intuition. apply eq_sym in H81. apply PeanoNat.Nat.leb_gt in H81. subst zero. lia.
+      }
+      (* newBlockEntryAddr <> nullAddr *)
+      assert(HnbFreeEq: nbfreeslotsPd = predCurrentNbFreeSlots).
+      {
+        unfold pdentryNbFreeSlots in HnbFreeSlots. rewrite Hpdinsertions in HnbFreeSlots. rewrite HnbFreeSlots.
+        intuition. subst pdentry1. simpl. reflexivity.
+      }
+      subst nbfreeslotsPd. rewrite FreeSlotsListRec_unroll in HfreeSlotsLists0.
+      unfold getFreeSlotsListAux in HfreeSlotsLists0. rewrite MaxIdxNextEq in HfreeSlotsLists0.
+      unfold pdentryNbFreeSlots in HnbFreeSlotss0. rewrite Hpdinsertions0 in HnbFreeSlotss0.
+      unfold MALInternal.zero in HfreeSlotsLists0. unfold StateLib.Index.ltb in HfreeSlotsLists0.
+      unfold StateLib.Index.leb in *.
+      destruct (PeanoNat.Nat.ltb (ADT.nbfreeslots pdentry) (CIndex 0)) eqn:Hltb.
+      {
+        rewrite HfreeSlotsLists0 in HwellFormeds0. unfold wellFormedFreeSlotsList in HwellFormeds0.
+        exfalso; congruence.
+      }
+      rewrite HlookupnewBs0 in HfreeSlotsLists0.
+      assert(HpredNbFree: StateLib.Index.pred nbfreeslots = Some predCurrentNbFreeSlots) by intuition.
+      rewrite HnbFreeSlotss0 in HpredNbFree. rewrite HpredNbFree in HfreeSlotsLists0.
+      assert(HendAddr: bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s0) by intuition.
+      unfold bentryEndAddr in HendAddr. rewrite HlookupnewBs0 in HendAddr. rewrite <-HendAddr in HfreeSlotsLists0.
+      rewrite HnewFirstFree.
+      exists (getFreeSlotsListRec maxIdx newFirstFreeSlotAddr s0 predCurrentNbFreeSlots).
+      assert(HmaxMinusOne: maxIdx = S(maxIdx -1)) by lia.
+      destruct (beqAddr newFirstFreeSlotAddr nullAddr) eqn:HbeqNewFirstNull.
+			+ (* firstfreeslot pdentry1 = nullAddr *)
+        rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqNewFirstNull. rewrite HbeqNewFirstNull in *.
+        assert(HnullExists: nullAddrExists s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        unfold nullAddrExists in HnullExists. unfold isPADDR in HnullExists.
+        destruct (lookup nullAddr (memory s0) beqAddr) eqn:HlookupNull; try(exfalso; congruence).
+        destruct v; try(exfalso; congruence).
+        assert(HfreeSlotListEmpty: getFreeSlotsListRec maxIdx nullAddr s0 predCurrentNbFreeSlots = []).
+        {
+          rewrite FreeSlotsListRec_unroll in *. unfold getFreeSlotsListAux in *. rewrite HmaxMinusOne in *.
+          unfold StateLib.Index.ltb in *. unfold MALInternal.zero in *.
+          destruct (PeanoNat.Nat.ltb predCurrentNbFreeSlots (CIndex 0)) eqn:HltbPred.
+          {
+            rewrite HfreeSlotsLists0 in HwellFormeds0. unfold wellFormedFreeSlotsList in HwellFormeds0.
+            exfalso; congruence.
+          }
+          rewrite HlookupNull. rewrite beqAddrTrue. reflexivity.
+        }
+        rewrite HfreeSlotListEmpty in *. simpl. subst optionFreeSlotsLists0. simpl in Hnbfreeslots.
+        unfold StateLib.Index.pred in HpredNbFree. rewrite <-HnbFreeSlotss0 in HpredNbFree.
+        destruct (gt_dec nbfreeslots 0); try(lia). injection HpredNbFree as HpredValue.
+        rewrite <-HpredValue. simpl. rewrite Hnbfreeslots. intuition.
+      + (* firstfreeslot pdentry1 <> nullAddr *)
+        rewrite <-beqAddrFalse in HbeqNewFirstNull. split.
+        * assert(HpredValue: predCurrentNbFreeSlots = ADT.nbfreeslots pdentry1).
+          {
+            unfold pdentryNbFreeSlots in HnbFreeSlots. rewrite Hpdinsertions in HnbFreeSlots. assumption.
+          }
+          rewrite HpredValue.
+          assert(HgetFreeBound: getFreeSlotsListRec maxIdx newFirstFreeSlotAddr s0 (ADT.nbfreeslots pdentry1)
+                             = getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s0 (ADT.nbfreeslots pdentry1)).
+          {
+            assert(HbelowMax: ADT.nbfreeslots pdentry <= maxIdx) by (apply Hi).
+            subst optionFreeSlotsLists0. simpl in Hnbfreeslots.
+            unfold StateLib.Index.pred in HpredNbFree. rewrite <-HnbFreeSlotss0 in HpredNbFree.
+            destruct (gt_dec nbfreeslots 0); try(lia). injection HpredNbFree as HpredValueBis.
+            assert(ADT.nbfreeslots pdentry1 < maxIdx).
+            {
+              rewrite <-HpredValue. rewrite <-HpredValueBis. simpl. rewrite HnbFreeSlotss0. lia.
+            }
+            apply getFreeSlotsListRecEqN with maxIdx; try(lia); try(assumption). reflexivity.
+          }
+          rewrite HgetFreeBound. apply eq_sym.
+          assert(HfirstPd1IsfreeSlot: In (firstfreeslot pdentry1) (filterOptionPaddr optionFreeSlotsLists0)).
+          {
+            rewrite HfreeSlotsLists0. rewrite FreeSlotsListRec_unroll.
+            unfold getFreeSlotsListAux. rewrite FreeSlotsListRec_unroll in HfreeSlotsLists0.
+            unfold getFreeSlotsListAux in HfreeSlotsLists0. rewrite HmaxMinusOne in *.
+            unfold StateLib.Index.ltb in *. unfold MALInternal.zero in *.
+            destruct (PeanoNat.Nat.ltb predCurrentNbFreeSlots (CIndex 0)) eqn:HltbPred.
+            {
+              rewrite HfreeSlotsLists0 in HwellFormeds0. unfold wellFormedFreeSlotsList in HwellFormeds0.
+              exfalso; congruence.
+            }
+            destruct (lookup newFirstFreeSlotAddr (memory s0) beqAddr) eqn:HlookupFirstPd1;
+                  try(rewrite HfreeSlotsLists0 in HwellFormeds0; simpl in HwellFormeds0; exfalso; congruence).
+            rewrite beqAddrFalse in HbeqNewFirstNull.
+            destruct v; try(try(rewrite HbeqNewFirstNull in *); rewrite HfreeSlotsLists0 in HwellFormeds0;
+                  simpl in HwellFormeds0; exfalso; congruence).
+            destruct (StateLib.Index.pred predCurrentNbFreeSlots);
+                  try(rewrite HfreeSlotsLists0 in HwellFormeds0; simpl in HwellFormeds0; exfalso; congruence).
+            rewrite <-HnewFirstFree. simpl. right. left. reflexivity.
+          }
+          assert(HisBEs0: isBE (firstfreeslot pdentry1) s0).
+          {
+            apply FreeSlotIsBE.
+            assert(HfirstFreeIsFrees0: freeSlotsListIsFreeSlot s0)
+                  by (unfold consistency in *; unfold consistency1 in *; intuition).
+            unfold freeSlotsListIsFreeSlot in HfirstFreeIsFrees0.
+            assert(HhypConsList: optionFreeSlotsLists0 = getFreeSlotsList pd s0
+                                /\ wellFormedFreeSlotsList optionFreeSlotsLists0 <> False) by intuition.
+            assert(HfreeSlotsList: filterOptionPaddr optionFreeSlotsLists0
+                                    = filterOptionPaddr optionFreeSlotsLists0
+                                  /\ In (firstfreeslot pdentry1) (filterOptionPaddr optionFreeSlotsLists0)).
+            {
+              split. reflexivity. assumption.
+            }
+            rewrite <-HnewFirstFree in *.
+            specialize(HfirstFreeIsFrees0 pd (firstfreeslot pdentry1) optionFreeSlotsLists0
+                        (filterOptionPaddr optionFreeSlotsLists0) HPDTs0 HhypConsList HfreeSlotsList
+                          HbeqNewFirstNull).
+            assumption.
+          }
+          assert(Hs1s0Eq: getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s1 (ADT.nbfreeslots pdentry1)
+                           = getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s0 (ADT.nbfreeslots pdentry1)).
+          {
+            rewrite Hs1. apply getFreeSlotsListRecEqPDT.
+            -- intro Hcontra. rewrite <-HnewFirstFree in *. rewrite Hcontra in *. unfold isBE in HisBEs0.
+               unfold isPDT in HisPDTs0. destruct (lookup pd (memory s0) beqAddr); try(exfalso; congruence).
+               destruct v; try(exfalso; congruence).
+            -- intro Hcontra. unfold isBE in Hcontra.
+               unfold isPDT in HisPDTs0. destruct (lookup pd (memory s0) beqAddr); try(exfalso; congruence).
+               destruct v; try(exfalso; congruence).
+            -- intro Hcontra. unfold isPADDR in Hcontra.
+               unfold isPDT in HisPDTs0. destruct (lookup pd (memory s0) beqAddr); try(exfalso; congruence).
+               destruct v; try(exfalso; congruence).
+          }
+          rewrite <-Hs1s0Eq.
+          assert(HisPDTs1: isPDT pd s1).
+          {
+            unfold isPDT. unfold isPDT in HisPDTs0. rewrite Hs1. simpl. rewrite beqAddrTrue. trivial.
+          }
+          assert(Hs2s1Eq: getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s2 (ADT.nbfreeslots pdentry1)
+                           = getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s1 (ADT.nbfreeslots pdentry1)).
+          {
+            rewrite Hs2. apply getFreeSlotsListRecEqPDT.
+            -- intro Hcontra. rewrite <-HnewFirstFree in *. rewrite Hcontra in *. unfold isBE in HisBEs0.
+               unfold isPDT in HisPDTs0. destruct (lookup pd (memory s0) beqAddr); try(exfalso; congruence).
+               destruct v; try(exfalso; congruence).
+            -- intro Hcontra. unfold isBE in Hcontra.
+               unfold isPDT in HisPDTs1. destruct (lookup pd (memory s1) beqAddr); try(exfalso; congruence).
+               destruct v; try(exfalso; congruence).
+            -- intro Hcontra. unfold isPADDR in Hcontra.
+               unfold isPDT in HisPDTs1. destruct (lookup pd (memory s1) beqAddr); try(exfalso; congruence).
+               destruct v; try(exfalso; congruence).
+          }
+          rewrite <-Hs2s1Eq.
+          (*destruct (beqAddr pd newBlockEntryAddr) eqn:HbeqPdNewBlock.
+          {
+            rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqPdNewBlock. rewrite HbeqPdNewBlock in *.
+            unfold isPDT in HPDTs0. unfold isBE in HBEs0.
+            destruct (lookup newBlockEntryAddr (memory s0) beqAddr); try(exfalso; congruence).
+          }*)
+          assert(HBEs2: isBE newBlockEntryAddr s2).
+          {
+            unfold isBE. unfold isBE in HBEs0. rewrite Hs2. rewrite Hs1. simpl. rewrite beqpdnewB.
+            rewrite <-beqAddrFalse in beqpdnewB. rewrite beqAddrTrue.
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
+          }
+          assert(HnoDupOptionList: NoDup (filterOptionPaddr optionFreeSlotsLists0)).
+          {
+            assert(HnoDupInFreeSlotss0: NoDupInFreeSlotsList s0)
+                  by (unfold consistency in *; unfold consistency1 in *; intuition).
+            unfold NoDupInFreeSlotsList in HnoDupInFreeSlotss0.
+            specialize(HnoDupInFreeSlotss0 pd pdentry Hpdinsertions0).
+            destruct HnoDupInFreeSlotss0 as [optionfreeslotslist (HlistValue & (HwellFormedList & HnoDup))].
+            rewrite <-HfreeSlotsLists0Copy in HlistValue. subst optionfreeslotslist. assumption.
+          }
+          assert(HbeqNewFirstNewBlock: newFirstFreeSlotAddr <> newBlockEntryAddr).
+          {
+            intuition; congruence.
+          }
+          assert(Hs3s2Eq: getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s3 (ADT.nbfreeslots pdentry1)
+                           = getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s2 (ADT.nbfreeslots pdentry1)).
+          {
+            rewrite Hs3. apply getFreeSlotsListRecEqBE; try(reflexivity); try(assumption).
+            -- rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HfreeSlotsLists0 in HwellFormeds0.
+               simpl in HwellFormeds0. rewrite HpredValue in HwellFormeds0.
+               rewrite HgetFreeBound in HwellFormeds0. assumption.
+            -- rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HfreeSlotsLists0 in HnoDupOptionList.
+               simpl in HnoDupOptionList. apply NoDup_cons_iff in HnoDupOptionList.
+               rewrite HpredValue in HnoDupOptionList. rewrite HgetFreeBound in HnoDupOptionList. intuition.
+            -- rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HfreeSlotsLists0 in HnoDupOptionList.
+               simpl in HnoDupOptionList. apply NoDup_cons_iff in HnoDupOptionList.
+               rewrite HpredValue in HnoDupOptionList. rewrite HgetFreeBound in HnoDupOptionList. intuition.
+          }
+          rewrite <-Hs3s2Eq.
+          assert(HBEs3: isBE newBlockEntryAddr s3).
+          {
+            unfold isBE. unfold isBE in HBEs2. rewrite Hs3. simpl. rewrite beqAddrTrue. trivial.
+          }
+          assert(Hs4s3Eq: getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s4 (ADT.nbfreeslots pdentry1)
+                           = getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s3 (ADT.nbfreeslots pdentry1)).
+          {
+            rewrite Hs4. apply getFreeSlotsListRecEqBE ; try(reflexivity); try(assumption).
+            -- rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HfreeSlotsLists0 in HwellFormeds0.
+               simpl in HwellFormeds0. rewrite HpredValue in HwellFormeds0.
+               rewrite HgetFreeBound in HwellFormeds0. assumption.
+            -- rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HfreeSlotsLists0 in HnoDupOptionList.
+               simpl in HnoDupOptionList. apply NoDup_cons_iff in HnoDupOptionList.
+               rewrite HpredValue in HnoDupOptionList. rewrite HgetFreeBound in HnoDupOptionList. intuition.
+            -- rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HfreeSlotsLists0 in HnoDupOptionList.
+               simpl in HnoDupOptionList. apply NoDup_cons_iff in HnoDupOptionList.
+               rewrite HpredValue in HnoDupOptionList. rewrite HgetFreeBound in HnoDupOptionList. intuition.
+          }
+          rewrite <-Hs4s3Eq.
+          assert(HBEs4: isBE newBlockEntryAddr s4).
+          {
+            unfold isBE. unfold isBE in HBEs3. rewrite Hs4. simpl. rewrite beqAddrTrue. trivial.
+          }
+          assert(Hs5s4Eq: getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s5 (ADT.nbfreeslots pdentry1)
+                           = getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s4 (ADT.nbfreeslots pdentry1)).
+          {
+            rewrite Hs5. apply getFreeSlotsListRecEqBE; try(reflexivity); try(assumption).
+            -- rewrite Hs4s3Eq. rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq.
+               rewrite HfreeSlotsLists0 in HwellFormeds0.
+               simpl in HwellFormeds0. rewrite HpredValue in HwellFormeds0.
+               rewrite HgetFreeBound in HwellFormeds0. assumption.
+            -- rewrite Hs4s3Eq. rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq.
+               rewrite HfreeSlotsLists0 in HnoDupOptionList.
+               simpl in HnoDupOptionList. apply NoDup_cons_iff in HnoDupOptionList.
+               rewrite HpredValue in HnoDupOptionList. rewrite HgetFreeBound in HnoDupOptionList. intuition.
+            -- rewrite Hs4s3Eq. rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq.
+               rewrite HfreeSlotsLists0 in HnoDupOptionList.
+               simpl in HnoDupOptionList. apply NoDup_cons_iff in HnoDupOptionList.
+               rewrite HpredValue in HnoDupOptionList. rewrite HgetFreeBound in HnoDupOptionList. intuition.
+          }
+          rewrite <-Hs5s4Eq.
+          assert(HBEs5: isBE newBlockEntryAddr s5).
+          {
+            unfold isBE. unfold isBE in HBEs4. rewrite Hs5. simpl. rewrite beqAddrTrue. trivial.
+          }
+          assert(Hs6s5Eq: getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s6 (ADT.nbfreeslots pdentry1)
+                           = getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s5 (ADT.nbfreeslots pdentry1)).
+          {
+            rewrite Hs6. apply getFreeSlotsListRecEqBE; try(reflexivity); try(assumption).
+            -- rewrite Hs5s4Eq. rewrite Hs4s3Eq. rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq.
+               rewrite HfreeSlotsLists0 in HwellFormeds0.
+               simpl in HwellFormeds0. rewrite HpredValue in HwellFormeds0.
+               rewrite HgetFreeBound in HwellFormeds0. assumption.
+            -- rewrite Hs5s4Eq. rewrite Hs4s3Eq. rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq.
+               rewrite HfreeSlotsLists0 in HnoDupOptionList.
+               simpl in HnoDupOptionList. apply NoDup_cons_iff in HnoDupOptionList.
+               rewrite HpredValue in HnoDupOptionList. rewrite HgetFreeBound in HnoDupOptionList. intuition.
+            -- rewrite Hs5s4Eq. rewrite Hs4s3Eq. rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq.
+               rewrite HfreeSlotsLists0 in HnoDupOptionList.
+               simpl in HnoDupOptionList. apply NoDup_cons_iff in HnoDupOptionList.
+               rewrite HpredValue in HnoDupOptionList. rewrite HgetFreeBound in HnoDupOptionList. intuition.
+          }
+          rewrite <-Hs6s5Eq.
+          assert(HBEs6: isBE newBlockEntryAddr s6).
+          {
+            unfold isBE. unfold isBE in HBEs5. rewrite Hs6. simpl. rewrite beqAddrTrue. trivial.
+          }
+          assert(Hs7s6Eq: getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s7 (ADT.nbfreeslots pdentry1)
+                           = getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s6 (ADT.nbfreeslots pdentry1)).
+          {
+            rewrite Hs7. apply getFreeSlotsListRecEqBE; try(reflexivity); try(assumption).
+            -- rewrite Hs6s5Eq. rewrite Hs5s4Eq. rewrite Hs4s3Eq. rewrite Hs3s2Eq. rewrite Hs2s1Eq.
+               rewrite Hs1s0Eq. rewrite HfreeSlotsLists0 in HwellFormeds0.
+               simpl in HwellFormeds0. rewrite HpredValue in HwellFormeds0.
+               rewrite HgetFreeBound in HwellFormeds0. assumption.
+            -- rewrite Hs6s5Eq. rewrite Hs5s4Eq. rewrite Hs4s3Eq. rewrite Hs3s2Eq. rewrite Hs2s1Eq.
+               rewrite Hs1s0Eq. rewrite HfreeSlotsLists0 in HnoDupOptionList.
+               simpl in HnoDupOptionList. apply NoDup_cons_iff in HnoDupOptionList.
+               rewrite HpredValue in HnoDupOptionList. rewrite HgetFreeBound in HnoDupOptionList. intuition.
+            -- rewrite Hs6s5Eq. rewrite Hs5s4Eq. rewrite Hs4s3Eq. rewrite Hs3s2Eq. rewrite Hs2s1Eq.
+               rewrite Hs1s0Eq. rewrite HfreeSlotsLists0 in HnoDupOptionList.
+               simpl in HnoDupOptionList. apply NoDup_cons_iff in HnoDupOptionList.
+               rewrite HpredValue in HnoDupOptionList. rewrite HgetFreeBound in HnoDupOptionList. intuition.
+          }
+          rewrite <-Hs7s6Eq.
+          assert(HBEs7: isBE newBlockEntryAddr s7).
+          {
+            unfold isBE. unfold isBE in HBEs6. rewrite Hs7. simpl. rewrite beqAddrTrue. trivial.
+          }
+          assert(Hs8s7Eq: getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s8 (ADT.nbfreeslots pdentry1)
+                           = getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s7 (ADT.nbfreeslots pdentry1)).
+          {
+            rewrite Hs8. apply getFreeSlotsListRecEqBE; try(reflexivity); try(assumption).
+            -- rewrite Hs7s6Eq. rewrite Hs6s5Eq. rewrite Hs5s4Eq. rewrite Hs4s3Eq. rewrite Hs3s2Eq.
+               rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HfreeSlotsLists0 in HwellFormeds0.
+               simpl in HwellFormeds0. rewrite HpredValue in HwellFormeds0.
+               rewrite HgetFreeBound in HwellFormeds0. assumption.
+            -- rewrite Hs7s6Eq. rewrite Hs6s5Eq. rewrite Hs5s4Eq. rewrite Hs4s3Eq. rewrite Hs3s2Eq.
+               rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HfreeSlotsLists0 in HnoDupOptionList.
+               simpl in HnoDupOptionList. apply NoDup_cons_iff in HnoDupOptionList.
+               rewrite HpredValue in HnoDupOptionList. rewrite HgetFreeBound in HnoDupOptionList. intuition.
+            -- rewrite Hs7s6Eq. rewrite Hs6s5Eq. rewrite Hs5s4Eq. rewrite Hs4s3Eq. rewrite Hs3s2Eq.
+               rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HfreeSlotsLists0 in HnoDupOptionList.
+               simpl in HnoDupOptionList. apply NoDup_cons_iff in HnoDupOptionList.
+               rewrite HpredValue in HnoDupOptionList. rewrite HgetFreeBound in HnoDupOptionList. intuition.
+          }
+          rewrite <-Hs8s7Eq.
+          assert(HBEs8: isBE newBlockEntryAddr s8).
+          {
+            unfold isBE. unfold isBE in HBEs7. rewrite Hs8. simpl. rewrite beqAddrTrue. trivial.
+          }
+          assert(Hs9s8Eq: getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s9 (ADT.nbfreeslots pdentry1)
+                           = getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s8 (ADT.nbfreeslots pdentry1)).
+          {
+            rewrite Hs9. apply getFreeSlotsListRecEqBE; try(reflexivity); try(assumption).
+            -- rewrite Hs8s7Eq. rewrite Hs7s6Eq. rewrite Hs6s5Eq. rewrite Hs5s4Eq. rewrite Hs4s3Eq.
+               rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HfreeSlotsLists0 in HwellFormeds0.
+               simpl in HwellFormeds0. rewrite HpredValue in HwellFormeds0.
+               rewrite HgetFreeBound in HwellFormeds0. assumption.
+            -- rewrite Hs8s7Eq. rewrite Hs7s6Eq. rewrite Hs6s5Eq. rewrite Hs5s4Eq. rewrite Hs4s3Eq.
+               rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HfreeSlotsLists0 in HnoDupOptionList.
+               simpl in HnoDupOptionList. apply NoDup_cons_iff in HnoDupOptionList.
+               rewrite HpredValue in HnoDupOptionList. rewrite HgetFreeBound in HnoDupOptionList. intuition.
+            -- rewrite Hs8s7Eq. rewrite Hs7s6Eq. rewrite Hs6s5Eq. rewrite Hs5s4Eq. rewrite Hs4s3Eq.
+               rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HfreeSlotsLists0 in HnoDupOptionList.
+               simpl in HnoDupOptionList. apply NoDup_cons_iff in HnoDupOptionList.
+               rewrite HpredValue in HnoDupOptionList. rewrite HgetFreeBound in HnoDupOptionList. intuition.
+          }
+          rewrite <-Hs9s8Eq.
+          assert(HbeqNewFirstSce: newFirstFreeSlotAddr <> sceaddr).
+          {
+            rewrite <-HnewFirstFree in *. intro Hcontra. rewrite Hcontra in *. unfold isBE in HisBEs0.
+            unfold isSCE in HSCEs0. destruct (lookup sceaddr (memory s0) beqAddr); try(exfalso; congruence).
+            destruct v; try(exfalso; congruence).
+          }
+          assert(Hs10s9Eq: getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s10 (ADT.nbfreeslots pdentry1)
+                           = getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s9 (ADT.nbfreeslots pdentry1)).
+          {
+            rewrite Hs10. apply getFreeSlotsListRecEqSCE; try(assumption).
+            -- intro Hcontra. unfold isBE in Hcontra. unfold isSCE in HSCEs0. rewrite Hs9 in Hcontra.
+               rewrite Hs8 in Hcontra. rewrite Hs7 in Hcontra. rewrite Hs6 in Hcontra. rewrite Hs5 in Hcontra.
+               rewrite Hs4 in Hcontra. rewrite Hs3 in Hcontra. rewrite Hs2 in Hcontra. rewrite Hs1 in Hcontra.
+               simpl in Hcontra. rewrite beqnewBsce in Hcontra. rewrite beqAddrTrue in Hcontra.
+               rewrite beqpdnewB in Hcontra. rewrite <-beqAddrFalse in *.
+               rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+               rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+               rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+               rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+               rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+               rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption). simpl in Hcontra.
+               destruct (beqAddr pd sceaddr) eqn:HbeqPdSce; try(exfalso; congruence).
+               rewrite beqAddrTrue in Hcontra. rewrite <-beqAddrFalse in HbeqPdSce.
+               rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+               rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+               rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+               destruct (lookup sceaddr (memory s0) beqAddr); try(exfalso; congruence).
+               destruct v; try(exfalso; congruence).
+            -- intro Hcontra. unfold isPADDR in Hcontra. unfold isSCE in HSCEs0. rewrite Hs9 in Hcontra.
+               rewrite Hs8 in Hcontra. rewrite Hs7 in Hcontra. rewrite Hs6 in Hcontra. rewrite Hs5 in Hcontra.
+               rewrite Hs4 in Hcontra. rewrite Hs3 in Hcontra. rewrite Hs2 in Hcontra. rewrite Hs1 in Hcontra.
+               simpl in Hcontra. rewrite beqnewBsce in Hcontra. rewrite beqAddrTrue in Hcontra.
+               rewrite beqpdnewB in Hcontra. rewrite <-beqAddrFalse in *.
+               rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+               rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+               rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+               rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+               rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+               rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption). simpl in Hcontra.
+               destruct (beqAddr pd sceaddr) eqn:HbeqPdSce; try(exfalso; congruence).
+               rewrite beqAddrTrue in Hcontra. rewrite <-beqAddrFalse in HbeqPdSce.
+               rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+               rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+               rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+               destruct (lookup sceaddr (memory s0) beqAddr); try(exfalso; congruence).
+               destruct v; try(exfalso; congruence).
+          }
+          rewrite <-Hs10s9Eq.
+          assert(HbeqNewFirstSh1: newFirstFreeSlotAddr <> sh1eaddr).
+          {
+            rewrite <-HnewFirstFree. intro Hcontra.
+            assert(Hsh1IsSHEs0: lookup sh1eaddr (memory s0) beqAddr = Some (SHE sh1entry)) by intuition.
+            unfold isBE in HisBEs0. rewrite Hcontra in *. rewrite Hsh1IsSHEs0 in HisBEs0.
+            congruence.
+          }
+          assert(Hs11s10Eq: getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s11 (ADT.nbfreeslots pdentry1)
+                           = getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s10 (ADT.nbfreeslots pdentry1)).
+          {
+            rewrite Hs11. apply getFreeSlotsListRecEqSHE; try(assumption).
+            -- intro Hcontra. unfold isBE in Hcontra. unfold isSHE in HSHEs10.
+               destruct (lookup sh1eaddr (memory s10) beqAddr); try(exfalso; congruence).
+               destruct v; try(exfalso; congruence).
+            -- intro Hcontra. unfold isPADDR in Hcontra. unfold isSHE in HSHEs10.
+               destruct (lookup sh1eaddr (memory s10) beqAddr); try(exfalso; congruence).
+               destruct v; try(exfalso; congruence).
+          }
+          rewrite <-Hs11s10Eq.
+          assert(Hs12s11Eq: getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s12 (ADT.nbfreeslots pdentry1)
+                           = getFreeSlotsListRec (maxIdx+1) newFirstFreeSlotAddr s11 (ADT.nbfreeslots pdentry1)).
+          {
+            rewrite Hs12. apply getFreeSlotsListRecEqSHE; try(assumption).
+            -- intro Hcontra. unfold isBE in Hcontra. unfold isSHE in HSHEs10. rewrite Hs11 in Hcontra.
+               simpl in Hcontra. rewrite beqAddrTrue in Hcontra. congruence.
+            -- intro Hcontra. unfold isPADDR in Hcontra. unfold isSHE in HSHEs10. rewrite Hs11 in Hcontra.
+               simpl in Hcontra. rewrite beqAddrTrue in Hcontra. congruence.
+          }
+          rewrite <-Hs12s11Eq. rewrite Hs12Eq. reflexivity.
+        * rewrite HfreeSlotsLists0 in HwellFormeds0. rewrite HfreeSlotsLists0 in Hnbfreeslots.
+          simpl in HwellFormeds0. simpl in Hnbfreeslots. split. assumption.
+          unfold StateLib.Index.pred in HpredNbFree. rewrite <-HnbFreeSlotss0 in HpredNbFree.
+          destruct (gt_dec nbfreeslots 0); try(lia). injection HpredNbFree as HpredValueBis.
+          rewrite <-HpredValueBis. simpl.
+          assert(HpredIsPred: S predCurrentNbFreeSlots = nbfreeslots).
+          {
+            rewrite <-HpredValueBis. simpl. lia.
+          }
+          rewrite <-HpredIsPred in Hnbfreeslots. injection Hnbfreeslots as HnbFreePred.
+          rewrite <-HpredValueBis in HnbFreePred. simpl in HnbFreePred. assumption.
+    - (* globalIdPDChild <> pd *)
+      assert(HlookupPdEq: lookup pd (memory s) beqAddr = lookup pd (memory s0) beqAddr).
+      {
+        unfold isPDT in HisPDT. rewrite Hs in HisPDT. simpl in HisPDT. rewrite Hs. simpl.
+        destruct (beqAddr sh1eaddr pd) eqn:HbeqSh1Pd; try(exfalso; congruence).
+        rewrite beqAddrTrue in *. rewrite beqscesh1 in *. rewrite <-beqAddrFalse in HbeqSh1Pd.
+        rewrite removeDupIdentity in *; try(apply not_eq_sym; assumption). simpl in *.
+        rewrite beqnewBsce in *.
+        destruct (beqAddr sceaddr pd) eqn:HbeqScePd; try(exfalso; congruence).
+        rewrite <-beqAddrFalse in HbeqScePd.
+        rewrite removeDupIdentity in *; try(apply not_eq_sym; assumption). simpl in *.
+        destruct (beqAddr newBlockEntryAddr pd) eqn:HbeqNewBlockPd; try(exfalso; congruence).
+        rewrite <-beqAddrFalse in HbeqNewBlockPd.
+        rewrite removeDupIdentity in *; try(apply not_eq_sym; assumption). rewrite beqAddrTrue in *.
+        rewrite beqpdnewB in *. rewrite <-beqAddrFalse in *.
+        rewrite removeDupIdentity in *; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in *; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in *; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in *; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in *; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in *; try(apply not_eq_sym; assumption). simpl in *.
+        rewrite beqAddrFalse in HbeqGlobPd. rewrite HbeqGlobPd in *. rewrite beqAddrTrue in *.
+        rewrite <-beqAddrFalse in HbeqGlobPd.
+        rewrite removeDupIdentity in *; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in *; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in *; try(apply not_eq_sym; assumption). reflexivity.
+      }
+      assert(HisPDTs0: isPDT pd s0).
+      {
+        unfold isPDT in *. rewrite HlookupPdEq in HisPDT. assumption.
+      }
+      assert(HnbFreeSlotss0: pdentryNbFreeSlots pd nbfreeslotsPd s0).
+      {
+        unfold pdentryNbFreeSlots in *. rewrite HlookupPdEq in HnbFreeSlots. assumption.
+      }
+      specialize(Hcons0 pd nbfreeslotsPd HisPDTs0 HnbFreeSlotss0).
+      destruct Hcons0 as [optionFreeSlotsList Hcons0]. exists optionFreeSlotsList.
+      assert(HmaxMinusOne: maxIdx = S(maxIdx -1)) by lia.
+      assert(HgetFreeSlotsListEq: getFreeSlotsList pd s = getFreeSlotsList pd s0).
+      {
+        destruct Hcons0 as [HgetFreeSlots (HwellFormeds0 & HnbFreeSlotsValue)].
+        assert(HgetFreeSlotsCopy: optionFreeSlotsList = getFreeSlotsList pd s0) by assumption.
+        unfold getFreeSlotsList. unfold getFreeSlotsList in HgetFreeSlots. rewrite HlookupPdEq.
+        destruct (lookup pd (memory s0) beqAddr) eqn:HlookupPds0; try(reflexivity).
+        destruct v; try(reflexivity).
+        destruct (beqAddr (firstfreeslot p) nullAddr) eqn:HbeqFirstFreeNull; try(reflexivity).
+        
+        assert(HfirstPd1IsfreeSlot: In (firstfreeslot p) (filterOptionPaddr optionFreeSlotsList)).
+        {
+          rewrite HgetFreeSlots. rewrite FreeSlotsListRec_unroll.
+          unfold getFreeSlotsListAux. rewrite FreeSlotsListRec_unroll in HgetFreeSlots.
+          unfold getFreeSlotsListAux in HgetFreeSlots. rewrite MaxIdxNextEq in *.
+          unfold StateLib.Index.ltb in *. unfold MALInternal.zero in *.
+          destruct (PeanoNat.Nat.ltb (ADT.nbfreeslots p) (CIndex 0)) eqn:HltbPred.
+          {
+            rewrite HgetFreeSlots in HwellFormeds0. unfold wellFormedFreeSlotsList in HwellFormeds0.
+            exfalso; congruence.
+          }
+          destruct (lookup (firstfreeslot p) (memory s0) beqAddr) eqn:HlookupFirstPd1;
+                try(rewrite HgetFreeSlots in HwellFormeds0; simpl in HwellFormeds0; exfalso; congruence).
+          destruct v; try(try(rewrite HbeqFirstFreeNull in *); rewrite HgetFreeSlots in HwellFormeds0;
+                simpl in HwellFormeds0; exfalso; congruence).
+          destruct (StateLib.Index.pred (ADT.nbfreeslots p));
+                try(rewrite HgetFreeSlots in HwellFormeds0; simpl in HwellFormeds0; exfalso; congruence).
+          simpl. left. reflexivity.
+        }
+        assert(HisBEs0: isBE (firstfreeslot p) s0).
+        {
+          apply FreeSlotIsBE.
+          assert(HfirstFreeIsFrees0: freeSlotsListIsFreeSlot s0)
+                by (unfold consistency in *; unfold consistency1 in *; intuition).
+          unfold freeSlotsListIsFreeSlot in HfirstFreeIsFrees0.
+          assert(HhypConsList: optionFreeSlotsList = getFreeSlotsList pd s0
+                              /\ wellFormedFreeSlotsList optionFreeSlotsList <> False) by intuition.
+          assert(HfreeSlotsList: filterOptionPaddr optionFreeSlotsList
+                                  = filterOptionPaddr optionFreeSlotsList
+                                /\ In (firstfreeslot p) (filterOptionPaddr optionFreeSlotsList)).
+          {
+            split. reflexivity. assumption.
+          }
+          rewrite <-HnewFirstFree in *. rewrite <-beqAddrFalse in HbeqFirstFreeNull.
+          specialize(HfirstFreeIsFrees0 pd (firstfreeslot p) optionFreeSlotsList
+                      (filterOptionPaddr optionFreeSlotsList) HisPDTs0 HhypConsList HfreeSlotsList
+                        HbeqFirstFreeNull).
+          assumption.
+        }
+        assert(Hs1s0Eq: getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s1 (ADT.nbfreeslots p)
+                         = getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s0 (ADT.nbfreeslots p)).
+        {
+          rewrite Hs1. apply getFreeSlotsListRecEqPDT.
+          -- intro Hcontra. rewrite Hcontra in *. unfold isBE in HisBEs0. unfold isPDT in HisPDTs0.
+             destruct (lookup globalIdPDChild (memory s0) beqAddr); try(exfalso; congruence).
+             destruct v; try(exfalso; congruence).
+          -- intro Hcontra. unfold isBE in Hcontra. unfold isPDT in HisPDTs0.
+             destruct (lookup globalIdPDChild (memory s0) beqAddr); try(exfalso; congruence).
+             destruct v; try(exfalso; congruence).
+          -- intro Hcontra. unfold isPADDR in Hcontra. unfold isPDT in HisPDTs0.
+             destruct (lookup globalIdPDChild (memory s0) beqAddr); try(exfalso; congruence).
+             destruct v; try(exfalso; congruence).
+        }
+        rewrite <-Hs1s0Eq.
+        assert(HisPDTs1: isPDT globalIdPDChild s1).
+        {
+          unfold isPDT. unfold isPDT in HisPDTs0. rewrite Hs1. simpl. rewrite beqAddrTrue. trivial.
+        }
+        assert(Hs2s1Eq: getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s2 (ADT.nbfreeslots p)
+                         = getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s1 (ADT.nbfreeslots p)).
+        {
+          rewrite Hs2. apply getFreeSlotsListRecEqPDT.
+          -- intro Hcontra. rewrite Hcontra in *. unfold isBE in HisBEs0. unfold isPDT in HisPDTs0.
+             destruct (lookup globalIdPDChild (memory s0) beqAddr); try(exfalso; congruence).
+             destruct v; try(exfalso; congruence).
+          -- intro Hcontra. unfold isBE in Hcontra. unfold isPDT in HisPDTs1.
+             destruct (lookup globalIdPDChild (memory s1) beqAddr); try(exfalso; congruence).
+             destruct v; try(exfalso; congruence).
+          -- intro Hcontra. unfold isPADDR in Hcontra. unfold isPDT in HisPDTs1.
+             destruct (lookup globalIdPDChild (memory s1) beqAddr); try(exfalso; congruence).
+             destruct v; try(exfalso; congruence).
+        }
+        rewrite <-Hs2s1Eq.
+        assert(HBEs2: isBE newBlockEntryAddr s2).
+        {
+          unfold isBE. unfold isBE in HBEs0. rewrite Hs2. rewrite Hs1. simpl. rewrite beqpdnewB.
+          rewrite <-beqAddrFalse in beqpdnewB. rewrite beqAddrTrue.
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
+        }
+        assert(HnoDupOptionList: NoDup (filterOptionPaddr optionFreeSlotsList)).
+        {
+          assert(HnoDupInFreeSlotss0: NoDupInFreeSlotsList s0)
+                by (unfold consistency in *; unfold consistency1 in *; intuition).
+          unfold NoDupInFreeSlotsList in HnoDupInFreeSlotss0.
+          specialize(HnoDupInFreeSlotss0 pd p HlookupPds0).
+          destruct HnoDupInFreeSlotss0 as [optionfreeslotslist (HlistValue & (HwellFormedList & HnoDup))].
+          rewrite <-HgetFreeSlotsCopy in HlistValue. subst optionfreeslotslist. assumption.
+        }
+        assert(HnewBlockNotInFreeListPd:
+               ~ In newBlockEntryAddr
+                 (filterOptionPaddr (getFreeSlotsListRec (maxIdx + 1) (firstfreeslot p) s0 (ADT.nbfreeslots p)))
+               /\ (firstfreeslot p) <> newBlockEntryAddr).
+        {
+          assert(HdisjointFreeLists: DisjointFreeSlotsLists s0)
+                by (unfold consistency in *; unfold consistency1 in *; intuition).
+          unfold DisjointFreeSlotsLists in HdisjointFreeLists. rewrite <-beqAddrFalse in HbeqGlobPd.
+          apply not_eq_sym in HbeqGlobPd.
+          specialize(HdisjointFreeLists pd globalIdPDChild HisPDTs0 HPDTs0 HbeqGlobPd).
+          destruct HdisjointFreeLists as [optionentrieslist1 (optionentrieslist2 & (Hlist1Val & (HwellFormedList1
+                  & (Hlist2Val & (HwellFormedList2 & HdisjointLists)))))].
+          assert(optionentrieslist1 = optionFreeSlotsList)
+                by (rewrite Hlist1Val; rewrite HgetFreeSlotsCopy; reflexivity).
+          subst optionentrieslist1. subst optionentrieslist2.
+          assert(HnewBlockInListGlob: In newBlockEntryAddr
+                                          (filterOptionPaddr (getFreeSlotsList globalIdPDChild s0))).
+          {
+            unfold getFreeSlotsList. unfold getFreeSlotsList in HwellFormedList2.
+            rewrite Hpdinsertions0 in *.
+            destruct (beqAddr (firstfreeslot pdentry) nullAddr) eqn:HbeqFirstFreePdentryNull.
+            { (* firstfreeslot pdentry = nullAddr *)
+              rewrite HnewB in *. rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqFirstFreePdentryNull.
+              rewrite HbeqFirstFreePdentryNull in *.
+              assert(Hnull: nullAddrExists s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+              unfold nullAddrExists in Hnull. unfold isPADDR in Hnull. unfold isBE in HBEs0.
+              destruct (lookup nullAddr (memory s0) beqAddr); try(exfalso; congruence).
+              destruct v; try(exfalso; congruence).
+            }
+            (* firstfreeslot pdentry <> nullAddr *)
+            rewrite FreeSlotsListRec_unroll in *. unfold getFreeSlotsListAux in *.
+            rewrite MaxIdxNextEq in *. unfold StateLib.Index.ltb in *. unfold MALInternal.zero in *.
+            destruct (PeanoNat.Nat.ltb (ADT.nbfreeslots pdentry) (CIndex 0)) eqn:HltbPred.
+            {
+              unfold wellFormedFreeSlotsList in HwellFormedList2. exfalso; congruence.
+            }
+            destruct (lookup (firstfreeslot pdentry) (memory s0) beqAddr) eqn:HlookupFirstPd;
+                  try(simpl in HwellFormedList2; exfalso; congruence).
+            destruct v; try(try(rewrite HbeqFirstFreePdentryNull in *);
+                  simpl in HwellFormedList2; exfalso; congruence).
+            destruct (StateLib.Index.pred (ADT.nbfreeslots pdentry));
+                  try(simpl in HwellFormedList2; exfalso; congruence).
+            simpl. left. apply eq_sym. assumption.
+          }
+          split.
+          apply Lib.disjointPermut in HdisjointLists. unfold Lib.disjoint in HdisjointLists.
+          rewrite HnewB in HnewBlockInListGlob.
+          specialize(HdisjointLists (firstfreeslot pdentry) HnewBlockInListGlob).
+          rewrite <-HgetFreeSlotsCopy in HdisjointLists. rewrite HgetFreeSlots in HdisjointLists.
+          rewrite HnewB. assumption.
+
+          unfold Lib.disjoint in HdisjointLists.
+          rewrite HgetFreeSlotsCopy in HfirstPd1IsfreeSlot.
+          specialize(HdisjointLists (firstfreeslot p) HfirstPd1IsfreeSlot). intro Hcontra.
+          contradict HdisjointLists. rewrite Hcontra. assumption.
+        }
+        destruct HnewBlockNotInFreeListPd as [HnewBlockNotInFreeListPd HfirstFreeNotNewBlock].
+        assert(Hs3s2Eq: getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s3 (ADT.nbfreeslots p)
+                         = getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s2 (ADT.nbfreeslots p)).
+        {
+          rewrite Hs3. apply getFreeSlotsListRecEqBE; try(reflexivity); try(assumption).
+          -- rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HgetFreeSlots in HwellFormeds0.
+             simpl in HwellFormeds0. assumption.
+          -- rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HgetFreeSlots in HnoDupOptionList.
+             assumption.
+          -- rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HgetFreeSlots in HnoDupOptionList.
+             assumption.
+        }
+        rewrite <-Hs3s2Eq.
+        assert(HBEs3: isBE newBlockEntryAddr s3).
+        {
+          unfold isBE. unfold isBE in HBEs2. rewrite Hs3. simpl. rewrite beqAddrTrue. trivial.
+        }
+        assert(Hs4s3Eq: getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s4 (ADT.nbfreeslots p)
+                         = getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s3 (ADT.nbfreeslots p)).
+        {
+          rewrite Hs4. apply getFreeSlotsListRecEqBE ; try(reflexivity); try(assumption).
+          -- rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HgetFreeSlots in HwellFormeds0.
+             simpl in HwellFormeds0. assumption.
+          -- rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HgetFreeSlots in HnoDupOptionList.
+             simpl in HnoDupOptionList. assumption.
+          -- rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HgetFreeSlots in HnoDupOptionList.
+             simpl in HnoDupOptionList. assumption.
+        }
+        rewrite <-Hs4s3Eq.
+        assert(HBEs4: isBE newBlockEntryAddr s4).
+        {
+          unfold isBE. unfold isBE in HBEs3. rewrite Hs4. simpl. rewrite beqAddrTrue. trivial.
+        }
+        assert(Hs5s4Eq: getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s5 (ADT.nbfreeslots p)
+                         = getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s4 (ADT.nbfreeslots p)).
+        {
+          rewrite Hs5. apply getFreeSlotsListRecEqBE; try(reflexivity); try(assumption).
+          -- rewrite Hs4s3Eq. rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq.
+             rewrite HgetFreeSlots in HwellFormeds0. assumption.
+          -- rewrite Hs4s3Eq. rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq.
+             rewrite HgetFreeSlots in HnoDupOptionList.
+             simpl in HnoDupOptionList. assumption.
+          -- rewrite Hs4s3Eq. rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq.
+             rewrite HgetFreeSlots in HnoDupOptionList.
+             simpl in HnoDupOptionList. assumption.
+        }
+        rewrite <-Hs5s4Eq.
+        assert(HBEs5: isBE newBlockEntryAddr s5).
+        {
+          unfold isBE. unfold isBE in HBEs4. rewrite Hs5. simpl. rewrite beqAddrTrue. trivial.
+        }
+        assert(Hs6s5Eq: getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s6 (ADT.nbfreeslots p)
+                         = getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s5 (ADT.nbfreeslots p)).
+        {
+          rewrite Hs6. apply getFreeSlotsListRecEqBE; try(reflexivity); try(assumption).
+          -- rewrite Hs5s4Eq. rewrite Hs4s3Eq. rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq.
+             rewrite HgetFreeSlots in HwellFormeds0.
+             simpl in HwellFormeds0. assumption.
+          -- rewrite Hs5s4Eq. rewrite Hs4s3Eq. rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq.
+             rewrite HgetFreeSlots in HnoDupOptionList.
+             simpl in HnoDupOptionList. assumption.
+          -- rewrite Hs5s4Eq. rewrite Hs4s3Eq. rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq.
+             rewrite HgetFreeSlots in HnoDupOptionList.
+             simpl in HnoDupOptionList. assumption.
+        }
+        rewrite <-Hs6s5Eq.
+        assert(HBEs6: isBE newBlockEntryAddr s6).
+        {
+          unfold isBE. unfold isBE in HBEs5. rewrite Hs6. simpl. rewrite beqAddrTrue. trivial.
+        }
+        assert(Hs7s6Eq: getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s7 (ADT.nbfreeslots p)
+                         = getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s6 (ADT.nbfreeslots p)).
+        {
+          rewrite Hs7. apply getFreeSlotsListRecEqBE; try(reflexivity); try(assumption).
+          -- rewrite Hs6s5Eq. rewrite Hs5s4Eq. rewrite Hs4s3Eq. rewrite Hs3s2Eq. rewrite Hs2s1Eq.
+             rewrite Hs1s0Eq. rewrite HgetFreeSlots in HwellFormeds0.
+             simpl in HwellFormeds0. assumption.
+          -- rewrite Hs6s5Eq. rewrite Hs5s4Eq. rewrite Hs4s3Eq. rewrite Hs3s2Eq. rewrite Hs2s1Eq.
+             rewrite Hs1s0Eq. rewrite HgetFreeSlots in HnoDupOptionList.
+             simpl in HnoDupOptionList. assumption.
+          -- rewrite Hs6s5Eq. rewrite Hs5s4Eq. rewrite Hs4s3Eq. rewrite Hs3s2Eq. rewrite Hs2s1Eq.
+             rewrite Hs1s0Eq. rewrite HgetFreeSlots in HnoDupOptionList.
+             simpl in HnoDupOptionList. assumption.
+        }
+        rewrite <-Hs7s6Eq.
+        assert(HBEs7: isBE newBlockEntryAddr s7).
+        {
+          unfold isBE. unfold isBE in HBEs6. rewrite Hs7. simpl. rewrite beqAddrTrue. trivial.
+        }
+        assert(Hs8s7Eq: getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s8 (ADT.nbfreeslots p)
+                         = getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s7 (ADT.nbfreeslots p)).
+        {
+          rewrite Hs8. apply getFreeSlotsListRecEqBE; try(reflexivity); try(assumption).
+          -- rewrite Hs7s6Eq. rewrite Hs6s5Eq. rewrite Hs5s4Eq. rewrite Hs4s3Eq. rewrite Hs3s2Eq.
+             rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HgetFreeSlots in HwellFormeds0.
+             simpl in HwellFormeds0. assumption.
+          -- rewrite Hs7s6Eq. rewrite Hs6s5Eq. rewrite Hs5s4Eq. rewrite Hs4s3Eq. rewrite Hs3s2Eq.
+             rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HgetFreeSlots in HnoDupOptionList.
+             simpl in HnoDupOptionList. assumption.
+          -- rewrite Hs7s6Eq. rewrite Hs6s5Eq. rewrite Hs5s4Eq. rewrite Hs4s3Eq. rewrite Hs3s2Eq.
+             rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HgetFreeSlots in HnoDupOptionList.
+             simpl in HnoDupOptionList. assumption.
+        }
+        rewrite <-Hs8s7Eq.
+        assert(HBEs8: isBE newBlockEntryAddr s8).
+        {
+          unfold isBE. unfold isBE in HBEs7. rewrite Hs8. simpl. rewrite beqAddrTrue. trivial.
+        }
+        assert(Hs9s8Eq: getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s9 (ADT.nbfreeslots p)
+                         = getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s8 (ADT.nbfreeslots p)).
+        {
+          rewrite Hs9. apply getFreeSlotsListRecEqBE; try(reflexivity); try(assumption).
+          -- rewrite Hs8s7Eq. rewrite Hs7s6Eq. rewrite Hs6s5Eq. rewrite Hs5s4Eq. rewrite Hs4s3Eq.
+             rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HgetFreeSlots in HwellFormeds0.
+             simpl in HwellFormeds0. assumption.
+          -- rewrite Hs8s7Eq. rewrite Hs7s6Eq. rewrite Hs6s5Eq. rewrite Hs5s4Eq. rewrite Hs4s3Eq.
+             rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HgetFreeSlots in HnoDupOptionList.
+             simpl in HnoDupOptionList. assumption.
+          -- rewrite Hs8s7Eq. rewrite Hs7s6Eq. rewrite Hs6s5Eq. rewrite Hs5s4Eq. rewrite Hs4s3Eq.
+             rewrite Hs3s2Eq. rewrite Hs2s1Eq. rewrite Hs1s0Eq. rewrite HgetFreeSlots in HnoDupOptionList.
+             simpl in HnoDupOptionList. assumption.
+        }
+        rewrite <-Hs9s8Eq.
+        assert(HbeqNewFirstSce: (firstfreeslot p) <> sceaddr).
+        {
+          intro Hcontra. rewrite Hcontra in *. unfold isBE in HisBEs0.
+          unfold isSCE in HSCEs0. destruct (lookup sceaddr (memory s0) beqAddr); try(exfalso; congruence).
+          destruct v; try(exfalso; congruence).
+        }
+        assert(Hs10s9Eq: getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s10 (ADT.nbfreeslots p)
+                         = getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s9 (ADT.nbfreeslots p)).
+        {
+          rewrite Hs10. apply getFreeSlotsListRecEqSCE; try(assumption).
+          -- intro Hcontra. unfold isBE in Hcontra. unfold isSCE in HSCEs0. rewrite Hs9 in Hcontra.
+             rewrite Hs8 in Hcontra. rewrite Hs7 in Hcontra. rewrite Hs6 in Hcontra. rewrite Hs5 in Hcontra.
+             rewrite Hs4 in Hcontra. rewrite Hs3 in Hcontra. rewrite Hs2 in Hcontra. rewrite Hs1 in Hcontra.
+             simpl in Hcontra. rewrite beqnewBsce in Hcontra. rewrite beqAddrTrue in Hcontra.
+             rewrite beqpdnewB in Hcontra. rewrite <-beqAddrFalse in *.
+             rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+             rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+             rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+             rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+             rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+             rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption). simpl in Hcontra.
+             destruct (beqAddr globalIdPDChild sceaddr) eqn:HbeqPdSce; try(exfalso; congruence).
+             rewrite beqAddrTrue in Hcontra. rewrite <-beqAddrFalse in HbeqPdSce.
+             rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+             rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+             rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+             destruct (lookup sceaddr (memory s0) beqAddr); try(exfalso; congruence).
+             destruct v; try(exfalso; congruence).
+          -- intro Hcontra. unfold isPADDR in Hcontra. unfold isSCE in HSCEs0. rewrite Hs9 in Hcontra.
+             rewrite Hs8 in Hcontra. rewrite Hs7 in Hcontra. rewrite Hs6 in Hcontra. rewrite Hs5 in Hcontra.
+             rewrite Hs4 in Hcontra. rewrite Hs3 in Hcontra. rewrite Hs2 in Hcontra. rewrite Hs1 in Hcontra.
+             simpl in Hcontra. rewrite beqnewBsce in Hcontra. rewrite beqAddrTrue in Hcontra.
+             rewrite beqpdnewB in Hcontra. rewrite <-beqAddrFalse in *.
+             rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+             rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+             rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+             rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+             rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+             rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption). simpl in Hcontra.
+             destruct (beqAddr globalIdPDChild sceaddr) eqn:HbeqPdSce; try(exfalso; congruence).
+             rewrite beqAddrTrue in Hcontra. rewrite <-beqAddrFalse in HbeqPdSce.
+             rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+             rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+             rewrite removeDupIdentity in Hcontra; try(apply not_eq_sym; assumption).
+             destruct (lookup sceaddr (memory s0) beqAddr); try(exfalso; congruence).
+             destruct v; try(exfalso; congruence).
+        }
+        rewrite <-Hs10s9Eq.
+        assert(HbeqNewFirstSh1: (firstfreeslot p) <> sh1eaddr).
+        {
+          intro Hcontra.
+          assert(Hsh1IsSHEs0: lookup sh1eaddr (memory s0) beqAddr = Some (SHE sh1entry)) by intuition.
+          unfold isBE in HisBEs0. rewrite Hcontra in *. rewrite Hsh1IsSHEs0 in HisBEs0.
+          congruence.
+        }
+        assert(Hs11s10Eq: getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s11 (ADT.nbfreeslots p)
+                         = getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s10 (ADT.nbfreeslots p)).
+        {
+          rewrite Hs11. apply getFreeSlotsListRecEqSHE; try(assumption).
+          -- intro Hcontra. unfold isBE in Hcontra. unfold isSHE in HSHEs10.
+             destruct (lookup sh1eaddr (memory s10) beqAddr); try(exfalso; congruence).
+             destruct v; try(exfalso; congruence).
+          -- intro Hcontra. unfold isPADDR in Hcontra. unfold isSHE in HSHEs10.
+             destruct (lookup sh1eaddr (memory s10) beqAddr); try(exfalso; congruence).
+             destruct v; try(exfalso; congruence).
+        }
+        rewrite <-Hs11s10Eq.
+        assert(Hs12s11Eq: getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s12 (ADT.nbfreeslots p)
+                         = getFreeSlotsListRec (maxIdx+1) (firstfreeslot p) s11 (ADT.nbfreeslots p)).
+        {
+          rewrite Hs12. apply getFreeSlotsListRecEqSHE; try(assumption).
+          -- intro Hcontra. unfold isBE in Hcontra. unfold isSHE in HSHEs10. rewrite Hs11 in Hcontra.
+             simpl in Hcontra. rewrite beqAddrTrue in Hcontra. congruence.
+          -- intro Hcontra. unfold isPADDR in Hcontra. unfold isSHE in HSHEs10. rewrite Hs11 in Hcontra.
+             simpl in Hcontra. rewrite beqAddrTrue in Hcontra. congruence.
+        }
+        rewrite <-Hs12s11Eq. rewrite Hs12Eq. reflexivity.
+      }
+      rewrite HgetFreeSlotsListEq. intuition.
+    (* END NbFreeSlotsISNbFreeSlotsInList s *)
+  }
+
+  assert(maxNbPrepareIsMaxNbKernels s).
+  { (* BEGIN maxNbPrepareIsMaxNbKernels s *)
+    assert(Hcons10: maxNbPrepareIsMaxNbKernels s10) by (unfold consistency1 in *; intuition).
+    unfold maxNbPrepareIsMaxNbKernels in *.
+    intros partition kernList HisListOfKernels.
+    assert(HisListOfKernelss10: isListOfKernels kernList partition s10).
+    {
+      apply isListOfKernelsEqSHE with sh1eaddr ({|
+                                                  PDchild := globalIdPDChild;
+                                                  PDflag := PDflag sh1entry;
+                                                  inChildLocation := inChildLocation sh1entry
+                                                |}). simpl.
+      apply isListOfKernelsEqSHE with sh1eaddr ({|
+                                                  PDchild := PDchild sh1entry0;
+                                                  PDflag := PDflag sh1entry0;
+                                                  inChildLocation := blockToShareChildEntryAddr
+                                                |}). simpl.
+      rewrite HsEq in HisListOfKernels. assumption.
+    }
+    specialize(Hcons10 partition kernList HisListOfKernelss10). assumption.
+    (* END maxNbPrepareIsMaxNbKernels *)
+  }
+
+  assert(blockInChildHasAtLeastEquivalentBlockInParent s).
+  { (* BEGIN blockInChildHasAtLeastEquivalentBlockInParent s *)
+    assert(Hcons0: blockInChildHasAtLeastEquivalentBlockInParent s0)
+          by (unfold consistency in *; unfold consistency1 in *; intuition).
+    intros pdparent child blockChild startChild endChild HparentIsPart HchildIsChild HblockChildMapped
+        HstartChild HendChild HPFlagChild. rewrite HparentEq in HparentIsPart.
+    assert(HchildrenParentEq: getChildren pdparent s = getChildren pdparent s0).
+    {
+      destruct (beqAddr pdparent globalIdPDChild) eqn:HbeqParentGlob.
+      - rewrite <-DTL.beqAddrTrue in HbeqParentGlob. subst pdparent. assumption.
+      - rewrite <-beqAddrFalse in HbeqParentGlob. apply HchildrenEq. assumption.
+        unfold consistency in *; unfold consistency1 in *; apply partitionsArePDT; intuition.
+    }
+    rewrite HchildrenParentEq in HchildIsChild.
+    destruct (beqAddr child globalIdPDChild) eqn:HbeqChildGlob.
+    - rewrite <-DTL.beqAddrTrue in HbeqChildGlob. subst child.
+      assert(HparentsEq: pdparent = currentPart).
+      {
+        apply uniqueParent with globalIdPDChild s0; try(assumption).
+        unfold consistency in *; unfold consistency1 in *; intuition.
+        unfold consistency in *; unfold consistency1 in *; intuition.
+        assert(Hcurr: currentPart = currentPartition s0) by intuition. rewrite Hcurr.
+        unfold consistency in *; unfold consistency1 in *; intuition.
+      }
+      subst pdparent. apply HpdchildMappedBlocks in HblockChildMapped.
+      assert(HblocksEq: getMappedBlocks currentPart s = getMappedBlocks currentPart s0).
+      {
+        assert(HparentOfPart: parentOfPartitionIsPartition s0)
+            by (unfold consistency in *; unfold consistency1 in *; intuition).
+        apply HmappedblocksEq. apply childparentNotEq with s0; try(assumption).
+        unfold consistency in *; unfold consistency1 in *; intuition.
+        unfold consistency in *; unfold consistency1 in *; apply partitionsArePDT; intuition.
+      }
+      simpl in HblockChildMapped.
+      assert(Hsplit: newBlockEntryAddr = blockChild \/ ~(newBlockEntryAddr = blockChild))
+            by (apply Classical_Prop.classic).
+      destruct Hsplit as [HblockIsNew | HblockNotNew].
+      + subst blockChild. exists blockToShareInCurrPartAddr. exists blockstart. exists blockend.
+        split. rewrite HblocksEq. assumption. unfold bentryStartAddr in *. unfold bentryEndAddr in *.
+        rewrite Hblockcurrpart. split. intuition. split. intuition. rewrite HlookupnewBs in *.
+        destruct HstartendEq as (HendEq & HstartEq). rewrite HstartEq in HstartChild. rewrite HendEq in HendChild.
+        subst startChild. subst endChild. split; lia.
+      + destruct HblockChildMapped as [HblockIsNew | HblockChildMappeds0]; try(exfalso; congruence).
+        assert(HlookupEq: lookup blockChild (memory s) beqAddr = lookup blockChild (memory s0) beqAddr).
+        {
+          rewrite Hs. simpl. destruct (beqAddr sh1eaddr blockChild) eqn:HbeqSh1Block.
+          {
+            rewrite <-DTL.beqAddrTrue in HbeqSh1Block. subst blockChild. unfold bentryStartAddr in HstartChild.
+            rewrite HSHEs in HstartChild. exfalso; congruence.
+          }
+          rewrite beqAddrTrue. rewrite beqscesh1. rewrite <-beqAddrFalse in HbeqSh1Block.
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+          destruct (beqAddr sceaddr blockChild) eqn:HbeqSceBlock.
+          {
+            rewrite <-DTL.beqAddrTrue in HbeqSceBlock. subst blockChild. unfold bentryStartAddr in HstartChild.
+            unfold isSCE in HSCEs. exfalso. destruct (lookup sceaddr (memory s) beqAddr); try(congruence).
+            destruct v; congruence.
+          }
+          rewrite beqnewBsce. rewrite <-beqAddrFalse in HbeqSceBlock.
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+          rewrite beqAddrFalse in HblockNotNew. rewrite HblockNotNew. rewrite beqAddrTrue. rewrite beqpdnewB.
+          rewrite <-beqAddrFalse in *.
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+          destruct (beqAddr globalIdPDChild blockChild) eqn:HbeqGlobBlock.
+          {
+            rewrite <-DTL.beqAddrTrue in HbeqGlobBlock. subst blockChild.
+            assert(Hcontra: lookup globalIdPDChild (memory s) beqAddr = Some (PDT pdentry1)) by intuition.
+            unfold bentryStartAddr in HstartChild. rewrite Hcontra in HstartChild. exfalso; congruence.
+          }
+          rewrite beqAddrTrue. rewrite <-beqAddrFalse in *.
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
+        }
+        unfold bentryStartAddr in HstartChild. unfold bentryEndAddr in HendChild.
+        unfold bentryPFlag in HPFlagChild. rewrite HlookupEq in *.
+        specialize(Hcons0 currentPart globalIdPDChild blockChild startChild endChild HparentIsPart HchildIsChild
+            HblockChildMappeds0 HstartChild HendChild HPFlagChild). rewrite HblocksEq.
+        destruct Hcons0 as [blockParent [startParent [endParent (HblockParentMapped & HstartParent & HendParent &
+            Hbounds)]]]. exists blockParent. exists startParent. exists endParent. split. assumption.
+        unfold bentryStartAddr in *. unfold bentryEndAddr in *. rewrite Hs. simpl.
+        destruct (beqAddr sh1eaddr blockParent) eqn:HbeqSh1Block.
+        {
+          rewrite <-DTL.beqAddrTrue in HbeqSh1Block. subst blockParent. rewrite <-HSHEs10Eq in HstartParent.
+          unfold isSHE in HSHEs10. exfalso. destruct (lookup sh1eaddr (memory s10) beqAddr); try(congruence).
+          destruct v; congruence.
+        }
+        rewrite beqAddrTrue. rewrite beqscesh1. rewrite <-beqAddrFalse in HbeqSh1Block.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+        destruct (beqAddr sceaddr blockParent) eqn:HbeqSceBlock.
+        {
+          rewrite <-DTL.beqAddrTrue in HbeqSceBlock. subst blockParent. unfold isSCE in HSCEs0. exfalso.
+          destruct (lookup sceaddr (memory s0) beqAddr); try(congruence). destruct v; congruence.
+        }
+        rewrite beqnewBsce. rewrite <-beqAddrFalse in HbeqSceBlock.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+        destruct (beqAddr newBlockEntryAddr blockParent) eqn:HbeqNewBlock.
+        {
+          rewrite <-DTL.beqAddrTrue in HbeqNewBlock. subst blockParent. rewrite <-HblocksEq in HblockParentMapped.
+          assert(HnewMappedGlob: In newBlockEntryAddr (getMappedBlocks globalIdPDChild s)).
+          {
+            apply HpdchildMappedBlocks. simpl. left. reflexivity.
+          }
+          unfold getMappedBlocks in *. apply InFilterPresentInList in HnewMappedGlob.
+          apply InFilterPresentInList in HblockParentMapped. exfalso.
+          assert(HbeqCurrGlob: currentPart <> globalIdPDChild).
+          {
+            apply childparentNotEq with s0; try(assumption).
+            unfold consistency in *; unfold consistency1 in *; intuition.
+          }
+          assert(HcurrPDTs0: isPDT currentPart s0) by intuition.
+          assert(HcurrPDT: isPDT currentPart s).
+          {
+            unfold isPDT in *. rewrite Hs. simpl. destruct (beqAddr sh1eaddr currentPart) eqn:HbeqSh1Curr.
+            {
+              rewrite <-DTL.beqAddrTrue in HbeqSh1Curr. subst currentPart. unfold isSHE in HSHEs10.
+              rewrite HSHEs10Eq in HSHEs10.
+              destruct (lookup sh1eaddr (memory s0) beqAddr); try(exfalso; congruence).
+              destruct v; congruence.
+            }
+            rewrite beqAddrTrue. rewrite beqscesh1. rewrite <-beqAddrFalse in HbeqSh1Curr.
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+            destruct (beqAddr sceaddr currentPart) eqn:HbeqSceCurr.
+            {
+              rewrite <-DTL.beqAddrTrue in HbeqSceCurr. subst currentPart. exfalso. unfold isSCE in HSCEs0.
+              destruct (lookup sceaddr (memory s0) beqAddr); try(congruence). destruct v; congruence.
+            }
+            rewrite beqnewBsce. rewrite <-beqAddrFalse in HbeqSceCurr.
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+            destruct (beqAddr newBlockEntryAddr currentPart) eqn:HbeqNewCurr.
+            {
+              rewrite <-DTL.beqAddrTrue in HbeqNewCurr. subst currentPart. rewrite HlookupnewBs0 in HcurrPDTs0.
+              exfalso; congruence.
+            }
+            rewrite beqAddrTrue. rewrite beqpdnewB. rewrite <-beqAddrFalse in *.
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+            rewrite beqAddrFalse in HbeqCurrGlob. rewrite beqAddrSym in HbeqCurrGlob. rewrite HbeqCurrGlob.
+            rewrite beqAddrTrue. rewrite <-beqAddrFalse in *.
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            rewrite removeDupIdentity; try(apply not_eq_sym; assumption). assumption.
+          }
+          specialize(HDisjointKSEntriess currentPart globalIdPDChild HcurrPDT HPDTs HbeqCurrGlob).
+          destruct HDisjointKSEntriess as [list1 [list2 (Hlist1 & Hlist2 & Hdisjoint)]]. subst list1.
+          subst list2. specialize(Hdisjoint newBlockEntryAddr HblockParentMapped). congruence.
+        }
+        rewrite beqAddrTrue. rewrite beqpdnewB. rewrite <-beqAddrFalse in *.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+        destruct (beqAddr globalIdPDChild blockParent) eqn:HbeqGlobBlock.
+        {
+          rewrite <-DTL.beqAddrTrue in HbeqGlobBlock. subst blockParent. rewrite Hpdinsertions0 in HstartParent.
+          exfalso; congruence.
+        }
+        rewrite beqAddrTrue. rewrite <-beqAddrFalse in *.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        split; try(split); assumption.
+    - rewrite <-beqAddrFalse in HbeqChildGlob.
+      assert(HmappedEq: getMappedBlocks child s = getMappedBlocks child s0).
+      {
+        apply HmappedblocksEq. assumption. apply childrenArePDT with pdparent.
+        unfold consistency in *; unfold consistency1 in *; intuition. assumption.
+      }
+      rewrite HmappedEq in HblockChildMapped.
+      assert(HlookupEq: lookup blockChild (memory s) beqAddr = lookup blockChild (memory s0) beqAddr).
+      {
+        rewrite Hs. simpl. destruct (beqAddr sh1eaddr blockChild) eqn:HbeqSh1Block.
+        {
+          rewrite <-DTL.beqAddrTrue in HbeqSh1Block. subst blockChild. unfold bentryStartAddr in HstartChild.
+          rewrite HSHEs in HstartChild. exfalso; congruence.
+        }
+        rewrite beqAddrTrue. rewrite beqscesh1. rewrite <-beqAddrFalse in HbeqSh1Block.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+        destruct (beqAddr sceaddr blockChild) eqn:HbeqSceBlock.
+        {
+          rewrite <-DTL.beqAddrTrue in HbeqSceBlock. subst blockChild. unfold bentryStartAddr in HstartChild.
+          unfold isSCE in HSCEs. exfalso. destruct (lookup sceaddr (memory s) beqAddr); try(congruence).
+          destruct v; congruence.
+        }
+        rewrite beqnewBsce. rewrite <-beqAddrFalse in HbeqSceBlock.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+        destruct (beqAddr newBlockEntryAddr blockChild) eqn:HbeqNewBlock.
+        {
+          rewrite <-DTL.beqAddrTrue in HbeqNewBlock. subst blockChild. rewrite <-HmappedEq in HblockChildMapped.
+          assert(HnewMappedGlob: In newBlockEntryAddr (getMappedBlocks globalIdPDChild s)).
+          {
+            apply HpdchildMappedBlocks. simpl. left. reflexivity.
+          }
+          assert(HchildPDT: isPDT child s).
+          {
+            rewrite <-HchildrenParentEq in HchildIsChild. apply childrenArePDT with pdparent; assumption.
+          }
+          apply not_eq_sym in HbeqChildGlob. exfalso. unfold getMappedBlocks in *.
+          apply InFilterPresentInList in HnewMappedGlob. apply InFilterPresentInList in HblockChildMapped.
+          specialize(HDisjointKSEntriess globalIdPDChild child HPDTs HchildPDT HbeqChildGlob).
+          destruct HDisjointKSEntriess as [list1 [list2 (Hlist1 & Hlist2 & Hdisjoint)]]. subst list1.
+          subst list2. specialize(Hdisjoint newBlockEntryAddr HnewMappedGlob). congruence.
+        }
+        rewrite beqAddrTrue. rewrite beqpdnewB. rewrite <-beqAddrFalse in *.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+        destruct (beqAddr globalIdPDChild blockChild) eqn:HbeqGlobBlock.
+        {
+          rewrite <-DTL.beqAddrTrue in HbeqGlobBlock. subst blockChild.
+          assert(Hcontra: lookup globalIdPDChild (memory s) beqAddr = Some (PDT pdentry1)) by intuition.
+          unfold bentryStartAddr in HstartChild. rewrite Hcontra in HstartChild. exfalso; congruence.
+        }
+        rewrite beqAddrTrue. rewrite <-beqAddrFalse in *.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
+      }
+      unfold bentryStartAddr in *. unfold bentryEndAddr in *. unfold bentryPFlag in *. rewrite HlookupEq in *.
+      specialize(Hcons0 pdparent child blockChild startChild endChild HparentIsPart HchildIsChild
+          HblockChildMapped HstartChild HendChild HPFlagChild). destruct Hcons0 as [blockParent [startParent
+          [endParent (HblockParentMapped & HstartParent & HendParent & Hbounds)]]].
+      exists blockParent. set(mapped := getMappedBlocks pdparent s).
+      assert(Hmapped: In blockParent mapped).
+      {
+        subst mapped. destruct (beqAddr pdparent globalIdPDChild) eqn:HbeqParentGlob.
+        - rewrite <-DTL.beqAddrTrue in HbeqParentGlob. subst pdparent. apply HpdchildMappedBlocks. simpl.
+          right. assumption.
+        - rewrite <-beqAddrFalse in HbeqParentGlob. rewrite HmappedblocksEq; try(assumption).
+          unfold consistency in *; unfold consistency1 in *; apply partitionsArePDT; try(assumption); intuition.
+      }
+      rewrite Hs. simpl. unfold bentryStartAddr in HstartParent. unfold bentryEndAddr in HendParent.
+      destruct (beqAddr sh1eaddr blockParent) eqn:HbeqSh1Block.
+      {
+        rewrite <-DTL.beqAddrTrue in HbeqSh1Block. subst blockParent. rewrite <-HSHEs10Eq in HstartParent.
+        unfold isSHE in HSHEs10. exfalso. destruct (lookup sh1eaddr (memory s10) beqAddr); try(congruence).
+        destruct v; congruence.
+      }
+      rewrite beqAddrTrue. rewrite beqscesh1. rewrite <-beqAddrFalse in HbeqSh1Block.
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+      destruct (beqAddr sceaddr blockParent) eqn:HbeqSceBlock.
+      {
+        rewrite <-DTL.beqAddrTrue in HbeqSceBlock. subst blockParent. unfold isSCE in HSCEs0. exfalso.
+        destruct (lookup sceaddr (memory s0) beqAddr); try(congruence). destruct v; congruence.
+      }
+      rewrite beqnewBsce. rewrite <-beqAddrFalse in HbeqSceBlock.
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+      destruct (beqAddr newBlockEntryAddr blockParent) eqn:HbeqNewBlock.
+      {
+        rewrite <-DTL.beqAddrTrue in HbeqNewBlock. subst blockParent.
+        assert(HnewMappedGlobs: In newBlockEntryAddr (getMappedBlocks globalIdPDChild s)).
+        { apply HpdchildMappedBlocks. simpl. left. reflexivity. }
+        assert(HnewMappedGlobs0: In newBlockEntryAddr (getMappedBlocks globalIdPDChild s0)).
+        {
+          destruct (beqAddr pdparent globalIdPDChild) eqn:HbeqParentGlob;
+              try(rewrite <-DTL.beqAddrTrue in HbeqParentGlob; subst pdparent; assumption).
+          exfalso. rewrite <-beqAddrFalse in HbeqParentGlob.
+          assert(isPDT pdparent s0).
+          {
+            unfold consistency in *; unfold consistency1 in *; apply partitionsArePDT; try(assumption); intuition.
+          }
+          assert(HparentIsPDT: isPDT pdparent s).
+          { rewrite <-HparentEq in HparentIsPart. apply partitionsArePDT; try(assumption); intuition. }
+          rewrite <-HmappedblocksEq in HblockParentMapped; try(assumption).
+          specialize(HDisjointKSEntriess pdparent globalIdPDChild HparentIsPDT HPDTs HbeqParentGlob).
+          destruct HDisjointKSEntriess as [list1 [list2 (Hlist1 & Hlist2 & Hdisjoint)]]. subst list1.
+          subst list2. unfold getMappedBlocks in *. apply InFilterPresentInList in HblockParentMapped.
+          apply InFilterPresentInList in HnewMappedGlobs.
+          specialize(Hdisjoint newBlockEntryAddr HblockParentMapped). congruence.
+        }
+        assert(HisFrees0: FirstFreeSlotPointerIsBEAndFreeSlot s0)
+              by (unfold consistency in *; unfold consistency1 in *; intuition). exfalso.
+        destruct (beqAddr (firstfreeslot pdentry) nullAddr) eqn:HbeqNewNull.
+        {
+          rewrite <-HnewB in HbeqNewNull. rewrite <-DTL.beqAddrTrue in HbeqNewNull. rewrite HbeqNewNull in *.
+          assert(Hnull: nullAddrExists s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+          unfold nullAddrExists in Hnull. unfold isPADDR in Hnull. rewrite HlookupnewBs0 in Hnull.
+          congruence.
+        }
+        rewrite <-beqAddrFalse in HbeqNewNull.
+        specialize(HisFrees0 globalIdPDChild pdentry Hpdinsertions0 HbeqNewNull). rewrite <-HnewB in HisFrees0.
+        destruct HisFrees0 as (_ & HisFrees0). unfold isFreeSlot in HisFrees0. rewrite HlookupnewBs0 in HisFrees0.
+        destruct (lookup (CPaddr (newBlockEntryAddr + sh1offset)) (memory s0) beqAddr); try(congruence).
+        destruct v; try(congruence).
+        destruct (lookup (CPaddr (newBlockEntryAddr + scoffset)) (memory s0) beqAddr); try(congruence).
+        destruct v; try(congruence). destruct HisFrees0 as (_ & _ & _ & _ & HnotPresent & _).
+        apply mappedBlockIsBE in HnewMappedGlobs0.
+        destruct HnewMappedGlobs0 as [bentryBis (HlookupBis & Hcontra)]. rewrite HlookupnewBs0 in HlookupBis.
+        injection HlookupBis as Heq. subst bentryBis. congruence.
+      }
+      rewrite beqAddrTrue. rewrite beqpdnewB. rewrite <-beqAddrFalse in *.
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+      destruct (beqAddr globalIdPDChild blockParent) eqn:HbeqGlobParent.
+      {
+        exfalso. rewrite <-DTL.beqAddrTrue in HbeqGlobParent. subst blockParent.
+        rewrite Hpdinsertions0 in HstartParent. congruence.
+      }
+      rewrite beqAddrTrue. rewrite <-beqAddrFalse in HbeqGlobParent.
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      exists startParent. exists endParent. split. assumption. split. assumption. split; assumption.
+    (* END blockInChildHasAtLeastEquivalentBlockInParent *)
+  }
+
+  assert(HsEq11:
+              s =
+              {|
+                currentPartition := currentPartition s11;
+                memory :=
+                  add sh1eaddr
+                    (SHE
+                       {|
+                         PDchild := PDchild sh1entry0;
+                         PDflag := PDflag sh1entry0;
+                         inChildLocation := blockToShareChildEntryAddr
+                       |}) (memory s11) beqAddr
+              |}) by (rewrite HsEq; rewrite Hs11; reflexivity).
+  assert(isPDT multiplexer s11).
+  {
+    assert(Hconss: isPDT multiplexer s) by intuition.
+    unfold isPDT in Hconss. rewrite HsEq11 in Hconss. simpl in Hconss.
+    destruct (beqAddr sh1eaddr multiplexer) eqn:HbeqSh1Mult; try(exfalso; congruence).
+    rewrite <-beqAddrFalse in HbeqSh1Mult. rewrite removeDupIdentity in Hconss; try(apply not_eq_sym; assumption).
+    assumption.
+  }
+  destruct Hprops as (HlookupSh1s0 & HlookupSh1s & Hsh1entry1 & Hsh1entry0 & Hprops).
+  rewrite <-HSHEs10Eq in HlookupSh1s0.
+  assert(HlookupSh1s11: lookup sh1eaddr (memory s11) beqAddr = Some (SHE sh1entry0)).
+  { rewrite Hs11. simpl. rewrite beqAddrTrue. rewrite Hsh1entry0. reflexivity. }
+  assert(PDTIfPDFlag s11).
+  {
+    intros idChild sh1entryaddr HcheckChild. destruct HcheckChild as (HcheckChild & Hsh1).
+    assert(HcheckChilds: true = checkChild idChild s sh1entryaddr /\ sh1entryAddr idChild sh1entryaddr s).
+    {
+      unfold checkChild in *. unfold sh1entryAddr in *. rewrite HsEq11. simpl.
+      destruct (beqAddr sh1eaddr idChild) eqn:HbeqSh1IdChild.
+      {
+        exfalso. rewrite <-DTL.beqAddrTrue in HbeqSh1IdChild. subst idChild. rewrite HlookupSh1s11 in Hsh1.
+        congruence.
+      }
+      rewrite <-beqAddrFalse in HbeqSh1IdChild. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      destruct (lookup idChild (memory s11) beqAddr); try(exfalso; congruence).
+      destruct v; try(exfalso; congruence). split; try(assumption).
+      destruct (beqAddr sh1eaddr sh1entryaddr) eqn:HbeqSh1Sh1.
+      - rewrite <-DTL.beqAddrTrue in HbeqSh1Sh1. rewrite HbeqSh1Sh1 in *. rewrite HlookupSh1s11 in HcheckChild.
+        simpl. assumption.
+      - rewrite <-beqAddrFalse in HbeqSh1Sh1. rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
+    }
+    specialize(HPDTIfPDFlags idChild sh1entryaddr HcheckChilds).
+    destruct HPDTIfPDFlags as (HAFlag & HPFlag & [startaddr (Hstart & Hentry)]). unfold bentryAFlag in HAFlag.
+    unfold bentryPFlag in HPFlag. unfold bentryStartAddr in Hstart. unfold entryPDT in *.
+    rewrite HsEq11 in *. simpl in *.
+    destruct (beqAddr sh1eaddr idChild) eqn:HbeqSh1Child; try(exfalso; congruence).
+    rewrite <-beqAddrFalse in HbeqSh1Child.
+    rewrite removeDupIdentity in HAFlag; try(apply not_eq_sym; assumption).
+    rewrite removeDupIdentity in HPFlag; try(apply not_eq_sym; assumption).
+    rewrite removeDupIdentity in Hstart; try(apply not_eq_sym; assumption).
+    rewrite removeDupIdentity in Hentry; try(apply not_eq_sym; assumption). split. assumption. split. assumption.
+    exists startaddr. split. assumption. destruct (lookup idChild (memory s11) beqAddr); try(congruence).
+    destruct v; try(congruence).
+    destruct (beqAddr sh1eaddr (startAddr (blockrange b))) eqn:HbeqSh1Start; try(exfalso; congruence).
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in Hentry; try(apply not_eq_sym); assumption.
+  }
+
+  assert(partitionTreeIsTree s).
+  { (* BEGIN partitionTreeIsTree s *)
+    assert(Hcons0: partitionTreeIsTree s0)
+          by (unfold consistency in *; unfold consistency1 in *; intuition).
+    intros child pdparent parentsList HchildNotRoot HchildIsPart HchildIsChild HparentsList.
+    rewrite HparentEq in HchildIsPart.
+    assert(HchildIsChilds0: pdentryParent child pdparent s0).
+    {
+      unfold pdentryParent in *. rewrite Hs in HchildIsChild. simpl in HchildIsChild.
+      destruct (beqAddr sh1eaddr child) eqn:HbeqSh1Child; try(exfalso; congruence).
+      rewrite beqAddrTrue in HchildIsChild. rewrite beqscesh1 in HchildIsChild.
+      rewrite <-beqAddrFalse in HbeqSh1Child.
+      rewrite removeDupIdentity in HchildIsChild; try(apply not_eq_sym; assumption). simpl in HchildIsChild.
+      destruct (beqAddr sceaddr child) eqn:HbeqSceChild; try(exfalso; congruence).
+      rewrite beqnewBsce in HchildIsChild. rewrite <-beqAddrFalse in HbeqSceChild.
+      rewrite removeDupIdentity in HchildIsChild; try(apply not_eq_sym; assumption). simpl in HchildIsChild.
+      destruct (beqAddr newBlockEntryAddr child) eqn:HbeqNewChild; try(exfalso; congruence).
+      rewrite beqAddrTrue in HchildIsChild. rewrite beqpdnewB in HchildIsChild.
+      rewrite <-beqAddrFalse in *.
+      rewrite removeDupIdentity in HchildIsChild; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HchildIsChild; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HchildIsChild; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HchildIsChild; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HchildIsChild; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HchildIsChild; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HchildIsChild; try(apply not_eq_sym; assumption). simpl in HchildIsChild.
+      destruct (beqAddr globalIdPDChild child) eqn:HbeqGlobChild.
+      - rewrite <-DTL.beqAddrTrue in HbeqGlobChild. simpl in HchildIsChild. subst child.
+        rewrite Hpdinsertions0.
+        assert(Hpdentry0: pdentry0 = {|
+                                       structure := structure pdentry;
+                                       firstfreeslot := newFirstFreeSlotAddr;
+                                       nbfreeslots := ADT.nbfreeslots pdentry;
+                                       nbprepare := nbprepare pdentry;
+                                       parent := parent pdentry;
+                                       MPU := MPU pdentry;
+                                       vidtAddr := vidtAddr pdentry
+                                     |}) by intuition. rewrite Hpdentry0 in HchildIsChild. simpl in HchildIsChild.
+        assumption.
+      - rewrite <-beqAddrFalse in HbeqGlobChild. rewrite beqAddrTrue in HchildIsChild.
+        rewrite removeDupIdentity in HchildIsChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HchildIsChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HchildIsChild; try(apply not_eq_sym; assumption). assumption.
+    }
+    assert(HparentsLists0: isParentsList s0 parentsList pdparent).
+    {
+      assert(HparentsLists: forall part pdentryPart parentsList,
+                               lookup part (memory s0) beqAddr = Some (PDT pdentryPart) ->
+                               isParentsList
+                                 {|
+                                   currentPartition := currentPartition s10;
+                                   memory :=
+                                     add sh1eaddr
+                                       (SHE
+                                          {|
+                                            PDchild := globalIdPDChild;
+                                            PDflag := PDflag sh1entry;
+                                            inChildLocation := inChildLocation sh1entry
+                                          |}) (memory s10) beqAddr
+                                 |} parentsList part -> isParentsList s0 parentsList part) by intuition.
+      unfold pdentryParent in HchildIsChild.
+      destruct (lookup child (memory s) beqAddr) eqn:HlookupChild; try(exfalso; congruence).
+      destruct v; try(exfalso; congruence).
+      assert(HparentOfPartitionCopy: parentOfPartitionIsPartition s) by assumption.
+      specialize(HparentOfPartition child p HlookupChild).
+      destruct HparentOfPartition as (HparentIsPart & HparentOfRoot & HbeqParentChild).
+      destruct parentsList; try(simpl; trivial; congruence).
+      assert(HlookupPdparent: exists pdentryPdparent,
+                                lookup pdparent (memory s) beqAddr = Some(PDT pdentryPdparent)).
+      {
+        simpl in HparentsList. destruct (lookup p0 (memory s) beqAddr); try(exfalso; congruence).
+        destruct v; try(exfalso; congruence). destruct HparentsList as (_ & [pdentryParent (Hlookup & _)] & _).
+        exists pdentryParent. assumption.
+      }
+      destruct HlookupPdparent as [pdentryPdparent HlookupPdparent].
+      assert(HparentIsPDT: isPDT pdparent s0).
+      {
+        rewrite Hs in HlookupPdparent. simpl in HlookupPdparent.
+        destruct (beqAddr sh1eaddr pdparent) eqn:HbeqSh1Parent; try(exfalso; congruence).
+        rewrite beqAddrTrue in HlookupPdparent.
+        destruct (beqAddr sceaddr sh1eaddr) eqn:HbeqSceSh1; try(exfalso; congruence).
+        rewrite <-beqAddrFalse in HbeqSh1Parent.
+        rewrite removeDupIdentity in HlookupPdparent; try(apply not_eq_sym; assumption).
+        simpl in HlookupPdparent.
+        destruct (beqAddr sceaddr pdparent) eqn:HbeqSceParent; try(exfalso; congruence).
+        rewrite beqnewBsce in HlookupPdparent. rewrite <-beqAddrFalse in HbeqSceSh1.
+        rewrite removeDupIdentity in HlookupPdparent; try(apply not_eq_sym; assumption). simpl in HlookupPdparent.
+        destruct (beqAddr newBlockEntryAddr pdparent) eqn:HbeqNewParent; try(exfalso; congruence).
+        rewrite beqAddrTrue in HlookupPdparent. rewrite beqpdnewB in HlookupPdparent. rewrite <-beqAddrFalse in *.
+        rewrite removeDupIdentity in HlookupPdparent; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HlookupPdparent; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HlookupPdparent; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HlookupPdparent; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HlookupPdparent; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HlookupPdparent; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HlookupPdparent; try(apply not_eq_sym; assumption). simpl in HlookupPdparent.
+        destruct (beqAddr globalIdPDChild pdparent) eqn:HbeqGlobParent.
+        - rewrite <-DTL.beqAddrTrue in HbeqGlobParent. rewrite <-HbeqGlobParent in *. assumption.
+        - rewrite beqAddrTrue in HlookupPdparent. rewrite <-beqAddrFalse in *.
+          rewrite removeDupIdentity in HlookupPdparent; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity in HlookupPdparent; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity in HlookupPdparent; try(apply not_eq_sym; assumption).
+          unfold isPDT. rewrite HlookupPdparent. trivial.
+      }
+      apply isPDTLookupEq in HparentIsPDT. destruct HparentIsPDT as [pdentryPdparents0 HlookupPdparents0].
+      apply HparentsLists with pdentryPdparents0. assumption. rewrite HsEq in HparentsList.
+      revert HparentsList.
+      replace (add sh1eaddr
+                  (SHE
+                     {|
+                       PDchild := globalIdPDChild;
+                       PDflag := PDflag sh1entry;
+                       inChildLocation := inChildLocation sh1entry
+                     |}) (memory s10) beqAddr) with (memory s11); try(rewrite Hs11; simpl; reflexivity).
+      assert(HcurrEq: currentPartition s10 = currentPartition s11).
+      { rewrite Hs11; simpl; reflexivity. }
+      replace {| currentPartition := currentPartition s10; memory := memory s11 |} with s11;
+        try(rewrite Hs11; f_equal; congruence). rewrite HcurrEq. apply isParentsListEqSHERev with sh1entry0.
+      - rewrite HsEq11 in HlookupPdparent. simpl in HlookupPdparent.
+        destruct (beqAddr sh1eaddr pdparent) eqn:HbeqSh1Parent; try(exfalso; congruence).
+        rewrite <-beqAddrFalse in HbeqSh1Parent.
+        rewrite removeDupIdentity in HlookupPdparent; try(apply not_eq_sym; assumption).
+        exists pdentryPdparent. assumption.
+      - assumption.
+      - intros part pdentryPart HlookupPart.
+        assert(HlookupParts: lookup part (memory s) beqAddr = Some (PDT pdentryPart)).
+        {
+          rewrite HsEq11. simpl. destruct (beqAddr sh1eaddr part) eqn:HbeqSh1Part.
+          {
+            rewrite <-DTL.beqAddrTrue in HbeqSh1Part. subst part. rewrite Hs11 in HlookupPart.
+            simpl in HlookupPart. rewrite beqAddrTrue in HlookupPart. exfalso; congruence.
+          }
+          rewrite <-beqAddrFalse in HbeqSh1Part. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          assumption.
+        }
+        specialize(HparentOfPartitionCopy part pdentryPart HlookupParts).
+        destruct HparentOfPartitionCopy as (HparentOfPart & HparentOfPartitionCopy). split; try(assumption).
+        intro HbeqPartRoot. specialize(HparentOfPart HbeqPartRoot).
+        destruct HparentOfPart as ([parentEntry HlookupParent] & HparentIsPartBis).
+        assert(HgetPartsEq: getPartitions multiplexer s = getPartitions multiplexer s11).
+        {
+          rewrite HsEq11. apply getPartitionsEqSHE with sh1entry0; try(assumption). simpl. reflexivity.
+        }
+        rewrite <-HgetPartsEq. split; try(assumption). exists parentEntry. rewrite HsEq11 in HlookupParent.
+        simpl in HlookupParent.
+        destruct (beqAddr sh1eaddr (parent pdentryPart)) eqn:HbeqSh1Parent; try(exfalso; congruence).
+        rewrite <-beqAddrFalse in HbeqSh1Parent.
+        rewrite removeDupIdentity in HlookupParent; try(apply not_eq_sym; assumption). assumption.
+    }
+    specialize(Hcons0 child pdparent parentsList HchildNotRoot HchildIsPart HchildIsChilds0 HparentsLists0).
+    assumption.
+    (* END partitionTreeIsTree *)
+  }
+
+  assert(kernelEntriesAreValid s).
+  { (* BEGIN kernelEntriesAreValid s *)
+    assert(Hcons0: kernelEntriesAreValid s10) by (unfold consistency1 in *; intuition).
+    intros kernel idx HkernIsKS HidxValid.
+    assert(HkernIsKSs0: isKS kernel s10).
+    {
+      unfold isKS in HkernIsKS. rewrite HsEq in HkernIsKS. simpl in HkernIsKS.
+      destruct (beqAddr sh1eaddr kernel) eqn:HbeqSh1Kern; try(exfalso; congruence).
+      rewrite beqAddrTrue in HkernIsKS. rewrite <-beqAddrFalse in HbeqSh1Kern.
+      rewrite removeDupIdentity in HkernIsKS; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HkernIsKS; try(apply not_eq_sym); assumption.
+    }
+    specialize(Hcons0 kernel idx HkernIsKSs0 HidxValid). unfold isBE in *. rewrite HsEq. simpl.
+    destruct (beqAddr sh1eaddr (CPaddr (kernel + idx))) eqn:HbeqSh1KernIdx.
+    {
+      rewrite <-DTL.beqAddrTrue in HbeqSh1KernIdx. rewrite HbeqSh1KernIdx in *. rewrite HlookupSh1s0 in Hcons0.
+      congruence.
+    }
+    rewrite beqAddrTrue. rewrite <-beqAddrFalse in HbeqSh1KernIdx.
+    rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+    rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
+    (* END kernelEntriesAreValid *)
+  }
+
+  assert(nextKernelIsValid s).
+  { (* BEGIN nextKernelIsValid s *)
+    assert(Hcons0: nextKernelIsValid s10) by (unfold consistency1 in *; intuition).
+    intros kernel HkernIsKS.
+    assert(HkernIsKSs0: isKS kernel s10).
+    {
+      unfold isKS in HkernIsKS. rewrite HsEq in HkernIsKS. simpl in HkernIsKS.
+      destruct (beqAddr sh1eaddr kernel) eqn:HbeqSh1Kern; try(exfalso; congruence).
+      rewrite beqAddrTrue in HkernIsKS. rewrite <-beqAddrFalse in HbeqSh1Kern.
+      rewrite removeDupIdentity in HkernIsKS; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HkernIsKS; try(apply not_eq_sym); assumption.
+    }
+    specialize(Hcons0 kernel HkernIsKSs0). destruct Hcons0 as (HleNextMax & [nextAddr (HlookupNext & Hnext)]).
+    split. assumption. exists nextAddr. split.
+    - intro Hp. specialize(HlookupNext Hp). rewrite HsEq. simpl.
+      destruct (beqAddr sh1eaddr {| p := kernel + nextoffset; Hp := Hp |}) eqn:HbeqSh1Next.
+      {
+        rewrite <-DTL.beqAddrTrue in HbeqSh1Next. rewrite <-HbeqSh1Next in *. exfalso; congruence.
+      }
+      rewrite beqAddrTrue. rewrite <-beqAddrFalse in HbeqSh1Next.
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption). assumption.
+    - destruct Hnext as [HnextIsKS | Hnull]; try(right; assumption). left. unfold isKS in *. rewrite HsEq. simpl.
+      destruct (beqAddr sh1eaddr nextAddr) eqn:HbeqSh1Next.
+      {
+        rewrite <-DTL.beqAddrTrue in HbeqSh1Next. rewrite HbeqSh1Next in *. rewrite HlookupSh1s0 in HnextIsKS.
+        congruence.
+      }
+      rewrite <-beqAddrFalse in HbeqSh1Next. rewrite beqAddrTrue.
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
+    (* END nextKernelIsValid *)
+  }
+
+  assert(noDupListOfKerns s).
+  { (* BEGIN noDupListOfKerns s *)
+    assert(Hcons0: noDupListOfKerns s0)
+          by (unfold consistency in *; unfold consistency1 in *; intuition).
+    intros part kernList HkernList.
+    assert(HkernLists: forall part kernList,
+               isListOfKernels kernList part
+                 {|
+                   currentPartition := currentPartition s10;
+                   memory :=
+                     add sh1eaddr
+                       (SHE
+                          {|
+                            PDchild := globalIdPDChild;
+                            PDflag := PDflag sh1entry;
+                            inChildLocation := inChildLocation sh1entry
+                          |}) (memory s10) beqAddr
+                 |} -> isListOfKernels kernList part s0) by intuition.
+    assert(HkernLists0: isListOfKernels kernList part s0).
+    {
+      apply HkernLists. rewrite <-Hs11. revert HkernList. rewrite HsEq11. apply isListOfKernelsEqSHE.
+    }
+    specialize(Hcons0 part kernList HkernLists0). assumption.
+    (* END noDupListOfKerns *)
+  }
+
+  assert(HgetPartsEqs10: getPartitions multiplexer s = getPartitions multiplexer s10).
+  {
+    assert(HgetPartsEqs11: getPartitions multiplexer s = getPartitions multiplexer s11).
+    {
+      rewrite HsEq11. apply getPartitionsEqSHE with sh1entry0; try(assumption). simpl. reflexivity.
+    }
+    rewrite HgetPartsEqs11. rewrite Hs11. apply getPartitionsEqSHE with sh1entry; try(assumption).
+    unfold consistency1 in *; intuition.
+    simpl. reflexivity.
+    unfold consistency1 in *; intuition.
+  }
+
+  assert(originIsParentBlocksStart s).
+  { (* BEGIN originIsParentBlocksStart s *)
+    assert(Hcons0: originIsParentBlocksStart s10) by (unfold consistency1 in *; intuition).
+    intros part pdentryPart blockBis scentryaddr scorigin HpartIsPart HlookupPart HblockMapped Hsce Horigin.
+    rewrite HgetPartsEqs10 in HpartIsPart.
+    assert(HlookupParts10: lookup part (memory s10) beqAddr = Some (PDT pdentryPart)).
+    {
+      rewrite HsEq in HlookupPart. simpl in HlookupPart.
+      destruct (beqAddr sh1eaddr part) eqn:HbeqSh1Part; try(exfalso; congruence).
+      rewrite beqAddrTrue in HlookupPart. rewrite <-beqAddrFalse in HbeqSh1Part.
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym); assumption.
+    }
+    assert(HgetBlocksEqs10: getMappedBlocks part s = getMappedBlocks part s10).
+    {
+      assert(HgetBlocksEqs11: getMappedBlocks part s = getMappedBlocks part s11).
+      {
+        rewrite HsEq11. apply getMappedBlocksEqSHE.
+        - rewrite HsEq11 in HlookupPart. simpl in HlookupPart.
+          destruct (beqAddr sh1eaddr part) eqn:HbeqSh1Part; try(exfalso; congruence).
+          rewrite <-beqAddrFalse in HbeqSh1Part.
+          rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption). unfold isPDT.
+          rewrite HlookupPart. trivial.
+        - unfold isSHE. rewrite HlookupSh1s11. trivial.
+      }
+      rewrite HgetBlocksEqs11. rewrite Hs11. apply getMappedBlocksEqSHE.
+      - unfold isPDT. rewrite HlookupParts10. trivial.
+      - unfold isSHE. rewrite HlookupSh1s0. trivial.
+    }
+    rewrite HgetBlocksEqs10 in HblockMapped.
+    assert(Horigins10: scentryOrigin scentryaddr scorigin s10).
+    {
+      unfold scentryOrigin in Horigin. rewrite HsEq in Horigin. simpl in Horigin.
+      destruct (beqAddr sh1eaddr scentryaddr) eqn:HbeqSh1Sce; try(exfalso; congruence).
+      rewrite beqAddrTrue in Horigin. rewrite <-beqAddrFalse in HbeqSh1Sce.
+      rewrite removeDupIdentity in Horigin; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in Horigin; try(apply not_eq_sym); assumption.
+    }
+    specialize(Hcons0 part pdentryPart blockBis scentryaddr scorigin HpartIsPart HlookupParts10 HblockMapped Hsce
+        Horigins10). destruct Hcons0 as (Hcons0 & HstartAbove). split.
+    - intro HbeqPartRoot. specialize(Hcons0 HbeqPartRoot). destruct Hcons0 as [blockParent (HblockParentMapped
+        & HstartParent & Hincl)]. exists blockParent.
+      specialize(HparentOfPartition part pdentryPart HlookupPart).
+      destruct HparentOfPartition as (HparentIsPart & _). specialize(HparentIsPart HbeqPartRoot).
+      destruct HparentIsPart as ([parentEntry HlookupParent] & HparentIsPart).
+      assert(HgetBlocksParentEqs10: getMappedBlocks (parent pdentryPart) s
+                                    = getMappedBlocks (parent pdentryPart) s10).
+      {
+        assert(HgetBlocksEqs11: getMappedBlocks (parent pdentryPart) s
+                                = getMappedBlocks (parent pdentryPart) s11).
+        {
+          rewrite HsEq11. apply getMappedBlocksEqSHE.
+          - rewrite HsEq11 in HlookupParent. simpl in HlookupParent.
+            destruct (beqAddr sh1eaddr (parent pdentryPart)) eqn:HbeqSh1Part; try(exfalso; congruence).
+            rewrite <-beqAddrFalse in HbeqSh1Part.
+            rewrite removeDupIdentity in HlookupParent; try(apply not_eq_sym; assumption). unfold isPDT.
+            rewrite HlookupParent. trivial.
+          - unfold isSHE. rewrite HlookupSh1s11. trivial.
+        }
+        rewrite HgetBlocksEqs11. rewrite Hs11. apply getMappedBlocksEqSHE.
+        - apply partitionsArePDT. unfold consistency1 in *; intuition. unfold consistency1 in *; intuition.
+          rewrite HgetPartsEqs10 in HparentIsPart. assumption.
+        - unfold isSHE. rewrite HlookupSh1s0. trivial.
+      }
+      rewrite HgetBlocksParentEqs10. split. assumption.
+      assert(HlookupBlockPEq: lookup blockParent (memory s) beqAddr = lookup blockParent (memory s10) beqAddr).
+      {
+        rewrite HsEq. simpl. destruct (beqAddr sh1eaddr blockParent) eqn:HbeqSh1BlockP.
+        {
+          unfold bentryStartAddr in HstartParent. exfalso. rewrite <-DTL.beqAddrTrue in HbeqSh1BlockP.
+          rewrite HbeqSh1BlockP in *. rewrite HlookupSh1s0 in HstartParent. congruence.
+        }
+        rewrite beqAddrTrue. rewrite <-beqAddrFalse in HbeqSh1BlockP.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
+      }
+      assert(HlookupBlockEq: lookup blockBis (memory s) beqAddr = lookup blockBis (memory s10) beqAddr).
+      {
+        apply mappedBlockIsBE in HblockMapped. destruct HblockMapped as [bentryBlock (HlookupBlocks10 & _)].
+        rewrite HsEq. simpl. destruct (beqAddr sh1eaddr blockBis) eqn:HbeqSh1Block.
+        {
+          rewrite <-DTL.beqAddrTrue in HbeqSh1Block. rewrite HbeqSh1Block in *. exfalso; congruence.
+        }
+        rewrite beqAddrTrue. rewrite <-beqAddrFalse in HbeqSh1Block.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
+      }
+      unfold bentryStartAddr. rewrite HlookupBlockPEq. split. assumption. simpl. simpl in Hincl.
+      rewrite HlookupBlockEq. rewrite HlookupBlockPEq. assumption.
+    - intros startaddr Hstart. apply HstartAbove. unfold bentryStartAddr in Hstart. rewrite HsEq in Hstart.
+      simpl in Hstart. destruct (beqAddr sh1eaddr blockBis) eqn:HbeqSh1Block; try(exfalso; congruence).
+      rewrite beqAddrTrue in Hstart. rewrite <-beqAddrFalse in HbeqSh1Block.
+      rewrite removeDupIdentity in Hstart; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in Hstart; try(apply not_eq_sym); assumption.
+    (* END originIsParentBlocksStart *)
+  }
+
+  assert(HnewMappedGlob: In newBlockEntryAddr (getMappedBlocks globalIdPDChild s)).
+  {
+    apply HpdchildMappedBlocks. simpl. left. reflexivity.
+  }
+
+  assert(nextImpliesBlockWasCut s).
+  { (* BEGIN nextImpliesBlockWasCut s *)
+    assert(Hcons0: nextImpliesBlockWasCut s10) by (unfold consistency1 in *; intuition).
+    intros part pdentryPart blockBis scentryaddr scnext endaddr HpartIsPart HlookupPart HblockMapped
+      HendBlock Hsce HbeqNextNull Hnext HbeqPartRoot.
+    rewrite HgetPartsEqs10 in HpartIsPart.
+    assert(HlookupParts10: lookup part (memory s10) beqAddr = Some (PDT pdentryPart)).
+    {
+      rewrite HsEq in HlookupPart. simpl in HlookupPart.
+      destruct (beqAddr sh1eaddr part) eqn:HbeqSh1Part; try(exfalso; congruence).
+      rewrite beqAddrTrue in HlookupPart. rewrite <-beqAddrFalse in HbeqSh1Part.
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym); assumption.
+    }
+    assert(HgetBlocksEqs10: getMappedBlocks part s = getMappedBlocks part s10).
+    {
+      assert(HgetBlocksEqs11: getMappedBlocks part s = getMappedBlocks part s11).
+      {
+        rewrite HsEq11. apply getMappedBlocksEqSHE.
+        - rewrite HsEq11 in HlookupPart. simpl in HlookupPart.
+          destruct (beqAddr sh1eaddr part) eqn:HbeqSh1Part; try(exfalso; congruence).
+          rewrite <-beqAddrFalse in HbeqSh1Part.
+          rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption). unfold isPDT.
+          rewrite HlookupPart. trivial.
+        - unfold isSHE. rewrite HlookupSh1s11. trivial.
+      }
+      rewrite HgetBlocksEqs11. rewrite Hs11. apply getMappedBlocksEqSHE.
+      - unfold isPDT. rewrite HlookupParts10. trivial.
+      - unfold isSHE. rewrite HlookupSh1s0. trivial.
+    }
+    rewrite HgetBlocksEqs10 in HblockMapped.
+    assert(Hnext10: scentryNext scentryaddr scnext s10).
+    {
+      unfold scentryNext in Hnext. rewrite HsEq in Hnext. simpl in Hnext.
+      destruct (beqAddr sh1eaddr scentryaddr) eqn:HbeqSh1Sce; try(exfalso; congruence).
+      rewrite beqAddrTrue in Hnext. rewrite <-beqAddrFalse in HbeqSh1Sce.
+      rewrite removeDupIdentity in Hnext; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in Hnext; try(apply not_eq_sym); assumption.
+    }
+    assert(HlookupBlockEq: lookup blockBis (memory s) beqAddr = lookup blockBis (memory s10) beqAddr).
+    {
+      apply mappedBlockIsBE in HblockMapped. destruct HblockMapped as [bentryBlock (HlookupBlocks10 & _)].
+      rewrite HsEq. simpl. destruct (beqAddr sh1eaddr blockBis) eqn:HbeqSh1Block.
+      {
+        rewrite <-DTL.beqAddrTrue in HbeqSh1Block. rewrite HbeqSh1Block in *. exfalso; congruence.
+      }
+      rewrite beqAddrTrue. rewrite <-beqAddrFalse in HbeqSh1Block.
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
+    }
+    unfold bentryEndAddr in HendBlock. rewrite HlookupBlockEq in HendBlock.
+    specialize(Hcons0 part pdentryPart blockBis scentryaddr scnext endaddr HpartIsPart HlookupParts10 HblockMapped
+      HendBlock Hsce HbeqNextNull Hnext10 HbeqPartRoot).
+    destruct Hcons0 as [blockParent [endParent (HblockParentMapped & HendParent & Hends & Hincl)]].
+    exists blockParent. exists endParent.
+    specialize(HparentOfPartition part pdentryPart HlookupPart).
+    destruct HparentOfPartition as (HparentIsPart & _). specialize(HparentIsPart HbeqPartRoot).
+    destruct HparentIsPart as ([parentEntry HlookupParent] & HparentIsPart).
+    assert(HgetBlocksParentEqs10: getMappedBlocks (parent pdentryPart) s
+                                  = getMappedBlocks (parent pdentryPart) s10).
+    {
+      assert(HgetBlocksEqs11: getMappedBlocks (parent pdentryPart) s
+                              = getMappedBlocks (parent pdentryPart) s11).
+      {
+        rewrite HsEq11. apply getMappedBlocksEqSHE.
+        - rewrite HsEq11 in HlookupParent. simpl in HlookupParent.
+          destruct (beqAddr sh1eaddr (parent pdentryPart)) eqn:HbeqSh1Part; try(exfalso; congruence).
+          rewrite <-beqAddrFalse in HbeqSh1Part.
+          rewrite removeDupIdentity in HlookupParent; try(apply not_eq_sym; assumption). unfold isPDT.
+          rewrite HlookupParent. trivial.
+        - unfold isSHE. rewrite HlookupSh1s11. trivial.
+      }
+      rewrite HgetBlocksEqs11. rewrite Hs11. apply getMappedBlocksEqSHE.
+      - apply partitionsArePDT. unfold consistency1 in *; intuition. unfold consistency1 in *; intuition.
+        rewrite HgetPartsEqs10 in HparentIsPart. assumption.
+      - unfold isSHE. rewrite HlookupSh1s0. trivial.
+    }
+    rewrite HgetBlocksParentEqs10. split. assumption.
+    assert(HlookupBlockPEq: lookup blockParent (memory s) beqAddr = lookup blockParent (memory s10) beqAddr).
+    {
+      rewrite HsEq. simpl. destruct (beqAddr sh1eaddr blockParent) eqn:HbeqSh1BlockP.
+      {
+        unfold bentryEndAddr in HendParent. exfalso. rewrite <-DTL.beqAddrTrue in HbeqSh1BlockP.
+        rewrite HbeqSh1BlockP in *. rewrite HlookupSh1s0 in HendParent. congruence.
+      }
+      rewrite beqAddrTrue. rewrite <-beqAddrFalse in HbeqSh1BlockP.
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
+    }
+    unfold bentryEndAddr. rewrite HlookupBlockPEq. split. assumption. split. assumption. simpl. simpl in Hincl.
+    rewrite HlookupBlockEq. rewrite HlookupBlockPEq. assumption.
+    (* END nextImpliesBlockWasCut *)
+  }
+
+  assert(HbeqNewNull: firstfreeslot pdentry <> nullAddr).
+  {
+    intro Hcontra. rewrite <-HnewB in Hcontra. rewrite Hcontra in *.
+    unfold nullAddrExists in HnullAddrExists. unfold isPADDR in HnullAddrExists.
+    rewrite HlookupnewBs in HnullAddrExists. congruence.
+  }
+  assert(HfirstFree: FirstFreeSlotPointerIsBEAndFreeSlot s0)
+      by (unfold consistency in *; unfold consistency1 in *; intuition).
+  specialize(HfirstFree globalIdPDChild pdentry Hpdinsertions0 HbeqNewNull).
+  rewrite <-HnewB in HfirstFree. destruct HfirstFree as (_ & HfirstFree). unfold isFreeSlot in HfirstFree.
+  rewrite HlookupnewBs0 in HfirstFree.
+
+  assert(adressesRangePreservedIfOriginAndNextOk s).
+  { (* BEGIN adressesRangePreservedIfOriginAndNextOk s *)
+    assert(Hcons0: adressesRangePreservedIfOriginAndNextOk s0)
+          by (unfold consistency in *; unfold consistency2 in *; intuition).
+    intros part pdentryPart blockBis scentryaddr startaddr endaddr HpartIsPart HblockMapped HblockIsBE
+      HstartBlock HendBlock HPFlagBlock Hsce Horigin Hnext HlookupPart HbeqPartRoot.
+    rewrite HparentEq in HpartIsPart.
+    assert(HlookupParts0: exists pdentryParts0, lookup part (memory s0) beqAddr = Some (PDT pdentryParts0)
+                                                /\ parent pdentryParts0 = parent pdentryPart).
+    {
+      rewrite Hs in HlookupPart. simpl in HlookupPart.
+      destruct (beqAddr sh1eaddr part) eqn:HbeqSh1Part; try(exfalso; congruence).
+      rewrite beqAddrTrue in HlookupPart. rewrite beqscesh1 in HlookupPart. rewrite <-beqAddrFalse in HbeqSh1Part.
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption). simpl in HlookupPart.
+      destruct (beqAddr sceaddr part) eqn:HbeqScePart; try(exfalso; congruence).
+      rewrite beqnewBsce in HlookupPart. rewrite <-beqAddrFalse in beqscesh1.
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption). simpl in HlookupPart.
+      destruct (beqAddr newBlockEntryAddr part) eqn:HbeqNewPart; try(exfalso; congruence).
+      rewrite beqAddrTrue in HlookupPart. rewrite beqpdnewB in HlookupPart. rewrite <-beqAddrFalse in *.
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption). simpl in HlookupPart.
+      destruct (beqAddr globalIdPDChild part) eqn:HbeqGlobPart.
+      - rewrite <-DTL.beqAddrTrue in HbeqGlobPart. subst part. exists pdentry. split. assumption.
+        injection HlookupPart as HpdentriesEq.
+        assert(Hpdentry0: pdentry0 =
+                                    {|
+                                      structure := structure pdentry;
+                                      firstfreeslot := newFirstFreeSlotAddr;
+                                      nbfreeslots := ADT.nbfreeslots pdentry;
+                                      nbprepare := nbprepare pdentry;
+                                      parent := parent pdentry;
+                                      MPU := MPU pdentry;
+                                      vidtAddr := vidtAddr pdentry
+                                    |}) by intuition. rewrite <-HpdentriesEq. simpl. rewrite Hpdentry0. simpl.
+        reflexivity.
+      - rewrite beqAddrTrue in HlookupPart. rewrite <-beqAddrFalse in HbeqGlobPart.
+        rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption). exists pdentryPart.
+        split. assumption. reflexivity.
+    }
+    destruct HlookupParts0 as [pdentryParts0 (HlookupParts0 & HparentsEq)].
+    destruct (beqAddr newBlockEntryAddr blockBis) eqn:HbeqBlocks.
+    - rewrite <-DTL.beqAddrTrue in HbeqBlocks. subst blockBis.
+      assert(HpartIsGlob: part = globalIdPDChild).
+      {
+        destruct (beqAddr part globalIdPDChild) eqn:HbeqPartGlob; try(apply DTL.beqAddrTrue; assumption).
+        exfalso. rewrite <-beqAddrFalse in HbeqPartGlob. unfold getMappedBlocks in HnewMappedGlob.
+        unfold getMappedBlocks in HblockMapped. apply InFilterPresentInList in HnewMappedGlob.
+        apply InFilterPresentInList in HblockMapped.
+        assert(HpartIsPDT: isPDT part s).
+        { unfold isPDT. rewrite HlookupPart. trivial. }
+        specialize(HDisjointKSEntriess part globalIdPDChild HpartIsPDT HPDTs HbeqPartGlob).
+        destruct HDisjointKSEntriess as [list1 [list2 (Hlist1 & Hlist2 & Hdisjoint)]]. subst list1. subst list2.
+        specialize(Hdisjoint newBlockEntryAddr HblockMapped). congruence.
+      }
+      subst part. rewrite HlookupPart in Hpdinsertions. injection Hpdinsertions as HpdentriesEq.
+      rewrite HpdentriesEq in *.
+      assert(HcurrIsPart: In currentPart (getPartitions multiplexer s)).
+      {
+        assert(Hcurr: currentPart = currentPartition s0) by intuition. rewrite Hcurr. rewrite HparentEq.
+        assert(HcurrIsPart: currentPartitionInPartitionsList s0)
+            by (unfold consistency in *; unfold consistency1 in *; intuition). assumption.
+      }
+      assert(HgetChildrenCurrEq: getChildren currentPart s = getChildren currentPart s0).
+      {
+        apply HchildrenEq.
+        - apply childparentNotEq with s0; try(assumption).
+          unfold consistency in *; unfold consistency1 in *; intuition.
+          rewrite HparentEq in HcurrIsPart. assumption.
+        - intuition.
+      }
+      rewrite <-HgetChildrenCurrEq in HidpdIsChild.
+      specialize(HisParents globalIdPDChild currentPart HcurrIsPart HidpdIsChild).
+      unfold pdentryParent in HisParents. rewrite HlookupPart in HisParents. rewrite <-HisParents in *.
+      assert(Hbounds: startaddr = blockstart /\ endaddr = blockend).
+      {
+        unfold bentryStartAddr in HstartBlock. unfold bentryEndAddr in HendBlock.
+        rewrite HlookupnewBs in *. destruct HstartendEq as (HendEq & HstartEq). rewrite HstartEq in HstartBlock.
+        rewrite HendEq in HendBlock. split; assumption.
+      }
+      destruct Hbounds as (HstartEq & HendEq). subst startaddr. subst endaddr. exists blockToShareInCurrPartAddr.
+      assert(HstartParents0: bentryStartAddr blockToShareInCurrPartAddr blockstart s0) by intuition.
+      assert(HendParents0: bentryEndAddr blockToShareInCurrPartAddr blockend s0) by intuition.
+      assert(HgetBlocksCurrEq: getMappedBlocks currentPart s = getMappedBlocks currentPart s0).
+      {
+        apply HmappedblocksEq.
+        - apply childparentNotEq with s0.
+          unfold consistency in *; unfold consistency1 in *; intuition.
+          rewrite HparentEq in HcurrIsPart. assumption.
+          rewrite HgetChildrenCurrEq in HidpdIsChild. assumption.
+        - intuition.
+      }
+      rewrite HgetBlocksCurrEq. split. assumption. split. assumption. unfold bentryStartAddr.
+      unfold bentryEndAddr. rewrite Hlookupbtss. split; assumption.
+    - assert(HbeqSces: sceaddr <> scentryaddr).
+      {
+        intro HbeqSces. rewrite HSceOffset in HbeqSces. rewrite Hsce in HbeqSces. unfold CPaddr in HbeqSces.
+        destruct (le_dec (blockBis + scoffset) maxAddr) eqn:HleBlockSce.
+        - destruct (le_dec (newBlockEntryAddr + scoffset) maxAddr).
+          + injection HbeqSces as Heq. apply PeanoNat.Nat.add_cancel_r in Heq.
+            rewrite <-beqAddrFalse in HbeqBlocks. contradict HbeqBlocks. destruct newBlockEntryAddr.
+            destruct blockBis. simpl in Heq. subst p0. f_equal. apply proof_irrelevance.
+          + assert(HsceIsNull: scentryaddr = nullAddr).
+            {
+              rewrite Hsce. unfold nullAddr. unfold CPaddr. rewrite HleBlockSce. rewrite <-HbeqSces.
+              destruct (le_dec 0 maxAddr); try(lia). f_equal. apply proof_irrelevance.
+            }
+            rewrite HsceIsNull in *. unfold nullAddrExists in HnullAddrExists. unfold isPADDR in HnullAddrExists.
+            unfold scentryOrigin in Horigin.
+            destruct (lookup nullAddr (memory s) beqAddr); try(congruence). destruct v; congruence.
+        - assert(HsceIsNull: scentryaddr = nullAddr).
+          {
+            rewrite Hsce. unfold nullAddr. unfold CPaddr. rewrite HleBlockSce.
+            destruct (le_dec 0 maxAddr); try(lia). f_equal. apply proof_irrelevance.
+          }
+          rewrite HsceIsNull in *. unfold nullAddrExists in HnullAddrExists. unfold isPADDR in HnullAddrExists.
+          unfold scentryOrigin in Horigin.
+          destruct (lookup nullAddr (memory s) beqAddr); try(congruence). destruct v; congruence.
+      }
+      rewrite beqAddrFalse in HbeqSces.
+      assert(HblockMappeds0: In blockBis (getMappedBlocks part s0)).
+      {
+        destruct (beqAddr part globalIdPDChild) eqn:HbeqPartGlob.
+        - rewrite <-DTL.beqAddrTrue in HbeqPartGlob. subst part. apply HpdchildMappedBlocks in HblockMapped.
+          simpl in HblockMapped. rewrite <-beqAddrFalse in HbeqBlocks.
+          destruct HblockMapped as [Hcontra | HblockMapped]; try(exfalso; congruence). assumption.
+        - rewrite <-beqAddrFalse in HbeqPartGlob. rewrite <-HmappedblocksEq; try(assumption). unfold isPDT.
+          rewrite HlookupParts0. trivial.
+      }
+      assert(HlookupBlockEq: lookup blockBis (memory s) beqAddr = lookup blockBis (memory s0) beqAddr).
+      {
+        rewrite Hs. unfold isBE in HblockIsBE. rewrite Hs in HblockIsBE. simpl. simpl in HblockIsBE.
+        destruct (beqAddr sh1eaddr blockBis) eqn:HbeqSh1Block; try(exfalso; congruence). rewrite beqAddrTrue in *.
+        rewrite beqscesh1 in *. rewrite <-beqAddrFalse in HbeqSh1Block.
+        rewrite removeDupIdentity in HblockIsBE; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl. simpl in HblockIsBE.
+        destruct (beqAddr sceaddr blockBis) eqn:HbeqSceBlock; try(exfalso; congruence). rewrite beqnewBsce in *.
+        rewrite <-beqAddrFalse in beqscesh1.
+        rewrite removeDupIdentity in HblockIsBE; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl. simpl in HblockIsBE.
+        rewrite HbeqBlocks in *. rewrite beqAddrTrue in *. rewrite beqpdnewB in *. rewrite <-beqAddrFalse in *.
+        rewrite removeDupIdentity in HblockIsBE; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HblockIsBE; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HblockIsBE; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HblockIsBE; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HblockIsBE; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HblockIsBE; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HblockIsBE; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl. simpl in HblockIsBE.
+        destruct (beqAddr globalIdPDChild blockBis) eqn:HbeqGlobBlock; try(exfalso; congruence).
+        rewrite beqAddrTrue. rewrite <-beqAddrFalse in HbeqGlobBlock.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
+      }
+      unfold isBE in HblockIsBE. unfold bentryStartAddr in HstartBlock. unfold bentryEndAddr in HendBlock.
+      unfold bentryPFlag in HPFlagBlock. rewrite HlookupBlockEq in *.
+      assert(HlookupSceEq: lookup scentryaddr (memory s) beqAddr = lookup scentryaddr (memory s0) beqAddr).
+      {
+        unfold scentryOrigin in Horigin. rewrite Hs. rewrite Hs in Horigin. simpl. simpl in Horigin.
+        destruct (beqAddr sh1eaddr scentryaddr) eqn:HbeqSh1Sce; try(exfalso; congruence).
+        rewrite beqAddrTrue in *. rewrite beqscesh1 in *. rewrite <-beqAddrFalse in HbeqSh1Sce.
+        rewrite removeDupIdentity in Horigin; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl. simpl in Horigin.
+        rewrite HbeqSces in *. rewrite beqnewBsce in *. rewrite <-beqAddrFalse in beqscesh1.
+        rewrite removeDupIdentity in Horigin; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl. simpl in Horigin.
+        destruct (beqAddr newBlockEntryAddr scentryaddr) eqn:HbeqNewSce; try(exfalso; congruence).
+        rewrite beqAddrTrue in *. rewrite beqpdnewB in *. rewrite <-beqAddrFalse in *.
+        rewrite removeDupIdentity in Horigin; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in Horigin; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in Horigin; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in Horigin; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in Horigin; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in Horigin; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in Horigin; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl. simpl in Horigin.
+        destruct (beqAddr globalIdPDChild scentryaddr) eqn:HbeqGlobSce; try(exfalso; congruence).
+        rewrite beqAddrTrue. rewrite <-beqAddrFalse in HbeqGlobSce.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
+      }
+      unfold scentryOrigin in Horigin. unfold scentryNext in Hnext. rewrite HlookupSceEq in *.
+      specialize(Hcons0 part pdentryParts0 blockBis scentryaddr startaddr endaddr HpartIsPart HblockMappeds0
+          HblockIsBE HstartBlock HendBlock HPFlagBlock Hsce Horigin Hnext HlookupParts0 HbeqPartRoot).
+      destruct Hcons0 as [blockParent (HblockParentMapped & HblockParentIsBE & HstartParent & HendParent)].
+      exists blockParent. split.
+      + rewrite HparentsEq in *. destruct (beqAddr (parent pdentryPart) globalIdPDChild) eqn:HbeqParentGlob.
+        * rewrite <-DTL.beqAddrTrue in HbeqParentGlob. rewrite HbeqParentGlob in *. apply HpdchildMappedBlocks.
+          simpl. right. assumption.
+        * rewrite <-beqAddrFalse in HbeqParentGlob. rewrite HmappedblocksEq; try(assumption).
+          unfold getMappedBlocks in HblockParentMapped. unfold getKSEntries in HblockParentMapped. unfold isPDT.
+          destruct (lookup (parent pdentryPart) (memory s0) beqAddr); try(simpl in *; congruence).
+          destruct v; try(simpl in *; congruence). trivial.
+      + destruct (beqAddr newBlockEntryAddr blockParent) eqn:HbeqNewBlockP.
+        {
+          exfalso. rewrite <-DTL.beqAddrTrue in HbeqNewBlockP. subst blockParent.
+          destruct (lookup (CPaddr (newBlockEntryAddr + sh1offset)) (memory s0) beqAddr); try(congruence).
+          destruct v; try(congruence).
+          destruct (lookup (CPaddr (newBlockEntryAddr + scoffset)) (memory s0) beqAddr); try(congruence).
+          destruct v; try(congruence). destruct HfirstFree as (_ & _ & _ & _ & Hpresent & _).
+          apply mappedBlockIsBE in HblockParentMapped.
+          destruct HblockParentMapped as [bentryBis (HlookupNewBis & Hcontra)].
+          rewrite HlookupNewBis in HlookupnewBs0. injection HlookupnewBs0 as HbentriesEq. subst bentryBis.
+          congruence.
+        }
+        assert(HlookupBlockParentEq: lookup blockParent (memory s) beqAddr
+                                      = lookup blockParent (memory s0) beqAddr).
+        {
+          unfold isBE in HblockParentIsBE. rewrite Hs. simpl.
+          destruct (beqAddr sh1eaddr blockParent) eqn:HbeqSh1BlockP.
+          {
+            rewrite <-DTL.beqAddrTrue in HbeqSh1BlockP. subst blockParent. rewrite HSHEs10Eq in HlookupSh1s0.
+            rewrite HlookupSh1s0 in HblockParentIsBE. exfalso; congruence.
+          }
+          rewrite beqAddrTrue. rewrite beqscesh1. rewrite <-beqAddrFalse in HbeqSh1BlockP.
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+          destruct (beqAddr sceaddr blockParent) eqn:HbeqSceBlockP.
+          {
+            rewrite <-DTL.beqAddrTrue in HbeqSceBlockP. subst blockParent.
+            assert(HlookupSce: lookup sceaddr (memory s0) beqAddr = Some (SCE scentry)) by intuition.
+            rewrite HlookupSce in HblockParentIsBE. exfalso; congruence.
+          }
+          rewrite beqnewBsce. rewrite <-beqAddrFalse in beqscesh1.
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl. rewrite HbeqNewBlockP.
+          rewrite beqAddrTrue. rewrite beqpdnewB. rewrite <-beqAddrFalse in *.
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+          destruct (beqAddr globalIdPDChild blockParent) eqn:HbeqGlobBlockP.
+          {
+            rewrite <-DTL.beqAddrTrue in HbeqGlobBlockP. subst blockParent.
+            rewrite Hpdinsertions0 in HblockParentIsBE. exfalso; congruence.
+          }
+          rewrite beqAddrTrue. rewrite <-beqAddrFalse in HbeqGlobBlockP.
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
+        }
+        unfold isBE. unfold bentryStartAddr. unfold bentryEndAddr. rewrite HlookupBlockParentEq.
+        split; try(split); assumption.
+    (* END adressesRangePreservedIfOriginAndNextOk *)
+  }
+
+  assert(childsBlocksPropsInParent s).
+  { (* BEGIN childsBlocksPropsInParent s *)
+    assert(Hcons0: childsBlocksPropsInParent s0)
+          by (unfold consistency in *; unfold consistency2 in *; intuition).
+    intros child parentPart blockChild startChild endChild blockParent startParent endParent HparentIsPart
+      HchildIsChild HblockChildMapped HstartChild HendChild HPFlagChild HblockParentMapped HstartParent
+      HendParent HPFlagParent HleStarts HleEnds.
+    assert(HchildIsPDT: isPDT child s).
+    {
+      apply childrenArePDT with parentPart; assumption.
+    }
+    destruct (beqAddr newBlockEntryAddr blockParent) eqn:HbeqNewBlockP.
+    {
+      exfalso. rewrite <-DTL.beqAddrTrue in HbeqNewBlockP. subst blockParent.
+      destruct HstartendEq as (HendEq & HstartEq). unfold bentryStartAddr in HstartParent.
+      unfold bentryEndAddr in HendParent. rewrite HlookupnewBs in *. rewrite HstartEq in HstartParent.
+      rewrite HendEq in HendParent. subst startParent. subst endParent.
+      assert(HstartBlock: bentryStartAddr blockToShareInCurrPartAddr blockstart s0) by intuition.
+      assert(HendBlock: bentryEndAddr blockToShareInCurrPartAddr blockend s0) by intuition.
+      assert(HPFlagBlock: bentryPFlag blockToShareInCurrPartAddr addrIsPresent s0) by intuition.
+      assert(HparentIsGlob: parentPart = globalIdPDChild).
+      {
+        destruct (beqAddr parentPart globalIdPDChild) eqn:HbeqParentGlob; try(apply DTL.beqAddrTrue; assumption).
+        exfalso. rewrite <-beqAddrFalse in HbeqParentGlob.
+        assert(HparentIsPDT: isPDT parentPart s).
+        {
+          apply partitionsArePDT; try(assumption). intuition.
+        }
+        specialize(HDisjointKSEntriess parentPart globalIdPDChild HparentIsPDT HPDTs HbeqParentGlob).
+        destruct HDisjointKSEntriess as [list1 [list2 (Hlist1 & Hlist2 & Hdisjoint)]]. subst list1. subst list2.
+        unfold getMappedBlocks in *. apply InFilterPresentInList in HblockParentMapped.
+        apply InFilterPresentInList in HnewMappedGlob.
+        specialize(Hdisjoint newBlockEntryAddr HblockParentMapped). congruence.
+      }
+      subst parentPart. rewrite HparentEq in HparentIsPart.
+      assert(HbeqGlobChild: globalIdPDChild <> child).
+      { apply childparentNotEq with s; try(assumption). rewrite HparentEq. assumption. }
+      assert(HgetBlocksChildEq: getMappedBlocks child s = getMappedBlocks child s0).
+      {
+        apply HmappedblocksEq.
+        - apply not_eq_sym. assumption.
+        - apply childrenArePDT with globalIdPDChild; try(assumption).
+          unfold consistency in *; unfold consistency1 in *; intuition.
+          rewrite <-HpdchildrenEq. assumption.
+      }
+      assert(HbeqNewBlockC: newBlockEntryAddr <> blockChild).
+      {
+        intro Hcontra. subst blockChild.
+        specialize(HDisjointKSEntriess globalIdPDChild child HPDTs HchildIsPDT HbeqGlobChild).
+        destruct HDisjointKSEntriess as [list1 [list2 (Hlist1 & Hlist2 & Hdisjoint)]]. subst list1. subst list2.
+        unfold getMappedBlocks in *. apply InFilterPresentInList in HblockChildMapped.
+        apply InFilterPresentInList in HnewMappedGlob. specialize(Hdisjoint newBlockEntryAddr HnewMappedGlob).
+        congruence.
+      }
+      rewrite HgetBlocksChildEq in HblockChildMapped. rewrite beqAddrFalse in HbeqNewBlockC.
+      assert(HlookupBlockCEq: lookup blockChild (memory s) beqAddr = lookup blockChild (memory s0) beqAddr).
+      {
+        unfold bentryPFlag in HPFlagChild. rewrite Hs in HPFlagChild. rewrite Hs. simpl. simpl in HPFlagChild.
+        destruct (beqAddr sh1eaddr blockChild) eqn:HbeqSh1BlockC; try(exfalso; congruence).
+        rewrite beqAddrTrue in *. rewrite beqscesh1 in *. rewrite <-beqAddrFalse in HbeqSh1BlockC.
+        rewrite removeDupIdentity in HPFlagChild; try(apply not_eq_sym; assumption). simpl in HPFlagChild.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+        destruct (beqAddr sceaddr blockChild) eqn:HbeqSceBlockC; try(exfalso; congruence).
+        rewrite beqnewBsce in *. rewrite <-beqAddrFalse in beqscesh1.
+        rewrite removeDupIdentity in HPFlagChild; try(apply not_eq_sym; assumption). simpl in HPFlagChild.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl. rewrite HbeqNewBlockC in *.
+        rewrite beqAddrTrue in *. rewrite beqpdnewB in *. rewrite <-beqAddrFalse in *.
+        rewrite removeDupIdentity in HPFlagChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPFlagChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPFlagChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPFlagChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPFlagChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPFlagChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPFlagChild; try(apply not_eq_sym; assumption). simpl in HPFlagChild.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+        destruct (beqAddr globalIdPDChild blockChild) eqn:HbeqGlobBlockC; try(exfalso; congruence).
+        rewrite beqAddrTrue in *. rewrite <-beqAddrFalse in HbeqGlobBlockC.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
+      }
+      unfold bentryStartAddr in HstartChild. unfold bentryEndAddr in HendChild. unfold bentryPFlag in HPFlagChild.
+      rewrite HlookupBlockCEq in *.
+      assert(HwellFormed: wellFormedBlock s0)
+        by (unfold consistency in *; unfold consistency1 in *; intuition).
+      specialize(HwellFormed blockChild startChild endChild HPFlagChild HstartChild HendChild).
+      destruct HwellFormed as (HwellFormed & _).
+      assert(HnewExistss0: blockInChildHasAtLeastEquivalentBlockInParent s0)
+          by (unfold consistency in *; unfold consistency1 in *; intuition).
+      rewrite HpdchildrenEq in HchildIsChild.
+      specialize(HnewExistss0 globalIdPDChild child blockChild startChild endChild HparentIsPart HchildIsChild
+          HblockChildMapped HstartChild HendChild HPFlagChild).
+      destruct HnewExistss0 as [blockParent [startParent [endParent (HblockParentMappedBis & HstartParent &
+          HendParent & HleStartsBis & HleEndsBis)]]].
+      destruct (beqAddr newBlockEntryAddr blockParent) eqn:HbeqNewBlockP.
+      - rewrite <-DTL.beqAddrTrue in HbeqNewBlockP. subst blockParent.
+        apply mappedBlockIsBE in HblockParentMappedBis.
+        destruct HblockParentMappedBis as [bentryBis (HlookupNews0 & Hcontra)].
+        destruct (lookup (CPaddr (newBlockEntryAddr + sh1offset)) (memory s0) beqAddr); try(congruence).
+        destruct v; try(congruence).
+        destruct (lookup (CPaddr (newBlockEntryAddr + scoffset)) (memory s0) beqAddr); try(congruence).
+        destruct v; try(congruence). destruct HfirstFree as (_ & _ & _ & _ & Hpresent & _).
+        rewrite HlookupNews0 in HlookupnewBs0. injection HlookupnewBs0 as HbentriesEq. subst bentryBis.
+        congruence.
+      - assert(HstartCInNew: In startChild (getAllPaddrBlock (startAddr (blockrange bentry6))
+                                                             (endAddr (blockrange bentry6)))).
+        {
+          rewrite HstartEq. rewrite HendEq. apply getAllPaddrBlockIncl; lia.
+        }
+        apply Lib.NoDupSplitInclIff in HNoDupidpdchild. destruct HNoDupidpdchild as (_ & Hdisjoint).
+        specialize(Hdisjoint startChild HstartCInNew). contradict Hdisjoint.
+        apply addrInBlockIsMapped with blockParent; try(assumption). simpl.
+        unfold bentryStartAddr in HstartParent. unfold bentryEndAddr in HendParent.
+        destruct (lookup blockParent (memory s0) beqAddr); try(simpl; congruence).
+        destruct v; try(simpl; congruence). rewrite app_nil_r. rewrite <-HstartParent. rewrite <-HendParent.
+        apply getAllPaddrBlockIncl; lia.
+    }
+    assert(HlookupBlockParentEq: lookup blockParent (memory s) beqAddr = lookup blockParent (memory s0) beqAddr).
+    {
+      unfold bentryPFlag in HPFlagParent. rewrite Hs in HPFlagParent. rewrite Hs. simpl. simpl in HPFlagParent.
+      destruct (beqAddr sh1eaddr blockParent) eqn:HbeqSh1BlockP; try(exfalso; congruence).
+      rewrite beqAddrTrue in *. rewrite beqscesh1 in *. rewrite <-beqAddrFalse in HbeqSh1BlockP.
+      rewrite removeDupIdentity in HPFlagParent; try(apply not_eq_sym; assumption). simpl in HPFlagParent.
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+      destruct (beqAddr sceaddr blockParent) eqn:HbeqSceBlockP; try(exfalso; congruence).
+      rewrite beqnewBsce in *. rewrite <-beqAddrFalse in beqscesh1.
+      rewrite removeDupIdentity in HPFlagParent; try(apply not_eq_sym; assumption). simpl in HPFlagParent.
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl. rewrite HbeqNewBlockP in *.
+      rewrite beqAddrTrue in *. rewrite beqpdnewB in *. rewrite <-beqAddrFalse in *.
+      rewrite removeDupIdentity in HPFlagParent; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HPFlagParent; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HPFlagParent; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HPFlagParent; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HPFlagParent; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HPFlagParent; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HPFlagParent; try(apply not_eq_sym; assumption). simpl in HPFlagParent.
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+      destruct (beqAddr globalIdPDChild blockParent) eqn:HbeqGlobBlockP; try(exfalso; congruence).
+      rewrite beqAddrTrue in *. rewrite <-beqAddrFalse in HbeqGlobBlockP.
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
+    }
+    unfold bentryStartAddr in HstartParent. unfold bentryEndAddr in HendParent.
+    unfold bentryPFlag in HPFlagParent. rewrite HlookupBlockParentEq in *.
+    destruct (beqAddr newBlockEntryAddr blockChild) eqn:HbeqNewBlockC.
+    - rewrite <-DTL.beqAddrTrue in HbeqNewBlockC. subst blockChild.
+      assert(HchildIsGlob: child = globalIdPDChild).
+      {
+        destruct (beqAddr child globalIdPDChild) eqn:HbeqChildGlob; try(apply DTL.beqAddrTrue; assumption).
+        exfalso. rewrite <-beqAddrFalse in HbeqChildGlob.
+        specialize(HDisjointKSEntriess child globalIdPDChild HchildIsPDT HPDTs HbeqChildGlob).
+        destruct HDisjointKSEntriess as [list1 [list2 (Hlist1 & Hlist2 & Hdisjoint)]]. subst list1. subst list2.
+        unfold getMappedBlocks in *. apply InFilterPresentInList in HblockChildMapped.
+        apply InFilterPresentInList in HnewMappedGlob. specialize(Hdisjoint newBlockEntryAddr HblockChildMapped).
+        congruence.
+      }
+      subst child. assert(Hbounds: startChild = blockstart /\ endChild = blockend).
+      {
+        unfold bentryStartAddr in HstartChild. unfold bentryEndAddr in HendChild. rewrite HlookupnewBs in *.
+        destruct HstartendEq as (HendEq & HstartEq). rewrite HstartEq in HstartChild. rewrite HendEq in HendChild.
+        split; assumption.
+      }
+      destruct Hbounds as (Hstart & Hend). subst startChild. subst endChild.
+      specialize(HwellFormedBlock newBlockEntryAddr blockstart blockend HPFlagChild HstartChild HendChild).
+      destruct HwellFormedBlock as (HltStartEnd & _).
+      assert(HbeqCurrGlob: currentPart <> globalIdPDChild).
+      {
+        apply childparentNotEq with s0; try(assumption).
+        unfold consistency in *; unfold consistency1 in *; intuition.
+        assert(Hcurr: currentPart = currentPartition s0) by intuition.
+        rewrite Hcurr. unfold consistency in *; unfold consistency1 in *; intuition.
+      }
+      assert(HcurrIsPDT: isPDT currentPart s0) by intuition.
+      assert(HgetChildrenCurrEq: getChildren currentPart s = getChildren currentPart s0).
+      { apply HchildrenEq; assumption. }
+      assert(HparentIsCurr: parentPart = currentPart).
+      {
+        apply uniqueParent with globalIdPDChild s; try(assumption).
+        - rewrite HparentEq. assert(Hcurr: currentPart = currentPartition s0) by intuition.
+          rewrite Hcurr. unfold consistency in *; unfold consistency1 in *; intuition.
+        - rewrite HparentEq. assumption.
+        - rewrite HgetChildrenCurrEq. assumption.
+      }
+      subst parentPart. assert(HgetBlocksCurrEq: getMappedBlocks currentPart s = getMappedBlocks currentPart s0).
+      { apply HmappedblocksEq; assumption. }
+      rewrite HgetBlocksCurrEq in HblockParentMapped.
+      assert(HblockPIsBlockToShare: blockParent = blockToShareInCurrPartAddr).
+      {
+        destruct (beqAddr blockParent blockToShareInCurrPartAddr) eqn:HbeqBlocks;
+          try(apply DTL.beqAddrTrue; assumption). rewrite <-beqAddrFalse in HbeqBlocks.
+        assert(HnoDup: noDupUsedPaddrList s0) by (unfold consistency in *; unfold consistency2 in *; intuition).
+        assert(HstartInParent: In blockstart (getAllPaddrAux [blockParent] s0)).
+        {
+          simpl. destruct (lookup blockParent (memory s0) beqAddr); try(simpl; congruence).
+          destruct v; try(simpl; congruence). rewrite app_nil_r. rewrite <-HstartParent. rewrite <-HendParent.
+          apply getAllPaddrBlockIncl; lia.
+        }
+        pose proof (DisjointPaddrInPart currentPart blockParent blockToShareInCurrPartAddr blockstart s0 HnoDup
+          HcurrIsPDT HblockParentMapped HblockInParent HbeqBlocks HstartInParent) as Hcontra. contradict Hcontra.
+        simpl. assert(Hstart: bentryStartAddr blockToShareInCurrPartAddr blockstart s0) by intuition.
+        assert(Hend: bentryEndAddr blockToShareInCurrPartAddr blockend s0) by intuition.
+        unfold bentryStartAddr in Hstart. unfold bentryEndAddr in Hend.
+        destruct (lookup blockToShareInCurrPartAddr (memory s0) beqAddr); try(simpl; congruence).
+        destruct v; try(simpl; congruence). rewrite app_nil_r. rewrite <-Hstart. rewrite <-Hend.
+        apply getAllPaddrBlockIncl; lia.
+      }
+      subst blockParent.
+      assert(Hbounds: startParent = blockstart /\ endParent = blockend).
+      {
+        assert(HstartBlock: bentryStartAddr blockToShareInCurrPartAddr blockstart s0) by intuition.
+        assert(HendBlock: bentryEndAddr blockToShareInCurrPartAddr blockend s0) by intuition.
+        unfold bentryStartAddr in HstartBlock. unfold bentryEndAddr in HendBlock.
+        destruct (lookup blockToShareInCurrPartAddr (memory s0) beqAddr); try(exfalso; congruence).
+        destruct v; try(exfalso; congruence). rewrite <-HstartBlock in HstartParent.
+        rewrite <-HendBlock in HendParent. split; assumption.
+      }
+      destruct Hbounds as (HstartEq & HendEq). subst startParent. subst endParent. split; try(split; try(split)).
+      + unfold checkChild. assert(Hsh1: sh1entryAddr blockToShareInCurrPartAddr sh1eaddr s).
+        {
+          unfold sh1entryAddr. unfold isBE in HBEbts.
+          destruct (lookup blockToShareInCurrPartAddr (memory s) beqAddr); try(congruence).
+          destruct v; congruence.
+        }
+        assert(HAFlag: bentryAFlag blockToShareInCurrPartAddr addrIsAccessible s0) by intuition.
+        apply negb_false_iff in H4. subst addrIsAccessible. unfold bentryAFlag in HAFlag.
+        rewrite <-HlookupBlockParentEq in HAFlag.
+        specialize(HAccessibleNoPDFlags blockToShareInCurrPartAddr sh1eaddr HBEbts Hsh1 HAFlag).
+        unfold sh1entryPDflag in HAccessibleNoPDFlags.
+        destruct (lookup blockToShareInCurrPartAddr (memory s) beqAddr); try(reflexivity).
+        destruct v; try(reflexivity). rewrite <-HSh1Offset.
+        destruct (lookup sh1eaddr (memory s) beqAddr); try(reflexivity).
+        destruct v; try(reflexivity). assumption.
+      + rewrite <-HSh1Offset. intros child HPDChild. unfold sh1entryPDchild in HPDChild. rewrite HsEq in HPDChild.
+        simpl in HPDChild. rewrite beqAddrTrue in HPDChild. simpl in HPDChild. rewrite Hsh1entry0 in HPDChild.
+        simpl in HPDChild. subst child. intro Hcontra. rewrite Hcontra in *.
+        unfold nullAddrExists in HnullAddrExists. unfold isPADDR in HnullAddrExists.
+        rewrite Hpdinsertions in HnullAddrExists. congruence.
+      + rewrite <-HSh1Offset. intros blockIDInChild HchildLoc. unfold sh1entryInChildLocation in HchildLoc.
+        rewrite HsEq in HchildLoc. simpl in HchildLoc. rewrite beqAddrTrue in HchildLoc. simpl in HchildLoc.
+        destruct Hprops as (HchildEntry & Hprops). subst blockToShareChildEntryAddr.
+        destruct HchildLoc as (HblockIDEq & _). subst blockIDInChild. split.
+        intro Hcontra. rewrite Hcontra in *. unfold nullAddrExists in HnullAddrExists.
+        unfold isPADDR in HnullAddrExists. rewrite HlookupnewBs in HnullAddrExists. congruence.
+        intro Htriv. reflexivity.
+      + intro Hcontra. exfalso. destruct Hcontra as [Hcontra1 | Hcontra2]; congruence.
+    - assert(HlookupBlockChildEq: lookup blockChild (memory s) beqAddr = lookup blockChild (memory s0) beqAddr).
+      {
+        unfold bentryPFlag in HPFlagChild. rewrite Hs in HPFlagChild. rewrite Hs. simpl. simpl in HPFlagChild.
+        destruct (beqAddr sh1eaddr blockChild) eqn:HbeqSh1BlockC; try(exfalso; congruence).
+        rewrite beqAddrTrue in *. rewrite beqscesh1 in *. rewrite <-beqAddrFalse in HbeqSh1BlockC.
+        rewrite removeDupIdentity in HPFlagChild; try(apply not_eq_sym; assumption). simpl in HPFlagChild.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+        destruct (beqAddr sceaddr blockChild) eqn:HbeqSceBlockC; try(exfalso; congruence).
+        rewrite beqnewBsce in *. rewrite <-beqAddrFalse in beqscesh1.
+        rewrite removeDupIdentity in HPFlagChild; try(apply not_eq_sym; assumption). simpl in HPFlagChild.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl. rewrite HbeqNewBlockC in *.
+        rewrite beqAddrTrue in *. rewrite beqpdnewB in *. rewrite <-beqAddrFalse in *.
+        rewrite removeDupIdentity in HPFlagChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPFlagChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPFlagChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPFlagChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPFlagChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPFlagChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPFlagChild; try(apply not_eq_sym; assumption). simpl in HPFlagChild.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+        destruct (beqAddr globalIdPDChild blockChild) eqn:HbeqGlobBlockC; try(exfalso; congruence).
+        rewrite beqAddrTrue in *. rewrite <-beqAddrFalse in HbeqGlobBlockC.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
+      }
+      unfold bentryStartAddr in HstartChild. unfold bentryEndAddr in HendChild. unfold bentryPFlag in HPFlagChild.
+      rewrite HlookupBlockChildEq in *. rewrite HparentEq in HparentIsPart.
+      assert(HgetChildrenEq: getChildren parentPart s = getChildren parentPart s0).
+      {
+        destruct (beqAddr parentPart globalIdPDChild) eqn:HbeqParentGlob.
+        - rewrite <-DTL.beqAddrTrue in HbeqParentGlob. subst parentPart. assumption.
+        - rewrite <-beqAddrFalse in HbeqParentGlob. apply HchildrenEq; try(assumption).
+          apply partitionsArePDT; try(assumption).
+          unfold consistency in *; unfold consistency1 in *; intuition.
+          unfold consistency in *; unfold consistency1 in *; intuition.
+      }
+      rewrite HgetChildrenEq in HchildIsChild.
+      assert(HblockChildMappeds0: In blockChild (getMappedBlocks child s0)).
+      {
+        rewrite <-beqAddrFalse in HbeqNewBlockC. destruct (beqAddr child globalIdPDChild) eqn:HbeqChildGlob.
+        - rewrite <-DTL.beqAddrTrue in HbeqChildGlob. subst child.
+          apply HpdchildMappedBlocks in HblockChildMapped. simpl in HblockChildMapped.
+          destruct HblockChildMapped as [Hcontra | Hres]; try(exfalso; congruence). assumption.
+        - rewrite <-beqAddrFalse in HbeqChildGlob. rewrite HmappedblocksEq in HblockChildMapped; try(assumption).
+          apply childrenArePDT with parentPart; try(assumption).
+          unfold consistency in *; unfold consistency1 in *; intuition.
+      }
+      assert(HblockParentMappeds0: In blockParent (getMappedBlocks parentPart s0)).
+      {
+        rewrite <-beqAddrFalse in HbeqNewBlockP. destruct (beqAddr parentPart globalIdPDChild) eqn:HbeqParentGlob.
+        - rewrite <-DTL.beqAddrTrue in HbeqParentGlob. subst parentPart.
+          apply HpdchildMappedBlocks in HblockParentMapped. simpl in HblockParentMapped.
+          destruct HblockParentMapped as [Hcontra | Hres]; try(exfalso; congruence). assumption.
+        - rewrite <-beqAddrFalse in HbeqParentGlob.
+          rewrite HmappedblocksEq in HblockParentMapped; try(assumption).
+          apply partitionsArePDT; try(assumption).
+          unfold consistency in *; unfold consistency1 in *; intuition.
+          unfold consistency in *; unfold consistency1 in *; intuition.
+      }
+      specialize(Hcons0 child parentPart blockChild startChild endChild blockParent startParent endParent
+          HparentIsPart HchildIsChild HblockChildMappeds0 HstartChild HendChild HPFlagChild HblockParentMappeds0
+          HstartParent HendParent HPFlagParent HleStarts HleEnds).
+      destruct Hcons0 as (HcheckChild & HPDChildNotNull & HchildLocNotNull & Haccess).
+      assert(HparentIsPDT: isPDT parentPart s0).
+      {
+        apply partitionsArePDT; try(assumption).
+        unfold consistency in *; unfold consistency1 in *; intuition.
+        unfold consistency in *; unfold consistency1 in *; intuition.
+      }
+      assert(HcurrIsPDT: isPDT currentPart s0) by intuition.
+      destruct (beqAddr blockToShareInCurrPartAddr blockParent) eqn:HbeqBlockBlockP.
+      {
+        exfalso. rewrite <-DTL.beqAddrTrue in HbeqBlockBlockP. subst blockParent.
+        assert(HparentIsCurr: parentPart = currentPart).
+        {
+          destruct (beqAddr parentPart currentPart) eqn:HbeqParentCurr; try(rewrite DTL.beqAddrTrue; assumption).
+          rewrite <-beqAddrFalse in HbeqParentCurr. exfalso.
+          assert(Hdisjoint: DisjointKSEntries s0)
+            by (unfold consistency in *; unfold consistency1 in *; intuition). unfold getMappedBlocks in *.
+          apply InFilterPresentInList in HblockInParent. apply InFilterPresentInList in HblockParentMappeds0.
+          specialize(Hdisjoint parentPart currentPart HparentIsPDT HcurrIsPDT HbeqParentCurr).
+          destruct Hdisjoint as [list1 [list2 (Hlist1 & Hlist2 & Hdisjoint)]]. subst list1. subst list2.
+          specialize(Hdisjoint blockToShareInCurrPartAddr HblockParentMappeds0). congruence.
+        }
+        subst parentPart. assert(Hbounds: startParent = blockstart /\ endParent = blockend).
+        {
+          assert(Hstart: bentryStartAddr blockToShareInCurrPartAddr blockstart s0) by intuition.
+          assert(Hend: bentryEndAddr blockToShareInCurrPartAddr blockend s0) by intuition.
+          unfold bentryStartAddr in Hstart. unfold bentryEndAddr in Hend.
+          destruct (lookup blockToShareInCurrPartAddr (memory s0) beqAddr); try(exfalso; congruence).
+          destruct v; try(exfalso; congruence). rewrite <-Hstart in HstartParent. rewrite <-Hend in HendParent.
+          split; assumption.
+        }
+        destruct Hbounds as (HstartEq & HendEq). subst startParent. subst endParent.
+        rewrite <-HlookupBlockChildEq in *. specialize(HwellFormedBlock blockChild startChild endChild HPFlagChild
+          HstartChild HendChild). destruct HwellFormedBlock as (HboundsChild & _).
+        rewrite HlookupBlockChildEq in *.
+        assert(HstartCInBlock: In startChild (getAllPaddrAux [blockToShareInCurrPartAddr] s0)).
+        {
+          simpl. destruct (lookup blockToShareInCurrPartAddr (memory s0) beqAddr); try(simpl; congruence).
+          destruct v; try(simpl; congruence). rewrite app_nil_r. rewrite <-HstartParent. rewrite <-HendParent.
+          apply getAllPaddrBlockIncl; lia.
+        }
+        assert(HnoChild: noChildImpliesAddressesNotShared s0)
+          by (unfold consistency in *; unfold consistency2 in *; intuition). apply isPDTLookupEq in HparentIsPDT.
+        destruct HparentIsPDT as [pdentryCurr HlookupCurrs0].
+        specialize(HnoChild currentPart pdentryCurr blockToShareInCurrPartAddr sh1eaddr HparentIsPart
+          HlookupCurrs0 HblockParentMappeds0 HSh1Offset Hsh1PDchildbtsNulls0 child startChild HchildIsChild
+          HstartCInBlock). contradict HnoChild. apply addrInBlockIsMapped with blockChild; try(assumption).
+        simpl. destruct (lookup blockChild (memory s0) beqAddr); try(simpl; congruence).
+        destruct v; try(simpl; congruence). rewrite <-HstartChild. rewrite <-HendChild. rewrite app_nil_r.
+        apply getAllPaddrBlockIncl; lia.
+      }
+      assert(HlookupSh1Eq: lookup (CPaddr (blockParent + sh1offset)) (memory s) beqAddr
+                            = lookup (CPaddr (blockParent + sh1offset)) (memory s0) beqAddr).
+      {
+        assert(HblockPIsBE: isBE blockParent s).
+        {
+          unfold isBE. rewrite HlookupBlockParentEq.
+          destruct (lookup blockParent (memory s0) beqAddr); try(congruence). destruct v; try(congruence).
+          trivial.
+        }
+        specialize(HwellFormedFstShadowIfBlockEntry blockParent HblockPIsBE).
+        unfold isSHE in HwellFormedFstShadowIfBlockEntry. rewrite Hs in HwellFormedFstShadowIfBlockEntry.
+        rewrite Hs. simpl in HwellFormedFstShadowIfBlockEntry. simpl.
+        destruct (beqAddr sh1eaddr (CPaddr (blockParent + sh1offset))) eqn:HbeqSh1s.
+        {
+          exfalso. rewrite <-DTL.beqAddrTrue in HbeqSh1s. rewrite HSh1Offset in HbeqSh1s.
+          unfold CPaddr in HbeqSh1s. destruct (le_dec (blockParent + sh1offset) maxAddr).
+          - destruct (le_dec (blockToShareInCurrPartAddr + sh1offset) maxAddr) eqn:HleBlockSh1Max.
+            + injection HbeqSh1s as Hcontra. apply PeanoNat.Nat.add_cancel_r in Hcontra.
+              rewrite <-beqAddrFalse in HbeqBlockBlockP. contradict HbeqBlockBlockP. destruct blockParent.
+              destruct blockToShareInCurrPartAddr. simpl in Hcontra. subst p0. f_equal. apply proof_irrelevance.
+            + assert(Hcontra: sh1eaddr = nullAddr).
+              {
+                rewrite HSh1Offset. unfold nullAddr. unfold CPaddr. rewrite HleBlockSh1Max.
+                destruct (le_dec 0 maxAddr); try(lia). f_equal. apply proof_irrelevance.
+              }
+              rewrite Hcontra in *. unfold nullAddrExists in HnullAddrExists. unfold isPADDR in HnullAddrExists.
+              rewrite HSHEs in HnullAddrExists. congruence.
+          - assert(Hcontra: sh1eaddr = nullAddr).
+            {
+              rewrite HSh1Offset. unfold nullAddr. unfold CPaddr. rewrite HbeqSh1s.
+              destruct (le_dec 0 maxAddr); try(lia). f_equal. apply proof_irrelevance.
+            }
+            rewrite Hcontra in *. unfold nullAddrExists in HnullAddrExists. unfold isPADDR in HnullAddrExists.
+            rewrite HSHEs in HnullAddrExists. congruence.
+        }
+        rewrite beqAddrTrue in *. rewrite beqscesh1 in *. rewrite <-beqAddrFalse in HbeqSh1s.
+        rewrite removeDupIdentity in HwellFormedFstShadowIfBlockEntry; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl in HwellFormedFstShadowIfBlockEntry.
+        simpl. destruct (beqAddr sceaddr (CPaddr (blockParent + sh1offset))) eqn:HbeqSceBlockSh1;
+          try(exfalso; congruence). rewrite beqnewBsce in *. rewrite <-beqAddrFalse in beqscesh1.
+        rewrite removeDupIdentity in HwellFormedFstShadowIfBlockEntry; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl in HwellFormedFstShadowIfBlockEntry.
+        simpl. destruct (beqAddr newBlockEntryAddr (CPaddr (blockParent + sh1offset))) eqn:HbeqNewBlockSh1;
+          try(exfalso; congruence). rewrite beqAddrTrue in *. rewrite beqpdnewB in *. rewrite beqAddrTrue in *.
+        rewrite <-beqAddrFalse in *.
+        rewrite removeDupIdentity in HwellFormedFstShadowIfBlockEntry; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HwellFormedFstShadowIfBlockEntry; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HwellFormedFstShadowIfBlockEntry; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HwellFormedFstShadowIfBlockEntry; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HwellFormedFstShadowIfBlockEntry; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HwellFormedFstShadowIfBlockEntry; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HwellFormedFstShadowIfBlockEntry; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl in HwellFormedFstShadowIfBlockEntry.
+        simpl. destruct (beqAddr globalIdPDChild (CPaddr (blockParent + sh1offset))) eqn:HbeqGlobBlockSh1;
+          try(exfalso; congruence). rewrite <-beqAddrFalse in HbeqGlobBlockSh1.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
+      }
+      unfold checkChild. unfold bentryAFlag. rewrite HlookupBlockParentEq. unfold sh1entryPDchild in *.
+      unfold sh1entryInChildLocation in *. rewrite HlookupSh1Eq.
+      split; try(split; try(split)); try(assumption).
+      intros blockIDInChild HchildLoc. apply HchildLocNotNull.
+      destruct (lookup (CPaddr (blockParent + sh1offset)) (memory s0)); try(congruence).
+      destruct v; try(congruence). split. apply HchildLoc. destruct HchildLoc as (HblockID & HblockIDIsBE).
+      intro HbeqBlockIDNull. specialize(HblockIDIsBE HbeqBlockIDNull). unfold isBE in HblockIDIsBE.
+      rewrite Hs in HblockIDIsBE. simpl in HblockIDIsBE.
+      destruct (beqAddr sh1eaddr blockIDInChild) eqn:HbeqSh1BlockID; try(exfalso; congruence).
+      rewrite beqAddrTrue in HblockIDIsBE. rewrite beqscesh1 in HblockIDIsBE.
+      rewrite <-beqAddrFalse in HbeqSh1BlockID.
+      rewrite removeDupIdentity in HblockIDIsBE; try(apply not_eq_sym; assumption). simpl in HblockIDIsBE.
+      destruct (beqAddr sceaddr blockIDInChild) eqn:HbeqSceBlockID; try(exfalso; congruence).
+      rewrite beqnewBsce in HblockIDIsBE. rewrite <-beqAddrFalse in beqscesh1.
+      rewrite removeDupIdentity in HblockIDIsBE; try(apply not_eq_sym; assumption). simpl in HblockIDIsBE.
+      destruct (beqAddr newBlockEntryAddr blockIDInChild) eqn:HbeqNewBlockID.
+      + rewrite <-DTL.beqAddrTrue in HbeqNewBlockID. rewrite <-HbeqNewBlockID in *. assumption.
+      + rewrite beqAddrTrue in HblockIDIsBE. rewrite beqpdnewB in HblockIDIsBE.
+        rewrite beqAddrTrue in HblockIDIsBE. rewrite <-beqAddrFalse in *.
+      rewrite removeDupIdentity in HblockIDIsBE; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HblockIDIsBE; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HblockIDIsBE; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HblockIDIsBE; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HblockIDIsBE; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HblockIDIsBE; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HblockIDIsBE; try(apply not_eq_sym; assumption). simpl in HblockIDIsBE.
+      destruct (beqAddr globalIdPDChild blockIDInChild) eqn:HbeqGlobBlockID; try(exfalso; congruence).
+      rewrite <-beqAddrFalse in HbeqGlobBlockID.
+      rewrite removeDupIdentity in HblockIDIsBE; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HblockIDIsBE; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HblockIDIsBE; try(apply not_eq_sym); assumption.
+    (* END childsBlocksPropsInParent *)
+  }
+
+  assert(noChildImpliesAddressesNotShared s).
+  { (* BEGIN noChildImpliesAddressesNotShared s *)
+    assert(Hcons0: noChildImpliesAddressesNotShared s0)
+          by (unfold consistency in *; unfold consistency2 in *; intuition).
+    intros part pdentryPart block sh1entryaddr HpartIsPart HlookupPart HblockMapped Hsh1 HPDChild child addr
+      HchildIsChild HaddrInBlock. rewrite HparentEq in HpartIsPart.
+    assert(HlookupParts0: exists pdentryParts0, lookup part (memory s0) beqAddr = Some (PDT pdentryParts0)).
+    {
+      rewrite Hs in HlookupPart. simpl in HlookupPart.
+      destruct (beqAddr sh1eaddr part) eqn:HbeqSh1Part; try(exfalso; congruence).
+      rewrite beqAddrTrue in HlookupPart. rewrite beqscesh1 in HlookupPart. rewrite <-beqAddrFalse in HbeqSh1Part.
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption). simpl in HlookupPart.
+      destruct (beqAddr sceaddr part) eqn:HbeqScePart; try(exfalso; congruence).
+      rewrite beqnewBsce in HlookupPart. rewrite <-beqAddrFalse in beqscesh1.
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption). simpl in HlookupPart.
+      destruct (beqAddr newBlockEntryAddr part) eqn:HbeqNewPart; try(exfalso; congruence).
+      rewrite beqAddrTrue in HlookupPart. rewrite beqpdnewB in HlookupPart. rewrite <-beqAddrFalse in *.
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption). simpl in HlookupPart.
+      destruct (beqAddr globalIdPDChild part) eqn:HbeqGlobPart.
+      - rewrite <-DTL.beqAddrTrue in HbeqGlobPart. subst part. exists pdentry. assumption.
+      - rewrite beqAddrTrue in HlookupPart. rewrite <-beqAddrFalse in HbeqGlobPart.
+        rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HlookupPart; try(apply not_eq_sym; assumption). exists pdentryPart.
+        assumption.
+    }
+    destruct HlookupParts0 as [pdentryParts0 HlookupParts0].
+    assert(HgetChildrenEq: getChildren part s = getChildren part s0).
+    {
+      destruct (beqAddr part globalIdPDChild) eqn:HbeqPartGlob.
+      - rewrite <-DTL.beqAddrTrue in HbeqPartGlob. subst part. assumption.
+      - rewrite <-beqAddrFalse in HbeqPartGlob. apply HchildrenEq; try(assumption). unfold isPDT.
+        rewrite HlookupParts0. trivial.
+    }
+    destruct (beqAddr newBlockEntryAddr block) eqn:HbeqNewBlock.
+    - rewrite <-DTL.beqAddrTrue in HbeqNewBlock. subst block.
+      assert(HpartIsPDT: isPDT part s) by (unfold isPDT; rewrite HlookupPart; trivial).
+      assert(HpartIsGlob: part = globalIdPDChild).
+      {
+        destruct (beqAddr part globalIdPDChild) eqn:HbeqPartGlob; try(apply DTL.beqAddrTrue; assumption).
+        rewrite <-beqAddrFalse in HbeqPartGlob. exfalso.
+        specialize(HDisjointKSEntriess part globalIdPDChild HpartIsPDT HPDTs HbeqPartGlob).
+        destruct HDisjointKSEntriess as [list1 [list2 (Hlist1 & Hlist2 & Hdisjoint)]]. subst list1. subst list2.
+        unfold getMappedBlocks in *. apply InFilterPresentInList in HnewMappedGlob.
+        apply InFilterPresentInList in HblockMapped. specialize(Hdisjoint newBlockEntryAddr HblockMapped).
+        congruence.
+      }
+      subst part.
+      assert(HchildIsPDT: isPDT child s0).
+      {
+        rewrite HgetChildrenEq in HchildIsChild. apply childrenArePDT with globalIdPDChild; try(assumption).
+        unfold consistency in *; unfold consistency1 in *; intuition.
+      }
+      assert(HbeqGlobChild: globalIdPDChild <> child).
+      { apply childparentNotEq with s; try(assumption). rewrite HparentEq. assumption. }
+      apply not_eq_sym in HbeqGlobChild. rewrite HmappedparentEq; try(assumption).
+      simpl in HaddrInBlock. rewrite HlookupnewBs in HaddrInBlock. rewrite app_nil_r in HaddrInBlock.
+      destruct HstartendEq as (HendEq & HstartEq). rewrite HstartEq in *. rewrite HendEq in *.
+      apply Lib.NoDupSplitInclIff in HNoDupidpdchild. destruct HNoDupidpdchild as (_ & Hdisjoint).
+      specialize(Hdisjoint addr HaddrInBlock). contradict Hdisjoint.
+      assert(Hres: childPaddrIsIntoParent s0).
+      {
+        unfold consistency in *; unfold consistency1 in *; apply blockInclImpliesAddrIncl; intuition.
+      }
+      unfold childPaddrIsIntoParent in Hres. rewrite HgetChildrenEq in HchildIsChild.
+      apply Hres with child; assumption.
+    - assert(HlookupBlockEq: lookup block (memory s) beqAddr = lookup block (memory s0) beqAddr).
+      {
+        rewrite Hs in HaddrInBlock. rewrite Hs. simpl in HaddrInBlock. simpl.
+        destruct (beqAddr sh1eaddr block) eqn:HbeqSh1Block; try(exfalso; simpl in HaddrInBlock; congruence).
+        rewrite beqAddrTrue in *. rewrite beqscesh1 in *. rewrite <-beqAddrFalse in HbeqSh1Block.
+        rewrite removeDupIdentity in HaddrInBlock; try(apply not_eq_sym; assumption). simpl in HaddrInBlock.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+        destruct (beqAddr sceaddr block) eqn:HbeqSceBlock; try(exfalso; simpl in HaddrInBlock; congruence).
+        rewrite beqnewBsce in *. rewrite <-beqAddrFalse in beqscesh1.
+        rewrite removeDupIdentity in HaddrInBlock; try(apply not_eq_sym; assumption). simpl in HaddrInBlock.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl. rewrite HbeqNewBlock in *.
+        rewrite beqAddrTrue in *. rewrite beqpdnewB in *. rewrite beqAddrTrue in *. rewrite <-beqAddrFalse in *.
+        rewrite removeDupIdentity in HaddrInBlock; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HaddrInBlock; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HaddrInBlock; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HaddrInBlock; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HaddrInBlock; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HaddrInBlock; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HaddrInBlock; try(apply not_eq_sym; assumption). simpl in HaddrInBlock.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+        destruct (beqAddr globalIdPDChild block) eqn:HbeqGlobBlock;
+          try(exfalso; simpl in HaddrInBlock; congruence). rewrite <-beqAddrFalse in HbeqGlobBlock.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
+      }
+      assert(HlookupSh1Eq: lookup sh1entryaddr (memory s) beqAddr = lookup sh1entryaddr (memory s0) beqAddr).
+      {
+        unfold sh1entryPDchild in HPDChild. rewrite Hs in HPDChild. rewrite Hs. simpl in HPDChild. simpl.
+        destruct (beqAddr sh1eaddr sh1entryaddr) eqn:HbeqSh1s.
+        {
+          exfalso. simpl in HPDChild. rewrite Hsh1entry0 in HPDChild. simpl in HPDChild.
+          subst globalIdPDChild. unfold nullAddrExists in HnullAddrExists. unfold isPADDR in HnullAddrExists.
+          rewrite Hpdinsertions in HnullAddrExists. congruence.
+        }
+        rewrite beqAddrTrue in *. rewrite beqscesh1 in *. rewrite <-beqAddrFalse in HbeqSh1s.
+        rewrite removeDupIdentity in HPDChild; try(apply not_eq_sym; assumption). simpl in HPDChild.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+        destruct (beqAddr sceaddr sh1entryaddr) eqn:HbeqSceSh1; try(exfalso; congruence).
+        rewrite beqnewBsce in *. rewrite <-beqAddrFalse in beqscesh1.
+        rewrite removeDupIdentity in HPDChild; try(apply not_eq_sym; assumption). simpl in HPDChild.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+        destruct (beqAddr newBlockEntryAddr sh1entryaddr) eqn:HbeqNewSh1; try(exfalso; congruence).
+        rewrite beqAddrTrue in *. rewrite beqpdnewB in *. rewrite beqAddrTrue in *. rewrite <-beqAddrFalse in *.
+        rewrite removeDupIdentity in HPDChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPDChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPDChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPDChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPDChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPDChild; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPDChild; try(apply not_eq_sym; assumption). simpl in HPDChild.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). simpl.
+        destruct (beqAddr globalIdPDChild sh1entryaddr) eqn:HbeqGlobSh1;
+          try(exfalso; simpl in HPDChild; congruence). rewrite <-beqAddrFalse in HbeqGlobSh1.
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
+      }
+      assert(HblockMappeds0: In block (getMappedBlocks part s0)).
+      {
+        destruct (beqAddr part globalIdPDChild) eqn:HbeqPartGlob.
+        - rewrite <-DTL.beqAddrTrue in HbeqPartGlob. subst part. apply HpdchildMappedBlocks in HblockMapped.
+          simpl in HblockMapped. rewrite <-beqAddrFalse in HbeqNewBlock.
+          destruct HblockMapped as [Hcontra | Hres]; try(exfalso; congruence). assumption.
+        - rewrite <-beqAddrFalse in HbeqPartGlob. rewrite <-HmappedblocksEq; try(assumption). unfold isPDT.
+          rewrite HlookupParts0. trivial.
+      }
+      unfold sh1entryPDchild in HPDChild. rewrite HlookupSh1Eq in HPDChild.
+      rewrite HgetChildrenEq in HchildIsChild.
+      assert(HaddrInBlocks0: In addr (getAllPaddrAux [block] s0)).
+      {
+        simpl. simpl in HaddrInBlock. rewrite HlookupBlockEq in HaddrInBlock. assumption.
+      }
+      specialize(Hcons0 part pdentryParts0 block sh1entryaddr HpartIsPart HlookupParts0 HblockMappeds0 Hsh1
+          HPDChild child addr HchildIsChild HaddrInBlocks0).
+      destruct (beqAddr child globalIdPDChild) eqn:HbeqChildGlob.
+      + rewrite <-DTL.beqAddrTrue in HbeqChildGlob. subst child.
+        assert(Himpl: ~In addr (getAllPaddrBlock (startAddr (blockrange bentry6)) (endAddr (blockrange bentry6)))
+                        /\ ~In addr (getMappedPaddr globalIdPDChild s0)
+                      -> ~ In addr (getMappedPaddr globalIdPDChild s)).
+        {
+          intro Hres. apply Classical_Prop.and_not_or in Hres. contradict Hres. apply Hidpdchildmapped in Hres.
+          apply in_app_or. assumption.
+        }
+        apply Himpl. split; try(assumption). clear Himpl.
+        assert(HcurrIsPart: In currentPart (getPartitions multiplexer s0)).
+        {
+          assert(Hcurr: currentPart = currentPartition s0) by intuition.
+          rewrite Hcurr. unfold consistency in *; unfold consistency1 in *; intuition.
+        }
+        assert(HpartIsCurr: part = currentPart).
+        {
+          apply uniqueParent with globalIdPDChild s0; try(assumption).
+          unfold consistency in *; unfold consistency1 in *; intuition.
+          unfold consistency in *; unfold consistency1 in *; intuition.
+        }
+        subst part.
+        destruct (beqAddr blockToShareInCurrPartAddr block) eqn:HbeqBlocks.
+        {
+          rewrite <-DTL.beqAddrTrue in HbeqBlocks. subst block. rewrite <-HlookupSh1Eq in HPDChild.
+          rewrite <-HSh1Offset in Hsh1. rewrite Hsh1 in *. rewrite HsEq in HPDChild. simpl in HPDChild.
+          rewrite beqAddrTrue in HPDChild. simpl in HPDChild. rewrite Hsh1entry0 in HPDChild. simpl in HPDChild.
+          subst globalIdPDChild. unfold nullAddrExists in HnullAddrExists. unfold isPADDR in HnullAddrExists.
+          rewrite Hpdinsertions in HnullAddrExists. congruence.
+        }
+        rewrite <-beqAddrFalse in HbeqBlocks. destruct HstartendEq as (HendEq & HstartEq).
+        rewrite HstartEq in *. rewrite HendEq in *. apply not_eq_sym in HbeqBlocks.
+        assert(HcurrIsPDT: isPDT currentPart s0) by intuition.
+        assert(Hres: ~ In addr (getAllPaddrAux [blockToShareInCurrPartAddr] s0)).
+        {
+          revert HaddrInBlocks0. apply DisjointPaddrInPart with currentPart; try(assumption).
+          unfold consistency in *; unfold consistency2 in *; intuition.
+        }
+        simpl in Hres. assert(Hstart: bentryStartAddr blockToShareInCurrPartAddr blockstart s0) by intuition.
+        assert(Hend: bentryEndAddr blockToShareInCurrPartAddr blockend s0) by intuition.
+        unfold bentryStartAddr in Hstart. unfold bentryEndAddr in Hend.
+        destruct (lookup blockToShareInCurrPartAddr (memory s0) beqAddr); try(exfalso; congruence).
+        destruct v; try(exfalso; congruence). rewrite app_nil_r in Hres. rewrite <-Hstart in Hres.
+        rewrite <-Hend in Hres. assumption.
+      + rewrite <-beqAddrFalse in HbeqChildGlob. rewrite HmappedparentEq; try(assumption).
+        apply childrenArePDT with part; try(assumption).
+        unfold consistency in *; unfold consistency1 in *; intuition.
+    (* END noChildImpliesAddressesNotShared *)
+  }
+
+  assert(MPUsizeIsBelowMax s).
+  { (* BEGIN MPUsizeIsBelowMax s *)
+    assert(Hcons0: MPUsizeIsBelowMax s10)
+          by (unfold consistency in *; unfold consistency1 in *; intuition).
+    intros part MPUlist HMPU. unfold MPUsizeIsBelowMax in Hcons0. apply Hcons0 with part.
+    unfold pdentryMPU in HMPU. rewrite HsEq in HMPU. simpl in HMPU.
+    destruct (beqAddr sh1eaddr part) eqn:HbeqSh1Part; try(exfalso; congruence). rewrite beqAddrTrue in HMPU.
+    rewrite <-beqAddrFalse in HbeqSh1Part. rewrite removeDupIdentity in HMPU; try(apply not_eq_sym; assumption).
+    rewrite removeDupIdentity in HMPU; try(apply not_eq_sym); assumption.
+    (* END MPUsizeIsBelowMax *)
+  }
+
 	assert(Hcons1 : consistency1 s).
 	{
 		(** consistency1 **)
@@ -9322,7 +12578,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 			intuition.
 	}
 
-	split. intuition. (* consistency s*)
+	split. intuition. (* consistency s*) rewrite HSHEs10Eq in HlookupSh1s0.
 
 	(** security properties **)
 

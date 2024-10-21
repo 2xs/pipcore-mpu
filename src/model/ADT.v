@@ -41,7 +41,7 @@
 (* NB: entry types are not represented within a superstructure in the model.
 	However, they cannot be mixed, intertwined, or overlap because of the consistency properties. *)
 
-Require Import List Bool Arith Model.UserConstants.
+Require Import List Bool Arith Model.UserConstants Lia.
 Import List.ListNotations.
 
 (*******************************************************************************)
@@ -72,10 +72,12 @@ Axiom maxIdx: nat. (* max prepare * kernel entries nb *)
 Definition maxIdxLowerBound := 1. (* at minimum, we need to count to 1 *)
 Axiom maxIdxNotZero: maxIdx > 0.
 Axiom maxIdxBigEnough : maxIdx > maxIdxLowerBound.
+Axiom maxIdxBiggerThanNbOfKernels: maxIdx > kernelStructureEntriesNb.
 Axiom maxIdxEqualMaxAddr: maxIdx = maxAddr.
 
 Axiom MPURegionsNb: nat.
 Axiom MPURegionsNbNotZero: MPURegionsNb > 0.
+Axiom MPURegionsNbBelowMaxIdx: MPURegionsNb <= maxIdx.
 
 Axiom KSEntriesNbNotZero: kernelStructureEntriesNb > 0.
 Axiom KSEntriesNbLessThanMaxIdx: kernelStructureEntriesNb < maxIdx - 1.
@@ -101,7 +103,7 @@ Record paddr := {
 Program Definition CPaddr (p : nat) : paddr :=
 if (le_dec p maxAddr) then Build_paddr p _ else  Build_paddr 0 _. (*paddr_d*)
 Next Obligation.
-intuition.
+lia.
 Qed.
 
 Axiom RAMStartAddr: paddr.

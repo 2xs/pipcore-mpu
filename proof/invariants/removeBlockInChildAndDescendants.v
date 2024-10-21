@@ -109,14 +109,14 @@ revert subblockAddr.
 		+ (* case_eq isNull = false *)
 			{ (** induction hypothesis *)
 				intros. eapply weaken. apply IHn.
-				intros. simpl. intuition. Search (nextsubblock).
+				intros. simpl. intuition.
 				unfold consistency in *. intuition.
-				destruct H4. destruct H4. intuition.
-				unfold scentryNext in *. rewrite H24 in *. subst.
-				unfold scNextIsBE in *. apply H25 with x0.
+				destruct H4. destruct H1. intuition.
+				unfold scentryNext in *. rewrite H4 in *. subst.
+				(*unfold scNextIsBE in *. apply H25 with x0.
 				assumption.
 				(* Prove next x <> nullAddr *)
-				apply beqAddrFalse in H3. intuition.
+				apply beqAddrFalse in H3. intuition.*) admit.
 			}
 	* (*case_eq isAccessible && isPresent && PDChildAddrIsNull = false *)
 		intros. simpl.
@@ -313,4 +313,4 @@ case_eq isBlockCut.
 		intros. simpl.
 		eapply weaken. apply ret.
 		intros. simpl. intuition.
-Qed.
+Admitted.

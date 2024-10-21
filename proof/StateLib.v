@@ -155,7 +155,7 @@ Fixpoint getAllPaddrBlockAux (pos offset count: nat) : list paddr :=
 
 (** The [getAllPaddrBlock] function returns the list of all addresses within a range *)
 Definition getAllPaddrBlock (startaddr endaddr : paddr) : list paddr :=
-getAllPaddrBlockAux 0 startaddr (endaddr-startaddr).
+getAllPaddrBlockAux 0 startaddr (endaddr-startaddr). (*we do not want to include the end bound because of Coq*)
 
 (** The [getAllPaddrAux] function returns the list of all addresses contained in the listed blocks *)
 Fixpoint getAllPaddrAux (blocklist : list paddr) (s : state) :=
@@ -775,4 +775,19 @@ lookup nullAddr (memory s) beqAddr.
 Ltac symmetrynot :=
 match goal with
 | [ |- ?x <> ?y ] => unfold not ; let Hk := fresh in intro Hk ; symmetry in Hk ;contradict Hk
+end.
+
+(* Definitions with lists *)
+
+Fixpoint isParentsList (s: state) (parentsList: list paddr) (pdBase: paddr) :=
+match parentsList with
+| nil => True
+| pdparent::newParentsList => (match (lookup pdparent (memory s) beqAddr) with
+                            | Some (PDT pdentry) => pdBase <> constantRootPartM
+                                                    /\ (exists pdentry0, lookup pdBase (memory s) beqAddr
+                                                                        = Some (PDT pdentry0)
+                                                        /\ pdparent = parent pdentry0)
+                                                    /\ isParentsList s newParentsList pdparent
+                            | _ => False
+                            end)
 end.

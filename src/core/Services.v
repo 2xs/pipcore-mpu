@@ -92,7 +92,7 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
 		(* if accessible, then PDflag can't be set, we just need to check PDchild *)
 		perform PDChildAddr := readSh1PDChildFromBlockEntryAddr	blockInCurrentPartitionAddr in
 		perform PDChildAddrIsNull := compareAddrToNull PDChildAddr in
-		if negb PDChildAddrIsNull (*shouldn't be null*) then (* shared *) ret false else
+		if negb PDChildAddrIsNull (*should be null*) then (* shared *) ret false else
 
 		(** Initialize child Partition Descriptor *)
 
@@ -115,11 +115,12 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
 		(** set the block as not accessible anymore to the ancestors *)
 		perform blockOrigin := readSCOriginFromBlockEntryAddr blockInCurrentPartitionAddr in
 		perform blockStart := readBlockStartFromBlockEntryAddr blockInCurrentPartitionAddr in
+		perform blockEnd := readBlockEndFromBlockEntryAddr blockInCurrentPartitionAddr in
 		perform blockNext := readSCNextFromBlockEntryAddr blockInCurrentPartitionAddr in
 		if beqAddr blockOrigin blockStart && beqAddr blockNext nullAddr then
 			(* Block hasn't been cut previously, need to be set unaccessible for the ancestors *)
-			perform idBlock := readBlockStartFromBlockEntryAddr blockInCurrentPartitionAddr in
-			writeAccessibleRec currentPart idBlock false ;;
+			(*perform idBlock := readBlockStartFromBlockEntryAddr blockInCurrentPartitionAddr in*) (*already computed*)
+			writeAccessibleRec currentPart blockStart blockEnd false ;;
 			ret true
 		else (* block has been cut and is already not accessible in the ancestors *)
 			ret true.
@@ -210,9 +211,8 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) (MPURegionNb : index)
 																						nbFreeSlots
 																						in
 
-		(** Modify initial block: the end address becomes (cutAddress - 1)*)
-		perform predCutAddr := Paddr.pred cutAddr in
-		writeBlockEndFromBlockEntryAddr blockToCutEntryAddr predCutAddr ;;
+		(** Modify initial block: the end address becomes cutAddress *)
+		writeBlockEndFromBlockEntryAddr blockToCutEntryAddr cutAddr ;;
 		(** Reload the MPU region with the update *)
 		perform kernelentriesnb := getKernelStructureEntriesNb in
 		perform defaultidx := Index.succ kernelentriesnb in
@@ -647,6 +647,7 @@ Definition deletePartition (idPDchildToDelete: paddr) : LLI bool :=
 		(** Remove all shared blocks references in current partition (except PD child)*)
 		perform currKernelStructureStart := readPDStructurePointer currentPart in
 		perform globalIdPDChildToDelete := readBlockStartFromBlockEntryAddr idPDchildToDelete in
+		perform endPDChildToDelete := readBlockEndFromBlockEntryAddr idPDchildToDelete in
 		deleteSharedBlocksRec currentPart currKernelStructureStart globalIdPDChildToDelete ;;
 
 		(** Erase PD child entry: remove sharing and set accessible for current partition *)
@@ -659,7 +660,7 @@ Definition deletePartition (idPDchildToDelete: paddr) : LLI bool :=
 					ret true
 		else (* if the PD child block to remove isn't cut, set it accessible to
 							parent and ancestors *)
-					writeAccessibleRec currentPart globalIdPDChildToDelete true ;;
+					writeAccessibleRec currentPart globalIdPDChildToDelete endPDChildToDelete true ;;
 					ret true.
 
 (** ** The collect PIP MPU service
@@ -824,20 +825,25 @@ Definition findBlock (idPD: paddr) (addrInBlock : paddr) (blockResult: paddr) : 
 		if addrIsNull then(* no block found, stop *) ret false else
 
 		(* Check that blockResult is present and available in currentPart *)
-		perform blockResultAddr := findBlockInKSWithAddr currentPart blockResult in
-		perform addrIsNull := compareAddrToNull	blockResultAddr in
-		if addrIsNull then(* no block found, stop *) ret false else
-			(* Check block result is accessible *)
-			perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr blockResultAddr in
-			if negb addrIsAccessible then (* block is not accessible *) ret false else
-			(* Check block result has RW rights *)
-			perform r := readBlockRFromBlockEntryAddr blockResultAddr in
-			perform w := readBlockWFromBlockEntryAddr blockResultAddr in
-			if negb r then (* not readable, stop *) ret false else
-			if negb w then (* not writable, stop *) ret false else
-			(* Copy block attributes in block result *)
-            copyBlock blockResultAddr blockAddr ;;
-		ret true.
+		(*perform blockResultAddr := findBlockInKSWithAddr currentPart blockResult in*)
+    perform blockResultAddr := findBelongingBlock globalIdPD blockResult in
+    perform resAddrIsNull := compareAddrToNull blockResultAddr in
+    if resAddrIsNull
+    then (* no block found, stop *) ret false else
+      perform isBlockResultInKS := findBlockInKSWithAddr currentPart blockResultAddr in
+		  perform addrIsNull := compareAddrToNull	isBlockResultInKS in
+		  if addrIsNull then(* no block found, stop *) ret false else
+			  (* Check block result is accessible *)
+			  perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr isBlockResultInKS in
+			  if negb addrIsAccessible then (* block is not accessible *) ret false else
+			  (* Check block result has RW rights *)
+			  perform r := readBlockRFromBlockEntryAddr blockResultAddr in
+			  perform w := readBlockWFromBlockEntryAddr blockResultAddr in
+			  if negb r then (* not readable, stop *) ret false else
+			  if negb w then (* not writable, stop *) ret false else
+			  (* Copy block attributes in block result *)
+              copyBlock blockResultAddr blockAddr ;;
+		  ret true.
 
 (**
  * The setVIDT PIP MPU service.

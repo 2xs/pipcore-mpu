@@ -36,7 +36,7 @@
     This file contains the invariant of [getGlobalIdPDCurrentOrChild].
 *)
 
-Require Import Model.ADT Core.Services Model.MALInternal Model.Lib.
+Require Import Model.ADT Model.MALInternal Model.Lib.
 Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPreconditions
 Proof.StateLib Proof.DependentTypeLemmas.
 Require Import invariants.Invariants invariants.checkChildOfCurrPart.

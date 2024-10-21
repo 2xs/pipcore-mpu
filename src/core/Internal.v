@@ -73,6 +73,23 @@ Definition findBlockComp 	(entryaddr : paddr)
 		then (* block found *) ret true
 		else (* block not found *)ret false.
 
+(** The [findExactBlockComp] function decides if the given block <entryaddr> matches
+		the given set of addresses between <startaddr> and <endaddr>.
+
+		Returns true iff the block's bounds match the addresses
+*)
+(*TODO change the return value depending on whether there is a non-empty addresses interval common to
+  the blocks?*)
+Definition findExactBlockComp 	(entryaddr : paddr) (startaddr endaddr : paddr) : LLI bool :=
+	perform blockstart := readBlockStartFromBlockEntryAddr entryaddr in
+	perform blockend := readBlockEndFromBlockEntryAddr entryaddr in
+	if beqAddr blockstart startaddr
+	then (* start matches *)
+      if beqAddr blockend endaddr
+      then (* block found *) ret true
+      else (* block not found *) ret false
+	else (* block not found *) ret false.
+
 (** The [findBlockInKSInStructAux] function recursively searches by going through
 		the current structure list and search for the <id_block_to_find>.
     Stop conditions:
@@ -123,6 +140,52 @@ Fixpoint findBlockInKSInStructAux (timeout : nat) (currentidx : index)
 
 	end.
 
+(** The [findExactBlockInKSInStructAux] function recursively searches by going through
+		the current structure list and search for the <id_block_to_find>.
+    Stop conditions:
+        1: 	reached end of structure (maximum number of iterations)
+        2: 	found <id_block_to_find>
+        3: 	issue with the block, i.e. block not found, incorrect entry address or
+						block not present
+    Recursive calls: until the current's structure last index
+		Max recursion depth: number of kernel structure entries
+
+		Returns the block's entry address or NULL
+*)
+Fixpoint findExactBlockInKSInStructAux (timeout : nat) (currentidx : index)
+                                  (currentkernelstructure startaddr endaddr : paddr): LLI paddr :=
+	match timeout with
+		| 0 => getNullAddr
+		| S timeout1 =>
+					(** PROCESSING: check if the entry is the searched one *)
+					perform entryaddr := getBlockEntryAddrFromKernelStructureStart
+																	currentkernelstructure
+																	currentidx in
+					perform ispresent := readBlockPresentFromBlockEntryAddr entryaddr in
+					perform matchcomp := findExactBlockComp entryaddr startaddr endaddr in
+					if ispresent &&  matchcomp then
+						(** STOP CONDITION 2: block found *)
+						ret entryaddr
+					else
+						(** continue search *)
+						perform maxentriesnb := getKernelStructureEntriesNb in
+						perform nextidx := Index.succ currentidx in
+						(** Indexed on zero, so <*)
+						perform isnotlastidx := Index.ltb nextidx maxentriesnb in
+						if (isnotlastidx)
+						then
+							(** RECURSIVE call to the next index**)
+							findExactBlockInKSInStructAux timeout1
+                                            nextidx
+                                            currentkernelstructure
+                                            startaddr
+                                            endaddr
+						else
+							(** STOP CONDITION 1: reached end of current structure,
+																		block not found *)
+							ret nullAddr
+	end.
+
 (** The [findBlockInKSAux] function recursively search by going through
 		the structure list and search for the <id_block_to_find>.
     Stop conditions:
@@ -166,6 +229,47 @@ Fixpoint findBlockInKSAux (timeout : nat)
 												findBlockInKSAux timeout1 nextkernelstructure idblock compoption
 	end.
 
+(** The [findExactBlockInKSAux] function recursively searches by going through
+		the structure list and searching for the <id_block_to_find>.
+    Stop conditions:
+        1: 	reached end of structure list (maximum number of iterations)
+        2: 	found <id_block_to_find>
+        3: 	issue with the block, i.e. block not found, incorrect block address or
+						block not present
+    Recursive calls: until the end of the linked list
+		Max recursion depth: length of the linked list + findBlockInKSInStructAux
+
+		Returns the found block's entry address or NULL
+*)
+Fixpoint findExactBlockInKSAux (timeout : nat) (currentkernelstructure idblock endblock: paddr): LLI paddr :=
+	match timeout with
+		| 0 => getNullAddr
+		| S timeout1 =>	(** PROCESSING: seach for the block in the current structure *)
+										perform zero := Index.zero in
+										perform foundblock := findExactBlockInKSInStructAux N
+                                                                        zero
+                                                                        currentkernelstructure
+                                                                        idblock
+                                                                        endblock in
+										perform foundblockisnull := compareAddrToNull foundblock in
+										if negb foundblockisnull
+										then
+											(** STOP CONDITION 2: block found, stop *)
+											ret foundblock
+										else
+											(** block not found in current structure, continue search *)
+											perform nextkernelstructure := readNextFromKernelStructureStart
+																												currentkernelstructure in
+											perform nextKSisnull :=  compareAddrToNull nextkernelstructure in
+											if nextKSisnull
+											then
+												(** STOP CONDITION 1: reached last structure, not found *)
+												ret nullAddr
+											else
+												(** RECURSIVE call on the next structure *)
+												findExactBlockInKSAux timeout1 nextkernelstructure idblock endblock
+	end.
+
 
 
 (* TODO: return Some blockentry or None *)
@@ -179,6 +283,18 @@ Definition findBlockInKS (idPD : paddr) (idBlock: paddr) : LLI paddr :=
 	if isnull
 	then ret nullAddr
 	else findBlockInKSAux maxNbPrepare kernelstructurestart idBlock zero.
+
+(* TODO: return Some blockentry or None *)
+(** The [findExactBlockInKS] function fixes the timeout value of [findExactBlockInKSAux]
+		and lauches the block seach for the address being the start address of the (possibly nonexistent) block
+    containing exactly the same addresses as the block of id idBlock.
+		Same function as in findBlockInKS but with a different comparator. *)
+Definition findExactBlockInKS (idPD : paddr) (idBlock endBlock: paddr) : LLI paddr :=
+	perform kernelstructurestart := readPDStructurePointer idPD in
+	perform isnull :=  compareAddrToNull kernelstructurestart in
+	if isnull
+	then ret nullAddr
+	else findExactBlockInKSAux maxNbPrepare kernelstructurestart idBlock endBlock.
 
 (* TODO: return Some blockentry or None *)
 (** The [findBelongingBlock] function fixes the timeout value of [findBlockInKSAux]
@@ -285,7 +401,7 @@ Definition checkBlockCut (blockentryaddr : paddr) : LLI bool :=
 
 		Returns true:OK/false:NOK*)
 Fixpoint writeAccessibleRecAux 	timeout
-																(pdbasepartition idblock : paddr)
+																(pdbasepartition idblock endblock : paddr)
 																(accessiblebit : bool) : LLI bool :=
 	match timeout with
 		| 0 => ret false (* reached timeout *)
@@ -297,9 +413,10 @@ Fixpoint writeAccessibleRecAux 	timeout
 																				and if inaccessible also remove the
 																				block from the real MPU *)
 												perform pdparent := readPDParent pdbasepartition in
-												perform blockInParentPartitionAddr := findBlockInKS
+												perform blockInParentPartitionAddr := findExactBlockInKS
 																																	pdparent
-																																	idblock in
+																																	idblock
+                                                                  endblock in
 												perform addrIsNull := compareAddrToNull
 																									blockInParentPartitionAddr in
 												if addrIsNull then ret false (*Shouldn't happen *) else
@@ -312,16 +429,16 @@ Fixpoint writeAccessibleRecAux 	timeout
 																											accessiblebit ;;
 
 												(** RECURSIVE call: write accessible in the remaining ancestors*)
-												writeAccessibleRecAux timeout1 pdparent idblock accessiblebit
+												writeAccessibleRecAux timeout1 pdparent idblock endblock accessiblebit
 	end.
 
 
 (** The [writeAccessibleRec] function fixes the timeout value of
 		[writeAccessibleRecAux] *)
 Definition writeAccessibleRec 	(pdbasepartition : paddr)
-															(idblock : paddr)
+															(idblock endblock : paddr)
 															(accessiblebit : bool) : LLI bool :=
-	writeAccessibleRecAux N pdbasepartition idblock accessiblebit.
+	writeAccessibleRecAux N pdbasepartition idblock endblock accessiblebit.
 
 (** The [writeAccessibleToAncestorsRecIfNotCut] sets the block <idblock>
 	 	in all ancestors (including the parent) of <pdbasepartition> to
@@ -334,10 +451,12 @@ Definition writeAccessibleToAncestorsIfNotCutRec (pdbasepartition : paddr)
 		perform blockNext := readSCNextFromBlockEntryAddr blockentryaddr in
 		perform globalIdBlock := readBlockStartFromBlockEntryAddr
 																				blockentryaddr in
+		perform globalEndBlock := readBlockEndFromBlockEntryAddr blockentryaddr in
 		if beqAddr blockStart blockOrigin  && beqAddr blockNext nullAddr then
 			(* Block hasn't been cut previously, adjust accessible bit *)
 			perform recWriteEnded := writeAccessibleRec pdbasepartition
 																									globalIdBlock
+                                                  globalEndBlock
 																									accessiblebit in
 			if negb recWriteEnded then (* timeout reached or error *) ret false else
 			ret true
@@ -598,8 +717,10 @@ Definition removeBlockInChildAndDescendants (currentPart
 
 				(** Set back the block as accessible in the ancestors because it was cut *)
 				writeBlockAccessibleFromBlockEntryAddr blockToRemoveInCurrPartAddr true ;;
+		    perform endBlockToRemove := readBlockEndFromBlockEntryAddr blockToRemoveInCurrPartAddr in
 				perform recWriteEnded := writeAccessibleRec currentPart
 																										globalIdBlockToRemove
+                                                    endBlockToRemove
 																										true in
 				if negb recWriteEnded then (* timeout reached or error *) ret false else
 				ret true.
@@ -612,8 +733,8 @@ Definition sizeOfBlock (blockentryaddr : paddr) : LLI index :=
 	perform startAddr := readBlockStartFromBlockEntryAddr blockentryaddr in
 	perform endAddr := readBlockEndFromBlockEntryAddr blockentryaddr in
 	perform size := Paddr.subPaddr endAddr startAddr in
-	(* last address must be counted *)
-	Index.succ size.
+	(* last address must be NOT counted *)
+	ret size.
 
 (** The [initBlockEntryRec] function recursively initializes all block entries from
 		<indexCurr> to 0 of kernel structure located at <kernelStructureStartAddr>
@@ -795,6 +916,8 @@ Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
 																											currIndex in
 										perform blockID := readBlockStartFromBlockEntryAddr
 																					currBlockEntryAddr in
+										perform endBlock := readBlockEndFromBlockEntryAddr
+																					currBlockEntryAddr in
 										perform currPDChild := readSh1PDChildFromBlockEntryAddr
 																							currBlockEntryAddr in
 										if beqAddr currPDChild idPDchildToDelete
@@ -811,7 +934,7 @@ Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
 													if negb isCut
 													then (* if the block isn't cut in the current
 																partition, set as accessible in the ancestors *)
-																writeAccessibleRec currentPart blockID true ;;
+																writeAccessibleRec currentPart blockID endBlock true ;;
 
 																perform zero := Index.zero in
 																if beqIdx currIndex zero
@@ -1221,10 +1344,10 @@ Definition removeBlockFromPhysicalMPUIfAlreadyMapped (idPD : paddr)
 																											blockentryaddr
 																											defaultidx in
 	if beqIdx oldMPURegionNb defaultidx
-	then (* block was already mapped, remove it*)
+	then ret tt
+	else (* block was already mapped, remove it*)
 		enableBlockInMPU idPD nullAddr oldMPURegionNb ;;
-		ret tt
-	else ret tt.
+		ret tt.
 
 (** The [getGlobalIdPDCurrentOrChild] function returns the <idPDToCheck>'s global id.
 

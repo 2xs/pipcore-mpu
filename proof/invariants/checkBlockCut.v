@@ -47,10 +47,16 @@ Module WP := WeakestPreconditions.
 (* Couper le code de preuve -> ici que faire une propagation des propriétés initiale
 + propager nouvelles propriétés *)
 Lemma checkBlockCut (blockentryaddr : paddr) P :
-{{ fun s => P s /\ consistency s
+{{ fun s => P s /\ wellFormedShadowCutIfBlockEntry s /\ KernelStructureStartFromBlockEntryAddrIsKS s
+            /\ BlocksRangeFromKernelStartIsBE s /\ nullAddrExists s
 						/\ isBE blockentryaddr s }}
 Internal.checkBlockCut blockentryaddr
-{{fun isBlockCut s => P s /\ consistency s
+{{fun isBlockCut s => P s (*/\ consistency s*)
+                      /\ exists blockStart blockOrigin blockNext,
+                          scentryOrigin (CPaddr (blockentryaddr + scoffset)) blockOrigin s
+                          /\ scentryNext (CPaddr (blockentryaddr + scoffset)) blockNext s
+                          /\ bentryStartAddr blockentryaddr blockStart s
+                          /\ beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr = negb isBlockCut
 (*/\ exists sh1entryaddr, isChild = StateLib.checkChild idPDchild s sh1entryaddr
 /\ if isChild then (exists entry, lookup idPDchild s.(memory) beqAddr = Some (BE entry)
 										/\ exists sh1entry, lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry))
@@ -80,10 +86,10 @@ eapply WP.bindRev.
 	case_eq (beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr).
 { (** case_eq beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr = true *)
 	intros. eapply weaken. apply ret.
-	intros. simpl. intuition.
+	intros. simpl. intuition. exists blockStart. exists blockOrigin. exists blockNext. intuition.
 }
 { (** case_eq beqAddr blockStart blockOrigin && beqAddr blockNext nullAddr = false *)
 	intros. eapply weaken. apply ret.
-	intros. simpl. intuition.
+	intros. simpl. intuition. exists blockStart. exists blockOrigin. exists blockNext. intuition.
 }
 Qed.

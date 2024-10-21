@@ -61,7 +61,7 @@ bentryPFlag block true s ->
 bentryStartAddr block startaddr s ->
 bentryEndAddr block endaddr s ->
 (* startaddr inferior to endaddr + size of block greater than minimum MPU size *)
-(startaddr < endaddr) /\ (Constants.minBlockSize < (endaddr - startaddr)).
+(startaddr < endaddr) /\ (Constants.minBlockSize <= (endaddr - startaddr)).
 
 (** **  If the PDflag of a Shadow 1 entry is set, then
     the linked block in the Blocks structure hosts a PD structure. **)
@@ -239,7 +239,7 @@ isPDT partition s ->
 NoDup (filterOptionPaddr (getKSEntries partition s)).
 
 (** **  In a given partition, no block overlaps another
-    (the set of addresses they contain are disjoint). **)
+    (the sets of addresses they contain are disjoint). **)
 Definition noDupUsedPaddrList s :=
 forall (partition : paddr),
 isPDT partition s ->
@@ -249,12 +249,15 @@ NoDup (getUsedPaddr partition s).
 Definition noDupPartitionTree s :=
 NoDup (getPartitions multiplexer s).
 
+(* 18/06/2024: this consistency prop is false, it IS possible to have a block mapped in a partition and in its
+    parent, removing it *)
 (** **  In a given partition, all blocks configured
-    in the MPU are accessible blocks belonging to that partition. **)
+    in the MPU that are not null are accessible blocks belonging to that partition. **)
 Definition MPUFromAccessibleBlocks s :=
 forall partition block blocksInMPU,
 pdentryMPU partition blocksInMPU s ->
 In block blocksInMPU ->
+block <> nullAddr ->
 In block (getAccessibleMappedBlocks partition s).
 
 (** ** Each block in a child partition has a corresponding block in the parent partition
@@ -273,12 +276,302 @@ sh1entryPDflag (CPaddr (parentblock + sh1offset)) true s).
 (** ** All accessible addresses
 in a partition (union of all addresses contained in the accessible mapped blocks) are
 mapped and accessible in their parent. **)
-Definition accessibleChildPaddrIsAccessibleIntoParent s :=
+(*Definition accessibleChildPaddrIsAccessibleIntoParent s :=
  forall parent child addr,
 In parent (getPartitions multiplexer s) ->
 In child (getChildren parent s) ->
 In addr (getAccessibleMappedPaddr child s) ->
-In addr (getAccessibleMappedPaddr parent s).
+In addr (getAccessibleMappedPaddr parent s).*)
+
+(** ** All accessible addresses
+in a partition (union of all addresses contained in the accessible mapped blocks) are
+mapped and accessible in their parent. **)
+Definition accessibleParentPaddrIsAccessibleIntoChild s :=
+ forall parent child addr,
+In parent (getPartitions multiplexer s) ->
+In child (getChildren parent s) ->
+In addr (getAccessibleMappedPaddr parent s) ->
+In addr (getMappedPaddr child s) -> (*hypothesis necessary to say that the address is in a block given to child*)
+In addr (getAccessibleMappedPaddr child s).
+
+(** ** The parent of a partition is either null or a partition, but is never equal to the child **)
+Definition parentOfPartitionIsPartition s :=
+forall (partition : paddr), forall (entry : PDTable),
+lookup partition (memory s) beqAddr = Some (PDT entry)
+-> (partition <> constantRootPartM
+    -> (exists parentEntry, lookup (parent entry) (memory s) beqAddr = Some (PDT parentEntry))
+      /\ In (parent entry) (getPartitions multiplexer s)) (*TODO needs partition to be in too?*)
+   /\ (partition = constantRootPartM
+    -> parent entry = nullAddr)
+   /\ parent entry <> partition.
+
+(*TODO put that elsewhere; in StateLib?*)
+Fixpoint isListOfKernelsAux kernList initKern s :=
+match kernList with
+| [] => True
+| kern::nextKernList => lookup (CPaddr (initKern + nextoffset)) (memory s) beqAddr = Some (PADDR kern)
+                       /\ initKern + nextoffset <= maxAddr
+                       /\ kern <> nullAddr (*do we want that?*)
+                       /\ isListOfKernelsAux nextKernList kern s
+end.
+
+Definition isListOfKernels kernList idPD s :=
+match kernList with
+| [] => True
+| kern::nextKernList => exists pdentry, lookup idPD (memory s) beqAddr = Some (PDT pdentry)
+                          /\ structure pdentry <> nullAddr /\ structure pdentry = kern
+                          /\ isListOfKernelsAux nextKernList kern s
+end.
+
+(** ** The number of kernels is bounded by the variable maxNbPrepare **)
+Definition maxNbPrepareIsMaxNbKernels s :=
+forall (partition : paddr) (kernList: list paddr),
+isListOfKernels kernList partition s -> length kernList <= maxNbPrepare.
+
+(*Newly changed*)
+(** ** In any partition that is not the root, for any block whose field origin is equal to its start address and
+whose field next is null, we have a block in the parent partition with the same start and end addresses **)
+Definition adressesRangePreservedIfOriginAndNextOk s :=
+forall partition pdentry block scentryaddr start endaddr,
+In partition (getPartitions multiplexer s)
+-> In block (getMappedBlocks partition s)
+-> isBE block s
+-> bentryStartAddr block start s
+-> bentryEndAddr block endaddr s
+-> bentryPFlag block true s
+-> scentryaddr = CPaddr (block + scoffset)
+-> scentryOrigin scentryaddr start s
+-> scentryNext scentryaddr nullAddr s
+-> lookup partition (memory s) beqAddr = Some (PDT pdentry)
+-> partition <> constantRootPartM
+-> exists blockParent,
+    In blockParent (getMappedBlocks (parent pdentry) s)
+    /\ isBE blockParent s
+    /\ bentryStartAddr blockParent start s
+    /\ bentryEndAddr blockParent endaddr s.
+
+(* New, gives the properties of the origin field *)
+(** ** In any partition that is not the root, the origin field of any block corresponds to the start address of
+        the the block in the partition's parent which contains at least the same addresses ** **)
+Definition originIsParentBlocksStart s :=
+forall partition pdentry block scentryaddr scorigin,
+In partition (getPartitions multiplexer s)
+-> lookup partition (memory s) beqAddr = Some (PDT pdentry)
+-> In block (getMappedBlocks partition s)
+-> scentryaddr = CPaddr (block + scoffset)
+-> scentryOrigin scentryaddr scorigin s
+-> (partition <> constantRootPartM
+    -> exists blockParent,
+        In blockParent (getMappedBlocks (parent pdentry) s)
+        /\ bentryStartAddr blockParent scorigin s
+        /\ (forall addr, In addr (getAllPaddrAux [block] s) -> In addr (getAllPaddrAux [blockParent] s)))
+    /\ (forall startaddr, bentryStartAddr block startaddr s -> scorigin <= startaddr).
+
+(* New, gives some properties of the next field *)
+(** ** In any partition that is not the root, if the next field of a block is not null, then the end address of
+        the block in the partition's parent which contains at least the same addresses is strictly higher than
+        the end address of the block ** **)
+Definition nextImpliesBlockWasCut s :=
+forall partition pdentry block scentryaddr scnext endaddr,
+In partition (getPartitions multiplexer s)
+-> lookup partition (memory s) beqAddr = Some (PDT pdentry)
+-> In block (getMappedBlocks partition s)
+-> bentryEndAddr block endaddr s
+-> scentryaddr = CPaddr (block + scoffset)
+-> scnext <> nullAddr
+-> scentryNext scentryaddr scnext s
+-> partition <> constantRootPartM
+-> exists blockParent endParent,
+    In blockParent (getMappedBlocks (parent pdentry) s)
+    /\ bentryEndAddr blockParent endParent s
+    /\ endaddr < endParent
+    /\ (forall addr, In addr (getAllPaddrAux [block] s) -> In addr (getAllPaddrAux [blockParent] s)).
+
+(* New, gives a property of the PDchild field *)
+(** In any partition, if the PDChild field of a block is null, then none of the addresses of that block are
+    shared with a child of the partition **)
+Definition noChildImpliesAddressesNotShared s :=
+forall partition pdentry block sh1entryaddr,
+In partition (getPartitions multiplexer s)
+-> lookup partition (memory s) beqAddr = Some (PDT pdentry)
+-> In block (getMappedBlocks partition s)
+-> sh1entryaddr = CPaddr (block + sh1offset)
+-> sh1entryPDchild sh1entryaddr nullAddr s
+-> (forall child addr,
+      In child (getChildren partition s)
+      -> In addr (getAllPaddrAux [block] s)
+      -> ~ In addr (getMappedPaddr child s)).
+
+(* Not strong enough to be a consistency property, but useful, so we keep it here *)
+(** ** All adresses mapped in a partition are mapped into its parent **)
+Definition childPaddrIsIntoParent s :=
+ forall parent child addr,
+In parent (getPartitions multiplexer s) ->
+In child (getChildren parent s) ->
+In addr (getMappedPaddr child s) ->
+In addr (getMappedPaddr parent s).
+
+(* Compensates the loss of information when replacing accessibleChildPaddrIsAccessibleIntoParent by
+   accessibleParentPaddrIsAccessibleIntoChild *)
+(** ** For any block b in a partition, there exists a block in the partition's parent that includes b ** **)
+Definition blockInChildHasAtLeastEquivalentBlockInParent s :=
+  forall parent child block startChild endChild,
+In parent (getPartitions multiplexer s) ->
+In child (getChildren parent s) ->
+In block (getMappedBlocks child s) ->
+bentryStartAddr block startChild s ->
+bentryEndAddr block endChild s ->
+bentryPFlag block true s ->
+exists blockParent startParent endParent,
+  In blockParent (getMappedBlocks parent s)
+  /\ bentryStartAddr blockParent startParent s
+  /\ bentryEndAddr blockParent endParent s
+  /\ startParent <= startChild
+  /\ endParent >= endChild.
+
+(* Gives properties on a block in a given partition's parent *)
+(** ** For any block mapped in a partition p, the block defined by blockInChildHasAtLeastEquivalentBlockInParent
+       in p has the following properties:
+        - it is not a partition descriptor in the parent
+        - the corresponding PDchild field is not null
+        - the corresponding inChildLocation field is not null and points to the block in p if the left bound is
+          the same
+        - if the block has been cut in p, then it is not accessible in its parent ** **)
+Definition childsBlocksPropsInParent s :=
+forall child parentPart blockChild startChild endChild blockParent startParent endParent,
+In parentPart (getPartitions multiplexer s) ->
+In child (getChildren parentPart s) ->
+In blockChild (getMappedBlocks child s) ->
+bentryStartAddr blockChild startChild s ->
+bentryEndAddr blockChild endChild s ->
+bentryPFlag blockChild true s ->
+In blockParent (getMappedBlocks parentPart s) ->
+bentryStartAddr blockParent startParent s ->
+bentryEndAddr blockParent endParent s ->
+bentryPFlag blockParent true s ->
+startParent <= startChild ->
+endParent >= endChild ->
+false = checkChild blockParent s (CPaddr (blockParent + sh1offset))
+/\ (forall childGlobalID,
+      sh1entryPDchild (CPaddr (blockParent + sh1offset)) childGlobalID s
+      -> childGlobalID <> nullAddr)
+/\ (forall blockIDInChild,
+      sh1entryInChildLocation (CPaddr (blockParent + sh1offset)) blockIDInChild s
+      -> (blockIDInChild <> nullAddr
+          /\ (startParent = startChild -> blockIDInChild = blockChild)))
+/\ ((startParent <> startChild \/ endParent <> endChild) -> bentryAFlag blockParent false s).
+
+(* Not a consistency property, but a partial version of the previous one, to be used in some proofs where the
+    property stays true for all pairs of partitions except for one *)
+Definition childsBlocksPropsInParentPartial partition s :=
+forall child parentPart blockChild startChild endChild blockParent startParent endParent,
+parentPart <> partition ->
+In parentPart (getPartitions multiplexer s) ->
+In child (getChildren parentPart s) ->
+In blockChild (getMappedBlocks child s) ->
+bentryStartAddr blockChild startChild s ->
+bentryEndAddr blockChild endChild s ->
+bentryPFlag blockChild true s ->
+In blockParent (getMappedBlocks parentPart s) ->
+bentryStartAddr blockParent startParent s ->
+bentryEndAddr blockParent endParent s ->
+bentryPFlag blockParent true s ->
+startParent <= startChild ->
+endParent >= endChild ->
+false = checkChild blockParent s (CPaddr (blockParent + sh1offset))
+/\ (forall childGlobalID,
+      sh1entryPDchild (CPaddr (blockParent + sh1offset)) childGlobalID s
+      -> childGlobalID <> nullAddr)
+/\ (forall blockIDInChild,
+      sh1entryInChildLocation (CPaddr (blockParent + sh1offset)) blockIDInChild s
+      -> (blockIDInChild <> nullAddr
+          /\ (startParent = startChild -> blockIDInChild = blockChild)))
+/\ ((startParent <> startChild \/ endParent <> endChild) -> bentryAFlag blockParent false s).
+
+Definition childsBlocksPropsInParentLight s :=
+forall child parentPart blockChild startChild endChild blockParent startParent endParent,
+In parentPart (getPartitions multiplexer s) ->
+In child (getChildren parentPart s) ->
+In blockChild (getMappedBlocks child s) ->
+bentryStartAddr blockChild startChild s ->
+bentryEndAddr blockChild endChild s ->
+bentryPFlag blockChild true s ->
+In blockParent (getMappedBlocks parentPart s) ->
+bentryStartAddr blockParent startParent s ->
+bentryEndAddr blockParent endParent s ->
+bentryPFlag blockParent true s ->
+startParent <= startChild ->
+endParent >= endChild ->
+false = checkChild blockParent s (CPaddr (blockParent + sh1offset)).
+
+(* Ensures that the partition tree is acyclic *)
+(** ** Given a partition p and its parent, there is no chain of partitions that contains p and such that the
+       parent is the first element and each element is the parent of the previous one ** **)
+Definition partitionTreeIsTree s :=
+forall child pdparent parentsList,
+child <> constantRootPartM
+-> In child (getPartitions multiplexer s)
+-> pdentryParent child pdparent s
+-> isParentsList s parentsList pdparent
+-> ~ In child parentsList.
+
+Definition kernelEntriesAreValid s :=
+forall kernel index,
+isKS kernel s
+-> index <= CIndex (kernelStructureEntriesNb - 1)
+-> isBE (CPaddr (kernel + index)) s.
+
+Definition nextKernelIsValid s :=
+forall kernel,
+isKS kernel s
+-> kernel + nextoffset <= maxAddr
+    /\ exists nextAddr, (forall Hp,
+          lookup {| p:= kernel+nextoffset; Hp:= Hp |} (memory s) beqAddr = Some(PADDR nextAddr))
+          /\ (isKS nextAddr s \/ nextAddr = nullAddr).
+
+Definition noDupListOfKerns s :=
+forall partition kernList,
+isListOfKernels kernList partition s -> NoDup kernList.
+
+Definition MPUsizeIsBelowMax s :=
+forall partition MPUlist,
+pdentryMPU partition MPUlist s
+-> length MPUlist <= MPURegionsNb.
+
+Definition blocksAddressesTypes s :=
+forall block startaddr endaddr,
+bentryStartAddr block startaddr s
+-> bentryEndAddr block endaddr s
+-> (isKS startaddr s
+      /\ (forall addr, In addr (getAllPaddrBlock startaddr endaddr)
+          -> (isBE addr s \/ isSHE addr s \/ isSCE addr s))
+    \/ isPDT startaddr s
+      /\ (forall addr, In addr (getAllPaddrBlock startaddr endaddr) /\ addr <> startaddr
+          -> lookup addr (memory s) beqAddr = None)
+    \/ forall addr, In addr (getAllPaddrBlock startaddr endaddr)
+          -> lookup addr (memory s) beqAddr = None).
+
+Definition notPDTIfNotPDflag s :=
+forall block startaddr sh1entryaddr,
+bentryStartAddr block startaddr s
+-> sh1entryAddr block sh1entryaddr s
+-> sh1entryPDflag sh1entryaddr false s
+-> ~ isPDT startaddr s.
+
+Definition kernelsAreNotAccessible s :=
+forall block startaddr,
+bentryStartAddr block startaddr s
+-> isKS startaddr s
+-> bentryAFlag block false s.
+
+Definition nextKernAddrIsInSameBlock s :=
+forall block kernel startaddr endaddr,
+bentryStartAddr block startaddr s
+-> bentryEndAddr block endaddr s
+-> isKS kernel s
+-> In (CPaddr (kernel + nextoffset)) (getAllPaddrBlock startaddr endaddr)
+-> kernel = startaddr.
+
 
 (** ** First batch of consistency properties *)
 Definition consistency1 s :=
@@ -307,13 +600,27 @@ isChild s /\
 noDupKSEntriesList s /\
 noDupMappedBlocksList s /\
 wellFormedBlock s /\
-MPUFromAccessibleBlocks s.
+(*MPUFromAccessibleBlocks s /\*)
+parentOfPartitionIsPartition s /\
+NbFreeSlotsISNbFreeSlotsInList s /\
+maxNbPrepareIsMaxNbKernels s /\
+blockInChildHasAtLeastEquivalentBlockInParent s /\
+partitionTreeIsTree s /\
+kernelEntriesAreValid s /\
+nextKernelIsValid s /\
+noDupListOfKerns s /\
+MPUsizeIsBelowMax s /\
+originIsParentBlocksStart s /\
+nextImpliesBlockWasCut s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=
 noDupUsedPaddrList s /\
-accessibleChildPaddrIsAccessibleIntoParent s /\
-sharedBlockPointsToChild s.
+accessibleParentPaddrIsAccessibleIntoChild s /\
+sharedBlockPointsToChild s /\
+adressesRangePreservedIfOriginAndNextOk s /\
+childsBlocksPropsInParent s /\
+noChildImpliesAddressesNotShared s.
 
 (** ** Conjunction of all consistency properties *)
 Definition consistency s :=
