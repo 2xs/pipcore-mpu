@@ -68,7 +68,7 @@ Definition findBlockComp 	(entryaddr : paddr)
 	else (* Comparator 2: block's start addr < referenceaddr < block's end addr *)
 		perform blockend := readBlockEndFromBlockEntryAddr entryaddr in
 		perform aboveStart := Paddr.leb blockstart referenceaddr in
-		perform belowEnd := Paddr.leb referenceaddr blockend in
+		perform belowEnd := Paddr.ltb referenceaddr blockend in
 		if aboveStart && belowEnd
 		then (* block found *) ret true
 		else (* block not found *)ret false.

@@ -64,7 +64,7 @@ Internal.findBlockComp entryaddr referenceaddr comparator
                               exists bentry,
                                 lookup entryaddr (memory s) beqAddr = Some (BE bentry)
                                 /\ paddrLe blockstart referenceaddr
-                                    && paddrLe referenceaddr (endAddr (blockrange bentry)) = isMatch)
+                                    && paddrLt referenceaddr (endAddr (blockrange bentry)) = isMatch)
 }}.
 Proof.
 unfold Internal.findBlockComp.
@@ -109,8 +109,8 @@ destruct indexEq eqn:Hcomp.
 	}
 	intro aboveStart.
 	eapply bindRev.
-	{ (** MALInternal.Paddr.leb *)
-		eapply weaken. apply Paddr.leb.
+	{ (** MALInternal.Paddr.ltb *)
+		eapply weaken. apply Paddr.ltb.
 		intros. simpl. apply H.
 	}
 	intro belowEnd.
@@ -163,7 +163,7 @@ Internal.findBlockInKSInStructAux n currentidx currentkernelstructure referencea
                           lookup (CPaddr (currentkernelstructure + blkoffset + idx)) (memory s) beqAddr
                             = Some (BE bentry)
                           /\ paddrLe blockstart referenceaddr
-                              && paddrLe referenceaddr (endAddr (blockrange bentry)) = true)
+                              && paddrLt referenceaddr (endAddr (blockrange bentry)) = true)
 ))
 }}.
 Proof.
@@ -331,7 +331,7 @@ Internal.findBlockInKSAux n currentkernelstructure idblock compoption
                     isNextKernList s kernelsList currentkernelstructure
                     /\ currentkernelstructure::kernelsList = firstKernList++[lastElem]
                     /\ lookup (CPaddr (lastElem + blkoffset + idx)) (memory s) beqAddr = Some (BE bentry)
-                    /\ paddrLe blockstart idblock && paddrLe idblock (endAddr (blockrange bentry)) = true)
+                    /\ paddrLe blockstart idblock && paddrLt idblock (endAddr (blockrange bentry)) = true)
 	)
 )
 }}.
