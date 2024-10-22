@@ -611,7 +611,10 @@ nextKernelIsValid s /\
 noDupListOfKerns s /\
 MPUsizeIsBelowMax s /\
 originIsParentBlocksStart s /\
-nextImpliesBlockWasCut s.
+nextImpliesBlockWasCut s /\
+blocksAddressesTypes s /\
+notPDTIfNotPDflag s /\
+nextKernAddrIsInSameBlock s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=
@@ -620,7 +623,8 @@ accessibleParentPaddrIsAccessibleIntoChild s /\
 sharedBlockPointsToChild s /\
 adressesRangePreservedIfOriginAndNextOk s /\
 childsBlocksPropsInParent s /\
-noChildImpliesAddressesNotShared s.
+noChildImpliesAddressesNotShared s /\
+kernelsAreNotAccessible s.
 
 (** ** Conjunction of all consistency properties *)
 Definition consistency s :=

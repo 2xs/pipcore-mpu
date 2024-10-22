@@ -46,7 +46,10 @@ Require Import Model.ADT.
 Lemma sizeOfBlock (blockentryaddr : paddr) (P :  state -> Prop) :
 {{fun s => P s /\ consistency s /\ isBE blockentryaddr s }}
 Internal.sizeOfBlock blockentryaddr
-{{fun _ s => P s /\ consistency s}}.
+{{fun blockSize s => P s /\ consistency s
+                    /\ exists startaddr endaddr, bentryStartAddr blockentryaddr startaddr s
+                      /\ bentryEndAddr blockentryaddr endaddr s
+                      /\ i blockSize = endaddr - startaddr }}.
 Proof.
 unfold sizeOfBlock.
 eapply bindRev.
@@ -67,5 +70,8 @@ eapply bindRev.
 	intros. simpl. split. apply H. split; try(split); try(lia).
   assert(endAddr <= maxIdx) by (rewrite maxIdxEqualMaxAddr; apply Hp). lia.
 }
-intro size. eapply weaken. apply ret. intros s Hprops. simpl. intuition.
+intro size. eapply weaken. apply ret. intros s Hprops. simpl. destruct Hprops as (Hprops & Hsub). intuition.
+exists startAddr. exists endAddr. split. assumption. split. assumption.
+unfold StateLib.Paddr.subPaddr in *. destruct (le_dec (endAddr - startAddr) maxIdx); try(exfalso; congruence).
+injection Hsub as Hres. rewrite <-Hres. simpl. reflexivity.
 Qed.

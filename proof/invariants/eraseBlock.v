@@ -50,6 +50,7 @@ Lemma eraseBlockAux timeout (startaddr curraddr endaddr: paddr) P:
                                     -> addr < endaddr
                                     -> lookup addr (memory s) beqAddr = None)
             /\ exists s0, P s0
+                /\ currentPartition s = currentPartition s0
                 /\ (forall addr: paddr, addr >= startaddr
                                         -> addr <= curraddr
                                         -> lookup addr (memory s) beqAddr = lookup addr (memory s0) beqAddr)
@@ -60,6 +61,7 @@ MAL.eraseBlockAux timeout startaddr curraddr
                                     -> addr < endaddr
                                     -> lookup addr (memory s) beqAddr = None)
               /\ exists s0, P s0
+                  /\ currentPartition s = currentPartition s0
                   /\ (forall addr: paddr, ~In addr (getAllPaddrBlock startaddr endaddr)
                                           -> lookup addr (memory s) beqAddr = lookup addr (memory s0) beqAddr) }}.
 Proof.
@@ -80,6 +82,7 @@ intro. eapply bindRev.
                                                         -> lookup addr (memory s) beqAddr = None)
                               /\ (exists s0,
                                      P s0
+                                     /\ currentPartition s = currentPartition s0
                                      /\ (forall addr : paddr,
                                           addr >= startaddr
                                           -> addr < curraddr
@@ -89,13 +92,13 @@ intro. eapply bindRev.
                                            -> lookup addr (memory s) beqAddr = lookup addr (memory s0) beqAddr))).
   simpl. destruct Hprops as (HlebStartCurr & HltStartEnd & HlebCurrEnd & Htimeout & HremovedAddr & Hs0). split.
   assumption. split. assumption. split. assumption. split. lia.
-  destruct Hs0 as [s0 (HP & HkeptAddrInside & HkeptAddr)]. split.
+  destruct Hs0 as [s0 (HP & Hcurr & HkeptAddrInside & HkeptAddr)]. split.
   - intros addr HgebAddrCurr HlebAddrEnd. destruct (beqAddr addr curraddr) eqn:HbeqAddrCurr.
     + rewrite <-DTL.beqAddrTrue in HbeqAddrCurr. subst addr. apply removeDupRemoved.
     + rewrite <-beqAddrFalse in HbeqAddrCurr. rewrite removeDupIdentity; try(assumption).
       assert(p addr <> p curraddr) by (apply DTL.paddrNeqNatNeqEquiv; assumption).
       apply HremovedAddr; try(lia).
-  - exists s0. split. assumption. split.
+  - exists s0. split. assumption. split. assumption. split.
     + intros addr HgebAddrStart HltAddrCurr.
       destruct (beqAddr addr curraddr) eqn:HbeqAddrCurr.
       {
@@ -115,8 +118,8 @@ intro. eapply bindRev.
 }
 intro. destruct (beqAddr curraddr startaddr) eqn:HbeqCurrStart.
 - rewrite <-DTL.beqAddrTrue in HbeqCurrStart. subst curraddr. eapply weaken. apply WP.ret. intros s Hprops.
-  simpl. destruct Hprops as (_ & _ & _ & _ & HremovedAddr & Hs0). destruct Hs0 as [s0 (HP & _ & HkeptAddr)].
-  split. assumption. exists s0. split; assumption.
+  simpl. destruct Hprops as (_ & _ & _ & _ & HremovedAddr & Hs0).
+  destruct Hs0 as [s0 (HP & Hcurr & _ & HkeptAddr)]. split. assumption. exists s0. split; try(split); assumption.
 - rewrite <-beqAddrFalse in HbeqCurrStart.
   assert(HbeqCurrStartP: p curraddr <> p startaddr).
   { apply DTL.paddrNeqNatNeqEquiv; assumption. }
@@ -126,18 +129,19 @@ intro. destruct (beqAddr curraddr startaddr) eqn:HbeqCurrStart.
     lia.
   }
   intro predAddr. eapply weaken. apply IHtimeout. intros s Hprops. simpl.
-  destruct Hprops as ((HlebStartCurr & HltStartEnd & HltCurrEndPlus & Htimeout & HremovedAddr & [s0 (HP &
+  destruct Hprops as ((HlebStartCurr & HltStartEnd & HltCurrEndPlus & Htimeout & HremovedAddr & [s0 (HP & Hcurr &
       HleftAddr & HkeptAddr)]) & Hpred). unfold StateLib.Paddr.pred in Hpred.
   destruct (Compare_dec.gt_dec curraddr 0); try(exfalso; congruence). injection Hpred as Hpred.
   rewrite <-Hpred. simpl. split. lia. split. assumption. split. lia. split. lia. split.
   + intros addr HltAddrCurrMin HlebAddrEnd. apply HremovedAddr; lia.
-  + exists s0. split. assumption. split; try(assumption). intros. apply HleftAddr; lia.
+  + exists s0. split. assumption. split. assumption. split; try(assumption). intros. apply HleftAddr; lia.
 Qed.
 
 Lemma eraseBlock (startaddr endaddr: paddr) P:
 {{ fun s => P s }}
 MAL.eraseBlock startaddr endaddr
 {{ fun succeded s => exists s0, P s0
+              /\ currentPartition s = currentPartition s0
               /\ (forall addr, In addr (getAllPaddrBlock startaddr endaddr)
                                 -> lookup addr (memory s) beqAddr = None)
               /\ (forall addr, ~In addr (getAllPaddrBlock startaddr endaddr)
@@ -153,7 +157,7 @@ unfold MAL.eraseBlock. eapply bindRev.
 intro isEndAddrBeforeStartAddr. destruct isEndAddrBeforeStartAddr.
 - eapply weaken. apply WP.ret. intros s Hprops. simpl. exists s. destruct Hprops as (HP & HleEndStart).
   unfold paddrLe in HleEndStart. apply eq_sym in HleEndStart. apply PeanoNat.Nat.leb_le in HleEndStart.
-  split. assumption. split.
+  split. assumption. split. reflexivity. split.
   + intros addr Hcontra. exfalso. unfold getAllPaddrBlock in Hcontra.
     assert(Hsub: endaddr - startaddr = 0) by lia. rewrite Hsub in Hcontra. simpl in Hcontra. congruence.
   + split; intros; reflexivity.
@@ -172,11 +176,11 @@ intro isEndAddrBeforeStartAddr. destruct isEndAddrBeforeStartAddr.
     lia. split. unfold MAL.N. assert(endaddr <= maxAddr) by (apply Hp). lia. split.
     + intros addr HgtAddrEndMin HltAddrEnd. exfalso. lia.
     + exists s. split. instantiate(1 := fun s => P s /\ startaddr < endaddr /\ endaddr - 1 = realEnd). simpl.
-      split. assumption. split; assumption. split; intros; reflexivity.
+      split. assumption. split; assumption. split. reflexivity. split; intros; reflexivity.
   }
   intro. eapply weaken. apply WP.ret. intros s Hprops. simpl.
-  destruct Hprops as (HremovedAddr & [s0 ((HP & Hbounds & _) & HkeptAddr)]). exists s0. split. assumption.
-  split; try(split); try(assumption); try(intro; exfalso; congruence). intros addr HaddrInBlock.
-  apply getAllPaddrBlockInclRev in HaddrInBlock.
+  destruct Hprops as (HremovedAddr & [s0 ((HP & Hbounds & _) & Hcurr & HkeptAddr)]). exists s0. split. assumption.
+  split. assumption. split; try(split); try(assumption); try(intro; exfalso; congruence).
+  intros addr HaddrInBlock. apply getAllPaddrBlockInclRev in HaddrInBlock.
   destruct HaddrInBlock as (HleStartAddr & HltAddrEnd & _). apply HremovedAddr; lia.
 Qed.

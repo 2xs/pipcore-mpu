@@ -3786,6 +3786,36 @@ eapply bindRev.
         (* END noChildImpliesAddressesNotShared *)
       }
 
+      assert(blocksAddressesTypes s).
+      { (* BEGIN blocksAddressesTypes s *)
+        assert(Hcons0: blocksAddressesTypes s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        intros block startaddr endaddr Hstart Hend. unfold bentryStartAddr in *. unfold bentryEndAddr in *.
+        rewrite <-HsEq in Hstart. rewrite <-HsEq in Hend. simpl in *.
+        destruct (beqAddr globalIdPD block) eqn:HbeqGlobBlock; try(exfalso; congruence). rewrite <-beqAddrFalse in *.
+        rewrite removeDupIdentity in Hstart; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in Hend; try(apply not_eq_sym; assumption).
+        specialize(Hcons0 block startaddr endaddr Hstart Hend).
+        destruct Hcons0 as [(HKS & HotherAddr) | [(HPDT & HotherAddr) | Hnull]].
+        - left. (*TODO HERE*)
+        - right. left.
+        - right. right.
+        (* END blocksAddressesTypes *)
+      }
+
+      assert(notPDTIfNotPDflag s).
+      { (* BEGIN notPDTIfNotPDflag s *)
+        assert(Hcons0: notPDTIfNotPDflag s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        
+        (* END notPDTIfNotPDflag *)
+      }
+
+      assert(nextKernAddrIsInSameBlock s).
+      { (* BEGIN nextKernAddrIsInSameBlock s *)
+        assert(Hcons0: nextKernAddrIsInSameBlock s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        
+        (* END nextKernAddrIsInSameBlock *)
+      }
+
       intuition.
 
     * (* Final state *)
