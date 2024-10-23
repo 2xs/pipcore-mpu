@@ -842,7 +842,7 @@ Definition findBlock (idPD: paddr) (addrInBlock : paddr) (blockResult: paddr) : 
 			  if negb r then (* not readable, stop *) ret false else
 			  if negb w then (* not writable, stop *) ret false else
 			  (* Copy block attributes in block result *)
-              copyBlock blockResultAddr blockAddr ;;
+              copyBlock blockResult blockAddr ;;
 		  ret true.
 
 (**
