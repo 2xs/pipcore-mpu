@@ -215,6 +215,7 @@ Definition isChild  s :=
 forall partition parent : paddr,
 In partition (getPartitions multiplexer s) ->
 pdentryParent partition parent s ->
+partition <> constantRootPartM ->
 In partition (getChildren parent s).
 
 
@@ -542,6 +543,7 @@ Definition blocksAddressesTypes s :=
 forall block startaddr endaddr,
 bentryStartAddr block startaddr s
 -> bentryEndAddr block endaddr s
+-> sh1entryPDchild (CPaddr (block + sh1offset)) nullAddr s
 -> (isKS startaddr s
       /\ (forall addr, In addr (getAllPaddrBlock startaddr endaddr)
           -> (isBE addr s \/ isSHE addr s \/ isSCE addr s))

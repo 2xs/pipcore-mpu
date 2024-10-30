@@ -451,7 +451,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
               flag blockBase bentryBases0; intuition.
         }
         rewrite HgetPartsEq. assumption.
-        unfold pdentryParent. rewrite HlookupPart. reflexivity.
+        unfold pdentryParent. rewrite HlookupPart. reflexivity. assumption.
       }
       unfold childPaddrIsIntoParent in HchildPaddr. apply HchildPaddr with partition; assumption.
     }
@@ -524,7 +524,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
       {
         unfold isChild in HisChild. apply HisChild.
         rewrite HgetPartsEq. assumption.
-        unfold pdentryParent. rewrite HlookupPart. reflexivity.
+        unfold pdentryParent. rewrite HlookupPart. reflexivity. assumption.
       }
       assert(HblockEquiv: blockInChildHasAtLeastEquivalentBlockInParent s)
           by (unfold consistency1 in *; intuition).
@@ -1437,7 +1437,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                 assert(HpartIsChild: In partition (getChildren pdparent s0)).
                 {
                   assert(HisChild: isChild s0) by (unfold consistency1 in *; intuition).
-                  apply HisChild. assumption. unfold pdentryParent. rewrite HlookupPart. assumption.
+                  apply HisChild. assumption. unfold pdentryParent. rewrite HlookupPart. assumption. assumption.
                 }
                 specialize(HPI pdparent child partition HparentIsPart HchildIsChild HpartIsChild HbeqChildPart).
                 assert(HaddrUsedChild: In addr (getUsedPaddr child s0)).
@@ -1475,7 +1475,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                 {
                   assert(HisChild: isChild s) by (unfold consistency1 in *; intuition).
                   apply HisChild. rewrite HgetPartEq. assumption. unfold pdentryParent. rewrite HlookupPart.
-                  assumption.
+                  assumption. assumption.
                 }
                 specialize(HPI pdparent child partition HparentIsPart HchildIsChild HpartIsChild HbeqChildPart).
                 assert(HaddrUsedChild: In addr (getUsedPaddr child s)).
@@ -1569,7 +1569,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
             rewrite Hparent. intuition.
             assert(HisChilds: isChild s) by (unfold consistency1 in *; intuition).
             apply HisChilds. rewrite HgetPartEq. assumption.
-            unfold pdentryParent. rewrite HlookupPart. assumption.
+            unfold pdentryParent. rewrite HlookupPart. assumption. assumption.
           }
           congruence.
         }
@@ -2858,7 +2858,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
          { (* BEGIN isChild s1 *)
            assert(Hcons0: isChild s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
            unfold isChild in *.
-           intros part parent HpartIsPartition HparentIsParent.
+           intros part parent HpartIsPartition HparentIsParent HbeqPartRoot.
            rewrite HgetPartEq in HpartIsPartition.
            assert(HparentIsParents0: StateLib.pdentryParent part parent s0).
            {
@@ -2871,7 +2871,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
              (* blockInParentPartitionAddr <> part *)
              rewrite <-beqAddrFalse in HbeqBlockPart. rewrite removeDupIdentity in HparentIsParent; intuition.
            }
-           specialize(Hcons0 part parent HpartIsPartition HparentIsParents0).
+           specialize(Hcons0 part parent HpartIsPartition HparentIsParents0 HbeqPartRoot).
            assert(HgetChildrenEq: getChildren parent s1 = getChildren parent s0).
            {
              rewrite Hs1. apply getChildrenEqBENoStartNoPresentChange with bentry.
@@ -2883,20 +2883,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                unfold parentOfPartitionIsPartition in HparentOfPart.
                specialize(HparentOfPart part p HlookupPart).
                destruct HparentOfPart as [Hparent'IsPart (HparentOfRoot & HparentPartNotEq)].
-               destruct (beqAddr part constantRootPartM) eqn:HbeqPartRoot.
-               { (* part = constantRootPartM *)
-                 rewrite <-DTL.beqAddrTrue in HbeqPartRoot. specialize(HparentOfRoot HbeqPartRoot).
-                 rewrite HparentOfRoot in *. subst parent.
-                 assert(Hnull: nullAddrExists s0)
-                      by (unfold consistency in *; unfold consistency1 in *; intuition).
-                 unfold nullAddrExists in Hnull. unfold isPADDR in Hnull.
-                 unfold getChildren in Hcons0.
-                 assert(Hcontra: ~In part []) by (apply in_nil).
-                 destruct (lookup nullAddr (memory s0) beqAddr); try(exfalso; congruence).
-                 destruct v; try(exfalso; congruence).
-               }
-               (* part <> constantRootPartM *)
-               rewrite <-beqAddrFalse in HbeqPartRoot. specialize(Hparent'IsPart HbeqPartRoot).
+               specialize(Hparent'IsPart HbeqPartRoot).
                destruct Hparent'IsPart as ([parentEntry Hparent'IsPart] & _). subst parent.
                rewrite Hparent'IsPart. trivial.
              - assumption.
@@ -3368,7 +3355,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
          assert(blocksAddressesTypes s1).
          { (* BEGIN blocksAddressesTypes s1 *)
            assert(Hcons0: blocksAddressesTypes s0) by (unfold consistency1 in *; intuition).
-           intros block startBlock endBlock Hstart Hend.
+           intros block startBlock endBlock Hstart Hend HPDchild.
            assert(Hboundss0: bentryStartAddr block startBlock s0 /\ bentryEndAddr block endBlock s0).
            {
              unfold bentryStartAddr in *. unfold bentryEndAddr in *. rewrite Hs1 in Hstart. rewrite Hs1 in Hend.
@@ -3380,8 +3367,11 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                 rewrite removeDupIdentity in Hstart; try(apply not_eq_sym; assumption).
                 rewrite removeDupIdentity in Hend; try(apply not_eq_sym; assumption). split; assumption.
            }
-           destruct Hboundss0 as (Hstarts0 & Hends0).
-           specialize(Hcons0 block startBlock endBlock Hstarts0 Hends0).
+           destruct Hboundss0 as (Hstarts0 & Hends0). unfold sh1entryPDchild in *. rewrite Hs1 in HPDchild.
+           simpl in *. destruct (beqAddr blockInParentPartitionAddr (CPaddr (block + sh1offset)))
+              eqn:HbeqBlockBlockBisSh1; try(exfalso; congruence). rewrite <-beqAddrFalse in *.
+           rewrite removeDupIdentity in HPDchild; try(apply not_eq_sym; assumption).
+           specialize(Hcons0 block startBlock endBlock Hstarts0 Hends0 HPDchild).
            destruct Hcons0 as [(HKS & HotherAddr) | [(HPDT & HotherAddr) | Hnull]].
            -- left. split.
               - unfold isKS in *. rewrite Hs1. simpl.
@@ -3804,7 +3794,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            {
              unfold StateLib.pdentryParent. rewrite HlookupParts0. assumption.
            }
-           specialize(HisChild partition pdparent HpartIsPart HpartIsChild).
+           specialize(HisChild partition pdparent HpartIsPart HpartIsChild HpartNotRoot).
            specialize(HPIs0 pdparent child partition HparentIsPart HchildIsChild HisChild HbeqChildPart
                        startChild HstartInChild).
            contradict HPIs0. unfold getUsedPaddr. apply in_or_app. right. assumption.
@@ -5014,13 +5004,17 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
              assert(blocksAddressesTypes s).
              { (* BEGIN blocksAddressesTypes s *)
                assert(Hcons0: blocksAddressesTypes s1) by (unfold consistency1 in *; intuition).
-               intros block startBlock endBlock Hstart Hend. unfold bentryStartAddr in Hstart.
+               intros block startBlock endBlock Hstart Hend HPDchild. unfold bentryStartAddr in Hstart.
                unfold bentryEndAddr in Hend. rewrite Hs in Hstart. rewrite Hs in Hend. simpl in *.
                destruct (beqAddr pdparent block) eqn:HbeqParentBlock; try(exfalso; congruence).
                rewrite <-beqAddrFalse in HbeqParentBlock.
                rewrite removeDupIdentity in Hstart; try(apply not_eq_sym; assumption).
                rewrite removeDupIdentity in Hend; try(apply not_eq_sym; assumption).
-               specialize(Hcons0 block startBlock endBlock Hstart Hend).
+               unfold sh1entryPDchild in HPDchild. rewrite Hs in HPDchild. simpl in *.
+               destruct (beqAddr pdparent (CPaddr (block + sh1offset))) eqn:HbeqParentSh1;
+                  try(exfalso; congruence). rewrite <-beqAddrFalse in *.
+               rewrite removeDupIdentity in HPDchild; try(apply not_eq_sym; assumption).
+               specialize(Hcons0 block startBlock endBlock Hstart Hend HPDchild).
                destruct Hcons0 as [(HKS & HotherAddr) | [(HPDT & HotherAddr) | Hnull]].
                -- left. split.
                   - unfold isKS in *. rewrite Hs. simpl.
@@ -5418,7 +5412,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
               {
                 unfold StateLib.pdentryParent. rewrite HlookupParts0. assumption.
               }
-              specialize(HisChild partition pdparent HpartIsPart HpartIsChild).
+              specialize(HisChild partition pdparent HpartIsPart HpartIsChild HpartNotRoot).
               specialize(HPIs0 pdparent child partition HparentIsPart HchildIsChild HisChild HbeqChildPart
                           startChild HstartInChild).
               contradict HPIs0. unfold getUsedPaddr. apply in_or_app. right. assumption.
@@ -6263,7 +6257,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
       assert(In partition (getChildren (parent entry) s)).
       {
         assert(HisChild: isChild s) by (unfold consistency1 in *; intuition). unfold isChild in HisChild.
-        apply HisChild.
+        apply HisChild; try(assumption).
         assert(HgetPartsEq: getPartitions multiplexer s = getPartitions multiplexer s0).
         {
           destruct HblockBase as [blockBase [bentryBase [bentryBases0 HblockBase]]]. unfold consistency in *.
@@ -6345,7 +6339,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
       }
       assert(HpartIsChild: In partition (getChildren (parent pdentry) s)).
       {
-        unfold isChild in HisChild. apply HisChild.
+        unfold isChild in HisChild. apply HisChild; try(assumption).
         rewrite HgetPartsEq. assumption.
         unfold pdentryParent. rewrite HlookupPart. reflexivity.
       }
@@ -7280,8 +7274,8 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
               assert(HpartIsChild: In partition (getChildren pdparent s)).
               {
                 assert(HisChild: isChild s) by (unfold consistency1 in *; intuition).
-                apply HisChild. rewrite HgetPartEq. assumption. unfold pdentryParent. rewrite HlookupPart.
-                assumption.
+                apply HisChild; try(assumption). rewrite HgetPartEq. assumption. unfold pdentryParent.
+                rewrite HlookupPart. assumption.
               }
               specialize(HPI pdparent child partition HparentIsPart HchildIsChild HpartIsChild HbeqChildPart).
               assert(HaddrUsedChild: In addr (getUsedPaddr child s)).
@@ -7349,7 +7343,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
             destruct HparentOfPart as (HpdparentIsPart & _). specialize(HpdparentIsPart HpartNotRoot).
             rewrite Hparent. intuition.
             assert(HisChilds: isChild s) by (unfold consistency1 in *; intuition).
-            apply HisChilds. rewrite HgetPartEq. assumption.
+            apply HisChilds; try(assumption). rewrite HgetPartEq. assumption.
             unfold pdentryParent. rewrite HlookupPart. assumption.
           }
           congruence.
@@ -8609,7 +8603,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
          { (* BEGIN isChild s1 *)
            assert(Hcons0: isChild s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
            unfold isChild in *.
-           intros part parent HpartIsPartition HparentIsParent.
+           intros part parent HpartIsPartition HparentIsParent HbeqPartRoot.
            rewrite HgetPartEq in HpartIsPartition.
            assert(HparentIsParents0: StateLib.pdentryParent part parent s0).
            {
@@ -8622,7 +8616,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
              (* blockInParentPartitionAddr <> part *)
              rewrite <-beqAddrFalse in HbeqBlockPart. rewrite removeDupIdentity in HparentIsParent; intuition.
            }
-           specialize(Hcons0 part parent HpartIsPartition HparentIsParents0).
+           specialize(Hcons0 part parent HpartIsPartition HparentIsParents0 HbeqPartRoot).
            assert(HgetChildrenEq: getChildren parent s1 = getChildren parent s0).
            {
              rewrite Hs1. apply getChildrenEqBENoStartNoPresentChange with bentry.
@@ -8634,20 +8628,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                unfold parentOfPartitionIsPartition in HparentOfPart.
                specialize(HparentOfPart part p HlookupPart).
                destruct HparentOfPart as [Hparent'IsPart (HparentOfRoot & HparentPartNotEq)].
-               destruct (beqAddr part constantRootPartM) eqn:HbeqPartRoot.
-               { (* part = constantRootPartM *)
-                 rewrite <-DTL.beqAddrTrue in HbeqPartRoot. specialize(HparentOfRoot HbeqPartRoot).
-                 rewrite HparentOfRoot in *. subst parent.
-                 assert(Hnull: nullAddrExists s0)
-                      by (unfold consistency in *; unfold consistency1 in *; intuition).
-                 unfold nullAddrExists in Hnull. unfold isPADDR in Hnull.
-                 unfold getChildren in Hcons0.
-                 assert(Hcontra: ~In part []) by (apply in_nil).
-                 destruct (lookup nullAddr (memory s0) beqAddr); try(exfalso; congruence).
-                 destruct v; try(exfalso; congruence).
-               }
-               (* part <> constantRootPartM *)
-               rewrite <-beqAddrFalse in HbeqPartRoot. specialize(Hparent'IsPart HbeqPartRoot).
+               specialize(Hparent'IsPart HbeqPartRoot).
                destruct Hparent'IsPart as ([parentEntry Hparent'IsPart] & _). subst parent.
                rewrite Hparent'IsPart. trivial.
              - assumption.
@@ -9119,7 +9100,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
          assert(blocksAddressesTypes s1).
          { (* BEGIN blocksAddressesTypes s1 *)
            assert(Hcons0: blocksAddressesTypes s0) by (unfold consistency1 in *; intuition).
-           intros block startBlock endBlock Hstart Hend.
+           intros block startBlock endBlock Hstart Hend HPDchild.
            assert(Hboundss0: bentryStartAddr block startBlock s0 /\ bentryEndAddr block endBlock s0).
            {
              unfold bentryStartAddr in *. unfold bentryEndAddr in *. rewrite Hs1 in Hstart. rewrite Hs1 in Hend.
@@ -9131,8 +9112,11 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                 rewrite removeDupIdentity in Hstart; try(apply not_eq_sym; assumption).
                 rewrite removeDupIdentity in Hend; try(apply not_eq_sym; assumption). split; assumption.
            }
-           destruct Hboundss0 as (Hstarts0 & Hends0).
-           specialize(Hcons0 block startBlock endBlock Hstarts0 Hends0).
+           destruct Hboundss0 as (Hstarts0 & Hends0). unfold sh1entryPDchild in *. rewrite Hs1 in HPDchild.
+           simpl in *. destruct (beqAddr blockInParentPartitionAddr (CPaddr (block+sh1offset)))
+             eqn:HbeqBlockBlockBisSh1; try(exfalso; congruence). rewrite <-beqAddrFalse in *.
+           rewrite removeDupIdentity in HPDchild; try(apply not_eq_sym; assumption).
+           specialize(Hcons0 block startBlock endBlock Hstarts0 Hends0 HPDchild).
            destruct Hcons0 as [(HKS & HotherAddr) | [(HPDT & HotherAddr) | Hnull]].
            -- left. split.
               - unfold isKS in *. rewrite Hs1. simpl.
@@ -9459,7 +9443,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            {
              unfold StateLib.pdentryParent. rewrite HlookupParts0. assumption.
            }
-           specialize(HisChild partition pdparent HpartIsPart HpartIsChild).
+           specialize(HisChild partition pdparent HpartIsPart HpartIsChild HpartNotRoot).
            specialize(HPIs0 pdparent child partition HparentIsPart HchildIsChild HisChild HbeqChildPart
                        startChild HstartInChild).
            contradict HPIs0. unfold getUsedPaddr. apply in_or_app. right. assumption.
@@ -9605,7 +9589,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            {
              unfold StateLib.pdentryParent. rewrite HlookupParts0. assumption.
            }
-           specialize(HisChild partition pdparent HpartIsPart HpartIsChild).
+           specialize(HisChild partition pdparent HpartIsPart HpartIsChild HpartNotRoot).
            specialize(HPIs0 pdparent child partition HparentIsPart HchildIsChild HisChild HbeqChildPart
                        startChild HstartInChild).
            contradict HPIs0. unfold getUsedPaddr. apply in_or_app. right. assumption.
@@ -10253,9 +10237,9 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
              assert(isChild s).
              { (* BEGIN isChild s *)
                assert(Hcons0: isChild s1) by (unfold consistency1 in *; intuition).
-               unfold isChild in *. intros part parent Hpart'IsPart HparentIsParent.
+               unfold isChild in *. intros part parent Hpart'IsPart HparentIsParent HbeqPartRoot.
                rewrite HgetPartitionsEq in Hpart'IsPart. rewrite HpdentryParentEq in HparentIsParent.
-               specialize(Hcons0 part parent Hpart'IsPart HparentIsParent).
+               specialize(Hcons0 part parent Hpart'IsPart HparentIsParent HbeqPartRoot).
                rewrite HgetChildrenEq. assumption.
                (* END isChild *)
              }
@@ -10721,13 +10705,17 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
              assert(blocksAddressesTypes s).
              { (* BEGIN blocksAddressesTypes s *)
                assert(Hcons0: blocksAddressesTypes s1) by (unfold consistency1 in *; intuition).
-               intros block startBlock endBlock Hstart Hend. unfold bentryStartAddr in Hstart.
+               intros block startBlock endBlock Hstart Hend HPDchild. unfold bentryStartAddr in Hstart.
                unfold bentryEndAddr in Hend. rewrite Hs in Hstart. rewrite Hs in Hend. simpl in *.
                destruct (beqAddr pdparent block) eqn:HbeqParentBlock; try(exfalso; congruence).
                rewrite <-beqAddrFalse in HbeqParentBlock.
                rewrite removeDupIdentity in Hstart; try(apply not_eq_sym; assumption).
                rewrite removeDupIdentity in Hend; try(apply not_eq_sym; assumption).
-               specialize(Hcons0 block startBlock endBlock Hstart Hend).
+               unfold sh1entryPDchild in *. rewrite Hs in HPDchild. simpl in *.
+               destruct (beqAddr pdparent (CPaddr (block + sh1offset))) eqn:HbeqParentSh1;
+                 try(exfalso; congruence). rewrite <-beqAddrFalse in *.
+               rewrite removeDupIdentity in HPDchild; try(apply not_eq_sym; assumption).
+               specialize(Hcons0 block startBlock endBlock Hstart Hend HPDchild).
                destruct Hcons0 as [(HKS & HotherAddr) | [(HPDT & HotherAddr) | Hnull]].
                -- left. split.
                   - unfold isKS in *. rewrite Hs. simpl.
@@ -11057,7 +11045,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
               {
                 unfold StateLib.pdentryParent. rewrite HlookupParts0. assumption.
               }
-              specialize(HisChild partition pdparent HpartIsPart HpartIsChild).
+              specialize(HisChild partition pdparent HpartIsPart HpartIsChild HpartNotRoot).
               specialize(HPIs0 pdparent child partition HparentIsPart HchildIsChild HisChild HbeqChildPart
                           startChild HstartInChild).
               contradict HPIs0. unfold getUsedPaddr. apply in_or_app. right. assumption.
@@ -11202,7 +11190,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
               {
                 unfold StateLib.pdentryParent. rewrite HlookupParts0. assumption.
               }
-              specialize(HisChild partition pdparent HpartIsPart HpartIsChild).
+              specialize(HisChild partition pdparent HpartIsPart HpartIsChild HpartNotRoot).
               specialize(HPIs0 pdparent child partition HparentIsPart HchildIsChild HisChild HbeqChildPart
                           startChild HstartInChild).
               contradict HPIs0. unfold getUsedPaddr. apply in_or_app. right. assumption.
@@ -11910,7 +11898,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
       assert(In partition (getChildren (parent entry) s)).
       {
         assert(HisChild: isChild s) by (unfold consistency1 in *; intuition). unfold isChild in HisChild.
-        apply HisChild.
+        apply HisChild; try(assumption).
         assert(HgetPartsEq: getPartitions multiplexer s = getPartitions multiplexer s0).
         {
           destruct HblockBase as [blockBase [bentryBase [bentryBases0 HblockBase]]]. unfold consistency in *.
@@ -11990,7 +11978,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
       }
       assert(HpartIsChild: In partition (getChildren (parent pdentry) s)).
       {
-        unfold isChild in HisChild. apply HisChild.
+        unfold isChild in HisChild. apply HisChild; try(assumption).
         rewrite HgetPartsEq. assumption.
         unfold pdentryParent. rewrite HlookupPart. reflexivity.
       }
@@ -12894,7 +12882,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
             destruct HparentOfPart as (HpdparentIsPart & _). specialize(HpdparentIsPart HpartNotRoot).
             rewrite Hparent. intuition.
             assert(HisChilds: isChild s) by (unfold consistency1 in *; intuition).
-            apply HisChilds. rewrite HgetPartEq. assumption.
+            apply HisChilds; try(assumption). rewrite HgetPartEq. assumption.
             unfold pdentryParent. rewrite HlookupPart. assumption.
           }
           congruence.
@@ -14135,7 +14123,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
          { (* BEGIN isChild s1 *)
            assert(Hcons0: isChild s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
            unfold isChild in *.
-           intros part parent HpartIsPartition HparentIsParent.
+           intros part parent HpartIsPartition HparentIsParent HbeqPartRoot.
            rewrite HgetPartEq in HpartIsPartition.
            assert(HparentIsParents0: StateLib.pdentryParent part parent s0).
            {
@@ -14148,7 +14136,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
              (* blockInParentPartitionAddr <> part *)
              rewrite <-beqAddrFalse in HbeqBlockPart. rewrite removeDupIdentity in HparentIsParent; intuition.
            }
-           specialize(Hcons0 part parent HpartIsPartition HparentIsParents0).
+           specialize(Hcons0 part parent HpartIsPartition HparentIsParents0 HbeqPartRoot).
            assert(HgetChildrenEq: getChildren parent s1 = getChildren parent s0).
            {
              rewrite Hs1. apply getChildrenEqBENoStartNoPresentChange with bentry.
@@ -14160,20 +14148,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                unfold parentOfPartitionIsPartition in HparentOfPart.
                specialize(HparentOfPart part p HlookupPart).
                destruct HparentOfPart as [Hparent'IsPart (HparentOfRoot & HparentPartNotEq)].
-               destruct (beqAddr part constantRootPartM) eqn:HbeqPartRoot.
-               { (* part = constantRootPartM *)
-                 rewrite <-DTL.beqAddrTrue in HbeqPartRoot. specialize(HparentOfRoot HbeqPartRoot).
-                 rewrite HparentOfRoot in *. subst parent.
-                 assert(Hnull: nullAddrExists s0)
-                      by (unfold consistency in *; unfold consistency1 in *; intuition).
-                 unfold nullAddrExists in Hnull. unfold isPADDR in Hnull.
-                 unfold getChildren in Hcons0.
-                 assert(Hcontra: ~In part []) by (apply in_nil).
-                 destruct (lookup nullAddr (memory s0) beqAddr); try(exfalso; congruence).
-                 destruct v; try(exfalso; congruence).
-               }
-               (* part <> constantRootPartM *)
-               rewrite <-beqAddrFalse in HbeqPartRoot. specialize(Hparent'IsPart HbeqPartRoot).
+               specialize(Hparent'IsPart HbeqPartRoot).
                destruct Hparent'IsPart as ([parentEntry Hparent'IsPart] & _). subst parent.
                rewrite Hparent'IsPart. trivial.
              - assumption.
@@ -14646,7 +14621,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
          assert(blocksAddressesTypes s1).
          { (* BEGIN blocksAddressesTypes s1 *)
            assert(Hcons0: blocksAddressesTypes s0) by (unfold consistency1 in *; intuition).
-           intros block startBlock endBlock Hstart Hend.
+           intros block startBlock endBlock Hstart Hend HPDchild.
            assert(Hboundss0: bentryStartAddr block startBlock s0 /\ bentryEndAddr block endBlock s0).
            {
              unfold bentryStartAddr in *. unfold bentryEndAddr in *. rewrite Hs1 in Hstart. rewrite Hs1 in Hend.
@@ -14658,8 +14633,11 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                 rewrite removeDupIdentity in Hstart; try(apply not_eq_sym; assumption).
                 rewrite removeDupIdentity in Hend; try(apply not_eq_sym; assumption). split; assumption.
            }
-           destruct Hboundss0 as (Hstarts0 & Hends0).
-           specialize(Hcons0 block startBlock endBlock Hstarts0 Hends0).
+           destruct Hboundss0 as (Hstarts0 & Hends0). unfold sh1entryPDchild in *. rewrite Hs1 in HPDchild.
+           simpl in *. destruct (beqAddr blockInParentPartitionAddr (CPaddr (block + sh1offset)))
+             eqn:HbeqBlockBlockBisSh1; try(exfalso; congruence). rewrite <-beqAddrFalse in *.
+           rewrite removeDupIdentity in HPDchild; try(apply not_eq_sym; assumption).
+           specialize(Hcons0 block startBlock endBlock Hstarts0 Hends0 HPDchild).
            destruct Hcons0 as [(HKS & HotherAddr) | [(HPDT & HotherAddr) | Hnull]].
            -- left. split.
               - unfold isKS in *. rewrite Hs1. simpl.
@@ -15082,7 +15060,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            {
              unfold StateLib.pdentryParent. rewrite HlookupParts0. assumption.
            }
-           specialize(HisChild partition pdparent HpartIsPart HpartIsChild).
+           specialize(HisChild partition pdparent HpartIsPart HpartIsChild HpartNotRoot).
            specialize(HPIs0 pdparent child partition HparentIsPart HchildIsChild HisChild HbeqChildPart
                        startChild HstartInChild).
            contradict HPIs0. unfold getUsedPaddr. apply in_or_app. right. assumption.
@@ -15817,9 +15795,9 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
              assert(isChild s).
              { (* BEGIN isChild s *)
                assert(Hcons0: isChild s1) by (unfold consistency1 in *; intuition).
-               unfold isChild in *. intros part parent Hpart'IsPart HparentIsParent.
+               unfold isChild in *. intros part parent Hpart'IsPart HparentIsParent HbeqPartRoot.
                rewrite HgetPartitionsEq in Hpart'IsPart. rewrite HpdentryParentEq in HparentIsParent.
-               specialize(Hcons0 part parent Hpart'IsPart HparentIsParent).
+               specialize(Hcons0 part parent Hpart'IsPart HparentIsParent HbeqPartRoot).
                rewrite HgetChildrenEq. assumption.
                (* END isChild *)
              }
@@ -16286,13 +16264,17 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
              assert(blocksAddressesTypes s).
              { (* BEGIN blocksAddressesTypes s *)
                assert(Hcons0: blocksAddressesTypes s1) by (unfold consistency1 in *; intuition).
-               intros block startBlock endBlock Hstart Hend. unfold bentryStartAddr in Hstart.
+               intros block startBlock endBlock Hstart Hend HPDchild. unfold bentryStartAddr in Hstart.
                unfold bentryEndAddr in Hend. rewrite Hs in Hstart. rewrite Hs in Hend. simpl in *.
                destruct (beqAddr pdparent block) eqn:HbeqParentBlock; try(exfalso; congruence).
                rewrite <-beqAddrFalse in HbeqParentBlock.
                rewrite removeDupIdentity in Hstart; try(apply not_eq_sym; assumption).
-               rewrite removeDupIdentity in Hend; try(apply not_eq_sym; assumption).
-               specialize(Hcons0 block startBlock endBlock Hstart Hend).
+               rewrite removeDupIdentity in Hend; try(apply not_eq_sym; assumption). unfold sh1entryPDchild in *.
+               rewrite Hs in HPDchild. simpl in *.
+               destruct (beqAddr pdparent (CPaddr (block + sh1offset))) eqn:HbeqParentSh1;
+                 try(exfalso; congruence). rewrite <-beqAddrFalse in *.
+               rewrite removeDupIdentity in HPDchild; try(apply not_eq_sym; assumption).
+               specialize(Hcons0 block startBlock endBlock Hstart Hend HPDchild).
                destruct Hcons0 as [(HKS & HotherAddr) | [(HPDT & HotherAddr) | Hnull]].
                -- left. split.
                   - unfold isKS in *. rewrite Hs. simpl.
@@ -16690,7 +16672,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
               {
                 unfold StateLib.pdentryParent. rewrite HlookupParts0. assumption.
               }
-              specialize(HisChild partition pdparent HpartIsPart HpartIsChild).
+              specialize(HisChild partition pdparent HpartIsPart HpartIsChild HpartNotRoot).
               specialize(HPIs0 pdparent child partition HparentIsPart HchildIsChild HisChild HbeqChildPart
                           startChild HstartInChild).
               contradict HPIs0. unfold getUsedPaddr. apply in_or_app. right. assumption.

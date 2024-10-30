@@ -2344,7 +2344,7 @@ assert(HlookupPdAddrs1: lookup pdAddr (memory s1) beqAddr = Some (PDT pdentry1))
 assert(HisChilds1: isChild s1).
 {
   unfold isChild in *.
-  intros part parent HpartIsPart HparentIsParent.
+  intros part parent HpartIsPart HparentIsParent HbeqPartRoot.
   rewrite HgetPartEq in HpartIsPart.
   assert(HparentIsParents0: StateLib.pdentryParent part parent s0).
   {
@@ -2357,7 +2357,7 @@ assert(HisChilds1: isChild s1).
     (* blockInParentPartitionAddr <> part *)
     rewrite <-beqAddrFalse in HbeqBlockPart. rewrite removeDupIdentity in HparentIsParent; intuition.
   }
-  specialize(HisChild part parent HpartIsPart HparentIsParents0).
+  specialize(HisChild part parent HpartIsPart HparentIsParents0 HbeqPartRoot).
   assert(HgetChildrenEq: getChildren parent s1 = getChildren parent s0).
   {
     rewrite Hs1. apply getChildrenEqBENoStartNoPresentChange with bentry.
@@ -2367,18 +2367,7 @@ assert(HisChilds1: isChild s1).
       unfold parentOfPartitionIsPartition in HparentIsPart.
       specialize(HparentIsPart part p HlookupPart).
       destruct HparentIsPart as [HparentIsPart (HparentOfRoot & HparentPartNotEq)].
-      destruct (beqAddr part constantRootPartM) eqn:HbeqPartRoot.
-      { (* part = constantRootPartM *)
-        rewrite <-DTL.beqAddrTrue in HbeqPartRoot. specialize(HparentOfRoot HbeqPartRoot).
-        rewrite HparentOfRoot in *. subst parent.
-        unfold nullAddrExists in Hnull. unfold isPADDR in Hnull.
-        unfold getChildren in HisChild.
-        assert(Hcontra: ~In part []) by (apply in_nil).
-        destruct (lookup nullAddr (memory s0) beqAddr); try(exfalso; congruence).
-        destruct v; try(exfalso; congruence).
-      }
-      (* part <> constantRootPartM *)
-      rewrite <-beqAddrFalse in HbeqPartRoot. specialize(HparentIsPart HbeqPartRoot).
+      specialize(HparentIsPart HbeqPartRoot).
       destruct HparentIsPart as ([parentEntry HparentIsPart] & _). subst parent.
       rewrite HparentIsPart. trivial.
     - assumption.
@@ -4621,7 +4610,7 @@ induction statesList.
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -5136,7 +5125,7 @@ induction statesList.
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -5913,7 +5902,7 @@ revert buildPart. induction statesList.
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -6438,7 +6427,7 @@ induction statesList.
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -6804,7 +6793,7 @@ induction statesList.
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -7191,7 +7180,7 @@ induction statesList.
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -7585,7 +7574,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
   }
   assert(HbuildPartIsChild: In pdbasepartition (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBases0. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBases0. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT pdbasepartition s0).
   {
@@ -7944,7 +7933,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
   }
   assert(HbuildPartIsChild: In pdbasepartition (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBases0. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBases0. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT pdbasepartition s0).
   {
@@ -8308,7 +8297,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
   }
   assert(HbuildPartIsChild: In pdbasepartition (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBases0. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBases0. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT pdbasepartition s0).
   {
@@ -8672,7 +8661,7 @@ induction statesList.
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -9028,7 +9017,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
   }
   assert(HbuildPartIsChild: In pdbasepartition (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBases0. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBases0. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT pdbasepartition s0).
   {
@@ -9378,7 +9367,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
   }
   assert(HbuildPartIsChild: In pdbasepartition (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBases0. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBases0. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT pdbasepartition s0).
   {
@@ -9728,7 +9717,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
   }
   assert(HbuildPartIsChild: In pdbasepartition (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBases0. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBases0. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT pdbasepartition s0).
   {
@@ -10066,7 +10055,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
   }
   assert(HbuildPartIsChild: In pdbasepartition (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBases0. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBases0. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT pdbasepartition s0).
   {
@@ -10483,7 +10472,7 @@ induction statesList.
   }
   assert(HbuildPartIsChild: In pdbasepartition (getChildren pdAddr sInit)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBasesInit'. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBasesInit'. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT pdbasepartition sInit).
   {
@@ -11048,7 +11037,7 @@ induction statesList.
   }
   assert(HbuildPartIsChild: In pdbasepartition (getChildren pdAddr sInit)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBasesInit'. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBasesInit'. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT pdbasepartition sInit).
   {
@@ -11613,7 +11602,7 @@ induction statesList.
   }
   assert(HbuildPartIsChild: In pdbasepartition (getChildren pdAddr sInit)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBasesInit'. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBasesInit'. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT pdbasepartition sInit).
   {
@@ -12495,7 +12484,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
       }
       assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
       {
-        apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+        apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
       }
       specialize(HPartIsolation pdAddr child buildPart HparentIsPartMult HchildIsChild HbuildPartIsChild
                   HbeqChildBuild startChild HstartInChild).
@@ -12872,7 +12861,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
       }
       assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
       {
-        apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+        apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
       }
       specialize(HPartIsolation pdAddr child buildPart HparentIsPartMult HchildIsChild HbuildPartIsChild
                   HbeqChildBuild startChild HstartInChild).
@@ -13239,7 +13228,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
       }
       assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
       {
-        apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+        apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
       }
       specialize(HPartIsolation pdAddr child buildPart HparentIsPartMult HchildIsChild HbuildPartIsChild
                   HbeqChildBuild startChild HstartInChild).
@@ -13605,7 +13594,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
       }
       assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
       {
-        apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+        apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
       }
       specialize(HPartIsolation pdAddr child buildPart HparentIsPartMult HchildIsChild HbuildPartIsChild
                   HbeqChildBuild startChild HstartInChild).
@@ -13791,7 +13780,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -14174,7 +14163,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -14561,7 +14550,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -15167,7 +15156,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
       }
       assert(HbuildPartIsChild: In pdbasepartition (getChildren pdAddr s0)).
       {
-        apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBases0. assumption.
+        apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBases0. assumption. assumption.
       }
       specialize(HPI pdAddr child pdbasepartition HpdAddrIsPart HchildIsChild HbuildPartIsChild
                   HbeqChildBuild startChild HstartInChild).
@@ -15672,7 +15661,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
       }
       assert(HbuildPartIsChild: In pdbasepartition (getChildren pdAddr s0)).
       {
-        apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBases0. assumption.
+        apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBases0. assumption. assumption.
       }
       specialize(HPI pdAddr child pdbasepartition HpdAddrIsPart HchildIsChild HbuildPartIsChild
                   HbeqChildBuild startChild HstartInChild).
@@ -15955,7 +15944,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -16341,7 +16330,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -16735,7 +16724,7 @@ revert bentryBuild. revert blockBuild. revert buildPart. revert parentsList. rev
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -17250,7 +17239,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -17659,7 +17648,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -18018,7 +18007,7 @@ Proof.
 intro HaddrAccMappeds. revert bentryBase. revert blockBase. revert buildPart. revert parentsList. revert s0.
 induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart (*_*) _ _ _ _ _ _ _ _ _ _ _ _
+  intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart _ _ _ _ _ _ _ _ _ _ _ _
         _ _ _ _ HbaseIsPDT HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList Hss0Eq]. subst s. apply in_or_app. right. assumption.
 - (* statesList = a::l *)
@@ -18070,7 +18059,7 @@ induction statesList.
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -18425,7 +18414,7 @@ Proof.
 intro HaddrAccMappeds. revert bentryBase. revert blockBase. revert buildPart. revert parentsList. revert s0.
 induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart (*_*) _ _ _ _ _ _ _ _ _ _ _ _
+  intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart _ _ _ _ _ _ _ _ _ _ _ _
         _ _ _ _ HbaseIsPDT HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList Hss0Eq]. subst s. apply in_or_app. right. assumption.
 - (* statesList = a::l *)
@@ -18477,7 +18466,7 @@ induction statesList.
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -18884,7 +18873,7 @@ induction statesList.
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -19332,7 +19321,7 @@ induction statesList.
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -19778,7 +19767,7 @@ induction statesList.
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -20221,7 +20210,7 @@ induction statesList.
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupParentsInit. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -20638,7 +20627,7 @@ induction statesList.
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBuilds0. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBuilds0. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -20989,7 +20978,7 @@ induction statesList.
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBuilds0. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBuilds0. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
@@ -21335,7 +21324,7 @@ induction statesList.
   }
   assert(HbuildPartIsChild: In buildPart (getChildren pdAddr s0)).
   {
-    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBuilds0. assumption.
+    apply HisChild. assumption. unfold pdentryParent. rewrite HlookupBuilds0. assumption. assumption.
   }
   assert(HbuildIsPDT: isPDT buildPart s0).
   {
