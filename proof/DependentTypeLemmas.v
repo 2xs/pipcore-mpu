@@ -4134,3 +4134,34 @@ revert index. induction searchList.
       assert(n = idxRes - S index) by lia. subst n. assumption.
 Qed.
 
+Lemma NotInPaddrListNotInPaddrFilterChild addr l s:
+~ In addr (getAllPaddrAux l s) -> ~ In addr (getAllPaddrAux (filter (childFilter s) l) s).
+Proof.
+intro HaddrNotInList. contradict HaddrNotInList. induction l; simpl in *; try(congruence).
+unfold childFilter at 1 in HaddrNotInList.
+destruct (lookup a (memory s) beqAddr) eqn:HlookupA; try(apply IHl; assumption).
+destruct v; try(apply IHl; assumption). apply in_or_app.
+destruct (Paddr.addPaddrIdx a sh1offset); try(right; apply IHl; assumption).
+destruct (lookup p (memory s) beqAddr); try(right; apply IHl; assumption).
+destruct v; try(right; apply IHl; assumption). destruct (PDflag s0); try(right; apply IHl; assumption).
+simpl in *. rewrite HlookupA in *. apply in_app_or in HaddrNotInList.
+destruct HaddrNotInList as [Hleft | Hright]; try(left; assumption). right; apply IHl; assumption.
+Qed.
+
+Lemma NoDupPaddrListNoDupPaddrFilterChild l s :
+NoDup (getAllPaddrAux l s) -> NoDup (getAllPaddrAux (filter (childFilter s) l) s).
+Proof.
+intro HNoDup.
+induction l.
+- intuition.
+- simpl in *. unfold childFilter at 1.
+  destruct (lookup a (memory s) beqAddr) eqn:HlookupA; try(apply IHl; assumption).
+  destruct v; try(apply IHl; assumption). apply Lib.NoDupSplitInclIff in HNoDup.
+  destruct HNoDup as ((HnoDupBlock & HnoDupRec) & Hdisjoint).
+  destruct (Paddr.addPaddrIdx a sh1offset); try(apply IHl; assumption).
+  destruct (lookup p (memory s) beqAddr); try(apply IHl; assumption). destruct v; try(apply IHl; assumption).
+  destruct (PDflag s0); try(apply IHl; assumption). simpl.
+  rewrite HlookupA. apply Lib.NoDupSplitInclIff. intuition. intros addr HaddrInBlock.
+  specialize(Hdisjoint addr HaddrInBlock). apply NotInPaddrListNotInPaddrFilterChild. assumption.
+Qed.
+

@@ -9027,7 +9027,7 @@ Qed.
 
 Lemma getKSEntriesInStructAuxEqPDT structure addr' newEntry s0 n entriesleft:
 structure <> addr' ->
-isPDT addr' s0 ->
+~ isBE addr' s0 ->
 getKSEntriesInStructAux n structure {|
 currentPartition := currentPartition s0;
 memory := add addr' (PDT newEntry)
@@ -9050,10 +9050,9 @@ induction n.
 	destruct (beqAddr addr' p) eqn:Haddr'Eq ; try(exfalso ; congruence).
 	rewrite <- DTL.beqAddrTrue in Haddr'Eq.
 	subst p.
-	unfold isPDT in *.
-	destruct (lookup addr' (memory s0) beqAddr) ; try(exfalso ; congruence).
-	destruct v ; try(exfalso ; congruence).
-	unfold s' at 1. simpl. rewrite beqAddrTrue. trivial.
+	unfold isBE in *. unfold s' at 1. simpl. rewrite beqAddrTrue.
+	destruct (lookup addr' (memory s0) beqAddr) ; try(reflexivity).
+	destruct v ; try(reflexivity). exfalso; intuition.
 
 	assert(HlookupEq : lookup p (memory s') beqAddr = lookup p (memory s0) beqAddr).
 	{ unfold s'. simpl.
@@ -9076,7 +9075,8 @@ Qed.
 
 Lemma getKSEntriesAuxEqPDT structure addr' newEntry s0 n:
 structure <> addr' ->
-isPDT addr' s0 ->
+~ isPADDR addr' s0 ->
+~ isBE addr' s0 ->
 getKSEntriesAux n structure {|
 currentPartition := currentPartition s0;
 memory := add addr' (PDT newEntry)
@@ -9096,50 +9096,49 @@ induction n.
 	fold getKSEntriesAux.
 	destruct (Paddr.addPaddrIdx structure nextoffset) eqn:Hoffset ; intuition.
 	destruct (beqAddr addr' p) eqn:Haddr'Eq ; try(exfalso ; congruence).
-	rewrite <- DTL.beqAddrTrue in Haddr'Eq.
-	subst p.
-	unfold isPDT in *.
-	destruct (lookup addr' (memory s0) beqAddr) ; try(exfalso ; congruence).
-	destruct v ; try(exfalso ; congruence).
-	unfold s' at 1. simpl. rewrite beqAddrTrue. trivial.
+	+ rewrite <- DTL.beqAddrTrue in Haddr'Eq.
+	  subst p. simpl. rewrite beqAddrTrue.
+	  unfold isPADDR in *.
+	  destruct (lookup addr' (memory s0) beqAddr) ; try(reflexivity).
+	  destruct v ; try(reflexivity). exfalso; intuition.
+  +
+	  assert(HlookupEq : lookup p (memory s') beqAddr = lookup p (memory s0) beqAddr).
+	  { unfold s'. simpl.
+		  rewrite Haddr'Eq.
+		  rewrite <- beqAddrFalse in *.
+	   	repeat rewrite removeDupIdentity ; intuition.
+	  }
+	  rewrite HlookupEq.
 
-	assert(HlookupEq : lookup p (memory s') beqAddr = lookup p (memory s0) beqAddr).
-	{ unfold s'. simpl.
-		rewrite Haddr'Eq.
-		rewrite <- beqAddrFalse in *.
-	 	repeat rewrite removeDupIdentity ; intuition.
-	}
-	rewrite HlookupEq.
+	  destruct (lookup p (memory s0) beqAddr) eqn:Hoffset' ; intuition.
+	  destruct v ; try(exfalso ; congruence) ; intuition.
 
-	destruct (lookup p (memory s0) beqAddr) eqn:Hoffset' ; intuition.
-	destruct v ; try(exfalso ; congruence) ; intuition.
+	  destruct (beqAddr addr' p0) eqn:Haddr'Eq0 ; try(exfalso ; congruence).
+	  rewrite <- DTL.beqAddrTrue in Haddr'Eq0.
+	  subst p0. simpl. rewrite beqAddrTrue.
+	  unfold isPADDR in *. unfold isBE in *.
+	  destruct (lookup addr' (memory s0) beqAddr) ; try(reflexivity).
+	  destruct v ; try(reflexivity). exfalso; intuition. exfalso; intuition.
 
-	destruct (beqAddr addr' p0) eqn:Haddr'Eq0 ; try(exfalso ; congruence).
-	rewrite <- DTL.beqAddrTrue in Haddr'Eq0.
-	subst p0.
-	unfold isPDT in *.
-	destruct (lookup addr' (memory s0) beqAddr) ; try(exfalso ; congruence).
-	destruct v ; try(exfalso ; congruence).
-	unfold s' at 1. simpl. rewrite beqAddrTrue. trivial.
-	assert(HlookupEq' : lookup p0 (memory s') beqAddr = lookup p0 (memory s0) beqAddr).
-	{ unfold s'. cbn.
-		rewrite Haddr'Eq0.
-		rewrite <- beqAddrFalse in *.
-	 	repeat rewrite removeDupIdentity ; intuition.
-	}
-	rewrite HlookupEq'.
+	  assert(HlookupEq' : lookup p0 (memory s') beqAddr = lookup p0 (memory s0) beqAddr).
+	  { unfold s'. cbn.
+		  rewrite Haddr'Eq0.
+		  rewrite <- beqAddrFalse in *.
+	   	repeat rewrite removeDupIdentity ; intuition.
+	  }
+	  rewrite HlookupEq'.
 
-	destruct (lookup p0 (memory s0) beqAddr) eqn:Hoffset'' ; intuition.
-	destruct v ; try(exfalso ; congruence) ; intuition.
-	f_equal.
-	apply getKSEntriesInStructAuxEqPDT ; intuition.
-  specialize (IHn p0).
-	destruct IHn ; intuition.
-	subst p0. unfold isPDT in *.
-	destruct (lookup addr' (memory s0) beqAddr) ; try(exfalso ; congruence).
-	destruct v ; try(exfalso ; congruence).
-	destruct (beqAddr p0 nullAddr) eqn:Hp0Null ; intuition.
-	apply getKSEntriesInStructAuxEqPDT ; intuition.
+	  destruct (lookup p0 (memory s0) beqAddr) eqn:Hoffset'' ; try(reflexivity).
+	  destruct v ; try(exfalso ; congruence) ; intuition.
+	  f_equal.
+	  apply getKSEntriesInStructAuxEqPDT ; intuition.
+    specialize (IHn p0).
+	  destruct IHn ; intuition.
+	  subst p0. unfold isBE in *.
+	  destruct (lookup addr' (memory s0) beqAddr) ; try(exfalso ; congruence).
+	  destruct v ; try(exfalso ; congruence). intuition.
+	  destruct (beqAddr p0 nullAddr) eqn:Hp0Null ; intuition.
+	  apply getKSEntriesInStructAuxEqPDT ; intuition.
 Qed.
 
 Lemma getKSEntriesEqPDT partition addr' newEntry s0 pdentry0:
@@ -9168,15 +9167,21 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 	destruct (beqAddr (structure pdentry0) nullAddr) eqn:structNull ; intuition.
 	assert(HEq :  (getKSEntriesAux maxNbPrepare (structure pdentry0) s') =
   (getKSEntriesAux maxNbPrepare (structure pdentry0) s0)).
-	{ apply getKSEntriesAuxEqPDT ; intuition.
-		unfold StructurePointerIsKS in *.
-		specialize (HstructKS partition pdentry0 Hlookuppds0).
-		unfold isKS in *.
-		subst partition.
-		destruct (lookup (structure pdentry0) (memory s0) beqAddr) ; try(exfalso ; congruence).
-		destruct v ; try(exfalso ; congruence).
-    rewrite <- beqAddrFalse in *.
-    intuition.
+	{ apply getKSEntriesAuxEqPDT.
+		- intro Hcontra. unfold StructurePointerIsKS in *.
+		  specialize (HstructKS partition pdentry0 Hlookuppds0).
+		  unfold isKS in *.
+		  subst partition.
+		  destruct (lookup (structure pdentry0) (memory s0) beqAddr) ; try(exfalso ; congruence).
+		  destruct v ; try(exfalso ; congruence).
+      rewrite <- beqAddrFalse in *.
+      intuition.
+    - unfold isPADDR. unfold isPDT in *.
+      destruct (lookup partition (memory s0) beqAddr); try(exfalso; congruence).
+      destruct v; try(exfalso; congruence). intro Hres. congruence.
+    - unfold isBE. unfold isPDT in *.
+      destruct (lookup partition (memory s0) beqAddr); try(exfalso; congruence).
+      destruct v; try(exfalso; congruence). intro Hres. congruence.
 	}
 	rewrite HEq.
 	intuition.
@@ -9189,23 +9194,30 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 	assert(HEq :  (getKSEntriesAux maxNbPrepare (structure p) s') =
   (getKSEntriesAux maxNbPrepare (structure p) s0)).
 	{
-		apply getKSEntriesAuxEqPDT ; intuition.
-		unfold StructurePointerIsKS in *.
-		specialize (HstructKS partition p Hlookupparts0).
-		unfold isKS in *.
-		subst addr'.
-		unfold isPDT in *.
-		destruct (lookup (structure p) (memory s0) beqAddr) ; try(exfalso ; congruence).
-		destruct v ; try(exfalso ; congruence).
-    rewrite <- beqAddrFalse in *.
-    intuition.
+		apply getKSEntriesAuxEqPDT.
+		- intro Hcontra. unfold StructurePointerIsKS in *.
+		  specialize (HstructKS partition p Hlookupparts0).
+		  unfold isKS in *.
+		  subst addr'.
+		  unfold isPDT in *.
+		  destruct (lookup (structure p) (memory s0) beqAddr) ; try(exfalso ; congruence).
+		  destruct v ; try(exfalso ; congruence).
+      rewrite <- beqAddrFalse in *.
+      intuition.
+    - unfold isPADDR. unfold isPDT in *.
+      destruct (lookup addr' (memory s0) beqAddr); try(exfalso; congruence).
+      destruct v; try(exfalso; congruence). intro Hres. congruence.
+    - unfold isBE. unfold isPDT in *.
+      destruct (lookup addr' (memory s0) beqAddr); try(exfalso; congruence).
+      destruct v; try(exfalso; congruence). intro Hres. congruence.
 	}
 	rewrite HEq.
 	intuition.
 Qed.
 
 Lemma getKSEntriesEqPDTNotInPart partition addr' newEntry s0:
-isPDT addr' s0 ->
+~ isPADDR addr' s0 ->
+~ isBE addr' s0 ->
 partition <> addr' ->
 StructurePointerIsKS s0 ->
 getKSEntries partition {|
@@ -9217,7 +9229,7 @@ Proof.
 set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
-intros Hlookupaddr's0 HpartNotEq HstructKS.
+intros Haddr'NotPADDRs0 Haddr'NotBEs0 HpartNotEq HstructKS.
 unfold getKSEntries.
 unfold s' at 1. simpl lookup.
 destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
@@ -9240,11 +9252,10 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 		specialize (HstructKS partition p Hlookupparts0).
 		unfold isKS in *.
 		subst addr'.
-		unfold isPDT in *.
-		destruct (lookup (structure p) (memory s0) beqAddr) ; try(exfalso ; congruence).
-		destruct v ; try(exfalso ; congruence).
-    rewrite <- beqAddrFalse in *.
-    intuition.
+		unfold isBE in *.
+    rewrite <- beqAddrFalse in *. specialize(HstructKS structNull).
+		destruct (lookup (structure p) (memory s0) beqAddr) ; try(intuition ; congruence).
+		destruct v ; intuition.
 	}
 	rewrite HEq.
 	intuition.
@@ -11383,7 +11394,9 @@ memory := _ |}).
 intros Hlookupaddr's0 HpartNotEq HstructEq.
 unfold getMappedBlocks.
 	assert(HEq :  getKSEntries partition s' = getKSEntries partition s0).
-	{ apply getKSEntriesEqPDTNotInPart ; intuition.
+	{ apply getKSEntriesEqPDTNotInPart; unfold isPDT in *; intuition.
+    unfold isPADDR in *. destruct (lookup addr' (memory s0) beqAddr); try(congruence). destruct v; congruence.
+    unfold isBE in *. destruct (lookup addr' (memory s0) beqAddr); try(congruence). destruct v; congruence.
 	}
 rewrite HEq.
 
@@ -17003,6 +17016,10 @@ subst s.
 assert(HPDTaddr's0 : isPDT addr' s0)
 	by (unfold isPDT ; rewrite Haddr'lookups0 ; trivial).
 intuition.
+assert(~ isPADDR addr' s0).
+{ unfold isPADDR. rewrite Haddr'lookups0. intro. congruence. }
+assert(~ isBE addr' s0).
+{ unfold isBE. rewrite Haddr'lookups0. intro. congruence. }
 eapply getKSEntriesEqPDTNotInPart ; intuition.
 eapply getMappedPaddrEqPDTNotInPart; intuition.
 eapply getConfigPaddrEqPDTNotInPart with pdentry0 ; intuition.
@@ -19355,6 +19372,37 @@ rewrite HstartEq. rewrite <-length_app. f_equal. unfold getAllPaddrBlock.
 assert(endAddr (blockrange bentry0) <= maxAddr) by (apply Hp). apply getAllPaddrBlockAuxCut; lia.
 Qed.
 
+Lemma getKSEntriesEqPDTNewEmptyPart partition newPart newPDEntry s0:
+(lookup newPart (memory s0) beqAddr = None
+  \/ exists pdentry, lookup newPart (memory s0) beqAddr = Some(PDT pdentry) /\ structure pdentry = nullAddr)
+-> structure newPDEntry = nullAddr
+-> StructurePointerIsKS s0
+-> getKSEntries partition
+         {|
+           currentPartition := currentPartition s0;
+           memory := add newPart (PDT newPDEntry) (memory s0) beqAddr
+         |} = getKSEntries partition s0.
+Proof.
+intros HlookupNew HbeqStructNull HstructIsKS.
+destruct (beqAddr newPart partition) eqn:HbeqNewPart.
+- unfold getKSEntries. rewrite <-DTL.beqAddrTrue in HbeqNewPart. subst partition.
+  set(s1:= {|
+             currentPartition := currentPartition s0;
+             memory := add newPart (PDT newPDEntry) (memory s0) beqAddr
+           |}).
+  assert(HlookupNews1: lookup newPart (memory s1) beqAddr = Some(PDT newPDEntry)).
+  {
+    simpl. rewrite beqAddrTrue. reflexivity.
+  }
+  rewrite HlookupNews1. rewrite DTL.beqAddrTrue in HbeqStructNull. rewrite HbeqStructNull.
+  destruct HlookupNew as [HlookupNew | [pdentry (HlookupNew & HbeqAncStructNull)]]; rewrite HlookupNew.
+  + reflexivity.
+  + rewrite DTL.beqAddrTrue in HbeqAncStructNull. rewrite HbeqAncStructNull. reflexivity.
+- rewrite <-beqAddrFalse in HbeqNewPart. apply not_eq_sym in HbeqNewPart.
+  apply getKSEntriesEqPDTNotInPart; try(assumption).
+  1,2: unfold isPADDR; unfold isBE; destruct HlookupNew as [HlookupNew | [pdentry (HlookupNew & _)]];
+        rewrite HlookupNew; intro; congruence.
+Qed.
 
 
 (*Lemma KSEntriesAuxConfigBlocksAuxEqAux :
