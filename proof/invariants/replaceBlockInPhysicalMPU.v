@@ -1980,7 +1980,8 @@ eapply bindRev.
 		             rewrite <- beqAddrFalse in Hpd2Null.
 		             unfold isKS in *. rewrite HeqStructGlob in *.
 		             rewrite Hlookups0 in *. intuition.
-              -- assumption.
+              -- unfold isPADDR. rewrite Hlookups0. intro Hcontra. contradict Hcontra.
+              -- unfold isBE. rewrite Hlookups0. intro Hcontra. contradict Hcontra.
 				- (* 2) globalIdPD <> pd1 *)
           (* similarly, we must prove optionfreeslotslist1 is strictly
 	           the same at s than at s0 by recomputing each
@@ -2040,7 +2041,8 @@ eapply bindRev.
 		             rewrite <- beqAddrFalse in Hpd1Null.
 		             unfold isKS in *. rewrite HeqStructGlob in *.
 		             rewrite Hlookups0 in *. intuition.
-              -- assumption.
+              -- unfold isPADDR. rewrite Hlookups0. intro Hcontra. contradict Hcontra.
+              -- unfold isBE. rewrite Hlookups0. intro Hcontra. contradict Hcontra.
               -- apply Lib.disjointPermut. intuition.
           + (* 2) 2. globalIdPD <> pd2 *)
 					  (* show strict equality of listoption1 at s and s0
@@ -2088,7 +2090,9 @@ eapply bindRev.
 												 are still disjoint at s*)
               (* specialize disjoint for pd1 and pd2 at s0 *)
               intuition.
-              -- subst optionentrieslist1. apply eq_sym. rewrite <-HsEq. apply getKSEntriesAuxEqPDT; intuition.
+              -- subst optionentrieslist1. apply eq_sym. rewrite <-HsEq. apply getKSEntriesAuxEqPDT;
+                     try(unfold isPADDR; unfold isBE; rewrite Hlookups0; intro Hcontra; contradict Hcontra).
+                 intuition.
                  assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
 			                  by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 		             unfold StructurePointerIsKS in *.
@@ -2265,7 +2269,7 @@ eapply bindRev.
         assert(Hcons0 : isChild s0)
 	        by (unfold consistency in * ; unfold consistency1 in * ; intuition).
         unfold isChild.
-        intros pd parent HparentInPartTree Hparententry.
+        intros pd parent HparentInPartTree Hparententry HbeqChildRoot.
         assert(HpdPDT : isPDT pd s).
         {
 	        apply partitionsArePDT ; intuition.
@@ -2299,7 +2303,7 @@ eapply bindRev.
 					}
           assert(Hparententrys0 : pdentryParent globalIdPD parent s0)
 						 by (rewrite HparententryEq in * ; assumption).
-					specialize (Hcons0 globalIdPD parent HpdInPartTrees0 Hparententrys0).
+					specialize (Hcons0 globalIdPD parent HpdInPartTrees0 Hparententrys0 HbeqChildRoot).
 					assert(HPDTparents : isPDT parent s0).
 					{
 						unfold getChildren in *.
@@ -2334,7 +2338,7 @@ eapply bindRev.
 					}
 					assert(Hparententrys0 : pdentryParent pd parent s0)
 						 by (rewrite HparententryEq in * ; assumption).
-					specialize (Hcons0 pd parent HpdInPartTrees0 Hparententrys0).
+					specialize (Hcons0 pd parent HpdInPartTrees0 Hparententrys0 HbeqChildRoot).
 					assert(HPDTparents : isPDT parent s0).
 					{
 					  unfold getChildren in *.
@@ -3655,7 +3659,8 @@ eapply bindRev.
           assert(HlookupBlockParentEq: lookup blockParent (memory s) beqAddr
                                         = lookup blockParent (memory s0) beqAddr).
           {
-            apply mappedBlockIsBE in HblockParentMapped. destruct HblockParentMapped as [bentry (HlookupBlock & _)].
+            apply mappedBlockIsBE in HblockParentMapped.
+            destruct HblockParentMapped as [bentry (HlookupBlock & _)].
             rewrite <-HsEq. simpl. destruct (beqAddr globalIdPD blockParent) eqn:HbeqGlobBlockParent.
             {
               rewrite <-DTL.beqAddrTrue in HbeqGlobBlockParent. subst blockParent. exfalso; congruence.
@@ -3789,30 +3794,89 @@ eapply bindRev.
       assert(blocksAddressesTypes s).
       { (* BEGIN blocksAddressesTypes s *)
         assert(Hcons0: blocksAddressesTypes s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-        intros block startaddr endaddr Hstart Hend. unfold bentryStartAddr in *. unfold bentryEndAddr in *.
-        rewrite <-HsEq in Hstart. rewrite <-HsEq in Hend. simpl in *.
-        destruct (beqAddr globalIdPD block) eqn:HbeqGlobBlock; try(exfalso; congruence). rewrite <-beqAddrFalse in *.
-        rewrite removeDupIdentity in Hstart; try(apply not_eq_sym; assumption).
-        rewrite removeDupIdentity in Hend; try(apply not_eq_sym; assumption).
-        specialize(Hcons0 block startaddr endaddr Hstart Hend).
+        intros block startaddr endaddr Hstart Hend HPDchild. unfold bentryStartAddr in *.
+        unfold bentryEndAddr in *. rewrite <-HsEq in Hstart. rewrite <-HsEq in Hend. simpl in *.
+        destruct (beqAddr globalIdPD block) eqn:HbeqGlobBlock; try(exfalso; congruence).
+        rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in Hstart; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in Hend; try(apply not_eq_sym; assumption). unfold sh1entryPDchild in *.
+        rewrite <-HsEq in HPDchild. simpl in *.
+        destruct (beqAddr globalIdPD (CPaddr (block + sh1offset))) eqn:HbeqGlobSh1; try(exfalso; congruence).
+        rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in HPDchild; try(apply not_eq_sym; assumption).
+        specialize(Hcons0 block startaddr endaddr Hstart Hend HPDchild).
         destruct Hcons0 as [(HKS & HotherAddr) | [(HPDT & HotherAddr) | Hnull]].
-        - left. (*TODO HERE*)
-        - right. left.
-        - right. right.
+        - left. split.
+          + unfold isKS in *. rewrite <-HsEq. simpl. destruct (beqAddr globalIdPD startaddr) eqn:HbeqGlobStart.
+            {
+              rewrite <-DTL.beqAddrTrue in HbeqGlobStart. subst startaddr. rewrite Hlookups0 in *. congruence.
+            }
+            rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
+          + intros addr HaddrInRange. specialize(HotherAddr addr HaddrInRange).
+            destruct HotherAddr as [HBE | [HSHE | HSCE]].
+            * left. unfold isBE in *. rewrite <-HsEq. simpl.
+              destruct (beqAddr globalIdPD addr) eqn:HbeqGlobAddr.
+              {
+                rewrite <-DTL.beqAddrTrue in HbeqGlobAddr. subst addr. rewrite Hlookups0 in *. congruence.
+              }
+              rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
+            * right. left. unfold isSHE in *. rewrite <-HsEq. simpl.
+              destruct (beqAddr globalIdPD addr) eqn:HbeqGlobAddr.
+              {
+                rewrite <-DTL.beqAddrTrue in HbeqGlobAddr. subst addr. rewrite Hlookups0 in *. congruence.
+              }
+              rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
+            * right. right. unfold isSCE in *. rewrite <-HsEq. simpl.
+              destruct (beqAddr globalIdPD addr) eqn:HbeqGlobAddr.
+              {
+                rewrite <-DTL.beqAddrTrue in HbeqGlobAddr. subst addr. rewrite Hlookups0 in *. congruence.
+              }
+              rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
+        - right. left. split.
+          + unfold isPDT in *. rewrite <-HsEq. simpl.
+            destruct (beqAddr globalIdPD startaddr) eqn:HbeqGlobStart; trivial. rewrite <-beqAddrFalse in *.
+            rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
+          + intros addr HaddrInRange. specialize(HotherAddr addr HaddrInRange). rewrite <-HsEq. simpl.
+            destruct (beqAddr globalIdPD addr) eqn:HbeqGlobAddr.
+            {
+              rewrite <-DTL.beqAddrTrue in HbeqGlobAddr. subst addr. exfalso; congruence.
+            }
+            rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+            assumption.
+        - right. right. intros addr HaddrInRange. specialize(Hnull addr HaddrInRange). rewrite <-HsEq. simpl.
+          destruct (beqAddr globalIdPD addr) eqn:HbeqGlobAddr.
+          {
+            rewrite <-DTL.beqAddrTrue in HbeqGlobAddr. subst addr. exfalso; congruence.
+          }
+          rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+          assumption.
         (* END blocksAddressesTypes *)
       }
 
       assert(notPDTIfNotPDflag s).
       { (* BEGIN notPDTIfNotPDflag s *)
         assert(Hcons0: notPDTIfNotPDflag s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-        
+        intros block startaddr sh1entryaddr Hstart Hsh1 HPDflag. unfold bentryStartAddr in *.
+        unfold sh1entryAddr in *. unfold sh1entryPDflag in *. rewrite <-HsEq in Hstart. rewrite <-HsEq in Hsh1.
+        rewrite <-HsEq in HPDflag. simpl in *.
+        destruct (beqAddr globalIdPD block) eqn:HbeqGlobBlock; try(exfalso; congruence).
+        destruct (beqAddr globalIdPD sh1entryaddr) eqn:HbeqGlobSh1; try(exfalso; congruence).
+        rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in Hstart; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in Hsh1; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HPDflag; try(apply not_eq_sym; assumption).
+        specialize(Hcons0 block startaddr sh1entryaddr Hstart Hsh1 HPDflag). unfold isPDT in *. rewrite <-HsEq.
+        simpl. destruct (beqAddr globalIdPD startaddr) eqn:HbeqGlobStart.
+        {
+          rewrite <-DTL.beqAddrTrue in HbeqGlobStart. subst startaddr. rewrite Hlookups0 in *.
+          exfalso; congruence.
+        }
+        rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
         (* END notPDTIfNotPDflag *)
       }
 
       assert(nextKernAddrIsInSameBlock s).
       { (* BEGIN nextKernAddrIsInSameBlock s *)
-        assert(Hcons0: nextKernAddrIsInSameBlock s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-        
+        assert(Hcons0: nextKernAddrIsInSameBlock s0)
+          by (unfold consistency in *; unfold consistency1 in *; intuition).
+        intros block kernel startaddr endaddr Hstart Hend HkernIsKS. (*TODO HERE*)
         (* END nextKernAddrIsInSameBlock *)
       }
 
@@ -6633,7 +6697,8 @@ eapply bindRev.
           assert(HlookupBlockParentEq: lookup blockParent (memory s) beqAddr
                                         = lookup blockParent (memory s0) beqAddr).
           {
-            apply mappedBlockIsBE in HblockParentMapped. destruct HblockParentMapped as [bentry (HlookupBlock & _)].
+            apply mappedBlockIsBE in HblockParentMapped.
+            destruct HblockParentMapped as [bentry (HlookupBlock & _)].
             rewrite <-HsEq. simpl. destruct (beqAddr globalIdPD blockParent) eqn:HbeqGlobBlockParent.
             {
               rewrite <-DTL.beqAddrTrue in HbeqGlobBlockParent. subst blockParent. exfalso; congruence.
