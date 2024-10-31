@@ -319,6 +319,132 @@ trivial.
 
 Qed.
 
+Lemma getAllPaddrAuxEqPDTNewPart blockList newPart newPDEntry s0:
+lookup newPart (memory s0) beqAddr = None
+-> getAllPaddrAux blockList {|
+						                  currentPartition := currentPartition s0;
+						                  memory := add newPart (PDT newPDEntry)
+                              (memory s0) beqAddr |}
+    = getAllPaddrAux blockList s0.
+Proof.
+intro HlookupNew. induction blockList.
+- simpl. reflexivity.
+- simpl. destruct (beqAddr newPart a) eqn:HbeqNewA.
+  + rewrite <-DTL.beqAddrTrue in HbeqNewA. subst a. rewrite HlookupNew. assumption.
+  + rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+    destruct (lookup a (memory s0) beqAddr); try(assumption). destruct v; try(assumption). f_equal. assumption.
+Qed.
+
+Lemma getConfigBlocksAuxEqPDTNewEmptyPart n kernel maxStructNbleft newPart newPDEntry s0:
+(lookup newPart (memory s0) beqAddr = None
+  \/ exists pdentry, lookup newPart (memory s0) beqAddr = Some(PDT pdentry) /\ structure pdentry = nullAddr)
+-> getConfigBlocksAux n kernel {|
+						                      currentPartition := currentPartition s0;
+						                      memory := add newPart (PDT newPDEntry)
+                                  (memory s0) beqAddr |} maxStructNbleft
+    = getConfigBlocksAux n kernel s0 maxStructNbleft.
+Proof.
+intros HlookupNews0. revert kernel maxStructNbleft. induction n; intros kernel maxStructNbleft; simpl;
+  try(reflexivity). destruct (beqAddr newPart kernel) eqn:HbeqNewKern.
++ rewrite <-DTL.beqAddrTrue in HbeqNewKern. subst kernel.
+  destruct HlookupNews0 as [HlookupNews0 | [pdentry (HlookupNews0 & Hstruct)]]; rewrite HlookupNews0; reflexivity.
++ rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+  destruct (lookup kernel (memory s0) beqAddr); try(reflexivity). destruct v; try(reflexivity).
+  destruct (Paddr.addPaddrIdx kernel nextoffset); try(reflexivity).
+  destruct (beqAddr newPart p) eqn:HbeqNewP.
+  * rewrite <-DTL.beqAddrTrue in HbeqNewP. subst p.
+    destruct HlookupNews0 as [HlookupNews0 | [pdentry (HlookupNews0 & Hstruct)]]; rewrite HlookupNews0;
+      reflexivity.
+  * rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+    destruct (lookup p (memory s0) beqAddr); try(reflexivity). destruct v; try(reflexivity).
+    destruct (Index.pred maxStructNbleft); try(reflexivity). f_equal. apply IHn.
+Qed.
+
+Lemma getConfigBlocksEqPDTNewEmptyPart partition newPart newPDEntry s0:
+(lookup newPart (memory s0) beqAddr = None
+  \/ exists pdentry, lookup newPart (memory s0) beqAddr = Some(PDT pdentry) /\ structure pdentry = nullAddr)
+-> structure newPDEntry = nullAddr
+-> nullAddrExists s0
+-> getConfigBlocks partition {|
+						                  currentPartition := currentPartition s0;
+						                  memory := add newPart (PDT newPDEntry)
+                              (memory s0) beqAddr |}
+    = getConfigBlocks partition s0.
+Proof.
+intros HlookupNews0 HbeqStructNull Hnull. unfold getConfigBlocks. simpl.
+destruct (beqAddr newPart partition) eqn:HbeqNewPart.
+- rewrite HbeqStructNull. rewrite <-DTL.beqAddrTrue in HbeqNewPart. subst partition.
+  unfold nullAddrExists in *. unfold isPADDR in *.
+  destruct HlookupNews0 as [HlookupNews0 | [pdentry (HlookupNews0 & Hstruct)]].
+  + rewrite HlookupNews0. rewrite MaxIdxNextEq. simpl. destruct (beqAddr newPart nullAddr) eqn:HbeqNewNull.
+    { simpl; reflexivity. }
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+    destruct (lookup nullAddr (memory s0) beqAddr); try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). destruct (beqAddr p nullAddr); simpl; reflexivity.
+  + rewrite HlookupNews0. rewrite Hstruct. rewrite MaxIdxNextEq. simpl.
+    destruct (beqAddr newPart nullAddr) eqn:HbeqNewNull.
+    { rewrite <-DTL.beqAddrTrue in HbeqNewNull. subst newPart. rewrite HlookupNews0 in *. exfalso; congruence. }
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+    destruct (lookup nullAddr (memory s0) beqAddr); try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). reflexivity.
+- rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+  destruct (lookup partition (memory s0) beqAddr); try(reflexivity). destruct v; try(reflexivity). f_equal.
+  apply getConfigBlocksAuxEqPDTNewEmptyPart. assumption.
+Qed.
+
+Lemma getAllPaddrConfigAuxEqPDTNewEmptyPart kernList newPart newPDEntry s0:
+(lookup newPart (memory s0) beqAddr = None
+  \/ exists pdentry, lookup newPart (memory s0) beqAddr = Some(PDT pdentry) /\ structure pdentry = nullAddr)
+-> getAllPaddrConfigAux kernList {|
+						                      currentPartition := currentPartition s0;
+						                      memory := add newPart (PDT newPDEntry)
+                                  (memory s0) beqAddr |}
+    = getAllPaddrConfigAux kernList s0.
+Proof.
+intro HlookupNews0. induction kernList; simpl; try(reflexivity).
+destruct (beqAddr newPart a) eqn:HbeqNewA.
+- rewrite <-DTL.beqAddrTrue in HbeqNewA. subst a.
+  destruct HlookupNews0 as [HlookupNews0 | [pdentry (HlookupNews0 & Hstruct)]]; rewrite HlookupNews0; assumption.
+- rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+  destruct (lookup a (memory s0) beqAddr); try(assumption). destruct v; try(assumption). f_equal. assumption.
+Qed.
+
+Lemma getConfigPaddrEqPDTNewEmptyPart partition newPart newPDEntry s0:
+(lookup newPart (memory s0) beqAddr = None
+  \/ exists pdentry, lookup newPart (memory s0) beqAddr = Some(PDT pdentry) /\ structure pdentry = nullAddr)
+-> structure newPDEntry = nullAddr
+-> nullAddrExists s0
+-> beqAddr newPart partition = false
+-> getConfigPaddr partition {|
+						                  currentPartition := currentPartition s0;
+						                  memory := add newPart (PDT newPDEntry)
+                              (memory s0) beqAddr |}
+    = getConfigPaddr partition s0.
+Proof.
+intros HlookupNews0 HbeqStructNull Hnull HbeqNewPart. unfold getConfigPaddr.
+rewrite getConfigBlocksEqPDTNewEmptyPart; try(assumption).
+rewrite getAllPaddrConfigAuxEqPDTNewEmptyPart; try(assumption). f_equal. simpl. rewrite HbeqNewPart.
+rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+destruct (lookup partition (memory s0) beqAddr); reflexivity.
+Qed.
+
+Lemma filterAccessibleEqPDTNewPart blockList newPart newPDEntry s0:
+(lookup newPart (memory s0) beqAddr = None
+  \/ exists pdentry, lookup newPart (memory s0) beqAddr = Some(PDT pdentry) /\ structure pdentry = nullAddr)
+-> filterAccessible blockList {|
+						                    currentPartition := currentPartition s0;
+						                    memory := add newPart (PDT newPDEntry)
+                                (memory s0) beqAddr |}
+    = filterAccessible blockList s0.
+Proof.
+intro HlookupNews0. induction blockList; simpl; try(reflexivity). destruct (beqAddr newPart a) eqn:HbeqNewA.
+- rewrite <-DTL.beqAddrTrue in HbeqNewA. subst a.
+  destruct HlookupNews0 as [HlookupNews0 | [pdentry (HlookupNews0 & Hstruct)]]; rewrite HlookupNews0; assumption.
+- rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+  destruct (lookup a (memory s0) beqAddr); try(assumption). destruct v; try(assumption).
+  destruct (accessible b); try(assumption). f_equal. assumption.
+Qed.
+
 Fixpoint completeParentsListRec timeout partition s :=
 match timeout with
 | S timeout1 =>
@@ -461,17 +587,6 @@ destruct (beqAddr a partition) eqn:HbeqAPart.
 - rewrite <-beqAddrFalse in HbeqAPart. specialize(IHn a HaIsPart HpartInPartsA HbeqAPart).
   revert IHn. apply parentIsInParentList; try(assumption). apply partitionsArePDT; assumption.
 Qed.
-
-(*Lemma NoDupListNoDupGetPDs l s:
-NoDup l -> NoDup (getPDs l s).
-Proof.
-intro HnoDup. unfold getPDs.
-assert(HnoDupFilter: NoDup (filter (childFilter s) l)).
-{ apply NoDup_filter. assumption. }
-induction (filter (childFilter s) l); simpl; try(apply NoDup_nil). apply NoDup_cons_iff in HnoDupFilter.
-apply NoDup_cons_iff. destruct HnoDupFilter as (HaNotInList & HnoDupFilterRec).
-split; try(apply IHl0; assumption).
-Qed.*)
 
 Lemma NotInPaddrListNotInGetPDsPaddr addr l s:
 (forall block, In block l -> exists bentry, lookup block (memory s) beqAddr = Some(BE bentry)
