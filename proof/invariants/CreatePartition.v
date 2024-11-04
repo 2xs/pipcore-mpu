@@ -4216,6 +4216,8 @@ intro. eapply bindRev.
     }
     assert(HpartIsPDT: isPDT part s).
     { unfold isPDT. rewrite HlookupPart. trivial. }
+    assert(HchildIsPDT: isPDT child s).
+    { apply childrenArePDT with part; assumption. }
     rewrite HgetPartsEq in HpartIsPart. rewrite HgetMappedBlocksEq in HblockMappedPart; try(assumption).
     rewrite HgetChildrenEq in HchildIsChild; try(assumption).
     assert(HlookupParts0: exists pdentryParts0, lookup part (memory s0) beqAddr = Some (PDT pdentryParts0)).
@@ -4255,27 +4257,131 @@ intro. eapply bindRev.
     }
     specialize(Hcons0 part pdentryParts0 block sh1entryaddr HpartIsPart HlookupParts0 HblockMappedPart Hsh1Bis
       HPDchilds0 child addr HchildIsChild HaddrInBlocks0).
-    (*TODO HERE finish the proof (destruct on start)*)
+    destruct (beqAddr newPDBlockStartAddr child) eqn:HbeqStartChild.
+    - rewrite <-DTL.beqAddrTrue in HbeqStartChild. subst child. unfold getMappedPaddr. unfold getMappedBlocks.
+      unfold getKSEntries. rewrite HlookupNewPDs. rewrite HnewPD. simpl. intro Hcontra. congruence.
+    - rewrite HgetMappedPaddrEq; assumption.
     (* END noChildImpliesAddressesNotShared *)
   }
   assert(kernelsAreNotAccessible s).
   { (* BEGIN kernelsAreNotAccessible s*)
     assert(Hcons0: kernelsAreNotAccessible s0) by (unfold consistency in *; unfold consistency2 in *; intuition).
-    
+    intros block startaddr Hstart HstartIsKS.
+    assert(Hstarts0: bentryStartAddr block startaddr s0).
+    {
+      unfold bentryStartAddr in *. rewrite Hs in Hstart. rewrite Hs3 in Hstart. simpl in *.
+      destruct (beqAddr currentPart block) eqn:HbeqCurrBlockBis; try(exfalso; congruence).
+      rewrite HbeqBlockCurr in *. simpl in *. destruct (beqAddr idBlock block) eqn:HbeqBlocks.
+      - rewrite <-DTL.beqAddrTrue in HbeqBlocks. subst block. rewrite HlookupBlocks0.
+        rewrite HnewBEntry in Hstart. simpl in *. assumption.
+      - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in Hstart; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in Hstart; try(apply not_eq_sym; assumption).
+        assert(newPDBlockStartAddr <> block).
+        { intro Hcontra. rewrite Hcontra in *. rewrite HlookupNewPDs2 in *. congruence. }
+        rewrite <-HlookupEqs2s0; assumption.
+    }
+    assert(HstartIsKSs0: isKS startaddr s0).
+    {
+      unfold isKS in *. rewrite Hs in HstartIsKS. rewrite Hs3 in HstartIsKS. simpl in *.
+      destruct (beqAddr currentPart startaddr) eqn:HbeqCurrStartBis; try(exfalso; congruence).
+      rewrite HbeqBlockCurr in *. simpl in *. destruct (beqAddr idBlock startaddr) eqn:HbeqBlockStart.
+      - rewrite <-DTL.beqAddrTrue in HbeqBlockStart. subst startaddr. rewrite HlookupBlocks0.
+        rewrite HnewBEntry in HstartIsKS. simpl in *. assumption.
+      - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in HstartIsKS; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HstartIsKS; try(apply not_eq_sym; assumption).
+        assert(newPDBlockStartAddr <> startaddr).
+        { intro Hcontra. rewrite Hcontra in *. rewrite HlookupNewPDs2 in *. congruence. }
+        rewrite <-HlookupEqs2s0; assumption.
+    }
+    specialize(Hcons0 block startaddr Hstarts0 HstartIsKSs0). unfold bentryAFlag in *. rewrite Hs. rewrite Hs3.
+    unfold bentryStartAddr in *. rewrite Hs in Hstart. rewrite Hs3 in Hstart. simpl in *.
+    destruct (beqAddr currentPart block) eqn:HbeqCurrBlockBis; try(exfalso; congruence).
+    rewrite HbeqBlockCurr in *. simpl in *. destruct (beqAddr idBlock block) eqn:HbeqBlocks.
+    - rewrite <-DTL.beqAddrTrue in HbeqBlocks. subst block. rewrite HnewBEntry. simpl. reflexivity.
+    - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in Hstart; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity in Hstart; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+      assert(newPDBlockStartAddr <> block).
+      { intro Hcontra. rewrite Hcontra in *. rewrite HlookupNewPDs2 in *. congruence. }
+      rewrite HlookupEqs2s0; assumption.
     (* END kernelsAreNotAccessible *)
   }
 
   assert(isBE blockInCurrentPartitionAddr s).
   {
-    
-  }
-  instantiate(1 := fun _ s =>
-    exists s3 s2 s1 s0 newBEntry bentry newPDEntry,
+    subst blockInCurrentPartitionAddr. unfold isBE. rewrite HlookupBlocks. trivial.
+  } Show Existentials.
+  (*Three props missing: notPDTIfNotPDflag s
+        accessibleParentPaddrIsAccessibleIntoChild s
+        sharedBlockPointsToChild s*)
+  instantiate(1 := fun s =>
+    exists s3 s2 s1 s0 newBentry bentry newPDEntry realMPU pdentry newPDCurr,
       s = {|
-            currentPartition := currentPartition s3; memory := add idBlock (BE newBEntry) (memory s3) beqAddr
+            currentPartition := currentPartition s3;
+            memory := add currentPart (PDT newPDCurr) (memory s3) beqAddr
           |}
+      /\ newPDCurr = {|
+                       structure := structure pdentry;
+                       firstfreeslot := firstfreeslot pdentry;
+                       nbfreeslots := nbfreeslots pdentry;
+                       nbprepare := nbprepare pdentry;
+                       parent := parent pdentry;
+                       MPU := MAL.removeBlockFromPhysicalMPUAux blockInCurrentPartitionAddr realMPU;
+                       vidtAddr := vidtAddr pdentry
+                     |}
+      /\ PDTIfPDFlag s
+      /\ wellFormedFstShadowIfBlockEntry s
+      /\ currentPartitionInPartitionsList s
+      /\ AccessibleNoPDFlag s
+      /\ FirstFreeSlotPointerIsBEAndFreeSlot s
+      /\ multiplexerIsPDT s
+      /\ sh1InChildLocationIsBE s
+      /\ StructurePointerIsKS s
+      /\ DisjointKSEntries s
+      /\ NextKSOffsetIsPADDR s
+      /\ wellFormedShadowCutIfBlockEntry s
+      /\ NextKSIsKS s
+      /\ maxNbPrepareIsMaxNbKernels s
+      /\ partitionTreeIsTree s
+      /\ blockInChildHasAtLeastEquivalentBlockInParent s
+      /\ noDupKSEntriesList s
+      /\ noDupMappedBlocksList s
+      /\ NoDupInFreeSlotsList s
+      /\ freeSlotsListIsFreeSlot s
+      /\ DisjointFreeSlotsLists s
+      /\ inclFreeSlotsBlockEntries s
+      /\ isParent s
+      /\ isChild s
+      /\ MPUsizeIsBelowMax s
+      /\ noDupPartitionTree s
+      /\ wellFormedBlock s
+      /\ parentOfPartitionIsPartition s
+      /\ NbFreeSlotsISNbFreeSlotsInList s
+      /\ originIsParentBlocksStart s
+      /\ nextImpliesBlockWasCut s
+      /\ nextKernAddrIsInSameBlock s
+      /\ blocksAddressesTypes s
+      /\ childsBlocksPropsInParent s
+      /\ noDupUsedPaddrList s
+      /\ adressesRangePreservedIfOriginAndNextOk s
+      /\ noChildImpliesAddressesNotShared s
+      /\ kernelEntriesAreValid s
+      /\ nextKernelIsValid s
+      /\ noDupListOfKerns s
+      /\ kernelsAreNotAccessible s
+      /\ KernelStructureStartFromBlockEntryAddrIsKS s
+      /\ BlocksRangeFromKernelStartIsBE s
+      /\ nullAddrExists s
+      /\ lookup currentPart (memory s) beqAddr = Some (PDT newPDCurr)
+      /\ lookup newPDBlockStartAddr (memory s) beqAddr = Some (PDT newPDEntry)
+      /\ lookup idBlock (memory s) beqAddr = Some (BE newBentry)
+      (* properties of s3 *)
+      /\ s3 = {|
+                currentPartition := currentPartition s2; memory := add idBlock (BE newBentry) (memory s2) beqAddr
+              |}
       /\ (exists l,
-            newBEntry =
+            newBentry =
             {|
               read := read bentry;
               write := write bentry;
@@ -4286,16 +4392,15 @@ intro. eapply bindRev.
               blockrange := blockrange bentry;
               Hidx := l
             |})
-      /\ wellFormedFstShadowIfBlockEntry s
-      /\ KernelStructureStartFromBlockEntryAddrIsKS s
-      /\ BlocksRangeFromKernelStartIsBE s
-      /\ nullAddrExists s
-      /\ isBE blockInCurrentPartitionAddr s
-      (* properties of s3 *)
-      /\ lookup idBlock (memory s3) beqAddr = Some (BE bentry)
-      /\ (forall addr, newPDBlockStartAddr <> addr
-            -> lookup addr (memory s3) beqAddr = lookup addr (memory s1) beqAddr)
-      /\ lookup newPDBlockStartAddr (memory s3) beqAddr = Some (PDT newPDEntry)
+      /\ lookup idBlock (memory s3) beqAddr = Some (BE newBentry)
+      /\ lookup currentPart (memory s3) beqAddr = Some (PDT pdentry)
+      /\ pdentryMPU currentPart realMPU s3
+      (* properties of s2 *)
+      /\ s2 =
+          {|
+            currentPartition := currentPartition s1;
+            memory := add newPDBlockStartAddr (PDT newPDEntry) (memory s1) beqAddr
+          |}
       /\ newPDEntry =
           {|
             structure := nullAddr;
@@ -4306,15 +4411,15 @@ intro. eapply bindRev.
             MPU := [];
             vidtAddr := nullAddr
           |}
-      /\ s3 =
+      /\ lookup currentPart (memory s2) beqAddr = Some (PDT pdentry)
+      /\ lookup idBlock (memory s2) beqAddr = Some (BE bentry)
+      /\ lookup newPDBlockStartAddr (memory s2) beqAddr = Some (PDT newPDEntry)
+      /\ (forall addr, newPDBlockStartAddr <> addr
+            -> lookup addr (memory s2) beqAddr = lookup addr (memory s0) beqAddr)
+      (* properties of s1 *)
+      /\ s1 =
           {|
-            currentPartition := currentPartition s2;
-            memory := add newPDBlockStartAddr (PDT newPDEntry) (memory s2) beqAddr
-          |}
-      (* properties of s2 *)
-      /\ s2 =
-          {|
-            currentPartition := currentPartition s1;
+            currentPartition := currentPartition s0;
             memory :=
               add newPDBlockStartAddr
                 (PDT
@@ -4326,24 +4431,51 @@ intro. eapply bindRev.
                      parent := nullAddr;
                      MPU := [];
                      vidtAddr := nullAddr
-                   |}) (memory s1) beqAddr
+                   |}) (memory s0) beqAddr
           |}
-      (* properties of s1 *)
-      /\ (forall addr, In addr (getAllPaddrBlock newPDBlockStartAddr newPDBlockEndAddr)
-          -> lookup addr (memory s1) beqAddr = None)
-      /\ (forall addr, ~ In addr (getAllPaddrBlock newPDBlockStartAddr newPDBlockEndAddr)
-          -> lookup addr (memory s1) beqAddr = lookup addr (memory s0) beqAddr)
       (* properties of s0 *)
       /\ partitionsIsolation s0 /\ kernelDataIsolation s0 /\ verticalSharing s0 /\ consistency s0
       /\ isPDT currentPart s0
       /\ currentPart = currentPartition s0
       /\ bentryStartAddr idBlock newPDBlockStartAddr s0
-      /\ bentryEndAddr idBlock newPDBlockEndAddr s0 /\ isBlockInRAM idBlock isInRAM s0
+      /\ bentryEndAddr idBlock newPDBlockEndAddr s0
       /\ bentryAFlag idBlock true s0 /\ bentryPFlag idBlock true s0
       /\ In idBlock (getMappedBlocks currentPart s0)
       /\ lookup idBlock (memory s0) beqAddr = Some (BE bentry)
+      /\ lookup newPDBlockStartAddr (memory s0) beqAddr = None
       /\ (exists sh1entry sh1entryaddr, lookup sh1entryaddr (memory s0) beqAddr = Some (SHE sh1entry)
-            /\ sh1entryPDchild sh1entryaddr nullAddr s0 /\ sh1entryAddr idBlock sh1entryaddr s0)).
+            /\ sh1entryPDchild sh1entryaddr nullAddr s0 /\ sh1entryAddr idBlock sh1entryaddr s0)
+      (* other properties *)
+      /\ blockInCurrentPartitionAddr = idBlock
+      /\ beqAddr newPDBlockStartAddr idBlock = false
+      /\ beqAddr nullAddr idBlock = false
+      /\ minBlockSize = Constants.minBlockSize
+      /\ false = indexLt blockSize minBlockSize
+      /\ PDStructureTotalLength = Constants.PDStructureTotalLength
+      /\ false = indexLt blockSize PDStructureTotalLength
+      /\ i blockSize = newPDBlockEndAddr - newPDBlockStartAddr
+      /\ beqAddr idBlock currentPart = false
+      /\ newPDBlockStartAddr <> currentPart
+      /\ beqAddr currentPart newPDBlockStartAddr = false
+      (* properties needed for the missing consistency properties *)
+      /\ getPartitions multiplexer s = getPartitions multiplexer s0
+      /\ (forall part, In part (getPartitions multiplexer s0) -> getChildren part s = getChildren part s0)
+      /\ (forall addr, In addr (getAccessibleMappedPaddr currentPart s0)
+                        <-> In addr (getAllPaddrAux [idBlock] s ++ getAccessibleMappedPaddr currentPart s))
+      /\ (forall part,
+            isPDT part s
+            -> isPDT part s0
+            -> beqAddr newPDBlockStartAddr part = false
+            -> part <> currentPart
+            -> getAccessibleMappedPaddr part s0 = getAccessibleMappedPaddr part s)
+      /\ (forall part, isPDT part s -> beqAddr newPDBlockStartAddr part = false
+              -> getMappedPaddr part s = getMappedPaddr part s0)
+      /\ (forall part, isPDT part s0 -> beqAddr newPDBlockStartAddr part = false
+              -> getConfigPaddr part s = getConfigPaddr part s0)
+      /\ (forall part, isPDT part s -> beqAddr newPDBlockStartAddr part = false
+              -> getMappedBlocks part s = getMappedBlocks part s0)).
+  intuition. exists s3. exists s2. exists s1. exists s0. exists newBentry. exists bentry. exists newPDEntry.
+  exists realMPU. exists pdentry. exists newPDCurr. intuition. exists l. assumption.
 }
 intro. eapply bindRev.
 { (* MAL.readSCOriginFromBlockEntryAddr *)
