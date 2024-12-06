@@ -70,12 +70,19 @@ typedef _Bool boolean;
 #define NRF52832XXAA_INTERRUPT_NUMBER 39
 
 /*!
+ * \def SOFT_INTERRUPT_NUMBER
+ *
+ * \brief The number of software interrupt.
+ */
+#define SOFT_INTERRUPT_NUMBER 2
+
+/*!
  * \def VIDT_INTERRUPT_NUMBER
  *
  * \brief The number of exception entries in the VIDT.
  */
 #define VIDT_INTERRUPT_NUMBER \
-	ARMV7M_INTERRUPT_NUMBER + NRF52832XXAA_INTERRUPT_NUMBER
+	ARMV7M_INTERRUPT_NUMBER + NRF52832XXAA_INTERRUPT_NUMBER + SOFT_INTERRUPT_NUMBER
 
 /* Paddr */
 typedef void* paddr;
