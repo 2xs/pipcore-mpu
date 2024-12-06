@@ -92,6 +92,7 @@ Boot_Handler(void)
 	interface->vidtStart       = &__rootVidtStart;
 	interface->vidtEnd         = &__rootVidtEnd;
 	interface->root            = &__root;
+	interface->unusedRomStart  = &__unusedRomStart;
 	interface->romEnd          = &__romEnd;
 	interface->unusedRamStart  = &__unusedRamStart;
 	interface->ramEnd          = &__rootRamEnd;
