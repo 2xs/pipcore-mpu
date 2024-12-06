@@ -541,7 +541,7 @@ findMpuIndex(void *addr, size_t *idx)
 {
 	size_t i;
 
-	for (i = 0; i < MPU_NUM_REGIONS - 2; i++)
+	for (i = 0; i < MPU_NUM_REGIONS; i++)
 	{
 		if (isMappedInVirtualMpu(addr, i))
 		{
