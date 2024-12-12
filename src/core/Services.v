@@ -336,9 +336,8 @@ Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr)
 															resp. id = current partition or local id)
 		<<projectedSlotsNb>>			the number of requested slots, -1 if forced prepare
 		<<idRequisitionedBlock>>	the block used as the new kernel structure
-*)
+*) (*TODO update the doc*)
 Definition prepare (idPD : paddr)
-									(projectedSlotsNb : index)
 									(idRequisitionedBlock : paddr) : LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
 		perform currentPart := getCurPartition in
@@ -359,21 +358,21 @@ Definition prepare (idPD : paddr)
 
 		(* Check that there is a need for a prepare: nb of free slots not enough
 				to hold the projected slots or forced prepare) *)
-		perform currentFreeSlotsNb := readPDNbFreeSlots globalIdPD in
+		(*perform currentFreeSlotsNb := readPDNbFreeSlots globalIdPD in
 		perform isEnoughFreeSlots := Index.leb projectedSlotsNb currentFreeSlotsNb in
 		perform zero := Index.zero in
 		perform isForcedPrepare := Index.ltb projectedSlotsNb zero in
 		if isEnoughFreeSlots && negb isForcedPrepare
 		then (* no need for a prepare, stop*) ret false
-		else
+		else*)
 
 		(* Check that the nb of projected slots aren't superior to the max entries
 				that a prepare can offer (max kernel entries) in case not forced prepare*)
 		perform kernelentriesnb := getKernelStructureEntriesNb in
-		perform isOutsideBound := Index.ltb kernelentriesnb projectedSlotsNb in
+		(*perform isOutsideBound := Index.ltb kernelentriesnb projectedSlotsNb in
 		if negb isForcedPrepare && isOutsideBound
 		then (* bad arguments, stop*) ret false
-		else
+		else*)
 
 		(** The requisioned block becomes a kernel structure*)
 
@@ -752,6 +751,10 @@ Definition mapMPU 	(idPD: paddr)
 			perform addrIsPresent := readBlockPresentFromBlockEntryAddr
 																		blockToEnableAddr in
 			if negb addrIsPresent then (** block is not present *) ret false else
+      perform zero := Index.zero in
+      perform size := sizeOfBlock blockToEnableAddr in
+      perform addrHasCorrectSizeIfZero := checkMPUEntryZero blockToEnableAddr size in
+      if negb addrHasCorrectSizeIfZero && beqIdx MPURegionNb zero then ret false else
 
 			(** Remove the block from the MPU if it was already mapped *)
 			removeBlockFromPhysicalMPUIfAlreadyMapped globalIdPD blockToEnableAddr ;;

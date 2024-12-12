@@ -163,7 +163,7 @@ else  undefined 70.
 
 End Index.
 
-Definition constantRootPartM := CPaddr 0.
+Parameter constantRootPartM : paddr.
 
 Module Constants.
 (* #[deprecated(note="Use constantRootPartM instead.")] *)
