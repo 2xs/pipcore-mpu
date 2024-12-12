@@ -88,7 +88,6 @@ uint32_t getMaxNbPrepare(); //!<  The maximum number of prepare
 uint32_t getMPURegionsNb(void); //! The maximum number of physical MPU regions
 uint32_t getKernelStructureTotalLength(void);
 uint32_t getPDStructureTotalLength(void);
-extern uint32_t min_mpu_region;
 uint32_t getMinBlockSize(void);
 
 paddr getKernelStructureStartAddr(paddr blockentryaddr, uint32_t blockentryindex); //!< The start of the kernel structure frame
@@ -96,10 +95,12 @@ paddr getBlockEntryAddrFromKernelStructureStart(paddr blockentryaddr, uint32_t b
 paddr getSh1EntryAddrFromKernelStructureStart(paddr blockentryaddr, uint32_t blockentryindex); //!< The address of the shadow 1 entry
 paddr getSCEntryAddrFromKernelStructureStart(paddr blockentryaddr, uint32_t blockentryindex); //!< The address of the shadow cut entry
 paddr getNextAddrFromKernelStructureStart(paddr structureaddr); //!< The address of the next pointer
-uint32_t fit_mpu_region(uint32_t block_size);
+uint32_t roundUpTo32(uint32_t value);
+bool check_mpu_entry_0(paddr addr, uint32_t size);
 uint32_t next_pow2(uint32_t v);
 uint32_t powlog2(uint32_t v);
 uint32_t max_powlog2_alignment(uint32_t v);
+bool is_power_of_two(uint32_t v);
 block_t largest_covering_MPU_region(paddr blockentryaddr, paddr addrtocover); //!< Computes the largest MPU region mathing the ARMv7 MPU alignment constraints while covering the target address
 
 paddr getNullAddr(void); //!< Returns the default null address.

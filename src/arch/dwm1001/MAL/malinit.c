@@ -193,15 +193,6 @@ createAndRegisterRootPartition(void)
 }
 
 /*!
- * \brief Initialize the MAL global variables.
- */
-static inline void
-initializeMalGlobalVariables(void)
-{
-	min_mpu_region = getMinBlockSize() << 2;
-}
-
-/*!
  * \brief Initialize the Memory Abstraction Layer (MAL).
  */
 extern void
@@ -217,6 +208,5 @@ malInit(void)
 		PANIC("PIP: Failed to clear the MPU...\n");
 	}
 
-	initializeMalGlobalVariables();
 	createAndRegisterRootPartition();
 }

@@ -46,8 +46,6 @@
 
 uint32_t N = 1000;
 
-uint32_t min_mpu_region;
-
 uint32_t maxNbPrepare = MAXNBPREPARE;
 
 paddr nullAddr = NULL;
@@ -258,6 +256,28 @@ uint32_t max_powlog2_alignment(uint32_t v)
 }
 
 /*!
+ * \fn bool is_power_of_two(uint32_t v)
+ * \brief Checks that a value is a power of two.
+ *        https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
+ * \return true when v is a power of two, false otherwise.
+ */
+bool is_power_of_two(uint32_t v)
+{
+	return v && !(v & (v - 1));
+}
+
+/*!
+ * \fn uint32_t roundUpTo32(uint32_t v)
+ * \brief Rounds up value to the next multiple of 32
+ * \return the value round up to the next multiple of 32,
+ * or the value itself if it is already a multiple of 32.
+ */
+uint32_t roundUpTo32(uint32_t v)
+{
+	return (((v) + 31) & (~31));
+}
+
+/*!
  * \fn uint32_t getMinBlockSize(void)
  * \brief Returns the minimum size of a block in bytes (MPU region constraint).
  * \return The minimum size in bytes of an MPU region.
@@ -278,7 +298,7 @@ uint32_t getVidtSize(void)
 	 *
 	 * TODO: Do not hard-code the value.
 	 */
-	return 224;
+	return 228;
 }
 
 /*!
@@ -287,7 +307,7 @@ uint32_t getVidtSize(void)
  */
 uint32_t getPDStructureTotalLength(void)
 {
-	return fit_mpu_region(sizeof(PDTable_t));
+	return roundUpTo32(sizeof(PDTable_t));
 }
 
 /*!
@@ -296,21 +316,25 @@ uint32_t getPDStructureTotalLength(void)
  */
 uint32_t getKernelStructureTotalLength(void)
 {
-	return fit_mpu_region(sizeof(KStructure_t));
+	return roundUpTo32(sizeof(KStructure_t));
 }
 
-
 /*!
- * \fn uint32_t fit_mpu_region(uint32_t block_size)
- * \brief  	Adapts to the MPU region size constraints (in bytes)
- * \param block_size The original size in bytes of the memory block
- * \return The next highest power of 2 of the given block size,
- 			or the minimim MPU region size if too small.
+ * \fn bool check_mpu_entry_0(paddr addr, uint32_t size)
+ * \brief Checks that an address is valid regarding to MPU entry 0.
+ *
+ * \param addr Address of the memory block to be checked
+ * \param size Size of the memory block to be checked
+ *
+ * \retval false when size is less than getMinBlockSize or not a power of two
+ *               or addr % size is different from 0
+ * \retval true otherwise.
  */
-uint32_t fit_mpu_region(uint32_t block_size)
-{
-	uint32_t highest_pow2 = next_pow2(block_size);
-	return min_mpu_region < highest_pow2 ? highest_pow2 : min_mpu_region;
+bool check_mpu_entry_0(paddr addr, uint32_t size) {
+	if (size < getMinBlockSize() || (is_power_of_two(size) == false))
+		return false;
+
+	return ( (((uintptr_t)addr) % size) == 0 );
 }
 
 /*!
