@@ -320,7 +320,7 @@ uint32_t getKernelStructureTotalLength(void)
 }
 
 /*!
- * \fn bool check_mpu_entry_0(paddr addr, uint32_t size)
+ * \fn bool checkMPUEntryZero(paddr addr, uint32_t size)
  * \brief Checks that an address is valid regarding to MPU entry 0.
  *
  * \param addr Address of the memory block to be checked
@@ -330,7 +330,8 @@ uint32_t getKernelStructureTotalLength(void)
  *               or addr % size is different from 0
  * \retval true otherwise.
  */
-bool check_mpu_entry_0(paddr addr, uint32_t size) {
+
+bool checkMPUEntryZero(paddr addr, uint32_t size) {
 	if (size < getMinBlockSize() || (is_power_of_two(size) == false))
 		return false;
 

@@ -96,7 +96,7 @@ paddr getSh1EntryAddrFromKernelStructureStart(paddr blockentryaddr, uint32_t blo
 paddr getSCEntryAddrFromKernelStructureStart(paddr blockentryaddr, uint32_t blockentryindex); //!< The address of the shadow cut entry
 paddr getNextAddrFromKernelStructureStart(paddr structureaddr); //!< The address of the next pointer
 uint32_t roundUpTo32(uint32_t value);
-bool check_mpu_entry_0(paddr addr, uint32_t size);
+bool checkMPUEntryZero(paddr addr, uint32_t size);
 uint32_t next_pow2(uint32_t v);
 uint32_t powlog2(uint32_t v);
 uint32_t max_powlog2_alignment(uint32_t v);
