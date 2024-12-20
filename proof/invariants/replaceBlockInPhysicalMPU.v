@@ -3854,16 +3854,17 @@ eapply bindRev.
       assert(notPDTIfNotPDflag s).
       { (* BEGIN notPDTIfNotPDflag s *)
         assert(Hcons0: notPDTIfNotPDflag s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-        intros block startaddr sh1entryaddr Hstart Hsh1 HPDflag. unfold bentryStartAddr in *.
-        unfold sh1entryAddr in *. unfold sh1entryPDflag in *. rewrite <-HsEq in Hstart. rewrite <-HsEq in Hsh1.
-        rewrite <-HsEq in HPDflag. simpl in *.
+        intros block startaddr sh1entryaddr Hstart Hsh1 HPDflag HPDchild. unfold bentryStartAddr in *.
+        unfold sh1entryAddr in *. unfold sh1entryPDflag in *. unfold sh1entryPDchild in *. rewrite <-HsEq in Hstart.
+        rewrite <-HsEq in Hsh1. rewrite <-HsEq in HPDflag. rewrite <-HsEq in HPDchild. simpl in *.
         destruct (beqAddr globalIdPD block) eqn:HbeqGlobBlock; try(exfalso; congruence).
         destruct (beqAddr globalIdPD sh1entryaddr) eqn:HbeqGlobSh1; try(exfalso; congruence).
         rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in Hstart; try(apply not_eq_sym; assumption).
         rewrite removeDupIdentity in Hsh1; try(apply not_eq_sym; assumption).
         rewrite removeDupIdentity in HPDflag; try(apply not_eq_sym; assumption).
-        specialize(Hcons0 block startaddr sh1entryaddr Hstart Hsh1 HPDflag). unfold isPDT in *. rewrite <-HsEq.
-        simpl. destruct (beqAddr globalIdPD startaddr) eqn:HbeqGlobStart.
+        rewrite removeDupIdentity in HPDchild; try(apply not_eq_sym; assumption).
+        specialize(Hcons0 block startaddr sh1entryaddr Hstart Hsh1 HPDflag HPDchild). unfold isPDT in *.
+        rewrite <-HsEq. simpl. destruct (beqAddr globalIdPD startaddr) eqn:HbeqGlobStart.
         {
           rewrite <-DTL.beqAddrTrue in HbeqGlobStart. subst startaddr. rewrite Hlookups0 in *.
           exfalso; congruence.
@@ -3876,8 +3877,38 @@ eapply bindRev.
       { (* BEGIN nextKernAddrIsInSameBlock s *)
         assert(Hcons0: nextKernAddrIsInSameBlock s0)
           by (unfold consistency in *; unfold consistency1 in *; intuition).
-        intros block kernel startaddr endaddr Hstart Hend HkernIsKS. (*TODO HERE*)
+        intros block kernel startaddr endaddr Hstart Hend HkernIsKS. unfold bentryStartAddr in *.
+        unfold bentryEndAddr in *. unfold isKS in *. rewrite <-HsEq in Hstart. rewrite <-HsEq in Hend.
+        rewrite <-HsEq in HkernIsKS. simpl in *.
+        destruct (beqAddr globalIdPD block) eqn:HbeqGlobBlock; try(exfalso; congruence).
+        destruct (beqAddr globalIdPD kernel) eqn:HbeqGlobKern; try(exfalso; congruence).
+        rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in Hstart; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in Hend; try(apply not_eq_sym; assumption).
+        rewrite removeDupIdentity in HkernIsKS; try(apply not_eq_sym; assumption).
+        specialize(Hcons0 block kernel startaddr endaddr Hstart Hend HkernIsKS). assumption.
         (* END nextKernAddrIsInSameBlock *)
+      }
+
+      assert(blockBelongsToAPart s).
+      { (* BEGIN blockBelongsToAPart s *)
+        assert(Hcons0: blockBelongsToAPart s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        intros block HblockIsBE.
+        assert(HblockIsBEs0: isBE block s0).
+        {
+          unfold isBE in *. rewrite <-HsEq in HblockIsBE. simpl in *.
+          destruct (beqAddr globalIdPD block) eqn:HbeqGlobBlock; try(exfalso; congruence).
+          rewrite <-beqAddrFalse in *.
+          rewrite removeDupIdentity in HblockIsBE; try(apply not_eq_sym); assumption.
+        }
+        specialize(Hcons0 block HblockIsBEs0). destruct Hcons0 as [part (HpartBisIsPart & HblockMapped)].
+        exists part. (*TODO HERE*) rewrite HgetPartitionspdEq. split. assumption.
+        destruct (beqAddr part globalIdPD) eqn:HbeqParts.
+        - rewrite <-DTL.beqAddrTrue in HbeqParts. subst part.
+          assert(Hres: getMappedBlocks globalIdPD s = getMappedBlocks globalIdPD s0) by intuition.
+          rewrite Hres. assumption.
+        - rewrite <-beqAddrFalse in *. 
+        rewrite HmappedBlocksEq. assumption. getMappedBlocks s
+        (* END blockBelongsToAPart *)
       }
 
       intuition.
