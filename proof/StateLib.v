@@ -279,9 +279,7 @@ Fixpoint getAllPaddrPDTAux (pdtlist : list paddr) (s : state) :=
 match pdtlist with
 | [] => []
 | pd::list1 => match lookup pd (memory s) beqAddr with
-				| Some (PDT bentry) => getAllPaddrBlockAux 0
-															pd
-															(pd + Constants.PDStructureTotalLength) ++
+				| Some (PDT bentry) => getAllPaddrBlockAux 0 pd Constants.PDStructureTotalLength ++
 																getAllPaddrPDTAux list1 s
 				| _ => getAllPaddrPDTAux list1 s
 				end

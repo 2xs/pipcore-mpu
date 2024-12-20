@@ -45,6 +45,13 @@ intro HaNotInCons. split.
 - contradict HaNotInCons. apply in_or_app. right. assumption.
 Qed.
 
+Lemma in_or_app_neg (A: Type) (l m: list A) (a: A):
+~In a l /\ ~In a m -> ~In a (l++m).
+Proof.
+intro HaNotInCons. destruct HaNotInCons as (HaNotInL & HaNotInM). intro Hcontra. apply in_app_or in Hcontra.
+destruct Hcontra; congruence.
+Qed.
+
 
 Lemma NoDupSplit (A: Type) :
 forall l l': list A ,
