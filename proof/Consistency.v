@@ -558,6 +558,7 @@ forall block startaddr sh1entryaddr,
 bentryStartAddr block startaddr s
 -> sh1entryAddr block sh1entryaddr s
 -> sh1entryPDflag sh1entryaddr false s
+-> sh1entryPDchild sh1entryaddr nullAddr s
 -> ~ isPDT startaddr s.
 
 Definition kernelsAreNotAccessible s :=
@@ -573,6 +574,24 @@ bentryStartAddr block startaddr s
 -> isKS kernel s
 -> In (CPaddr (kernel + nextoffset)) (getAllPaddrBlock startaddr endaddr)
 -> kernel = startaddr.
+
+Definition blockBelongsToAPart s :=
+forall block,
+isBE block s
+-> exists partition, In partition (getPartitions multiplexer s) /\ In block (getMappedBlocks partition s).
+
+Definition PDflagMeansNoChild s :=
+forall block,
+isBE block s
+-> sh1entryPDflag (CPaddr (block + sh1offset)) true s <-> sh1entryPDchild (CPaddr (block + sh1offset)) nullAddr s.
+
+(*Definition isInChildIfPDchild s :=
+forall block partition child,
+In partition (getPartitions multiplexer s)
+-> In block (getMappedBlocks partition s)
+-> sh1entryPDchild (CPaddr (block + sh1offset)) child s
+-> child <> nullAddr
+-> In child (getChildren partition s) /\ incl (getAllPaddrAux [block] s) (getMappedPaddr child s).*)
 
 
 (** ** First batch of consistency properties *)
@@ -616,7 +635,9 @@ originIsParentBlocksStart s /\
 nextImpliesBlockWasCut s /\
 blocksAddressesTypes s /\
 notPDTIfNotPDflag s /\
-nextKernAddrIsInSameBlock s.
+nextKernAddrIsInSameBlock s /\
+blockBelongsToAPart s /\
+PDflagMeansNoChild s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=
