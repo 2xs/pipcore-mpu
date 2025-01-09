@@ -199,7 +199,7 @@ assert(HparentEq : getPartitions multiplexer s = getPartitions multiplexer s0).
         destruct Htrue as [pdentry (Hs & (Hlookups & (Hpdentry & HnbFreeSlots)))].
         rewrite Hs. apply getPartitionsEqPDT with entry1; intuition.
       + (* is_mapped = false *)
-        assert(Htrue: ~ is_true false) by intuition.
+        assert(Htrue: ~ is_true false) by (unfold is_true; intro Hcontra; congruence).
         apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
     - (* multiplexer <> globalIdPD *)
       rewrite <-DependentTypeLemmas.beqAddrFalse in HbeqMultiGlob.
@@ -486,7 +486,7 @@ assert(HparentEqs1 : getPartitions multiplexer s = getPartitions multiplexer s1)
       destruct Htrue as [pdentry (Hs & (Hlookups & (Hpdentry & HnbFreeSlots)))].
       rewrite Hs. apply getPartitionsEqPDT with entry1; intuition.
     + (* is_mapped = false *)
-      assert(Htrue: ~ is_true false) by intuition.
+      assert(Htrue: ~ is_true false) by (unfold is_true; intro Hcontra; congruence).
       apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
   - (* multiplexer <> globalIdPD *)
     rewrite <-DependentTypeLemmas.beqAddrFalse in HbeqMultiGlob.
@@ -675,7 +675,7 @@ assert(HparentEqs1 : getPartitions multiplexer s = getPartitions multiplexer s1)
       destruct Htrue as [pdentry (Hs & (Hlookups & (Hpdentry & HnbFreeSlots)))].
       rewrite Hs. apply getPartitionsEqPDT with entry1; intuition.
     + (* is_mapped = false *)
-      assert(Htrue: ~ is_true false) by intuition.
+      assert(Htrue: ~ is_true false) by (unfold is_true; intro Hcontra; congruence).
       apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
   - (* multiplexer <> globalIdPD *)
     rewrite <-DependentTypeLemmas.beqAddrFalse in HbeqMultiGlob.
