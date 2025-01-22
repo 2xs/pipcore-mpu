@@ -106,7 +106,7 @@ else  None.
 
 End Paddr.
 
-Definition is32Aligned (a : paddr) : bool := a/32=?0.
+Definition is32Aligned (a : paddr) : bool := a mod 32 =?0.
 
 Definition entryExists (blockentryaddr : paddr) memory : bool :=
 let entry :=  lookup blockentryaddr memory beqAddr  in

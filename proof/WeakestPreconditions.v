@@ -1070,7 +1070,7 @@ Lemma check32Aligned  (addrToCheck : paddr) (P : bool -> state -> Prop) :
 {{fun  s => P (StateLib.is32Aligned addrToCheck) s }}
 MAL.check32Aligned addrToCheck  {{P}}.
 Proof.
-unfold check32Aligned.
+unfold check32Aligned. unfold is32Aligned.
 eapply weaken. apply ret.
 intros. exact H.
 Qed.

@@ -174,6 +174,7 @@ Notation rootPart := constantRootPartM (only parsing).
 Definition kernelstructureidx := CIndex 0.
 
 Definition minBlockSize := CIndex 32.
+Axiom maxIdxBiggerThanMinBlock : maxIdx > 32.
 
 (**
  * The minimum VIDT block size for the nRF52832.

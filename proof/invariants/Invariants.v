@@ -2452,4 +2452,15 @@ exists (SHE {| PDchild := newPdChild; PDflag := PDflag sh1entry0;
   rewrite <-beqAddrFalse in HbeqBlockSh1Null. rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
 Qed.
 
+Lemma checkMPUEntryZero block size P:
+{{ fun s => P s }}
+MAL.checkMPUEntryZero block size
+{{ fun _ s => P s }}.
+Proof.
+unfold checkMPUEntryZero. (*eapply bindRev.
+{ (** MAL.check32Aligned **)
+  eapply weaken. apply check32Aligned. intros s Hprops. simpl. split. apply Hprops. lia.
+}
+intro is32Aligned.*) eapply weaken. apply WP.ret. intros s Hprops. simpl. apply Hprops.
+Qed.
 
