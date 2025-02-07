@@ -759,7 +759,8 @@ Fixpoint initBlockEntryRecAux 	(timeout : nat)
 									perform currEntryPointer := getBlockEntryAddrFromKernelStructureStart
 																								kernelStructureStartAddr
 																								indexCurr in
-									writeBlockEntryFromBlockEntryAddr currEntryPointer indexCurr nullAddr nextEntryPointer false false false false false;;
+									writeBlockEntryFromBlockEntryAddrLight currEntryPointer indexCurr nullAddr nextEntryPointer
+                      false false false false false;;
 
 									perform zero := Index.zero in
 									if beqIdx indexCurr zero
@@ -791,7 +792,7 @@ Definition initBlocksStructure (kernelStructureStartAddr : paddr) : LLI bool :=
 	perform lastEntryPointer := getBlockEntryAddrFromKernelStructureStart
 									 								kernelStructureStartAddr
 																	lastindex in
-	writeBlockEntryFromBlockEntryAddr lastEntryPointer lastindex nullAddr nullAddr false false false false false;;
+	writeBlockEntryFromBlockEntryAddrLight lastEntryPointer lastindex nullAddr nullAddr false false false false false;;
 	ret true.
 
 
@@ -811,7 +812,7 @@ Fixpoint initSh1EntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 										perform currEntryPointer := getBlockEntryAddrFromKernelStructureStart
 																									kernelStructureStartAddr
 																									indexCurr in
-										writeSh1EntryFromBlockEntryAddr currEntryPointer nullAddr false nullAddr;;
+										writeSh1EntryFromBlockEntryAddrLight currEntryPointer nullAddr false nullAddr;;
 										perform zero := Index.zero in
 										if beqIdx indexCurr zero
 										then (** STOP condition: parsed all entries *)
@@ -851,7 +852,7 @@ Fixpoint initSCEntryRecAux 	(timeout : nat) (kernelStructureStartAddr : paddr)
 										perform currEntryPointer := getBlockEntryAddrFromKernelStructureStart
 																									kernelStructureStartAddr
 																									indexCurr in
-										writeSCEntryFromBlockEntryAddr currEntryPointer nullAddr nullAddr;;
+										writeSCEntryFromBlockEntryAddrLight currEntryPointer nullAddr nullAddr;;
 										perform zero := Index.zero in
 										if beqIdx indexCurr zero
 										then (** STOP condition: parsed all entries *)
@@ -887,7 +888,7 @@ Definition initStructure (kernelStructureStartAddr kernelStructureEndAddr: paddr
 	initBlocksStructure kernelStructureStartAddr ;;
 	initSh1Structure kernelStructureStartAddr ;;
 	initSCStructure kernelStructureStartAddr ;;
-	writeNextFromKernelStructureStart kernelStructureStartAddr nullAddr ;;
+	writeNextFromKernelStructureStartLight kernelStructureStartAddr nullAddr ;;
 	ret true.
 
 (** The [deleteSharedBlocksInStructRecAux] function recursively removes all blocks

@@ -300,6 +300,46 @@ eapply bind .
 Qed.
 
 (* COPY *)
+Lemma writeBlockIndexFromBlockEntryAddr (entryaddr : paddr) blockidx  (P : unit -> state -> Prop) :
+{{fun  s => exists entry , lookup entryaddr s.(memory) beqAddr = Some (BE entry) /\
+P tt {|
+  currentPartition := currentPartition s;
+  memory := add entryaddr
+								(BE (CBlockEntry 	entry.(read) entry.(write) entry.(exec)
+																	entry.(present) entry.(accessible)
+																	blockidx entry.(blockrange)))
+              (memory s) beqAddr |} }} writeBlockIndexFromBlockEntryAddr entryaddr blockidx  {{P}}.
+Proof.
+unfold writeBlockIndexFromBlockEntryAddr. eapply bind.
+- intro s. simpl.
+ case_eq (lookup entryaddr s.(memory) beqAddr).
+   + intros v Hpage.
+     instantiate (1:= fun s s0 => s = s0 /\ exists entry , lookup entryaddr s.(memory) beqAddr = Some (BE entry) /\
+                                            P tt {| currentPartition := currentPartition s;
+                                                    memory := add entryaddr
+																						(BE (CBlockEntry entry.(read) entry.(write) entry.(exec)
+																												entry.(present) entry.(accessible)
+																												blockidx entry.(blockrange)))
+                                                                (memory s) beqAddr |}).
+     simpl in *.
+     case_eq v; intros; eapply weaken; try eapply undefined ;simpl;
+     subst;
+     cbn; intros;
+
+     try destruct H as (Hs & x & H1 & Hp); subst;
+     try rewrite H1 in Hpage; inversion Hpage; subst; try assumption.
+     eapply modify .
+     intros.
+     simpl.
+     assumption.
+   + intros Hpage; eapply weaken; try eapply undefined ;simpl.
+     intros s0 H0. destruct H0 as (Hs & x & H1 & Hp).
+     rewrite H1 in Hpage.
+     inversion Hpage.
+- eapply weaken. eapply get . intuition.
+Qed.
+
+(* COPY *)
 Lemma writeBlockPresentFromBlockEntryAddr  (entryaddr : paddr) (flag : bool)  (P : unit -> state -> Prop) :
 {{fun  s => exists entry , lookup entryaddr s.(memory) beqAddr = Some (BE entry) /\
 P tt {|
@@ -858,7 +898,8 @@ Qed.
 
 Lemma getSh1EntryAddrFromKernelStructureStart  (kernelStartAddr : paddr) (BlockEntryIndex : index)
 																	(P : paddr -> state -> Prop) :
-{{fun s =>  wellFormedFstShadowIfBlockEntry s /\ exists entry, lookup kernelStartAddr s.(memory) beqAddr = Some (BE entry)
+{{fun s =>  wellFormedFstShadowIfBlockEntry s
+          /\ exists entry, lookup kernelStartAddr s.(memory) beqAddr = Some (BE entry)
 					/\ P (CPaddr(kernelStartAddr + sh1offset + BlockEntryIndex)) s }}
 MAL.getSh1EntryAddrFromKernelStructureStart kernelStartAddr BlockEntryIndex
 {{P}}.
@@ -1083,4 +1124,66 @@ Proof.
 unfold MAL.copyBlock.
 eapply weaken. apply ret.
 intros. simpl. intuition.
+Qed.
+
+Lemma getNextAddrFromKernelStructureStart kernStart P:
+{{ fun s => P s }}
+getNextAddrFromKernelStructureStart kernStart
+{{ fun nextAddr s => P s /\ nextAddr = CPaddr (kernStart + nextoffset) }}.
+Proof.
+unfold getNextAddrFromKernelStructureStart. eapply weaken. apply ret. intros s Hprops. simpl. split. assumption.
+reflexivity.
+Qed.
+
+Lemma writeNextFromKernelStructureStart (kernel: paddr) newnext P:
+{{
+  fun s => P s /\ isPADDR (CPaddr (kernel + nextoffset)) s
+}}
+writeNextFromKernelStructureStart kernel newnext
+{{
+  fun _ s => exists s0, P s0 /\ isPADDR (CPaddr (kernel + nextoffset)) s0
+    /\ s = {|
+             currentPartition := currentPartition s0;
+             memory := add (CPaddr (kernel + nextoffset)) (PADDR newnext) (memory s0) beqAddr
+           |}
+}}.
+Proof.
+unfold writeNextFromKernelStructureStart. eapply bindRev.
+{ (** MAL.getNextAddrFromKernelStructureStart **)
+  eapply weaken. apply getNextAddrFromKernelStructureStart. intros s Hprops. simpl. apply Hprops.
+}
+intro nextaddr. eapply bindRev.
+{ (** Monad.get **)
+  eapply weaken. apply get. intros s Hprops. simpl.
+  instantiate(1 := fun s0 s1 => s0 = s1 /\ P s1 /\ isPADDR (CPaddr (kernel + nextoffset)) s1
+    /\ nextaddr = CPaddr (kernel + nextoffset)). simpl. intuition.
+}
+intro s. destruct (lookup nextaddr (memory s) beqAddr) eqn:HlookupNext.
+- destruct v; try(eapply weaken; try(apply undefined); intros s1 (Hs & HP & HPADDR & Hprops); subst nextaddr;
+    unfold isPADDR in *; subst s1; rewrite HlookupNext in *; congruence). eapply weaken. apply modify.
+  intros s0 (Hs & HP & HPADDR & Hprops). simpl. subst s0. subst nextaddr. exists s. split. assumption. split.
+  assumption. reflexivity.
+- eapply weaken. apply undefined. intros s0 (Hs & HP & HPADDR & Hprops). subst nextaddr. unfold isPADDR in *.
+  subst s0. rewrite HlookupNext in *. congruence.
+Qed.
+
+Lemma writeNextFromKernelStructureStartLight (kernel: paddr) newnext P:
+{{
+  fun s => P s
+}}
+writeNextFromKernelStructureStartLight kernel newnext
+{{
+  fun _ s => exists s0, P s0
+    /\ s = {|
+             currentPartition := currentPartition s0;
+             memory := add (CPaddr (kernel + nextoffset)) (PADDR newnext) (memory s0) beqAddr
+           |}
+}}.
+Proof.
+unfold writeNextFromKernelStructureStartLight. eapply bindRev.
+{ (** MAL.getNextAddrFromKernelStructureStartLight **)
+  eapply weaken. apply getNextAddrFromKernelStructureStart. intros s Hprops. simpl. apply Hprops.
+}
+intro nextaddr. eapply weaken. apply modify.
+  intros s0 (HP & Hnext). subst nextaddr. exists s0. split. assumption. reflexivity.
 Qed.

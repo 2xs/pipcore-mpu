@@ -146,7 +146,7 @@ MAL.eraseBlock startaddr endaddr
                                 -> lookup addr (memory s) beqAddr = None)
               /\ (forall addr, ~In addr (getAllPaddrBlock startaddr endaddr)
                                 -> lookup addr (memory s) beqAddr = lookup addr (memory s0) beqAddr)
-              /\ (succeded = false -> s = s0) }}.
+              /\ (succeded = false -> s = s0 /\ endaddr <= startaddr) }}.
 Proof.
 unfold MAL.eraseBlock. eapply bindRev.
 { (* Monad.ret *)
@@ -160,7 +160,7 @@ intro isEndAddrBeforeStartAddr. destruct isEndAddrBeforeStartAddr.
   split. assumption. split. reflexivity. split.
   + intros addr Hcontra. exfalso. unfold getAllPaddrBlock in Hcontra.
     assert(Hsub: endaddr - startaddr = 0) by lia. rewrite Hsub in Hcontra. simpl in Hcontra. congruence.
-  + split; intros; reflexivity.
+  + split; intros Hprops; try(split); try(reflexivity). assumption.
 - eapply bindRev.
   {
     eapply weaken. apply WP.Paddr.pred. intros s Hprops. simpl. destruct Hprops as (HP & HleEndStart).

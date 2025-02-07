@@ -1066,6 +1066,16 @@ rewrite PeanoNat.Nat.add_0_r.
 unfold BlocksRangeFromKernelStartIsBE in *. intuition.
 Qed.
 
+Lemma getBlockEntryAddrFromKernelStructureStartLight (kernelStartAddr : paddr) (blockidx : index) (P : state -> Prop) :
+{{ fun s => P s }}
+MAL.getBlockEntryAddrFromKernelStructureStart kernelStartAddr blockidx
+{{ fun (BEAddr : ADT.paddr) (s : state) => P s /\ BEAddr = CPaddr (kernelStartAddr + blkoffset + blockidx) }}.
+Proof.
+unfold MAL.getBlockEntryAddrFromKernelStructureStart.
+eapply weaken. apply ret.
+intros. simpl. split. apply H. reflexivity.
+Qed.
+
 Lemma getSh1EntryAddrFromKernelStructureStart (kernelStartAddr : paddr) (blockidx : index) (P : state -> Prop) :
 {{ fun s => P s }}
 MAL.getSh1EntryAddrFromKernelStructureStart kernelStartAddr blockidx
@@ -1122,6 +1132,77 @@ intro kernelStartAddr. simpl.
 	apply KSIsBE in H0.
 	apply isBELookupEq in H0. destruct H0. exists x0.
 	intuition.
+}
+Qed.
+
+Lemma getKernelStructureStartAddrLight (blockentryaddr : paddr) (blockidx : index)  (P : state -> Prop) :
+{{fun s => P s /\ isKS (CPaddr (blockentryaddr - blockidx)) s
+					/\ blockidx < kernelStructureEntriesNb
+					/\ bentryBlockIndex blockentryaddr blockidx s
+}}
+
+MAL.getKernelStructureStartAddr blockentryaddr blockidx
+{{ fun KSstart s => P s /\ isKS (CPaddr (blockentryaddr - blockidx)) s
+									/\ (exists entry, lookup KSstart s.(memory) beqAddr = Some (BE entry))
+									/\ KSstart = CPaddr (blockentryaddr - blockidx)}}.
+Proof.
+unfold MAL.getKernelStructureStartAddr. eapply bindRev.
+{ (** MALInternal.Paddr.subPaddrIdx *)
+  eapply weaken. apply Paddr.subPaddrIdx.
+  intros s Hprops. simpl. split. apply Hprops. split. lia. split. lia.
+  assert(blockentryaddr <= maxAddr) by (apply Hp). lia.
+}
+intro kernelStartAddr. simpl.
+{ (** ret *)
+  eapply weaken. apply ret.
+  intros s Hprops. simpl. split. apply Hprops. destruct Hprops as ((HP & HkernIsKS & HltIdxKernEntries & HblockIdx) &
+    HkernAddr). split. assumption. subst kernelStartAddr. split.
+  unfold isKS in *.
+  destruct (lookup (CPaddr (blockentryaddr - blockidx)) (memory s) beqAddr); try(exfalso; congruence).
+  destruct v; try(exfalso; congruence). exists b. reflexivity.
+  reflexivity.
+}
+Qed.
+
+Lemma getSh1EntryAddrFromBlockEntryAddrLight  (blockentryaddr : paddr) (Q : state -> Prop) :
+{{fun s => Q s
+          /\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)
+              /\ isKS (CPaddr (blockentryaddr - (blockindex entry))) s
+              /\ blockentryaddr >= blockindex entry }}
+MAL.getSh1EntryAddrFromBlockEntryAddr blockentryaddr
+{{ fun sh1entryaddr s => Q s /\ sh1entryaddr = CPaddr (blockentryaddr + sh1offset) }}.
+Proof.
+unfold MAL.getSh1EntryAddrFromBlockEntryAddr. eapply bindRev.
+{ (** MAL.readBlockIndexFromBlockEntryAddr *)
+  eapply weaken. apply readBlockIndexFromBlockEntryAddr.
+  intros s Hprops. simpl. split. apply Hprops.
+  unfold isBE. destruct Hprops as (_ & [bentry (Hlookup & _)]). rewrite Hlookup; trivial.
+}
+intro BlockEntryIndex. eapply bindRev.
+{ (** getKernelStructureStartAddr *)
+  eapply weaken. apply getKernelStructureStartAddrLight.
+  intros s Hprops. simpl. split. apply Hprops.
+  destruct Hprops as ((HQ & [bentry (Hlookup & Hkernel & _)]) & HblockIsBE & Hblockidx).
+  assert(HblockidxCopy: bentryBlockIndex blockentryaddr BlockEntryIndex s) by assumption.
+  unfold bentryBlockIndex in Hblockidx. rewrite Hlookup in *. subst BlockEntryIndex. split. assumption.
+  split. apply Hidx. assumption.
+}
+intro kernelStartAddr. eapply bindRev.
+{ (** MAL.getSh1EntryAddrFromKernelStructureStart *)
+  eapply weaken. apply getSh1EntryAddrFromKernelStructureStart.
+  intros s Hprops. simpl. apply Hprops.
+}
+intro SHEAddr.
+{ (** ret *)
+  eapply weaken. apply ret.
+  intros s Hprops. simpl. split. apply Hprops. destruct Hprops as ((Hprops & (HkernIsKS & HlookupKern & Hkernel)) &
+    Hres). unfold CPaddr in Hkernel. assert(blockentryaddr <= maxAddr) by (apply Hp).
+  destruct Hprops as ((_ & [bentry (HlookupBlock & _ & HgebBlockIdx)]) & _ & Hidx).
+  unfold bentryBlockIndex in Hidx. rewrite HlookupBlock in Hidx. rewrite <-Hidx in *.
+  destruct (le_dec (blockentryaddr - BlockEntryIndex) maxAddr); try(lia). subst kernelStartAddr. simpl in *.
+  assert(Heq: blockentryaddr - BlockEntryIndex + sh1offset + BlockEntryIndex = blockentryaddr + sh1offset).
+  { lia. }
+  rewrite Heq in *. assumption.
 }
 Qed.
 
@@ -1356,6 +1437,44 @@ eapply WP.bindRev.
 	apply lookupSh1EntryInChildLocation. apply H0. intuition.
 Qed.
 
+Lemma getSCEntryAddrFromBlockEntryAddrLight  (blockentryaddr : paddr) (P : state -> Prop) :
+{{fun s => P s
+          /\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)
+              /\ isKS (CPaddr (blockentryaddr - (blockindex entry))) s
+              /\ blockentryaddr >= blockindex entry }}
+MAL.getSCEntryAddrFromBlockEntryAddr blockentryaddr
+{{ fun scentryaddr s => P s /\ scentryAddr blockentryaddr scentryaddr s }}.
+Proof.
+unfold MAL.getSCEntryAddrFromBlockEntryAddr. eapply bindRev.
+{
+  eapply weaken. apply readBlockIndexFromBlockEntryAddr.
+  intros s Hprops. cbn. split. exact Hprops. destruct Hprops as (_ & [bentry (Hlookup & _)]). unfold isBE.
+  rewrite Hlookup. trivial.
+}
+intro BlockEntryIndex. eapply bindRev.
+{ (* getKernelStructureStartAddr *)
+  eapply weaken. apply getKernelStructureStartAddrLight.
+  intros s Hprops. simpl. split. exact Hprops.
+  destruct Hprops as ((_ & [bentry (HlookupBlock & Hkern & HgebBlockIdx)]) & _ & Hblkidx).
+  assert(HblkidxCopy: bentryBlockIndex blockentryaddr BlockEntryIndex s) by assumption.
+  unfold bentryBlockIndex in Hblkidx. rewrite HlookupBlock in *. subst BlockEntryIndex.
+  intuition. apply Hidx.
+}
+intro kernelStartAddr. simpl. eapply bindRev.
+{ (* getSCEntryAddrFromKernelStructureStart *)
+  eapply weaken. apply getSCEntryAddrFromKernelStructureStart. intros s Hprops. simpl. apply Hprops.
+}
+intro SCEAddr. eapply weaken. apply ret. intros s Hprops. simpl. destruct Hprops as (Hprops & Hsce). split.
+apply Hprops. unfold scentryAddr. destruct Hprops as (((_ & [bentry (HlookupBlock & _ & HgebBlockIdx)]) & _ & Hblkidx)
+  & _ & HlookupKern & Hkern). unfold bentryBlockIndex in *. rewrite HlookupBlock in *. subst BlockEntryIndex.
+subst kernelStartAddr.
+assert(Heq: CPaddr (blockentryaddr - blockindex bentry) + scoffset + blockindex bentry = blockentryaddr + scoffset).
+{
+  unfold CPaddr. assert(blockentryaddr <= maxAddr) by (apply Hp).
+  destruct (le_dec (blockentryaddr - blockindex bentry) maxAddr); try(lia). simpl. lia.
+}
+rewrite Heq in *. assumption.
+Qed.
 
 Lemma getSCEntryAddrFromBlockEntryAddr  (blockentryaddr : paddr) (P : state -> Prop) :
 {{fun s => P s /\ wellFormedShadowCutIfBlockEntry s

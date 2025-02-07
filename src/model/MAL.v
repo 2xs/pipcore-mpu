@@ -477,6 +477,16 @@ Definition writeBlockEntryFromBlockEntryAddr (blockentryaddr : paddr) (blockinde
   writeBlockIndexFromBlockEntryAddr blockentryaddr blockindex;;
   ret tt.
 
+Definition writeBlockEntryFromBlockEntryAddrLight (blockentryaddr : paddr) (blockidx : index)
+    (startAddr : paddr) (endAddr : paddr) (access : bool) (pres : bool) (r : bool)
+    (w : bool) (e : bool) : LLI unit :=
+  let newBlock := CBlockEntry r w e pres access blockidx (CBlock startAddr endAddr) in
+  modify
+    (fun s => {|
+                currentPartition := currentPartition s;
+                memory := add blockentryaddr (BE newBlock) (memory s) beqAddr
+              |}).
+
 Definition getSh1EntryAddrFromBlockEntryAddr (blockentryaddr : paddr) : LLI paddr :=
 	perform BlockEntryIndex := readBlockIndexFromBlockEntryAddr blockentryaddr in
 	perform kernelStartAddr := getKernelStructureStartAddr blockentryaddr BlockEntryIndex in
@@ -580,6 +590,16 @@ Definition writeSh1EntryFromBlockEntryAddr (blockentryaddr : paddr)
   writeSh1InChildLocationFromBlockEntryAddr blockentryaddr inChildLocation;;
   ret tt.
 
+Definition writeSh1EntryFromBlockEntryAddrLight (blockentryaddr : paddr)
+    (pdChild : paddr) (pdFlag : bool) (inChildLoc : paddr) : LLI unit :=
+  perform Sh1EAddr := getSh1EntryAddrFromBlockEntryAddr blockentryaddr in
+  let newShadow1 := {| PDchild := pdChild;  PDflag := pdFlag;  inChildLocation := inChildLoc |} in
+  modify
+    (fun s => {|
+                currentPartition := currentPartition s;
+                memory := add Sh1EAddr (SHE newShadow1) (memory s) beqAddr
+              |}).
+
 Definition getSCEntryAddrFromBlockEntryAddr (blockentryaddr : paddr) : LLI paddr :=
 	perform BlockEntryIndex := readBlockIndexFromBlockEntryAddr blockentryaddr in
 	perform kernelStartAddr := getKernelStructureStartAddr blockentryaddr BlockEntryIndex in
@@ -650,6 +670,16 @@ Definition writeSCEntryFromBlockEntryAddr (blockentryaddr : paddr)
   writeSCNextFromBlockEntryAddr blockentryaddr next;;
   ret tt.
 
+Definition writeSCEntryFromBlockEntryAddrLight (blockentryaddr : paddr)
+    (origin : paddr) (next : paddr) : LLI unit :=
+  perform ScEAddr := getSCEntryAddrFromBlockEntryAddr blockentryaddr in
+  let newShadowCut := {| origin := origin; next := next |} in
+  modify
+    (fun s => {|
+                currentPartition := currentPartition s;
+                memory := add ScEAddr (SCE newShadowCut) (memory s) beqAddr
+              |}).
+
 Definition writePDTable (pdtablepaddr : paddr) (newEntry : PDTable)  : LLI unit:=
   modify (fun s => {|
   currentPartition := s.(currentPartition);
@@ -707,6 +737,13 @@ Definition writeNextFromKernelStructureStart (structurepaddr : paddr) (newnext :
   | Some _ => undefined 12
   | None => undefined 11
   end.
+
+Definition writeNextFromKernelStructureStartLight (structurepaddr : paddr) (newnext : ADT.paddr) : LLI unit :=
+  perform nextaddr := getNextAddrFromKernelStructureStart structurepaddr in
+  modify (fun s => {|
+    currentPartition := s.(currentPartition);
+    memory := add nextaddr (PADDR newnext) s.(memory) beqAddr
+  |}).
 
 Definition getPDStructurePointerAddrFromPD (pdAddr : paddr) : LLI paddr :=
   let structurePointerAddr := CPaddr (pdAddr + Constants.kernelstructureidx) in

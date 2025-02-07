@@ -38,7 +38,7 @@
 Require Import Model.ADT Core.Services.
 Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPreconditions
 Proof.StateLib Proof.DependentTypeLemmas Proof.InternalLemmas.
-Require Import Proof.invariants.Invariants getGlobalIdPDCurrentOrChild sizeOfBlock.
+Require Import Proof.invariants.Invariants getGlobalIdPDCurrentOrChild sizeOfBlock initStructure.
 Require Import Compare_dec Bool List.
 
 Require Import Model.Monad Model.MALInternal Model.Lib (* for visibility *).
@@ -244,28 +244,38 @@ case_eq (negb addrIsPresent).
 }
 (* case_eq negb addrIsPresent = false *)
 intros HaddrPresent. apply negb_false_iff in HaddrPresent. eapply bindRev.
-
-
-
-eapply bindRev.
+{ (** MAL.readSh1PDChildFromBlockEntryAddr **)
+  eapply weaken. apply readSh1PDChildFromBlockEntryAddr. intros s Hprops. simpl. split. apply Hprops.
+  unfold consistency in *; unfold consistency1 in *; intuition.
+}
+intro PDChildAddr. eapply bindRev.
+{ (** Internal.compareAddrToNull **)
+  eapply weaken. apply compareAddrToNull. intros s Hprops. simpl. apply Hprops.
+}
+intro PDChildAddrIsNull. destruct (negb PDChildAddrIsNull) eqn:HchildNull.
+{ (* case negb PDChildAddrIsNull = true *)
+  eapply weaken. apply WP.ret. simpl. intros. intuition.
+}
+(* case negb PDChildAddrIsNull = false *)
+apply negb_false_iff in HchildNull. eapply bindRev.
 { (** MAL.readBlockStartFromBlockEntryAddr *)
   eapply weaken. apply readBlockStartFromBlockEntryAddr.
-  intros. simpl. split. apply H8. intuition.
-  - (* we know this case is impossible because we are in the branch
-    where requisitionedBlockInCurrPartAddr is not NULL *)
-    apply beqAddrFalse in H16. congruence.
-  - destruct H33. intuition. subst.
-    unfold isBE. rewrite H33 ; trivial.
+  intros s Hprops. simpl. split. apply Hprops. intuition.
+  assert(HlookupReq: exists bentry, lookup requisitionedBlockInCurrPartAddr (memory s) beqAddr = Some (BE bentry))
+    by assumption. unfold isBE. destruct HlookupReq as [bentry HlookupReq]. rewrite HlookupReq; trivial.
 }
-intro requisitionedBlockStart.
-eapply bindRev.
+intro requisitionedBlockStart. eapply bindRev.
 { (** MAL.readBlockEndFromBlockEntryAddr *)
   eapply weaken. apply readBlockEndFromBlockEntryAddr.
-  intros. simpl. split. apply H8. intuition.
-  - (* we know this case is impossible because we are in the branch
-    where requisitionedBlockInCurrPartAddr is not NULL *)
-    apply beqAddrFalse in H17. congruence.
-  - destruct H34. intuition. subst.
-    unfold isBE. rewrite H34 ; trivial.
+  intros s Hprops. simpl. split. apply Hprops. intuition.
+  assert(HlookupReq: exists bentry, lookup requisitionedBlockInCurrPartAddr (memory s) beqAddr = Some (BE bentry))
+    by assumption. unfold isBE. destruct HlookupReq as [bentry HlookupReq]. rewrite HlookupReq; trivial.
 }
-intro requisitionedBlockEnd.
+intro requisitionedBlockEnd. eapply bindRev.
+{ (** Internal.initStructure *)
+  eapply weaken. apply initStructure.
+  intros s Hprops. simpl. split. apply Hprops. (*TODO HERE*)
+}
+
+intro isStructureInitialised.
+Qed.
