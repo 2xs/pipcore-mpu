@@ -1428,7 +1428,7 @@ induction l.
 Qed.
 
 Lemma DisjointPaddrInPart partition block1 block2 addr s :
-noDupUsedPaddrList s ->
+noDupMappedPaddrList s ->
 isPDT partition s ->
 In block1 (getMappedBlocks partition s) ->
 In block2 (getMappedBlocks partition s) ->
@@ -1438,10 +1438,8 @@ In addr (getAllPaddrAux [block1] s) ->
 Proof.
 intros HNoDupPaddr HPDTs Hblock1 Hblock2 Hblock1block2NotEq HaddrIn.
 simpl in *.
-unfold noDupUsedPaddrList in *.
+unfold noDupMappedPaddrList in *.
 specialize (HNoDupPaddr partition HPDTs).
-unfold getUsedPaddr in *.
-apply Lib.NoDupSplit in HNoDupPaddr.
 intuition.
 unfold getMappedPaddr in *.
 induction ((getMappedBlocks partition s)).
@@ -1450,32 +1448,32 @@ induction ((getMappedBlocks partition s)).
 	intuition.
 	+	subst a. subst block1. congruence.
 	+	subst a.
-		specialize (blockIsMappedAddrInPaddrList block2 addr l s H3).
+		specialize (blockIsMappedAddrInPaddrList block2 addr l s H1).
 		simpl in *. intuition.
 		destruct (lookup block1 (memory s) beqAddr) ; intuition.
 		destruct v ; intuition.
 		destruct (lookup block2 (memory s) beqAddr) ; intuition.
 		destruct v ; intuition.
-		apply Lib.NoDupSplitInclIff in H1.
+		apply Lib.NoDupSplitInclIff in HNoDupPaddr.
 		intuition.
 		rewrite app_nil_r in *.
-		specialize (H5 addr HaddrIn).
+		specialize (H3 addr HaddrIn).
 		congruence.
 	+ subst a.
-		specialize (blockIsMappedAddrInPaddrList block1 addr l s H2).
+		specialize (blockIsMappedAddrInPaddrList block1 addr l s H0).
 		simpl in *. intuition.
 		destruct (lookup block1 (memory s) beqAddr) ; intuition.
 		destruct v ; intuition.
 		destruct (lookup block2 (memory s) beqAddr) ; intuition.
 		destruct v ; intuition.
-		apply Lib.NoDupSplitInclIff in H1.
+		apply Lib.NoDupSplitInclIff in HNoDupPaddr.
 		intuition.
 		rewrite app_nil_r in *.
-		specialize (H6 addr H).
+		specialize (H3 addr H).
 		congruence.
 	+ destruct (lookup a (memory s) beqAddr) ; intuition.
 		destruct v ; intuition.
-		apply Lib.NoDupSplit in H1.
+		apply Lib.NoDupSplit in HNoDupPaddr.
 		intuition.
 Qed.
 
@@ -1503,7 +1501,7 @@ subst parent. subst parent'. intuition.
 Qed.
 
 Lemma uniqueBlockMapped block1 block2 addr partition s:
-noDupUsedPaddrList s
+noDupMappedPaddrList s
 -> wellFormedBlock s
 -> isPDT partition s
 -> In block1 (getMappedBlocks partition s)
@@ -1515,8 +1513,7 @@ noDupUsedPaddrList s
 -> block1 = block2.
 Proof.
 intros HnoDup HwellFormed HpartIsPDT Hblock1Mapped Hblock2Mapped Hstart1 HPFlag1 Hstart2 HPFlag2.
-specialize(HnoDup partition HpartIsPDT). unfold getUsedPaddr in HnoDup. apply Lib.NoDupSplit in HnoDup.
-destruct HnoDup as [_ HnoDup]. unfold getMappedPaddr in HnoDup. induction (getMappedBlocks partition s).
+specialize(HnoDup partition HpartIsPDT). unfold getMappedPaddr in HnoDup. induction (getMappedBlocks partition s).
 - (* getMappedBlocks partition s = [] *)
   simpl in *. exfalso; congruence.
 - (* getMappedBlocks partition s = a::l *)

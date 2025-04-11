@@ -637,12 +637,12 @@ intro. eapply bindRev.
       specialize(Hcons0 block kernel startaddr endaddr Hstart Hend HkernIsKS HnextInBlock). assumption.
       (* END nextKernAddrIsInSameBlock *)
     }
-    assert(noDupUsedPaddrList s).
-    { (* BEGIN noDupUsedPaddrList s *)
-      assert(Hcons0: noDupUsedPaddrList s0) by intuition. intros partition HpartIsPDT. unfold isPDT in *.
+    assert(noDupMappedPaddrList s).
+    { (* BEGIN noDupMappedPaddrList s *)
+      assert(Hcons0: noDupMappedPaddrList s0) by intuition. intros partition HpartIsPDT. unfold isPDT in *.
       rewrite HlookupsEq in *. specialize(Hcons0 partition HpartIsPDT).
       rewrite getUsedPaddrEqLookup with partition s s0; assumption.
-      (* END noDupUsedPaddrList *)
+      (* END noDupMappedPaddrList *)
     }
     assert(accessibleParentPaddrIsAccessibleIntoChild s).
     { (* BEGIN accessibleParentPaddrIsAccessibleIntoChild s *)
@@ -3643,7 +3643,7 @@ intro. eapply bindRev.
              {
                destruct (beqAddr block idBlock) eqn:HbeqBlocks; try(rewrite DTL.beqAddrTrue; assumption).
                rewrite <-beqAddrFalse in HbeqBlocks. exfalso.
-               assert(HnoDupPaddr: noDupUsedPaddrList s0)
+               assert(HnoDupPaddr: noDupMappedPaddrList s0)
                  by (unfold consistency in *; unfold consistency2 in *; intuition).
                apply not_eq_sym in HbeqBlocks.
                pose proof (DisjointPaddrInPart currentPart idBlock block newPDBlockStartAddr s0 HnoDupPaddr
@@ -3734,7 +3734,7 @@ intro. eapply bindRev.
              {
                destruct (beqAddr block idBlock) eqn:HbeqBlocks; try(rewrite DTL.beqAddrTrue; assumption).
                rewrite <-beqAddrFalse in HbeqBlocks. exfalso.
-               assert(HnoDupPaddr: noDupUsedPaddrList s0)
+               assert(HnoDupPaddr: noDupMappedPaddrList s0)
                  by (unfold consistency in *; unfold consistency2 in *; intuition).
                apply not_eq_sym in HbeqBlocks.
                pose proof (DisjointPaddrInPart currentPart idBlock block newPDBlockStartAddr s0 HnoDupPaddr
@@ -3828,9 +3828,9 @@ intro. eapply bindRev.
     (* END nextKernAddrIsInSameBlock *)
   }
   (*assert(consistency1 s) by (unfold consistency1; intuition).*)
-  assert(noDupUsedPaddrList s).
-  { (* BEGIN noDupUsedPaddrList s*)
-    assert(Hcons0: noDupUsedPaddrList s0) by (unfold consistency in *; unfold consistency2 in *; intuition).
+  assert(noDupMappedPaddrList s).
+  { (* BEGIN noDupMappedPaddrList s*)
+    assert(Hcons0: noDupMappedPaddrList s0) by (unfold consistency in *; unfold consistency2 in *; intuition).
     intros part HpartIsPDT.
     destruct (beqAddr newPDBlockStartAddr part) eqn:HbeqStartPart.
     - rewrite <-DTL.beqAddrTrue in HbeqStartPart. subst part. unfold getUsedPaddr. unfold getConfigPaddr.
@@ -3859,7 +3859,7 @@ intro. eapply bindRev.
       }
       unfold getUsedPaddr. rewrite HgetConfigPaddrEq; try(assumption).
       rewrite HgetMappedPaddrEq; try(assumption). specialize(Hcons0 part HpartIsPDTs0). assumption.
-    (* END noDupUsedPaddrList *)
+    (* END noDupMappedPaddrList *)
   }
 
   assert(HgetAccessibleMappedPaddrEq: forall part, isPDT part s
@@ -4394,7 +4394,7 @@ intro. eapply bindRev.
       /\ nextKernAddrIsInSameBlock s
       /\ blocksAddressesTypes s
       /\ childsBlocksPropsInParent s
-      /\ noDupUsedPaddrList s
+      /\ noDupMappedPaddrList s
       /\ adressesRangePreservedIfOriginAndNextOk s
       /\ noChildImpliesAddressesNotShared s
       /\ kernelEntriesAreValid s
@@ -6364,9 +6364,9 @@ intro. eapply bindRev.
     specialize(Hcons0 block kernel startaddr endaddr Hstarts0 Hends0 HkernIsKSs0). assumption.
     (* END nextKernAddrIsInSameBlock *)
   }
-  assert(noDupUsedPaddrList s).
-  { (* BEGIN noDupUsedPaddrList s*)
-    assert(Hcons0: noDupUsedPaddrList s4) by intuition. intros part HpartIsPDT.
+  assert(noDupMappedPaddrList s).
+  { (* BEGIN noDupMappedPaddrList s*)
+    assert(Hcons0: noDupMappedPaddrList s4) by intuition. intros part HpartIsPDT.
     assert(HpartIsPDTs0: isPDT part s4).
     {
       unfold isPDT in *. rewrite Hs in HpartIsPDT. simpl in *.
@@ -6376,7 +6376,7 @@ intro. eapply bindRev.
     }
     unfold getUsedPaddr. rewrite HgetConfigPaddrEq; try(assumption).
     rewrite HgetMappedPaddrEq; try(assumption). specialize(Hcons0 part HpartIsPDTs0). assumption.
-    (* END noDupUsedPaddrList *)
+    (* END noDupMappedPaddrList *)
   }
   assert(adressesRangePreservedIfOriginAndNextOk s).
   { (* BEGIN adressesRangePreservedIfOriginAndNextOk s*)
@@ -7511,7 +7511,7 @@ intro. eapply bindRev.
   (*assert(consistency s). { unfold consistency. unfold consistency1. unfold consistency2. intuition. }*)
   instantiate(1 := fun s =>
     consistency1 s
-    /\ noDupUsedPaddrList s
+    /\ noDupMappedPaddrList s
     /\ sharedBlockPointsToChild s
     /\ adressesRangePreservedIfOriginAndNextOk s
     /\ childsBlocksPropsInParent s
@@ -7572,7 +7572,7 @@ intro. eapply bindRev.
             MPUsizeIsBelowMax s4 /\ noDupPartitionTree s4 /\ wellFormedBlock s4 /\ parentOfPartitionIsPartition s4 /\
             NbFreeSlotsISNbFreeSlotsInList s4 /\ originIsParentBlocksStart s4 /\ nextImpliesBlockWasCut s4 /\
             nextKernAddrIsInSameBlock s4 /\ blocksAddressesTypes s4 /\ childsBlocksPropsInParent s4 /\
-            noDupUsedPaddrList s4 /\ adressesRangePreservedIfOriginAndNextOk s4 /\ noChildImpliesAddressesNotShared s4
+            noDupMappedPaddrList s4 /\ adressesRangePreservedIfOriginAndNextOk s4 /\ noChildImpliesAddressesNotShared s4
             /\ kernelEntriesAreValid s4 /\ nextKernelIsValid s4 /\ noDupListOfKerns s4 /\ kernelsAreNotAccessible s4
             /\ KernelStructureStartFromBlockEntryAddrIsKS s4 /\ BlocksRangeFromKernelStartIsBE s4 /\ nullAddrExists
             s4 /\ blocksAddressesTypes s4)

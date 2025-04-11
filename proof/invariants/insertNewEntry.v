@@ -25648,7 +25648,7 @@ intuition.
 									 reflexivity.
 								 }
 								 rewrite HksentriesEq. intuition.
-							 }
+							 } (*TODO HERE*)
 							 rewrite HKSEntriesEq in *. intuition.
 } (* end of inclFreeSlotsBlockEntries *)
 
@@ -31041,6 +31041,17 @@ assert(PDflagMeansNoChild s).
   rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
   rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
   (* END PDflagMeansNoChild *)
+}
+
+assert(nbPrepareIsNbKern s).
+{ (* BEGIN nbPrepareIsNbKern s *)
+  assert(Hcons0: nbPrepareIsNbKern s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+  intros partition pdentry HlookupPart.
+  (*TODO HERE*)
+  
+  
+  
+ (* END nbPrepareIsNbKern *)
 }
 
 intuition.

@@ -215,3 +215,4 @@ Notation getBeqIdx x y := (indexEqM x y) (only parsing).
 Definition zero : index := CIndex 0.
 Definition getAddr (paddr : paddr) : LLI ADT.paddr := ret paddr.
 
+Axiom maxNbFreeSlotsLessThanMaxIdx: maxNbPrepare*Constants.kernelStructureTotalLength <= maxIdx.

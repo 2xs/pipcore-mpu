@@ -42,6 +42,7 @@ Proof.StateLib Proof.DependentTypeLemmas.
 Require Import invariants.Invariants invariants.checkChildOfCurrPart.
 
 Require Import Model.Monad (* for visibility *).
+Require Import List.
 
 Module WP := WeakestPreconditions.
 
@@ -111,5 +112,75 @@ case_eq isCurrentPart.
 		}
 Qed.
 
-
+Lemma getGlobalIdPDCurrentOrChildPrecise (currentPartition idPDToCheck : paddr) (P : state -> Prop):
+{{fun s => P s /\ consistency s
+					/\ isPDT currentPartition s}}
+Internal.getGlobalIdPDCurrentOrChild currentPartition idPDToCheck
+{{fun idPDChild s  => P s /\ consistency s /\
+										(idPDChild <> nullAddr -> isPDT idPDChild s
+                      /\ (currentPartition = idPDChild \/ In idPDChild (getChildren currentPartition s))) }}.
+Proof.
+unfold Internal.getGlobalIdPDCurrentOrChild.
+eapply bindRev.
+{ (** MALInternal.getBeqAddr **)
+  eapply weaken. apply getBeqAddr.
+  intros s Hprops. simpl. apply Hprops.
+}
+intro isCurrentPart.
+case_eq isCurrentPart.
+- (* case_eq isCurrentPart = true *)
+  intros.
+  (** ret *)
+  eapply weaken. apply WP.ret.
+  simpl. intros. rewrite <-beqAddrTrue in *. intuition.
+- (* case_eq isCurrentPart = false *)
+  intros.
+  eapply bindRev.
+  { (** Internal.checkChildOfCurrPart *)
+	  eapply weaken. apply checkChildOfCurrPart.
+	  intros s Hprops. simpl. split. apply Hprops. intuition.
+  }
+  intro isChildCurrPart.
+  case_eq isChildCurrPart.
+  + (* case_eq isChildCurrPart = true *)
+    intros HisChild. eapply bindRev.
+    { (** MAL.readBlockStartFromBlockEntryAddr *)
+      eapply weaken. apply readBlockStartFromBlockEntryAddr.
+      intros s Hprops. simpl. split. apply Hprops.
+      assert(Hres: exists sh1entryaddr,
+         true = checkChild idPDToCheck s sh1entryaddr /\
+         (exists entry : BlockEntry, lookup idPDToCheck (memory s) beqAddr = Some (BE entry)) /\
+         (exists sh1entry : Sh1Entry,
+            sh1entryAddr idPDToCheck sh1entryaddr s /\
+            lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry)) /\
+         In idPDToCheck (getMappedBlocks currentPartition s)) by intuition.
+      destruct Hres as [sh1entryaddr (Hres & _)]. unfold checkChild in *.
+      unfold isBE. destruct (lookup idPDToCheck (memory s) beqAddr); try(congruence). destruct v; try(congruence).
+      trivial.
+    }
+    intro idPDChild.
+    (** ret *)
+    eapply weaken. apply WP.ret.
+    simpl. intros s Hprops. destruct Hprops as ((((HP & Hconsist & HcurrIsPDT) & HbeqIdCurr) & Hsh1) & Hstart).
+    split; trivial. split; trivial. intro HbeqIdNull. assert(Htriv: true = true) by trivial.
+    specialize(Hsh1 Htriv). destruct Hsh1 as [sh1entryaddr (HcheckChild & HlookupId & Hsh1 & HidIsPart)].
+    destruct Hsh1 as [sh1entry (Hsh1 & HlookupSh1)].
+    assert(HPDTIfPDFlag : PDTIfPDFlag s) by
+	    (unfold consistency in * ; unfold consistency1 in * ; intuition).
+    assert(Hprops: true = checkChild idPDToCheck s sh1entryaddr /\ sh1entryAddr idPDToCheck sh1entryaddr s).
+    { split; trivial. }
+    specialize(HPDTIfPDFlag idPDToCheck sh1entryaddr Hprops).
+    destruct HPDTIfPDFlag as [HAFlag (HPFlag & [startaddr (HstartBis & HentryPDT)])].
+    destruct HlookupId as [bentry HlookupId]. split.
+    * unfold bentryStartAddr in *. unfold entryPDT in *. rewrite HlookupId in *. subst startaddr.
+      rewrite <-Hstart in *. unfold isPDT. destruct (lookup idPDChild (memory s) beqAddr); try(congruence).
+      destruct v; try(congruence). trivial.
+    * right. apply IL.mappedPDTIsChild with idPDToCheck sh1entryaddr; trivial.
+      unfold consistency in *; unfold consistency1 in *; intuition.
+  + (* case_eq isChildCurrPart = false *)
+    intros.
+    (** ret *)
+    eapply weaken. apply WP.ret.
+    simpl. intros. intuition.
+Qed.
 

@@ -1024,13 +1024,14 @@ Qed.
 (* DUP *)
 Lemma getMaxNbPrepare P :
 {{fun s => P s}} MALInternal.getMaxNbPrepare
-{{fun nbprepare s => P s (*/\ entriesnb = (CIndex kernelStructureEntriesNb)*) }}.
+{{fun nbprepare s => P s /\ i nbprepare = maxNbPrepare }}.
 Proof.
 unfold MALInternal.getMaxNbPrepare.
 eapply WP.weaken.
 eapply WP.ret.
 intros.
-simpl. intuition.
+simpl. unfold CIndex. pose proof maxNbPrepareNbLessThanMaxIdx. destruct (le_dec maxNbPrepare maxIdx); try(lia).
+intuition.
 Qed.
 
 
@@ -2583,3 +2584,43 @@ unfold checkMPUEntryZero. (*eapply bindRev.
 intro is32Aligned.*) eapply weaken. apply WP.ret. intros s Hprops. simpl. apply Hprops.
 Qed.
 
+Lemma writePDNbPrepare partition nbPrepare P:
+{{ fun s => P s /\ isPDT partition s }}
+writePDNbPrepare partition nbPrepare
+{{ fun _ s => exists s0 pdentry newPDentry, P s0
+                /\ s = {|
+                         currentPartition := currentPartition s0;
+                         memory := add partition (PDT newPDentry) (memory s0) beqAddr
+                       |}
+                /\ newPDentry = {|
+                                  structure := structure pdentry;
+                                  firstfreeslot := firstfreeslot pdentry;
+                                  nbfreeslots := nbfreeslots pdentry;
+                                  nbprepare := nbPrepare;
+                                  parent := parent pdentry;
+                                  MPU := MPU pdentry;
+                                  vidtAddr := vidtAddr pdentry
+                                |}
+                /\ lookup partition (memory s0) beqAddr = Some(PDT pdentry)
+}}.
+Proof.
+unfold writePDNbPrepare. eapply bindRev.
+{ (** Monad.get **)
+  eapply weaken. apply get. intros s Hprops. simpl. instantiate(1 := fun s0 s => s = s0 /\ P s /\ isPDT partition s).
+  intuition.
+}
+intro s. destruct (lookup partition (memory s) beqAddr) eqn:HlookupPart; try(eapply weaken; try(apply undefined);
+  intros s0 Hprops; simpl; intuition; unfold isPDT in *; subst s0; rewrite HlookupPart in *; congruence).
+destruct v; try(eapply weaken; try(apply undefined); intros s1 Hprops; simpl; intuition; unfold isPDT in *; subst s1;
+  rewrite HlookupPart in *; congruence). eapply weaken. apply modify. intros s0 Hprops. simpl.
+destruct Hprops as (Heq & HP & HpartIsPDT). subst s0. exists s. exists p.
+exists {|
+         structure := structure p;
+         firstfreeslot := firstfreeslot p;
+         nbfreeslots := nbfreeslots p;
+         nbprepare := nbPrepare;
+         parent := parent p;
+         MPU := MPU p;
+         vidtAddr := vidtAddr p
+       |}. intuition.
+Qed.

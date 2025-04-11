@@ -1187,3 +1187,47 @@ unfold writeNextFromKernelStructureStartLight. eapply bindRev.
 intro nextaddr. eapply weaken. apply modify.
   intros s0 (HP & Hnext). subst nextaddr. exists s0. split. assumption. reflexivity.
 Qed.
+
+Lemma writePDStructurePointer partition kernel P:
+{{ fun s => P s /\ isPDT partition s }}
+writePDStructurePointer partition kernel
+{{
+  fun _ s => exists s0 pdentry newEntry, P s0
+      /\ lookup partition (memory s0) beqAddr = Some(PDT pdentry)
+      /\ newEntry = {|
+                     structure := kernel;
+                     firstfreeslot := firstfreeslot pdentry;
+                     nbfreeslots := nbfreeslots pdentry;
+                     nbprepare := nbprepare pdentry;
+                     parent := parent pdentry;
+                     MPU := MPU pdentry;
+                     vidtAddr := vidtAddr pdentry
+                   |}
+      /\ s = {|
+               currentPartition := currentPartition s0;
+               memory := add partition (PDT newEntry) (memory s0) beqAddr
+             |}
+}}.
+Proof.
+unfold writePDStructurePointer. eapply bindRev.
+{ (** Monad.get **)
+  eapply weaken. apply get. intros s Hprops. simpl.
+  instantiate(1 := fun s0 s => P s /\ isPDT partition s /\ s0 = s). simpl. intuition.
+}
+intro s. destruct (lookup partition (memory s) beqAddr) eqn:HlookupPart; try(eapply weaken; try(apply undefined);
+  intros s0 Hprops; simpl; destruct Hprops as (_ & Hcontra & HsEq); subst s0; unfold isPDT in *;
+  rewrite HlookupPart in *; congruence).
+destruct v; try(eapply weaken; try(apply undefined); intros s1 Hprops; simpl;
+  destruct Hprops as (_ & Hcontra & HsEq); subst s1; unfold isPDT in *; rewrite HlookupPart in *; congruence).
+eapply weaken. apply modify. intros newS Hprops. simpl. destruct Hprops as (HP & HpartIsPDT & HsEq). subst newS.
+exists s. exists p. exists {|
+    structure := kernel;
+    firstfreeslot := firstfreeslot p;
+    nbfreeslots := nbfreeslots p;
+    nbprepare := nbprepare p;
+    parent := parent p;
+    MPU := MPU p;
+    vidtAddr := vidtAddr p
+  |}. intuition.
+Qed.
+

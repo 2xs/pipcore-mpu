@@ -1569,7 +1569,7 @@ case_eq PDChildAddrIsNull.
         destruct (lookup (CPaddr (blockToShareInCurrPartAddr + sh1offset)) (memory sInit) beqAddr);
             try(reflexivity).
         destruct v; try(reflexivity). assumption.
-      - assert(HnoDup: noDupUsedPaddrList sInit)
+      - assert(HnoDup: noDupMappedPaddrList sInit)
             by (unfold consistency in *; unfold consistency2 in *; intuition).
         assert(HwellFormed: wellFormedBlock sInit)
             by (unfold consistency in *; unfold consistency1 in *; intuition).
@@ -10080,9 +10080,9 @@ case_eq PDChildAddrIsNull.
   }
 
   unfold consistency. split. assumption. unfold consistency2.
-  assert(noDupUsedPaddrList s).
-  { (* BEGIN noDupUsedPaddrList s *)
-    assert(Hcons0: noDupUsedPaddrList s0) by (unfold consistency in *; unfold consistency2 in *; intuition).
+  assert(noDupMappedPaddrList s).
+  { (* BEGIN noDupMappedPaddrList s *)
+    assert(Hcons0: noDupMappedPaddrList s0) by (unfold consistency in *; unfold consistency2 in *; intuition).
     intros part HpartIsPDT. rewrite HPDTEqss5 in HpartIsPDT. rewrite HPDTEqs5s4 in HpartIsPDT.
     rewrite HPDTEqs4s3 in HpartIsPDT. rewrite HPDTEqs3s2 in HpartIsPDT. rewrite HPDTEqs2s0 in HpartIsPDT.
     specialize(Hcons0 part HpartIsPDT). unfold getUsedPaddr in *. apply Lib.NoDupSplitInclIff.
@@ -10200,7 +10200,7 @@ case_eq PDChildAddrIsNull.
         rewrite HgetAllEq. assumption.
     - intros addr HaddrInConfig. specialize(Hdisjoint addr HaddrInConfig). contradict Hdisjoint.
       specialize(HgetPaddrEqss0 part HpartIsPDT addr). apply HgetPaddrEqss0. assumption.
-    (* END noDupUsedPaddrList *)
+    (* END noDupMappedPaddrList *)
   }
   split. assumption.
 
@@ -11335,7 +11335,7 @@ case_eq PDChildAddrIsNull.
               unfold bentryEndAddr in *. rewrite HlookupBlocks0 in *. rewrite <-HendBlocks0 in HendBlockBiss0.
               subst blockToCutEndAddr. apply getAllPaddrBlockIncl; lia.
             }
-            assert(HnoDupPaddr: noDupUsedPaddrList s0)
+            assert(HnoDupPaddr: noDupMappedPaddrList s0)
                 by (unfold consistency in *; unfold consistency2 in *; intuition).
             pose proof (DisjointPaddrInPart pdparent blockParentBis blockParent cutAddr s0 HnoDupPaddr
               HparentIsPDTs0 HblockParentBisMapped HblockParentMapped HbeqBlocks HstartChildInBis) as Hcontra.
@@ -11420,7 +11420,7 @@ case_eq PDChildAddrIsNull.
                  unfold bentryEndAddr in *. rewrite <-HendBlocks0 in HendBlockBiss0.
                  subst blockToCutEndAddr. apply getAllPaddrBlockIncl; lia.
                }
-               assert(HnoDupPaddr: noDupUsedPaddrList s0)
+               assert(HnoDupPaddr: noDupMappedPaddrList s0)
                    by (unfold consistency in *; unfold consistency2 in *; intuition).
                pose proof (DisjointPaddrInPart pdparent blockParentBis blockParent blockToCutStartAddr s0
                  HnoDupPaddr HparentIsPDTs0 HblockParentBisMapped HblockParentMapped HbeqBlocks HstartChildInBis)

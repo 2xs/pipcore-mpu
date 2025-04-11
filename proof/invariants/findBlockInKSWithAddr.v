@@ -255,7 +255,7 @@ revert kernelstructurestart blockEntryAddr P.
 									destruct (le_dec 7 maxIdx) ; intuition. simpl in *.
 									assert(HEqpred : 7 = kernelStructureEntriesNb-1) by intuition.
 									rewrite HEqpred in *.
-									destruct (le_dec (kernelstructurestart + (kernelStructureEntriesNb - 1)) maxAddr) ; intuition ; try lia.
+									destruct (le_dec (kernelstructurestart + (kernelStructureEntriesNb-1)) maxAddr); intuition; try lia.
 									destruct (le_dec kernelStructureEntriesNb maxIdx) ; intuition ; try lia.
 									destruct blockEntryAddr. simpl in *.
 									assert(HEqpred' :7 = kernelStructureEntriesNb-1) by intuition.
@@ -313,7 +313,7 @@ revert kernelstructurestart blockEntryAddr P.
 										by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 									unfold nullAddrExists in *. unfold isPADDR in *.
 
-									destruct (lookup nullAddr (memory s) beqAddr) eqn:Hlookupnull ; intuition ; try(exfalso ; congruence).
+									destruct (lookup nullAddr (memory s) beqAddr) eqn:Hlookupnull ; intuition; try(exfalso; congruence).
 									destruct v ; intuition ; try(exfalso ; congruence).
 								}
 
@@ -352,7 +352,7 @@ revert kernelstructurestart blockEntryAddr P.
 								(*destruct (le_dec 7 maxIdx) ; intuition. simpl in *.*)
 								assert(HEqpred' : 7 = kernelStructureEntriesNb-1) by intuition.
 								rewrite HEqpred' in *.
-								destruct (le_dec (kernelstructurestart + (kernelStructureEntriesNb - 1)) maxAddr) ; intuition ; try lia.
+								destruct (le_dec (kernelstructurestart + (kernelStructureEntriesNb-1)) maxAddr) ; intuition ; try lia.
 								destruct blockEntryAddr. simpl in *.
 								assert(HEqpred'': 7 = kernelStructureEntriesNb-1) by intuition.
 								rewrite HEqpred'' in *.
@@ -560,7 +560,7 @@ case_eq kernelstructureisnull.
 	specialize (HStructurePointerIsKS idPD pdentry Hlookuppd).
 	unfold pdentryStructurePointer in *.
 	rewrite Hlookuppd in *. subst. intuition.
-	
+
 	intros. intuition. apply H. apply H. intuition.
 	(* block in next ks *)
 	right.
@@ -570,7 +570,7 @@ case_eq kernelstructureisnull.
 										lookup a (memory s) beqAddr = Some (BE entry)... *)
 	exists bentry. intuition.
 	subst a.
-	
+
 	unfold getMappedBlocks. unfold getKSEntries.
 	assert(HPDT : isPDT idPD s)
 		by intuition.
@@ -582,7 +582,7 @@ case_eq kernelstructureisnull.
 		rewrite <- DependentTypeLemmas.beqAddrTrue in HstructureNull.
 		exfalso ; congruence.
 	-  (* (structure pdentry) <> nullAddr *)
-		induction ((filterOptionPaddr (getKSEntriesAux maxNbPrepare (structure pdentry) s (*(CIndex maxNbPrepare)*)))).
+		induction ((filterOptionPaddr (getKSEntriesAux (maxNbPrepare+1) (structure pdentry) s))).
 		-- intuition.
 		-- simpl in *. intuition.
 			--- (* a = blockEntryAddr *)

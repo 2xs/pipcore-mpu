@@ -259,3 +259,20 @@ intro HlookupEq. revert partition. induction parentsList; intro; simpl; try(refl
 destruct (lookup a (memory s0) beqAddr); try(reflexivity). destruct v; try(reflexivity). rewrite HlookupEq.
 f_equal. f_equal. apply IHparentsList.
 Qed.
+
+Lemma completeListOfKernelsAuxEqLookup n kernel s s0:
+(forall addr, lookup addr (memory s) beqAddr = lookup addr (memory s0) beqAddr)
+-> completeListOfKernelsAux n kernel s = completeListOfKernelsAux n kernel s0.
+Proof.
+intro HlookupEq. revert kernel. induction n; simpl; intros; trivial. rewrite HlookupEq.
+destruct (lookup (CPaddr (kernel + nextoffset)) (memory s0) beqAddr); trivial. destruct v; trivial. rewrite IHn.
+reflexivity.
+Qed.
+
+Lemma completeListOfKernelsEqLookup kernel s s0:
+(forall addr, lookup addr (memory s) beqAddr = lookup addr (memory s0) beqAddr)
+-> completeListOfKernels kernel s = completeListOfKernels kernel s0.
+Proof.
+intro HlookupEq. unfold completeListOfKernels. rewrite HlookupEq.
+rewrite completeListOfKernelsAuxEqLookup with maxNbPrepare kernel s s0; trivial.
+Qed.

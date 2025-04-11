@@ -922,7 +922,7 @@ case_eq kernelstructureisnull.
 		    rewrite HksNull in *.
 		    exfalso ; congruence.
 	    +	(* (structure idpdentry) <> nullAddr *)
-		    induction ((filterOptionPaddr (getKSEntriesAux maxNbPrepare (structure idpdentry) s))) ; simpl in *;
+		    induction ((filterOptionPaddr (getKSEntriesAux (maxNbPrepare+1) (structure idpdentry) s))) ; simpl in *;
                 intuition.
 		    subst.
 		    unfold bentryPFlag in *. rewrite Hbentry in *.
@@ -1837,7 +1837,7 @@ Lemma findExactBlockInKSAux n (currentkernelstructure idblock endblock kernel : 
                          /\ isListOfKernelsAux kernList kernel s
                          /\ currentkernelstructure = last kernList kernel
                          /\ (forall kernListBis, isListOfKernelsAux kernListBis kernel s
-                                                  -> length kernListBis < maxNbPrepare)
+                                                  -> length kernListBis < maxNbPrepare+1)
                          /\ (In idblock (getAllPaddrAux (filterPresent (filterOptionPaddr (getKSEntriesAux n
                                       currentkernelstructure s)) s) s)
                           \/ ((exists block blockstart blockend,
@@ -1845,7 +1845,7 @@ Lemma findExactBlockInKSAux n (currentkernelstructure idblock endblock kernel : 
                                     /\ bentryEndAddr block blockend s
                                     /\ bentryPFlag block true s
                                     /\ In idblock (getAllPaddrBlock blockstart blockend)
-                                    /\ In block (filterOptionPaddr (getKSEntriesAux maxNbPrepare
+                                    /\ In block (filterOptionPaddr (getKSEntriesAux (maxNbPrepare+1)
                                                   kernel s))
                                     /\ (beqAddr blockstart idblock && beqAddr blockend endblock = false
                                           (*\/ bentryPFlag block false s*)))
@@ -1864,7 +1864,7 @@ Internal.findExactBlockInKSAux n currentkernelstructure idblock endblock
     /\ isKS kernel s
     /\ isListOfKernelsAux kernList kernel s
     /\ currentkernelstructure = last kernList kernel
-		/\ In block (filterOptionPaddr (getKSEntriesAux maxNbPrepare kernel s))
+		/\ In block (filterOptionPaddr (getKSEntriesAux (maxNbPrepare+1) kernel s))
     /\ (blockaddr = nullAddr /\ In idblock (getAllPaddrBlock blockstart blockend)
         /\ (beqAddr blockstart idblock && beqAddr blockend endblock = false (*\/ bentryPFlag block false s*))
       \/ (block = blockaddr /\ beqAddr blockstart idblock = true /\ beqAddr blockend endblock = true ))
@@ -2025,7 +2025,7 @@ revert currentkernelstructure idblock endblock P. induction n.
       destruct HpropsOrFound as [HfoundWrong | HaddrNotInKern]; try(destruct HfoundWrong as [block [blockstart
               [blockend HfoundWrong]]]; exists kernList; exists block; exists blockstart;
             exists blockend).
-      + assert(In block (filterOptionPaddr (getKSEntriesAux maxNbPrepare kernel s))).
+      + assert(In block (filterOptionPaddr (getKSEntriesAux (maxNbPrepare+1) kernel s))).
         {
           apply blockInGetKSEntriesAuxIncl with currentkernelstructure kernList; try(assumption).
           unfold consistency1 in *; intuition. intuition.
@@ -2181,7 +2181,7 @@ revert currentkernelstructure idblock endblock P. induction n.
       destruct HpropsOrPrev as (HpropsOrPrev & HnoDupRemains & HnoDupKernList).
       destruct HpropsOrPrev as [kernList (HkernelIsKS & HkernList & HcurrIsLast & Hlength & HpropsOrPrev)].
       exists kernList. exists foundblock. exists blockstart. exists blockend.
-      assert(In foundblock (filterOptionPaddr (getKSEntriesAux maxNbPrepare kernel s))).
+      assert(In foundblock (filterOptionPaddr (getKSEntriesAux (maxNbPrepare+1) kernel s))).
       {
         apply InFilterPresentInList in HblockIn.
         apply blockInGetKSEntriesAuxIncl with currentkernelstructure kernList; try(assumption);
@@ -2192,7 +2192,7 @@ revert currentkernelstructure idblock endblock P. induction n.
 Qed.
 
 Lemma findExactBlockInKS (idPD blockEntryAddr blockEndAddr: paddr) (P : state -> Prop) :
-{{ fun s => P s /\ consistency1 s /\ noDupUsedPaddrList s /\ isPDT idPD s
+{{ fun s => P s /\ consistency1 s /\ noDupMappedPaddrList s /\ isPDT idPD s
             /\ In blockEntryAddr (getAllPaddrAux (filterPresent (filterOptionPaddr (getKSEntries idPD s)) s) s)
 }}
 Internal.findExactBlockInKS idPD blockEntryAddr blockEndAddr
@@ -2263,12 +2263,11 @@ case_eq kernelstructureisnull.
         { simpl. exists p. rewrite <-Hstruct. intuition. }
         specialize(HmaxNbPrep (kernelstructurestart::kernList) HkernListExt). simpl in HmaxNbPrep. lia.
       + split.
-        * specialize(HnoDupUsed idPD HidIsPDT). unfold getUsedPaddr in HnoDupUsed.
-          apply Lib.NoDupSplit in HnoDupUsed. destruct HnoDupUsed as (_ & HnoDupMapped).
-          unfold getMappedPaddr in HnoDupMapped. unfold getMappedBlocks in HnoDupMapped.
-          unfold getKSEntries in HnoDupMapped. rewrite HlookupPart in HnoDupMapped.
-          rewrite <-Hstruct in HnoDupMapped. rewrite beqAddrFalse in HbeqNullKern.
-          rewrite HbeqNullKern in HnoDupMapped. assumption.
+        * specialize(HnoDupUsed idPD HidIsPDT).
+          unfold getMappedPaddr in HnoDupUsed. unfold getMappedBlocks in HnoDupUsed.
+          unfold getKSEntries in HnoDupUsed. rewrite HlookupPart in HnoDupUsed.
+          rewrite <-Hstruct in HnoDupUsed. rewrite beqAddrFalse in HbeqNullKern.
+          rewrite HbeqNullKern in HnoDupUsed. assumption.
         * assert(HnoDupKernlist: noDupListOfKerns s) by (unfold consistency1 in *; intuition).
           specialize(HnoDupKernlist idPD). intros kernList Hkernlist.
           assert(HkernListExt: isListOfKernels (kernelstructurestart::kernList) idPD s).
@@ -2276,7 +2275,7 @@ case_eq kernelstructureisnull.
           specialize(HnoDupKernlist (kernelstructurestart::kernList) HkernListExt). assumption.
 
 		- intros s blockaddr Hprops.
-      destruct Hprops as ((((HP & _ & HnoDupUsed & HPDT & HblockIn) & Hstruct) & HbeqNullKern) & Hconsist &
+      destruct Hprops as ((((HP & _ & _ & HPDT & HblockIn) & Hstruct) & HbeqNullKern) & Hconsist &
             HblockFound). destruct HblockFound as [kernList [block [blockstart [blockend HblockFound]]]].
       split. assumption. split. assumption. exists block. exists blockstart. exists blockend.
       assert(In block (getMappedBlocks idPD s)).

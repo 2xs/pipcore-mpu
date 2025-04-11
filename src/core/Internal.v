@@ -282,7 +282,7 @@ Definition findBlockInKS (idPD : paddr) (idBlock: paddr) : LLI paddr :=
 	perform isnull :=  compareAddrToNull kernelstructurestart in
 	if isnull
 	then ret nullAddr
-	else findBlockInKSAux maxNbPrepare kernelstructurestart idBlock zero.
+	else findBlockInKSAux (maxNbPrepare+1) kernelstructurestart idBlock zero.
 
 (* TODO: return Some blockentry or None *)
 (** The [findExactBlockInKS] function fixes the timeout value of [findExactBlockInKSAux]
@@ -294,7 +294,7 @@ Definition findExactBlockInKS (idPD : paddr) (idBlock endBlock: paddr) : LLI pad
 	perform isnull :=  compareAddrToNull kernelstructurestart in
 	if isnull
 	then ret nullAddr
-	else findExactBlockInKSAux maxNbPrepare kernelstructurestart idBlock endBlock.
+	else findExactBlockInKSAux (maxNbPrepare+1) kernelstructurestart idBlock endBlock.
 
 (* TODO: return Some blockentry or None *)
 (** The [findBelongingBlock] function fixes the timeout value of [findBlockInKSAux]
@@ -307,7 +307,7 @@ Definition findBelongingBlock (idPD : paddr) (referenceaddr: paddr) : LLI paddr 
 	perform isnull :=  compareAddrToNull kernelstructurestart in
 	if isnull
 	then ret nullAddr
-	else findBlockInKSAux maxNbPrepare kernelstructurestart referenceaddr one.
+	else findBlockInKSAux (maxNbPrepare+1) kernelstructurestart referenceaddr one.
 
 
 (** The [findBlockInKSWithAddrAux] function recursively search by going through
@@ -376,7 +376,7 @@ Definition findBlockInKSWithAddr (idPD blockEntryAddr: paddr) : LLI paddr :=
 	perform isnull :=  compareAddrToNull kernelstructurestart in
 	if isnull
 	then ret nullAddr
-	else findBlockInKSWithAddrAux maxNbPrepare kernelstructurestart blockEntryAddr.
+	else findBlockInKSWithAddrAux (maxNbPrepare+1) kernelstructurestart blockEntryAddr.
 
 (** The [checkBlockCut] function checks if the block at <blockentryaddr> has been
 		cut or if it is a subblock of some other block*)

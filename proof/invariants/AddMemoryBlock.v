@@ -7735,14 +7735,14 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 	
 	} (* from block found*)
 
-	assert(HnoDupUsedPaddrLists : noDupUsedPaddrList s).
-	{ (* noDupUsedPaddrList s *)
+	assert(HnoDupMappedPaddrLists : noDupMappedPaddrList s).
+	{ (* noDupMappedPaddrList s *)
 		(* equality of lists getPartitions and getChildren for already proven any partition
 				except globalidPDchild whose NoDup property is indirectly proven
 					knowing the equivalent new mapped list and its lentgh compared to the old one *)
-		assert(Hcons0 : noDupUsedPaddrList s0)
+		assert(Hcons0 : noDupMappedPaddrList s0)
 			by (unfold consistency in * ; unfold consistency2 in * ; intuition).
-		unfold noDupUsedPaddrList.
+		unfold noDupMappedPaddrList.
 		intros part HPDTpds.
 		unfold getUsedPaddr.
 
@@ -7828,12 +7828,12 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 
 		apply Lib.NoDupSplitInclIff.
 
-		unfold noDupUsedPaddrList in *.
+		unfold noDupMappedPaddrList in *.
 		rewrite HPDTEq in *.
 		specialize (Hcons0 part HPDTpds).
 		unfold getUsedPaddr in *.
 		rewrite Lib.NoDupSplitInclIff in Hcons0.
-		assert(Hcons0' : noDupUsedPaddrList s0)
+		assert(Hcons0' : noDupMappedPaddrList s0)
 			by (unfold consistency in * ; unfold consistency2 in * ; intuition).
 		assert(HPDTcurrParts0 : isPDT currentPart s0) by intuition.
 		specialize (Hcons0' currentPart HPDTcurrParts0).
@@ -8014,7 +8014,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 						assert(HmappedEq : getMappedPaddr part s = getMappedPaddr part s0).
 						{ eapply HconfigmappedEq ; intuition. }
 						rewrite HmappedEq. intuition.
-	} (* end of noDupUsedPaddrList *)
+	} (* end of noDupMappedPaddrList *)
 
 
 (* add global knowledge *)
@@ -8025,8 +8025,8 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 
 			(* we show addr can't be at the same time in [newB] and
 					UsedPaddr globalIdPDChild s0 by using NoDup *)
-			assert(HNoDupUsed : noDupUsedPaddrList s) by intuition. (* proved earlier *)
-			unfold noDupUsedPaddrList in *.
+			assert(HNoDupUsed : noDupMappedPaddrList s) by intuition. (* proved earlier *)
+			unfold noDupMappedPaddrList in *.
 			specialize (HNoDupUsed globalIdPDChild HPDTs).
 			unfold getUsedPaddr in HNoDupUsed.
 			apply Lib.NoDupSplit in HNoDupUsed.
@@ -8081,9 +8081,9 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 				}
 				assert(HNoDupMappeds0 : NoDup (getMappedPaddr globalIdPDChild s0)).
 				{
-					assert(HNoDupUseds0 : noDupUsedPaddrList s0)
+					assert(HNoDupUseds0 : noDupMappedPaddrList s0)
 						by (unfold consistency in * ; unfold consistency2 in * ; intuition). (* consistency s0*)
-					unfold noDupUsedPaddrList.
+					unfold noDupMappedPaddrList.
 					specialize (HNoDupUseds0 globalIdPDChild HPDTs0).
 					unfold getUsedPaddr in HNoDupUseds0. apply Lib.NoDupSplit in HNoDupUseds0.
 					intuition.
@@ -9602,7 +9602,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
 
 																assert(HBTSMapped : In blockToShareInCurrPartAddr (getMappedBlocks currentPart s0))
 																		by intuition.
-																assert(HNoDupUsedPaddrs : noDupUsedPaddrList s0)
+																assert(HNoDupUsedPaddrs : noDupMappedPaddrList s0)
 																	by (unfold consistency in * ; unfold consistency2 in * ; intuition). (* via consistency *)
 
 																(* DUP *)
@@ -12195,7 +12195,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
       {
         destruct (beqAddr blockParent blockToShareInCurrPartAddr) eqn:HbeqBlocks;
           try(apply DTL.beqAddrTrue; assumption). rewrite <-beqAddrFalse in HbeqBlocks.
-        assert(HnoDup: noDupUsedPaddrList s0) by (unfold consistency in *; unfold consistency2 in *; intuition).
+        assert(HnoDup: noDupMappedPaddrList s0) by (unfold consistency in *; unfold consistency2 in *; intuition).
         assert(HstartInParent: In blockstart (getAllPaddrAux [blockParent] s0)).
         {
           simpl. destruct (lookup blockParent (memory s0) beqAddr); try(simpl; congruence).

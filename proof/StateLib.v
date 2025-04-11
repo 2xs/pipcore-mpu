@@ -267,7 +267,7 @@ match kslist with
 | ks::list1 => match lookup ks (memory s) beqAddr with
 				| Some (BE bentry) => getAllPaddrBlockAux 0
 															ks
-															(ks + Constants.kernelStructureTotalLength) ++
+															Constants.kernelStructureTotalLength ++
 															getAllPaddrConfigAux list1 s
 				| _ => getAllPaddrConfigAux list1 s
 				end
@@ -345,7 +345,7 @@ match bound with
 				end
 end.
 
-(** The [getKSEntriesAux] function returns all block entries for all
+(** The [getKSEntries] function returns all block entries for all
 	superstructures of a given partition. *)
 Definition getKSEntries (partition: paddr) s :=
   match lookup partition s.(memory) beqAddr with
@@ -353,7 +353,7 @@ Definition getKSEntries (partition: paddr) s :=
 													(* filtering the list enables to reuse the same list somewhere else *)
 							if beqAddr pdentry.(structure) nullAddr
 							then []
-							else (getKSEntriesAux maxNbPrepare pdentry.(structure) s)
+							else (getKSEntriesAux (maxNbPrepare+1) pdentry.(structure) s)
   | _ => []
   end.
 
@@ -788,4 +788,23 @@ match parentsList with
                                                     /\ isParentsList s newParentsList pdparent
                             | _ => False
                             end)
+end.
+
+Fixpoint completeListOfKernelsAux n (kern:paddr) s :=
+match n with
+| 0 => []
+| S m => match (lookup (CPaddr (kern + nextoffset)) (memory s) beqAddr) with
+        | Some(PADDR nextAddr) => if (beqAddr nextAddr nullAddr)
+            then []
+            else nextAddr::(completeListOfKernelsAux m nextAddr s)
+        | _ => []
+        end
+end.
+
+Definition completeListOfKernels kern s := match (lookup kern (memory s) beqAddr) with
+| Some(BE bentry) => match (indexEq (blockindex bentry) (CIndex 0)) with
+                      | true => kern::completeListOfKernelsAux maxNbPrepare kern s
+                      | false => []
+                    end
+| _ => []
 end.

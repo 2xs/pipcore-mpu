@@ -233,13 +233,13 @@ exists getFreeRemain. exists b. exists newNbFree. subst getFreeRemain. intuition
 Qed.
 
 Lemma addrInAccessibleMappedIsAccessible partition block addr s:
-noDupUsedPaddrList s ->
+noDupMappedPaddrList s ->
 In addr (getAllPaddrAux [block] s) ->
 In block (getMappedBlocks partition s) -> (* by block found *)
 In addr (getAccessibleMappedPaddr partition s) ->
 bentryAFlag block true s.
 Proof.
-intros HnoDup HInBlock HBlockInMapped HinAccMapped.
+intros HnoDupMapped HInBlock HBlockInMapped HinAccMapped.
 unfold getAccessibleMappedPaddr in HinAccMapped.
 unfold getAccessibleMappedBlocks in HinAccMapped.
 assert(HPDT : isPDT partition s).
@@ -249,9 +249,7 @@ assert(HPDT : isPDT partition s).
 	destruct (lookup partition (memory s) beqAddr) ; intuition.
 	destruct v ; intuition.
 }
-specialize(HnoDup partition HPDT). unfold getUsedPaddr in HnoDup. apply Lib.NoDupSplitInclIff in HnoDup.
-destruct HnoDup as [(Hconfig & HnoDupMapped) Hdisjoint]. unfold getMappedPaddr in HnoDupMapped.
-clear Hconfig. clear Hdisjoint.
+specialize(HnoDupMapped partition HPDT). unfold getMappedPaddr in HnoDupMapped.
 apply isPDTLookupEq in HPDT. destruct HPDT as [pdentry Hlookupd].
 rewrite Hlookupd in HinAccMapped.
 induction (getMappedBlocks partition s).
@@ -9165,8 +9163,8 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 	rewrite Hlookuppds0.
 	rewrite HstructEq.
 	destruct (beqAddr (structure pdentry0) nullAddr) eqn:structNull ; intuition.
-	assert(HEq :  (getKSEntriesAux maxNbPrepare (structure pdentry0) s') =
-  (getKSEntriesAux maxNbPrepare (structure pdentry0) s0)).
+	assert(HEq :  (getKSEntriesAux (maxNbPrepare+1) (structure pdentry0) s') =
+  (getKSEntriesAux (maxNbPrepare+1) (structure pdentry0) s0)).
 	{ apply getKSEntriesAuxEqPDT.
 		- intro Hcontra. unfold StructurePointerIsKS in *.
 		  specialize (HstructKS partition pdentry0 Hlookuppds0).
@@ -9191,8 +9189,8 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 	destruct (lookup partition (memory s0) beqAddr) eqn:Hlookupparts0 ; intuition.
 	destruct v ; intuition.
 	destruct (beqAddr (structure p) nullAddr) eqn:structNull ; intuition.
-	assert(HEq :  (getKSEntriesAux maxNbPrepare (structure p) s') =
-  (getKSEntriesAux maxNbPrepare (structure p) s0)).
+	assert(HEq :  (getKSEntriesAux (maxNbPrepare+1) (structure p) s') =
+  (getKSEntriesAux (maxNbPrepare+1) (structure p) s0)).
 	{
 		apply getKSEntriesAuxEqPDT.
 		- intro Hcontra. unfold StructurePointerIsKS in *.
@@ -9244,8 +9242,8 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 	destruct v ; intuition.
 	destruct (beqAddr (structure p) nullAddr) eqn:structNull ; intuition.
 	fold s'.
-	assert(HEq :  (getKSEntriesAux maxNbPrepare (structure p) s') =
-  (getKSEntriesAux maxNbPrepare (structure p) s0)).
+	assert(HEq :  (getKSEntriesAux (maxNbPrepare+1) (structure p) s') =
+  (getKSEntriesAux (maxNbPrepare+1) (structure p) s0)).
 	{
 		apply getKSEntriesAuxEqPDT ; intuition.
 		unfold StructurePointerIsKS in *.
@@ -9543,8 +9541,8 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 	rewrite Hlookuppds0.
 	destruct (beqAddr (structure pdentry0) nullAddr) eqn:structNull ; intuition.
 	fold s'.
-	assert(HEq :  (getKSEntriesAux maxNbPrepare (structure pdentry0) s') =
-  (getKSEntriesAux maxNbPrepare (structure pdentry0) s0)).
+	assert(HEq :  (getKSEntriesAux (maxNbPrepare+1) (structure pdentry0) s') =
+  (getKSEntriesAux (maxNbPrepare+1) (structure pdentry0) s0)).
 	{
 		apply getKSEntriesAuxEqSCE ; intuition.
 	}
@@ -9695,8 +9693,8 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 	rewrite Hlookuppds0.
 	destruct (beqAddr (structure pdentry0) nullAddr) eqn:structNull ; intuition.
 	fold s'.
-	assert(HEq :  (getKSEntriesAux maxNbPrepare (structure pdentry0) s') =
-  (getKSEntriesAux maxNbPrepare (structure pdentry0) s0)).
+	assert(HEq :  (getKSEntriesAux (maxNbPrepare+1) (structure pdentry0) s') =
+  (getKSEntriesAux (maxNbPrepare+1) (structure pdentry0) s0)).
 	{
 		apply getKSEntriesAuxEqSHE ; intuition.
 	}
@@ -9865,8 +9863,8 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 	destruct (lookup partition (memory s0) beqAddr) ; try(exfalso ; congruence) ; intuition.
 	destruct v ; try(exfalso ; congruence) ; intuition.
 	destruct (beqAddr (structure p) nullAddr) eqn:structNull ; intuition.
-	assert(HEq :  (getKSEntriesAux maxNbPrepare (structure p) s') =
-  (getKSEntriesAux maxNbPrepare (structure p) s0)).
+	assert(HEq :  (getKSEntriesAux (maxNbPrepare+1) (structure p) s') =
+  (getKSEntriesAux (maxNbPrepare+1) (structure p) s0)).
 	{	eapply getKSEntriesAuxEqBE ; intuition.
 	}
 	rewrite HEq.
@@ -18202,7 +18200,7 @@ induction MPU.
 Qed.
 
 Lemma mappedBlocksEqStartEq block1 block2 partition start s:
-noDupUsedPaddrList s
+noDupMappedPaddrList s
 -> wellFormedBlock s
 -> isPDT partition s
 -> In block1 (getMappedBlocks partition s)
@@ -18217,7 +18215,6 @@ intros HnoDup HwellFormed HpartIsPDT Hblock1Mapped Hstart1 HPFlag1 Hblock2Mapped
 destruct (beqAddr block1 block2) eqn:HbeqBlocks.
 { rewrite <-DTL.beqAddrTrue in HbeqBlocks. assumption. }
 exfalso. rewrite <-beqAddrFalse in HbeqBlocks. specialize(HnoDup partition HpartIsPDT).
-unfold getUsedPaddr in HnoDup. apply Lib.NoDupSplit in HnoDup. destruct HnoDup as [_ HnoDup].
 unfold getMappedPaddr in HnoDup. induction (getMappedBlocks partition s).
 { simpl in Hblock1Mapped; congruence. }
 simpl in *. destruct Hblock1Mapped as [HaIsBlock | Hblock1Rec].
@@ -18330,7 +18327,7 @@ simpl in *. destruct Hblock1Mapped as [HaIsBlock | Hblock1Rec].
 Qed.
 
 Lemma addrInBlockNotAccIsNotAcc addr block bentry partition s:
-noDupUsedPaddrList s
+noDupMappedPaddrList s
 -> isPDT partition s
 -> In addr (getAllPaddrAux [block] s)
 -> lookup block (memory s) beqAddr = Some(BE bentry)
@@ -18339,8 +18336,7 @@ noDupUsedPaddrList s
 -> ~In addr (getAccessibleMappedPaddr partition s).
 Proof.
 intros HnoDup HpartIsPDT HaddrInBlock HlookupBlock HblockNotAcc HblockMapped HaddrAcc.
-specialize(HnoDup partition HpartIsPDT). unfold getUsedPaddr in HnoDup.
-apply Lib.NoDupSplit in HnoDup. destruct HnoDup as [_ HnoDup]. unfold getMappedPaddr in HnoDup.
+specialize(HnoDup partition HpartIsPDT). unfold getMappedPaddr in HnoDup.
 unfold getAccessibleMappedPaddr in HaddrAcc. unfold getAccessibleMappedBlocks in HaddrAcc.
 destruct (lookup partition (memory s) beqAddr); try(simpl in HaddrAcc; congruence).
 destruct v; try(simpl in HaddrAcc; congruence).
@@ -19088,16 +19084,14 @@ nextKernelIsValid s
 -> In block (filterOptionPaddr (getKSEntriesInStructAux (maxIdx+1) currKern s
               (CIndex (kernelStructureEntriesNb-1))))
 -> isListOfKernelsAux kernList kernel s
--> (forall kernList, isListOfKernelsAux kernList kernel s -> length kernList < maxNbPrepare)
+-> (forall kernList, isListOfKernelsAux kernList kernel s -> length kernList < maxNbPrepare+1)
 -> currKern = last kernList kernel
--> In block (filterOptionPaddr (getKSEntriesAux maxNbPrepare kernel s)).
+-> In block (filterOptionPaddr (getKSEntriesAux (maxNbPrepare+1) kernel s)).
 Proof.
 intros HnextKernValid Hnull Hnext. unfold nullAddrExists in Hnull.
-assert(HnbPrep: exists nbPrepMinus, maxNbPrepare = S nbPrepMinus).
-{ unfold maxNbPrepare. simpl. exists 8. reflexivity. }
-destruct HnbPrep as [nbPrepMinus HnbPrep]. rewrite HnbPrep. revert kernel. induction kernList.
-- cbn -[kernelStructureEntriesNb]. intros kernel HKS HblockIn HkernList Hlength HcurrKern. subst currKern.
-  specialize(HnextKernValid kernel HKS).
+replace (maxNbPrepare+1) with (S maxNbPrepare); try(lia). revert kernel. induction kernList.
+- cbn -[kernelStructureEntriesNb maxNbPrepare]. intros kernel HKS HblockIn HkernList Hlength HcurrKern.
+  subst currKern. specialize(HnextKernValid kernel HKS).
   destruct HnextKernValid as (HleNext & [nextAddr (HlookupNext & HnextType)]). unfold Paddr.addPaddrIdx.
   destruct (le_dec (kernel + nextoffset) maxAddr); try(lia). rewrite HlookupNext.
   destruct HnextType as [HnextIsKS | HnextIsNull].
@@ -19120,7 +19114,7 @@ destruct HnbPrep as [nbPrepMinus HnbPrep]. rewrite HnbPrep. revert kernel. induc
       destruct v; try(congruence).
     - unfold nextKSentry. rewrite HlookupNext. reflexivity.
   }
-  assert(Hrec: In block (filterOptionPaddr (getKSEntriesAux (S nbPrepMinus) a s))).
+  assert(Hrec: In block (filterOptionPaddr (getKSEntriesAux (S maxNbPrepare) a s))).
   {
     apply IHkernList; try(assumption). simpl in Hlength.
     - intros kernListBis HkernListBis.
@@ -19129,14 +19123,14 @@ destruct HnbPrep as [nbPrepMinus HnbPrep]. rewrite HnbPrep. revert kernel. induc
       specialize(Hlength (a::kernListBis) HkernListBisExt). simpl in Hlength. lia.
     - apply lastRec with kernel. assumption.
   }
-  assert(In block (filterOptionPaddr (getKSEntriesAux nbPrepMinus a s))).
+  assert(In block (filterOptionPaddr (getKSEntriesAux maxNbPrepare a s))).
   {
     apply getKSEntriesAuxRemoveExtraFuel; try(assumption). intros kernListBis HkernListBis.
     assert(HkernListBisExt: isListOfKernelsAux (a::kernListBis) kernel s).
     { simpl. intuition. }
     specialize(Hlength (a::kernListBis) HkernListBisExt). simpl in Hlength. lia.
   }
-  cbn -[kernelStructureEntriesNb]. unfold Paddr.addPaddrIdx. unfold CPaddr in HlookupNext.
+  cbn -[kernelStructureEntriesNb maxNbPrepare]. unfold Paddr.addPaddrIdx. unfold CPaddr in HlookupNext.
   destruct (le_dec (kernel + nextoffset) maxAddr) eqn:HleBis; try(lia).
   assert(Heq: {| p := kernel + nextoffset; Hp := ADT.CPaddr_obligation_1 (kernel + nextoffset) l |}
             = {| p := kernel + nextoffset; Hp := StateLib.Paddr.addPaddrIdx_obligation_1 kernel nextoffset l |}).

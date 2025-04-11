@@ -1079,14 +1079,51 @@ Lemma initStructure (kernStart kernEnd: paddr) P:
   fun s => P s /\ Constants.kernelStructureTotalLength <= kernEnd - kernStart /\ kernEnd > kernStart /\ consistency s
             /\ (forall (addr: paddr), kernStart <= addr /\ addr < kernEnd -> lookup addr (memory s) beqAddr = None)
             /\ verticalSharing s /\ partitionsIsolation s /\ kernelDataIsolation s
+            /\ (exists blockKern, bentryStartAddr blockKern kernStart s /\ bentryEndAddr blockKern kernEnd s
+                /\ bentryPFlag blockKern true s /\ sh1entryPDchild (CPaddr (blockKern+sh1offset)) nullAddr s)
 }}
 initStructure kernStart kernEnd
 {{
-  fun initSucc s => consistency1 s /\ noDupUsedPaddrList s /\ accessibleParentPaddrIsAccessibleIntoChild s
+  fun initSucc s => consistency1 s /\ noDupMappedPaddrList s /\ accessibleParentPaddrIsAccessibleIntoChild s
     /\ sharedBlockPointsToChild s /\ adressesRangePreservedIfOriginAndNextOk s /\ childsBlocksPropsInParent s
-    /\ noChildImpliesAddressesNotShared s /\ verticalSharing s /\ partitionsIsolation s
+    /\ noChildImpliesAddressesNotShared s /\ verticalSharing s /\ partitionsIsolation s /\ kernelDataIsolation s
     /\ initSucc = true
+    /\ (forall block startaddr, startaddr <> kernStart -> bentryStartAddr block startaddr s
+        -> bentryPFlag block true s -> isKS startaddr s -> bentryAFlag block false s)
+    /\ lookup (CPaddr (kernStart+nextoffset)) (memory s) beqAddr = Some(PADDR nullAddr)
+    /\ bentryBlockIndex kernStart (CIndex 0) s
+    /\ bentryBlockIndex (CPaddr (kernStart + kernelStructureEntriesNb-1)) (CIndex (kernelStructureEntriesNb-1)) s
+    /\ (forall kernIdx: index, kernIdx < kernelStructureEntriesNb -> bentryPFlag (CPaddr (kernStart+kernIdx)) false s)
+    /\ (forall kernIdx: index, kernIdx < kernelStructureEntriesNb -> isFreeSlot (CPaddr (kernStart+kernIdx)) s)
+    /\ (forall partition, isPDT partition s ->
+          Lib.disjoint (getFreeSlotsListRec (maxIdx+1) kernStart s (CIndex kernelStructureEntriesNb))
+            (getFreeSlotsList partition s))
+    /\ wellFormedFreeSlotsList (getFreeSlotsListRec (maxIdx+1) kernStart s (CIndex kernelStructureEntriesNb)) <> False
+    /\ NoDup (getFreeSlotsListRec (maxIdx+1) kernStart s (CIndex kernelStructureEntriesNb))
+    /\ (forall block,
+        In block (filterOptionPaddr (getFreeSlotsListRec (maxIdx+1) kernStart s (CIndex kernelStructureEntriesNb)))
+        -> exists kernIdx, block = CPaddr (kernStart + kernIdx) /\ kernIdx < kernelStructureEntriesNb)
+    /\ (forall kernIdx block,
+          kernIdx < kernelStructureEntriesNb
+          -> block = CPaddr (kernStart+kernIdx)
+          -> In block (filterOptionPaddr (getFreeSlotsListRec (maxIdx+1) kernStart s
+              (CIndex kernelStructureEntriesNb))))
+    /\ last (getFreeSlotsListRec (maxIdx+1) kernStart s (CIndex kernelStructureEntriesNb)) (SomePaddr kernStart)
+        = SomePaddr (CPaddr (kernStart+kernelStructureEntriesNb-1))
+    /\ bentryEndAddr (CPaddr (kernStart+kernelStructureEntriesNb-1)) nullAddr s
+    /\ (forall blkIdx:index, blkIdx < kernelStructureEntriesNb-1
+          -> bentryEndAddr (CPaddr (kernStart+blkIdx)) (CPaddr (kernStart+blkIdx+1)) s)
+    /\ (forall addr, In addr (filterOptionPaddr
+            (getKSEntriesInStructAux (maxIdx+1) kernStart s (CIndex (kernelStructureEntriesNb-1))))
+          -> forall part, isPDT part s -> ~In addr (filterOptionPaddr (getKSEntries part s)))
+    /\ (forall part, Lib.disjoint (getAllPaddrBlockAux 0 kernStart Constants.kernelStructureTotalLength)
+          (getAllPaddrConfigAux (getConfigBlocks part s) s))
     /\ exists s0, P s0
+        /\ (forall addr, (exists entry, lookup addr (memory s0) beqAddr = Some entry)
+            -> lookup addr (memory s) beqAddr = lookup addr (memory s0) beqAddr)
+        /\ (forall partition, isPDT partition s0 -> getMappedBlocks partition s = getMappedBlocks partition s0)
+        /\ (forall partition, isPDT partition s0 -> getChildren partition s = getChildren partition s0)
+        /\ (forall kernList part, isListOfKernels kernList part s -> isListOfKernels kernList part s0)
         /\ currentPartition s = currentPartition s0
         /\ consistency s0 /\ verticalSharing s0 /\ partitionsIsolation s0 /\ kernelDataIsolation s0
 }}.
@@ -1104,8 +1141,8 @@ intro isBlockErased. destruct (negb isBlockErased) eqn:HnegErased.
 apply Bool.negb_false_iff in HnegErased. eapply bindRev.
 { (** Internal.initBlocksStructure **)
   eapply weaken. apply initBlocksStructure. intros s Hprops. simpl.
-  destruct Hprops as [s0 ((HP & HblockLargeEnough & HltEndStart & Hconsist & Hnone & HVS & HPI & HKDI) & HcurrPartEq
-    & HnewNone & Huntouched & _)]. assert(kernEnd <= maxAddr) by (apply Hp).
+  destruct Hprops as [s0 ((HP & HblockLargeEnough & HltEndStart & Hconsist & Hnone & HVS & HPI & HKDI & HblockKern) &
+    HcurrPartEq & HnewNone & Huntouched & _)]. assert(kernEnd <= maxAddr) by (apply Hp).
   assert(Constants.kernelStructureTotalLength >= kernelStructureEntriesNb).
   {
     unfold Constants.kernelStructureTotalLength. unfold nextoffset. unfold scoffset. unfold sh1offset.
@@ -1119,6 +1156,8 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
     Constants.kernelStructureTotalLength <= kernEnd - kernStart /\ kernEnd > kernStart
     /\ (forall addr, In addr (getAllPaddrBlock kernStart kernEnd) -> lookup addr (memory s) beqAddr = None)
     /\ consistency s /\ verticalSharing s /\ partitionsIsolation s /\ kernelDataIsolation s
+    /\ (exists blockKern, bentryStartAddr blockKern kernStart s /\ bentryEndAddr blockKern kernEnd s
+        /\ bentryPFlag blockKern true s /\ sh1entryPDchild (CPaddr (blockKern+sh1offset)) nullAddr s)
     /\ exists s0,
         consistency s0
         /\ currentPartition s = currentPartition s0
@@ -1443,12 +1482,14 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
     }
     assert(blocksAddressesTypes s).
     { (* BEGIN blocksAddressesTypes s *)
-      assert(Hcons0: blocksAddressesTypes s0) by intuition. intros block startaddr endaddr Hstart Hend HPDchild.
+      assert(Hcons0: blocksAddressesTypes s0) by intuition.
+      intros block startaddr endaddr Hstart Hend HPflag HPDchild.
       unfold bentryStartAddr in *. unfold bentryEndAddr in *. unfold isKS in *. unfold isPDT in *.
-      unfold sh1entryPDchild in *. rewrite HlookupsEq in *.
-      specialize(Hcons0 block startaddr endaddr Hstart Hend HPDchild). destruct Hcons0 as [HKS | [HPDT | HnoneBis]].
-      - left. split. apply HKS. intro addr. unfold isBE. unfold isSHE. unfold isSCE. rewrite HlookupsEq.
-        apply HKS.
+      unfold sh1entryPDchild in *. unfold bentryPFlag in *. rewrite HlookupsEq in *.
+      specialize(Hcons0 block startaddr endaddr Hstart Hend HPflag HPDchild).
+      destruct Hcons0 as [HKS | [HPDT | HnoneBis]].
+      - left. split. apply HKS. intro addr. unfold isBE. unfold isSHE. unfold isSCE. unfold isPADDR.
+        rewrite HlookupsEq. apply HKS.
       - right. left. split. apply HPDT. intro addr. unfold isBE. unfold isSHE. unfold isSCE. rewrite HlookupsEq.
         apply HPDT.
       - right. right. intro addr. unfold isBE. unfold isSHE. unfold isSCE. rewrite HlookupsEq. apply HnoneBis.
@@ -1466,17 +1507,19 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
     assert(nextKernAddrIsInSameBlock s).
     { (* BEGIN nextKernAddrIsInSameBlock s *)
       assert(Hcons0: nextKernAddrIsInSameBlock s0) by intuition.
-      intros block kernel startaddr endaddr Hstart Hend HkernIsKS HnextInBlock. unfold bentryStartAddr in *.
-      unfold bentryEndAddr in *. unfold isKS in *. rewrite HlookupsEq in *.
-      specialize(Hcons0 block kernel startaddr endaddr Hstart Hend HkernIsKS HnextInBlock). assumption.
+      intros block kernel startaddr endaddr Hstart Hend HPflag HPDchild HkernIsKS HnextInBlock.
+      unfold bentryStartAddr in *. unfold bentryEndAddr in *. unfold bentryPFlag in *. unfold sh1entryPDchild in *.
+      unfold isKS in *. rewrite HlookupsEq in *.
+      specialize(Hcons0 block kernel startaddr endaddr Hstart Hend HPflag HPDchild HkernIsKS HnextInBlock).
+      assumption.
       (* END nextKernAddrIsInSameBlock *)
     }
-    assert(noDupUsedPaddrList s).
-    { (* BEGIN noDupUsedPaddrList s *)
-      assert(Hcons0: noDupUsedPaddrList s0) by intuition. intros partition HpartIsPDT. unfold isPDT in *.
+    assert(noDupMappedPaddrList s).
+    { (* BEGIN noDupMappedPaddrList s *)
+      assert(Hcons0: noDupMappedPaddrList s0) by intuition. intros partition HpartIsPDT. unfold isPDT in *.
       rewrite HlookupsEq in *. specialize(Hcons0 partition HpartIsPDT).
-      rewrite getUsedPaddrEqLookup with partition s s0; assumption.
-      (* END noDupUsedPaddrList *)
+      rewrite getMappedPaddrEqLookup with partition s s0; assumption.
+      (* END noDupMappedPaddrList *)
     }
     assert(accessibleParentPaddrIsAccessibleIntoChild s).
     { (* BEGIN accessibleParentPaddrIsAccessibleIntoChild s *)
@@ -1563,15 +1606,15 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
     }
     assert(kernelsAreNotAccessible s).
     { (* BEGIN kernelsAreNotAccessible s *)
-      assert(Hcons0: kernelsAreNotAccessible s0) by intuition. intros block startaddr Hstart HstartIsKS.
-      unfold bentryStartAddr in *. unfold isKS in *. unfold bentryAFlag. rewrite HlookupsEq in *.
-      specialize(Hcons0 block startaddr Hstart HstartIsKS). assumption.
+      assert(Hcons0: kernelsAreNotAccessible s0) by intuition. intros block startaddr Hstart HPflag HstartIsKS.
+      unfold bentryStartAddr in *. unfold isKS in *. unfold bentryPFlag in *. unfold bentryAFlag.
+      rewrite HlookupsEq in *. specialize(Hcons0 block startaddr Hstart HPflag HstartIsKS). assumption.
       (* END kernelsAreNotAccessible *)
     }
     assert(blockBelongsToAPart s).
     { (* BEGIN blockBelongsToAPart s *)
-      assert(Hcons0: blockBelongsToAPart s0) by intuition. intros block HblockIsBE. unfold isBE in HblockIsBE.
-      rewrite HlookupsEq in *. specialize(Hcons0 block HblockIsBE). destruct Hcons0 as [part Hcons0]. exists part.
+      assert(Hcons0: blockBelongsToAPart s0) by intuition. intros block HPflag. unfold bentryPFlag in HPflag.
+      rewrite HlookupsEq in *. specialize(Hcons0 block HPflag). destruct Hcons0 as [part Hcons0]. exists part.
       rewrite getPartitionsEqLookup with multiplexer s s0; try(assumption).
       rewrite getMappedBlocksEqLookup with part s s0; assumption.
       (* END blockBelongsToAPart *)
@@ -1582,6 +1625,13 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
       rewrite HlookupsEq in *. specialize(Hcons0 block HblockIsBE). unfold sh1entryPDflag. unfold sh1entryPDchild.
       rewrite HlookupsEq. assumption.
       (* END PDflagMeansNoChild *)
+    }
+    assert(nbPrepareIsNbKern s).
+    { (* BEGIN nbPrepareIsNbKern s *)
+      assert(Hcons0: nbPrepareIsNbKern s0) by intuition. intros part pdentry HlookupPart.
+      rewrite HlookupsEq in *. specialize(Hcons0 part pdentry HlookupPart).
+      rewrite completeListOfKernelsEqLookup with (structure pdentry) s s0; trivial.
+      (* END nbPrepareIsNbKern *)
     }
     intuition.
   }
@@ -1616,6 +1666,12 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
     rewrite getConfigPaddrEqLookup with part2 s s0; try(assumption).
     specialize(HKDI part1 part2 Hpart1IsPart Hpart2IsPart). assumption.
     (* END kernelDataIsolation *)
+  }
+  split.
+  {
+    destruct HblockKern as [blockKern (Hstart & Hend & HPDchild)]. exists blockKern. unfold bentryStartAddr.
+    unfold bentryEndAddr. unfold sh1entryPDchild. unfold bentryPFlag. rewrite HlookupsEq. rewrite HlookupsEq.
+    intuition.
   }
   exists s0. intuition.
 }
@@ -1663,7 +1719,7 @@ intro. eapply bindRev.
 { (** Internal.initSCStructure **)
   eapply weaken. apply initSCStructure. intros s Hprops. simpl.
   destruct Hprops as (HnewShe & [s2 ((HnewBE & HlastBlock & [s1 ((HblockLargeEnough & HgtEndStart & HlookupNone &
-    Hconsists1 & HVS & HPI & HKDI & HPs0) & Hcurrs2 & Hlookups1Eq)] & _) & Hcurrs & Hlookups2Eq)] & _).
+    Hconsists1 & HVS & HPI & HKDI & HblockKern & HPs0) & Hcurrs2 & Hlookups1Eq)] & _) & Hcurrs & Hlookups2Eq)] & _).
   assert(HlookupsEq: forall addr,
     (forall kernIdx : index, kernIdx <= kernelStructureEntriesNb - 1 -> addr <> CPaddr (kernStart + kernIdx))
     -> (forall kernIdx : index, kernIdx < kernelStructureEntriesNb
@@ -1770,6 +1826,8 @@ intro. eapply bindRev.
               /\ currentPartition s2 = currentPartition s1
               /\ consistency s1
               /\ verticalSharing s1 /\ partitionsIsolation s1 /\ kernelDataIsolation s1
+              /\ (exists blockKern, bentryStartAddr blockKern kernStart s1 /\ bentryEndAddr blockKern kernEnd s1
+                  /\ bentryPFlag blockKern true s1 /\ sh1entryPDchild (CPaddr (blockKern+sh1offset)) nullAddr s1)
               /\ exists s0,
                   consistency s0 /\ currentPartition s1 = currentPartition s0
                   /\ (forall addr : paddr, lookup addr (memory s1) beqAddr = lookup addr (memory s0) beqAddr)
@@ -1813,8 +1871,8 @@ intro. eapply bindRev.
 }
 intro. eapply weaken. apply ret. intros s Hprops. simpl. destruct Hprops as [s3 ((HnewSce & [s2 ((HblockLargeEnough &
   HgtEndStart & HstartIsKSs2 & [s1 (Hlookups1Eq & Hcurrs2 & HnewShe & HnewBE & HlastBlock & [s0 (Hlookups2s0Eq &
-  Hlookups1s0Eq & HlookupNones0 & Hcurrs1 & Hconsists0 & HVSs0 & HPIs0 & HKDIs0 & [sAnc (HconsistAnc & Hcurrs0 &
-  Hlookups0AncEq & HPAnc & HVSanc & HPIanc & HKDIanc)])])]) & Hcurrs3 & Hlookups2Eq)] & _) & Hs)].
+  Hlookups1s0Eq & HlookupNones0 & Hcurrs1 & Hconsists0 & HVSs0 & HPIs0 & HKDIs0 & HblockKern & [sAnc (HconsistAnc &
+  Hcurrs0 & Hlookups0AncEq & HPAnc & HVSanc & HPIanc & HKDIanc)])])]) & Hcurrs3 & Hlookups2Eq)] & _) & Hs)].
 assert(HmaxKernLen: i Constants.kernelStructureTotalLength = 25).
 {
   unfold Constants.kernelStructureTotalLength. unfold nextoffset. unfold scoffset. unfold sh1offset. unfold blkoffset.
@@ -3544,37 +3602,440 @@ assert(nextImpliesBlockWasCut s).
   (* END nextImpliesBlockWasCut *)
 }
 
+assert(HunchangedAddresses: forall addr, ~ In addr (getAllPaddrBlock kernStart kernEnd)
+  -> lookup addr (memory s) beqAddr = lookup addr (memory s0) beqAddr).
+{
+  intros addr HaddrNotInRange. rewrite Hs. simpl.
+  destruct (beqAddr (CPaddr (kernStart + nextoffset)) addr) eqn:HbeqNextAddr.
+  {
+    rewrite <-DTL.beqAddrTrue in HbeqNextAddr. exfalso. contradict HaddrNotInRange. subst addr. unfold CPaddr.
+    destruct (le_dec (kernStart + nextoffset) maxAddr); try(cbn in *; lia).
+    apply getAllPaddrBlockIncl; cbn in *; lia.
+  }
+  rewrite <-DTL.beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+  assert(forall kernIdx: index, kernIdx < kernelStructureEntriesNb -> addr <> CPaddr (kernStart+kernIdx+scoffset)).
+  {
+    intros kernIdx HltIdxKernEntries Hcontra. contradict HaddrNotInRange. subst addr. unfold CPaddr.
+    destruct (le_dec (kernStart + kernIdx + scoffset) maxAddr); try(cbn in *; lia).
+    apply getAllPaddrBlockIncl; cbn in *; lia.
+  }
+  rewrite Hlookups2Eq; try(assumption).
+  assert(forall kernIdx: index, kernIdx <= kernelStructureEntriesNb - 1 -> addr <> CPaddr (kernStart + kernIdx)).
+  {
+    intros kernIdx HltIdxKernEntries Hcontra. contradict HaddrNotInRange. subst addr. unfold CPaddr.
+    destruct (le_dec (kernStart + kernIdx) maxAddr); try(cbn in *; lia).
+    apply getAllPaddrBlockIncl; cbn in *; lia.
+  }
+  assert(forall kernIdx: index, kernIdx < kernelStructureEntriesNb -> addr <> CPaddr (kernStart+kernIdx+sh1offset)).
+  {
+    intros kernIdx HltIdxKernEntries Hcontra. contradict HaddrNotInRange. subst addr. unfold CPaddr.
+    destruct (le_dec (kernStart + kernIdx + sh1offset) maxAddr); try(cbn in *; lia).
+    apply getAllPaddrBlockIncl; cbn in *; lia.
+  }
+  apply Hlookups2s0Eq; assumption.
+}
+
 assert(blocksAddressesTypes s).
 { (* BEGIN blocksAddressesTypes s *)
   assert(Hcons0: blocksAddressesTypes s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-  intros block startaddr endaddr HstartBlock HendBlock HPDchild.
+  intros block startaddr endaddr HstartBlock HendBlock HPflag HPDchild.
   assert(HlookupBlockEqss1: lookup block (memory s) beqAddr = lookup block (memory s1) beqAddr).
   {
     apply HblocksAreBEss1. unfold isBE. unfold bentryStartAddr in HstartBlock.
     destruct (lookup block (memory s) beqAddr); try(congruence). destruct v; try(congruence). trivial.
   }
-  unfold bentryStartAddr in HstartBlock. unfold bentryEndAddr in HendBlock. rewrite HlookupBlockEqss1 in *.
-  (*assert(HlookupBlockEqs1s0: lookup block (memory s1) beqAddr = lookup block (memory s0) beqAddr).
+  unfold bentryStartAddr in HstartBlock. unfold bentryEndAddr in HendBlock. unfold bentryPFlag in HPflag.
+  rewrite HlookupBlockEqss1 in *.
+  assert(HlookupBlockEqs1s0: lookup block (memory s1) beqAddr = lookup block (memory s0) beqAddr).
   {
     apply Hlookups1s0Eq. intros kernIdx HlebIdxKernEntries Hcontra.
     destruct (Nat.eqb kernIdx (kernelStructureEntriesNb - 1)) eqn:HbeqIdxKernEntries.
     - apply Nat.eqb_eq in HbeqIdxKernEntries. rewrite HbeqIdxKernEntries in *. destruct HlastBlock as [l HlastBlock].
       rewrite Nat.add_sub_assoc in Hcontra; try(cbn; lia). subst block. rewrite HlastBlock in *.
-      simpl in HPflagChild. congruence.
+      simpl in HPflag. congruence.
     - apply Nat.eqb_neq in HbeqIdxKernEntries. assert(HltIdxKernEntriesM: kernIdx < kernelStructureEntriesNb - 1).
       { lia. }
       specialize(HnewBE kernIdx HltIdxKernEntriesM). destruct HnewBE as [l HnewBE]. subst block. rewrite HnewBE in *.
-      simpl in HPflagChild. congruence.
+      simpl in HPflag. congruence.
   }
-  rewrite HlookupBlockEqs1s0 in *.*)
-  admit.
-  
-  
-  
-  
-  
-  
-  
+  rewrite HlookupBlockEqs1s0 in *.
+  assert(HlookupSh1Eq: lookup (CPaddr (block + sh1offset)) (memory s) beqAddr
+    = lookup (CPaddr (block + sh1offset)) (memory s0) beqAddr).
+  {
+    assert(HwellFormedSh1: wellFormedFstShadowIfBlockEntry s0)
+      by (unfold consistency in *; unfold consistency1 in *; intuition).
+    assert(HblockIsBE: isBE block s0).
+    {
+      unfold isBE. destruct (lookup block (memory s0) beqAddr); try(congruence). destruct v; try(congruence). trivial.
+    }
+    specialize(HwellFormedSh1 block HblockIsBE). unfold isSHE in HwellFormedSh1. apply HlookupSomeEq.
+    destruct (lookup (CPaddr (block + sh1offset)) (memory s0) beqAddr); try(exfalso; congruence). exists v.
+    reflexivity.
+  }
+  unfold sh1entryPDchild in HPDchild. rewrite HlookupSh1Eq in *. specialize(Hcons0 block startaddr endaddr HstartBlock
+    HendBlock HPflag HPDchild). destruct Hcons0 as [(HKS & Hrange) | [(HPDT & Hrange) | Hrange]].
+  - left. split.
+    + unfold isKS in *. rewrite HlookupSomeEq; try(destruct (lookup startaddr (memory s0) beqAddr);
+        try(exfalso; congruence); exists v; reflexivity). assumption.
+    + intros addr HaddrInRange. specialize(Hrange addr HaddrInRange).
+      destruct Hrange as [HBE | [HSHE | [HSCE | Hnone]]].
+      * left. unfold isBE in *. rewrite HlookupSomeEq; try(destruct (lookup addr (memory s0) beqAddr);
+          try(exfalso; congruence); exists v; reflexivity). assumption.
+      * right. left. unfold isSHE in *. rewrite HlookupSomeEq; try(destruct (lookup addr (memory s0) beqAddr);
+          try(exfalso; congruence); exists v; reflexivity). assumption.
+      * right. right. left. unfold isSCE in *. rewrite HlookupSomeEq; try(destruct (lookup addr (memory s0) beqAddr);
+          try(exfalso; congruence); exists v; reflexivity). assumption.
+      * right. right. right.
+        assert(HpropsOr: In addr (getAllPaddrBlock kernStart kernEnd)
+          \/ ~In addr (getAllPaddrBlock kernStart kernEnd)) by (apply classic).
+        destruct HpropsOr as [Hcontra | HaddrUnchanged].
+        {
+          exfalso. destruct HblockKern as [blockKern (HstartKern & HendKern & HPflagKern & HPDchildKern)].
+          assert(HaddrInBlockKern: In addr (getAllPaddrAux [blockKern] s0)).
+          {
+            simpl. unfold bentryStartAddr in *. unfold bentryEndAddr in *.
+            destruct (lookup blockKern (memory s0) beqAddr); try(simpl; congruence).
+            destruct v; try(simpl; congruence).
+            rewrite <-HstartKern. rewrite <-HendKern. rewrite app_nil_r. assumption.
+          }
+          assert(HblockKernMapped: blockBelongsToAPart s0) by (unfold consistency in *; unfold consistency1 in *;
+            intuition). specialize(HblockKernMapped blockKern HPflagKern).
+          destruct HblockKernMapped as [partition (HpartIsPart & HblockKernMapped)].
+          assert(HaddrMappedKern: In addr (getMappedPaddr partition s0)).
+          { apply addrInBlockIsMapped with blockKern; assumption. }
+          assert(HblockMapped: blockBelongsToAPart s0) by (unfold consistency in *; unfold consistency1 in *;
+            intuition). specialize(HblockMapped block HPflag).
+          destruct HblockMapped as [partBlock (HpartBIsPart & HblockMapped)].
+          assert(HaddrInBlock: In addr (getAllPaddrAux [block] s0)).
+          {
+            simpl. destruct (lookup block (memory s0) beqAddr); try(simpl; congruence).
+            destruct v; try(simpl; congruence). rewrite <-HstartBlock. rewrite <-HendBlock. rewrite app_nil_r.
+            apply HaddrInRange.
+          }
+          assert(HaddrMapped: In addr (getMappedPaddr partBlock s0)).
+          { apply addrInBlockIsMapped with block; assumption. }
+          assert(Hincl1: In partBlock (partition :: filterOptionPaddr (completeParentsList partition s0))).
+          {
+            apply addressesBloodlineIfNotShared with addr blockKern; try(assumption); unfold consistency in *;
+              unfold consistency1 in *; unfold consistency2 in *; intuition.
+          }
+          assert(Hincl2: In partition (partBlock :: filterOptionPaddr (completeParentsList partBlock s0))).
+          {
+            apply addressesBloodlineIfNotShared with addr block; try(assumption); unfold consistency in *;
+              unfold consistency1 in *; unfold consistency2 in *; intuition.
+          }
+          destruct (beqAddr partBlock partition) eqn:HbeqParts.
+          - rewrite <-DTL.beqAddrTrue in HbeqParts. subst partBlock.
+            destruct (beqAddr block blockKern) eqn:HbeqBlocks.
+            + rewrite <-DTL.beqAddrTrue in HbeqBlocks. subst block. unfold bentryStartAddr in *.
+              unfold bentryEndAddr in *.
+              destruct (lookup blockKern (memory s0) beqAddr) eqn:HlookupB; try(congruence).
+              destruct v; try(congruence). rewrite <-HstartKern in *. subst startaddr. rewrite <-HendKern in *.
+              subst endaddr. unfold isKS in HKS.
+              assert(HstartInRange: In kernStart (getAllPaddrBlock kernStart kernEnd)).
+              {
+                apply getAllPaddrBlockInclRev in Hcontra. destruct Hcontra as (_ & _ & Hlt).
+                apply getAllPaddrBlockIncl; lia.
+              }
+              specialize(HlookupNones0 kernStart HstartInRange). rewrite HlookupNones0 in *. congruence.
+            + rewrite <-DTL.beqAddrFalse in HbeqBlocks.
+              assert(~ In addr (getAllPaddrAux [blockKern] s0)).
+              {
+                apply DTL.DisjointPaddrInPart with partition block; try(assumption).
+                - unfold consistency in *; unfold consistency2 in *; intuition.
+                - apply partitionsArePDT; try(assumption); unfold consistency in *; unfold consistency1 in *;
+                    intuition.
+              }
+              congruence.
+          - rewrite <-DTL.beqAddrFalse in HbeqParts. simpl in Hincl1. simpl in Hincl2.
+            destruct Hincl1 as [HcontraBis | Hincl1]; try(congruence).
+            destruct Hincl2 as [HcontraBis | Hincl2]; try(congruence).
+            apply completeParentsListOrientation in Hincl2; try(assumption); try(congruence); unfold consistency in *;
+              unfold consistency1 in *; intuition.
+        }
+        assert(HlookupEq: lookup addr (memory s) beqAddr = lookup addr (memory s0) beqAddr).
+        { apply HunchangedAddresses; assumption. }
+        unfold isPADDR. rewrite HlookupEq. assumption.
+  - right. left. split.
+    + unfold isPDT in *. rewrite HlookupSomeEq; try(destruct (lookup startaddr (memory s0) beqAddr);
+        try(exfalso; congruence); exists v; reflexivity). assumption.
+    + intros addr HaddrInRange. specialize(Hrange addr HaddrInRange).
+      assert(HpropsOr: In addr (getAllPaddrBlock kernStart kernEnd) \/ ~In addr (getAllPaddrBlock kernStart kernEnd))
+        by (apply classic).
+      destruct HpropsOr as [Hcontra | HaddrUnchanged].
+      {
+        exfalso. destruct HblockKern as [blockKern (HstartKern & HendKern & HPflagKern & HPDchildKern)].
+        assert(HaddrInBlockKern: In addr (getAllPaddrAux [blockKern] s0)).
+        {
+          simpl. unfold bentryStartAddr in *. unfold bentryEndAddr in *.
+          destruct (lookup blockKern (memory s0) beqAddr); try(simpl; congruence). destruct v; try(simpl; congruence).
+          rewrite <-HstartKern. rewrite <-HendKern. rewrite app_nil_r. assumption.
+        }
+        assert(HblockKernMapped: blockBelongsToAPart s0) by (unfold consistency in *; unfold consistency1 in *;
+          intuition). specialize(HblockKernMapped blockKern HPflagKern).
+        destruct HblockKernMapped as [partition (HpartIsPart & HblockKernMapped)].
+        assert(HaddrMappedKern: In addr (getMappedPaddr partition s0)).
+        { apply addrInBlockIsMapped with blockKern; assumption. }
+        assert(HblockMapped: blockBelongsToAPart s0) by (unfold consistency in *; unfold consistency1 in *;
+          intuition). specialize(HblockMapped block HPflag).
+        destruct HblockMapped as [partBlock (HpartBIsPart & HblockMapped)].
+        assert(HaddrInBlock: In addr (getAllPaddrAux [block] s0)).
+        {
+          simpl. destruct (lookup block (memory s0) beqAddr); try(simpl; congruence).
+          destruct v; try(simpl; congruence). rewrite <-HstartBlock. rewrite <-HendBlock. rewrite app_nil_r.
+          apply HaddrInRange.
+        }
+        assert(HaddrMapped: In addr (getMappedPaddr partBlock s0)).
+        { apply addrInBlockIsMapped with block; assumption. }
+        assert(Hincl1: In partBlock (partition :: filterOptionPaddr (completeParentsList partition s0))).
+        {
+          apply addressesBloodlineIfNotShared with addr blockKern; try(assumption); unfold consistency in *;
+            unfold consistency1 in *; unfold consistency2 in *; intuition.
+        }
+        assert(Hincl2: In partition (partBlock :: filterOptionPaddr (completeParentsList partBlock s0))).
+        {
+          apply addressesBloodlineIfNotShared with addr block; try(assumption); unfold consistency in *;
+            unfold consistency1 in *; unfold consistency2 in *; intuition.
+        }
+        destruct (beqAddr partBlock partition) eqn:HbeqParts.
+        - rewrite <-DTL.beqAddrTrue in HbeqParts. subst partBlock.
+          destruct (beqAddr block blockKern) eqn:HbeqBlocks.
+          + rewrite <-DTL.beqAddrTrue in HbeqBlocks. subst block. unfold bentryStartAddr in *.
+            unfold bentryEndAddr in *. destruct (lookup blockKern (memory s0) beqAddr) eqn:HlookupB; try(congruence).
+            destruct v; try(congruence). rewrite <-HstartKern in *. subst startaddr. rewrite <-HendKern in *.
+            subst endaddr. unfold isPDT in HPDT.
+            assert(HstartInRange: In kernStart (getAllPaddrBlock kernStart kernEnd)).
+            {
+              apply getAllPaddrBlockInclRev in Hcontra. destruct Hcontra as (_ & _ & Hlt).
+              apply getAllPaddrBlockIncl; lia.
+            }
+            specialize(HlookupNones0 kernStart HstartInRange). rewrite HlookupNones0 in *. congruence.
+          + rewrite <-DTL.beqAddrFalse in HbeqBlocks.
+            assert(~ In addr (getAllPaddrAux [blockKern] s0)).
+            {
+              apply DTL.DisjointPaddrInPart with partition block; try(assumption).
+              - unfold consistency in *; unfold consistency2 in *; intuition.
+              - apply partitionsArePDT; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition.
+            }
+            congruence.
+        - rewrite <-DTL.beqAddrFalse in HbeqParts. simpl in Hincl1. simpl in Hincl2.
+          destruct Hincl1 as [HcontraBis | Hincl1]; try(congruence).
+          destruct Hincl2 as [HcontraBis | Hincl2]; try(congruence).
+          apply completeParentsListOrientation in Hincl2; try(assumption); try(congruence); unfold consistency in *;
+            unfold consistency1 in *; intuition.
+      }
+      assert(HlookupEq: lookup addr (memory s) beqAddr = lookup addr (memory s0) beqAddr).
+      { apply HunchangedAddresses; assumption. }
+      rewrite HlookupEq. assumption.
+  - destruct HblockKern as [blockKern (HstartKern & HendKern & HPflagKern & HPDchildKern)].
+    assert(HblockKernMapped: blockBelongsToAPart s0) by (unfold consistency in *; unfold consistency1 in *;
+      intuition). specialize(HblockKernMapped blockKern HPflagKern).
+    destruct HblockKernMapped as [partition (HpartIsPart & HblockKernMapped)].
+    assert(HblockMapped: blockBelongsToAPart s0) by (unfold consistency in *; unfold consistency1 in *;
+      intuition). specialize(HblockMapped block HPflag).
+    destruct HblockMapped as [partBlock (HpartBIsPart & HblockMapped)].
+    destruct (beqAddr block blockKern) eqn:HbeqBlocks.
+    + rewrite <-DTL.beqAddrTrue in HbeqBlocks. subst block. unfold bentryStartAddr in *.
+      unfold bentryEndAddr in *.
+      destruct (lookup blockKern (memory s0) beqAddr) eqn:HlookupB; try(exfalso; congruence).
+      destruct v; try(exfalso; congruence). rewrite <-HstartKern in *. subst startaddr. rewrite <-HendKern in *.
+      subst endaddr. left. split. assumption.
+      intros addr HaddrInRange.
+      assert(HpropsOr: addr < CPaddr (kernStart + kernelStructureEntriesNb)
+        \/ (addr >= CPaddr (kernStart + kernelStructureEntriesNb)
+            /\ addr < CPaddr (kernStart + kernelStructureEntriesNb + sh1offset))
+        \/ (addr >= CPaddr (kernStart + kernelStructureEntriesNb + sh1offset)
+            /\ addr < CPaddr (kernStart + kernelStructureEntriesNb + scoffset))
+        \/ addr = CPaddr (kernStart + nextoffset)
+        \/ addr > CPaddr (kernStart + nextoffset)).
+      {
+        assert(HpropsOr: addr < CPaddr (kernStart + kernelStructureEntriesNb)
+          \/ ~ (addr < (CPaddr (kernStart + kernelStructureEntriesNb)))) by (apply classic).
+        destruct HpropsOr as [Hone | HnotBE]; try(left; assumption). right. apply Nat.le_ngt in HnotBE.
+        assert(HpropsOr: addr < CPaddr (kernStart + kernelStructureEntriesNb + sh1offset)
+          \/ ~ (addr < (CPaddr (kernStart + kernelStructureEntriesNb + sh1offset)))) by (apply classic).
+        destruct HpropsOr as [Hone | HnotSHE]; try(left; split; lia). right. apply Nat.le_ngt in HnotSHE.
+        assert(HpropsOr: addr < CPaddr (kernStart + kernelStructureEntriesNb + scoffset)
+          \/ ~ (addr < (CPaddr (kernStart + kernelStructureEntriesNb + scoffset)))) by (apply classic).
+        destruct HpropsOr as [Hone | HnotSCE]; try(left; split; lia). right. apply Nat.le_ngt in HnotSCE.
+        replace (kernStart+kernelStructureEntriesNb+scoffset) with (kernStart+nextoffset) in HnotSCE;
+          try(cbn in *; lia). destruct (beqAddr addr (CPaddr (kernStart + nextoffset))) eqn:Heq.
+        - rewrite <-DTL.beqAddrTrue in Heq. left. assumption.
+        - rewrite <-DTL.beqAddrFalse in Heq. right. apply DTL.paddrNeqNatNeqEquiv in Heq. lia.
+      }
+      specialize(HlookupNones0 addr HaddrInRange).
+      apply getAllPaddrBlockInclRev in HaddrInRange. destruct HaddrInRange as (HlebStartAddr & HltAddrEnd & _).
+      destruct HpropsOr as [HBE | [HSHE | [HSCE | [Hnext | Hnone]]]].
+      * left. assert(isBE addr s1).
+        {
+          assert(HkernIdx: exists kernIdx: index, kernIdx < kernelStructureEntriesNb
+            /\ addr = CPaddr(kernStart+kernIdx)).
+          {
+            exists (CIndex (addr-kernStart)). assert(addr <= maxIdx) by (rewrite maxIdxEqualMaxAddr; apply Hp).
+            unfold CIndex. destruct (le_dec (addr - kernStart) maxIdx); try(lia). simpl.
+            rewrite Nat.add_sub_assoc; try(assumption).
+            replace (kernStart + addr - kernStart) with (p addr); try(lia).
+            unfold CPaddr. assert (addr <= maxAddr) by (apply Hp). destruct (le_dec addr maxAddr); try(lia). split.
+            unfold CPaddr in HBE.
+            destruct (le_dec (kernStart + kernelStructureEntriesNb) maxAddr); cbn in *; lia.
+            destruct addr. simpl. f_equal. apply proof_irrelevance.
+          }
+          destruct HkernIdx as [kernIdx (HltIdxKernEntries & HblockEq)]. unfold isBE. specialize(HnewBE kernIdx).
+          destruct (Nat.eqb kernIdx (kernelStructureEntriesNb - 1)) eqn:HbeqIdxKernEntries.
+          - apply Nat.eqb_eq in HbeqIdxKernEntries. rewrite HbeqIdxKernEntries in *. subst addr.
+            rewrite Nat.add_sub_assoc; try(cbn; lia). destruct HlastBlock as [l HlastBlock]. rewrite HlastBlock.
+            trivial.
+          - apply Nat.eqb_neq in HbeqIdxKernEntries. assert(Hlt: kernIdx < kernelStructureEntriesNb - 1) by lia.
+            specialize(HnewBE Hlt). destruct HnewBE as [l HnewBE]. subst addr. rewrite HnewBE. trivial.
+        }
+        unfold isBE. rewrite HblocksAreBEs1s; assumption.
+      * right. left. assert(isSHE addr s2).
+        {
+          assert(HkernIdx: exists kernIdx: index, kernIdx < kernelStructureEntriesNb
+            /\ addr = CPaddr(kernStart+kernIdx+sh1offset)).
+          {
+            exists (CIndex (addr-kernStart-sh1offset)). destruct HSHE as (HnotBE & HSHE). unfold CPaddr in HnotBE.
+            destruct (le_dec (kernStart + kernelStructureEntriesNb) maxAddr); try(cbn in *; lia). simpl in HnotBE.
+            assert(addr <= maxIdx) by (rewrite maxIdxEqualMaxAddr; apply Hp). unfold CIndex.
+            destruct (le_dec (addr - kernStart-sh1offset) maxIdx); try(lia). simpl.
+            rewrite Nat.add_sub_assoc; try(cbn in *; lia). rewrite Nat.add_sub_assoc; try(cbn in *; lia).
+            replace (kernStart + addr - kernStart - sh1offset + sh1offset) with (p addr); try(lia).
+            unfold CPaddr. assert (addr <= maxAddr) by (apply Hp). destruct (le_dec addr maxAddr); try(lia). split.
+            unfold CPaddr in HSHE.
+            destruct (le_dec (kernStart + kernelStructureEntriesNb + sh1offset) maxAddr); cbn in *; lia.
+            destruct addr. simpl. f_equal. apply proof_irrelevance.
+          }
+          destruct HkernIdx as [kernIdx (HltIdxKernEntries & HblockEq)]. unfold isSHE.
+          specialize(HnewShe kernIdx HltIdxKernEntries). subst addr. rewrite HnewShe. trivial.
+        }
+        unfold isSHE. rewrite HaddrAreSHEs2s; assumption.
+      * right. right. left. assert(HisSCE: isSCE addr s3).
+        {
+          assert(HkernIdx: exists kernIdx: index, kernIdx < kernelStructureEntriesNb
+            /\ addr = CPaddr(kernStart+kernIdx+scoffset)).
+          {
+            exists (CIndex (addr-kernStart-scoffset)). destruct HSCE as (HnotSHE & HSCE). unfold CPaddr in HnotSHE.
+            destruct (le_dec (kernStart + kernelStructureEntriesNb + sh1offset) maxAddr); try(cbn in *; lia).
+            simpl in HnotSHE. assert(addr <= maxIdx) by (rewrite maxIdxEqualMaxAddr; apply Hp). unfold CIndex.
+            destruct (le_dec (addr - kernStart-scoffset) maxIdx); try(lia). simpl.
+            rewrite Nat.add_sub_assoc; try(cbn in *; lia). rewrite Nat.add_sub_assoc; try(cbn in *; lia).
+            replace (kernStart + addr - kernStart - scoffset + scoffset) with (p addr); try(lia).
+            unfold CPaddr. assert (addr <= maxAddr) by (apply Hp). destruct (le_dec addr maxAddr); try(lia). split.
+            unfold CPaddr in HSCE.
+            destruct (le_dec (kernStart + kernelStructureEntriesNb + scoffset) maxAddr); cbn in *; lia.
+            destruct addr. simpl. f_equal. apply proof_irrelevance.
+          }
+          destruct HkernIdx as [kernIdx (HltIdxKernEntries & HblockEq)]. unfold isSCE.
+          specialize(HnewSce kernIdx HltIdxKernEntries). subst addr. rewrite HnewSce. trivial.
+        }
+        unfold isSCE in *. rewrite Hs. simpl.
+        destruct (beqAddr (CPaddr (kernStart + nextoffset)) addr) eqn:HbeqNextAddr.
+        {
+          rewrite <-DTL.beqAddrTrue in HbeqNextAddr. unfold CPaddr in HbeqNextAddr.
+          destruct (le_dec (kernStart + nextoffset) maxAddr); try(cbn in *; lia).
+          assert(forall kernIdx: index, kernIdx < kernelStructureEntriesNb
+            -> addr <> CPaddr (kernStart + kernIdx + scoffset)).
+          {
+            intros kernIdx HltIdxKernEntries Hcontra. unfold CPaddr in Hcontra.
+            destruct (le_dec (kernStart + kernIdx + scoffset) maxAddr); try(cbn in *; lia). rewrite Hcontra in *.
+            injection HbeqNextAddr as HbeqNextAddr. cbn in *; lia.
+          }
+          assert(forall kernIdx: index, kernIdx <= kernelStructureEntriesNb - 1
+            -> addr <> CPaddr (kernStart + kernIdx)).
+          {
+            intros kernIdx HltIdxKernEntries Hcontra. unfold CPaddr in Hcontra.
+            destruct (le_dec (kernStart + kernIdx) maxAddr); try(cbn in *; lia). rewrite Hcontra in *.
+            injection HbeqNextAddr as HbeqNextAddr. cbn in *; lia.
+          }
+          assert(forall kernIdx: index, kernIdx < kernelStructureEntriesNb
+            -> addr <> CPaddr (kernStart + kernIdx + sh1offset)).
+          {
+            intros kernIdx HltIdxKernEntries Hcontra. unfold CPaddr in Hcontra.
+            destruct (le_dec (kernStart + kernIdx + sh1offset) maxAddr); try(cbn in *; lia). rewrite Hcontra in *.
+            injection HbeqNextAddr as HbeqNextAddr. cbn in *; lia.
+          }
+          rewrite Hlookups2Eq in HisSCE; try(assumption). rewrite Hlookups2s0Eq in HisSCE; try(assumption).
+          rewrite HlookupNones0 in *. congruence.
+        }
+        rewrite <-DTL.beqAddrFalse in HbeqNextAddr. rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
+      * right. right. right. left. rewrite Hs. unfold isPADDR. subst addr. simpl. rewrite beqAddrTrue. trivial.
+      * right. right. right. right. rewrite Hs. simpl.
+        destruct (beqAddr (CPaddr (kernStart + nextoffset)) addr) eqn:HbeqNextAddr.
+        {
+          rewrite <-DTL.beqAddrTrue in HbeqNextAddr. exfalso. apply DTL.paddrEqNatEqEquiv in HbeqNextAddr. lia.
+        }
+        rewrite <-DTL.beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+        unfold CPaddr in Hnone. destruct (le_dec (kernStart + nextoffset) maxAddr); try(cbn in *; lia).
+        simpl in Hnone. assert(forall kernIdx: index, kernIdx < kernelStructureEntriesNb
+          -> addr <> CPaddr (kernStart + kernIdx + scoffset)).
+        {
+          intros kernIdx HltIdxKernEntries Hcontra. apply DTL.paddrEqNatEqEquiv in Hcontra. unfold CPaddr in Hcontra.
+          destruct (le_dec (kernStart + kernIdx + scoffset) maxAddr); cbn in *; lia.
+        }
+        rewrite Hlookups2Eq; try(assumption).
+        assert(forall kernIdx: index, kernIdx <= kernelStructureEntriesNb-1 -> addr <> CPaddr (kernStart + kernIdx)).
+        {
+          intros kernIdx HltIdxKernEntries Hcontra. apply DTL.paddrEqNatEqEquiv in Hcontra. unfold CPaddr in Hcontra.
+          destruct (le_dec (kernStart + kernIdx) maxAddr); cbn in *; lia.
+        }
+        assert(forall kernIdx: index, kernIdx < kernelStructureEntriesNb
+          -> addr <> CPaddr (kernStart+kernIdx+sh1offset)).
+        {
+          intros kernIdx HltIdxKernEntries Hcontra. apply DTL.paddrEqNatEqEquiv in Hcontra. unfold CPaddr in Hcontra.
+          destruct (le_dec (kernStart + kernIdx + sh1offset) maxAddr); cbn in *; lia.
+        }
+        rewrite Hlookups2s0Eq; assumption.
+    + rewrite <-DTL.beqAddrFalse in HbeqBlocks.
+      assert(HdisjointBlocks: forall addr, In addr (getAllPaddrBlock startaddr endaddr)
+        -> ~In addr (getAllPaddrBlock kernStart kernEnd)).
+      {
+        intros addr HaddrInBlockRange HaddrInRange. unfold bentryStartAddr in *. unfold bentryEndAddr in *.
+        assert(HaddrInBlock: In addr (getAllPaddrAux [block] s0)).
+        {
+          simpl. destruct (lookup block (memory s0) beqAddr); try(simpl; congruence).
+          destruct v; try(simpl; congruence). rewrite <-HstartBlock. rewrite <-HendBlock. rewrite app_nil_r.
+          assumption.
+        }
+        assert(HaddrInKern: In addr (getAllPaddrAux [blockKern] s0)).
+        {
+          simpl. destruct (lookup blockKern (memory s0) beqAddr); try(simpl; congruence).
+          destruct v; try(simpl; congruence). rewrite <-HstartKern. rewrite <-HendKern. rewrite app_nil_r.
+          assumption.
+        }
+        assert(HaddrMappedKern: In addr (getMappedPaddr partition s0)).
+        { apply addrInBlockIsMapped with blockKern; assumption. }
+        assert(HaddrMapped: In addr (getMappedPaddr partBlock s0)).
+        { apply addrInBlockIsMapped with block; assumption. }
+        assert(Hincl1: In partBlock (partition :: filterOptionPaddr (completeParentsList partition s0))).
+        {
+          apply addressesBloodlineIfNotShared with addr blockKern; try(assumption); unfold consistency in *;
+            unfold consistency1 in *; unfold consistency2 in *; intuition.
+        }
+        assert(Hincl2: In partition (partBlock :: filterOptionPaddr (completeParentsList partBlock s0))).
+        {
+          apply addressesBloodlineIfNotShared with addr block; try(assumption); unfold consistency in *;
+            unfold consistency1 in *; unfold consistency2 in *; intuition.
+        }
+        destruct (beqAddr partBlock partition) eqn:HbeqParts.
+        - rewrite <-DTL.beqAddrTrue in HbeqParts. subst partBlock.
+          assert(~ In addr (getAllPaddrAux [blockKern] s0)).
+          {
+            apply DTL.DisjointPaddrInPart with partition block; try(assumption).
+            - unfold consistency in *; unfold consistency2 in *; intuition.
+            - apply partitionsArePDT; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition.
+          }
+          congruence.
+        - rewrite <-DTL.beqAddrFalse in HbeqParts. simpl in Hincl1. simpl in Hincl2.
+          destruct Hincl1 as [HcontraBis | Hincl1]; try(congruence).
+          destruct Hincl2 as [HcontraBis | Hincl2]; try(congruence).
+          apply completeParentsListOrientation in Hincl2; try(assumption); try(congruence); unfold consistency in *;
+            unfold consistency1 in *; intuition.
+      }
+      assert(HwellFormed: wellFormedBlock s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+      specialize(HwellFormed block startaddr endaddr HPflag HstartBlock HendBlock).
+      destruct HwellFormed as (HwellFormed & _). right. right. intros addr HaddrInRange.
+      specialize(HdisjointBlocks addr HaddrInRange). specialize(HunchangedAddresses addr HdisjointBlocks).
+      rewrite HunchangedAddresses. specialize(Hrange addr HaddrInRange). assumption.
   (* END blocksAddressesTypes *)
 }
 
@@ -3603,61 +4064,1422 @@ assert(notPDTIfNotPDflag s).
     assert(HkernIdx: exists kernIdx: index, kernIdx < kernelStructureEntriesNb /\ block = CPaddr(kernStart+kernIdx)).
     {
       exists (CIndex (block-kernStart)). assert(block <= maxIdx) by (rewrite maxIdxEqualMaxAddr; apply Hp).
-      unfold CIndex. destruct (le_dec (block - kernStart) maxIdx); try(lia). simpl. Search(?a + (?b-?c)). split; try(lia).
+      unfold CIndex. destruct (le_dec (block - kernStart) maxIdx); try(lia). simpl.
+      rewrite Nat.add_sub_assoc; try(assumption). replace (kernStart + block - kernStart) with (p block); try(lia).
+      unfold CPaddr. assert (block <= maxAddr) by (apply Hp). destruct (le_dec block maxAddr); try(lia). split.
       unfold CPaddr in HltBlockKernPEntries.
       destruct (le_dec (kernStart + kernelStructureEntriesNb) maxAddr); cbn in *; lia.
+      destruct block. simpl. f_equal. apply proof_irrelevance.
     }
-    destruct HkernIdx as [kernIdx (HltKIdxKernEntries & HKernEq)].
-  - 
-  assert(forall kernIdx: index, kernIdx <= kernelStructureEntriesNb - 1 -> block <> CPaddr (kernStart + kernIdx)).
-  {
-    intros kernIdx HltIdxKernEntries Hcontra. subst block.
-    destruct (lookup (CPaddr (kernStart + kernIdx)) (memory s1) beqAddr); try(congruence).
-    destruct v; try(congruence). assert(Hsh1Eq: CPaddr (kernStart+kernIdx)+sh1offset = kernStart+kernIdx+sh1offset).
+    destruct HkernIdx as [kernIdx (HltIdxKernEntries & HblockEq)]. subst block.
+    assert(HstartEq: startaddr = nullAddr).
     {
-      unfold CPaddr. destruct (le_dec (kernStart + kernIdx) maxAddr); cbn in *; lia.
+      destruct (Nat.eqb kernIdx (kernelStructureEntriesNb-1)) eqn:HbeqIdxKernEntries.
+      + apply Nat.eqb_eq in HbeqIdxKernEntries. rewrite HbeqIdxKernEntries in *.
+        rewrite Nat.add_sub_assoc in HstartBlock; try(cbn; lia). destruct HlastBlock as [l HlastBlock].
+        rewrite HlastBlock in *. simpl in HstartBlock. assumption.
+      + apply Nat.eqb_neq in HbeqIdxKernEntries. assert(Hlt: kernIdx < kernelStructureEntriesNb - 1) by lia.
+        specialize(HnewBE kernIdx Hlt). destruct HnewBE as [l HnewBE]. rewrite HnewBE in *. simpl in HstartBlock.
+        unfold CBlock in HstartBlock.
+        assert(Heq: CPaddr (kernStart + kernIdx + 1) - nullAddr = kernStart + kernIdx + 1).
+        {
+          unfold nullAddr. unfold CPaddr. destruct (le_dec 0 maxAddr); try(lia).
+          destruct (le_dec (kernStart + kernIdx + 1) maxAddr); cbn in *; lia.
+        }
+        destruct (le_dec (CPaddr (kernStart + kernIdx + 1) - nullAddr) maxIdx); try(rewrite Heq in *;
+          rewrite maxIdxEqualMaxAddr in *; cbn in *; lia). simpl in HstartBlock. assumption.
     }
-    rewrite Hsh1Eq in Hsh1. subst sh1entryaddr. assert(Hlt: kernIdx < kernelStructureEntriesNb) by (cbn in *; lia).
-    specialize(HnewShe kernIdx Hlt). rewrite HnewShe in *.
-  }
-  
-  
-  
+    subst startaddr. unfold nullAddrExists in *. unfold isPADDR in *. unfold isPDT. intro Hcontra.
+    destruct (lookup nullAddr (memory s) beqAddr); try(congruence). destruct v; congruence.
+  - assert(HlookupBlocks1s0: lookup block (memory s1) beqAddr = lookup block (memory s0) beqAddr).
+    {
+      apply HblockUntouched; try(assumption). unfold isBE.
+      destruct (lookup block (memory s1) beqAddr); try(exfalso; congruence). destruct v; try(exfalso; congruence).
+      trivial.
+    }
+    assert(HlookupSh1s2s0: lookup sh1entryaddr (memory s2) beqAddr = lookup sh1entryaddr (memory s0) beqAddr).
+    {
+      destruct (lookup block (memory s1) beqAddr); try(exfalso; congruence). destruct v; try(exfalso; congruence).
+      subst sh1entryaddr. apply HblockUntouchedMeansSh1Untoucheds2; try(assumption). unfold isSHE.
+      destruct (lookup (CPaddr (block + sh1offset)) (memory s2) beqAddr); try(exfalso; congruence).
+      destruct v; try(exfalso; congruence). trivial.
+    }
+    rewrite HlookupBlocks1s0 in *. rewrite HlookupSh1s2s0 in *. specialize(Hcons0 block startaddr sh1entryaddr
+      HstartBlock Hsh1 HPDflag HPDchild). unfold isPDT. contradict Hcons0. unfold isPDT.
+    rewrite HpdsArePDT in Hcons0; assumption.
   (* END notPDTIfNotPDflag *)
 }
 
 assert(nextKernAddrIsInSameBlock s).
 { (* BEGIN nextKernAddrIsInSameBlock s *)
   assert(Hcons0: nextKernAddrIsInSameBlock s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-  intros block kernel startaddr endaddr HstartBlock HendBlock HkernIsKS.
-  
-  
-  
-  
+  intros block kernel startaddr endaddr HstartBlock HendBlock HPflag HPDchild HkernIsKS HnextInRange.
+  assert(HlookupBlockEqss1: lookup block (memory s) beqAddr = lookup block (memory s1) beqAddr).
+  {
+    apply HblocksAreBEss1. unfold isBE. unfold bentryStartAddr in HstartBlock.
+    destruct (lookup block (memory s) beqAddr); try(congruence). destruct v; try(congruence). trivial.
+  }
+  unfold bentryStartAddr in HstartBlock. unfold bentryEndAddr in HendBlock. unfold bentryPFlag in HPflag.
+  rewrite HlookupBlockEqss1 in *.
+  assert(forall kernIdx: index, kernIdx <= kernelStructureEntriesNb - 1 -> block <> CPaddr (kernStart + kernIdx)).
+  {
+    intros kernIdx HlebIdxKernEntries Hcontra. subst block.
+    destruct (Nat.eqb kernIdx (kernelStructureEntriesNb - 1)) eqn:HbeqIdxKernEntries.
+    - apply Nat.eqb_eq in HbeqIdxKernEntries. rewrite HbeqIdxKernEntries in *.
+      rewrite Nat.add_sub_assoc in HPflag; try(cbn; lia). destruct HlastBlock as [l HlastBlock].
+      rewrite HlastBlock in *. simpl in HPflag. congruence.
+    - apply Nat.eqb_neq in HbeqIdxKernEntries. assert(Hlt: kernIdx < kernelStructureEntriesNb-1) by lia.
+      specialize(HnewBE kernIdx Hlt). destruct HnewBE as [l HnewBE]. rewrite HnewBE in *. simpl in HPflag. congruence.
+  }
+  assert(HlookupBlockEqs1s0: lookup block (memory s1) beqAddr = lookup block (memory s0) beqAddr).
+  { apply Hlookups1s0Eq; assumption. }
+  rewrite HlookupBlockEqs1s0 in *. unfold isKS in HkernIsKS.
+  assert(HlookupKernEqss1: lookup kernel (memory s) beqAddr = lookup kernel (memory s1) beqAddr).
+  {
+    apply HblocksAreBEss1. unfold isBE.
+    destruct (lookup kernel (memory s) beqAddr); try(congruence). destruct v; try(congruence). trivial.
+  }
+  rewrite HlookupKernEqss1 in HkernIsKS. unfold sh1entryPDchild in HPDchild.
+  assert(HlookupSh1Eq: lookup (CPaddr (block + sh1offset)) (memory s) beqAddr
+    = lookup (CPaddr (block + sh1offset)) (memory s0) beqAddr).
+  {
+    apply HlookupSomeEq. assert(HwellFormed: wellFormedFstShadowIfBlockEntry s0)
+      by (unfold consistency in *; unfold consistency1 in *; intuition).
+    assert(HblockIsBE: isBE block s0).
+    {
+      unfold isBE. destruct (lookup block (memory s0) beqAddr); try(congruence). destruct v; try(congruence). trivial.
+    }
+    specialize(HwellFormed block HblockIsBE). unfold isSHE in HwellFormed.
+    destruct (lookup (CPaddr (block + sh1offset)) (memory s0) beqAddr); try(exfalso; congruence). exists v.
+    reflexivity.
+  }
+  rewrite HlookupSh1Eq in HPDchild.
+  assert(HpropsOr: In kernel (getAllPaddrBlock kernStart kernEnd) \/ ~In kernel (getAllPaddrBlock kernStart kernEnd)).
+  { apply classic. }
+  destruct HpropsOr as [HkernInRange | HkernNotInRange].
+  - specialize(HlookupNones0 kernel HkernInRange). apply getAllPaddrBlockInclRev in HkernInRange.
+    destruct HkernInRange as (HlebKerns & HltKernKernPEntries & _).
+    assert(HkernIsBE: In kernel (getAllPaddrBlock kernStart (CPaddr (kernStart + kernelStructureEntriesNb)))).
+    {
+      assert(HpropsOr: In kernel (getAllPaddrBlock kernStart (CPaddr (kernStart + kernelStructureEntriesNb)))
+        \/ ~In kernel (getAllPaddrBlock kernStart (CPaddr (kernStart+kernelStructureEntriesNb)))) by (apply classic).
+      destruct HpropsOr as [Hres | Hcontra]; try(assumption). exfalso.
+      assert(forall kernIdx: index, kernIdx <= kernelStructureEntriesNb-1 -> kernel <> CPaddr (kernStart + kernIdx)).
+      {
+        intros kernIdx HlebIdxKernEntries. contradict Hcontra. subst kernel. unfold CPaddr.
+        destruct (le_dec (kernStart + kernIdx) maxAddr); try(cbn in *; lia).
+        destruct (le_dec (kernStart + kernelStructureEntriesNb) maxAddr); try(cbn in *; lia).
+        apply getAllPaddrBlockIncl; cbn in *; lia.
+      }
+      rewrite Hlookups1s0Eq in HkernIsKS; try(assumption). rewrite HlookupNones0 in *. congruence.
+    }
+    assert(HkernIdx: exists kernIdx: index, kernIdx < kernelStructureEntriesNb /\ p kernel = kernStart + kernIdx).
+    {
+      exists (CIndex (kernel-kernStart)). assert(kernel <= maxIdx) by (rewrite maxIdxEqualMaxAddr; apply Hp).
+      unfold CIndex. destruct (le_dec (kernel - kernStart) maxIdx); try(lia). simpl. split; try(lia).
+      unfold CPaddr in HkernIsBE.
+      destruct (le_dec (kernStart + kernelStructureEntriesNb) maxAddr); try(cbn in *; lia).
+      apply getAllPaddrBlockInclRev in HkernIsBE. destruct HkernIsBE as (_ & Hres & _). simpl in Hres. lia.
+    }
+    destruct HkernIdx as [kernIdx (HltKIdxKernEntries & HKernEq)].
+    assert(HkernEqBis: kernel = kernStart).
+    {
+      destruct (Nat.eqb kernIdx (kernelStructureEntriesNb-1)) eqn:HbeqIdxKernEntries.
+      - apply Nat.eqb_eq in HbeqIdxKernEntries. rewrite HbeqIdxKernEntries in *. exfalso.
+        assert(Hkern: kernel = CPaddr(kernStart + kernelStructureEntriesNb - 1)).
+        {
+          apply DTL.paddrEqNatEqEquiv. unfold CPaddr.
+          destruct (le_dec (kernStart + kernelStructureEntriesNb - 1) maxAddr); cbn in *; lia.
+        }
+        subst kernel. destruct HlastBlock as [l HlastBlock]. rewrite HlastBlock in HkernIsKS. simpl in HkernIsKS.
+        unfold zero in HkernIsKS. unfold CIndex in HkernIsKS. destruct (le_dec 0 maxIdx); try(lia).
+        destruct (le_dec 7 maxIdx); try(rewrite maxIdxEqualMaxAddr in *; cbn in *; lia).
+        injection HkernIsKS as Hcontra. lia.
+      - apply Nat.eqb_neq in HbeqIdxKernEntries. assert(Hlt: kernIdx < kernelStructureEntriesNb - 1) by lia.
+        specialize(HnewBE kernIdx Hlt). destruct HnewBE as [l HnewBE].
+        assert(Hkern: kernel = CPaddr(kernStart + kernIdx)).
+        {
+          apply DTL.paddrEqNatEqEquiv. unfold CPaddr. destruct (le_dec (kernStart + kernIdx) maxAddr); cbn in *; lia.
+        }
+        rewrite Hkern in HkernIsKS. rewrite HnewBE in HkernIsKS. simpl in HkernIsKS. unfold zero in HkernIsKS.
+        subst kernIdx. apply DTL.paddrEqNatEqEquiv. rewrite HKernEq. unfold CIndex.
+        destruct (le_dec 0 maxIdx); try(lia). simpl. lia.
+    }
+    rewrite HkernEqBis in *. unfold bentryStartAddr in *. unfold bentryEndAddr in *.
+    assert(HnextInBlock: In (CPaddr (kernStart + nextoffset)) (getAllPaddrAux [block] s0)).
+    {
+      simpl. destruct (lookup block (memory s0) beqAddr); try(simpl; congruence).
+      destruct v; try(simpl; congruence). rewrite <-HstartBlock. rewrite <-HendBlock. rewrite app_nil_r.
+      assumption.
+    }
+    destruct HblockKern as [blockKern (HstartKern & HendKern & HPflagKern & HPDchildKern)].
+    assert(HnextInKern: In (CPaddr (kernStart + nextoffset)) (getAllPaddrAux [blockKern] s0)).
+    {
+      simpl. destruct (lookup blockKern (memory s0) beqAddr); try(simpl; congruence).
+      destruct v; try(simpl; congruence). rewrite <-HstartKern. rewrite <-HendKern. rewrite app_nil_r.
+      unfold CPaddr. destruct (le_dec (kernStart + nextoffset) maxAddr); try(cbn in *; lia).
+      apply getAllPaddrBlockIncl; cbn in *; lia.
+    }
+    assert(HblockKernMapped: blockBelongsToAPart s0) by (unfold consistency in *; unfold consistency1 in *;
+      intuition). specialize(HblockKernMapped blockKern HPflagKern).
+    destruct HblockKernMapped as [partition (HpartIsPart & HblockKernMapped)].
+    assert(HblockMapped: blockBelongsToAPart s0) by (unfold consistency in *; unfold consistency1 in *;
+      intuition). specialize(HblockMapped block HPflag).
+    destruct HblockMapped as [partBlock (HpartBIsPart & HblockMapped)].
+    assert(HnextMappedKern: In (CPaddr (kernStart + nextoffset)) (getMappedPaddr partition s0)).
+    { apply addrInBlockIsMapped with blockKern; assumption. }
+    assert(HnextMapped: In (CPaddr (kernStart + nextoffset)) (getMappedPaddr partBlock s0)).
+    { apply addrInBlockIsMapped with block; assumption. }
+    assert(Hincl1: In partBlock (partition :: filterOptionPaddr (completeParentsList partition s0))).
+    {
+      apply addressesBloodlineIfNotShared with (CPaddr (kernStart + nextoffset)) blockKern; try(assumption);
+        unfold consistency in *; unfold consistency1 in *; unfold consistency2 in *; intuition.
+    }
+    assert(Hincl2: In partition (partBlock :: filterOptionPaddr (completeParentsList partBlock s0))).
+    {
+      apply addressesBloodlineIfNotShared with (CPaddr (kernStart + nextoffset)) block; try(assumption);
+        unfold consistency in *; unfold consistency1 in *; unfold consistency2 in *; intuition.
+    }
+    destruct (beqAddr partBlock partition) eqn:HbeqParts.
+    + rewrite <-DTL.beqAddrTrue in HbeqParts. subst partBlock.
+      destruct (beqAddr block blockKern) eqn:HbeqBlocks.
+      * rewrite <-DTL.beqAddrTrue in HbeqBlocks. subst block.
+        destruct (lookup blockKern (memory s0) beqAddr); try(exfalso; congruence).
+        destruct v; try(exfalso; congruence). subst startaddr. subst kernStart. reflexivity.
+      * rewrite <-DTL.beqAddrFalse in HbeqBlocks.
+        assert(~ In (CPaddr (kernStart + nextoffset)) (getAllPaddrAux [blockKern] s0)).
+        {
+          apply DTL.DisjointPaddrInPart with partition block; try(assumption).
+          - unfold consistency in *; unfold consistency2 in *; intuition.
+          - apply partitionsArePDT; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition.
+        }
+        congruence.
+    + rewrite <-DTL.beqAddrFalse in HbeqParts. simpl in Hincl1. simpl in Hincl2.
+      destruct Hincl1 as [HcontraBis | Hincl1]; try(congruence).
+      destruct Hincl2 as [HcontraBis | Hincl2]; try(congruence).
+      apply completeParentsListOrientation in Hincl2; try(assumption); try(congruence); unfold consistency in *;
+        unfold consistency1 in *; intuition.
+  - assert(HlookupKernEqs1s0: lookup kernel (memory s1) beqAddr = lookup kernel (memory s0) beqAddr).
+    {
+      rewrite <-HlookupKernEqss1. apply HunchangedAddresses; assumption.
+    }
+    rewrite HlookupKernEqs1s0 in HkernIsKS.
+    specialize(Hcons0 block kernel startaddr endaddr HstartBlock HendBlock HPflag HPDchild HkernIsKS HnextInRange).
+    assumption.
   (* END nextKernAddrIsInSameBlock *)
 }
 
 assert(blockBelongsToAPart s).
 { (* BEGIN blockBelongsToAPart s *)
   assert(Hcons0: blockBelongsToAPart s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-  intros block HblockIsBE.
-  
-  
-  
-  
+  intros block HPflag. unfold bentryPFlag in HPflag. rewrite HblocksAreBEss1 in HPflag; try(unfold isBE;
+    destruct (lookup block (memory s) beqAddr); try(exfalso; congruence); destruct v; trivial; congruence).
+  assert(forall kernIdx : index, kernIdx <= kernelStructureEntriesNb - 1 -> block <> CPaddr (kernStart + kernIdx)).
+  {
+    intros kernIdx HlebIdxKernEntries Hcontra. subst block.
+    destruct (Nat.eqb kernIdx (kernelStructureEntriesNb-1)) eqn:HbeqIdxKernEntries.
+    - apply Nat.eqb_eq in HbeqIdxKernEntries. rewrite HbeqIdxKernEntries in *.
+      rewrite Nat.add_sub_assoc in HPflag; try(cbn; lia). destruct HlastBlock as [l HlastBlock].
+      rewrite HlastBlock in *. simpl in HPflag. congruence.
+    - apply Nat.eqb_neq in HbeqIdxKernEntries. assert(Hlt: kernIdx < kernelStructureEntriesNb-1) by lia.
+      specialize(HnewBE kernIdx Hlt). destruct HnewBE as [l HnewBE]. rewrite HnewBE in *. simpl in HPflag. congruence.
+  }
+  rewrite Hlookups1s0Eq in HPflag; try(assumption). specialize(Hcons0 block HPflag).
+  destruct Hcons0 as [part (HpartIsPart & HblockMapped)]. exists part. rewrite HgetPartsEq. split. assumption.
+  rewrite HgetMappedEq; try(assumption). unfold isPDT. unfold getMappedBlocks in HblockMapped.
+  unfold getKSEntries in HblockMapped.
+  destruct (lookup part (memory s0) beqAddr); try(simpl in HblockMapped; congruence).
+  destruct v; try(simpl in HblockMapped; congruence). trivial.
   (* END blockBelongsToAPart *)
 }
 
 assert(PDflagMeansNoChild s).
 { (* BEGIN PDflagMeansNoChild s *)
   assert(Hcons0: PDflagMeansNoChild s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-  intros block HblockIsBE.
-  
-  
-  
-  
+  intros block HblockIsBE HPDflag. unfold isBE in HblockIsBE. rewrite HblocksAreBEss1 in HblockIsBE; try(assumption).
+  unfold sh1entryPDflag in HPDflag. unfold sh1entryPDchild.
+  assert(HlookupSh1Eqss2: lookup (CPaddr (block + sh1offset)) (memory s) beqAddr
+    = lookup (CPaddr (block + sh1offset)) (memory s2) beqAddr).
+  {
+    apply HaddrAreSHEss2. unfold isSHE.
+    destruct (lookup (CPaddr (block + sh1offset)) (memory s) beqAddr); try(congruence).
+    destruct v; trivial; congruence.
+  }
+  rewrite HlookupSh1Eqss2 in *.
+  assert(HpropsOr: In block (getAllPaddrBlock kernStart (CPaddr (kernStart + kernelStructureEntriesNb)))
+    \/ ~In block (getAllPaddrBlock kernStart (CPaddr (kernStart + kernelStructureEntriesNb)))) by (apply classic).
+  destruct HpropsOr as [HblockIsNew | HblockNotNew].
+  - apply getAllPaddrBlockInclRev in HblockIsNew.
+    destruct HblockIsNew as (HlebBlockKern & HltBlockKernPEntries & _).
+    assert(HkernIdx: exists kernIdx: index, kernIdx < kernelStructureEntriesNb /\ p block = kernStart+kernIdx).
+    {
+      exists (CIndex (block-kernStart)). assert(block <= maxIdx) by (rewrite maxIdxEqualMaxAddr; apply Hp).
+      unfold CIndex. destruct (le_dec (block - kernStart) maxIdx); try(lia). simpl.
+      rewrite Nat.add_sub_assoc; try(assumption). split; try(lia).
+      unfold CPaddr in HltBlockKernPEntries.
+      destruct (le_dec (kernStart + kernelStructureEntriesNb) maxAddr); cbn in *; lia.
+    }
+    destruct HkernIdx as [kernIdx (HltIdxKernEntries & HblockEq)]. rewrite HblockEq in *.
+    rewrite HnewShe;try(assumption). simpl. reflexivity.
+  - rewrite HblockUntouched in HblockIsBE; try(assumption).
+    assert(isSHE (CPaddr (block + sh1offset)) s2).
+    {
+      unfold isSHE. destruct (lookup (CPaddr (block + sh1offset)) (memory s2) beqAddr); try(congruence).
+      destruct v; try(congruence). trivial.
+    }
+    rewrite HblockUntouchedMeansSh1Untoucheds2; try(assumption).
+    rewrite HblockUntouchedMeansSh1Untoucheds2 in HPDflag; try(assumption).
+    specialize(Hcons0 block HblockIsBE HPDflag). assumption.
   (* END PDflagMeansNoChild *)
 }
 
+assert(noDupMappedPaddrList s).
+{ (* BEGIN noDupMappedPaddrList s *)
+  assert(Hcons0: noDupMappedPaddrList s0) by (unfold consistency in *; unfold consistency2 in *; intuition).
+  intros partition HpartIsPDT. unfold isPDT in HpartIsPDT. rewrite HpdsArePDT in HpartIsPDT; try(assumption).
+  specialize(Hcons0 partition HpartIsPDT). rewrite HgetMappedPaddrEq; assumption.
+  (* END noDupMappedPaddrList *)
+}
 
+assert(accessibleParentPaddrIsAccessibleIntoChild s).
+{ (* BEGIN accessibleParentPaddrIsAccessibleIntoChild s *)
+  assert(Hcons0: accessibleParentPaddrIsAccessibleIntoChild s0)
+    by (unfold consistency in *; unfold consistency2 in *; intuition).
+  intros pdparent child addr HparentIsPart HchildIsChild HaddrAccMappedParent HaddrMappedChild.
+  rewrite HgetPartsEq in HparentIsPart. assert(isPDT pdparent s0).
+  { apply partitionsArePDT; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition. }
+  rewrite HgetChildrenEq in HchildIsChild; try(assumption).
+  rewrite HgetAccMappedPaddrEq in HaddrAccMappedParent; try(assumption).
+  assert(isPDT child s0).
+  {
+    apply childrenArePDT with pdparent; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition.
+  }
+  rewrite HgetMappedPaddrEq in HaddrMappedChild; try(assumption).
+  specialize(Hcons0 pdparent child addr HparentIsPart HchildIsChild HaddrAccMappedParent HaddrMappedChild).
+  rewrite HgetAccMappedPaddrEq; assumption.
+  (* END accessibleParentPaddrIsAccessibleIntoChild *)
+}
+
+assert(sharedBlockPointsToChild s).
+{ (* BEGIN sharedBlockPointsToChild s *)
+  assert(Hcons0: sharedBlockPointsToChild s0) by (unfold consistency in *; unfold consistency2 in *; intuition).
+  intros pdparent child addr blockParent sh1entryaddr HparentIsPart HchildIsChild HaddrUsedChild HaddrInBlockParent
+    HblockParentMapped Hsh1. rewrite HgetPartsEq in HparentIsPart.
+  assert(isPDT pdparent s0).
+  { apply partitionsArePDT; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition. }
+  rewrite HgetChildrenEq in HchildIsChild; try(assumption).
+  assert(isPDT child s0).
+  {
+    apply childrenArePDT with pdparent; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition.
+  }
+  rewrite HgetUsedPaddrEq in HaddrUsedChild; try(assumption).
+  rewrite HgetMappedEq in HblockParentMapped; try(assumption).
+  assert(HlookupBlockP: exists bentry, lookup blockParent (memory s0) beqAddr = Some(BE bentry)).
+  {
+    apply mappedBlockIsBE in HblockParentMapped. destruct HblockParentMapped as [bentry (Hlookup & _)]. exists bentry.
+    assumption.
+  }
+  destruct HlookupBlockP as [bentry HlookupBlockP].
+  assert(HlookupBlockParentEq: lookup blockParent (memory s) beqAddr = lookup blockParent (memory s0) beqAddr).
+  { apply HlookupSomeEq; exists (BE bentry); assumption. }
+  assert(HaddrInBlockParents0: In addr (getAllPaddrAux [blockParent] s0)).
+  {
+    simpl. simpl in HaddrInBlockParent. rewrite HlookupBlockParentEq in HaddrInBlockParent. assumption.
+  }
+  unfold sh1entryAddr in Hsh1. rewrite HlookupBlockParentEq in Hsh1.
+  assert(HlookupSh1Eq: sh1entryaddr = CPaddr (blockParent + sh1offset)
+    /\ lookup sh1entryaddr (memory s) beqAddr = lookup sh1entryaddr (memory s0) beqAddr).
+  {
+    assert(HwellFormed: wellFormedFstShadowIfBlockEntry s0)
+      by (unfold consistency in *; unfold consistency1 in *; intuition).
+    destruct (lookup blockParent (memory s0) beqAddr) eqn:HlookupBlockPs0; try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). split. assumption. subst sh1entryaddr.
+    assert(HBE: isBE blockParent s0) by (unfold isBE; rewrite HlookupBlockPs0; trivial).
+    specialize(HwellFormed blockParent HBE). unfold isSHE in HwellFormed. apply HlookupSomeEq.
+    destruct (lookup (CPaddr (blockParent + sh1offset)) (memory s0) beqAddr); try(exfalso; congruence). exists v.
+    reflexivity.
+  }
+  destruct HlookupSh1Eq as (Hsh1Val & HlookupSh1Eq). specialize(Hcons0 pdparent child addr blockParent sh1entryaddr
+    HparentIsPart HchildIsChild HaddrUsedChild HaddrInBlockParents0 HblockParentMapped Hsh1).
+  subst sh1entryaddr. unfold sh1entryPDchild. unfold sh1entryPDflag. rewrite HlookupSh1Eq. assumption.
+  (* END sharedBlockPointsToChild *)
+}
+
+assert(adressesRangePreservedIfOriginAndNextOk s).
+{ (* BEGIN adressesRangePreservedIfOriginAndNextOk s *)
+  assert(Hcons0: adressesRangePreservedIfOriginAndNextOk s0)
+    by (unfold consistency in *; unfold consistency2 in *; intuition).
+  intros partition pdentry block scentryaddr startBlock endBlock HpartIsPart HblockMapped HblockIsBE HstartBlock
+    HendBlock HPflag Hsce Horigin Hnext HlookupPart HbeqPartRoot. rewrite HgetPartsEq in HpartIsPart.
+  assert(isPDT partition s0).
+  { apply partitionsArePDT; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition. }
+  rewrite HgetMappedEq in HblockMapped; try(assumption).
+  assert(HlookupBlock: exists bentry, lookup block (memory s0) beqAddr = Some(BE bentry)).
+  {
+    apply mappedBlockIsBE in HblockMapped. destruct HblockMapped as [bentry (Hlookup & _)]. exists bentry.
+    assumption.
+  }
+  destruct HlookupBlock as [bentry HlookupBlock].
+  assert(HlookupBlockEq: lookup block (memory s) beqAddr = lookup block (memory s0) beqAddr).
+  { apply HlookupSomeEq; exists (BE bentry); assumption. }
+  unfold isBE in HblockIsBE. unfold bentryStartAddr in HstartBlock. unfold bentryEndAddr in HendBlock.
+  unfold bentryPFlag in HPflag. rewrite HlookupBlockEq in *.
+  assert(HlookupSceEq: lookup scentryaddr (memory s) beqAddr = lookup scentryaddr (memory s0) beqAddr).
+  {
+    assert(HwellFormed: wellFormedShadowCutIfBlockEntry s0)
+      by (unfold consistency in *; unfold consistency1 in *; intuition).
+    destruct (lookup block (memory s0) beqAddr) eqn:HlookupBlocks0; try(exfalso; congruence).
+    destruct v; try(exfalso; congruence).
+    assert(HBE: isBE block s0) by (unfold isBE; rewrite HlookupBlocks0; trivial).
+    specialize(HwellFormed block HBE). destruct HwellFormed as [sceBis (HSCE & HsceBis)]. subst scentryaddr.
+    subst sceBis. unfold isSCE in HSCE. apply HlookupSomeEq.
+    destruct (lookup (CPaddr (block + scoffset)) (memory s0) beqAddr); try(exfalso; congruence). exists v.
+    reflexivity.
+  }
+  unfold scentryNext in Hnext. unfold scentryOrigin in Horigin. rewrite HlookupSceEq in *.
+  assert(HlookupParts0: lookup partition (memory s0) beqAddr = Some (PDT pdentry)).
+  {
+    rewrite <-HlookupPart. apply eq_sym. unfold isPDT in *. apply HlookupSomeEq.
+    destruct (lookup partition (memory s0) beqAddr) eqn:HlookupParts0; try(exfalso; congruence). exists v.
+    reflexivity.
+  }
+  specialize(Hcons0 partition pdentry block scentryaddr startBlock endBlock HpartIsPart HblockMapped HblockIsBE
+    HstartBlock HendBlock HPflag Hsce Horigin Hnext HlookupParts0 HbeqPartRoot).
+  destruct Hcons0 as [blockParent (HblockParentMapped & HblockPIsBE & HstartParent & HendParent)]. exists blockParent.
+  assert(isPDT (parent pdentry) s0).
+  {
+    unfold getMappedBlocks in HblockParentMapped. unfold getKSEntries in HblockParentMapped. unfold isPDT.
+    destruct (lookup (parent pdentry) (memory s0) beqAddr); try(simpl in HblockParentMapped; congruence).
+    destruct v; try(simpl in HblockParentMapped; congruence). trivial.
+  }
+  split. rewrite HgetMappedEq; assumption.
+  assert(HlookupBlockPEq: lookup blockParent (memory s) beqAddr = lookup blockParent (memory s0) beqAddr).
+  {
+    unfold isBE in HblockPIsBE. apply HlookupSomeEq.
+    destruct (lookup blockParent (memory s0) beqAddr); try(exfalso; congruence). exists v. reflexivity.
+  }
+  unfold isBE. unfold bentryStartAddr. unfold bentryEndAddr. rewrite HlookupBlockPEq. intuition.
+  (* END adressesRangePreservedIfOriginAndNextOk *)
+}
+
+assert(childsBlocksPropsInParent s).
+{ (* BEGIN childsBlocksPropsInParent s *)
+  assert(Hcons0: childsBlocksPropsInParent s0) by (unfold consistency in *; unfold consistency2 in *; intuition).
+  intros child pdparent blockChild startChild endChild blockParent startParent endParent HparentIsPart HchildIsChild
+    HblockChildMapped HstartChild HendChild HPflagChild HblockParentMapped HstartParent HendParent HPflagParent
+    HlebStart HgebEnd. rewrite HgetPartsEq in HparentIsPart.
+  assert(isPDT pdparent s0).
+  { apply partitionsArePDT; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition. }
+  rewrite HgetChildrenEq in HchildIsChild; try(assumption).
+  assert(isPDT child s0).
+  {
+    apply childrenArePDT with pdparent; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition.
+  }
+  rewrite HgetMappedEq in HblockChildMapped; try(assumption).
+  rewrite HgetMappedEq in HblockParentMapped; try(assumption).
+  assert(HlookupBlockP: exists bentry, lookup blockParent (memory s0) beqAddr = Some(BE bentry)).
+  {
+    apply mappedBlockIsBE in HblockParentMapped. destruct HblockParentMapped as [bentry (Hlookup & _)]. exists bentry.
+    assumption.
+  }
+  destruct HlookupBlockP as [bentryP HlookupBlockP].
+  assert(HlookupBlockParentEq: lookup blockParent (memory s) beqAddr = lookup blockParent (memory s0) beqAddr).
+  { apply HlookupSomeEq; exists (BE bentryP); assumption. }
+  assert(HlookupBlockC: exists bentry, lookup blockChild (memory s0) beqAddr = Some(BE bentry)).
+  {
+    apply mappedBlockIsBE in HblockChildMapped. destruct HblockChildMapped as [bentryC (Hlookup & _)]. exists bentryC.
+    assumption.
+  }
+  destruct HlookupBlockC as [bentryC HlookupBlockC].
+  assert(HlookupBlockChildEq: lookup blockChild (memory s) beqAddr = lookup blockChild (memory s0) beqAddr).
+  { apply HlookupSomeEq; exists (BE bentryC); assumption. }
+  unfold bentryStartAddr in *. unfold bentryEndAddr in *. unfold bentryPFlag in *. rewrite HlookupBlockParentEq in *.
+  rewrite HlookupBlockChildEq in *. specialize(Hcons0 child pdparent blockChild startChild endChild blockParent
+    startParent endParent HparentIsPart HchildIsChild HblockChildMapped HstartChild HendChild HPflagChild
+    HblockParentMapped HstartParent HendParent HPflagParent HlebStart HgebEnd).
+  destruct Hcons0 as (HcheckChild & HPDchild & HchildLoc & HAflag).
+  assert(HlookupSh1Eq: lookup (CPaddr (blockParent + sh1offset)) (memory s) beqAddr
+    = lookup (CPaddr (blockParent + sh1offset)) (memory s0) beqAddr).
+  {
+    assert(HwellFormed: wellFormedFstShadowIfBlockEntry s0)
+      by (unfold consistency in *; unfold consistency1 in *; intuition).
+    assert(HBE: isBE blockParent s0) by (unfold isBE; rewrite HlookupBlockP; trivial).
+    specialize(HwellFormed blockParent HBE). unfold isSHE in HwellFormed. apply HlookupSomeEq.
+    destruct (lookup (CPaddr (blockParent + sh1offset)) (memory s0) beqAddr); try(exfalso; congruence). exists v.
+    reflexivity.
+  }
+  split; try(split; try(split)).
+  - unfold checkChild in *. rewrite HlookupBlockParentEq.
+    destruct (lookup blockParent (memory s0) beqAddr) eqn:HlookupBlockPs0; try(exfalso; congruence).
+    destruct v; try(exfalso; congruence).
+    rewrite HlookupSh1Eq. assumption.
+  - intros childGlobalID HPDchilds. unfold sh1entryPDchild in HPDchilds. rewrite HlookupSh1Eq in HPDchilds.
+    apply HPDchild. assumption.
+  - intros blockIDInChild HchildLocs. unfold sh1entryInChildLocation in HchildLocs.
+    rewrite HlookupSh1Eq in HchildLocs. apply HchildLoc. unfold sh1entryInChildLocation.
+    assert(HchildLocProp: sh1InChildLocationIsBE s0)
+      by (unfold consistency in *; unfold consistency1 in *; intuition).
+    destruct (lookup (CPaddr (blockParent + sh1offset)) (memory s0) beqAddr) eqn:HlookupSh1; try(congruence).
+    destruct v; try(congruence). destruct HchildLocs as (Hid & HchildLocs). split. assumption. intro HbeqIdNull.
+    specialize(HchildLocs HbeqIdNull). subst blockIDInChild.
+    specialize(HchildLocProp (CPaddr (blockParent + sh1offset)) s4 HlookupSh1 HbeqIdNull). assumption.
+  - intros Hbounds. specialize(HAflag Hbounds). unfold bentryAFlag in *. rewrite HlookupBlockParentEq. assumption.
+  (* END childsBlocksPropsInParent *)
+}
+
+assert(noChildImpliesAddressesNotShared s).
+{ (* BEGIN noChildImpliesAddressesNotShared s *)
+  assert(Hcons0: noChildImpliesAddressesNotShared s0)
+    by (unfold consistency in *; unfold consistency2 in *; intuition).
+  intros partition pdentry block sh1entryaddr HpartIsPart HlookupPart HblockMapped Hsh1 HPDchild child addr
+    HchildIsChild HaddrInBlock. rewrite HgetPartsEq in HpartIsPart.
+  assert(isPDT partition s0).
+  { apply partitionsArePDT; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition. }
+  rewrite HgetMappedEq in HblockMapped; try(assumption).
+  rewrite HgetChildrenEq in HchildIsChild; try(assumption).
+  assert(HlookupPartEq: lookup partition (memory s) beqAddr = lookup partition (memory s0) beqAddr).
+  {
+    unfold isPDT in *. apply HlookupSomeEq. destruct (lookup partition (memory s0) beqAddr); try(exfalso; congruence).
+    exists v. reflexivity.
+  }
+  rewrite HlookupPartEq in *.
+  assert(HlookupBlock: exists bentry, lookup block (memory s0) beqAddr = Some(BE bentry)).
+  {
+    apply mappedBlockIsBE in HblockMapped. destruct HblockMapped as [bentry (Hlookup & _)]. exists bentry.
+    assumption.
+  }
+  destruct HlookupBlock as [bentry HlookupBlock].
+  assert(HlookupBlockEq: lookup block (memory s) beqAddr = lookup block (memory s0) beqAddr).
+  { apply HlookupSomeEq; exists (BE bentry); assumption. }
+  assert(HaddrInBlocks0: In addr (getAllPaddrAux [block] s0)).
+  {
+    simpl. simpl in HaddrInBlock. rewrite HlookupBlockEq in HaddrInBlock. assumption.
+  }
+  assert(HlookupSh1Eq: lookup sh1entryaddr (memory s) beqAddr = lookup sh1entryaddr (memory s0) beqAddr).
+  {
+    assert(HwellFormed: wellFormedFstShadowIfBlockEntry s0)
+      by (unfold consistency in *; unfold consistency1 in *; intuition). subst sh1entryaddr.
+    assert(HBE: isBE block s0) by (unfold isBE; rewrite HlookupBlock; trivial).
+    specialize(HwellFormed block HBE). unfold isSHE in HwellFormed. apply HlookupSomeEq.
+    destruct (lookup (CPaddr (block + sh1offset)) (memory s0) beqAddr); try(exfalso; congruence). exists v.
+    reflexivity.
+  }
+  unfold sh1entryPDchild in HPDchild. rewrite HlookupSh1Eq in *.
+  assert(isPDT child s0).
+  {
+    apply childrenArePDT with partition; try(assumption); unfold consistency in *; unfold consistency1 in *;
+      intuition.
+  }
+  specialize(Hcons0 partition pdentry block sh1entryaddr HpartIsPart HlookupPart HblockMapped Hsh1 HPDchild child addr
+    HchildIsChild HaddrInBlocks0). rewrite HgetMappedPaddrEq; assumption.
+  (* END noChildImpliesAddressesNotShared *)
+}
+
+assert(verticalSharing s).
+{ (* BEGIN verticalSharing s *)
+  intros pdparent child HparentIsPart HchildIsChild. rewrite HgetPartsEq in HparentIsPart.
+  assert(isPDT pdparent s0).
+  { apply partitionsArePDT; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition. }
+  rewrite HgetChildrenEq in HchildIsChild; try(assumption).
+  specialize(HVSs0 pdparent child HparentIsPart HchildIsChild).
+  assert(isPDT child s0).
+  {
+    apply childrenArePDT with pdparent; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition.
+  }
+  rewrite HgetUsedPaddrEq; try(assumption). rewrite HgetMappedPaddrEq; assumption.
+  (* END verticalSharing *)
+}
+
+assert(partitionsIsolation s).
+{ (* BEGIN partitionsIsolation s *)
+  intros pdparent child1 child2 HparentIsPart Hchild1IsChild Hchild2IsChild HbeqChildren.
+  rewrite HgetPartsEq in HparentIsPart.
+  assert(isPDT pdparent s0).
+  { apply partitionsArePDT; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition. }
+  rewrite HgetChildrenEq in Hchild1IsChild; try(assumption).
+  rewrite HgetChildrenEq in Hchild2IsChild; try(assumption).
+  assert(isPDT child1 s0).
+  {
+    apply childrenArePDT with pdparent; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition.
+  }
+  assert(isPDT child2 s0).
+  {
+    apply childrenArePDT with pdparent; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition.
+  }
+  specialize(HPIs0 pdparent child1 child2 HparentIsPart Hchild1IsChild Hchild2IsChild HbeqChildren).
+  rewrite HgetUsedPaddrEq; try(assumption). rewrite HgetUsedPaddrEq; assumption.
+  (* END partitionsIsolation *)
+}
+
+assert(kernelDataIsolation s).
+{ (* BEGIN kernelDataIsolation s *)
+  intros part1 part2 Hpart1IsPart Hpart2IsPart. rewrite HgetPartsEq in Hpart1IsPart.
+  rewrite HgetPartsEq in Hpart2IsPart.
+  assert(isPDT part1 s0).
+  { apply partitionsArePDT; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition. }
+  assert(isPDT part2 s0).
+  { apply partitionsArePDT; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition. }
+  specialize(HKDIs0 part1 part2 Hpart1IsPart Hpart2IsPart). rewrite HgetAccMappedPaddrEq; try(assumption).
+  rewrite HgetConfigPEq; assumption.
+  (* END kernelDataIsolation *)
+}
+
+assert(forall block startaddr, startaddr <> kernStart -> bentryStartAddr block startaddr s
+  -> bentryPFlag block true s -> isKS startaddr s -> bentryAFlag block false s).
+{ (* BEGIN partial kernelsAreNotAccessible s *)
+  assert(Hcons0: kernelsAreNotAccessible s0) by (unfold consistency in *; unfold consistency2 in *; intuition).
+  intros block startBlock HbeqStartKern HstartBlock HPflagBlock HstartIsKS. unfold bentryStartAddr in HstartBlock.
+  assert(HlookupBEqss1: lookup block (memory s) beqAddr = lookup block (memory s1) beqAddr).
+  {
+    apply HblocksAreBEss1; unfold isBE; destruct (lookup block (memory s) beqAddr); try(congruence); destruct v;
+      trivial; congruence.
+  }
+  unfold bentryPFlag in HPflagBlock. unfold bentryAFlag. rewrite HlookupBEqss1 in *. unfold isKS in HstartIsKS.
+  assert(HlookupStartEqss1: lookup startBlock (memory s) beqAddr = lookup startBlock (memory s1) beqAddr).
+  {
+    apply HblocksAreBEss1; unfold isBE; destruct (lookup startBlock (memory s) beqAddr); try(congruence); destruct v;
+      trivial; congruence.
+  }
+  rewrite HlookupStartEqss1 in *.
+  assert(HlookupStartEqs1s0: lookup startBlock (memory s1) beqAddr = lookup startBlock (memory s0) beqAddr).
+  {
+    apply Hlookups1s0Eq. intros kernIdx HltIdxKernEntries Hcontra.
+    assert(HkernEqBis: startBlock = kernStart).
+    {
+      destruct (Nat.eqb kernIdx (kernelStructureEntriesNb-1)) eqn:HbeqIdxKernEntries.
+      - apply Nat.eqb_eq in HbeqIdxKernEntries. rewrite HbeqIdxKernEntries in *. exfalso.
+        rewrite Nat.add_sub_assoc in Hcontra; try(cbn; lia). subst startBlock.
+        destruct HlastBlock as [l HlastBlock]. rewrite HlastBlock in HstartIsKS. simpl in HstartIsKS.
+        unfold zero in HstartIsKS. unfold CIndex in HstartIsKS. destruct (le_dec 0 maxIdx); try(lia).
+        destruct (le_dec 7 maxIdx); try(rewrite maxIdxEqualMaxAddr in *; cbn in *; lia).
+        injection HstartIsKS as HcontraBis. lia.
+      - apply Nat.eqb_neq in HbeqIdxKernEntries. assert(Hlt: kernIdx < kernelStructureEntriesNb - 1) by lia.
+        specialize(HnewBE kernIdx Hlt). destruct HnewBE as [l HnewBE].
+        rewrite Hcontra in HstartIsKS. rewrite HnewBE in HstartIsKS. simpl in HstartIsKS. unfold zero in HstartIsKS.
+        subst kernIdx. apply DTL.paddrEqNatEqEquiv. rewrite Hcontra. unfold CIndex.
+        destruct (le_dec 0 maxIdx); try(lia). simpl. rewrite Nat.add_0_r. unfold CPaddr.
+        destruct (le_dec kernStart maxAddr); try(lia). simpl. reflexivity.
+    }
+    congruence.
+  }
+  rewrite HlookupStartEqs1s0 in *.
+  assert(HlookupBEqs1s0: lookup block (memory s1) beqAddr = lookup block (memory s0) beqAddr).
+  {
+    apply Hlookups1s0Eq. intros kernIdx HltIdxKernEntries Hcontra.
+    assert(Hnull: isPADDR nullAddr s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+    destruct (Nat.eqb kernIdx (kernelStructureEntriesNb-1)) eqn:HbeqIdxKernEntries.
+    - apply Nat.eqb_eq in HbeqIdxKernEntries. rewrite HbeqIdxKernEntries in *.
+      rewrite Nat.add_sub_assoc in Hcontra; try(cbn; lia). subst block. destruct HlastBlock as [l HlastBlock].
+      rewrite HlastBlock in HstartBlock. simpl in HstartBlock. subst startBlock. unfold isPADDR in *.
+      destruct (lookup nullAddr (memory s0) beqAddr); try(congruence). destruct v; congruence.
+    - apply Nat.eqb_neq in HbeqIdxKernEntries. assert(Hlt: kernIdx < kernelStructureEntriesNb - 1) by lia.
+      specialize(HnewBE kernIdx Hlt). destruct HnewBE as [l HnewBE]. rewrite Hcontra in HstartBlock.
+      rewrite HnewBE in HstartBlock. simpl in HstartBlock. unfold CBlock in HstartBlock.
+      assert(Hval: CPaddr (kernStart + kernIdx + 1) - nullAddr = kernStart + kernIdx + 1).
+      {
+        unfold nullAddr. unfold CPaddr. destruct (le_dec 0 maxAddr); try(lia).
+        destruct (le_dec (kernStart + kernIdx + 1) maxAddr); cbn in *; lia.
+      }
+      destruct (le_dec (CPaddr (kernStart + kernIdx + 1) - nullAddr) maxIdx);
+        try(rewrite maxIdxEqualMaxAddr in *; cbn in *; lia). simpl in HstartBlock. subst startBlock.
+      unfold isPADDR in *. destruct (lookup nullAddr (memory s0) beqAddr); try(congruence). destruct v; congruence.
+  }
+  rewrite HlookupBEqs1s0 in *. specialize(Hcons0 block startBlock HstartBlock HPflagBlock HstartIsKS). assumption.
+  (* END partial kernelsAreNotAccessible *)
+}
+
+assert(forall partition : paddr,
+ isPDT partition sAnc -> getMappedBlocks partition s = getMappedBlocks partition sAnc).
+{
+  intros partition HpartIsPDT. unfold isPDT in HpartIsPDT. rewrite <-Hlookups0AncEq in HpartIsPDT.
+  rewrite HgetMappedEq; try(assumption). apply getMappedBlocksEqLookup; assumption.
+}
+
+assert(forall partition : paddr,
+ isPDT partition sAnc -> getChildren partition s = getChildren partition sAnc).
+{
+  intros partition HpartIsPDT. unfold isPDT in HpartIsPDT. rewrite <-Hlookups0AncEq in HpartIsPDT.
+  rewrite HgetChildrenEq; try(assumption). apply getChildrenEqLookup; assumption.
+}
+
+assert(HkernInterm: forall kernList part, isListOfKernels kernList part s -> isListOfKernels kernList part s0).
+{
+  intros kernList part HkernList. unfold isListOfKernels in *. destruct kernList; try(assumption).
+  destruct HkernList as [pdentry (HlookupPart & HbeqStructNull & Hstruct & HkernList)]. exists pdentry.
+  rewrite <-HpdsArePDT; try(unfold isPDT; rewrite HlookupPart; trivial). split; trivial. split; trivial.
+  split; trivial. clear Hstruct. revert p HkernList.
+  induction kernList; simpl; intros kern HkernList; trivial. simpl in HkernList.
+  destruct HkernList as (HlookupNext & HlebNextMax & HbeqNextNull & HkernListRec).
+  rewrite <-HlookupNextEq with kern a3; trivial. split; trivial. split; trivial. split; trivial.
+  apply IHkernList; trivial.
+}
+
+assert(forall kernList part, isListOfKernels kernList part s -> isListOfKernels kernList part sAnc).
+{
+  intros kernList part HkernList. apply HkernInterm in HkernList. unfold isListOfKernels in *.
+  destruct kernList; try(assumption). rewrite Hlookups0AncEq in HkernList.
+  destruct HkernList as [pdentry (HlookupPart & HbeqStructNull & Hstruct & HkernList)]. exists pdentry.
+  split; trivial. split; trivial. split; trivial. clear Hstruct. revert p HkernList.
+  induction kernList; simpl; intros kern HkernList; trivial. simpl in HkernList.
+  destruct HkernList as (HlookupNext & HlebNextMax & HbeqNextNull & HkernListRec).
+  rewrite <-Hlookups0AncEq. split; trivial. split; trivial. split; trivial.
+  apply IHkernList; trivial.
+}
+
+assert(HcompleteKernListEq: forall n kernel, isKS kernel s0
+-> completeListOfKernelsAux n kernel s = completeListOfKernelsAux n kernel s0).
+{
+  induction n; intros kernel HkernIsKS; simpl; trivial.
+  assert(HnextValid: nextKernelIsValid s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+  specialize(HnextValid kernel HkernIsKS). destruct HnextValid as (HlebNextMax & [nextAddr (HlookupNext & Hnext)]).
+  unfold CPaddr. destruct (le_dec (kernel + nextoffset) maxAddr); try(lia).
+  specialize(HlookupNext (ADT.CPaddr_obligation_1 (kernel + nextoffset) l)).
+  rewrite HlookupSomeEq; try(exists (PADDR nextAddr); trivial). rewrite HlookupNext.
+  destruct (beqAddr nextAddr nullAddr) eqn:HbeqNextNull; trivial. f_equal. rewrite <-DTL.beqAddrFalse in *.
+  destruct Hnext as [HnextIsKS | Hcontra]; try(exfalso; congruence). apply IHn; trivial.
+}
+
+assert(nbPrepareIsNbKern s).
+{ (* BEGIN nbPrepareIsNbKern s *)
+  assert(Hcons0: nbPrepareIsNbKern s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+  intros part pdentry HlookupPart.
+  assert(HlookupPartEq: lookup part (memory s) beqAddr = lookup part (memory s0) beqAddr).
+  { apply HpdsArePDT. unfold isPDT. rewrite HlookupPart. trivial. }
+  rewrite HlookupPartEq in *. specialize(Hcons0 part pdentry HlookupPart).
+  assert(Heq: completeListOfKernels (structure pdentry) s = completeListOfKernels (structure pdentry) s0).
+  {
+    unfold completeListOfKernels. assert(HstructEq: lookup (structure pdentry) (memory s) beqAddr
+      = lookup (structure pdentry) (memory s0) beqAddr).
+    {
+      apply HlookupSomeEq. destruct (beqAddr (structure pdentry) nullAddr) eqn:HbeqStructNull.
+      - rewrite <-DTL.beqAddrTrue in HbeqStructNull. rewrite HbeqStructNull.
+        assert(Hnull: isPADDR nullAddr s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        unfold isPADDR in Hnull. destruct (lookup nullAddr (memory s0) beqAddr); try(exfalso; congruence).
+        destruct v; try(exfalso; congruence). exists (PADDR p). reflexivity.
+      - assert(Hstruct: StructurePointerIsKS s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        rewrite <-DTL.beqAddrFalse in *. specialize(Hstruct part pdentry HlookupPart HbeqStructNull).
+        unfold isKS in *. destruct (lookup (structure pdentry) (memory s0) beqAddr); try(exfalso; congruence).
+        destruct v; try(exfalso; congruence). exists (BE b). reflexivity.
+    }
+    rewrite HstructEq. destruct (lookup (structure pdentry) (memory s0) beqAddr) eqn:HlookupStructs0; trivial.
+    destruct v; trivial. destruct (indexEq (blockindex b) (CIndex 0)) eqn:HidxStruct; trivial.
+    f_equal. apply HcompleteKernListEq. unfold isKS. rewrite HlookupStructs0. apply DTL.beqIdxTrue in HidxStruct.
+    unfold zero. assumption.
+  }
+  rewrite Heq. assumption.
+  (* END nbPrepareIsNbKern *)
+}
+
+assert(forall kernIdx: index, kernIdx < kernelStructureEntriesNb
+  -> bentryPFlag (CPaddr (kernStart + kernIdx)) false s).
+{
+  intros kernIdx HltIdxKernEntries. unfold bentryPFlag.
+  destruct (Nat.eqb kernIdx (kernelStructureEntriesNb - 1)) eqn:HbeqIdx.
+  - apply Nat.eqb_eq in HbeqIdx. rewrite HbeqIdx. replace (kernStart + (kernelStructureEntriesNb-1))
+      with (kernStart+kernelStructureEntriesNb-1); try(lia). destruct HlastBlock as [l HlastBlock].
+    assert(HlookupEq: lookup (CPaddr (kernStart + kernelStructureEntriesNb-1)) (memory s) beqAddr
+      = lookup (CPaddr (kernStart + kernelStructureEntriesNb-1)) (memory s1) beqAddr).
+    {
+      apply HblocksAreBEs1s. unfold isBE. rewrite HlastBlock. trivial.
+    }
+    rewrite HlookupEq. rewrite HlastBlock. reflexivity.
+  - apply Nat.eqb_neq in HbeqIdx. assert(HltIdxKernEntriesBis: kernIdx < kernelStructureEntriesNb-1) by lia.
+    specialize(HnewBE kernIdx HltIdxKernEntriesBis). destruct HnewBE as [l HnewBE].
+    assert(HlookupEq: lookup (CPaddr (kernStart + kernIdx)) (memory s) beqAddr
+      = lookup (CPaddr (kernStart + kernIdx)) (memory s1) beqAddr).
+    {
+      apply HblocksAreBEs1s. unfold isBE. rewrite HnewBE. trivial.
+    }
+    rewrite HlookupEq. rewrite HnewBE. reflexivity.
+}
+
+assert(forall kernIdx: index, kernIdx < kernelStructureEntriesNb -> isFreeSlot (CPaddr (kernStart + kernIdx)) s).
+{
+  intros kernIdx HltIdxKernEntries. unfold isFreeSlot.
+  destruct (Nat.eqb kernIdx (kernelStructureEntriesNb - 1)) eqn:HbeqIdx.
+  - apply Nat.eqb_eq in HbeqIdx. rewrite HbeqIdx. replace (kernStart + (kernelStructureEntriesNb-1))
+      with (kernStart+kernelStructureEntriesNb-1); try(lia). destruct HlastBlock as [l HlastBlock].
+    assert(HlookupEq: lookup (CPaddr (kernStart + kernelStructureEntriesNb-1)) (memory s) beqAddr
+      = lookup (CPaddr (kernStart + kernelStructureEntriesNb-1)) (memory s1) beqAddr).
+    {
+      apply HblocksAreBEs1s. unfold isBE. rewrite HlastBlock. trivial.
+    }
+    rewrite HlookupEq. rewrite HlastBlock. simpl.
+    assert(Heq: forall addr, CPaddr (kernStart + kernelStructureEntriesNb-1)+addr
+      = kernStart+(CIndex(kernelStructureEntriesNb-1))+addr).
+    {
+      unfold CPaddr. unfold CIndex.
+      destruct (le_dec (kernStart + kernelStructureEntriesNb - 1) maxAddr); try(cbn in *; lia).
+      destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx); try(rewrite maxIdxEqualMaxAddr in *; cbn in *; lia).
+      cbn -[kernelStructureEntriesNb]. rewrite Nat.add_sub_assoc; lia.
+    }
+    rewrite Heq. specialize(HnewShe (CIndex (kernelStructureEntriesNb - 1)) l).
+    rewrite HaddrAreSHEs2s; try(unfold isSHE); rewrite HnewShe; trivial. simpl. rewrite Heq.
+    specialize(HnewSce (CIndex (kernelStructureEntriesNb - 1)) l). rewrite Hs.
+    cbn -[kernelStructureEntriesNb nullAddr]. destruct (beqAddr (CPaddr (kernStart + nextoffset))
+      (CPaddr (kernStart + CIndex (kernelStructureEntriesNb - 1) + scoffset))) eqn:HbeqNextSce.
+    {
+      rewrite <-DTL.beqAddrTrue in HbeqNextSce. unfold CPaddr in HbeqNextSce. unfold CIndex in HbeqNextSce.
+      destruct (le_dec (kernStart + nextoffset) maxAddr); try(cbn in *; lia). pose proof KSEntriesNbLessThanMaxIdx.
+      destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx); try(lia).
+      cbn -[kernelStructureEntriesNb] in HbeqNextSce.
+      destruct (le_dec (kernStart + (kernelStructureEntriesNb - 1) + scoffset) maxAddr); try(cbn in *; lia).
+      injection HbeqNextSce as HbeqNextSce. cbn in *. lia.
+    }
+    rewrite <-DTL.beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+    rewrite HnewSce. simpl. intuition.
+  - apply Nat.eqb_neq in HbeqIdx. assert(HltIdxKernEntriesBis: kernIdx < kernelStructureEntriesNb-1) by lia.
+    specialize(HnewBE kernIdx HltIdxKernEntriesBis). destruct HnewBE as [l HnewBE].
+    assert(HlookupEq: lookup (CPaddr (kernStart + kernIdx)) (memory s) beqAddr
+      = lookup (CPaddr (kernStart + kernIdx)) (memory s1) beqAddr).
+    {
+      apply HblocksAreBEs1s. unfold isBE. rewrite HnewBE. trivial.
+    }
+    rewrite HlookupEq. rewrite HnewBE. simpl.
+    assert(Heq: forall addr, CPaddr (kernStart + kernIdx)+addr = kernStart+kernIdx+addr).
+    {
+      unfold CPaddr. destruct (le_dec (kernStart + kernIdx) maxAddr); cbn in *; lia.
+    }
+    rewrite Heq. specialize(HnewShe kernIdx l). rewrite HaddrAreSHEs2s; try(unfold isSHE); rewrite HnewShe; trivial.
+    simpl. rewrite Heq. specialize(HnewSce kernIdx l). rewrite Hs. simpl.
+    destruct (beqAddr (CPaddr (kernStart + nextoffset)) (CPaddr (kernStart + kernIdx + scoffset))) eqn:HbeqNextSce.
+    {
+      rewrite <-DTL.beqAddrTrue in HbeqNextSce. unfold CPaddr in HbeqNextSce.
+      destruct (le_dec (kernStart + nextoffset) maxAddr); try(cbn in *; lia).
+      destruct (le_dec (kernStart + kernIdx + scoffset) maxAddr); try(cbn in *; lia).
+      injection HbeqNextSce as HbeqNextSce. cbn in *. lia.
+    }
+    rewrite <-DTL.beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+    rewrite HnewSce. simpl. unfold CBlock. unfold nullAddr. unfold CPaddr. destruct (le_dec 0 maxAddr); try(lia).
+    destruct (le_dec (kernStart + kernIdx + 1) maxAddr); try(cbn in *; lia). simpl.
+    destruct (le_dec (kernStart + kernIdx + 1 - 0) maxIdx); try(rewrite maxIdxEqualMaxAddr in *; cbn in *; lia).
+    simpl. intuition.
+}
+
+assert(HendNewFree: forall (kernIdx:index), kernIdx < kernelStructureEntriesNb-1
+  -> exists bentry, lookup (CPaddr (kernStart + kernIdx)) (memory s) beqAddr = Some (BE bentry)
+      /\ endAddr (blockrange bentry) = CPaddr (kernStart + kernIdx+1)).
+{
+  intros kernIdx HltIdxKernEntries. specialize(HnewBE kernIdx HltIdxKernEntries). destruct HnewBE as [l HnewBE].
+  rewrite HblocksAreBEs1s; try(unfold isBE; rewrite HnewBE; trivial).
+  exists {|
+           read := false;
+           write := false;
+           exec := false;
+           present := false;
+           accessible := false;
+           blockindex := kernIdx;
+           blockrange := CBlock nullAddr (CPaddr (kernStart + kernIdx + 1));
+           Hidx := l
+         |}. simpl. split; trivial. unfold CBlock. cbn. unfold CPaddr.
+  destruct (le_dec (kernStart + kernIdx + 1) maxAddr); try(cbn in *; lia). simpl. rewrite <-maxIdxEqualMaxAddr in *.
+  destruct (le_dec (kernStart + kernIdx + 1 - 0) maxIdx); try(cbn in *; lia). reflexivity.
+}
+
+assert(HnewBEAreFree: forall kernIdx kernel,
+  kernIdx < kernelStructureEntriesNb
+  -> kernel = CPaddr (kernStart+kernIdx)
+  -> In kernel (filterOptionPaddr (getFreeSlotsListRec (kernIdx+1) kernStart s (CIndex kernelStructureEntriesNb)))).
+{
+  intro kernIdx. induction kernIdx; intros kernel HltIdxKernEntries Hkernel.
+  - simpl. rewrite Nat.add_0_r in Hkernel. unfold CPaddr in Hkernel. destruct (le_dec kernStart maxAddr); try(lia).
+    unfold isKS in *. destruct (lookup kernStart (memory s) beqAddr); try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). pose proof maxIdxBiggerThanNbOfKernels. unfold CIndex.
+    destruct (le_dec kernelStructureEntriesNb maxIdx); try(lia). simpl. left. subst kernel. destruct kernStart.
+    simpl. f_equal. apply proof_irrelevance.
+  - assert(HltIdxKernEntriesRec: kernIdx < kernelStructureEntriesNb) by lia.
+    assert(HeqTriv: CPaddr (kernStart + kernIdx) = CPaddr (kernStart + kernIdx)) by reflexivity.
+    specialize(IHkernIdx (CPaddr (kernStart + kernIdx)) HltIdxKernEntriesRec HeqTriv).
+    pose proof (getFreeSlotsListRecMaxLen kernStart (kernIdx + 1) (CIndex kernelStructureEntriesNb) s) as HmaxLen.
+    apply Nat.min_glb_l in HmaxLen. replace (S kernIdx + 1) with (S (kernIdx+1)); try(lia).
+    assert(HltIdxKernEntriesBis: kernIdx < kernelStructureEntriesNb - 1) by lia.
+    assert(HkernIdx: kernIdx = CIndex kernIdx).
+    {
+      unfold CIndex. rewrite <-maxIdxEqualMaxAddr in *. destruct (le_dec kernIdx maxIdx); cbn in *; lia.
+    }
+    rewrite HkernIdx in HltIdxKernEntriesBis.
+    assert(HendNewFreeBis: exists bentry,
+        lookup (CPaddr (kernStart + CIndex kernIdx)) (memory s) beqAddr = Some (BE bentry)
+        /\ endAddr (blockrange bentry) = CPaddr (kernStart + CIndex kernIdx + 1)).
+    { apply HendNewFree; trivial. }
+    rewrite <-HkernIdx in HendNewFreeBis. destruct HendNewFreeBis as [bentry (HlookupIdx & Hend)]. subst kernel.
+    replace (kernStart + S kernIdx) with (kernStart + kernIdx + 1); try(lia). rewrite <-Hend.
+    apply getFreeSlotsListRecNextLenBounded with (CPaddr (kernStart + kernIdx)); trivial.
+    + rewrite Hend. unfold isBE. rewrite <-HkernIdx in HltIdxKernEntriesBis.
+      destruct (Nat.eqb kernIdx (kernelStructureEntriesNb - 2)) eqn:HbeqIdxKernEntries.
+      * apply Nat.eqb_eq in HbeqIdxKernEntries. rewrite HbeqIdxKernEntries.
+        replace (kernStart+(kernelStructureEntriesNb-2)+1) with (kernStart+kernelStructureEntriesNb-1); try(lia).
+        destruct HlastBlock as [l HlastBlock]. rewrite HblocksAreBEs1s; unfold isBE; rewrite HlastBlock; trivial.
+      * apply Nat.eqb_neq in HbeqIdxKernEntries. replace (kernStart+kernIdx+1) with (kernStart+(kernIdx+1)); try(lia).
+        assert(Hlt: kernIdx+1 < kernelStructureEntriesNb-1) by lia.
+        assert(Hsucc: kernIdx + 1 = CIndex (kernIdx + 1)).
+        {
+          unfold CIndex. pose proof maxIdxBiggerThanNbOfKernels. destruct (le_dec (kernIdx+1) maxIdx); cbn in *; lia.
+        }
+        rewrite Hsucc in *. specialize(HendNewFree (CIndex (kernIdx + 1)) Hlt).
+        destruct HendNewFree as [bentryNext (HlookupNext & _)]. rewrite HlookupNext. trivial.
+    + rewrite <-HkernIdx in *. assert(Hkentries: kernelStructureEntriesNb = CIndex kernelStructureEntriesNb).
+      {
+        unfold CIndex. pose proof maxIdxBiggerThanNbOfKernels.
+        destruct (le_dec kernelStructureEntriesNb maxIdx); try(lia). reflexivity.
+      }
+      rewrite <-Hkentries. lia.
+}
+
+assert(HfreeAreNewBE: forall n block blockBase baseIdx (nidx:index),
+  baseIdx < kernelStructureEntriesNb
+  -> blockBase = CPaddr (kernStart+baseIdx)
+  -> In block (filterOptionPaddr (getFreeSlotsListRec n blockBase s nidx))
+  -> exists kernIdx, block = CPaddr (kernStart+kernIdx) /\ kernIdx >= baseIdx /\ kernIdx < nidx+baseIdx).
+{
+  intros n block. induction n; intros blockBase baseIdx nidx HltBaseIdxMax Hbase HblockInFree;
+    simpl in HblockInFree; try(exfalso; congruence).
+  destruct (Nat.eqb baseIdx (kernelStructureEntriesNb-1)) eqn:HbeqIdxKernEntries.
+  - apply Nat.eqb_eq in HbeqIdxKernEntries. rewrite HbeqIdxKernEntries in *.
+    replace (kernStart+(kernelStructureEntriesNb-1)) with (kernStart+kernelStructureEntriesNb-1) in Hbase; try(lia).
+    destruct HlastBlock as [l HlastBlock]. subst blockBase.
+    rewrite HblocksAreBEs1s in HblockInFree; try(unfold isBE; rewrite HlastBlock; trivial). rewrite HlastBlock in *.
+    destruct (StateLib.Index.pred nidx) eqn:Hpred; simpl in HblockInFree; try(exfalso; congruence).
+    assert(Hempty: filterOptionPaddr (getFreeSlotsListRec n nullAddr s i) = []).
+    {
+      destruct n; simpl; try(reflexivity). unfold nullAddrExists in *. unfold isPADDR in *.
+      destruct (lookup nullAddr (memory s) beqAddr); try(exfalso; congruence). destruct v; try(exfalso; congruence).
+      reflexivity.
+    }
+    rewrite Hempty in *. simpl in HblockInFree. destruct HblockInFree as [Hres | Hcontra]; try(exfalso; congruence).
+    subst block. exists (kernelStructureEntriesNb - 1).
+    replace (kernStart+(kernelStructureEntriesNb-1)) with (kernStart+kernelStructureEntriesNb-1); try(lia).
+    split; trivial. unfold StateLib.Index.pred in *. destruct (gt_dec nidx 0); try(exfalso; congruence). lia.
+  - apply Nat.eqb_neq in HbeqIdxKernEntries.
+    assert(HltBaseIdxKernEntries: baseIdx < kernelStructureEntriesNb-1) by lia.
+    assert(HidxEq: baseIdx = CIndex baseIdx).
+    {
+      unfold CIndex. pose proof maxIdxBiggerThanNbOfKernels. destruct (le_dec baseIdx maxIdx); try(lia). reflexivity.
+    }
+    rewrite HidxEq in *. specialize(HnewBE (CIndex baseIdx) HltBaseIdxKernEntries).
+    destruct HnewBE as [l HnewBE]. subst blockBase. rewrite <-HidxEq in *.
+    rewrite HblocksAreBEs1s in HblockInFree; try(unfold isBE; rewrite HnewBE; trivial). rewrite HnewBE in *.
+    destruct (StateLib.Index.pred nidx) eqn:Hpred; simpl in HblockInFree; try(exfalso; congruence).
+    destruct HblockInFree as [HisIdx | HblockInFreeRec].
+    + subst block. exists baseIdx. split; trivial. unfold StateLib.Index.pred in *.
+      destruct (gt_dec nidx 0); try(exfalso; congruence). lia.
+    + assert(HltSuccKernEntries: baseIdx+1 < kernelStructureEntriesNb) by lia.
+      assert(HeqTriv: CPaddr (kernStart + baseIdx + 1) = CPaddr (kernStart + (baseIdx + 1))).
+      {
+        replace (kernStart + (baseIdx + 1)) with (kernStart + baseIdx + 1); try(lia). reflexivity.
+      }
+      unfold CBlock in HblockInFreeRec. cbn in HblockInFreeRec.
+      assert(Heq: CPaddr (kernStart + baseIdx + 1) - 0 = kernStart + baseIdx + 1).
+      {
+        unfold CPaddr. destruct (le_dec (kernStart + baseIdx + 1) maxAddr); cbn in *; lia.
+      }
+      destruct (le_dec (CPaddr (kernStart + baseIdx + 1) - 0) maxIdx);
+        try(rewrite maxIdxEqualMaxAddr in *; cbn in *; lia). simpl in HblockInFreeRec.
+      specialize(IHn (CPaddr (kernStart + baseIdx + 1)) (baseIdx + 1) i HltSuccKernEntries HeqTriv HblockInFreeRec).
+      destruct IHn as [kernIdx (Hblock & HidxLt)]. exists kernIdx. split; trivial. unfold StateLib.Index.pred in *.
+      destruct (gt_dec nidx 0); try(exfalso; congruence). injection Hpred as Hpred. subst i. simpl in HidxLt. lia.
+}
+
+assert(HnewFreeListIsWellFormed: forall n blockBase baseIdx,
+  baseIdx < kernelStructureEntriesNb
+  -> blockBase = CPaddr (kernStart+baseIdx)
+  -> n > kernelStructureEntriesNb-baseIdx
+  -> wellFormedFreeSlotsList (getFreeSlotsListRec n blockBase s (CIndex (kernelStructureEntriesNb-baseIdx)))
+      <> False).
+{
+   intro n. induction n; intros blockBase baseIdx HltBaseKernEntries Hbase HgtNRemaining;
+    cbn -[kernelStructureEntriesNb nullAddr]; try(lia).
+  destruct (Nat.eqb baseIdx (kernelStructureEntriesNb-1)) eqn:HbeqIdxKernEntries.
+  - apply Nat.eqb_eq in HbeqIdxKernEntries. rewrite HbeqIdxKernEntries in *.
+    replace (kernStart+(kernelStructureEntriesNb-1)) with (kernStart+kernelStructureEntriesNb-1) in Hbase; try(lia).
+    destruct HlastBlock as [l HlastBlock]. subst blockBase.
+    rewrite HblocksAreBEs1s; unfold isBE; rewrite HlastBlock; trivial.
+    assert(HidxEq: kernelStructureEntriesNb - (kernelStructureEntriesNb - 1) = 1) by lia. rewrite HidxEq in *.
+    unfold StateLib.Index.pred. destruct (gt_dec (CIndex 1) 0); try(assert(1 > 0) by lia; unfold CIndex in *;
+      pose proof maxIdxNotZero; destruct (le_dec 1 maxIdx); try(lia); simpl in *; congruence). simpl.
+    destruct n; simpl; try(lia). unfold nullAddrExists in *. unfold isPADDR in *.
+    destruct (lookup nullAddr (memory s) beqAddr); try(exfalso; congruence). destruct v; try(exfalso; congruence).
+    simpl. intro Hcontra. congruence.
+  - apply Nat.eqb_neq in HbeqIdxKernEntries.
+    assert(HltBaseIdxKernEntries: baseIdx < kernelStructureEntriesNb-1) by lia.
+    assert(HidxEq: baseIdx = CIndex baseIdx).
+    {
+      unfold CIndex. pose proof maxIdxBiggerThanNbOfKernels. destruct (le_dec baseIdx maxIdx); try(lia). reflexivity.
+    }
+    rewrite HidxEq in *. specialize(HnewBE (CIndex baseIdx) HltBaseIdxKernEntries).
+    destruct HnewBE as [l HnewBE]. subst blockBase. rewrite <-HidxEq in *.
+    rewrite HblocksAreBEs1s; unfold isBE; rewrite HnewBE; trivial. cbn -[kernelStructureEntriesNb nullAddr].
+    destruct (StateLib.Index.pred (CIndex (kernelStructureEntriesNb - baseIdx))) eqn:Hpred.
+    + simpl. unfold CBlock. cbn.
+      assert(Heq: CPaddr (kernStart + baseIdx + 1) - 0 = kernStart + baseIdx + 1).
+      {
+        unfold CPaddr. destruct (le_dec (kernStart + baseIdx + 1) maxAddr); cbn in *; lia.
+      }
+      destruct (le_dec (CPaddr (kernStart + baseIdx + 1) - 0) maxIdx);
+        try(rewrite maxIdxEqualMaxAddr in *; cbn in *; lia). simpl.
+      assert(HltSuccKernEntries: baseIdx+1 < kernelStructureEntriesNb) by lia.
+      assert(HeqTriv: CPaddr (kernStart + baseIdx + 1) = CPaddr (kernStart + (baseIdx + 1))).
+      { replace (kernStart + (baseIdx + 1)) with (kernStart + baseIdx + 1); try(lia). reflexivity. }
+      assert(HgtNRemainingRec: n > kernelStructureEntriesNb - (baseIdx + 1)) by lia.
+      specialize(IHn (CPaddr (kernStart + baseIdx + 1)) (baseIdx + 1) HltSuccKernEntries HeqTriv HgtNRemainingRec).
+      assert(HidxRemEq: CIndex (kernelStructureEntriesNb - (baseIdx + 1)) = i).
+      {
+        unfold StateLib.Index.pred in *.
+        destruct (gt_dec (CIndex (kernelStructureEntriesNb - baseIdx)) 0); try(exfalso; congruence).
+        injection Hpred as Hpred.
+        assert(HeqI: i = {|
+                           i := CIndex (kernelStructureEntriesNb - baseIdx) - 1;
+                           Hi := StateLib.Index.pred_obligation_1 (CIndex (kernelStructureEntriesNb - baseIdx)) g
+                         |}).
+        { subst i. reflexivity. }
+        rewrite HeqI. apply DTL.index_eq_i. cbn -[kernelStructureEntriesNb nullAddr]. unfold CIndex.
+        pose proof KSEntriesNbLessThanMaxIdx. destruct (le_dec (kernelStructureEntriesNb - baseIdx) maxIdx); try(lia).
+        destruct (le_dec (kernelStructureEntriesNb - (baseIdx+1)) maxIdx); try(lia). cbn -[kernelStructureEntriesNb].
+        lia.
+      }
+      rewrite HidxRemEq in *. assumption.
+    + simpl. unfold StateLib.Index.pred in *. unfold CIndex in Hpred. pose proof KSEntriesNbLessThanMaxIdx.
+      destruct (le_dec (kernelStructureEntriesNb - baseIdx) maxIdx); try(lia).
+      cbn -[kernelStructureEntriesNb] in Hpred. destruct (gt_dec (kernelStructureEntriesNb - baseIdx) 0); try(lia).
+      congruence.
+}
+
+assert(HstartEq: kernStart = CPaddr (kernStart+0)).
+{
+  rewrite Nat.add_0_r. unfold CPaddr. assert(kernStart <= maxAddr) by (apply Hp). apply DTL.paddrEqNatEqEquiv.
+  destruct (le_dec kernStart maxAddr); try(lia). reflexivity.
+}
+
+assert(wellFormedFreeSlotsList (getFreeSlotsListRec (maxIdx + 1) kernStart s (CIndex kernelStructureEntriesNb))
+  <> False).
+{
+  assert(HltZeroKernEntries: 0 < kernelStructureEntriesNb) by (pose proof KSEntriesNbNotZero; lia).
+  assert(HgtMaxKernEntries: maxIdx+1 > kernelStructureEntriesNb-0) by (pose proof maxIdxBiggerThanNbOfKernels; lia).
+  specialize(HnewFreeListIsWellFormed (maxIdx + 1) kernStart 0 HltZeroKernEntries HstartEq HgtMaxKernEntries).
+  rewrite Nat.sub_0_r in HnewFreeListIsWellFormed. assumption.
+}
+
+pose proof NoDup_nil.
+assert(HnoDupSingl: forall A (addr:A), NoDup [addr]).
+{
+  intros A addr. apply NoDup_cons; trivial. simpl. intuition.
+}
+
+assert(HnoDupNewFreeList: forall n blockBase baseIdx,
+  baseIdx < kernelStructureEntriesNb
+  -> blockBase = CPaddr (kernStart+baseIdx)
+  -> NoDup (getFreeSlotsListRec n blockBase s (CIndex (kernelStructureEntriesNb-baseIdx)))).
+{
+  intro n. induction n; intros blockBase baseIdx HltBaseKernEntries Hbase; cbn -[kernelStructureEntriesNb nullAddr];
+    try(apply HnoDupSingl).
+  destruct (Nat.eqb baseIdx (kernelStructureEntriesNb-1)) eqn:HbeqIdxKernEntries.
+  - apply Nat.eqb_eq in HbeqIdxKernEntries. rewrite HbeqIdxKernEntries in *.
+    replace (kernStart+(kernelStructureEntriesNb-1)) with (kernStart+kernelStructureEntriesNb-1) in *; try(lia).
+    destruct HlastBlock as [l HlastBlock]. subst blockBase.
+    rewrite HblocksAreBEs1s; unfold isBE; rewrite HlastBlock; trivial.
+    assert(HidxEq: kernelStructureEntriesNb - (kernelStructureEntriesNb - 1) = 1) by lia. rewrite HidxEq in *.
+    unfold StateLib.Index.pred. destruct (gt_dec (CIndex 1) 0); try(assert(1 > 0) by lia; unfold CIndex in *;
+      pose proof maxIdxNotZero; destruct (le_dec 1 maxIdx); try(lia); simpl in *; congruence). simpl.
+    assert(Hempty: getFreeSlotsListRec n nullAddr s
+        {| i := CIndex 1 - 1; Hi := StateLib.Index.pred_obligation_1 (CIndex 1) g |} = [NonePaddr]
+      \/ getFreeSlotsListRec n nullAddr s
+        {| i := CIndex 1 - 1; Hi := StateLib.Index.pred_obligation_1 (CIndex 1) g |} = []).
+    {
+      destruct n; simpl; try(left; reflexivity). unfold nullAddrExists in *. unfold isPADDR in *.
+      destruct (lookup nullAddr (memory s) beqAddr); try(exfalso; congruence). destruct v; try(exfalso; congruence).
+      right. reflexivity.
+    }
+    apply NoDup_cons.
+    + destruct Hempty as [Hempty | Hempty]; rewrite Hempty; simpl; intuition. congruence.
+    + destruct Hempty as [Hempty | Hempty]; rewrite Hempty; trivial.
+  - apply Nat.eqb_neq in HbeqIdxKernEntries.
+    assert(HltBaseIdxKernEntries: baseIdx < kernelStructureEntriesNb-1) by lia.
+    assert(HidxEq: baseIdx = CIndex baseIdx).
+    {
+      unfold CIndex. pose proof maxIdxBiggerThanNbOfKernels. destruct (le_dec baseIdx maxIdx); try(lia). reflexivity.
+    }
+    rewrite HidxEq in *. specialize(HnewBE (CIndex baseIdx) HltBaseIdxKernEntries).
+    destruct HnewBE as [l HnewBE]. subst blockBase. rewrite <-HidxEq in *.
+    rewrite HblocksAreBEs1s; unfold isBE; rewrite HnewBE; trivial. cbn -[kernelStructureEntriesNb nullAddr].
+    destruct (StateLib.Index.pred (CIndex (kernelStructureEntriesNb - baseIdx))) eqn:Hpred.
+    + simpl. unfold CBlock. cbn.
+      assert(Heq: CPaddr (kernStart + baseIdx + 1) - 0 = kernStart + baseIdx + 1).
+      {
+        unfold CPaddr. destruct (le_dec (kernStart + baseIdx + 1) maxAddr); cbn in *; lia.
+      }
+      destruct (le_dec (CPaddr (kernStart + baseIdx + 1) - 0) maxIdx);
+        try(rewrite maxIdxEqualMaxAddr in *; cbn in *; lia). simpl.
+      assert(HltSuccKernEntries: baseIdx+1 < kernelStructureEntriesNb) by lia.
+      assert(HeqTriv: CPaddr (kernStart + baseIdx + 1) = CPaddr (kernStart + (baseIdx + 1))).
+      { replace (kernStart + (baseIdx + 1)) with (kernStart + baseIdx + 1); try(lia). reflexivity. }
+      specialize(IHn (CPaddr (kernStart + baseIdx + 1)) (baseIdx + 1) HltSuccKernEntries HeqTriv).
+      assert(HidxRemEq: CIndex (kernelStructureEntriesNb - (baseIdx + 1)) = i).
+      {
+        unfold StateLib.Index.pred in *.
+        destruct (gt_dec (CIndex (kernelStructureEntriesNb - baseIdx)) 0); try(exfalso; congruence).
+        injection Hpred as Hpred.
+        assert(HeqI: i = {|
+                           i := CIndex (kernelStructureEntriesNb - baseIdx) - 1;
+                           Hi := StateLib.Index.pred_obligation_1 (CIndex (kernelStructureEntriesNb - baseIdx)) g
+                         |}).
+        { subst i. reflexivity. }
+        rewrite HeqI. apply DTL.index_eq_i. cbn -[kernelStructureEntriesNb nullAddr]. unfold CIndex.
+        pose proof KSEntriesNbLessThanMaxIdx. destruct (le_dec (kernelStructureEntriesNb - baseIdx) maxIdx); try(lia).
+        destruct (le_dec (kernelStructureEntriesNb - (baseIdx+1)) maxIdx); try(lia). cbn -[kernelStructureEntriesNb].
+        lia.
+      }
+      rewrite HidxRemEq in *. apply NoDup_cons; trivial. intro Hcontra.
+      apply optionIsInFilter in Hcontra.
+      specialize(HfreeAreNewBE n (CPaddr (kernStart+baseIdx)) (CPaddr (kernStart+baseIdx+1)) (baseIdx+1) i
+        HltSuccKernEntries HeqTriv Hcontra).
+      destruct HfreeAreNewBE as [kernIdx (HaddrEq & HgebIdcs & HltIdcs)]. unfold CPaddr in HaddrEq.
+      destruct (le_dec (kernStart + baseIdx) maxAddr); try(cbn in *; lia). rewrite <-HidxRemEq in HltIdcs.
+      unfold CIndex in HltIdcs. pose proof maxIdxBiggerThanNbOfKernels.
+      destruct (le_dec (kernelStructureEntriesNb - (baseIdx + 1)) maxIdx); try(lia).
+      cbn -[kernelStructureEntriesNb] in HltIdcs. rewrite Nat.sub_add in HltIdcs; try(lia).
+      destruct (le_dec (kernStart + kernIdx) maxAddr); try(cbn in *; lia). injection HaddrEq as HaddrEq.
+      apply Nat.add_cancel_l in HaddrEq. subst kernIdx. lia.
+    + simpl. unfold StateLib.Index.pred in *. unfold CIndex in Hpred. pose proof KSEntriesNbLessThanMaxIdx.
+      destruct (le_dec (kernelStructureEntriesNb - baseIdx) maxIdx); try(lia).
+      cbn -[kernelStructureEntriesNb] in Hpred. destruct (gt_dec (kernelStructureEntriesNb - baseIdx) 0); try(lia).
+      congruence.
+}
+
+assert(NoDup (getFreeSlotsListRec (maxIdx + 1) kernStart s (CIndex kernelStructureEntriesNb))).
+{
+  assert(HltZeroKernEntries: 0 < kernelStructureEntriesNb) by (pose proof KSEntriesNbNotZero; lia).
+  specialize(HnoDupNewFreeList (maxIdx + 1) kernStart 0 HltZeroKernEntries HstartEq).
+  rewrite Nat.sub_0_r in HnoDupNewFreeList. assumption.
+}
+
+assert(forall partition, isPDT partition s
+  -> Lib.disjoint (getFreeSlotsListRec (maxIdx + 1) kernStart s (CIndex kernelStructureEntriesNb))
+      (getFreeSlotsList partition s)).
+{
+  intros partition HpartIsPDT. unfold isPDT in HpartIsPDT. rewrite HpdsArePDT in HpartIsPDT; trivial.
+  rewrite HgetFreeEq; trivial. intros addr HaddrIsFree Hcontra.
+  assert(Hnull: isPADDR nullAddr s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+  assert(Hfree: freeSlotsListIsFreeSlot s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+  destruct addr.
+  - apply optionIsInFilter in HaddrIsFree. apply optionIsInFilter in Hcontra.
+    assert(HltZeroKernEntries: 0 < kernelStructureEntriesNb) by (pose proof KSEntriesNbNotZero; lia).
+    specialize(HfreeAreNewBE (maxIdx + 1) p kernStart 0 (CIndex kernelStructureEntriesNb) HltZeroKernEntries
+      HstartEq HaddrIsFree). destruct HfreeAreNewBE as [kernIdx (HpVal & _ & HltIdxKernEntries)].
+    rewrite Nat.add_0_r in HltIdxKernEntries. subst p. unfold CIndex in HltIdxKernEntries.
+    pose proof maxIdxBiggerThanNbOfKernels. destruct (le_dec kernelStructureEntriesNb maxIdx); try(lia).
+    simpl in HltIdxKernEntries.
+    assert(HaddrInRange: In (CPaddr (kernStart + kernIdx)) (getAllPaddrBlock kernStart kernEnd)).
+    {
+      unfold CPaddr. destruct (le_dec (kernStart + kernIdx) maxAddr); try(cbn in *; lia).
+      apply getAllPaddrBlockIncl; cbn in *; lia.
+    }
+    specialize(HlookupNones0 (CPaddr (kernStart + kernIdx)) HaddrInRange).
+    assert(Hwell: getFreeSlotsList partition s0 = getFreeSlotsList partition s0
+      /\ wellFormedFreeSlotsList (getFreeSlotsList partition s0) <> False).
+    {
+      split; trivial. assert(Hres: NoDupInFreeSlotsList s0)
+        by (unfold consistency in *; unfold consistency1 in *; intuition).
+      destruct (lookup partition (memory s0) beqAddr) eqn:HlookupPart; try(exfalso; congruence).
+      destruct v; try(exfalso; congruence). specialize(Hres partition p HlookupPart).
+      destruct Hres as [optFreeList (Hlist & Hres & _)]. subst optFreeList. assumption.
+    }
+    assert(Hfilt: filterOptionPaddr (getFreeSlotsList partition s0)
+          = filterOptionPaddr (getFreeSlotsList partition s0)
+      /\ In (CPaddr (kernStart + kernIdx)) (filterOptionPaddr (getFreeSlotsList partition s0))).
+    { split; trivial. }
+    assert (HbeqAddrNull: CPaddr (kernStart + kernIdx) <> nullAddr).
+    {
+      intro HcontraBis. rewrite HcontraBis in *. unfold isPADDR in *. rewrite HlookupNones0 in *. congruence.
+    }
+    specialize(Hfree partition (CPaddr (kernStart+kernIdx)) (getFreeSlotsList partition s0)
+      (filterOptionPaddr (getFreeSlotsList partition s0)) HpartIsPDT Hwell Hfilt HbeqAddrNull).
+    unfold isFreeSlot in *. rewrite HlookupNones0 in Hfree. congruence.
+  - assert(Hres: NoDupInFreeSlotsList s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+    destruct (lookup partition (memory s0) beqAddr) eqn:HlookupPart; try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). specialize(Hres partition p HlookupPart).
+    destruct Hres as [optFreeList (Hlist & Hres & _)]. subst optFreeList.
+    induction (getFreeSlotsList partition s0) as [ | addr freeList]; simpl in Hres; simpl in Hcontra; try(congruence).
+    destruct Hcontra as [HaddrIsNone | HcontraRec].
+    + subst addr. congruence.
+    + destruct addr; try(congruence). apply IHfreeList; assumption.
+}
+
+assert(forall block, In block
+   (filterOptionPaddr (getFreeSlotsListRec (maxIdx + 1) kernStart s (CIndex kernelStructureEntriesNb)))
+    -> exists kernIdx : nat, block = CPaddr (kernStart + kernIdx) /\ kernIdx < kernelStructureEntriesNb).
+{
+  intros block HblockIsNewFree. assert(HltZeroKernEntries: 0 < kernelStructureEntriesNb).
+  { pose proof KSEntriesNbNotZero. lia. }
+  specialize(HfreeAreNewBE (maxIdx+1) block kernStart 0 (CIndex kernelStructureEntriesNb) HltZeroKernEntries HstartEq
+    HblockIsNewFree). destruct HfreeAreNewBE as [kernIdx (Hblock & _ & HltIdxKernEntries)]. exists kernIdx.
+  split; trivial. rewrite Nat.add_0_r in HltIdxKernEntries. pose proof maxIdxBiggerThanNbOfKernels.
+  unfold CIndex in HltIdxKernEntries. destruct (le_dec kernelStructureEntriesNb maxIdx); try(lia).
+  simpl in HltIdxKernEntries. assumption.
+}
+
+assert(forall kernIdx block, kernIdx < kernelStructureEntriesNb -> block = CPaddr (kernStart + kernIdx)
+  -> In block (filterOptionPaddr (getFreeSlotsListRec (maxIdx + 1) kernStart s (CIndex kernelStructureEntriesNb)))).
+{
+  intros kernIdx block HltIdxKernEntries Hblock. specialize(HnewBEAreFree kernIdx block HltIdxKernEntries Hblock).
+  apply optionIsInFilter. apply optionIsInFilter in HnewBEAreFree. revert HnewBEAreFree.
+  pose proof maxIdxBiggerThanNbOfKernels. apply getFreeSlotsListRecN; lia.
+}
+
+assert(Hlast: forall kernIdx n lastElem, n > kernIdx+1
+  -> kernIdx < kernelStructureEntriesNb
+  -> last (getFreeSlotsListRec n (CPaddr (kernStart+kernelStructureEntriesNb-1-kernIdx)) s
+        (CIndex (kernIdx+1))) (SomePaddr lastElem)
+    = SomePaddr (CPaddr (kernStart + kernelStructureEntriesNb - 1))).
+{
+  induction kernIdx; simpl; intros n lastElem HgtNIdxP HltIdxKernEntries.
+  - rewrite Nat.sub_0_r. destruct HlastBlock as [l HlastBlock]. assert(HnMin: n = S (n-1)) by lia. rewrite HnMin.
+    simpl. rewrite <-HblocksAreBEs1s in HlastBlock; unfold isBE; rewrite HlastBlock; trivial. unfold CIndex.
+    pose proof maxIdxNotZero. destruct (le_dec 1 maxIdx); try(lia). unfold StateLib.Index.pred.
+    destruct (gt_dec {| i := 1; Hi := ADT.CIndex_obligation_1 1 l0 |} 0); try(simpl in *; lia).
+    cbn -[nullAddr kernelStructureEntriesNb]. set(nidx :=
+      {| i := 0; Hi := StateLib.Index.pred_obligation_1 {| i := 1; Hi := ADT.CIndex_obligation_1 1 l0 |} g |}).
+    assert(Hempty: getFreeSlotsListRec (n-1) (endAddr (CBlock nullAddr nullAddr)) s nidx = []).
+    {
+      unfold CBlock. cbn. assert(HnMin2: n-1 = S (n-2)) by lia. rewrite HnMin2. simpl.
+      assert(Hnull: isPADDR nullAddr s) by (unfold consistency1 in *; intuition). unfold isPADDR in *. cbn in Hnull.
+      destruct (lookup {| p := 0; Hp := ADT.CPaddr_obligation_1 0 (Nat.le_0_l maxAddr) |} (memory s) beqAddr);
+        try(exfalso; congruence). destruct v; try(exfalso; congruence). reflexivity.
+    }
+    rewrite Hempty. reflexivity.
+  - pose proof maxIdxBiggerThanNbOfKernels. assert(HnMin: n = S (n-1)) by lia. rewrite HnMin. simpl.
+    assert(HblockIdx: exists blockIdx: index, blockIdx < kernelStructureEntriesNb-1
+      /\ kernStart + kernelStructureEntriesNb-1- S kernIdx = kernStart+blockIdx).
+    {
+      exists (CIndex (kernelStructureEntriesNb-1- S kernIdx)). unfold CIndex.
+      destruct (le_dec (kernelStructureEntriesNb - 1 - S kernIdx) maxIdx); try(lia). cbn -[kernelStructureEntriesNb].
+      split; lia.
+    }
+    destruct HblockIdx as [blockIdx (HltBIdxKernEntries & Heq)]. rewrite Heq.
+    specialize(HnewBE blockIdx HltBIdxKernEntries). destruct HnewBE as [l HnewBE].
+    rewrite HblocksAreBEs1s; unfold isBE; rewrite HnewBE; trivial.
+    assert(Hpred: StateLib.Index.pred (CIndex (S (kernIdx + 1))) = Some (CIndex (kernIdx + 1))).
+    {
+      unfold CIndex. destruct (le_dec (S (kernIdx + 1)) maxIdx); try(lia).
+      destruct (le_dec (kernIdx + 1) maxIdx); try(lia). unfold StateLib.Index.pred. simpl. f_equal.
+      apply DTL.index_eq_i. simpl. lia.
+    }
+    rewrite Hpred. assert(HltIdxKernEntriesRec: kernIdx < kernelStructureEntriesNb) by lia.
+    assert(HgtNIdxPRec: n-1 > kernIdx + 1) by lia.
+    specialize(IHkernIdx (n-1) (CPaddr (kernStart + blockIdx)) HgtNIdxPRec HltIdxKernEntriesRec). simpl blockrange.
+    assert(Hend: endAddr (CBlock nullAddr (CPaddr (kernStart + blockIdx + 1))) = CPaddr (kernStart + blockIdx + 1)).
+    {
+      unfold CBlock. unfold CPaddr. destruct (le_dec (kernStart + blockIdx + 1) maxAddr); try(cbn in *; lia). cbn.
+      destruct (le_dec (kernStart + blockIdx + 1 - 0) maxIdx); try(rewrite maxIdxEqualMaxAddr in *; lia).
+      reflexivity.
+    }
+    assert(HidxEq: kernStart+kernelStructureEntriesNb-1-kernIdx = kernStart+blockIdx+1) by lia. rewrite HidxEq in *.
+    rewrite Hend. apply eq_sym. apply lastRecInc. apply eq_sym. assumption.
+}
+
+assert(last (getFreeSlotsListRec (maxIdx + 1) kernStart s (CIndex kernelStructureEntriesNb)) (SomePaddr kernStart)
+  = SomePaddr (CPaddr (kernStart + kernelStructureEntriesNb - 1))).
+{
+  pose proof maxIdxBiggerThanNbOfKernels. assert(Hn: maxIdx + 1 > kernelStructureEntriesNb - 1 + 1) by lia.
+  pose proof KSEntriesNbNotZero. assert(HltIdx: kernelStructureEntriesNb - 1 < kernelStructureEntriesNb) by lia.
+  specialize(Hlast (kernelStructureEntriesNb - 1) (maxIdx+1) kernStart Hn HltIdx).
+  replace (kernStart+kernelStructureEntriesNb-1 - (kernelStructureEntriesNb-1)) with (p kernStart) in Hlast; try(lia).
+  replace (kernelStructureEntriesNb - 1 + 1) with kernelStructureEntriesNb in Hlast; try(lia).
+  rewrite Nat.add_0_r in HstartEq. rewrite <-HstartEq in Hlast. assumption.
+}
+
+assert(bentryEndAddr (CPaddr (kernStart + kernelStructureEntriesNb - 1)) nullAddr s).
+{
+  unfold bentryEndAddr. destruct HlastBlock as [l HlastBlock].
+  rewrite HblocksAreBEs1s; unfold isBE; rewrite HlastBlock; trivial.
+}
+
+assert(forall blkIdx:index, blkIdx < kernelStructureEntriesNb-1
+  -> bentryEndAddr (CPaddr (kernStart + blkIdx)) (CPaddr (kernStart + blkIdx + 1)) s).
+{
+  intros blkIdx HltIdxKernEntries. specialize(HnewBE blkIdx HltIdxKernEntries). destruct HnewBE as [l HnewBE].
+  unfold bentryEndAddr. rewrite HblocksAreBEs1s; unfold isBE; rewrite HnewBE; trivial. simpl. unfold CPaddr.
+  destruct (le_dec (kernStart + blkIdx + 1) maxAddr); try(cbn in *; lia). unfold CBlock. simpl.
+  destruct (le_dec (kernStart + blkIdx + 1 - 0) maxIdx); try(rewrite maxIdxEqualMaxAddr in *; lia). reflexivity.
+}
+
+assert((forall addr, In addr (filterOptionPaddr
+            (getKSEntriesInStructAux (maxIdx+1) kernStart s (CIndex (kernelStructureEntriesNb-1))))
+          -> forall part, isPDT part s -> ~In addr (filterOptionPaddr (getKSEntries part s)))).
+{
+  intros addr HaddrIsNew part HpartIsPDT. pose proof KSEntriesNbLessThanMaxIdx.
+  assert(HidxEq: kernelStructureEntriesNb - 1 = CIndex (kernelStructureEntriesNb - 1)).
+  {
+    unfold CIndex. destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx); try(lia). reflexivity.
+  }
+  apply getKSEntriesInStructAuxToIndexAux in HaddrIsNew; try(rewrite <-HidxEq; lia).
+  destruct HaddrIsNew as [kernIdx (HkernIdx & Haddr)]. rewrite <-HidxEq in *.
+  assert(HaddrIsNew: In addr (getAllPaddrBlock kernStart kernEnd)).
+  {
+    apply DTL.paddrEqNatEqEquiv in Haddr. unfold CPaddr in Haddr.
+    destruct (le_dec (kernStart + kernIdx) maxAddr); try(cbn in *; lia). simpl in Haddr.
+    apply getAllPaddrBlockIncl; try(cbn in *; lia).
+  }
+  unfold isPDT in HpartIsPDT. rewrite HpdsArePDT in HpartIsPDT; trivial. specialize(HlookupNones0 addr HaddrIsNew).
+  rewrite HgetKSEq; trivial. intro Hcontra. apply KSentriesAreBE in Hcontra. unfold isBE in *.
+  rewrite HlookupNones0 in *. congruence.
+}
+
+assert(forall part, Lib.disjoint (getAllPaddrBlockAux 0 kernStart Constants.kernelStructureTotalLength)
+  (getAllPaddrConfigAux (getConfigBlocks part s) s)).
+{
+  intros part addr HaddrIsNew Hcontra. assert(HpartIsPDT: isPDT part s).
+  {
+    unfold getConfigBlocks in Hcontra. unfold isPDT.
+    destruct (lookup part (memory s) beqAddr); try(simpl in Hcontra; congruence).
+    destruct v; try(simpl in Hcontra; congruence). trivial.
+  }
+  unfold isPDT in HpartIsPDT. rewrite HpdsArePDT in HpartIsPDT; trivial.
+  rewrite HgetConfigBEq in Hcontra; trivial.
+  assert(HaddrInRange: In addr (getAllPaddrBlock kernStart kernEnd)).
+  {
+    apply getAllPaddrBlockInclRevAux in HaddrIsNew. destruct HaddrIsNew as (HlebStartAddr & HltAddrLastNew & _).
+    apply getAllPaddrBlockIncl; lia.
+  }
+  specialize(HlookupNones0 addr HaddrInRange).
+  assert(Heq: getAllPaddrConfigAux (getConfigBlocks part s0) s = getAllPaddrConfigAux (getConfigBlocks part s0) s0).
+  {
+    assert(HconfigsAreBE: forall configAddr, In configAddr (getConfigBlocks part s0) -> isBE configAddr s0).
+    { intro configAddr. apply configBlocksAreBE. }
+    clear Hcontra. induction (getConfigBlocks part s0) as [ | el configList]; simpl; trivial.
+    assert(HconfigsAreBERec: forall configAddr, In configAddr configList -> isBE configAddr s0).
+    { intros configAddr HaddrInConfig. apply HconfigsAreBE. simpl. auto. }
+    assert(HelInList: In el (el :: configList)) by (simpl; auto).
+    specialize(HconfigsAreBE el HelInList). unfold isBE in *.
+    rewrite HlookupSomeEq; destruct (lookup el (memory s0) beqAddr); try(exfalso; congruence); destruct v;
+      try(exfalso; congruence); try(exists (BE b); trivial). f_equal. apply IHconfigList; trivial.
+  }
+  assert(HconfigsAreKS: forall configAddr, In configAddr (getConfigBlocks part s0) -> isKS configAddr s0).
+  { intro configAddr. apply configBlocksAreKS; unfold consistency in *; unfold consistency1 in *; intuition. }
+  rewrite Heq in *. clear Heq. induction (getConfigBlocks part s0) as [ | el configList]; simpl in Hcontra; trivial.
+  assert(HconfigsAreKSRec: forall configAddr, In configAddr configList -> isKS configAddr s0).
+  { intros configAddr HaddrInList. apply HconfigsAreKS; simpl; auto. }
+  assert(HelInList: In el (el :: configList)) by (simpl; auto). specialize(HconfigsAreKS el HelInList).
+  unfold isKS in HconfigsAreKS. destruct (lookup el (memory s0) beqAddr) eqn:HlookupEl; try(exfalso; congruence).
+  destruct v; try(exfalso; congruence). apply in_app_or in Hcontra.
+  destruct Hcontra as [HaddrInEl | HaddrInRec]; try(apply IHconfigList; assumption).
+  pose proof kernelStructureTotalLengthVal. apply getAllPaddrBlockInclRevAux in HaddrInEl.
+  destruct HaddrInEl as (HlebElAddr & HltAddrEndEl & HgtStructLenZero).
+  assert(HpropsOrAddr: addr < el + kernelStructureEntriesNb
+    \/ (addr >= el + kernelStructureEntriesNb /\ addr < el + 2*kernelStructureEntriesNb)
+    \/ (addr >= el + 2*kernelStructureEntriesNb /\ addr < el + 3*kernelStructureEntriesNb)
+    \/ p addr = el + 3*kernelStructureEntriesNb).
+  {
+    destruct (Nat.ltb addr (el + kernelStructureEntriesNb)) eqn:HltAddrKern.
+    - apply Nat.ltb_lt in HltAddrKern. left. assumption.
+    - right. apply Nat.ltb_ge in HltAddrKern.
+      destruct (Nat.ltb addr (el+2*kernelStructureEntriesNb)) eqn:HltAddr2Kern.
+      + apply Nat.ltb_lt in HltAddr2Kern. left. lia.
+      + right. apply Nat.ltb_ge in HltAddr2Kern.
+        destruct (Nat.ltb addr (el+3*kernelStructureEntriesNb)) eqn:HltAddr3Kern.
+        * apply Nat.ltb_lt in HltAddr3Kern. left. lia.
+        * right. apply Nat.ltb_ge in HltAddr3Kern. lia.
+  }
+  assert(HblockRange: BlocksRangeFromKernelStartIsBE s0)
+    by (unfold consistency in *; unfold consistency1 in *; intuition).
+  assert(HelIsKS: isKS el s0) by (unfold isKS; rewrite HlookupEl; assumption).
+  destruct HpropsOrAddr as [HaddrIsBE | [HaddrIsSHE | [HaddrIsSCE | HaddrIsNext]]].
+  - assert(HidxEq: addr-el = CIndex (addr-el)).
+    {
+      unfold CIndex. assert(addr <= maxIdx) by (rewrite maxIdxEqualMaxAddr; apply Hp).
+      destruct (le_dec (addr - el) maxIdx); try(lia). reflexivity.
+    }
+    assert(HltIdxKernEntries: CIndex (addr-el) < kernelStructureEntriesNb).
+    { rewrite <-HidxEq. lia. }
+    specialize(HblockRange el (CIndex (addr-el)) HelIsKS HltIdxKernEntries). rewrite <-HidxEq in HblockRange.
+    replace (el + (addr - el)) with (p addr) in HblockRange; try(lia). rewrite DTL.paddrEqId in HblockRange.
+    unfold isBE in *. rewrite HlookupNones0 in *. congruence.
+  - assert(HidxEq: addr-kernelStructureEntriesNb-el = CIndex (addr-kernelStructureEntriesNb-el)).
+    {
+      unfold CIndex. assert(addr <= maxIdx) by (rewrite maxIdxEqualMaxAddr; apply Hp).
+      destruct (le_dec (addr-kernelStructureEntriesNb - el) maxIdx); try(lia). reflexivity.
+    }
+    assert(HltIdxKernEntries: CIndex (addr-kernelStructureEntriesNb-el) < kernelStructureEntriesNb).
+    { rewrite <-HidxEq. lia. }
+    specialize(HblockRange el (CIndex (addr-kernelStructureEntriesNb-el)) HelIsKS HltIdxKernEntries).
+    rewrite <-HidxEq in HblockRange.
+    replace (el+(addr-kernelStructureEntriesNb- el)) with (addr-kernelStructureEntriesNb) in HblockRange; try(lia).
+    assert(HwellFormedSh1: wellFormedFstShadowIfBlockEntry s0)
+      by (unfold consistency in *; unfold consistency1 in *; intuition). apply HwellFormedSh1 in HblockRange.
+    assert(HaddrEq: CPaddr (addr - kernelStructureEntriesNb) + sh1offset = addr).
+    {
+      unfold CPaddr. assert(addr <= maxAddr) by (apply Hp).
+      destruct (le_dec (addr-kernelStructureEntriesNb) maxAddr); try(lia). simpl. lia.
+    }
+    rewrite HaddrEq in *. rewrite DTL.paddrEqId in HblockRange. unfold isSHE in *. rewrite HlookupNones0 in *.
+    congruence.
+  - assert(HidxEq: addr-2*kernelStructureEntriesNb-el = CIndex (addr-2*kernelStructureEntriesNb-el)).
+    {
+      unfold CIndex. assert(addr <= maxIdx) by (rewrite maxIdxEqualMaxAddr; apply Hp).
+      destruct (le_dec (addr-2*kernelStructureEntriesNb - el) maxIdx); try(lia). reflexivity.
+    }
+    assert(HltIdxKernEntries: CIndex (addr-2*kernelStructureEntriesNb-el) < kernelStructureEntriesNb).
+    { rewrite <-HidxEq. lia. }
+    specialize(HblockRange el (CIndex (addr-2*kernelStructureEntriesNb-el)) HelIsKS HltIdxKernEntries).
+    rewrite <-HidxEq in HblockRange. replace (el+(addr-2*kernelStructureEntriesNb- el))
+      with (addr-2*kernelStructureEntriesNb) in HblockRange; try(lia).
+    assert(HwellFormedSce: wellFormedShadowCutIfBlockEntry s0)
+      by (unfold consistency in *; unfold consistency1 in *; intuition). apply HwellFormedSce in HblockRange.
+    destruct HblockRange as [scentryaddr (HblockRange & Hsce)]. subst scentryaddr.
+    assert(HaddrEq: CPaddr (addr - 2*kernelStructureEntriesNb) + scoffset = addr).
+    {
+      unfold CPaddr. assert(addr <= maxAddr) by (apply Hp).
+      destruct (le_dec (addr-2*kernelStructureEntriesNb) maxAddr); try(lia). simpl. lia.
+    }
+    rewrite HaddrEq in *. rewrite DTL.paddrEqId in HblockRange. unfold isSCE in *. rewrite HlookupNones0 in *.
+    congruence.
+  - assert(HnextValid: nextKernelIsValid s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+    specialize(HnextValid el HelIsKS). destruct HnextValid as (HlebNextMax & [nextAddr (HlookupNext & _)]).
+    assert(HaddrEq: addr = CPaddr (el + nextoffset)).
+    {
+      unfold CPaddr. destruct (le_dec (el + nextoffset) maxAddr); try(lia). apply DTL.paddrEqNatEqEquiv. simpl. lia.
+    }
+    subst addr. unfold CPaddr in HlookupNones0. destruct (le_dec (el + nextoffset) maxAddr); try(lia).
+    rewrite HlookupNext in HlookupNones0. congruence.
+}
+
+assert(forall kern part, In kern (getConfigBlocks part s) -> kern <> kernStart).
+{
+  intros kern part HkernInConfig. assert(HpartIsPDT: isPDT part s).
+  {
+    unfold getConfigBlocks in HkernInConfig. unfold isPDT.
+    destruct (lookup part (memory s) beqAddr); try(simpl in HkernInConfig; congruence).
+    destruct v; try(simpl in HkernInConfig; congruence). trivial.
+  }
+  unfold isPDT in HpartIsPDT. rewrite HpdsArePDT in HpartIsPDT; trivial.
+  rewrite HgetConfigBEq in HkernInConfig; trivial.
+  assert(HstartInRange: In kernStart (getAllPaddrBlock kernStart kernEnd)).
+  { apply getAllPaddrBlockIncl; lia. }
+  specialize(HlookupNones0 kernStart HstartInRange). apply configBlocksAreBE in HkernInConfig. intro Hcontra.
+  subst kern. unfold isBE in HkernInConfig. rewrite HlookupNones0 in *. congruence.
+}
+
+unfold consistency1. intuition.
+- rewrite Hs. simpl. rewrite beqAddrTrue. reflexivity.
+- assert(HltIdx: CIndex 0 < kernelStructureEntriesNb - 1).
+  {
+    unfold CIndex. destruct (le_dec 0 maxIdx); cbn; lia.
+  }
+  specialize(HnewBE (CIndex 0) HltIdx). destruct HnewBE as [l HnewBE].
+  assert(HlookupStartEq: lookup kernStart (memory s) beqAddr = lookup kernStart (memory s1) beqAddr).
+  {
+    apply HblocksAreBEss1. unfold isKS in *. unfold isBE.
+    destruct (lookup kernStart (memory s) beqAddr); try(congruence). destruct v; try(congruence). trivial.
+  }
+  unfold bentryBlockIndex. rewrite HlookupStartEq. rewrite HstartEq. cbn -[nullAddr] in HnewBE. rewrite HnewBE.
+  trivial.
+- destruct HlastBlock as [l HlastBlock]. unfold bentryBlockIndex.
+  assert(HlookupLastEq: lookup (CPaddr (kernStart + kernelStructureEntriesNb - 1)) (memory s) beqAddr
+    = lookup (CPaddr (kernStart + kernelStructureEntriesNb - 1)) (memory s1) beqAddr).
+  {
+    apply HblocksAreBEs1s. unfold isBE. rewrite HlastBlock. trivial.
+  }
+  rewrite HlookupLastEq. rewrite HlastBlock. simpl. reflexivity.
+- exists sAnc. intuition.
+  + rewrite <-Hlookups0AncEq in *. apply HlookupSomeEq; assumption.
+  + rewrite Hs. simpl. rewrite Hcurrs3. rewrite Hcurrs2. rewrite Hcurrs1. assumption.
 Qed.

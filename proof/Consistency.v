@@ -241,10 +241,10 @@ NoDup (filterOptionPaddr (getKSEntries partition s)).
 
 (** **  In a given partition, no block overlaps another
     (the sets of addresses they contain are disjoint). **)
-Definition noDupUsedPaddrList s :=
+Definition noDupMappedPaddrList s :=
 forall (partition : paddr),
 isPDT partition s ->
-NoDup (getUsedPaddr partition s).
+NoDup (getMappedPaddr partition s).
 
 (** **  All partitions belonging to the partition tree are unique. **)
 Definition noDupPartitionTree s :=
@@ -307,7 +307,7 @@ lookup partition (memory s) beqAddr = Some (PDT entry)
    /\ parent entry <> partition.
 
 (*TODO put that elsewhere; in StateLib?*)
-Fixpoint isListOfKernelsAux kernList initKern s :=
+Fixpoint isListOfKernelsAux kernList (initKern:paddr) s :=
 match kernList with
 | [] => True
 | kern::nextKernList => lookup (CPaddr (initKern + nextoffset)) (memory s) beqAddr = Some (PADDR kern)
@@ -543,10 +543,11 @@ Definition blocksAddressesTypes s :=
 forall block startaddr endaddr,
 bentryStartAddr block startaddr s
 -> bentryEndAddr block endaddr s
+-> bentryPFlag block true s
 -> sh1entryPDchild (CPaddr (block + sh1offset)) nullAddr s
 -> (isKS startaddr s
       /\ (forall addr, In addr (getAllPaddrBlock startaddr endaddr)
-          -> (isBE addr s \/ isSHE addr s \/ isSCE addr s))
+          -> (isBE addr s \/ isSHE addr s \/ isSCE addr s \/ isPADDR addr s \/ lookup addr (memory s) beqAddr = None))
     \/ isPDT startaddr s
       /\ (forall addr, In addr (getAllPaddrBlock startaddr endaddr) /\ addr <> startaddr
           -> lookup addr (memory s) beqAddr = None)
@@ -564,6 +565,7 @@ bentryStartAddr block startaddr s
 Definition kernelsAreNotAccessible s :=
 forall block startaddr,
 bentryStartAddr block startaddr s
+-> bentryPFlag block true s
 -> isKS startaddr s
 -> bentryAFlag block false s.
 
@@ -571,19 +573,26 @@ Definition nextKernAddrIsInSameBlock s :=
 forall block kernel startaddr endaddr,
 bentryStartAddr block startaddr s
 -> bentryEndAddr block endaddr s
+-> bentryPFlag block true s
+-> sh1entryPDchild (CPaddr (block+sh1offset)) nullAddr s
 -> isKS kernel s
 -> In (CPaddr (kernel + nextoffset)) (getAllPaddrBlock startaddr endaddr)
 -> kernel = startaddr.
 
 Definition blockBelongsToAPart s :=
 forall block,
-isBE block s
+bentryPFlag block true s
 -> exists partition, In partition (getPartitions multiplexer s) /\ In block (getMappedBlocks partition s).
 
 Definition PDflagMeansNoChild s :=
 forall block,
 isBE block s
--> sh1entryPDflag (CPaddr (block + sh1offset)) true s <-> sh1entryPDchild (CPaddr (block + sh1offset)) nullAddr s.
+-> sh1entryPDflag (CPaddr (block + sh1offset)) true s -> sh1entryPDchild (CPaddr (block + sh1offset)) nullAddr s.
+
+Definition nbPrepareIsNbKern s :=
+forall partition pdentry,
+lookup partition (memory s) beqAddr = Some(PDT pdentry)
+-> length (completeListOfKernels (structure pdentry) s) = nbprepare pdentry.
 
 (*Definition isInChildIfPDchild s :=
 forall block partition child,
@@ -637,11 +646,12 @@ blocksAddressesTypes s /\
 notPDTIfNotPDflag s /\
 nextKernAddrIsInSameBlock s /\
 blockBelongsToAPart s /\
-PDflagMeansNoChild s.
+PDflagMeansNoChild s /\
+nbPrepareIsNbKern s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=
-noDupUsedPaddrList s /\
+noDupMappedPaddrList s /\
 accessibleParentPaddrIsAccessibleIntoChild s /\
 sharedBlockPointsToChild s /\
 adressesRangePreservedIfOriginAndNextOk s /\

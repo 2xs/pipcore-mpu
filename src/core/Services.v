@@ -432,7 +432,7 @@ Definition prepare (idPD : paddr)
 
 		(** Insert the requisitioned block in the kernel structure list *)
 		perform oldKStructurePointer := readPDStructurePointer globalIdPD in
-		writeNextFromKernelStructureStart newKStructurePointer
+		writeNextFromKernelStructureStartLight newKStructurePointer
 																			oldKStructurePointer;;
 		writePDStructurePointer globalIdPD newKStructurePointer;;
 
@@ -464,6 +464,7 @@ Definition prepare (idPD : paddr)
 			writeSh1PDChildFromBlockEntryAddr requisitionedBlockInCurrPartAddr globalIdPD ;;
 			ret true
 		else
+      (*writeBlockPresentFromBlockEntryAddr requisitionedBlockInCurrPartAddr false*)
 			ret true.
 
 (** ** The addMemoryBlock PIP MPU service
