@@ -558,6 +558,7 @@ Definition notPDTIfNotPDflag s :=
 forall block startaddr sh1entryaddr,
 bentryStartAddr block startaddr s
 -> sh1entryAddr block sh1entryaddr s
+-> bentryPFlag block true s
 -> sh1entryPDflag sh1entryaddr false s
 -> sh1entryPDchild sh1entryaddr nullAddr s
 -> ~ isPDT startaddr s.

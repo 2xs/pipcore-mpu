@@ -4759,6 +4759,29 @@ rewrite Heq. destruct (beqAddr part kernel) eqn:HbeqPartKern.
 - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
 Qed.
 
+Lemma completeListOfKernelsEqNewPDT kernel part newPDTEntry s0:
+lookup part (memory s0) beqAddr = None
+-> completeListOfKernels kernel {|
+                                  currentPartition := currentPartition s0;
+                                  memory := add part (PDT newPDTEntry) (memory s0) beqAddr
+                                |}
+= completeListOfKernels kernel s0.
+Proof.
+intro HpartIsNones0. unfold completeListOfKernels. cbn -[maxNbPrepare nullAddr CIndex].
+assert(Heq: completeListOfKernelsAux maxNbPrepare kernel
+          {|
+            currentPartition := currentPartition s0;
+            memory := add part (PDT newPDTEntry) (memory s0) beqAddr
+          |}
+        = completeListOfKernelsAux maxNbPrepare kernel s0).
+{
+  apply completeListOfKernelsAuxEqPDT. unfold isPADDR. rewrite HpartIsNones0. intuition.
+}
+rewrite Heq. destruct (beqAddr part kernel) eqn:HbeqPartKern.
+- rewrite <-DTL.beqAddrTrue in HbeqPartKern. subst part. rewrite HpartIsNones0. reflexivity.
+- rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+Qed.
+
 Lemma completeListOfKernelsAuxEqSHE n kernel addr newSHEntry s0:
 ~isPADDR addr s0
 -> completeListOfKernelsAux n kernel {|

@@ -73,7 +73,7 @@ revert subblockAddr.
 	eapply bindRev.
 	{ (** MAL.readSh1PDChildFromBlockEntryAddr*)
 		eapply weaken. apply readSh1PDChildFromBlockEntryAddr.
-		intros. simpl. split. apply H. intuition.
+		intros. simpl. split. apply H. unfold consistency in *; unfold consistency1 in *; intuition.
 		apply isBELookupEq. assumption.
 	}
 	intro PDChildAddr.
@@ -89,7 +89,7 @@ revert subblockAddr.
 		eapply bindRev.
 		{ (** MAL.readSCNextFromBlockEntryAddr*)
 			eapply weaken. apply readSCNextFromBlockEntryAddr.
-			intros. simpl. split. apply H0. intuition.
+			intros. simpl. split. apply H0. unfold consistency in *; unfold consistency1 in *; intuition.
 			apply isBELookupEq. assumption.
 		}
 		intro nextsubblock.
@@ -111,7 +111,6 @@ revert subblockAddr.
 				intros. eapply weaken. apply IHn.
 				intros. simpl. intuition.
 				unfold consistency in *. intuition.
-				destruct H4. destruct H1. intuition.
 				unfold scentryNext in *. rewrite H4 in *. subst.
 				(*unfold scNextIsBE in *. apply H25 with x0.
 				assumption.
@@ -171,7 +170,7 @@ induction n.
 		eapply bindRev.
 		{ (** MAL.readSCNextFromBlockEntryAddr *)
 			eapply weaken. apply readSCNextFromBlockEntryAddr.
-			intros. simpl. split. apply H0. intuition.
+			intros. simpl. split. apply H0. unfold consistency in *; unfold consistency1 in *; intuition.
 			apply isBELookupEq. assumption.
 		}
 		intro nextsubblock.
@@ -228,7 +227,7 @@ eapply bindRev.
 	eapply bindRev.
 { (** checkBlockCut *)
 	eapply weaken. apply checkBlockCut.
-	intros. simpl. split. apply H. intuition.
+	intros. simpl. split. apply H. unfold consistency in *; unfold consistency1 in *; intuition.
 	(*TODO : set in RemoveMemoryBlock *)
 	(*unfold sh1entryInChildLocation in *.
 	destruct H6. destruct H5.
