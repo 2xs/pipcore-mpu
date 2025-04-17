@@ -35,7 +35,7 @@ Require Import Model.ADT Model.Monad Model.MAL Model.Lib Core.Internal.
 Require Import Proof.Consistency Proof.StateLib.
 Require Import Hoare InternalLemmas InternalLemmas2 WeakestPreconditions eraseBlock Invariants Isolation
   lookupInvariant.
-Require Import List Coq.Logic.ProofIrrelevance Lia Classical_Prop Compare_dec EqNat Arith
+From Stdlib Require Import List Logic.ProofIrrelevance Lia Classical_Prop Compare_dec EqNat Arith
   FunctionalExtensionality List.
 Import List.ListNotations.
 
@@ -1498,10 +1498,10 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
     assert(notPDTIfNotPDflag s).
     { (* BEGIN notPDTIfNotPDflag s *)
       assert(Hcons0: notPDTIfNotPDflag s0) by intuition.
-      intros block startaddr sh1entryaddrBis Hstart Hsh1 HPDFlag HPDchild. unfold bentryStartAddr in *.
-      unfold sh1entryAddr in *. unfold sh1entryPDflag in *. unfold sh1entryPDchild in *. unfold isPDT.
-      rewrite HlookupsEq in *. specialize(Hcons0 block startaddr sh1entryaddrBis Hstart Hsh1 HPDFlag HPDchild).
-      assumption.
+      intros block startaddr sh1entryaddrBis Hstart Hsh1 HPflag HPDFlag HPDchild. unfold bentryStartAddr in *.
+      unfold sh1entryAddr in *. unfold sh1entryPDflag in *. unfold sh1entryPDchild in *. unfold bentryPFlag in *.
+      unfold isPDT. rewrite HlookupsEq in *.
+      specialize(Hcons0 block startaddr sh1entryaddrBis Hstart Hsh1 HPflag HPDFlag HPDchild). assumption.
       (* END notPDTIfNotPDflag *)
     }
     assert(nextKernAddrIsInSameBlock s).
@@ -4042,14 +4042,14 @@ assert(blocksAddressesTypes s).
 assert(notPDTIfNotPDflag s).
 { (* BEGIN notPDTIfNotPDflag s *)
   assert(Hcons0: notPDTIfNotPDflag s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-  intros block startaddr sh1entryaddr HstartBlock Hsh1 HPDflag HPDchild.
+  intros block startaddr sh1entryaddr HstartBlock Hsh1 HPflag HPDflag HPDchild.
   assert(HlookupBlockEqss1: lookup block (memory s) beqAddr = lookup block (memory s1) beqAddr).
   {
     apply HblocksAreBEss1. unfold isBE. unfold bentryStartAddr in HstartBlock.
     destruct (lookup block (memory s) beqAddr); try(congruence). destruct v; try(congruence). trivial.
   }
-  unfold bentryStartAddr in HstartBlock. unfold sh1entryAddr in Hsh1. rewrite HlookupBlockEqss1 in *.
-  unfold sh1entryPDchild in *. unfold sh1entryPDflag in *.
+  unfold bentryStartAddr in HstartBlock. unfold sh1entryAddr in Hsh1. unfold bentryPFlag in *.
+  rewrite HlookupBlockEqss1 in *. unfold sh1entryPDchild in *. unfold sh1entryPDflag in *.
   assert(HlookupSh1Eqss2: lookup sh1entryaddr (memory s) beqAddr = lookup sh1entryaddr (memory s2) beqAddr).
   {
     apply HaddrAreSHEss2. unfold isSHE.
@@ -4105,7 +4105,7 @@ assert(notPDTIfNotPDflag s).
       destruct v; try(exfalso; congruence). trivial.
     }
     rewrite HlookupBlocks1s0 in *. rewrite HlookupSh1s2s0 in *. specialize(Hcons0 block startaddr sh1entryaddr
-      HstartBlock Hsh1 HPDflag HPDchild). unfold isPDT. contradict Hcons0. unfold isPDT.
+      HstartBlock Hsh1 HPflag HPDflag HPDchild). unfold isPDT. contradict Hcons0. unfold isPDT.
     rewrite HpdsArePDT in Hcons0; assumption.
   (* END notPDTIfNotPDflag *)
 }
