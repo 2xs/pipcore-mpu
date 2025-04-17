@@ -40,7 +40,7 @@ Proof.StateLib Proof.DependentTypeLemmas Proof.InternalLemmas Proof.InternalLemm
 
 Require Import Invariants checkChildOfCurrPart insertNewEntry AddMemoryBlockSecProps.
 
-Require Import Bool List EqNat Lia Compare_dec Coq.Logic.ProofIrrelevance.
+From Stdlib Require Import Bool List EqNat Lia Compare_dec Logic.ProofIrrelevance.
 Import List.ListNotations.
 
 Require Import Model.Monad.

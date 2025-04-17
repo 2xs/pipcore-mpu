@@ -62,7 +62,8 @@ This file contains the monad state and Hoare logic formalization.
 -We define some lemmas like [weaken] and [bindWP] to facilitate Hoare logic
      and monad manipulation.
 *)
-Require Import FunctionalExtensionality Model.ADT.
+From Stdlib Require FunctionalExtensionality.
+Require Import Model.ADT.
 
 
 (*Definition hoareTriple {A : Type} (P : state -> Prop) (m : LLI A) (Q : A -> state -> Prop) : Prop :=

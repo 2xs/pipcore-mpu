@@ -35,9 +35,10 @@
 (** * Summary
     In this file we formalize and prove the weakest precondition of the
     MAL and MALInternal functions *)
-
+From Stdlib Require Lia List.
 Require Import Model.ADT Model.Monad Model.MAL Model.Lib Proof.Consistency Model.MALInternal
-Lia List StateLib Hoare Compare_dec.
+ StateLib Hoare.
+Import Compare_dec Lia.
 Lemma ret  (A : Type) (a : A) (P : A -> state -> Prop) : {{ P a }} ret a {{ P }}.
 Proof.
 intros s H; trivial.

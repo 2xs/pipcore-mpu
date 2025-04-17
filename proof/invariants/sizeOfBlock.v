@@ -40,7 +40,7 @@ Require Import Core.Internal.
 Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
                Proof.Isolation Proof.StateLib Proof.WeakestPreconditions
 							 Proof.invariants.Invariants.
-Require Import Compare_dec Bool Lia.
+From Stdlib Require Import Compare_dec Bool Lia.
 Require Import Model.ADT.
 
 Lemma sizeOfBlock (blockentryaddr : paddr) (P :  state -> Prop) :

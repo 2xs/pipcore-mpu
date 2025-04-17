@@ -42,7 +42,7 @@ Require Import Invariants Proof.invariants.findBlockInKSWithAddr.
 Require Import isBuiltFromWriteAccessibleRec writeAccessibleToAncestorsIfNotCutRec insertNewEntry
                 removeBlockFromPhysicalMPUIfAlreadyMapped.
 
-Require Import Bool List EqNat Lia Coq.Logic.ProofIrrelevance.
+From Stdlib Require Import Bool List EqNat Lia Logic.ProofIrrelevance.
 Import List.ListNotations.
 
 Require Import Model.Monad.

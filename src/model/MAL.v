@@ -37,7 +37,8 @@
   write data into physical memory  *)
 Require Export Model.MALInternal Model.ADT.
 Require Import Model.Monad Model.Lib.
-Require Import Arith Bool List.
+From Stdlib Require Arith Bool List.
+Import Lists.List Compare_dec Bool.Bool.
 
 Open Scope mpu_state_scope.
 
@@ -860,8 +861,8 @@ Definition checkBlockInRAM (blockentryaddr : paddr) : LLI bool :=
 
 (** The [check32Aligned] function checks if the cutAddr is 32-bytes aligned *)
 Definition check32Aligned (addrToCheck : paddr) : LLI bool :=
-  let modulo := addrToCheck mod 32 in
-  ret (modulo =? 0).
+  let mod := Nat.modulo addrToCheck 32 in
+  ret (Nat.eqb mod 0).
 
 (*TODO implement that ?*)
 Definition checkMPUEntryZero (blockToCheck: paddr) (size: index) : LLI bool :=

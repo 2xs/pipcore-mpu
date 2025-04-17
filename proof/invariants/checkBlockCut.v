@@ -40,7 +40,7 @@ Require Import Core.Internal.
 Require Import Proof.Consistency (*Pip.Proof.DependentTypeLemmas*) Proof.Hoare
                Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants
 								Proof.invariants.findBlockInKSWithAddr.
-Require Import Coq.Logic.ProofIrrelevance Lia Setoid Compare_dec (*EqNat*) List Bool.
+From Stdlib Require Import Logic.ProofIrrelevance Lia Setoid Compare_dec (*EqNat*) List Bool.
 
 Module WP := WeakestPreconditions.
 

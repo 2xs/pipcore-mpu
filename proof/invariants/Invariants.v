@@ -39,7 +39,7 @@ Require Import Model.ADT Model.Monad Model.Lib
 Require Import Core.Internal.
 Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
                Proof.Isolation Proof.StateLib Proof.WeakestPreconditions.
-Require Import Coq.Logic.ProofIrrelevance Lia Setoid Compare_dec EqNat List Bool.
+From Stdlib Require Import Logic.ProofIrrelevance Lia Setoid Compare_dec EqNat List Bool.
 Require Import InternalLemmas.
 
 Module WP := WeakestPreconditions.

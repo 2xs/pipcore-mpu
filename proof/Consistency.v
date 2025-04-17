@@ -36,9 +36,10 @@
 (** * Summary
     This file contains the formalization of the consistency properties :
 for each one we summarize the description of its definition *)
+From Stdlib Require List.
 Require Import Model.ADT Model.Monad Model.MAL Model.Lib Lib StateLib.
-Require Import List Coq.Logic.ProofIrrelevance.
-Import List.ListNotations.
+Require Import Stdlib.Logic.ProofIrrelevance.
+Import List.ListNotations Lists.List.
 
 (** **  Type SHE is linked to a particular BE entry by an offset sh1offset in
     the metadata superstructure. **)

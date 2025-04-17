@@ -48,7 +48,9 @@ This file contains the Hoare logic formalization.
 -We define some lemmas like [weaken] and [bindWP] to facilitate Hoare logic
      and monad manipulation.
 *)
-Require Import FunctionalExtensionality Model.Monad(*Model.ADT*).
+From Stdlib Require FunctionalExtensionality.
+Require Import Model.Monad(*Model.ADT*).
+Import FunctionalExtensionality.
 
 Open Scope mpu_state_scope.
 

@@ -36,8 +36,9 @@
     This file contains the definition of some constants and their monadic getters;
     and the module definition of each abstract data type in which we define required
     monadic functions  *)
+From Stdlib Require List Arith.
 Require Import Model.ADT Model.Monad.
-Require Import List Arith.
+Import Lists.List Nat Compare_dec.
 
 Open Scope mpu_state_scope.
 

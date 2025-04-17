@@ -32,8 +32,8 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-Require Import List.
-Import List.ListNotations.
+From Stdlib Require List.
+Import Lists.List List.ListNotations.
 
 Fixpoint lookup {A C: Type} (a : A)  (assoc : list (A*C))  (eqA : A -> A -> bool) :=
   match assoc with

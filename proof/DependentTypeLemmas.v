@@ -38,9 +38,9 @@
 Require Import Model.ADT Model.MALInternal Model.Lib Model.Monad.
 
 Require Import Proof.StateLib Proof.Consistency.
-
-Require Import Coq.Logic.ProofIrrelevance Arith Lia Bool List.
-Import List.ListNotations.
+From Stdlib Require Arith Lia Bool List.
+Require Import Stdlib.Logic.ProofIrrelevance Stdlib.Logic.Classical_Prop.
+Import List.ListNotations Lists.List Compare_dec Lia.
 
 (** ** This file has not been cleaned up from Pip (MMU) legacy in case
       some left over lemmas could be adapted **)
@@ -813,7 +813,7 @@ Lemma indexltbTrue :
 forall i1 i2 : index ,
 StateLib.Index.ltb i1 i2 = true -> i1 < i2.
 Proof. intros. unfold Index.ltb in H. 
-apply Nat.ltb_lt in H.
+apply PeanoNat.Nat.ltb_lt in H.
 assumption.
 Qed.
 
@@ -824,7 +824,7 @@ Proof.
 intros.
 unfold Index.ltb in *. 
 apply not_lt.
-apply Nat.ltb_nlt in H.
+apply PeanoNat.Nat.ltb_nlt in H.
 lia.
 Qed.
 
@@ -863,7 +863,7 @@ simpl in *.
 intros;
 inversion H0; lia.
 intros.
-apply Nat.lt_gt_cases.
+apply PeanoNat.Nat.lt_gt_cases.
 unfold not in *; intros; subst.
 apply H; f_equal.
 apply proof_irrelevance.
@@ -1333,8 +1333,8 @@ induction left.
 	unfold CPaddr.
 	destruct (le_dec (offset1 + startaddr) maxAddr) ; try(lia).
 	intro Hcontra. inversion Hcontra.
-	apply Nat.add_cancel_r in H2.
-	apply Nat.lt_neq in H. congruence.
+	apply PeanoNat.Nat.add_cancel_r in H2.
+	apply PeanoNat.Nat.lt_neq in H. congruence.
 	specialize (IHleft offset1 (S offset2)) ; intuition.
 	destruct (le_dec (offset2 + startaddr) maxAddr) ; intuition.
 	simpl in *.
@@ -1343,11 +1343,11 @@ induction left.
 	unfold CPaddr.
 	destruct (le_dec (offset1 + startaddr) maxAddr) ; intuition.
 	inversion H0.
-	apply Nat.add_cancel_r in H2.
-	apply Nat.lt_neq in H. congruence.
-	inversion H0. apply Nat.eq_add_0 in H2.
+	apply PeanoNat.Nat.add_cancel_r in H2.
+	apply PeanoNat.Nat.lt_neq in H. congruence.
+	inversion H0. apply PeanoNat.Nat.eq_add_0 in H2.
  	intuition. subst offset2.
-	apply Nat.nlt_0_r in H. congruence.
+	apply PeanoNat.Nat.nlt_0_r in H. congruence.
 	contradict H1.
 	unfold CPaddr.
 	destruct (le_dec (offset1 + startaddr) maxAddr) ; intuition.
@@ -1358,13 +1358,13 @@ induction left.
 	simpl.
 	contradict H0.
 	specialize (IHleft offset1 (S offset2)) ; intuition.
-	apply Nat.lt_lt_succ_r in H.
+	apply PeanoNat.Nat.lt_lt_succ_r in H.
 	intuition. unfold CPaddr in *.
 	destruct (le_dec (offset1 + startaddr) maxAddr ) ; intuition.
 	assert(l0 = l1). apply proof_irrelevance.
 	subst l0. intuition.
 	specialize (IHleft 0 (S offset2)) ; intuition.
-	assert( 0 < S offset2) by apply Nat.lt_0_succ.
+	assert( 0 < S offset2) by apply PeanoNat.Nat.lt_0_succ.
 	intuition.
 	unfold CPaddr in *.
 	destruct (le_dec (0 + startaddr) maxAddr ) ; try(lia).
@@ -1623,7 +1623,7 @@ Proof.
 unfold StateLib.Index.eqb in *.
 intros.
 symmetry in H.
-apply Nat.eqb_eq in H.
+apply PeanoNat.Nat.eqb_eq in H.
 destruct idx1; destruct idx2.
 simpl in *.
 subst.
@@ -2236,12 +2236,12 @@ Proof.
 intros.
 unfold beqAddr.
 intuition.
-case_eq ((addr1 =? addr2)).
+case_eq ((Nat.eqb addr1 addr2)).
 intuition.
 intros.
-apply Nat.eqb_neq in H0.
+apply PeanoNat.Nat.eqb_neq in H0.
 congruence.
-apply Nat.eqb_eq in H.
+apply PeanoNat.Nat.eqb_eq in H.
 destruct addr1, addr2. simpl in *. subst.
 assert (Hp = Hp0).
 apply proof_irrelevance. subst. trivial.
@@ -2255,21 +2255,21 @@ Proof.
 intros.
 unfold beqAddr.
 intuition.
-case_eq ((addr1 =? addr2)).
+case_eq ((Nat.eqb addr1 addr2)).
 intuition.
 contradict H.
-apply Nat.eqb_eq in H0.
+apply PeanoNat.Nat.eqb_eq in H0.
 destruct addr1, addr2. simpl in *. subst.
 assert (Hp = Hp0).
 apply proof_irrelevance. subst. trivial.
 intros. reflexivity.
-case_eq (addr1 =? addr2) ; intuition.
+case_eq (Nat.eqb addr1 addr2) ; intuition.
 + rewrite H0 in H.
 	rewrite H0 in H1.
 	congruence.
 +	rewrite H0 in H1.
 	contradict H1.
-	rewrite Nat.eqb_refl.
+	rewrite PeanoNat.Nat.eqb_refl.
 	unfold not.
 	congruence.
 Qed.
@@ -2279,10 +2279,10 @@ forall addr1 addr2 ,
 beqAddr addr1 addr2 = beqAddr addr2 addr1.
 Proof.
 intros. unfold beqAddr.
-case_eq ((addr1 =? addr2)). intuition.
-apply Nat.eqb_eq in H. rewrite H. apply eq_sym. apply Nat.eqb_refl.
+case_eq ((Nat.eqb addr1 addr2)). intuition.
+apply PeanoNat.Nat.eqb_eq in H. rewrite H. apply eq_sym. apply PeanoNat.Nat.eqb_refl.
 intros. apply eq_sym.
-apply Nat.eqb_neq. apply Nat.eqb_neq in H. unfold not in *.
+apply PeanoNat.Nat.eqb_neq. apply PeanoNat.Nat.eqb_neq in H. unfold not in *.
 intros. intuition.
 Qed.
 
@@ -2420,7 +2420,7 @@ induction p.
 Qed.
 
 
-Require Import List Classical_Prop.
+From Stdlib Require List Classical_Prop. Import Lists.List.
 Lemma listIndexDecOrNot :
 forall p1 p2 : list index, p1 = p2 \/ p1<>p2.
 Proof.
@@ -2462,12 +2462,12 @@ Proof.
 intros.
 unfold beqIdx.
 intuition.
-case_eq ((addr1 =? addr2)).
+case_eq ((Nat.eqb addr1 addr2)).
 intuition.
 intros.
-apply Nat.eqb_neq in H0.
+apply PeanoNat.Nat.eqb_neq in H0.
 congruence.
-apply Nat.eqb_eq in H.
+apply PeanoNat.Nat.eqb_eq in H.
 destruct addr1, addr2. simpl in *. subst.
 assert (Hi = Hi0).
 apply proof_irrelevance. subst. trivial.
@@ -2482,21 +2482,21 @@ Proof.
 intros.
 unfold beqIdx.
 intuition.
-case_eq ((addr1 =? addr2)).
+case_eq ((Nat.eqb addr1 addr2)).
 intuition.
 contradict H.
-apply Nat.eqb_eq in H0.
+apply PeanoNat.Nat.eqb_eq in H0.
 destruct addr1, addr2. simpl in *. subst.
 assert (Hi = Hi0).
 apply proof_irrelevance. subst. trivial.
 intros. reflexivity.
-case_eq (addr1 =? addr2) ; intuition.
+case_eq (Nat.eqb addr1 addr2) ; intuition.
 + rewrite H0 in H.
 	rewrite H0 in H1.
 	congruence.
 +	rewrite H0 in H1.
 	contradict H1.
-	rewrite Nat.eqb_refl.
+	rewrite PeanoNat.Nat.eqb_refl.
 	unfold not.
 	congruence.
 Qed.
@@ -4120,7 +4120,7 @@ Proof.
 revert index. induction searchList.
 - simpl. intros. left. split. assumption. intros. exfalso. congruence.
 - simpl. intros index HisRes Hlen. destruct (comparator a block) eqn:Hcomp.
-  + subst idxRes. right. rewrite Nat.sub_diag. split. lia. split. lia. assumption.
+  + subst idxRes. right. rewrite PeanoNat.Nat.sub_diag. split. lia. split. lia. assumption.
   + assert(HlenRec: length searchList + S index <= maxIdx) by lia.
     specialize(IHsearchList (S index) HisRes HlenRec). destruct IHsearchList as [HnotPresent | Hpresent].
     * left. destruct HnotPresent as (HresIsDef & HnotPresent). split. assumption. intros blockBis HblockBis.

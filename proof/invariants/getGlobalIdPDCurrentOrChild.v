@@ -42,7 +42,7 @@ Proof.StateLib Proof.DependentTypeLemmas.
 Require Import invariants.Invariants invariants.checkChildOfCurrPart.
 
 Require Import Model.Monad (* for visibility *).
-Require Import List.
+From Stdlib Require Import List.
 
 Module WP := WeakestPreconditions.
 

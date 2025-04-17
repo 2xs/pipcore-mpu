@@ -39,7 +39,7 @@ Require Import Core.Internal.
 Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
                Proof.Isolation Proof.StateLib Proof.WeakestPreconditions
 			   Proof.invariants.Invariants Proof.InternalLemmas.
-Require Import Compare_dec Bool List Coq.Logic.ProofIrrelevance Lia.
+From Stdlib Require Import Compare_dec Bool List Logic.ProofIrrelevance Lia.
 
 Lemma findBlockInKSWithAddrAux n (kernelstructurestart blockEntryAddr : paddr) (P : state -> Prop) :
 {{  fun (s : state)  => P s /\ consistency s

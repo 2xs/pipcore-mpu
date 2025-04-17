@@ -34,7 +34,7 @@
 (**  * Summary
 			This file contains the definition of some user constants
 *)
-Require Import Arith.
+From Stdlib Require Arith.
 
 (*******************************************************************************)
 (* User Constants *)

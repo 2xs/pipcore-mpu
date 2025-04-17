@@ -40,7 +40,7 @@ Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPrecon
 Proof.StateLib Proof.DependentTypeLemmas Proof.InternalLemmas.
 Require Import Invariants getGlobalIdPDCurrentOrChild findBlockInKS removeBlockFromPhysicalMPUIfAlreadyMapped.
 Require Import sizeOfBlock MapMPUSecProps.
-Require Import Compare_dec Bool FunctionalExtensionality List.
+From Stdlib Require Import Compare_dec Bool FunctionalExtensionality List.
 
 Require Import Model.Monad Model.MALInternal Model.Lib (* for visibility *).
 

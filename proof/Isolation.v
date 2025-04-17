@@ -37,8 +37,8 @@
     to prove *)
 Require Import Model.ADT Model.MALInternal.
 Require Import Proof.StateLib Proof.Lib.
-Require Import List.
-Import List.ListNotations.
+From Stdlib Require List.
+Import List.ListNotations Lists.List.
 
 (** THE VERTICAL SHARING PROPERTY:
     All child used blocks (PD + kernel structures + mapped blocks) are mapped into

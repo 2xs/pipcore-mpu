@@ -34,12 +34,12 @@
 
 (**  * Summary
     	Proof of insertNewEntry *) 
-		Require Import Model.ADT Model.Monad Model.Lib
+Require Import Model.ADT Model.Monad Model.Lib
 		Model.MAL.
 Require Import Core.Internal.
 Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare Proof.InternalLemmas Proof.InternalLemmas2
 		Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants.
-Require Import Coq.Logic.ProofIrrelevance Lia Setoid Compare_dec (*EqNat*) List Bool.
+From Stdlib Require Import Logic.ProofIrrelevance Lia Setoid Compare_dec (*EqNat*) List Bool.
 Import List.ListNotations.
 Module WP := WeakestPreconditions.
 

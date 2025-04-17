@@ -40,7 +40,7 @@ Require Import Model.ADT Core.Services.
 Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPreconditions
 Proof.StateLib Proof.DependentTypeLemmas Proof.InternalLemmas.
 Require Import Invariants getGlobalIdPDCurrentOrChild findBlockInKS findBlockInKSWithAddr.
-Require Import Compare_dec.
+From Stdlib Require Import Compare_dec.
 
 Require Import Model.Monad Model.MALInternal Model.Lib (* for visibility *).
 

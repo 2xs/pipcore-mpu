@@ -35,7 +35,7 @@ Require Import Model.ADT Model.Monad Model.Lib Model.MALInternal.
 Require Import Proof.WeakestPreconditions Proof.Consistency Proof.StateLib Proof.DependentTypeLemmas
               Proof.InternalLemmas Proof.InternalLemmas2 Proof.Isolation.
 Require Import Hoare Invariants (*findBlockInKS*).
-Require Import FunctionalExtensionality List Lia Coq.Logic.ProofIrrelevance Coq.Bool.Bool Coq.Bool.BoolEq.
+From Stdlib Require Import FunctionalExtensionality List Lia Logic.ProofIrrelevance Bool.Bool Bool.BoolEq.
 Import List.ListNotations.
 
 Module WP := WeakestPreconditions.

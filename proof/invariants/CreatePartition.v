@@ -40,7 +40,7 @@ Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPrecon
 Proof.StateLib Proof.DependentTypeLemmas Proof.InternalLemmas Proof.InternalLemmas2.
 Require Import Invariants (*getGlobalIdPDCurrentOrChild*) findBlockInKSWithAddr sizeOfBlock eraseBlock
 writeAccessibleToAncestorsIfNotCutRec lookupInvariant.
-Require Import Compare_dec Bool List Lia Coq.Logic.ProofIrrelevance.
+From Stdlib Require Import Compare_dec Bool List Lia Logic.ProofIrrelevance.
 Import List.ListNotations.
 
 Require Import Model.Monad Model.MALInternal Model.Lib (* for visibility *).

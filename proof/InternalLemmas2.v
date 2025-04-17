@@ -34,13 +34,15 @@
 
 (** * Summary
     This file contains several internal lemmas to help prove invariants *)
+From Stdlib Require Import List Lia EqNat Arith Classical_Prop FunctionalExtensionality.
+Import Compare_dec.
 Require Import Model.ADT Model.Monad Model.MAL Model.Lib Core.Internal.
 
 Require Import DependentTypeLemmas.
 Require Import Proof.Isolation Proof.Consistency Proof.StateLib Proof.InternalLemmas.
 
-Require Import List Coq.Logic.ProofIrrelevance Lia Classical_Prop Compare_dec EqNat Arith.
-Require Import Coq.Program.Equality FunctionalExtensionality.
+Require Import Stdlib.Logic.ProofIrrelevance.
+Require Import Stdlib.Program.Equality.
 
 Module DTL := DependentTypeLemmas.
 

@@ -38,7 +38,7 @@ Require Import Model.Monad Model.Lib Model.MAL.
 Require Import Core.Internal.
 Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
                Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants.
-Require Import Compare_dec Bool.
+From Stdlib Require Import Compare_dec Bool.
 (*
 
 Lemma removeBlockFromPhysicalMPUAux (blockentryaddr : paddr) (realMPU : list paddr) (P : state -> Prop) :

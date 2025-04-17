@@ -36,13 +36,14 @@
     This file contains required functions to define properties about a given state *)
 Require Import Model.ADT Model.Monad Model.Lib Model.MAL.
 
-Require Import ProofIrrelevance Coq.Program.Equality Arith List Lia Bool.
-Import List.ListNotations.
+Require Import Stdlib.Program.Equality.
+From Stdlib Require ProofIrrelevance Arith List Lia Bool.
+Import Lists.List List.ListNotations Compare_dec Lia Bool.Bool.
 
 Module Index.
-Definition leb (a b : index) : bool := a <=? b.
-Definition ltb (a b : index) : bool := a <? b.
-Definition eqb (a b : index) : bool := a =? b.
+Definition leb (a b : index) : bool := Nat.leb a b.
+Definition ltb (a b : index) : bool := Nat.ltb a b.
+Definition eqb (a b : index) : bool := Nat.eqb a b.
 Program Definition succ (n : index): option index:=
 if lt_dec n maxIdx then
 let isucc := n + 1 in
@@ -69,9 +70,9 @@ End Index.
 
 (* DUP *)
 Module Paddr.
-Definition leb (a b : paddr) : bool := a <=? b.
-Definition ltb (a b : paddr) : bool := a <? b.
-Definition eqb (a b : paddr) : bool := a =? b.
+Definition leb (a b : paddr) : bool := Nat.leb a b.
+Definition ltb (a b : paddr) : bool := Nat.ltb a b.
+Definition eqb (a b : paddr) : bool := Nat.eqb a b.
 
 Program Definition pred (n : paddr) : option paddr :=
 if gt_dec n 0 then
@@ -106,7 +107,7 @@ else  None.
 
 End Paddr.
 
-Definition is32Aligned (a : paddr) : bool := a mod 32 =?0.
+Definition is32Aligned (a : paddr) : bool := Nat.eqb (Nat.modulo a 32) 0.
 
 Definition entryExists (blockentryaddr : paddr) memory : bool :=
 let entry :=  lookup blockentryaddr memory beqAddr  in
@@ -117,15 +118,15 @@ let entry :=  lookup blockentryaddr memory beqAddr  in
 
 Definition blockInRAM (blockentryaddr : paddr) s : bool :=
 match lookup blockentryaddr s.(memory) beqAddr with
-| Some (BE a) => ((RAMStartAddr <=? a.(blockrange).(startAddr)) &&
-											(a.(blockrange).(endAddr) <=?	RAMEndAddr))
+| Some (BE a) => ((Nat.leb RAMStartAddr a.(blockrange).(startAddr)) &&
+											(Nat.leb a.(blockrange).(endAddr)	RAMEndAddr))
 | _ => false
 end.
 
 Definition isBlockInRAM (blockentryaddr : paddr) (isInRAM : bool) s : Prop :=
 match lookup blockentryaddr s.(memory) beqAddr with
-| Some (BE a) => isInRAM = ((RAMStartAddr <=? a.(blockrange).(startAddr)) &&
-											(a.(blockrange).(endAddr) <=?	RAMEndAddr))
+| Some (BE a) => isInRAM = ((Nat.leb RAMStartAddr a.(blockrange).(startAddr)) &&
+											(Nat.leb a.(blockrange).(endAddr)	RAMEndAddr))
 | _ => False
 end.
 

@@ -41,8 +41,9 @@
 (* NB: entry types are not represented within a superstructure in the model.
 	However, they cannot be mixed, intertwined, or overlap because of the consistency properties. *)
 
-Require Import List Bool Arith Model.UserConstants Lia.
-Import List.ListNotations.
+Require Import Model.UserConstants.
+From Stdlib Require List Bool Arith Lia.
+Import List.ListNotations Nat Compare_dec Lia.
 
 (*******************************************************************************)
 (* Constants (computed from USER CONSTANTS *)

@@ -40,7 +40,7 @@ Require Import Core.Internal.
 Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
                Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants
 							 Proof.invariants.findBlockInKSWithAddr.
-Require Import List.
+From Stdlib Require Import List.
 Import List.ListNotations.
 
 Lemma checkChildOfCurrPart (currentPartition idPDchild : paddr) P :

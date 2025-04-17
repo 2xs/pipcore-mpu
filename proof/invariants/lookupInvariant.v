@@ -34,7 +34,7 @@
 Require Import Model.ADT Model.Monad Model.MAL Model.Lib.
 Require Import Proof.Consistency Proof.StateLib.
 Require Import InternalLemmas.
-Require Import List Coq.Logic.ProofIrrelevance Lia Classical_Prop Compare_dec EqNat Arith
+From Stdlib Require Import List Logic.ProofIrrelevance Lia Classical_Prop Compare_dec EqNat Arith
   FunctionalExtensionality.
 
 Lemma getFreeSlotsListRecEqLookup n freeslotaddr nbfreeslotsleft s s0:

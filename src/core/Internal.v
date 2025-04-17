@@ -35,7 +35,8 @@
 (** * Summary
     This file contains some internal functions used by services *)
 Require Import Model.Monad Model.ADT Model.MAL.
-Require Import Bool Arith List.
+From Stdlib Require Bool Arith List.
+Import Compare_dec Bool.Bool.
 
 Open Scope mpu_state_scope.
 

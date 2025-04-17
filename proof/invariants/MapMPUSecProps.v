@@ -36,7 +36,7 @@ Require Import Model.ADT Model.Lib Model.MAL Model.Monad.
 
 Require Import Proof.StateLib Proof.Isolation Proof.Consistency Proof.DependentTypeLemmas Proof.InternalLemmas.
 
-Require Import List.
+From Stdlib Require Import List.
 
 Definition MapMPUPropagatedProperties
 globalIdPD blockToEnableAddr

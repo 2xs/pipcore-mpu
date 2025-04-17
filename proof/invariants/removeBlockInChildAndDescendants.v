@@ -40,7 +40,7 @@ Require Import Core.Internal.
 Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
                Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants.
 Require Import Proof.invariants.findBlockInKSWithAddr Proof.invariants.checkBlockCut.
-Require Import Coq.Logic.ProofIrrelevance Lia Setoid Compare_dec (*EqNat*) List Bool.
+From Stdlib Require Import Logic.ProofIrrelevance Lia Setoid Compare_dec (*EqNat*) List Bool.
 
 Lemma checkRemoveSubblocksRecAux n (subblockAddr : paddr) (P : state -> Prop) :
 {{  fun s : state => P s /\ consistency s

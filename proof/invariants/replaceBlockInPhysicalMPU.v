@@ -38,7 +38,7 @@ Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.StateLib Proo
 Require Import Proof.InternalLemmas Proof.DependentTypeLemmas Proof.InternalLemmas2.
 Require Import Invariants.
 
-Require Import Lia Classical List.
+From Stdlib Require Import Lia Classical List.
 Import List.ListNotations.
 
 Module WP := WeakestPreconditions.

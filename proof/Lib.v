@@ -34,8 +34,9 @@
 
 (** * Summary
       This file contains some generic lemmas used by invariants **)
-Require Import Lia List Coq.Logic.Classical_Prop Model.Lib.
-Import List.ListNotations.
+From Stdlib Require Lia List.
+Require Import Stdlib.Logic.Classical_Prop Model.Lib.
+Import Lists.List List.ListNotations Lia.
 
 Lemma in_app_or_neg (A: Type) (l m: list A) (a: A):
 ~In a (l++m) -> ~In a l /\ ~In a m.

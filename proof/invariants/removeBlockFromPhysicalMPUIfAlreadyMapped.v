@@ -40,7 +40,7 @@ Require Import Proof.InternalLemmas Proof.DependentTypeLemmas.
 (*Temporary*)
 Require Import replaceBlockInPhysicalMPU Invariants.
 
-Require Import Lia Classical List.
+From Stdlib Require Import Lia Classical List.
 
 Module WP := WeakestPreconditions.
 

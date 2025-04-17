@@ -41,7 +41,7 @@ Require Import Core.Internal.
 Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
                Proof.Isolation Proof.StateLib Proof.WeakestPreconditions
 			   Proof.invariants.Invariants Proof.InternalLemmas.
-Require Import Compare_dec Bool List Coq.Logic.ProofIrrelevance Lia Arith.EqNat.
+From Stdlib Require Import Compare_dec Bool List Logic.ProofIrrelevance Lia Arith.EqNat.
 Import List.ListNotations.
 
 Fixpoint isNextKernList (s: state) (kernelsList: list paddr) (baseKern: paddr) :=
