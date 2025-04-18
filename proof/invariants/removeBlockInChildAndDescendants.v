@@ -46,83 +46,79 @@ Lemma checkRemoveSubblocksRecAux n (subblockAddr : paddr) (P : state -> Prop) :
 {{  fun s : state => P s /\ consistency s
 										/\ isBE subblockAddr s}}
 Internal.checkRemoveSubblocksRecAux n subblockAddr
-{{fun (isRemovePossible : bool) (s : state) => P s /\ consistency s }}.
+{{fun (isRemovePossible : bool) (s : state) => P s /\ consistency s
+    /\ isRemovePossible = true -> bentryAFlag subblockAddr true s /\ bentryPFlag subblockAddr true s
+        /\ (exists shchild, sh1entryPDchild (CPaddr(subblockAddr+sh1offset)) shchild s
+              /\ shchild <> nullAddr)
+        /\ (exists scnext, scentryNext (CPaddr(subblockAddr+scoffset)) scnext s
+              /\ scnext <> nullAddr) (*TODO HERE that is false, needs a rec structure on the next field*) }}.
 Proof.
 (* revert mandatory to generalize the induction hypothesis *)
-revert subblockAddr.
-	induction n.
+revert subblockAddr. induction n.
 - (* n = 0 *)
-	intros;simpl.
-	(** ret *)
-	eapply weaken. apply ret.
-	intros. simpl. intuition.
+  intros;simpl. eapply weaken. apply ret. simpl.
+  intros s _ (_ & _ & Hcontra). exfalso; congruence.
 - (* n = S n*)
-	intros. simpl.
-	eapply bindRev.
-	{ (** MAL.readBlockAccessibleFromBlockEntryAddr*)
-		eapply weaken. apply readBlockAccessibleFromBlockEntryAddr.
-		intros. simpl. split. apply H. intuition.
-	}
-	intro isAccessible.
-	eapply bindRev.
-	{ (** MAL.readBlockPresentFromBlockEntryAddr*)
-		eapply weaken. apply readBlockPresentFromBlockEntryAddr.
-		intros. simpl. split. apply H. intuition.
-	}
-	intro isPresent.
-	eapply bindRev.
-	{ (** MAL.readSh1PDChildFromBlockEntryAddr*)
-		eapply weaken. apply readSh1PDChildFromBlockEntryAddr.
-		intros. simpl. split. apply H. unfold consistency in *; unfold consistency1 in *; intuition.
-		apply isBELookupEq. assumption.
-	}
-	intro PDChildAddr.
-	eapply bindRev.
-	{ (** Internal.compareAddrToNull*)
-		eapply weaken. apply compareAddrToNull.
-		intros. simpl. apply H.
-	}
-	intro PDChildAddrIsNull.
-	case_eq (isAccessible && isPresent && PDChildAddrIsNull).
-	* (* case_eq isAccessible && isPresent && PDChildAddrIsNull = true *)
-		intros. simpl.
-		eapply bindRev.
-		{ (** MAL.readSCNextFromBlockEntryAddr*)
-			eapply weaken. apply readSCNextFromBlockEntryAddr.
-			intros. simpl. split. apply H0. unfold consistency in *; unfold consistency1 in *; intuition.
-			apply isBELookupEq. assumption.
-		}
-		intro nextsubblock.
-		eapply bindRev.
-		{ (** Internal.compareAddrToNull*)
-			eapply weaken. apply compareAddrToNull.
-			intros. simpl. apply H0.
-		}
-		intro isNull.
-		case_eq isNull.
-		+ (* case_eq isNull = true *)
-			intros.
-			{ (** ret *)
-				eapply weaken. apply ret.
-				intros. simpl. intuition.
-			}
-		+ (* case_eq isNull = false *)
-			{ (** induction hypothesis *)
-				intros. eapply weaken. apply IHn.
-				intros. simpl. intuition.
-				unfold consistency in *. intuition.
-				unfold scentryNext in *. rewrite H4 in *. subst.
-				(*unfold scNextIsBE in *. apply H25 with x0.
-				assumption.
-				(* Prove next x <> nullAddr *)
-				apply beqAddrFalse in H3. intuition.*) admit.
-			}
-	* (*case_eq isAccessible && isPresent && PDChildAddrIsNull = false *)
-		intros. simpl.
-		{ (** ret *)
-			eapply weaken. apply ret.
-			intros. simpl. intuition.
-		}
+  intros. simpl. eapply bindRev.
+  { (** MAL.readBlockAccessibleFromBlockEntryAddr*)
+    eapply weaken. apply readBlockAccessibleFromBlockEntryAddr.
+    intros. simpl. split. apply H. intuition.
+  }
+  intro isAccessible.
+  eapply bindRev.
+  { (** MAL.readBlockPresentFromBlockEntryAddr*)
+    eapply weaken. apply readBlockPresentFromBlockEntryAddr.
+    intros. simpl. split. apply H. intuition.
+  }
+  intro isPresent. eapply bindRev.
+  { (** MAL.readSh1PDChildFromBlockEntryAddr*)
+    eapply weaken. apply readSh1PDChildFromBlockEntryAddr.
+    intros. simpl. split. apply H. unfold consistency in *; unfold consistency1 in *; intuition.
+    apply isBELookupEq. assumption.
+  }
+  intro PDChildAddr. eapply bindRev.
+  { (** Internal.compareAddrToNull*)
+    eapply weaken. apply compareAddrToNull.
+    intros. simpl. apply H.
+  }
+  intro PDChildAddrIsNull. case_eq (isAccessible && isPresent && PDChildAddrIsNull).
+  * (* case_eq isAccessible && isPresent && PDChildAddrIsNull = true *)
+    intros. simpl. eapply bindRev.
+    { (** MAL.readSCNextFromBlockEntryAddr*)
+      eapply weaken. apply readSCNextFromBlockEntryAddr.
+      intros. simpl. split. apply H0. unfold consistency in *; unfold consistency1 in *; intuition.
+      apply isBELookupEq. assumption.
+    }
+    intro nextsubblock. eapply bindRev.
+    { (** Internal.compareAddrToNull*)
+      eapply weaken. apply compareAddrToNull.
+      intros. simpl. apply H0.
+    }
+    intro isNull. apply andb_prop in H. destruct H as (HaccPres & Hchild). apply andb_prop in HaccPres.
+    destruct HaccPres as (Hacc & Hpres). subst isAccessible. subst isPresent. subst PDChildAddrIsNull. case_eq isNull.
+    + (* case_eq isNull = true *)
+      intros.
+      { (** ret *)
+        eapply weaken. apply ret.
+        intros. simpl. intuition.
+      }
+    + (* case_eq isNull = false *)
+      { (** induction hypothesis *)
+        intros. eapply weaken. apply IHn.
+        intros. simpl. intuition.
+        unfold consistency in *. intuition.
+        unfold scentryNext in *.
+        (*unfold scNextIsBE in *. apply H25 with x0.
+        assumption.
+        (* Prove next x <> nullAddr *)
+        apply beqAddrFalse in H3. intuition.*) admit.
+      }
+  * (*case_eq isAccessible && isPresent && PDChildAddrIsNull = false *)
+    intros. simpl.
+    { (** ret *)
+      eapply weaken. apply ret.
+      intros. simpl. intuition.
+    }
 Qed.
 
 Lemma checkRemoveSubblocksRec (subblockAddr : paddr) P :

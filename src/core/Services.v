@@ -313,7 +313,7 @@ Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr)
 		(** Remove the blocks to merge from the physical MPU and add the merged one
 				instead *)
 		removeBlockFromPhysicalMPU currentPart block1InCurrPartAddr ;;
-		removeBlockFromPhysicalMPU currentPart block2InCurrPartAddr ;;
+		removeBlockFromPhysicalMPU currentPart block2InCurrPartAddr ;; (*that is already done in freeSlot, isn't it ?*)
 		enableBlockInMPU currentPart block1InCurrPartAddr MPURegionNb ;;
 
 		(** RET block1's slot address *)
