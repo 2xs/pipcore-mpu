@@ -37,8 +37,8 @@
 Require Import Model.Monad Model.Lib Model.MAL Model.ADT.
 Require Import Core.Internal.
 Require Import Proof.Consistency Proof.DependentTypeLemmas Proof.Hoare
-               Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants.
-Require Import Compare_dec Bool.
+  Proof.Isolation Proof.StateLib Proof.WeakestPreconditions Proof.invariants.Invariants initStructure.
+From Stdlib Require Import Compare_dec Bool.
 
 (* Whatever the pd, be it a child or the current partition, removing a block
 	doesn't change the security properties *)
@@ -56,135 +56,17 @@ match defaultentry with
 end.
 *)
 
-Lemma getDefaultBlockEntry (P : state -> Prop) :
-{{ fun s => P s	}}
-MAL.getDefaultBlockEntry
-{{fun (defaultentry : BlockEntry) (s : state) => P s}}.
-Proof.
-Admitted.
-
-
-Lemma removeBlockFromPhysicalMPU (pd : paddr) (blockentryaddr : paddr) (P : state -> Prop) :
-{{ fun s => P s	}}
-MAL.removeBlockFromPhysicalMPU pd blockentryaddr
-{{fun (_ : unit) (s : state) => P s}}.
-Proof.
-Admitted.
-
-
-(* COPY *)
-Lemma writeBlockEntryFromBlockEntryAddr  (entryaddr : paddr) (blockentry : BlockEntry)  (P : unit -> state -> Prop) :
-{{fun  s => lookup entryaddr s.(memory) beqAddr = Some (BE blockentry) /\ 
-P tt {|
-  currentPartition := currentPartition s;
-  memory := add entryaddr
-								(BE (CBlockEntry 	blockentry.(read) blockentry.(write) blockentry.(exec)
-																	blockentry.(present) blockentry.(accessible)
-																	blockentry.(blockindex) blockentry.(blockrange)))
-              (memory s) beqAddr |} }}
-writeBlockEntryFromBlockEntryAddr entryaddr blockentry
-{{P}}.
-Proof.
-unfold writeBlockEntryFromBlockEntryAddr.
-eapply bindRev.
-{ (** MAL.writeBlockStartFromBlockEntryAddr *)
-	eapply weaken. eapply writeBlockStartFromBlockEntryAddr.
-	intros. simpl. destruct H. exists blockentry. split. apply H.
-	assert ((CBlock (startAddr (blockrange blockentry))
-                       (endAddr (blockrange blockentry))) = (blockrange blockentry)).
-	{ destruct blockentry. simpl. cbn. destruct blockrange. simpl. intuition.
-		unfold CBlock. simpl. destruct (lt_dec startAddr endAddr) eqn:Hltdec ; try (exfalso; congruence).
-		destruct startAddr,endAddr. simpl in *. intuition.
-simpl. trivial. f_equal. intuition.
-	unfold ADT.CBlock_obligation_1. f_equal. destruct p, p0 ; intuition.
-	destruct p0 ; intuition. simpl in *. (* 0 < 1 *)
-
-
-eapply weaken. apply 
-{ (** MAL.writeBlockStartFromBlockEntryAddr *)
-	eapply weaken. apply writeBlockStartFromBlockEntryAddr.
-	intros. simpl. destruct H. exists x. split. apply H.
-	apply H.
-intros.
-eapply bind. intros.
-eapply bind. intros.
-eapply bind. intros.
-eapply bind. intros.
-eapply bind. intros.
-eapply bind. intros.
-eapply weaken. apply ret.
-intros. exact H.
-eapply weaken. apply writeBlockXFromBlockEntryAddr.
-intros. simpl. eexists. apply H.
-eapply weaken. apply writeBlockWFromBlockEntryAddr.
-intros. simpl. unfold beqAddr. rewrite PeanoNat.Nat.eqb_refl. eexists. apply H.
-eapply weaken. apply writeBlockRFromBlockEntryAddr.
-intros. simpl. unfold beqAddr. rewrite PeanoNat.Nat.eqb_refl. eexists. apply H.
-eapply weaken. apply writeBlockPresentFromBlockEntryAddr.
-intros. simpl. unfold beqAddr. rewrite PeanoNat.Nat.eqb_refl. eexists. apply H.
-eapply weaken. apply writeBlockAccessibleFromBlockEntryAddr.
-intros. simpl. unfold beqAddr. rewrite PeanoNat.Nat.eqb_refl. eexists. apply H.
-eapply weaken. apply writeBlockEndFromBlockEntryAddr.
-intros. simpl. unfold beqAddr. rewrite PeanoNat.Nat.eqb_refl. eexists. apply H.
-eapply weaken. apply .
-intros. simpl. unfold beqAddr. rewrite PeanoNat.Nat.eqb_refl. eexists. apply H.
-Qed.
-
-
-
 Lemma freeSlot (pd entrytofreeaddr: paddr) (P : state -> Prop) :
-{{ fun s =>    partitionsIsolation s /\ verticalSharing s /\ kernelDataIsolation s /\ consistency s
-						/\ isPDT pd s /\ pd = currentPartition s
-						/\ isBE entrytofreeaddr s /\ beqAddr nullAddr entrytofreeaddr = false
-						}}
+{{ fun s => partitionsIsolation s /\ verticalSharing s /\ kernelDataIsolation s /\ consistency s
+            /\ isPDT pd s /\ pd = currentPartition s
+            /\ isBE entrytofreeaddr s /\ beqAddr nullAddr entrytofreeaddr = false
+}}
 Internal.freeSlot pd entrytofreeaddr
-{{fun (freedblockaddr : paddr) (s : state) => partitionsIsolation s /\ verticalSharing s /\ kernelDataIsolation s /\ consistency s
-																							(* /\ isBE freedblockaddr s*) }}.
+{{fun (freedblockaddr : paddr) (s : state) => partitionsIsolation s /\ verticalSharing s /\ kernelDataIsolation s
+    /\ consistency s
+}}.
 Proof.
 unfold Internal.freeSlot.
-(*
-eapply bind. intros.
-eapply bind. intro defaultBlockEntry.
-eapply bind. intros.
-eapply bind. intro defaultSh1Entry.
-eapply bind. intros.
-eapply bind. intro defaultSCEntry.
-eapply bind. intros.
-eapply bind. intro currFirstFreeSlot.
-eapply bind. intros.
-eapply bind. intros.
-eapply bind. intro nbfreeslots.
-eapply bind. intro nbfreeslotssucc.
-eapply bind. intros.
-eapply weaken. apply ret.
-intros. simpl. exact H.
-eapply weaken. apply writePDNbFreeSlots.
-intros. simpl. eexists. split. apply H.
-set (s' := {| currentPartition := _ |}). intuition.
-unfold partitionsIsolation. intuition.
-unfold getUsedBlocks. unfold getConfigBlocks. unfold getMappedBlocks.
-destruct (lookup child1 (memory s') beqAddr) eqn:Hlookup ; try (exfalso; congruence).
-destruct v eqn:Hv ; try (exfalso; congruence).
-Search (nil).
-destruct (lookup child2 (memory s') beqAddr) eqn:Hlookup'' ; try (exfalso; congruence).
-destruct v eqn:Hv' ; try (exfalso; congruence).
-destruct (monadToValue (MAL.readPDStructurePointer child1) s') eqn:Hmonad' ; try (exfalso; congruence).
-destruct v0 eqn:Hv0' ; try (exfalso; congruence).
-destruct (monadToValue (MAL.readPDStructurePointer child2) s') eqn:Hmonad'' ; try (exfalso; congruence).
-simpl.
-destruct v eqn:Hv' ; try (exfalso; congruence).
-simpl.
-
-
-instantiate (1:= fun s nbfreeslotssucc => exists pd, isPDT pd s /\ pdentryNbFreeSlots pd nbfreeslotssucc s). apply writePDNbFreeSlots.
-intros. simpl. exists pd.
-
-*)
-
-
-
-
-
 eapply bindRev.
 { (** removeBlockFromPhysicalMPU *)
 	intros. apply removeBlockFromPhysicalMPU.
