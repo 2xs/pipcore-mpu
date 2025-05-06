@@ -1272,10 +1272,16 @@ intro vidtAddrNull. destruct vidtAddrNull.
   { (** MAL.readBlockPresentFromBlockEntryAddr **)
     eapply weaken. apply readBlockPresentFromBlockEntryAddr. intros s Hprops. simpl.
     destruct Hprops as ((Hprops & Hconsist & HpropsOr) & HbeqNullBlock). rewrite <-beqAddrFalse in HbeqNullBlock.
-    destruct HpropsOr as [Hcontra | [bentry (HlookupBlock & HPflag)]]; try(exfalso; congruence).
+    destruct HpropsOr as [Hcontra | ([bentry HlookupBlock] & HPflag & HvidtInKSE & Hlist)]; try(exfalso; congruence).
     instantiate(1 := fun s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s /\
-      curPd = currentPartition s /\ isPDT globalPd s /\  beqAddr nullAddr vidtaddr = false /\ isBE vidtBlock s
-      /\ bentryPFlag vidtBlock true s). simpl. unfold isBE. rewrite HlookupBlock. intuition.
+      curPd = currentPartition s /\ isPDT globalPd s /\ beqAddr nullAddr vidtaddr = false /\ isBE vidtBlock s
+      /\ bentryPFlag vidtBlock true s /\ In vidtBlock (filterOptionPaddr (getKSEntries globalPd s))
+      /\ exists kernList firstKernList lastElem nidx blockStart bentryLast,
+          bentryStartAddr vidtBlock blockStart s /\ isListOfKernels kernList globalPd s
+          /\ kernList = firstKernList ++ [lastElem]
+          /\ lookup (CPaddr (lastElem + blkoffset + nidx)) (memory s) beqAddr = Some (BE bentryLast)
+          /\ paddrLe blockStart vidtaddr && paddrLt vidtaddr (endAddr (blockrange bentryLast)) = true). simpl.
+    unfold isBE. rewrite HlookupBlock. intuition.
   }
   intro blockPresent. destruct (negb blockPresent) eqn:HnegPres.
   { (* case blockPresent = false *)
@@ -1297,76 +1303,93 @@ intro vidtAddrNull. destruct vidtAddrNull.
     unfold getVidtSize. eapply weaken. apply WP.ret. intros s Hprops.
     instantiate(1 := fun size s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\
       consistency s /\ curPd = currentPartition s /\ isPDT globalPd s /\  beqAddr nullAddr vidtaddr = false /\
-      isBE vidtBlock s /\ bentryPFlag vidtBlock true s /\ bentryAFlag vidtBlock true s /\ size = Constants.vidtSize).
+      isBE vidtBlock s /\ bentryPFlag vidtBlock true s /\ bentryAFlag vidtBlock true s /\ size = Constants.vidtSize
+      /\ In vidtBlock (filterOptionPaddr (getKSEntries globalPd s))
+      /\ exists kernList firstKernList lastElem nidx blockStart bentryLast,
+          bentryStartAddr vidtBlock blockStart s /\ isListOfKernels kernList globalPd s
+          /\ kernList = firstKernList ++ [lastElem]
+          /\ lookup (CPaddr (lastElem + blkoffset + nidx)) (memory s) beqAddr = Some (BE bentryLast)
+          /\ paddrLe blockStart vidtaddr && paddrLt vidtaddr (endAddr (blockrange bentryLast)) = true).
     intuition.
   }
   intro vidtSize. eapply bindRev.
-  { (** paddrAddIdxM **)
-    unfold paddrAddIdxM. destruct (le_dec (vidtaddr + vidtSize) maxAddr) eqn:Hadd.
+  { (** paddrAddIdxMOpt **)
+    unfold paddrAddIdxMOpt. destruct (le_dec (vidtaddr + vidtSize) maxAddr) eqn:Hadd.
     - eapply weaken. apply WP.ret. intros s Hprops.
       instantiate(1 := fun endaddr s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\
         consistency s /\ curPd = currentPartition s /\ isPDT globalPd s /\  beqAddr nullAddr vidtaddr = false /\
         isBE vidtBlock s /\ bentryPFlag vidtBlock true s /\ bentryAFlag vidtBlock true s /\
-        vidtSize = Constants.vidtSize /\ endaddr = CPaddr (vidtaddr + vidtSize)). simpl. unfold CPaddr.
-      rewrite Hadd. intuition.
-    - eapply weaken. apply WP.undefined. intros s Hprops. simpl.
+        vidtSize = Constants.vidtSize /\ (endaddr <> None -> endaddr = Some (CPaddr (vidtaddr + vidtSize)))
+        /\ In vidtBlock (filterOptionPaddr (getKSEntries globalPd s))
+        /\ exists kernList firstKernList lastElem nidx blockStart bentryLast,
+            bentryStartAddr vidtBlock blockStart s /\ isListOfKernels kernList globalPd s
+            /\ kernList = firstKernList ++ [lastElem]
+            /\ lookup (CPaddr (lastElem + blkoffset + nidx)) (memory s) beqAddr = Some (BE bentryLast)
+            /\ paddrLe blockStart vidtaddr && paddrLt vidtaddr (endAddr (blockrange bentryLast)) = true). simpl.
+      unfold CPaddr. rewrite Hadd. intuition.
+    - eapply weaken. apply WP.ret. intros s Hprops. simpl.
       destruct Hprops as (HPI & HKDI & HVS & Hconsist & Hcurr & HglobIsPDT & HbeqNullVIDT & _ & HPflag & HAflag &
-        Hsize). (*TODO HERE needs more info about vidtaddr, right ?*) admit.
+        Hsize & HblockInKSE & Hlist). intuition. unfold isBE. unfold bentryPFlag in *.
+      destruct (lookup vidtBlock (memory s) beqAddr); try(congruence). destruct v; try(congruence). trivial.
   }
-  intro vidtEndAddr. eapply bindRev.
-  { (** MAL.readBlockEndFromBlockEntryAddr **)
-    eapply weaken. apply readBlockEndFromBlockEntryAddr. intros s Hprops. simpl. split. apply Hprops. intuition.
-  }
-  intro vidtBlockEndAddr. eapply bindRev.
-  { (** paddrLe **)
-    eapply weaken. apply WP.ret. intros s Hprops.
-    instantiate(1 := fun leEnds s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\
-        consistency s /\ curPd = currentPartition s /\ isPDT globalPd s /\  beqAddr nullAddr vidtaddr = false /\
-        isBE vidtBlock s /\ bentryPFlag vidtBlock true s /\ bentryAFlag vidtBlock true s /\
-        vidtSize = Constants.vidtSize /\ vidtEndAddr = CPaddr (vidtaddr + vidtSize)
-        /\ leEnds = paddrLe vidtBlockEndAddr vidtEndAddr). intuition.
-  }
-  intro overlap. destruct overlap.
-  { (* case overlap = true *)
-    eapply weaken. apply WP.ret. intros s Hprops. simpl. intuition.
-  }
-  (* case overlap = false *)
-  destruct (beqAddr globalPd curPd) eqn:HbeqGlobCurr.
+  intro vidtPotEndAddr. destruct vidtPotEndAddr as [vidtEndAddr | ].
   + eapply bindRev.
-    { (** MAL.readSh1PDChildFromBlockEntryAddr **)
-      eapply weaken. apply readSh1PDChildFromBlockEntryAddr. intros s Hprops. simpl. split. apply Hprops.
-      unfold consistency in *. unfold consistency1 in *. intuition. unfold isBE in *.
-      destruct (lookup vidtBlock (memory s) beqAddr); try(exfalso; congruence).
-      destruct v; try(exfalso; congruence). exists b. reflexivity.
+    { (** MAL.readBlockEndFromBlockEntryAddr **)
+      eapply weaken. apply readBlockEndFromBlockEntryAddr. intros s Hprops. simpl. split. apply Hprops. intuition.
     }
-    intro childPd. eapply bindRev.
-    { (** Internal.compareAddrToNull **)
-      eapply weaken. apply compareAddrToNull. intros s Hprops. simpl. apply Hprops.
+    intro vidtBlockEndAddr. eapply bindRev.
+    { (** paddrLe **)
+      eapply weaken. apply WP.ret. intros s Hprops. (*TODO transmit more info ?*)
+      instantiate(1 := fun leEnds s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\
+          consistency s /\ curPd = currentPartition s /\ isPDT globalPd s /\ beqAddr nullAddr vidtaddr = false /\
+          isBE vidtBlock s /\ bentryPFlag vidtBlock true s /\ bentryAFlag vidtBlock true s /\
+          vidtSize = Constants.vidtSize /\ vidtEndAddr = CPaddr (vidtaddr + vidtSize)
+          /\ leEnds = paddrLe vidtBlockEndAddr vidtEndAddr). intuition.
+      assert(Hdiff: Some vidtEndAddr <> None) by (intro; congruence). specialize(H11 Hdiff). injection H11 as Hres.
+      assumption.
     }
-    intro childPdNull. destruct (negb childPdNull) eqn:HnegNull.
-    * eapply weaken. apply WP.ret. intros s Hprops. simpl. intuition.
+    intro overlap. destruct overlap.
+    { (* case overlap = true *)
+      eapply weaken. apply WP.ret. intros s Hprops. simpl. intuition.
+    }
+    (* case overlap = false *)
+    destruct (beqAddr globalPd curPd) eqn:HbeqGlobCurr.
     * eapply bindRev.
+      { (** MAL.readSh1PDChildFromBlockEntryAddr **)
+        eapply weaken. apply readSh1PDChildFromBlockEntryAddr. intros s Hprops. simpl. split. apply Hprops.
+        unfold consistency in *. unfold consistency1 in *. intuition. unfold isBE in *.
+        destruct (lookup vidtBlock (memory s) beqAddr); try(exfalso; congruence).
+        destruct v; try(exfalso; congruence). exists b. reflexivity.
+      }
+      intro childPd. eapply bindRev.
+      { (** Internal.compareAddrToNull **)
+        eapply weaken. apply compareAddrToNull. intros s Hprops. simpl. apply Hprops.
+      }
+      intro childPdNull. destruct (negb childPdNull) eqn:HnegNull.
+      { eapply weaken. apply WP.ret. intros s Hprops. simpl. intuition. }
+      eapply bindRev.
       { (** MAL.writePDVidt **)
         eapply weaken. apply writePDVidt. intros s Hprops. simpl. split. apply Hprops. intuition.
       }
       intro. eapply weaken. apply WP.ret. intros s Hprops. simpl.
       destruct Hprops as [s0 [pdentry [newPDEntry Hprops]]]. intuition.
-  + eapply bindRev.
-    { (** MAL.readSh1InChildLocationFromBlockEntryAddr **)
-      eapply weaken. apply readSh1InChildLocationFromBlockEntryAddr. intros s Hprops. simpl. split. apply Hprops.
-      intuition. unfold isBE in *. destruct (lookup vidtBlock (memory s) beqAddr); try(exfalso; congruence).
-      destruct v; try(exfalso; congruence). exists b. reflexivity.
-    }
-    intro vidtBlockChild. eapply bindRev.
-    { (** Internal.compareAddrToNull **)
-      eapply weaken. apply compareAddrToNull. intros s Hprops. simpl. apply Hprops.
-    }
-    intro vidtBlockChildNull. destruct (negb vidtBlockChildNull) eqn:HnegNull.
-    * eapply weaken. apply WP.ret. intros s Hprops. simpl. intuition.
     * eapply bindRev.
+      { (** MAL.readSh1InChildLocationFromBlockEntryAddr **)
+        eapply weaken. apply readSh1InChildLocationFromBlockEntryAddr. intros s Hprops. simpl. split. apply Hprops.
+        intuition. unfold isBE in *. destruct (lookup vidtBlock (memory s) beqAddr); try(exfalso; congruence).
+        destruct v; try(exfalso; congruence). exists b. reflexivity.
+      }
+      intro vidtBlockChild. eapply bindRev.
+      { (** Internal.compareAddrToNull **)
+        eapply weaken. apply compareAddrToNull. intros s Hprops. simpl. apply Hprops.
+      }
+      intro vidtBlockChildNull. destruct (negb vidtBlockChildNull) eqn:HnegNull.
+      { eapply weaken. apply WP.ret. intros s Hprops. simpl. intuition. }
+      eapply bindRev.
       { (** MAL.writePDVidt **)
         eapply weaken. apply writePDVidt. intros s Hprops. simpl. split. apply Hprops. intuition.
       }
       intro. eapply weaken. apply WP.ret. intros s Hprops. simpl.
       destruct Hprops as [s0 [pdentry [newPDEntry Hprops]]]. intuition.
+  + eapply weaken. apply WP.ret. intros s Hprops. simpl. intuition.
 Qed.

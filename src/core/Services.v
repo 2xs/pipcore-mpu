@@ -895,30 +895,34 @@ Definition setVIDT (pd vidtAddr : paddr) : LLI bool :=
 
   (* Check 6: VIDT block does not overlap *)
   perform vidtSize := getVidtSize in
-  perform vidtEndAddr := Paddr.addPaddrIdx vidtAddr vidtSize in
-  perform vidtBlockEndAddr := readBlockEndFromBlockEntryAddr vidtBlock in
-  perform overlap := Paddr.leb vidtBlockEndAddr vidtEndAddr in
-  if overlap then ret false else
+  perform vidtPotEndAddr := paddrAddIdxMOpt vidtAddr vidtSize in (*TODO HERE temporarily changed here*)
+  match vidtPotEndAddr with
+  | Some vidtEndAddr =>
+    perform vidtBlockEndAddr := readBlockEndFromBlockEntryAddr vidtBlock in
+    perform overlap := Paddr.leb vidtBlockEndAddr vidtEndAddr in
+    if overlap then ret false else
 
-  if (beqAddr globalPd curPd)
-  then
-    (* The current partition is setting its VIDT. *)
+    if (beqAddr globalPd curPd)
+    then
+      (* The current partition is setting its VIDT. *)
 
-    (* Check 8: VIDT block is not shared *)
-    perform childPd := readSh1PDChildFromBlockEntryAddr vidtBlock in
-    perform childPdNull := compareAddrToNull childPd in
-    if negb childPdNull then ret false else
+      (* Check 8: VIDT block is not shared *)
+      perform childPd := readSh1PDChildFromBlockEntryAddr vidtBlock in
+      perform childPdNull := compareAddrToNull childPd in
+      if negb childPdNull then ret false else
 
-    writePDVidt globalPd vidtAddr ;;
-    ret true
+      writePDVidt globalPd vidtAddr ;;
+      ret true
 
-  else
-    (* The current partition is setting the VIDT of one of its child. *)
+    else
+      (* The current partition is setting the VIDT of one of its child. *)
 
-    (* Check 9: VIDT block is not shared in a child *)
-    perform vidtBlockChild := readSh1InChildLocationFromBlockEntryAddr vidtBlock in
-    perform vidtBlockChildNull := compareAddrToNull vidtBlockChild in
-    if negb vidtBlockChildNull then ret false else
+      (* Check 9: VIDT block is not shared in a child *)
+      perform vidtBlockChild := readSh1InChildLocationFromBlockEntryAddr vidtBlock in
+      perform vidtBlockChildNull := compareAddrToNull vidtBlockChild in
+      if negb vidtBlockChildNull then ret false else
 
-    writePDVidt globalPd vidtAddr ;;
-    ret true.
+      writePDVidt globalPd vidtAddr ;;
+      ret true
+  | _ => ret false
+  end.

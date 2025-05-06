@@ -76,6 +76,14 @@ then
   ret (Build_paddr res _ )
 else  undefined 70.
 
+(*TODO HERE temporary, just to see if the proof works - if it does, translate that into C*)
+Program Definition paddrAddIdxMOpt (n : paddr) (m : index) : LLI (option paddr) :=
+let res := n+m in
+if (le_dec res maxAddr )
+then
+  ret (Some (Build_paddr res _ ))
+else ret None.
+
 Module Paddr.
 (* #[deprecated(note="Use paddrLeM instead.")] *)
 Notation leb x y := (paddrLeM x y) (only parsing).
