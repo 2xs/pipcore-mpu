@@ -330,7 +330,6 @@ Definition maxNbPrepareIsMaxNbKernels s :=
 forall (partition : paddr) (kernList: list paddr),
 isListOfKernels kernList partition s -> length kernList <= maxNbPrepare.
 
-(*Newly changed*)
 (** ** In any partition that is not the root, for any block whose field origin is equal to its start address and
 whose field next is null, we have a block in the parent partition with the same start and end addresses **)
 Definition adressesRangePreservedIfOriginAndNextOk s :=
@@ -352,7 +351,7 @@ In partition (getPartitions multiplexer s)
     /\ bentryStartAddr blockParent start s
     /\ bentryEndAddr blockParent endaddr s.
 
-(* New, gives the properties of the origin field *)
+(* Gives the properties of the origin field *)
 (** ** In any partition that is not the root, the origin field of any block corresponds to the start address of
         the the block in the partition's parent which contains at least the same addresses ** **)
 Definition originIsParentBlocksStart s :=
@@ -369,7 +368,7 @@ In partition (getPartitions multiplexer s)
         /\ (forall addr, In addr (getAllPaddrAux [block] s) -> In addr (getAllPaddrAux [blockParent] s)))
     /\ (forall startaddr, bentryStartAddr block startaddr s -> scorigin <= startaddr).
 
-(* New, gives some properties of the next field *)
+(* Gives some properties of the next field *)
 (** ** In any partition that is not the root, if the next field of a block is not null, then the end address of
         the block in the partition's parent which contains at least the same addresses is strictly higher than
         the end address of the block ** **)
@@ -389,7 +388,36 @@ In partition (getPartitions multiplexer s)
     /\ endaddr < endParent
     /\ (forall addr, In addr (getAllPaddrAux [block] s) -> In addr (getAllPaddrAux [blockParent] s)).
 
-(* New, gives a property of the PDchild field *)
+(* New *)
+(** ** For any block mapped in a partition, if there is a next block, then the latter's starting address is the
+        former's ending address ** **)
+Definition blockAndNextAreSideBySide s :=
+forall partition block scentryaddr scnext endaddr,
+In partition (getPartitions multiplexer s)
+-> In block (getMappedBlocks partition s)
+-> bentryEndAddr block endaddr s
+-> scentryaddr = CPaddr (block + scoffset)
+-> scnext <> nullAddr
+-> scentryNext scentryaddr scnext s
+-> bentryStartAddr scnext endaddr s.
+
+Definition parentBlocksBoundsIfNoNext s :=
+forall partition pdentry block scentryaddr startaddr endaddr,
+In partition (getPartitions multiplexer s)
+-> In block (getMappedBlocks partition s)
+-> bentryStartAddr block startaddr s
+-> bentryEndAddr block endaddr s
+-> scentryaddr = CPaddr (block + scoffset)
+-> scentryNext scentryaddr nullAddr s
+-> partition <> constantRootPartM
+-> lookup partition (memory s) beqAddr = Some (PDT pdentry)
+-> exists blockParent startParent,
+    In blockParent (getMappedBlocks (parent pdentry) s)
+    /\ bentryStartAddr blockParent startParent s
+    /\ bentryEndAddr blockParent endaddr s
+    /\ startParent <= startaddr.
+
+(* Gives a property of the PDchild field *)
 (** In any partition, if the PDChild field of a block is null, then none of the addresses of that block are
     shared with a child of the partition **)
 Definition noChildImpliesAddressesNotShared s :=
@@ -659,7 +687,9 @@ sharedBlockPointsToChild s /\
 adressesRangePreservedIfOriginAndNextOk s /\
 childsBlocksPropsInParent s /\
 noChildImpliesAddressesNotShared s /\
-kernelsAreNotAccessible s.
+kernelsAreNotAccessible s /\
+blockAndNextAreSideBySide s /\
+parentBlocksBoundsIfNoNext s.
 
 (** ** Conjunction of all consistency properties *)
 Definition consistency s :=
