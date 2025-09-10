@@ -1633,6 +1633,30 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
       rewrite completeListOfKernelsEqLookup with (structure pdentry) s s0; trivial.
       (* END nbPrepareIsNbKern *)
     }
+    assert(blockAndNextAreSideBySide s).
+    { (* BEGIN blockAndNextAreSideBySide s *)
+      assert(Hcons0: blockAndNextAreSideBySide s0) by intuition.
+      intros part block scentryaddr scnext endaddr HpartIsPart HblockMapped Hend Hsce HbeqSceNull Hnext.
+      unfold bentryStartAddr. unfold bentryEndAddr in *. unfold scentryNext in *. rewrite HlookupsEq in *.
+      rewrite getPartitionsEqLookup with (s0 := s0) in HpartIsPart; trivial.
+      rewrite getMappedBlocksEqLookup with (s0 := s0) in HblockMapped; trivial.
+      specialize(Hcons0 part block scentryaddr scnext endaddr HpartIsPart HblockMapped Hend Hsce HbeqSceNull Hnext).
+      assumption.
+      (* END blockAndNextAreSideBySide *)
+    }
+    assert(parentBlocksBoundsIfNoNext s).
+    { (* BEGIN parentBlocksBoundsIfNoNext s *)
+      assert(Hcons0: parentBlocksBoundsIfNoNext s0) by intuition.
+      intros partition pdentry block scentryaddr startaddr endaddr HpartIsPart HblockMapped HstartBlock HendBlock Hsce
+        Hnext HbeqPartRoot HlookupPart. rewrite getPartitionsEqLookup with (s0 := s0) in HpartIsPart; trivial.
+      rewrite getMappedBlocksEqLookup with (s0 := s0) in HblockMapped; trivial. unfold bentryStartAddr in *.
+      unfold bentryEndAddr in *. unfold scentryNext in *. rewrite HlookupsEq in *.
+      specialize(Hcons0 partition pdentry block scentryaddr startaddr endaddr HpartIsPart HblockMapped HstartBlock
+        HendBlock Hsce Hnext HbeqPartRoot HlookupPart).
+      destruct Hcons0 as [blockParent [startParent Hcons0]]. exists blockParent. exists startParent.
+      rewrite HlookupsEq in *. rewrite getMappedBlocksEqLookup with (s0 := s0); trivial.
+      (* END parentBlocksBoundsIfNoNext *)
+    }
     intuition.
   }
   split.

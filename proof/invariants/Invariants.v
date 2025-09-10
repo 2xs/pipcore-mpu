@@ -2624,3 +2624,89 @@ exists {|
          vidtAddr := vidtAddr p
        |}. intuition.
 Qed.
+
+Lemma removeBlockFromPhysicalMPU (pd : paddr) (blockentryaddr : paddr) (P : state -> Prop) :
+{{ fun s => P s /\ isPDT pd s	}}
+MAL.removeBlockFromPhysicalMPU pd blockentryaddr
+{{fun (_ : unit) (s : state) =>
+      exists s0 pdentry realMPU,
+          pdentryMPU pd realMPU s0
+          /\ P s0
+          /\ lookup pd (memory s0) beqAddr = Some (PDT pdentry)
+          /\ s = {|
+                    currentPartition := currentPartition s0;
+                    memory :=
+                      add pd
+                        (PDT
+                           {|
+                             structure := structure pdentry;
+                             firstfreeslot := firstfreeslot pdentry;
+                             nbfreeslots := nbfreeslots pdentry;
+                             nbprepare := nbprepare pdentry;
+                             parent := parent pdentry;
+                             MPU := MAL.removeBlockFromPhysicalMPUAux blockentryaddr realMPU;
+                             vidtAddr := vidtAddr pdentry
+                           |}) (memory s0) beqAddr
+                  |}
+}}.
+Proof.
+unfold MAL.removeBlockFromPhysicalMPU. eapply bindRev.
+{
+  eapply weaken. apply readPDMPU. intros s Hprops. simpl. split. apply Hprops. intuition.
+}
+intro realMPU. eapply bindRev.
+- eapply weaken. apply writePDMPU.
+  intros s Hprops. simpl. destruct Hprops as [(HPs & HPDT) Hpdentry]. unfold isPDT in HPDT.
+  destruct (lookup pd (memory s) beqAddr) eqn:HlookupPd; try(exfalso; congruence).
+  destruct v; try(exfalso; congruence). exists p. split. reflexivity.
+  instantiate(1:= fun (_:unit) (s:state) =>
+              exists s0 pdentry,
+                pdentryMPU pd realMPU s0
+                /\ P s0
+                /\ lookup pd (memory s0) beqAddr = Some (PDT pdentry)
+                /\ s = {|
+                          currentPartition := currentPartition s0;
+                          memory :=
+                            add pd
+                              (PDT
+                                 {|
+                                   structure := structure pdentry;
+                                   firstfreeslot := firstfreeslot pdentry;
+                                   nbfreeslots := nbfreeslots pdentry;
+                                   nbprepare := nbprepare pdentry;
+                                   parent := parent pdentry;
+                                   MPU := MAL.removeBlockFromPhysicalMPUAux blockentryaddr realMPU;
+                                   vidtAddr := vidtAddr pdentry
+                                 |}) (memory s0) beqAddr
+                        |}
+  ).
+  simpl. exists s. exists p. intuition.
+- intro. simpl. eapply weaken. apply WP.ret.
+  simpl. intros s Hprops. destruct Hprops as [s0 (pdentry & Hprops)].
+  exists s0. exists pdentry. exists realMPU. intuition.
+Qed.
+
+(*Lemma writeBlockEntryFromBlockEntryAddr block blockindex startaddr endaddr accessible present read write
+exec P:
+{{fun s =>
+P tt {|
+      currentPartition := currentPartition s;
+      memory :=
+        add block
+          (BE (CBlockEntry read write exec present accessible blockindex (CBlock startaddr endaddr))) (memory s)
+           beqAddr
+  |} /\ isBE block s }}
+writeBlockEntryFromBlockEntryAddr block blockindex startaddr endaddr accessible present read write exec
+{{P}}.
+Proof.
+unfold writeBlockEntryFromBlockEntryAddr. eapply bindRev.
+{ (** MAL.writeBlockStartFromBlockEntryAddr **)
+  eapply weaken. apply writeBlockStartFromBlockEntryAddr. intros s Hprops. simpl.
+  destruct Hprops as (HP & HBE). unfold isBE in *.
+  destruct (lookup block (memory s) beqAddr) eqn:HlookupBlock; try(exfalso; congruence).
+  destruct v; try(exfalso; congruence). exists b. split; trivial.
+  instantiate().
+}
+eapply weaken. apply modify.
+simpl. intros s Hprops. apply Hprops.
+Qed.*)
