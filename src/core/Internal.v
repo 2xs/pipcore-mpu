@@ -516,9 +516,9 @@ Definition freeSlot (pdfree entrytofreeaddr: paddr) : LLI paddr :=
 		(* set default values in slot to free *)
 		(* the default index is the current index *)
 		perform index := readBlockIndexFromBlockEntryAddr entrytofreeaddr in
-		writeBlockEntryFromBlockEntryAddr entrytofreeaddr index nullAddr nullAddr false false false false false;;
-		writeSh1EntryFromBlockEntryAddr entrytofreeaddr nullAddr false nullAddr;;
-		writeSCEntryFromBlockEntryAddr entrytofreeaddr nullAddr nullAddr;;
+		writeBlockEntryFromBlockEntryAddrLight entrytofreeaddr index nullAddr nullAddr false false false false false;;
+		writeSh1EntryFromBlockEntryAddrLight entrytofreeaddr nullAddr false nullAddr;;
+		writeSCEntryFromBlockEntryAddrLight entrytofreeaddr nullAddr nullAddr;;
 		(* insert free slot in the free slot list *)
 		perform currFirstFreeSlot := readPDFirstFreeSlotPointer pdfree in
 		writeBlockEndFromBlockEntryAddr entrytofreeaddr currFirstFreeSlot ;;
