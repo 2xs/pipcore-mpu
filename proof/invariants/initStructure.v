@@ -1086,7 +1086,8 @@ initStructure kernStart kernEnd
 {{
   fun initSucc s => consistency1 s /\ noDupMappedPaddrList s /\ accessibleParentPaddrIsAccessibleIntoChild s
     /\ sharedBlockPointsToChild s /\ adressesRangePreservedIfOriginAndNextOk s /\ childsBlocksPropsInParent s
-    /\ noChildImpliesAddressesNotShared s /\ verticalSharing s /\ partitionsIsolation s /\ kernelDataIsolation s
+    /\ noChildImpliesAddressesNotShared s /\ blockAndNextAreSideBySide s /\ parentBlocksBoundsIfNoNext s
+    /\ verticalSharing s /\ partitionsIsolation s /\ kernelDataIsolation s
     /\ initSucc = true
     /\ (forall block startaddr, startaddr <> kernStart -> bentryStartAddr block startaddr s
         -> bentryPFlag block true s -> isKS startaddr s -> bentryAFlag block false s)
@@ -4597,6 +4598,87 @@ assert(noChildImpliesAddressesNotShared s).
   specialize(Hcons0 partition pdentry block sh1entryaddr HpartIsPart HlookupPart HblockMapped Hsh1 HPDchild child addr
     HchildIsChild HaddrInBlocks0). rewrite HgetMappedPaddrEq; assumption.
   (* END noChildImpliesAddressesNotShared *)
+}
+
+assert(blockAndNextAreSideBySide s).
+{ (* BEGIN blockAndNextAreSideBySide s *)
+  assert(Hcons0: blockAndNextAreSideBySide s0) by (unfold consistency in *; unfold consistency2 in *; intuition).
+  intros partition block scentryaddr scnext endaddr HpartIsPart HblockMapped HendBlock Hsce HbeqNextNull
+    Hnext. rewrite HgetPartsEq in *.
+  rewrite HgetMappedEq in *; try(apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *;
+    intuition). unfold bentryEndAddr in *. unfold scentryNext in *.
+  assert(HlookupBlock: exists bentry, lookup block (memory s0) beqAddr = Some(bentry)).
+  {
+    apply mappedBlockIsBE in HblockMapped. destruct HblockMapped as [bentry (Hlookup & _)]. exists (BE bentry).
+    assumption.
+  }
+  rewrite HlookupSomeEq in HendBlock; trivial. assert(HblockIsBE: isBE block s0).
+  {
+    unfold isBE. destruct (lookup block (memory s0) beqAddr); try(congruence). destruct v; try(congruence). trivial.
+  }
+  assert(HlookupSce: exists scentry, lookup scentryaddr (memory s0) beqAddr = Some(scentry)).
+  {
+    assert(HsceIsSCE: wellFormedShadowCutIfBlockEntry s0)
+      by (unfold consistency in *; unfold consistency1 in *; intuition). specialize(HsceIsSCE block HblockIsBE).
+    destruct HsceIsSCE as [sceBis (HsceIsSCE & HsceBis)]. subst sceBis. subst scentryaddr. unfold isSCE in *.
+    destruct (lookup (CPaddr (block + scoffset)) (memory s0) beqAddr); try(exfalso; congruence). exists v.
+    reflexivity.
+  }
+  rewrite HlookupSomeEq in Hnext; trivial. specialize(Hcons0 partition block scentryaddr scnext endaddr HpartIsPart
+    HblockMapped HendBlock Hsce HbeqNextNull Hnext). unfold bentryStartAddr in *. rewrite HlookupSomeEq; trivial.
+  destruct (lookup scnext (memory s0) beqAddr); try(exfalso; congruence). exists v. reflexivity.
+  (* END blockAndNextAreSideBySide *)
+}
+
+assert(parentBlocksBoundsIfNoNext s).
+{ (* BEGIN parentBlocksBoundsIfNoNext s *)
+  assert(Hcons0: parentBlocksBoundsIfNoNext s0) by (unfold consistency in *; unfold consistency2 in *; intuition).
+  intros partition pdentry block scentryaddr startaddr endaddr HpartIsPart HblockMapped HstartBlock HendBlock Hsce
+    Hnext HbeqPartRoot HlookupPart. rewrite HgetPartsEq in *.
+  rewrite HgetMappedEq in HblockMapped; try(apply partitionsArePDT; trivial; unfold consistency in *;
+    unfold consistency1 in *; intuition). unfold bentryStartAddr in *. unfold bentryEndAddr in *.
+  unfold scentryNext in *. assert(HlookupBlock: exists bentry, lookup block (memory s0) beqAddr = Some(bentry)).
+  {
+    apply mappedBlockIsBE in HblockMapped. destruct HblockMapped as [bentry (Hlookup & _)]. exists (BE bentry).
+    assumption.
+  }
+  rewrite HlookupSomeEq in HendBlock; trivial. rewrite HlookupSomeEq in HstartBlock; trivial.
+  assert(HblockIsBE: isBE block s0).
+  {
+    unfold isBE. destruct (lookup block (memory s0) beqAddr); try(congruence). destruct v; try(congruence). trivial.
+  }
+  assert(HlookupSce: exists scentry, lookup scentryaddr (memory s0) beqAddr = Some(scentry)).
+  {
+    assert(HsceIsSCE: wellFormedShadowCutIfBlockEntry s0)
+      by (unfold consistency in *; unfold consistency1 in *; intuition). specialize(HsceIsSCE block HblockIsBE).
+    destruct HsceIsSCE as [sceBis (HsceIsSCE & HsceBis)]. subst sceBis. subst scentryaddr. unfold isSCE in *.
+    destruct (lookup (CPaddr (block + scoffset)) (memory s0) beqAddr); try(exfalso; congruence). exists v.
+    reflexivity.
+  }
+  rewrite HlookupSomeEq in Hnext; trivial.
+  assert(HlookupParts0: exists pdentry, lookup partition (memory s0) beqAddr = Some(pdentry)).
+  {
+    unfold getMappedBlocks in *. unfold getKSEntries in *.
+    destruct (lookup partition (memory s0) beqAddr); try(simpl in *; exfalso; congruence). exists v.
+    reflexivity.
+  }
+  rewrite HlookupSomeEq in HlookupPart; trivial.
+  specialize(Hcons0 partition pdentry block scentryaddr startaddr endaddr HpartIsPart HblockMapped HstartBlock
+    HendBlock Hsce Hnext HbeqPartRoot HlookupPart).
+  destruct Hcons0 as [blockParent [startP (HblockPMapped & HstartP & HendP & HlebStarts)]]. exists blockParent.
+  exists startP. assert(HlookupBlockP: exists bentry, lookup blockParent (memory s0) beqAddr = Some(bentry)).
+  {
+    unfold bentryEndAddr in *. destruct (lookup blockParent (memory s0) beqAddr); try(exfalso; congruence).
+    exists v. reflexivity.
+  }
+  rewrite HlookupSomeEq; trivial. split; auto. assert(isPDT (parent pdentry) s0).
+  {
+    unfold isPDT. unfold getMappedBlocks in *. unfold getKSEntries in *.
+    destruct (lookup (parent pdentry) (memory s0) beqAddr); try(simpl in *; congruence).
+    destruct v; try(simpl in *; congruence). trivial.
+  }
+  rewrite HgetMappedEq; trivial.
+  (* END parentBlocksBoundsIfNoNext *)
 }
 
 assert(verticalSharing s).

@@ -400,6 +400,52 @@ revert parentsList. revert initState. revert partition. induction cutStatesList.
   assumption.
 Qed.
 
+Lemma lookupSCEEqWriteAccessRev cutStatesList initState parentsList scentry startaddr endaddr flag s partition:
+isSCE scentry s
+-> isPDT partition initState
+-> isBuiltFromWriteAccessibleRec initState s cutStatesList parentsList partition startaddr endaddr flag
+-> lookup scentry (memory s) beqAddr = lookup scentry (memory initState) beqAddr.
+Proof.
+intro Hsce. revert parentsList. revert initState. revert partition. induction cutStatesList.
+- (* cutStatesList = [] *)
+  simpl.
+  intros partition initState parentsList HlookupPartsInit Hprops.
+  destruct Hprops as [HparentsList HssInitEq]. subst s. reflexivity.
+- (* cutStatesList = a::l *)
+  simpl.
+  intros partition initState parentsList HlookupPartsInit Hprops.
+  destruct Hprops as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentryBase & (pdentryPdAddr &
+                        (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & HpropsOr &
+                        HnewB & HlookupBlocks0 & HlookupBlocks1 & HPFlagBlock & HstartBlock & HendBlock &
+                        HblockMappedPdAddr & HlookupBases0 & HlookupBases1 & HlookupPdAddrs0 & HlookupPdAddrs1 &
+                        HpdAddr & HbaseNotRoot & HisBuilt))))))))))].
+  assert(HpdAddrIsPDTA: isPDT pdAddr a).
+  {
+    unfold isPDT. destruct HpropsOr as [Has1Eq | Ha].
+    - subst a. rewrite HlookupPdAddrs1. trivial.
+    - destruct Ha as [Ha HMPU]. rewrite Ha. simpl. rewrite beqAddrTrue. trivial.
+  }
+  specialize(IHcutStatesList pdAddr a newPdEntriesList HpdAddrIsPDTA HisBuilt). unfold isSCE in *.
+  rewrite IHcutStatesList in *.
+  assert(HlookupEqA: lookup scentry (memory a) beqAddr = lookup scentry (memory s1) beqAddr).
+  {
+    destruct HpropsOr as [Has1Eq | Ha].
+    + subst a. reflexivity.
+    + destruct Ha as [Ha _]. rewrite Ha. simpl. destruct (beqAddr pdAddr scentry) eqn:HbeqPdSce.
+      {
+        rewrite <-DTL.beqAddrTrue in HbeqPdSce. subst scentry. unfold isPDT in *. exfalso.
+        destruct (lookup pdAddr (memory a) beqAddr); try(congruence). destruct v; congruence.
+      }
+      rewrite <-beqAddrFalse in HbeqPdSce. rewrite removeDupIdentity; intuition.
+  }
+  rewrite HlookupEqA in *. rewrite Hs1. simpl. destruct (beqAddr blockInParentPartitionAddr scentry) eqn:HbeqBlockSce.
+  {
+    rewrite <-DTL.beqAddrTrue in HbeqBlockSce. subst blockInParentPartitionAddr.
+    rewrite HlookupBlocks1 in *. exfalso; congruence.
+  }
+  rewrite <-beqAddrFalse in HbeqBlockSce. rewrite removeDupIdentity; intuition.
+Qed.
+
 Lemma stablePDTIsBuilt statesList initState parentsList pdbasepartition startaddr endaddr flag s partition:
 isPDT pdbasepartition initState
 -> isBuiltFromWriteAccessibleRec initState s statesList parentsList pdbasepartition startaddr endaddr flag
