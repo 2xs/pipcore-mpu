@@ -594,7 +594,7 @@ Definition removeMemoryBlock (idBlockToRemove: paddr) : LLI bool :=
 
 		(* Check that the block to remove is not the block
 		* containing the VIDT of the current partition. *)
-		perform vidtBlockGlobalId := readPDVidt idPDchild in
+		perform vidtBlockGlobalId := readPDVidt currentPart in
 		if (beqAddr vidtBlockGlobalId blockToRemoveInCurrPartAddr) then ret false else
 
 		(** Child (and grand-children): remove block if possible *)
