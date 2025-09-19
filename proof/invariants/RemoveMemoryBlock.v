@@ -41,107 +41,102 @@ Proof.StateLib (*Proof.InternalLemmas Proof.InternalLemmas2*) Proof.DependentTyp
 Require Import Invariants (*GetTableAddr UpdateShadow2Structure UpdateShadow1Structure
                PropagatedProperties MapMMUPage*) findBlockInKSWithAddr.
 
-From Stdlib Require Import Bool List EqNat.
+Require Import Bool List EqNat.
 
 Require Import Model.Monad.
 
 Module WP := WeakestPreconditions.
 
 (** * Summary
-    This file contains the invariant of [removeMemoryBlock].
+    This file contains the invariant of [addVaddr].
     We prove that this PIP service preserves the isolation property *)
 
 Lemma removeMemoryBlock (idBlockToRemove: paddr) :
-{{fun s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}
+{{fun s => partitionsIsolation s   /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}
 removeMemoryBlock idBlockToRemove
-{{fun _ s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}.
+{{fun _ s  => partitionsIsolation s   /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s }}.
 Proof.
 unfold removeMemoryBlock.
-eapply bindRev.
-{ (** getCurPartition **)
-  eapply weaken. eapply getCurPartition. intros s Hprops. simpl. apply Hprops.
-}
-intro currentPart. eapply bindRev.
+(** getCurPartition **)
+eapply WP.bindRev.
+eapply WP.weaken.
+eapply Invariants.getCurPartition.
+cbn.
+intros.
+intuition.
+pose proof (HP := conj H0 (conj H H1)).
+exact HP.
+intro currentPart.
+eapply WP.bindRev.
 { (** findBlockInKSWithAddr **)
-  eapply weaken. apply findBlockInKSWithAddr.
-  intros s Hprops. simpl. split. apply Hprops. split. intuition.
-  destruct Hprops as (Hprops & Hcurr). rewrite Hcurr.
-  apply IL.partitionsArePDT; unfold consistency in *; unfold consistency1 in *; intuition.
+	eapply weaken. apply findBlockInKSWithAddr.findBlockInKSWithAddr.
+	intros. simpl. split. apply H. intuition.
 }
-intro blockToRemoveInCurrPartAddr. eapply bindRev.
+intro blockToShareInCurrPartAddr.
+eapply WP.bindRev.
 { (** compareAddrToNull **)
-  eapply weaken. apply compareAddrToNull.
-  intros s Hprops. simpl. apply Hprops.
+	eapply weaken. apply Invariants.compareAddrToNull.
+	intros. simpl. apply H.
 }
-intro addrIsNull. destruct addrIsNull.
+intro addrIsNull.
+case_eq addrIsNull.
 { (* case_eq addrIsNull = true *)
-  eapply weaken. apply WP.ret. intros s Hprops. simpl. intuition.
+	intros. eapply WP.weaken.
+  eapply WP.ret.
+  simpl. intros.
+  intuition.
 }
 (* case_eq addrIsNull = false *)
+intros.
 eapply bindRev.
 { (** MAL.readSh1PDChildFromBlockEntryAddr *)
-  eapply weaken. apply readSh1PDChildFromBlockEntryAddr. intros s Hprops. simpl. rewrite <-beqAddrFalse in Hprops.
-  destruct Hprops as ((((HPI & HKDI & HVS & Hconsist) & Hcurr) & _ & HpropsOr) & HbeqNullBlock).
-  destruct HpropsOr as [Hcontra | [bentry (HlookupBlock & HblockEq & HPflag & HblockMapped)]];
-    try(exfalso; congruence). rewrite beqAddrFalse in HbeqNullBlock.
-  instantiate(1 := fun s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s
-    /\ consistency s /\ currentPart = currentPartition s /\ blockToRemoveInCurrPartAddr = idBlockToRemove
-    /\ bentryPFlag blockToRemoveInCurrPartAddr true s
-    /\ In blockToRemoveInCurrPartAddr (getMappedBlocks currentPart s)
-    /\ beqAddr nullAddr blockToRemoveInCurrPartAddr = false). split. intuition.
-  unfold consistency in *; unfold consistency1 in *. split. intuition. split.
-  intuition. split. intuition. split. intuition. exists bentry. assumption.
+	eapply weaken. apply readSh1PDChildFromBlockEntryAddr.
+	intros. simpl. split. apply H0.
+	intuition.
+	- (* blockToShareInCurrPartAddr is NOT NULL, prove inconsistency *)
+		rewrite <- beqAddrFalse in H2. congruence.
+	- destruct H7. exists x. intuition.
 }
-intro idPDchild. eapply bindRev.
+intro idPDchild.
+eapply WP.bindRev.
 { (** compareAddrToNull **)
-  eapply weaken. apply compareAddrToNull. intros s Hprops. simpl. apply Hprops.
+	eapply weaken. apply Invariants.compareAddrToNull.
+	intros. simpl. apply H0.
 }
-intro pdchildIsNull. destruct pdchildIsNull.
+intro pdchildIsNull.
+case_eq pdchildIsNull.
 { (* case_eq pdchildIsNull = true *)
-  eapply weaken. eapply WP.ret. simpl. intros s Hprops. intuition.
+	intros. eapply WP.weaken.
+  eapply WP.ret.
+  simpl. intros.
+  intuition.
 }
 (* case_eq pdchildIsNull = false *)
+intros.
 eapply bindRev.
 { (** MAL.readSh1InChildLocationFromBlockEntryAddr *)
-  eapply weaken. apply readSh1InChildLocationFromBlockEntryAddr. intros s Hprops. simpl.
-  destruct Hprops as ((Hprops & Hsh1) & HbeqNullChild).
-  destruct Hsh1 as [sh1entry [sh1entryaddr (HlookupSh1 & HPDchild & Hsh1)]].
-  instantiate(1 := fun s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s
-    /\ consistency s /\ currentPart = currentPartition s /\ blockToRemoveInCurrPartAddr = idBlockToRemove
-    /\ bentryPFlag blockToRemoveInCurrPartAddr true s
-    /\ In blockToRemoveInCurrPartAddr (getMappedBlocks currentPart s)
-    /\ beqAddr nullAddr blockToRemoveInCurrPartAddr = false
-    /\ beqAddr nullAddr idPDchild = false
-    /\ (exists sh1entryaddr, sh1entryPDchild sh1entryaddr idPDchild s
-          /\ sh1entryAddr blockToRemoveInCurrPartAddr sh1entryaddr s)).
-  intuition.
-  - exists sh1entryaddr. intuition.
-  - unfold bentryPFlag in *.
-    destruct (lookup blockToRemoveInCurrPartAddr (memory s) beqAddr); try(exfalso; congruence).
-    destruct v; try(exfalso; congruence). exists b. reflexivity.
+	eapply weaken. apply readSh1InChildLocationFromBlockEntryAddr.
+	intros. simpl. split. apply H1.
+	intuition.
+	- (* blockToShareInCurrPartAddr is NOT NULL, prove inconsistency *)
+		subst. rewrite <- beqAddrFalse in H5. congruence.
+	- destruct H10. exists x. intuition.
 }
-intro blockToRemoveInChildAddr. eapply bindRev.
+intro blockToRemoveInChildAddr.
+eapply WP.bindRev.
 { (** compareAddrToNull **)
-  eapply weaken. apply compareAddrToNull. intros s Hprops. simpl. apply Hprops.
+	eapply weaken. apply Invariants.compareAddrToNull.
+	intros. simpl. apply H1.
 }
-intro blockInChildIsNull. destruct blockInChildIsNull.
+intro blockInChildIsNull.
+case_eq blockInChildIsNull.
 { (* case_eq idPDchildIsNull = true *)
-  eapply weaken. apply WP.ret. simpl. intros s Hprops. intuition.
+	intros. eapply WP.weaken.
+  eapply WP.ret.
+  simpl. intros.
+  intuition.
 }
 (* case_eq blockInChildIsNull = false *)
-eapply bindRev.
-{ (** MAL.readPDVidt **)
-  eapply weaken. apply readPDVidt. intros s Hprops. simpl. split. apply Hprops.
-  assert(Hcurr: currentPart = currentPartition s) by intuition. rewrite Hcurr.
-  apply IL.partitionsArePDT; unfold consistency in *; unfold consistency1 in *; intuition.
-}
-intro vidtBlockGlobalId. destruct (beqAddr vidtBlockGlobalId blockToRemoveInCurrPartAddr) eqn:HbeqVidtBlockTR.
-{ (* case vidtBlockGlobalId = blockToRemoveInCurrPartAddr *)
-  eapply weaken. apply WP.ret. intros s Hprops. intuition.
-}
-(* case vidtBlockGlobalId <> blockToRemoveInCurrPartAddr *)
+intros.
 eapply bindRev.
 {	(* Internal.removeBlockInChildAndDescendants *)
-  eapply weaken.
-}
-intro blockIsRemoved.
