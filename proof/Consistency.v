@@ -399,7 +399,7 @@ In partition (getPartitions multiplexer s)
 -> scentryaddr = CPaddr (block + scoffset)
 -> scnext <> nullAddr
 -> scentryNext scentryaddr scnext s
--> bentryStartAddr scnext endaddr s.
+-> bentryStartAddr scnext endaddr s /\ In scnext (getMappedBlocks partition s).
 
 Definition parentBlocksBoundsIfNoNext s :=
 forall partition pdentry block scentryaddr startaddr endaddr,
@@ -624,6 +624,15 @@ forall partition pdentry,
 lookup partition (memory s) beqAddr = Some(PDT pdentry)
 -> length (completeListOfKernels (structure pdentry) s) = nbprepare pdentry.
 
+Definition pdchildIsPDT s :=
+forall partition block sh1entryaddr idchild,
+In partition (getPartitions multiplexer s)
+-> In block (getMappedBlocks partition s)
+-> sh1entryAddr block sh1entryaddr s
+-> sh1entryPDchild sh1entryaddr idchild s
+-> idchild <> nullAddr
+-> In idchild (getChildren partition s).
+
 (*Definition isInChildIfPDchild s :=
 forall block partition child,
 In partition (getPartitions multiplexer s)
@@ -631,6 +640,17 @@ In partition (getPartitions multiplexer s)
 -> sh1entryPDchild (CPaddr (block + sh1offset)) child s
 -> child <> nullAddr
 -> In child (getChildren partition s) /\ incl (getAllPaddrAux [block] s) (getMappedPaddr child s).*)
+
+Definition childLocMappedInChild s :=
+forall partition block sh1entryaddr blockChild idchild,
+In partition (getPartitions multiplexer s)
+-> In block (getMappedBlocks partition s)
+-> sh1entryAddr block sh1entryaddr s
+-> sh1entryPDchild sh1entryaddr idchild s
+-> sh1entryInChildLocation sh1entryaddr blockChild s
+-> idchild <> nullAddr
+-> blockChild <> nullAddr
+-> In blockChild (getMappedBlocks idchild s).
 
 
 (** ** First batch of consistency properties *)
@@ -677,7 +697,8 @@ notPDTIfNotPDflag s /\
 nextKernAddrIsInSameBlock s /\
 blockBelongsToAPart s /\
 PDflagMeansNoChild s /\
-nbPrepareIsNbKern s.
+nbPrepareIsNbKern s
+/\ pdchildIsPDT s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=
@@ -689,7 +710,8 @@ childsBlocksPropsInParent s /\
 noChildImpliesAddressesNotShared s /\
 kernelsAreNotAccessible s /\
 blockAndNextAreSideBySide s /\
-parentBlocksBoundsIfNoNext s.
+parentBlocksBoundsIfNoNext s
+/\ childLocMappedInChild s.
 
 (** ** Conjunction of all consistency properties *)
 Definition consistency s :=
