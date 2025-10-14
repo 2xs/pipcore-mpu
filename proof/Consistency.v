@@ -650,7 +650,9 @@ In partition (getPartitions multiplexer s)
 -> sh1entryInChildLocation sh1entryaddr blockChild s
 -> idchild <> nullAddr
 -> blockChild <> nullAddr
--> In blockChild (getMappedBlocks idchild s).
+-> In blockChild (getMappedBlocks idchild s)
+    /\ forall startaddr, bentryStartAddr block startaddr s
+        -> bentryStartAddr blockChild startaddr s.
 
 
 (** ** First batch of consistency properties *)

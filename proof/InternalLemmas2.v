@@ -6215,6 +6215,117 @@ destruct HblockAccMapped as [HaIsBlock | HblockAccMappedRec]; try(apply IHl; ass
 unfold bentryAFlag. rewrite HlookupA. auto.
 Qed.
 
+Lemma filterAccessibleSplit l1 l2 s: filterAccessible (l1++l2) s = filterAccessible l1 s ++ filterAccessible l2 s.
+Proof.
+induction l1; simpl; trivial. rewrite IHl1. destruct (lookup a (memory s) beqAddr); trivial. destruct v; trivial.
+destruct (accessible b); trivial.
+Qed.
+
+Lemma getAllPaddrBlockSplit l (start1 end1: paddr) startaddr endaddr:
+start1 < end1
+-> getAllPaddrBlock startaddr endaddr = getAllPaddrBlock start1 end1 ++ l
+-> startaddr = start1.
+Proof.
+intro HltStartEnd. unfold getAllPaddrBlock. assert(end1-start1 > 0) by lia. destruct (end1-start1); try(lia).
+simpl. assert(start1 <= maxAddr) by (apply Hp). destruct (le_dec start1 maxAddr); try(lia). intro Heq.
+destruct (endaddr-startaddr); simpl in *; try(exfalso; congruence). assert(startaddr <= maxAddr) by (apply Hp).
+destruct (le_dec startaddr maxAddr); try(lia). injection Heq as Heq. apply paddrEqNatEqEquiv. assumption.
+Qed.
+
+Lemma notEmptyListHasLast (A:Type) (firstEl:A) l:
+exists lastEl lBis, firstEl::l = lBis++[lastEl].
+Proof.
+revert firstEl. induction l; simpl; intro firstEl.
+- exists firstEl. exists []. rewrite app_nil_l. reflexivity.
+- specialize(IHl a). destruct IHl as [lastEl [lBis IHl]]. exists lastEl. exists (firstEl::lBis). rewrite IHl. auto.
+Qed.
+
+Lemma lastElNotElDef (A:Type) l (lastEl:A) defaultEl:
+defaultEl <> lastEl
+-> lastEl = last l defaultEl
+-> exists lBis, l = lBis++[lastEl].
+Proof.
+intro HbeqEls. destruct l; intro Hlast; simpl; try(simpl in *; exfalso; congruence).
+pose proof (notEmptyListHasLast A a l) as HlRec. destruct HlRec as [lastElBis [lBis HlEq]]. rewrite HlEq in *.
+rewrite last_last in Hlast. subst lastElBis. exists lBis. reflexivity.
+Qed.
+
+Lemma getAllPaddrBlockEqAux n1 n2 pos (startaddr: paddr):
+pos+startaddr+n1 <= maxAddr
+-> n1 > 0
+-> getAllPaddrBlockAux pos startaddr n1 = getAllPaddrBlockAux pos startaddr n2
+-> n1 = n2.
+Proof.
+revert pos n2. induction n1; simpl; intros pos n2 HlebMax Hgt1 Heq; try(lia).
+destruct (le_dec (pos + startaddr) maxAddr) eqn:HlePMax; try(lia). destruct n2; simpl in *; try(exfalso; congruence).
+f_equal. rewrite HlePMax in *. injection Heq as Heq. destruct n1.
+- simpl in *. destruct n2; trivial. exfalso. simpl in *. destruct (le_dec (S (pos + startaddr)) maxAddr); try(lia).
+  congruence.
+- assert(Hn1: S n1 > 0) by lia. assert(HlebPosPMax: (S pos) + startaddr + S n1 <= maxAddr) by lia.
+  specialize(IHn1 (S pos) n2 HlebPosPMax Hn1). apply IHn1; assumption.
+Qed.
+
+Lemma getAllPaddrBlockEq (start1 end1 start2 end2: paddr):
+start1 < end1
+-> getAllPaddrBlock start1 end1 = getAllPaddrBlock start2 end2
+-> start1 = start2 /\ end1 = end2.
+Proof.
+unfold getAllPaddrBlock. intros Hlt Heq. assert(start1 = start2).
+{
+  destruct (beqAddr start1 start2) eqn:HbeqStart; try(rewrite DTL.beqAddrTrue; assumption). exfalso.
+  rewrite <-beqAddrFalse in *. assert(end1-start1 > 0) by lia. destruct (end1-start1); simpl in *; try(lia).
+  assert(start1 <= maxAddr) by (apply Hp). destruct (le_dec start1 maxAddr); try(lia).
+  destruct (end2-start2); simpl in *; try(congruence). assert(start2 <= maxAddr) by (apply Hp).
+  destruct (le_dec start2 maxAddr); try(lia). injection Heq as Hcontra. apply paddrNeqNatNeqEquiv in HbeqStart.
+  congruence.
+}
+subst start2. split; trivial. assert(HltBis: end1-start1 > 0) by lia.
+assert(HlebMax: 0+start1+(end1-start1) <= maxAddr).
+{ assert(end1 <= maxAddr) by (apply Hp). lia. }
+pose proof (getAllPaddrBlockEqAux (end1-start1) (end2-start1) 0 start1 HlebMax HltBis Heq) as Hres.
+destruct (Nat.leb end2 start1) eqn:Hle.
+{
+  apply Nat.leb_le in Hle. exfalso. assert(Hcontra: end2-start1 = 0) by lia. rewrite Hcontra in Heq. simpl in *.
+  destruct (end1 - start1); lia.
+}
+apply Nat.leb_gt in Hle. apply paddrEqNatEqEquiv. lia.
+Qed.
+
+Lemma getAllPaddrBlockSplitLEqAux pos l start1 endaddr n:
+pos+n+start1 <= maxAddr
+-> getAllPaddrBlockAux pos start1 endaddr = getAllPaddrBlockAux pos start1 n ++ l
+-> l = getAllPaddrBlockAux (n+pos) start1 (endaddr-n).
+Proof.
+revert pos endaddr. induction n; simpl; intros pos endaddr HlebMax Heq.
+- rewrite Nat.sub_0_r. auto.
+- destruct (le_dec (pos + start1) maxAddr) eqn:Hleb; try(lia). destruct endaddr; simpl in *; try(exfalso; congruence).
+  rewrite Hleb in *. injection Heq as Heq. apply IHn in Heq; try(lia). replace (S (n+pos)) with (n+S pos); try(lia).
+  assumption.
+Qed.
+
+Lemma getAllPaddrBlockAuxEqPos pos startaddr endaddr:
+getAllPaddrBlockAux pos startaddr endaddr = getAllPaddrBlockAux 0 (startaddr+pos) endaddr.
+Proof.
+revert pos startaddr. induction endaddr; intros; simpl; trivial.
+replace (pos+startaddr) with (startaddr+pos); try(lia). destruct (le_dec (startaddr + pos) maxAddr); trivial. f_equal.
+assert(Heq: getAllPaddrBlockAux 1 (startaddr + pos) endaddr = getAllPaddrBlockAux 0 (startaddr+pos+1) endaddr).
+{ apply IHendaddr. }
+rewrite IHendaddr. rewrite Heq. replace (startaddr + S pos) with (startaddr + pos + 1); try(lia). reflexivity.
+Qed.
+
+Lemma getAllPaddrBlockSplitLEq l (start1 end1: paddr) endaddr:
+start1 < end1
+-> getAllPaddrBlock start1 endaddr = getAllPaddrBlock start1 end1 ++ l
+-> l = getAllPaddrBlock end1 endaddr.
+Proof.
+unfold getAllPaddrBlock. intros Hlt Heq.
+assert(Hend1: end1-start1+start1 = end1) by lia. rewrite <-Hend1. clear Hend1.
+replace (endaddr - (end1 - start1 + start1)) with (endaddr - start1 - (end1 - start1)); try(lia).
+assert(end1 <= maxAddr) by (apply Hp). apply getAllPaddrBlockSplitLEqAux in Heq; try(lia).
+rewrite Nat.sub_add; try(lia). rewrite Nat.add_0_r in *. rewrite getAllPaddrBlockAuxEqPos in Heq.
+replace (start1 + (end1 - start1)) with (p end1) in Heq; try(lia). assumption.
+Qed.
+
 (*Lemma nbFreeLowerThanPrepared partition nbPrepare nbFreeSlots s:
 maxNbPrepareIsMaxNbKernels s
 -> NbFreeSlotsISNbFreeSlotsInList s

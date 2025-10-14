@@ -1677,8 +1677,9 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
       rewrite getMappedBlocksEqLookup with (s0 := s0) in HblockMapped; trivial. unfold sh1entryAddr in *.
       unfold sh1entryPDchild in *. unfold sh1entryInChildLocation in *. unfold isBE in *. rewrite HlookupsEq in *.
       rewrite HlookupsEq in *. specialize(Hcons0 part block sh1entryaddr blockChild idchild HpartIsPart HblockMapped
-        Hsh1 HPDchild Hloc HbeqIdChildNull HbeqBlockCNull).
-      rewrite getMappedBlocksEqLookup with (s0 := s0); trivial.
+        Hsh1 HPDchild Hloc HbeqIdChildNull HbeqBlockCNull). destruct Hcons0 as (HblockCMapped & HstartIsOrigin).
+      split. rewrite getMappedBlocksEqLookup with (s0 := s0); trivial. unfold bentryStartAddr.
+      rewrite HlookupsEq. rewrite HlookupsEq. assumption.
       (* END childLocMappedInChild *)
     }
     intuition.
