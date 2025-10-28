@@ -91,7 +91,6 @@
 // semihosting configurations are used.
 
 #include <stdint.h>
-#include <sys/types.h>
 
 #include "memlayout.h"
 #include "mpu.h"

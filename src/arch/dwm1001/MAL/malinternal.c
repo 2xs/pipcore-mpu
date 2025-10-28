@@ -39,7 +39,6 @@
  */
 
 #include <stdint.h>
-#include <math.h>
 #include "mal.h"
 #include <stddef.h>
 #include "mpu.h"
