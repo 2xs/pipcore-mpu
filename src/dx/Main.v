@@ -31,7 +31,7 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-From Coq Require Import List String.
+From Stdlib Require Import List String.
 Import List.ListNotations.
 Open Scope string.
 

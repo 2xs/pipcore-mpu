@@ -31,8 +31,8 @@
 (*  knowledge of the CeCILL license and that you accept its terms.             *)
 (*******************************************************************************)
 
-From Coq Require Import ZArith.
-From Coq Require Import List String.
+From Stdlib Require Import ZArith.
+From Stdlib Require Import List String.
 Import ListNotations.
 
 Close Scope nat_scope.
