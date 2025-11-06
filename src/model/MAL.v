@@ -870,3 +870,10 @@ Definition checkMPUEntryZero (blockToCheck: paddr) (size: index) : LLI bool :=
   (*let modulo := blockToCheck mod size in
   perform is32Aligned := check32Aligned blockToCheck in
   ret ((modulo =? 0) && is32Aligned).*)
+
+Definition paddrAddIdx (n : paddr) (m : index) : LLI paddr :=
+  perform optionPAddr := paddrAddIdxMOpt n m in
+  match optionPAddr with
+  | None => ret nullAddr
+  | Some PAddr => ret PAddr
+  end.
