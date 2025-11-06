@@ -50,6 +50,7 @@ Import List.ListNotations Nat Compare_dec Lia.
 (*******************************************************************************)
 Definition kernelStructureEntriesNb := kernelStructureEntriesBits ^ 2 -1.
 Definition maxNbPrepare := nbPrepareMaxBits ^ 2.
+Definition maxNbPreparePlusOne := maxNbPrepare+1.
 (*******************************************************************************)
 
 

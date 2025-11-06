@@ -114,7 +114,7 @@ GenerateIntermediateRepresentation
   PipTypes
   PipPrimitives
 
-  ADT.maxNbPrepare
+  ADT.maxNbPreparePlusOne
   MALInternal
   MAL
 

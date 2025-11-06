@@ -49,5 +49,6 @@
 // Computed constants
 #define KERNELSTRUCTUREENTRIESNB (1<<KERNELSTRUCTUREENTRIESBITS) //!< The number of entries in a kernel structure.
 #define MAXNBPREPARE (1<<NBPREPAREMAXBITS) //!< The maximum number of times a partition can be prepared.
+#define MAXNBPREPAREP1 (MAXNBPREPARE+1) //!< The maximum number of times a partition can be prepared.
 
 #endif /* USERCONSTANTS_H */

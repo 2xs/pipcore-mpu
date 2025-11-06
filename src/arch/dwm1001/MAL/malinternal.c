@@ -46,6 +46,7 @@
 uint32_t N = 1000;
 
 uint32_t maxNbPrepare = MAXNBPREPARE;
+uint32_t maxNbPreparePlusOne = MAXNBPREPAREP1;
 
 paddr nullAddr = NULL;
 
