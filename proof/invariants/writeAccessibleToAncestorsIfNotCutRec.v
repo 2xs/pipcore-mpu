@@ -3264,7 +3264,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
          { (* BEGIN nextImpliesBlockWasCut s1 *)
            assert(Hcons0: nextImpliesBlockWasCut s0) by (unfold consistency1 in *; intuition).
            intros part pdentry block scentryaddr scnext endBlock HpartBisIsPart HlookupPartBis HblockMapped
-              HendBlock Hsce HbeqNextNull Hnext. rewrite HgetPartEq in HpartBisIsPart.
+              HendBlock Hsce HbeqNextNull Hnext HbeqPartRoot. rewrite HgetPartEq in HpartBisIsPart.
            assert(HlookupPartBiss0: lookup part (memory s0) beqAddr = Some (PDT pdentry)).
            {
              rewrite Hs1 in HlookupPartBis. simpl in HlookupPartBis.
@@ -3295,16 +3295,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
              rewrite <-beqAddrFalse in HbeqBlockSce. rewrite removeDupIdentity in Hnext; intuition.
            }
            specialize(Hcons0 part pdentry block scentryaddr scnext endBlock HpartBisIsPart HlookupPartBiss0
-              HblockMapped HendBlocks0 Hsce HbeqNextNull Hnexts0). destruct Hcons0 as (Hcons0 & HAflag).
-           assert(HAflags1: bentryAFlag block false s1).
-           {
-             unfold bentryAFlag. rewrite Hs1. simpl.
-             destruct (beqAddr blockInParentPartitionAddr block) eqn:HbeqBlocks.
-             {
-               rewrite <-DTL.beqAddrTrue in HbeqBlocks. subst block. exfalso. (*TODO HERE is it possible?*)
-             }
-           }
-           split; trivial. intro HbeqPartRoot. specialize(Hcons0 HbeqPartRoot).
+              HblockMapped HendBlocks0 Hsce HbeqNextNull Hnexts0 HbeqPartRoot).
            destruct Hcons0 as [blockParent [endParent (HblockParentmapped & HendParent & Hends & Hincl)]].
            exists blockParent. exists endParent.
            assert(HgetBlocksParentEq: getMappedBlocks (parent pdentry) s1 = getMappedBlocks (parent pdentry) s0).

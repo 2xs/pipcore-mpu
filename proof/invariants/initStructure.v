@@ -1469,13 +1469,12 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
     { (* BEGIN nextImpliesBlockWasCut s *)
       assert(Hcons0: nextImpliesBlockWasCut s0) by intuition.
       intros partition pdentry block scentryaddr scnext endaddr HpartIsPart HlookupPart HblockMapped Hend Hsce
-        HbeqNextNull Hnext.
+        HbeqNextNull Hnext HbeqPartRoot.
       rewrite getPartitionsEqLookup with multiplexer s s0 in HpartIsPart; try(assumption).
       rewrite getMappedBlocksEqLookup with partition s s0 in HblockMapped; try(assumption).
       unfold bentryEndAddr in *. unfold scentryNext in *. unfold bentryAFlag. rewrite HlookupsEq in *.
       specialize(Hcons0 partition pdentry block scentryaddr scnext endaddr HpartIsPart HlookupPart HblockMapped
-        Hend Hsce HbeqNextNull Hnext). destruct Hcons0 as (Hcons0 & HAflag). split; trivial. intro HbeqPartRoot.
-      specialize(Hcons0 HbeqPartRoot). destruct Hcons0 as [blockParent [endParent Hcons0]].
+        Hend Hsce HbeqNextNull Hnext HbeqPartRoot). destruct Hcons0 as [blockParent [endParent Hcons0]].
       exists blockParent. exists endParent. rewrite HlookupsEq.
       rewrite getAllPaddrAuxEqLookup with [block] s s0; try(assumption).
       rewrite getAllPaddrAuxEqLookup with [blockParent] s s0; try(assumption).
@@ -3613,7 +3612,7 @@ assert(nextImpliesBlockWasCut s).
 { (* BEGIN nextImpliesBlockWasCut s *)
   assert(Hcons0: nextImpliesBlockWasCut s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
   intros partition pdentry block scentryaddr scnext endaddr HpartIsPart HlookupPart HblockMapped HendBlock Hsce
-    HbeqNextNull Hnext. rewrite HpdsArePDT in HlookupPart; try(unfold isPDT; rewrite HlookupPart;
+    HbeqNextNull Hnext HbeqPartRoot. rewrite HpdsArePDT in HlookupPart; try(unfold isPDT; rewrite HlookupPart;
     trivial). rewrite HgetMappedEq in HblockMapped; try(unfold isPDT; rewrite HlookupPart; trivial).
   assert(HnextCopy: scentryNext scentryaddr scnext s) by assumption. rewrite HgetPartsEq in HpartIsPart.
   unfold scentryNext in *. rewrite Hs in Hnext. simpl in Hnext.
@@ -3653,8 +3652,7 @@ assert(nextImpliesBlockWasCut s).
   }
   unfold bentryEndAddr in *. unfold bentryAFlag. rewrite HlookupBlockEq in *.
   specialize(Hcons0 partition pdentry block scentryaddr scnext endaddr HpartIsPart HlookupPart HblockMapped HendBlock
-    Hsce HbeqNextNull Hnext). destruct Hcons0 as (Hcons0 & HAflag). split; trivial. intro HbeqPartRoot.
-  specialize(Hcons0 HbeqPartRoot). destruct Hcons0 as [blockParent [endParent (HblockParentMapped & HendParent
+    Hsce HbeqNextNull Hnext HbeqPartRoot). destruct Hcons0 as [blockParent [endParent (HblockParentMapped & HendParent
     & HltEnd & Hincl)]]. exists blockParent. exists endParent. rewrite HgetMappedEq; try(unfold isPDT;
     unfold getMappedBlocks in *; unfold getKSEntries in *; destruct (lookup (parent pdentry) (memory s0) beqAddr);
     try(simpl in HblockParentMapped; congruence); destruct v; try(simpl in HblockParentMapped; congruence); trivial).

@@ -381,13 +381,12 @@ In partition (getPartitions multiplexer s)
 -> scentryaddr = CPaddr (block + scoffset)
 -> scnext <> nullAddr
 -> scentryNext scentryaddr scnext s
--> (partition <> constantRootPartM
-    -> exists blockParent endParent,
-        In blockParent (getMappedBlocks (parent pdentry) s)
-        /\ bentryEndAddr blockParent endParent s
-        /\ endaddr < endParent
-        /\ (forall addr, In addr (getAllPaddrAux [block] s) -> In addr (getAllPaddrAux [blockParent] s)))
-    /\ bentryAFlag block false s.
+-> partition <> constantRootPartM
+-> exists blockParent endParent,
+    In blockParent (getMappedBlocks (parent pdentry) s)
+    /\ bentryEndAddr blockParent endParent s
+    /\ endaddr < endParent
+    /\ (forall addr, In addr (getAllPaddrAux [block] s) -> In addr (getAllPaddrAux [blockParent] s)).
 
 (* New *)
 (** ** For any block mapped in a partition, if there is a next block, then the latter's starting address is the
