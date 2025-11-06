@@ -48,7 +48,17 @@
 paddr current_partition = NULL; /* Current partition, default root */
 paddr constantRootPartM = NULL; /* Multiplexer's partition descriptor, default 0*/
 
-static const PDTable_t DEFAULT_PD_TABLE = {NULL, NULL, 0, 0, NULL}; // BEWARE : LUT not initialized
+static const PDTable_t DEFAULT_PD_TABLE = {
+	.structure = NULL,
+	.firstfreeslot = NULL,
+	.nbfreeslots = 0,
+	.nbprepare = 0,
+	.parent = NULL,
+	.mpu = {NULL},
+	.LUT = {0}, // BEWARE : LUT not initialized
+	.vidtAddr = NULL,
+	.interruptState = 0,
+};
 
 
 /*!

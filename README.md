@@ -6,7 +6,7 @@ Pip-MPU is a project implementing the protokernel Pip on ARM Cortex-M devices ha
 
 
 
-You can find more about the Pip protokernel at its [website](http://pip.univ-lille.fr/).
+You can find more about the Pip protokernel at its [website](https://pip.univ-lille.fr/).
 
 
 
@@ -26,6 +26,8 @@ The Pip Development Team:
 * Samuel Hym <samuel.hym@univ-lille.fr>
 
 * David Nowak <david.nowak@univ-lille.fr>
+
+* Claire Soyez-Martin <claire.soyezmartin@univ-lille.fr>
 
 * Florian Vanhems <florian.vanhems.etu@univ-lille.fr>
 

@@ -32,8 +32,6 @@
 /*  knowledge of the CeCILL license and that you accept its terms.             */
 /*******************************************************************************/
 
-#include <stdlib.h>
-
 #include "maldefines.h"
 #include "nrf52.h"
 #include "pip_debug.h"
@@ -42,7 +40,6 @@
 #include "scs.h"
 #include "interface.h"
 #include "memlayout.h"
-#include "stdio.h"
 
 /**
  * @brief   Initial program status register value for the root partition

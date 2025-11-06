@@ -35,8 +35,6 @@
 #ifndef __SCS_H__
 #define __SCS_H__
 
-#include <stdlib.h>
-
 /*!
  * Structure representing the ICSR register.
  */

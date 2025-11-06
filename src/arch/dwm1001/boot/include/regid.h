@@ -59,6 +59,7 @@
 
 #define NRF_FICR_INSTANCE(base, macro_a, macro_b) \
 	macro_a(NRF_FICR_FICR, DEVICEID_0, registerAccessReadWrite, base, 0x060), \
+	macro_b(NRF_FICR_FICR, DEVICEID_1, registerAccessReadWrite, base, 0x064), \
 	macro_b(NRF_FICR_FICR, DEVICEADDRTYPE, registerAccessReadWrite, base, 0x0A0), \
 	macro_b(NRF_FICR_FICR, DEVICEADDR_0, registerAccessReadWrite, base, 0x0A4), \
 	macro_b(NRF_FICR_FICR, DEVICEADDR_1, registerAccessReadWrite, base, 0x0A8)
@@ -201,8 +202,14 @@
 	macro_b(NRF_UART_UART0, TASKS_STOPTX, registerAccessReadWrite, base, 0x00C), \
 	macro_b(NRF_UART_UART0, TASKS_SUSPEND, registerAccessReadWrite, base, 0x01C), \
 	macro_b(NRF_UART_UART0, EVENTS_RXDRDY, registerAccessReadWrite, base, 0x108), \
+	macro_b(NRF_UART_UART0, EVENTS_ENDRX, registerAccessReadWrite, base, 0x110), \
 	macro_b(NRF_UART_UART0, EVENTS_TXDRDY, registerAccessReadWrite, base, 0x11C), \
+	macro_b(NRF_UART_UART0, EVENTS_ENDTX, registerAccessReadWrite, base, 0x120), \
+	macro_b(NRF_UART_UART0, EVENTS_RXSTARTED, registerAccessReadWrite, base, 0x14c), \
+	macro_b(NRF_UART_UART0, EVENTS_TXSTARTED, registerAccessReadWrite, base, 0x150), \
+	macro_b(NRF_UART_UART0, SHORTS, registerAccessReadWrite, base, 0x200), \
 	macro_b(NRF_UART_UART0, INTENSET, registerAccessReadWrite, base, 0x304), \
+	macro_b(NRF_UART_UART0, INTENCLR, registerAccessReadWrite, base, 0x308), \
 	macro_b(NRF_UART_UART0, ENABLE, registerAccessReadWrite, base, 0x500), \
 	macro_b(NRF_UART_UART0, PSELRTS, registerAccessReadWrite, base, 0x508), \
 	macro_b(NRF_UART_UART0, PSELTXD, registerAccessReadWrite, base, 0x50C), \
@@ -211,7 +218,42 @@
 	macro_b(NRF_UART_UART0, RXD, registerAccessReadWrite, base, 0x518), \
 	macro_b(NRF_UART_UART0, TXD, registerAccessReadWrite, base, 0x51C), \
 	macro_b(NRF_UART_UART0, BAUDRATE, registerAccessReadWrite, base, 0x524), \
+	macro_b(NRF_UART_UART0, RXD_PTR, registerAccessReadWrite, base, 0x534), \
+	macro_b(NRF_UART_UART0, RXD_MAXCNT, registerAccessReadWrite, base, 0x538), \
+	macro_b(NRF_UART_UART0, RXD_AMOUNT, registerAccessReadWrite, base, 0x53c), \
+	macro_b(NRF_UART_UART0, TXD_PTR, registerAccessReadWrite, base, 0x544), \
+	macro_b(NRF_UART_UART0, TXD_MAXCNT, registerAccessReadWrite, base, 0x548), \
 	macro_b(NRF_UART_UART0, CONFIG, registerAccessReadWrite, base, 0x56C)
+
+#define NRF_UARTE0_INSTANCE(base, macro_a, macro_b) \
+	macro_a(NRF_UARTE_UARTE0, TASKS_STARTRX, registerAccessReadWrite, base, 0x000), \
+	macro_b(NRF_UARTE_UARTE0, TASKS_STOPRX, registerAccessReadWrite, base, 0x004), \
+	macro_b(NRF_UARTE_UARTE0, TASKS_STARTTX, registerAccessReadWrite, base, 0x008), \
+	macro_b(NRF_UARTE_UARTE0, TASKS_STOPTX, registerAccessReadWrite, base, 0x00C), \
+	macro_b(NRF_UARTE_UARTE0, TASKS_SUSPEND, registerAccessReadWrite, base, 0x01C), \
+	macro_b(NRF_UARTE_UARTE0, EVENTS_RXDRDY, registerAccessReadWrite, base, 0x108), \
+	macro_b(NRF_UARTE_UARTE0, EVENTS_ENDRX, registerAccessReadWrite, base, 0x110), \
+	macro_b(NRF_UARTE_UARTE0, EVENTS_TXDRDY, registerAccessReadWrite, base, 0x11C), \
+	macro_b(NRF_UARTE_UARTE0, EVENTS_ENDTX, registerAccessReadWrite, base, 0x120), \
+	macro_b(NRF_UARTE_UARTE0, EVENTS_RXSTARTED, registerAccessReadWrite, base, 0x14c), \
+	macro_b(NRF_UARTE_UARTE0, EVENTS_TXSTARTED, registerAccessReadWrite, base, 0x150), \
+	macro_b(NRF_UARTE_UARTE0, SHORTS, registerAccessReadWrite, base, 0x200), \
+	macro_b(NRF_UARTE_UARTE0, INTENSET, registerAccessReadWrite, base, 0x304), \
+	macro_b(NRF_UARTE_UARTE0, INTENCLR, registerAccessReadWrite, base, 0x308), \
+	macro_b(NRF_UARTE_UARTE0, ENABLE, registerAccessReadWrite, base, 0x500), \
+	macro_b(NRF_UARTE_UARTE0, PSELRTS, registerAccessReadWrite, base, 0x508), \
+	macro_b(NRF_UARTE_UARTE0, PSELTXD, registerAccessReadWrite, base, 0x50C), \
+	macro_b(NRF_UARTE_UARTE0, PSELCTS, registerAccessReadWrite, base, 0x510), \
+	macro_b(NRF_UARTE_UARTE0, PSELRXD, registerAccessReadWrite, base, 0x514), \
+	macro_b(NRF_UARTE_UARTE0, RXD, registerAccessReadWrite, base, 0x518), \
+	macro_b(NRF_UARTE_UARTE0, TXD, registerAccessReadWrite, base, 0x51C), \
+	macro_b(NRF_UARTE_UARTE0, BAUDRATE, registerAccessReadWrite, base, 0x524), \
+	macro_b(NRF_UARTE_UARTE0, RXD_PTR, registerAccessReadWrite, base, 0x534), \
+	macro_b(NRF_UARTE_UARTE0, RXD_MAXCNT, registerAccessReadWrite, base, 0x538), \
+	macro_b(NRF_UARTE_UARTE0, RXD_AMOUNT, registerAccessReadWrite, base, 0x53c), \
+	macro_b(NRF_UARTE_UARTE0, TXD_PTR, registerAccessReadWrite, base, 0x544), \
+	macro_b(NRF_UARTE_UARTE0, TXD_MAXCNT, registerAccessReadWrite, base, 0x548), \
+	macro_b(NRF_UARTE_UARTE0, CONFIG, registerAccessReadWrite, base, 0x56C)
 
 #define NRF_SPIM0_INSTANCE(base, macro_a, macro_b) \
 	macro_a(NRF_SPIM_SPIM0, TASKS_START, registerAccessReadWrite, base, 0x010), \
@@ -283,6 +325,7 @@
 	macro_b(NRF_TWIM_TWIM1, RXD_MAXCNT, registerAccessReadWrite, base, 0x538), \
 	macro_b(NRF_TWIM_TWIM1, TXD_PTR, registerAccessReadWrite, base, 0x544), \
 	macro_b(NRF_TWIM_TWIM1, TXD_MAXCNT, registerAccessReadWrite, base, 0x548), \
+	macro_b(NRF_TWIM_TWIM1, TXD_MAXAMOUNT, registerAccessReadWrite, base, 0x54C), \
 	macro_b(NRF_TWIM_TWIM1, ADDRESS, registerAccessReadWrite, base, 0x588)
 
 #define NRF_GPIOTE_INSTANCE(base, macro_a, macro_b) \
@@ -803,6 +846,7 @@
 	macro( NRF_RADIO_INSTANCE, 0x40001000 ),                                                           \
 	macro( NRF_PPI_INSTANCE, 0x4001F000 ),                                                             \
 	macro( NRF_UART0_INSTANCE, 0x40002000 ),                                                           \
+	macro( NRF_UARTE0_INSTANCE, 0x40002000 ),                                                           \
 	macro( NRF_SPIM0_INSTANCE, 0x40003000 ),                                                           \
 	macro( NRF_TWIM0_INSTANCE, 0x40003000 ),                                                           \
 	macro( NRF_SPIM1_INSTANCE, 0x40004000 ),                                                           \

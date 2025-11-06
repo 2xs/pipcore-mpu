@@ -135,8 +135,7 @@ void SVC_Handler_C(stackedContext_t *context)
 		{
 			*r0 = (uint32_t) prepare(
 				(paddr) *r0,
-				(Coq_index) *r1,
-				(paddr) *r2
+				(paddr) *r1
 			);
 
 			break;
