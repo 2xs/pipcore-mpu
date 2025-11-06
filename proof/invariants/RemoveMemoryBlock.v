@@ -114,7 +114,7 @@ eapply bindRev.
     /\ beqAddr nullAddr idPDchild = false
     /\ (exists sh1entryaddr, sh1entryPDchild sh1entryaddr idPDchild s
           /\ sh1entryAddr blockToRemoveInCurrPartAddr sh1entryaddr s)).
-  intuition.
+  intuition. 2,3,4,5,6: unfold consistency in *; unfold consistency1 in *; intuition.
   - exists sh1entryaddr. intuition.
   - unfold bentryPFlag in *.
     destruct (lookup blockToRemoveInCurrPartAddr (memory s) beqAddr); try(exfalso; congruence).
@@ -131,9 +131,10 @@ intro blockInChildIsNull. destruct blockInChildIsNull.
 (* case_eq blockInChildIsNull = false *)
 eapply bindRev.
 { (** MAL.readPDVidt **)
-  eapply weaken. apply readPDVidt. intros s Hprops. simpl. split. apply Hprops.
-  
-  
+  eapply weaken. apply readPDVidt. intros s Hprops. simpl. split. apply Hprops. intuition.
+  unfold getMappedBlocks in *. unfold getKSEntries in *. unfold isPDT.
+  destruct (lookup currentPart (memory s) beqAddr); try(simpl in *; congruence).
+  destruct v; try(simpl in *; congruence). trivial.
 }
 intro vidtBlockGlobalId. destruct (beqAddr vidtBlockGlobalId blockToRemoveInCurrPartAddr) eqn:HbeqVidtBlockTR.
 { (* case vidtBlockGlobalId = blockToRemoveInCurrPartAddr *)
