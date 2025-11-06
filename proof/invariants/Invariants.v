@@ -554,15 +554,14 @@ Qed.
 
 Lemma lookupSh1EntryInChildLocation paddr s :
 forall entry , lookup paddr (memory s) beqAddr = Some (SHE entry) ->
-consistency s ->
+sh1InChildLocationIsBE s ->
 sh1entryInChildLocation paddr (inChildLocation entry) s.
 Proof.
 intros.
 unfold sh1entryInChildLocation.
 rewrite H;trivial.
 intuition.
-unfold consistency in *. unfold consistency1 in *.
-unfold sh1InChildLocationIsBE in *. intuition.
+unfold sh1InChildLocationIsBE in *.
 eauto.
 Qed.
 
@@ -1417,24 +1416,26 @@ Qed.
 
 (* DUP with deeper changes because of lookupSh1EntryInChildLocation *)
 Lemma readSh1InChildLocationFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Prop)  :
-{{fun s  =>  Q s /\ consistency s /\ exists entry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
+{{fun s  =>  Q s /\ wellFormedFstShadowIfBlockEntry s /\ KernelStructureStartFromBlockEntryAddrIsKS s
+    /\ BlocksRangeFromKernelStartIsBE s /\ nullAddrExists s /\ sh1InChildLocationIsBE s
+    /\ exists entry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
 MAL.readSh1InChildLocationFromBlockEntryAddr blockentryaddr
 {{fun inchildlocation s => Q s (*/\ consistency s*) (*/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)*)
 										/\ exists sh1entry : Sh1Entry, exists sh1entryaddr : paddr, lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry)
+                    /\ sh1entryAddr blockentryaddr sh1entryaddr s
 										/\ sh1entryInChildLocation sh1entryaddr inchildlocation s}}.
 Proof.
 unfold readSh1InChildLocationFromBlockEntryAddr.
 eapply WP.bindRev.
 +   eapply WP.weaken. apply getSh1EntryAddrFromBlockEntryAddr.
-	intros. simpl. split. apply H. unfold consistency in H. unfold consistency1 in H.
-	intuition.
+	intros. simpl. split. apply H. intuition.
 +	intro sh1entryaddr. simpl.
 	eapply bind.
 	intros. apply ret.
 	eapply weaken. apply getSh1RecordField.
 	intros. simpl. destruct H. destruct H0. exists x.
 	split. intuition. split. apply H.
-	exists x. exists sh1entryaddr. split. apply H0.
+	exists x. exists sh1entryaddr. split. apply H0. split; try(apply H0).
 	apply lookupSh1EntryInChildLocation. apply H0. intuition.
 Qed.
 
@@ -2235,19 +2236,19 @@ Lemma writeSh1EntryFromBlockEntryAddr block newPdChild newPdFlag newInChildLocat
             /\ BlocksRangeFromKernelStartIsBE s /\ nullAddrExists s /\ isBE block s }}
 writeSh1EntryFromBlockEntryAddr block newPdChild newPdFlag newInChildLocation
 {{ fun _ s => exists s0 sh1entry1 sh1entry0,
-                P s0
-                /\ s = {|
-                         currentPartition := currentPartition s0;
-                         memory :=
-                           add (CPaddr (block + sh1offset))
-                             (SHE {| PDchild := newPdChild;
-                                     PDflag := newPdFlag;
-                                     inChildLocation := newInChildLocation |})
-                             (add (CPaddr (block + sh1offset)) sh1entry1
-                                (add (CPaddr (block + sh1offset)) sh1entry0 (memory s0) beqAddr) beqAddr) beqAddr
-                       |}
-                /\ wellFormedFstShadowIfBlockEntry s /\ KernelStructureStartFromBlockEntryAddrIsKS s
-                /\ BlocksRangeFromKernelStartIsBE s /\ nullAddrExists s }}.
+              P s0
+              /\ s = {|
+                       currentPartition := currentPartition s0;
+                       memory :=
+                         add (CPaddr (block + sh1offset))
+                           (SHE {| PDchild := newPdChild;
+                                   PDflag := newPdFlag;
+                                   inChildLocation := newInChildLocation |})
+                           (add (CPaddr (block + sh1offset)) (SHE sh1entry1)
+                              (add (CPaddr (block + sh1offset)) (SHE sh1entry0) (memory s0) beqAddr) beqAddr) beqAddr
+                     |}
+              /\ wellFormedFstShadowIfBlockEntry s /\ KernelStructureStartFromBlockEntryAddrIsKS s
+              /\ BlocksRangeFromKernelStartIsBE s /\ nullAddrExists s }}.
 Proof.
 unfold writeSh1EntryFromBlockEntryAddr. eapply bindRev.
 { (* MAL.writeSh1PDChildFromBlockEntryAddr *)
@@ -2504,9 +2505,8 @@ intro. eapply bindRev.
 intro. eapply weaken. apply ret. intros s Hprops. simpl. destruct Hprops as [s2 [s1 [s0 [sh1entry2 [sh1entry1
   [sh1entry0 (Hs & Hs2 & Hsh1entry2 & Hsh1entry1 & HbeqBlockSh1Block & HlookupBlockSh1s2 & HwellFormedSh &
   HstructIsKS & HrangeIsBE & Hnull & Hs1 & _ & _ & _ & _ & HP)]]]]]]. exists s0.
-exists (SHE {| PDchild := newPdChild; PDflag := newPdFlag; inChildLocation := inChildLocation sh1entry0 |}).
-exists (SHE {| PDchild := newPdChild; PDflag := PDflag sh1entry0;
-               inChildLocation := inChildLocation sh1entry0 |}).
+exists {| PDchild := newPdChild; PDflag := newPdFlag; inChildLocation := inChildLocation sh1entry0 |}.
+exists {| PDchild := newPdChild; PDflag := PDflag sh1entry0; inChildLocation := inChildLocation sh1entry0 |}.
  split. assumption. split.
 - rewrite Hs. rewrite Hs2. simpl. rewrite Hsh1entry2. simpl. rewrite Hsh1entry1. simpl. rewrite Hs1. simpl.
   reflexivity.

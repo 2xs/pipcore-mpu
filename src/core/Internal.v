@@ -700,6 +700,9 @@ Definition removeBlockInChildAndDescendants (currentPart
 																											idPDchild
 																											blockToRemoveInChildAddr in
 						if negb recRemoveInDescendantsEnded then (* timeout reached *) ret false else
+            (** Parent: remove block reference to the child *)
+            writeSh1EntryFromBlockEntryAddr blockToRemoveInCurrPartAddr nullAddr false nullAddr;;
+            (*Moved for consistency purposes in case 2*)
 						ret true
 
 		else (** Case 2: block cut in the child partition -> remove all
@@ -719,6 +722,8 @@ Definition removeBlockInChildAndDescendants (currentPart
 				(** Set back the block as accessible in the ancestors because it was cut *)
 				writeBlockAccessibleFromBlockEntryAddr blockToRemoveInCurrPartAddr true ;;
 		    perform endBlockToRemove := readBlockEndFromBlockEntryAddr blockToRemoveInCurrPartAddr in
+        (** Parent: remove block reference to the child *) (*Moved for consistency purposes*)
+        writeSh1EntryFromBlockEntryAddr blockToRemoveInCurrPartAddr nullAddr false nullAddr;;
 				perform recWriteEnded := writeAccessibleRec currentPart
 																										globalIdBlockToRemove
                                                     endBlockToRemove

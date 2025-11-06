@@ -381,12 +381,13 @@ In partition (getPartitions multiplexer s)
 -> scentryaddr = CPaddr (block + scoffset)
 -> scnext <> nullAddr
 -> scentryNext scentryaddr scnext s
--> partition <> constantRootPartM
--> exists blockParent endParent,
-    In blockParent (getMappedBlocks (parent pdentry) s)
-    /\ bentryEndAddr blockParent endParent s
-    /\ endaddr < endParent
-    /\ (forall addr, In addr (getAllPaddrAux [block] s) -> In addr (getAllPaddrAux [blockParent] s)).
+-> (partition <> constantRootPartM
+    -> exists blockParent endParent,
+        In blockParent (getMappedBlocks (parent pdentry) s)
+        /\ bentryEndAddr blockParent endParent s
+        /\ endaddr < endParent
+        /\ (forall addr, In addr (getAllPaddrAux [block] s) -> In addr (getAllPaddrAux [blockParent] s)))
+    /\ bentryAFlag block false s.
 
 (* New *)
 (** ** For any block mapped in a partition, if there is a next block, then the latter's starting address is the
@@ -650,9 +651,17 @@ In partition (getPartitions multiplexer s)
 -> sh1entryInChildLocation sh1entryaddr blockChild s
 -> idchild <> nullAddr
 -> blockChild <> nullAddr
--> In blockChild (getMappedBlocks idchild s)
+    /\ In blockChild (getMappedBlocks idchild s)
     /\ forall startaddr, bentryStartAddr block startaddr s
         -> bentryStartAddr blockChild startaddr s.
+
+Definition childBlockNullIfChildNull s :=
+forall partition block sh1entryaddr,
+In partition (getPartitions multiplexer s)
+-> In block (getMappedBlocks partition s)
+-> sh1entryAddr block sh1entryaddr s
+-> sh1entryPDchild sh1entryaddr nullAddr s
+-> sh1entryInChildLocation sh1entryaddr nullAddr s.
 
 
 (** ** First batch of consistency properties *)
@@ -700,7 +709,8 @@ nextKernAddrIsInSameBlock s /\
 blockBelongsToAPart s /\
 PDflagMeansNoChild s /\
 nbPrepareIsNbKern s
-/\ pdchildIsPDT s.
+/\ pdchildIsPDT s
+/\ childBlockNullIfChildNull s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=

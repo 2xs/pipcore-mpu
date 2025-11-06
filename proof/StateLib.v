@@ -809,3 +809,34 @@ Definition completeListOfKernels kern s := match (lookup kern (memory s) beqAddr
                     end
 | _ => []
 end.
+
+Fixpoint isChildBlocksList s childrenList blockBase :=
+match childrenList with
+| [] => True
+| childBlock::newChildrenList =>
+    match (lookup blockBase (memory s) beqAddr) with
+    | Some (BE _) => match (lookup (CPaddr (blockBase+sh1offset)) (memory s) beqAddr) with
+        | Some (SHE sh1entry) => inChildLocation sh1entry = childBlock
+              /\ (childBlock <> nullAddr -> isBE childBlock s)
+              /\ isChildBlocksList s newChildrenList childBlock
+        | _ => False
+        end
+    | _ => False
+    end
+end.
+
+Fixpoint partitionsFromChildList s childrenList blockBase :=
+match childrenList with
+| [] => []
+| childBlock::newChildrenList =>
+    match (lookup blockBase (memory s) beqAddr) with
+    | Some (BE _) => match (lookup (CPaddr (blockBase+sh1offset)) (memory s) beqAddr) with
+        | Some (SHE sh1entry) => match (beqAddr (PDchild sh1entry) nullAddr) with
+            | false => (partitionsFromChildList s newChildrenList childBlock)++[PDchild sh1entry]
+            | _ => []
+            end
+        | _ => []
+        end
+    | _ => []
+    end
+end.

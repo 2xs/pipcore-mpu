@@ -605,8 +605,8 @@ Definition removeMemoryBlock (idBlockToRemove: paddr) : LLI bool :=
 																		blockToRemoveInChildAddr in
 		if negb blockIsRemoved then (* block not removed, stop*) ret false else
 
-		(** Parent: remove block reference to the child *)
-		writeSh1EntryFromBlockEntryAddr blockToRemoveInCurrPartAddr nullAddr false nullAddr ;;
+		(** Parent: remove block reference to the child *) (*Moved in removeBlockInChildAndDescendants*)
+		(*writeSh1EntryFromBlockEntryAddr blockToRemoveInCurrPartAddr nullAddr false nullAddr ;;*)
 		ret true.
 
 (** ** The deletePartition PIP MPU service
