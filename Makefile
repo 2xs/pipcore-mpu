@@ -323,7 +323,9 @@ $(JSONS) $(COQ_EXTR_COMPILED_FILES) &:\
 		| $(GENERATED_FILES_DIR)
 	cd $(GENERATED_FILES_DIR) && $(COQC) $(COQCEXTRFLAGS) ../$<
 
-%.vo %.vok %.vos %.glob .%.aux &: %.v %.v.d
+# FIXME .aux files are difficult to match ; previous rule was wrong. Omit them for now
+# %.vo %.vok %.vos %.glob .%.aux &: %.v %.v.d
+%.vo %.vok %.vos %.glob &: %.v %.v.d
 	$(COQC) $(COQCFLAGS) $<
 
 $(GENERATED_FILES_DIR)/Main.ml $(GENERATED_FILES_DIR)/Main.mli src/dx/Extr.vo &: src/dx/Extr.v | $(GENERATED_FILES_DIR)
@@ -345,7 +347,9 @@ else
 $(JSONS): src/extraction/Extraction.vo | $(GENERATED_FILES_DIR)
 	mv $(notdir $@) $(GENERATED_FILES_DIR)
 
-%.vo %.vok %.vos %.glob .%.aux : %.v %.v.d
+# FIXME .aux files are difficult to match ; previous rule was wrong. Omit them for now
+# %.vo %.vok %.vos %.glob .%.aux : %.v %.v.d
+%.vo %.vok %.vos %.glob : %.v %.v.d
 	$(COQC) $(COQCFLAGS) $<
 
 $(GENERATED_FILES_DIR)/Main.ml $(GENERATED_FILES_DIR)/Main.mli src/dx/Extr.vo: src/dx/Extr.v src/dx/Main.vo | $(GENERATED_FILES_DIR)
