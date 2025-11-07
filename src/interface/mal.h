@@ -105,7 +105,7 @@ block_t largest_covering_MPU_region(paddr blockentryaddr, paddr addrtocover); //
 
 paddr getNullAddr(void); //!< Returns the default null address.
 bool beqAddr(paddr a, paddr b); //!< Compare two addresses
-paddr paddrAddIdxM(paddr a, Coq_index b); //!< adds an offset to a paddr
+paddr paddrAddIdx(paddr a, Coq_index b); //!< adds an offset to a paddr
 uint32_t subPaddr(paddr a, paddr b); //!< substracts the first paddr to the second.
 bool lebPaddr(const paddr a, const paddr b); //!< the first parameter is less than or equal to the second one.
 paddr paddrPredM(paddr a); //!< decrements the given address.
@@ -144,6 +144,7 @@ void writeBlockXFromBlockEntryAddr(paddr blockentryaddr, bool value); //!< Sets 
 BlockEntry_t readBlockEntryFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the block entry
 void copyBlock(paddr blockTarget, paddr blockSource); //!< Copies block structures at the given addresses
 void writeBlockEntryFromBlockEntryAddr(paddr blockentryaddr, uint32_t index, paddr startAddr, paddr endAddr, bool accessible, bool present, bool read, bool write, bool exec); //!< Sets the block entry
+void writeBlockEntryFromBlockEntryAddrLight(paddr blockentryaddr, uint32_t index, paddr startAddr, paddr endAddr, bool accessible, bool present, bool read, bool write, bool exec);
 paddr getSh1EntryAddrFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the Sh1 entry from the block entry
 paddr readSh1PDChildFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the child's PD from the given entry
 void writeSh1PDChildFromBlockEntryAddr(paddr blockentryaddr, paddr value); //!< Sets the entry's child PD
@@ -152,14 +153,17 @@ void writeSh1PDFlagFromBlockEntryAddr(paddr blockentryaddr, bool value); //!< Se
 paddr readSh1InChildLocationFromBlockEntryAddr(paddr blockentryaddr); //!< Gets the location of the block in the child
 void writeSh1InChildLocationFromBlockEntryAddr(paddr blockentryaddr, paddr value); //!<Sets the block's location in the child
 void writeSh1EntryFromBlockEntryAddr(paddr blockentryaddr, paddr pdChild, bool pdFlag, paddr inChildLocation);//! Sets the block's Sh1 entry
+void writeSh1EntryFromBlockEntryAddrLight(paddr blockentryaddr, paddr pdChild, bool pdFlag, paddr inChildLocation);//! Sets the block's Sh1 entry
 paddr getSCEntryAddrFromBlockEntryAddr(paddr blockentryaddr); //! Gets the SC entry from the block entry
 paddr readSCOriginFromBlockEntryAddr(paddr blockentryaddr); //! Gets the block's origin
 void writeSCOriginFromBlockEntryAddr(paddr blockentryaddr, paddr value); //! Sets the block's origin
 paddr readSCNextFromBlockEntryAddr(paddr blockentryaddr); //! Gets the block's next subblock
 void writeSCNextFromBlockEntryAddr(paddr blockentryaddr, paddr value); //! Sets the block's next subblock
 void writeSCEntryFromBlockEntryAddr(paddr blockentryaddr, paddr origin, paddr next); //! Sets the block's SC entry
+void writeSCEntryFromBlockEntryAddrLight(paddr blockentryaddr, paddr origin, paddr next); //! Sets the block's SC entry
 paddr readNextFromKernelStructureStart(paddr structureaddr); //! Gets the block's next subblock
 void writeNextFromKernelStructureStart(paddr structureaddr, paddr newnextstructure); //! Sets the block's SC entry
+void writeNextFromKernelStructureStartLight(paddr structureaddr, paddr newnextstructure); //! Sets the block's SC entry
 bool eraseBlock (paddr startAddr, paddr endAddr); //! Erases the memory block defined by (startAddr, endAddr).
 void initPDTable(paddr pdtablepaddr); //! Initialises PD table at paddr with a default PD table
 void writePDTable(paddr addr, PDTable_t newpdtable); //! Sets a new PD Table at the given address

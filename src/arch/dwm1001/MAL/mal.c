@@ -1198,3 +1198,26 @@ void updateCurPartAndActivate(paddr calleePartDescGlobalId)
 	updateCurPartition(calleePartDescGlobalId);
 	activate(calleePartDescGlobalId);
 }
+
+/*!
+ * \brief adds an offset in bytes to a paddr
+ * \param a Address to offset
+ * \param b the offset in bytes
+ * \return the offseted address.
+ */
+paddr paddrAddIdx(paddr a, Coq_index b)
+{
+	if ((uintptr_t) a > (((uintptr_t) -1) - b)) {
+		return NULL;
+	}
+	return (paddr) ((uint8_t*) a + b);
+}
+
+# define weak_alias(name, aliasname) _weak_alias (name, aliasname)
+# define _weak_alias(name, aliasname) \
+  extern __typeof (name) aliasname __attribute__ ((weak, alias (#name)));
+
+weak_alias(writeBlockEntryFromBlockEntryAddr, writeBlockEntryFromBlockEntryAddrLight);
+weak_alias(writeSh1EntryFromBlockEntryAddr, writeSh1EntryFromBlockEntryAddrLight);
+weak_alias(writeSCEntryFromBlockEntryAddr, writeSCEntryFromBlockEntryAddrLight);
+weak_alias(writeNextFromKernelStructureStart, writeNextFromKernelStructureStartLight);

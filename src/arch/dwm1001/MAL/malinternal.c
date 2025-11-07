@@ -379,17 +379,6 @@ bool lebPaddr(const paddr a, const paddr b)
 }
 
 /*!
- * \brief adds an offset in bytes to a paddr
- * \param a Address to offset
- * \param b the offset in bytes
- * \return the offseted address.
- */
-paddr paddrAddIdxM(paddr a, Coq_index b)
-{
-	return (paddr) ((uint8_t*) a + b);
-}
-
-/*!
  * \fn paddr getAddr(paddr addr);
  * \brief returns the address
  * \return the address.
