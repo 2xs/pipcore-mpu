@@ -6759,6 +6759,127 @@ destruct (lookup (CPaddr (blockParent+sh1offset)) (memory s) beqAddr); try(congr
 destruct HchildLocP as (HchildLocVal & HbaseIsBE). auto.
 Qed.
 
+(*Lemma lastOfChildListIfNoLoc s block blockBase childrenList:
+isPADDR nullAddr s
+-> isBE block s
+-> sh1entryInChildLocation (CPaddr (block+sh1offset)) nullAddr s
+-> isChildBlocksList s childrenList blockBase
+-> In block childrenList
+-> block = last childrenList blockBase
+    \/ exists childrenListRec, childrenList = childrenListRec++[nullAddr] /\ block = last childrenListRec blockBase.
+Proof.
+intros Hnull HblockIsBE HchildLoc. revert blockBase. induction childrenList; intros blockBase HchildList HblockIn;
+  try(simpl in *; exfalso; congruence). simpl in HchildList. simpl in HblockIn.
+destruct (lookup blockBase (memory s) beqAddr); try(exfalso; congruence).
+destruct v; try(exfalso; congruence).
+destruct (lookup (CPaddr (blockBase+sh1offset)) (memory s) beqAddr) eqn:HlookupSh1; try(exfalso; congruence).
+destruct v; try(exfalso; congruence). destruct HchildList as (HchildLocBase & HlocBaseProp & HchildList).
+destruct HblockIn as [Heq | HblockIn].
+- rewrite Heq in *. destruct childrenList.
+  + left. reflexivity.
+  + right. simpl in *. unfold isBE in *. destruct (lookup block (memory s) beqAddr); try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). unfold sh1entryInChildLocation in *.
+    destruct (lookup (CPaddr (block+sh1offset)) (memory s) beqAddr); try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). destruct HchildLoc as (HchildLoc & _). rewrite <-HchildLoc in *.
+    destruct HchildList as (HeqNull & _ & HchildList). subst p. destruct childrenList.
+    * exists [block]. split; reflexivity.
+    * exfalso. simpl in *. unfold isPADDR in *. destruct (lookup nullAddr (memory s) beqAddr); try(congruence).
+      destruct v; congruence.
+- specialize(IHchildrenList a HchildList HblockIn). destruct IHchildrenList as [Hlast | Hpen].
+  + left. apply lastRecInc. assumption.
+  + right. destruct Hpen as [childrenListRec (Hpen & Hlast)]. exists (a::childrenListRec). rewrite Hpen.
+    split; trivial. apply lastRecInc. assumption.
+Qed.
+
+Lemma lastOfChildListIfNoLocBis s block blockBase childrenList:
+isPADDR nullAddr s
+-> isBE block s
+-> sh1entryInChildLocation (CPaddr (block+sh1offset)) nullAddr s
+-> isChildBlocksList s childrenList blockBase
+-> In block childrenList
+-> exists childrenListRec lastEl, childrenList = childrenListRec++[lastEl]
+    /\ (lastEl = block /\ ~In block childrenListRec
+        \/ lastEl = nullAddr
+          /\ exists childrenListRecRec, childrenListRec = childrenListRecRec++[block]
+              /\ ~In block childrenListRecRec).
+Proof.
+intros Hnull HblockIsBE HchildLoc. revert blockBase. induction childrenList; intros blockBase HchildList HblockIn;
+  try(simpl in *; exfalso; congruence). simpl in *.
+destruct (lookup blockBase (memory s) beqAddr); try(exfalso; congruence).
+destruct v; try(exfalso; congruence).
+destruct (lookup (CPaddr (blockBase+sh1offset)) (memory s) beqAddr) eqn:HlookupSh1; try(exfalso; congruence).
+destruct v; try(exfalso; congruence). destruct HchildList as (HchildLocBase & HlocBaseProp & HchildList).
+destruct (beqAddr a block) eqn:HbeqBlockA.
+- rewrite <-DTL.beqAddrTrue in HbeqBlockA. rewrite HbeqBlockA in *. destruct childrenList.
+  + exists []. exists block. split; trivial. left. split; auto.
+  + exists [block]. exists p. simpl in *. unfold isBE in *.
+    destruct (lookup block (memory s) beqAddr); try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). unfold sh1entryInChildLocation in *.
+    destruct (lookup (CPaddr (block+sh1offset)) (memory s) beqAddr); try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). destruct HchildLoc as (HchildLoc & _). rewrite <-HchildLoc in *.
+    destruct HchildList as (HeqNull & _ & HchildList). subst p. destruct childrenList.
+    * split; trivial. right. split; trivial. exists []. split; auto.
+    * exfalso. simpl in *. unfold isPADDR in *. destruct (lookup nullAddr (memory s) beqAddr); try(congruence).
+      destruct v; congruence.
+- rewrite <-beqAddrFalse in *. destruct HblockIn as [Heq | HblockIn]; try(exfalso; congruence).
+  specialize(IHchildrenList a HchildList HblockIn).
+  destruct IHchildrenList as [childrenListRec [lastEl (HchildListEq & IHchildrenList)]].
+  exists (a::childrenListRec). exists lastEl. rewrite HchildListEq. split; auto.
+  destruct IHchildrenList as [(Hlast & HblockNotIn) | (Hlast & [childrenListRecRec (Hpen & HblockNotIn)])].
+  + left. simpl. split; trivial. apply and_not_or. split; assumption.
+  + right. split; trivial. rewrite Hpen. exists (a::childrenListRecRec). split; trivial. simpl. apply and_not_or.
+    split; assumption.
+Qed.*)
+
+Lemma lastOfChildListIfNoLoc s block blockBase childrenList:
+isPADDR nullAddr s
+-> isBE block s
+-> sh1entryInChildLocation (CPaddr (block+sh1offset)) nullAddr s
+-> isChildBlocksList s childrenList blockBase
+-> In block childrenList
+-> exists childrenListRec lastEl, childrenList = childrenListRec++[lastEl]
+    /\ ~In nullAddr childrenListRec
+    /\ (lastEl = block /\ ~In block childrenListRec
+        \/ lastEl = nullAddr
+          /\ exists childrenListRecRec, childrenListRec = childrenListRecRec++[block]
+              /\ ~In block childrenListRecRec).
+Proof.
+intros Hnull HblockIsBE HchildLoc. revert blockBase. induction childrenList; intros blockBase HchildList HblockIn;
+  try(simpl in *; exfalso; congruence). simpl in *.
+destruct (lookup blockBase (memory s) beqAddr); try(exfalso; congruence).
+destruct v; try(exfalso; congruence).
+destruct (lookup (CPaddr (blockBase+sh1offset)) (memory s) beqAddr) eqn:HlookupSh1; try(exfalso; congruence).
+destruct v; try(exfalso; congruence). destruct HchildList as (HchildLocBase & HlocBaseProp & HchildList).
+destruct (beqAddr a block) eqn:HbeqBlockA.
+- rewrite <-DTL.beqAddrTrue in HbeqBlockA. rewrite HbeqBlockA in *. destruct childrenList.
+  + exists []. exists block. split; trivial. split; auto.
+  + exists [block]. exists p. simpl in *. unfold isBE in *.
+    destruct (lookup block (memory s) beqAddr) eqn:HlookupBlock; try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). unfold sh1entryInChildLocation in *.
+    destruct (lookup (CPaddr (block+sh1offset)) (memory s) beqAddr); try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). destruct HchildLoc as (HchildLoc & _). assert(block <> nullAddr).
+    {
+      intro Hcontra. rewrite Hcontra in *. unfold isPADDR in *. rewrite HlookupBlock in *. congruence.
+    }
+    rewrite <-HchildLoc in *. destruct HchildList as (HeqNull & _ & HchildList). subst p. destruct childrenList.
+    * split; trivial. split.
+      --- intro Hcontra. destruct Hcontra; congruence.
+      --- right. split; trivial. exists []. split; auto.
+    * exfalso. simpl in *. unfold isPADDR in *. destruct (lookup nullAddr (memory s) beqAddr); try(congruence).
+      destruct v; congruence.
+- rewrite <-beqAddrFalse in *. destruct HblockIn as [Heq | HblockIn]; try(exfalso; congruence).
+  specialize(IHchildrenList a HchildList HblockIn).
+  destruct IHchildrenList as [childrenListRec [lastEl (HchildListEq & HnullNotIn & IHchildrenList)]].
+  exists (a::childrenListRec). exists lastEl. rewrite HchildListEq. split; auto. split.
+  + simpl. intro Hcontra. destruct Hcontra as [HeqA | HnullIn]; try(congruence). rewrite HeqA in *.
+    destruct childrenList; simpl in *; try(congruence). unfold isPADDR in *.
+    destruct (lookup nullAddr (memory s) beqAddr); try(congruence). destruct v; congruence.
+  + destruct IHchildrenList as [(Hlast & HblockNotIn) | (Hlast & [childrenListRecRec (Hpen & HblockNotIn)])].
+    * left. simpl. split; trivial. apply and_not_or. split; assumption.
+    * right. split; trivial. rewrite Hpen. exists (a::childrenListRecRec). split; trivial. simpl. apply and_not_or.
+      split; assumption.
+Qed.
+
 (*Lemma nbFreeLowerThanPrepared partition nbPrepare nbFreeSlots s:
 maxNbPrepareIsMaxNbKernels s
 -> NbFreeSlotsISNbFreeSlotsInList s
