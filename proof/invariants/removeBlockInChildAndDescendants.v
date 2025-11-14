@@ -7951,6 +7951,28 @@ induction statesList; simpl; intros s0 firstPart firstBlock blocksList parentsLi
     * intro. subst block. rewrite HSCE in *. congruence.
 Qed.
 
+Lemma isBEPreservedRemoveDesc s s0 block firstPart firstBlock statesList blocksList parentsList:
+isBE block s0
+-> removedBlockInDescRec s s0 firstPart firstBlock statesList blocksList parentsList
+-> isBE block s.
+Proof.
+revert s0 firstPart firstBlock blocksList parentsList.
+induction statesList; simpl; intros s0 firstPart firstBlock blocksList parentsList HblockIsBE HblocksList.
+- destruct HblocksList as (_ & _ & Hs). subst s. assumption.
+- destruct HblocksList as [blockChild [childPart [blocksListRec [parentsListRec (HblocksList & HparentsList &
+    HbeqBTRNull & HAflag & HBTRMapped & HpartIsPart & HPDT & HBE & HPDflag & HPDchild & HchildLoc & Hnext & HSHE &
+    HSCE & HlookupsEq & HblocksListRec)]]]]. revert HblocksListRec. apply IHstatesList. unfold isBE in *.
+  destruct (beqAddr firstBlock block) eqn:HbeqBlocks.
+  + rewrite <-beqAddrTrue in HbeqBlocks. subst block. destruct HBE as [bentry0 [l [newEnd (_ & _ & Hlookups)]]].
+    rewrite Hlookups. trivial.
+  + rewrite <-beqAddrFalse in *. rewrite HlookupsEq; trivial.
+    * intro. subst block. destruct HPDT as [pdentry0 [_ (Hlookups0 & _)]]. rewrite Hlookups0 in *. congruence.
+    * intro. subst block. unfold sh1entryPDchild in *.
+      destruct (lookup (CPaddr (firstBlock+sh1offset)) (memory s0) beqAddr); try(congruence). destruct v; congruence.
+    * intro. subst block. unfold scentryNext in *.
+      destruct (lookup (CPaddr (firstBlock+scoffset)) (memory s0) beqAddr); try(congruence). destruct v; congruence.
+Qed.
+
 Lemma absentBlocksEqRemoveDescRev s s0 block firstPart firstBlock statesList blocksList parentsList:
 bentryPFlag block false s0
 -> removedBlockInDescRec s s0 firstPart firstBlock statesList blocksList parentsList
@@ -16616,17 +16638,25 @@ intro isBlockCut. destruct isBlockCut.
         /\ bentryStartAddr blockToRemoveInCurrPartAddr globalIdBlockToRemove s
         /\ idPDchild <> constantRootPartM). intuition.
     }
-    intro recRemoveInDescendantsEnded. destruct recRemoveInDescendantsEnded.
+    intro recRemoveInDescendantsEnded. destruct recRemoveInDescendantsEnded; unfold negb.
     * (* case recRemoveInDescendantsEnded = true *)
       eapply bindRev.
       { (** MAL.writeSh1EntryFromBlockEntryAddr **)
-        eapply weaken. apply writeSh1EntryFromBlockEntryAddr. intros s Hprops. simpl. admit.
+        eapply weaken. apply writeSh1EntryFromBlockEntryAddr. intros s Hprops. simpl. split. apply Hprops.
+        assert(isBE blockToRemoveInCurrPartAddr s).
+        {
+          destruct Hprops as (Hcons1 & Hcons2 & HPI & HKDI & HVS & [statesList [blocksList [parentsList [s0
+            (HblocksList & HlastBlock & Hprops & Hconsists0 & HPIs0 & HKDIs0 & HVSs0 & HchildIsParts0 &
+            HBTRChildMappeds0)]]]] & _). revert HblocksList.
+          apply isBEPreservedRemoveDesc. intuition.
+        }
+        unfold cons1Free in *. intuition.
       }
-      intro. eapply weaken. apply WP.ret. intros s Hprops. simpl.
+      intro. eapply weaken. apply WP.ret. intros s Hprops. simpl. (*TODO HERE*)
       admit.
     * (* case recRemoveInDescendantsEnded = false *)
-      unfold negb. eapply weaken. apply WP.ret. intros s Hprops. simpl. admit.
-      
+      eapply weaken. apply WP.ret. intros s Hprops. simpl. exfalso.
+      destruct Hprops as (_ & _ & _ & _ & _ & _ & Hcontra & _). congruence.
   + (* case addrIsAccessible = false *)
     unfold negb. eapply weaken. apply WP.ret. intros s Hprops. simpl. intuition.
 Admitted.
