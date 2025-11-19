@@ -6880,6 +6880,129 @@ destruct (beqAddr a block) eqn:HbeqBlockA.
       split; assumption.
 Qed.
 
+Lemma isParentsListEqPDTSameParentRev partition addr newEntry parentsList s0 s1:
+parentOfPartitionIsPartition s0 ->
+s1 = {|
+       currentPartition := currentPartition s0;
+       memory := add addr (PDT newEntry) (memory s0) beqAddr
+     |} ->
+(exists pdentry0 pdentry1 pdentryAddr,
+                lookup partition (memory s0) beqAddr = Some (PDT pdentry0)
+                /\ lookup partition (memory s1) beqAddr = Some (PDT pdentry1)
+                /\ lookup addr (memory s0) beqAddr = Some(PDT pdentryAddr)
+                /\ parent newEntry = parent pdentryAddr) ->
+isParentsList s0 parentsList partition
+-> isParentsList s1 parentsList partition.
+Proof.
+intro HparentOfPart. revert partition. induction parentsList.
+- (* parentsList = [] *)
+  simpl. intros. trivial.
+- (* parentsList = a::l *)
+  simpl. intros partition Hs1 HpartIsPDT HparentsLists0.
+  destruct HpartIsPDT as [pdentry [pdentry1 [pdentryAddr (HlookupParts0 & HlookupParts1 & HlookupAddrs0 &
+                            HparentsAddrEq)]]].
+  rewrite Hs1. simpl. destruct (beqAddr addr a) eqn:HbeqAddrA.
+  + (* addr = a *)
+    rewrite <-DTL.beqAddrTrue in HbeqAddrA. subst a. rewrite HlookupAddrs0 in *.
+    destruct HparentsLists0 as [HpartNotRoot ((pdentry0 & (HpdentryEq & Ha)) & HparentsLists1)]. split; trivial.
+    destruct (beqAddr addr partition) eqn:HbeqAddrPart.
+    * (* a = partition *)
+      rewrite <-DTL.beqAddrTrue in HbeqAddrPart. rewrite HbeqAddrPart in *. rewrite HlookupAddrs0 in *.
+      injection HpdentryEq as HnewEntry. subst pdentry0. split.
+      --- exists newEntry. split; trivial. rewrite HparentsAddrEq. assumption.
+      --- rewrite <-Hs1. apply IHparentsList; trivial. exists pdentry. exists pdentry1. exists pdentryAddr.
+          rewrite <-HlookupParts0. intuition.
+    * (* a <> partition *)
+      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+      assert(pdentry0 = pdentry).
+      { rewrite HpdentryEq in HlookupParts0. injection HlookupParts0 as Heq. assumption. }
+      subst pdentry0. split; try(exists pdentry; auto). rewrite <-Hs1. apply IHparentsList; trivial.
+      rewrite Hs1. simpl. rewrite beqAddrTrue. exists pdentryAddr. exists newEntry. exists pdentryAddr. intuition.
+  + (* addr <> a *)
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+    destruct (lookup a (memory s0) beqAddr); try(congruence). destruct v; try(congruence).
+    destruct HparentsLists0 as [HpartNotRoot ((pdentry0 & (HpdentryEq & Ha)) & HparentsLists0)]. split; trivial.
+    rewrite <-Hs1. assert(isParentsList s1 parentsList a).
+    {
+      apply IHparentsList; trivial. specialize(HparentOfPart partition pdentry0 HpdentryEq).
+      destruct HparentOfPart as (HparentIsPart & _). specialize(HparentIsPart HpartNotRoot).
+      destruct HparentIsPart as ([parentEntry HlookupA] & _). rewrite <-Ha in *. exists parentEntry.
+      exists parentEntry. exists pdentryAddr. rewrite Hs1. simpl. rewrite beqAddrFalse in *. rewrite HbeqAddrA.
+      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial. auto.
+    }
+    split; trivial. destruct (beqAddr addr partition) eqn:HbeqAddrPart.
+    * (* addr = partition *)
+      rewrite <-DTL.beqAddrTrue in HbeqAddrPart. subst addr. exists newEntry. split; trivial.
+      rewrite HlookupAddrs0 in *. injection HpdentryEq as Hentry. subst pdentry0. rewrite HparentsAddrEq.
+      assumption.
+    * (* addr <> partition *)
+      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+      exists pdentry0. auto.
+Qed.
+
+Lemma basePartNotInParentsListsSimpl pdbasepartition parentsList s :
+partitionTreeIsTree s
+-> parentOfPartitionIsPartition s
+-> isParentsList s parentsList pdbasepartition
+-> ~ In pdbasepartition parentsList.
+Proof.
+intros HpartTree HparentOfPart HparentsList Hcontra. apply in_split in Hcontra.
+destruct Hcontra as [headParentsList [tail Hcontra]]. assert(parentsList <> []).
+{
+  intro HcontraB. rewrite HcontraB in *. pose proof (app_cons_not_nil headParentsList tail pdbasepartition).
+  congruence.
+}
+destruct (beqAddr pdbasepartition constantRootPartM) eqn:HbeqBaseRoot.
+{
+  rewrite <-DTL.beqAddrTrue in HbeqBaseRoot. subst pdbasepartition. destruct parentsList; try(congruence).
+  simpl in HparentsList. destruct (lookup p (memory s) beqAddr) eqn:HlookupParent; try(congruence).
+  destruct v; try(congruence). destruct HparentsList. congruence.
+}
+assert(HparentOfPartCopy: parentOfPartitionIsPartition s) by assumption.
+assert(HlookupBase: exists pdentry, lookup pdbasepartition (memory s) beqAddr = Some (PDT pdentry)).
+{
+  destruct parentsList; try(exfalso; congruence). simpl in *.
+  destruct (lookup p (memory s) beqAddr); try(exfalso; congruence). destruct v; try(exfalso; congruence).
+  destruct HparentsList as (_ & [pdentry (Hlookup & _)] & _). exists pdentry. assumption.
+}
+destruct HlookupBase as [pdentry HlookupBase].
+rewrite <-beqAddrFalse in HbeqBaseRoot. specialize(HparentOfPart pdbasepartition pdentry HlookupBase).
+destruct HparentOfPart as (HparentIsPart & _ & HparentNotBase). specialize(HparentIsPart HbeqBaseRoot).
+destruct HparentIsPart as ([parentEntry HlookupParent] & _).
+assert(HparentIsFirst: exists tailHead, headParentsList = (parent pdentry)::tailHead).
+{
+  destruct headParentsList.
+  - exfalso. rewrite app_nil_l in Hcontra. rewrite Hcontra in HparentsList. simpl in HparentsList.
+    rewrite HlookupBase in HparentsList. destruct HparentsList as (_ & [pdentry0 (HentriesEq & Hparent)] & _).
+    injection HentriesEq as HpdentriesEq. subst pdentry0. rewrite Hparent in HparentNotBase. congruence.
+  - exists headParentsList. f_equal. rewrite Hcontra in HparentsList. simpl in HparentsList.
+    destruct (lookup p (memory s) beqAddr); try(exfalso; congruence). destruct v; try(exfalso; congruence).
+    destruct HparentsList as (_ & [pdentry0 (HlookupBase0 & Hparent)] & _). rewrite HlookupBase in HlookupBase0.
+    injection HlookupBase0 as HentriesEq. subst pdentry0. assumption.
+}
+destruct HparentIsFirst as [tailHead HparentIsFirst].
+assert(HheadIsParentsList: isParentsList s (headParentsList++[pdbasepartition]) pdbasepartition).
+{
+  apply headIsParentsList with tail. rewrite Hcontra in HparentsList. rewrite <-app_assoc. simpl.
+  assumption.
+}
+assert(HdoubleIsParentsList: isParentsList s ((headParentsList++[pdbasepartition])
+                                              ++ headParentsList++[pdbasepartition]) pdbasepartition).
+{
+  apply parentsListCons with pdbasepartition; try(assumption). apply eq_sym. apply last_last.
+}
+assert(HnoDup: NoDup ((headParentsList++[pdbasepartition]) ++ headParentsList++[pdbasepartition])).
+{
+  apply parentOfPartNotInParentsListsTail with pdbasepartition s; assumption.
+}
+apply Lib.NoDupSplitInclIff in HnoDup. destruct HnoDup as (_ & HnoDup).
+assert(HbaseInList: In pdbasepartition (headParentsList ++ [pdbasepartition])).
+{
+  apply in_or_app. right. simpl. left. reflexivity.
+}
+specialize(HnoDup pdbasepartition HbaseInList). congruence.
+Qed.
+
 (*Lemma nbFreeLowerThanPrepared partition nbPrepare nbFreeSlots s:
 maxNbPrepareIsMaxNbKernels s
 -> NbFreeSlotsISNbFreeSlotsInList s
