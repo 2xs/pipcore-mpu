@@ -1015,6 +1015,34 @@ assert(nbPrepareIsNbKern newS).
  (* END nbPrepareIsNbKern *)
 }
 
+assert(pdchildIsPDT newS).
+{ (* BEGIN pdchildIsPDT newS *)
+  assert(Hcons0: pdchildIsPDT s) by intuition.
+  intros part block sh1entryaddr idchild HpartIsPart HblockMapped Hsh1 HPDchild HbeqIdChildNull.
+  rewrite HgetPartsEq in *. rewrite HgetMappedBEq in *. rewrite HgetChildrenEq. unfold sh1entryAddr in *.
+  unfold sh1entryPDchild in *. simpl in *.
+  destruct (beqAddr pdpart block) eqn:HbeqPartBlock; try(exfalso; congruence).
+  destruct (beqAddr pdpart sh1entryaddr) eqn:HbeqPartSh1; try(exfalso; congruence).
+  rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
+  specialize(Hcons0 part block sh1entryaddr idchild HpartIsPart HblockMapped Hsh1 HPDchild HbeqIdChildNull).
+  assumption.
+  (* END pdchildIsPDT *)
+}
+
+assert(childBlockNullIfChildNull newS).
+{ (* BEGIN childBlockNullIfChildNull newS *)
+  assert(Hcons0: childBlockNullIfChildNull s) by intuition.
+  intros part block sh1entryaddr HpartIsPart HblockMapped Hsh1 HPDchild. rewrite HgetPartsEq in *.
+  rewrite HgetMappedBEq in *. unfold sh1entryAddr in *. unfold sh1entryPDchild in *. unfold sh1entryInChildLocation.
+  simpl in *. destruct (beqAddr pdpart block) eqn:HbeqPartBlock; try(exfalso; congruence).
+  destruct (beqAddr pdpart sh1entryaddr) eqn:HbeqPartSh1; try(congruence).
+  rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
+  specialize(Hcons0 part block sh1entryaddr HpartIsPart HblockMapped Hsh1 HPDchild).
+  unfold sh1entryInChildLocation in *. destruct (lookup sh1entryaddr (memory s) beqAddr); try(congruence).
+  destruct v; try(congruence). destruct Hcons0. split; trivial. intro. exfalso; congruence.
+  (* END childBlockNullIfChildNull *)
+}
+
 assert(noDupMappedPaddrList newS).
 { (* BEGIN noDupMappedPaddrList newS *)
   assert(Hcons0: noDupMappedPaddrList s) by intuition. intros partition HpartIsPDT. rewrite HgetMappedPEq.
@@ -1234,6 +1262,24 @@ assert(parentBlocksBoundsIfNoNext newS).
   (* END parentBlocksBoundsIfNoNext *)
 }
 
+assert(childLocMappedInChild newS).
+{ (* BEGIN childLocMappedInChild newS *)
+  assert(Hcons0: childLocMappedInChild s) by intuition.
+  intros part block sh1entryaddr blockChild idchild HpartIsPart HblockMapped Hsh1 HPDchild Hloc HbeqIdChildNull.
+  rewrite HgetPartsEq in *. rewrite HgetMappedBEq in *. unfold sh1entryAddr in *. unfold sh1entryPDchild in *.
+  unfold sh1entryInChildLocationWeak in *. unfold bentryStartAddr at 1. simpl in *.
+  destruct (beqAddr pdpart block) eqn:HbeqPartBlock; try(exfalso; congruence).
+  destruct (beqAddr pdpart sh1entryaddr) eqn:HbeqPartSh1; try(exfalso; congruence).
+  rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
+  specialize(Hcons0 part block sh1entryaddr blockChild idchild HpartIsPart HblockMapped Hsh1 HPDchild Hloc
+    HbeqIdChildNull). destruct Hcons0 as (HbeqBCNull & HBCMapped & HstartsEq). split; trivial. split; trivial.
+  intros startaddr Hstart. specialize(HstartsEq startaddr Hstart). unfold bentryStartAddr in *. simpl.
+  destruct (beqAddr pdpart blockChild) eqn:HbeqPartBC.
+  { rewrite <-DTL.beqAddrTrue in HbeqPartBC. subst blockChild. rewrite HlookupPart in *. congruence. }
+  rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+  (* END childLocMappedInChild *)
+}
+
 assert(partitionsIsolation newS).
 { (* BEGIN partitionsIsolation newS *)
   intros pdparent child1 child2 HparentIsPart Hchild1IsChild Hchild2IsChild HbeqChildren.
@@ -1421,6 +1467,7 @@ intro vidtAddrNull. destruct vidtAddrNull.
     * eapply bindRev.
       { (** MAL.readSh1InChildLocationFromBlockEntryAddr **)
         eapply weaken. apply readSh1InChildLocationFromBlockEntryAddr. intros s Hprops. simpl. split. apply Hprops.
+        unfold consistency in *. unfold consistency1 in *.
         intuition. unfold isBE in *. destruct (lookup vidtBlock (memory s) beqAddr); try(exfalso; congruence).
         destruct v; try(exfalso; congruence). exists b. reflexivity.
       }

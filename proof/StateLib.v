@@ -730,6 +730,13 @@ match lookup sh1entryaddr s.(memory) beqAddr with
 | _ => False
 end.
 
+(** Alternative, weaker version of the above *)
+Definition sh1entryInChildLocationWeak sh1entryaddr inchildlocation s:=
+match lookup sh1entryaddr s.(memory) beqAddr with
+| Some (SHE entry) => inchildlocation =  entry.(inChildLocation)
+| _ => False
+end.
+
 
 (* SCE attributes *)
 

@@ -6548,8 +6548,8 @@ destruct (partitionsFromChildList s childrenList a) eqn:HeqList.
   { rewrite HeqList. intro. congruence. }
   assert(HchildIsPart: In (PDchild s0) (getPartitions multiplexer s)).
   { apply childrenPartitionInPartitionList with part; trivial. }
-  assert(HchildLoc: sh1entryInChildLocation (CPaddr (blockBase+sh1offset)) a s).
-  { unfold sh1entryInChildLocation. rewrite HlookupSh1. split; auto. }
+  assert(HchildLoc: sh1entryInChildLocationWeak (CPaddr (blockBase+sh1offset)) a s).
+  { unfold sh1entryInChildLocationWeak. rewrite HlookupSh1. auto. }
   specialize(HchildLocProps part blockBase (CPaddr (blockBase+sh1offset)) a (PDchild s0) HpartIsPart HbaseMapped
     Hsh1 HPDchild HchildLoc HbeqChildNull).
   destruct HchildLocProps as (HbeqANull & HAMapped & HstartsEq).
@@ -6601,8 +6601,8 @@ assert(Hsh1: sh1entryAddr blockBase (CPaddr (blockBase+sh1offset)) s).
 assert(HPDchild: sh1entryPDchild (CPaddr (blockBase + sh1offset)) (PDchild s0) s).
 { unfold sh1entryPDchild. rewrite HlookupSh1. reflexivity. }
 specialize(Hsh1NullImpl partBase blockBase (CPaddr (blockBase+sh1offset)) HbaseIsPart HblockBMapped Hsh1).
-assert(HchildLoc: sh1entryInChildLocation (CPaddr (blockBase+sh1offset)) a s).
-{ unfold sh1entryInChildLocation. rewrite HlookupSh1. auto. }
+assert(HchildLoc: sh1entryInChildLocationWeak (CPaddr (blockBase+sh1offset)) a s).
+{ unfold sh1entryInChildLocationWeak. rewrite HlookupSh1. auto. }
 specialize(HlocProps partBase blockBase (CPaddr (blockBase+sh1offset)) a (PDchild s0) HbaseIsPart HblockBMapped Hsh1
   HPDchild HchildLoc). apply and_not_or. unfold nullAddrExists in *. unfold isPADDR in *.
 specialize(HPDchildIsPDT partBase blockBase (CPaddr (blockBase+sh1offset)) (PDchild s0) HbaseIsPart HblockBMapped Hsh1
@@ -6668,6 +6668,8 @@ revert blockBase. induction childrenList; intros blockBase HbaseMapped Hchildren
   { unfold sh1entryPDchild. rewrite HlookupSh1. reflexivity. }
   assert(HchildLoc: sh1entryInChildLocation (CPaddr (blockBase+sh1offset)) a s).
   { unfold sh1entryInChildLocation. rewrite HlookupSh1. split; auto. }
+  assert(HchildLocW: sh1entryInChildLocationWeak (CPaddr (blockBase+sh1offset)) a s).
+  { unfold sh1entryInChildLocationWeak. rewrite HlookupSh1. auto. }
   destruct (beqAddr (PDchild s0) nullAddr) eqn:HbeqChildNull.
   + rewrite <-DTL.beqAddrTrue in HbeqChildNull. rewrite HbeqChildNull in *.
     specialize(HPDnullEquiv part blockBase (CPaddr (blockBase+sh1offset)) HpartIsPart
@@ -6682,7 +6684,7 @@ revert blockBase. induction childrenList; intros blockBase HbaseMapped Hchildren
     assert(HlocPropsCopy: childLocMappedInChild s) by assumption.
     assert(HPDchildIsPDTCopy: pdchildIsPDT s) by assumption.
     specialize(HlocProps part blockBase (CPaddr (blockBase + sh1offset)) a (PDchild s0) HpartIsPart HbaseMapped
-      Hsh1 HPDchild HchildLoc HbeqChildNull). destruct HlocProps as (HbeqANull & HAMapped & HstartsEq).
+      Hsh1 HPDchild HchildLocW HbeqChildNull). destruct HlocProps as (HbeqANull & HAMapped & HstartsEq).
     specialize(HPDchildIsPDT part blockBase (CPaddr (blockBase+sh1offset)) (PDchild s0) HpartIsPart HbaseMapped Hsh1
       HPDchild HbeqChildNull). assert(HchildIsPart: In (PDchild s0) (getPartitions multiplexer s)).
     { apply childrenPartitionInPartitionList with part; trivial. }

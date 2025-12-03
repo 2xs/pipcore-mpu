@@ -701,7 +701,7 @@ Definition removeBlockInChildAndDescendants (currentPart
 																											blockToRemoveInChildAddr in
 						if negb recRemoveInDescendantsEnded then (* timeout reached *) ret false else
             (** Parent: remove block reference to the child *)
-            writeSh1EntryFromBlockEntryAddr blockToRemoveInCurrPartAddr nullAddr false nullAddr;;
+            writeSh1EntryFromBlockEntryAddrLight blockToRemoveInCurrPartAddr nullAddr false nullAddr;;
             (*Moved for consistency purposes in case 2*)
 						ret true
 
