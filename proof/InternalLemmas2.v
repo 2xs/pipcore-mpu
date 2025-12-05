@@ -6509,13 +6509,15 @@ nullAddrExists s
 -> In part (getPartitions multiplexer s)
 -> In blockBase (getMappedBlocks part s)
 -> partitionsFromChildList s childrenList blockBase <> []
+-> (forall block startaddr, In block (blockBase::childrenList) -> bentryStartAddr block startaddr s
+    -> ~ isKS startaddr s)
 -> isChildBlocksList s childrenList blockBase
 -> isParentsList s (tl (partitionsFromChildList s childrenList blockBase)++[part])
     (hd nullAddr (partitionsFromChildList s childrenList blockBase ++ [part])).
 Proof.
 intros Hnull HisParent HparentOfPart HnoDupTree HPDchildIsPDT HchildLocProps. revert blockBase part.
-induction childrenList; simpl; intros blockBase part HpartIsPart HbaseMapped HchildrenListNotNull HchildrenList;
-  try(exfalso; congruence).
+induction childrenList; simpl; intros blockBase part HpartIsPart HbaseMapped HchildrenListNotNull HblocksNotKerns
+  HchildrenList; try(exfalso; congruence).
 destruct (lookup blockBase (memory s) beqAddr) eqn:HlookupBase; try(exfalso; congruence).
 destruct v; try(exfalso; congruence).
 destruct (lookup (CPaddr (blockBase+sh1offset)) (memory s) beqAddr) eqn:HlookupSh1; try(exfalso; congruence).
@@ -6542,6 +6544,9 @@ destruct v; try(exfalso; congruence). assert(HbeqChildRoot: PDchild s0 <> consta
   destruct HparentOfPart as (_ & HparentOfRoot & _). specialize(HparentOfRoot Hcontra). rewrite HparentOfRoot in *.
   subst part. unfold nullAddrExists in *. unfold isPADDR in *. rewrite HlookupPart in *. congruence.
 }
+assert(HblocksNotKernsRec: forall block startaddr, In block (a::childrenList)
+  -> bentryStartAddr block startaddr s -> ~ isKS startaddr s).
+{ intros blockB startaddr HblockIn. apply HblocksNotKerns. simpl in *. auto. }
 destruct (partitionsFromChildList s childrenList a) eqn:HeqList.
 - simpl. rewrite HlookupPart. split; trivial. split; trivial. exists p. split; trivial.
 - assert(HchildrenListRecNotNull: partitionsFromChildList s childrenList a <> []).
@@ -6550,10 +6555,15 @@ destruct (partitionsFromChildList s childrenList a) eqn:HeqList.
   { apply childrenPartitionInPartitionList with part; trivial. }
   assert(HchildLoc: sh1entryInChildLocationWeak (CPaddr (blockBase+sh1offset)) a s).
   { unfold sh1entryInChildLocationWeak. rewrite HlookupSh1. auto. }
-  specialize(HchildLocProps part blockBase (CPaddr (blockBase+sh1offset)) a (PDchild s0) HpartIsPart HbaseMapped
-    Hsh1 HPDchild HchildLoc HbeqChildNull).
+  assert(HbaseIn: In blockBase (blockBase :: a :: childrenList)) by (simpl; auto).
+  assert(HstartBase: bentryStartAddr blockBase (startAddr (blockrange b)) s).
+  { unfold bentryStartAddr. rewrite HlookupBase. reflexivity. }
+  specialize(HblocksNotKerns blockBase (startAddr (blockrange b)) HbaseIn HstartBase).
+  specialize(HchildLocProps part blockBase (CPaddr (blockBase+sh1offset)) a (PDchild s0) (startAddr (blockrange b))
+    HpartIsPart HbaseMapped Hsh1 HPDchild HchildLoc HbeqChildNull HstartBase HblocksNotKerns).
   destruct HchildLocProps as (HbeqANull & HAMapped & HstartsEq).
-  specialize(IHchildrenList a (PDchild s0) HchildIsPart HAMapped HchildrenListRecNotNull HchildrenList).
+  specialize(IHchildrenList a (PDchild s0) HchildIsPart HAMapped HchildrenListRecNotNull HblocksNotKernsRec
+    HchildrenList).
   assert(HhdEq: hd nullAddr ((partitionsFromChildList s childrenList a ++ [PDchild s0])++[part])
     = hd nullAddr (partitionsFromChildList s childrenList a ++ [PDchild s0])).
   { rewrite HeqList. reflexivity. }
@@ -6585,13 +6595,15 @@ nullAddrExists s
 -> In block (getMappedBlocks part s)
 -> In partBase (getPartitions multiplexer s)
 -> In blockBase (getMappedBlocks partBase s)
+-> (forall block startaddr, In block (blockBase::childrenList) -> bentryStartAddr block startaddr s
+    -> ~ isKS startaddr s)
 -> isChildBlocksList s childrenList blockBase
 -> ~ In part (partitionsFromChildList s childrenList blockBase)
 -> ~ In block childrenList.
 Proof.
 intros Hnull Hdisjoint HnoDupTree HPDchildIsPDT Hsh1NullImpl HlocProps HpartIsPDT HblockMapped.
 revert blockBase partBase. induction childrenList; simpl; intros blockBase partBase HbaseIsPart HblockBMapped
-  HchildrenList HpartNotInList; trivial.
+  HblocksNotKerns HchildrenList HpartNotInList; trivial.
 destruct (lookup blockBase (memory s) beqAddr) eqn:HlookupBlockB; try(exfalso; congruence).
 destruct v; try(exfalso; congruence).
 destruct (lookup (CPaddr (blockBase + sh1offset)) (memory s) beqAddr) eqn:HlookupSh1; try(exfalso; congruence).
@@ -6603,8 +6615,16 @@ assert(HPDchild: sh1entryPDchild (CPaddr (blockBase + sh1offset)) (PDchild s0) s
 specialize(Hsh1NullImpl partBase blockBase (CPaddr (blockBase+sh1offset)) HbaseIsPart HblockBMapped Hsh1).
 assert(HchildLoc: sh1entryInChildLocationWeak (CPaddr (blockBase+sh1offset)) a s).
 { unfold sh1entryInChildLocationWeak. rewrite HlookupSh1. auto. }
-specialize(HlocProps partBase blockBase (CPaddr (blockBase+sh1offset)) a (PDchild s0) HbaseIsPart HblockBMapped Hsh1
-  HPDchild HchildLoc). apply and_not_or. unfold nullAddrExists in *. unfold isPADDR in *.
+assert(HblocksNotKernsRec: forall block startaddr, In block (a::childrenList)
+  -> bentryStartAddr block startaddr s -> ~ isKS startaddr s).
+{ intros blockB startaddr HblockIn. apply HblocksNotKerns. simpl in *. auto. }
+assert(HbaseIn: In blockBase (blockBase :: a :: childrenList)) by (simpl; auto).
+assert(HstartBase: bentryStartAddr blockBase (startAddr (blockrange b)) s).
+{ unfold bentryStartAddr. rewrite HlookupBlockB. reflexivity. }
+specialize(HblocksNotKerns blockBase (startAddr (blockrange b)) HbaseIn HstartBase).
+specialize(HlocProps partBase blockBase (CPaddr (blockBase+sh1offset)) a (PDchild s0) (startAddr (blockrange b))
+  HbaseIsPart HblockBMapped Hsh1 HPDchild HchildLoc).
+apply and_not_or. unfold nullAddrExists in *. unfold isPADDR in *.
 specialize(HPDchildIsPDT partBase blockBase (CPaddr (blockBase+sh1offset)) (PDchild s0) HbaseIsPart HblockBMapped Hsh1
   HPDchild).
 destruct (beqAddr (PDchild s0) nullAddr) eqn:HbeqChildNull.
@@ -6617,7 +6637,8 @@ destruct (beqAddr (PDchild s0) nullAddr) eqn:HbeqChildNull.
   }
   subst childrenList. simpl. split; auto. apply mappedBlockIsBE in HblockMapped.
   destruct HblockMapped as [bentry (Hlookup & _)]. intro. subst block. rewrite Hlookup in *. congruence.
-- rewrite <-beqAddrFalse in *. specialize(HlocProps HbeqChildNull). destruct HlocProps as (HbeqANull & HAMapped & _).
+- rewrite <-beqAddrFalse in *. specialize(HlocProps HbeqChildNull HstartBase HblocksNotKerns).
+  destruct HlocProps as (HbeqANull & HAMapped & _).
   apply Lib.in_app_or_neg in HpartNotInList. destruct HpartNotInList as (HpartNotInList & HpartNotChild).
   simpl in HpartNotChild. apply not_or_and in HpartNotChild. destruct HpartNotChild as (HbeqChildPart & _).
   specialize(HPDchildIsPDT HbeqChildNull). assert(HchildIsPart: In (PDchild s0) (getPartitions multiplexer s)).
@@ -6647,11 +6668,13 @@ nullAddrExists s
 -> childBlockNullIfChildNull s
 -> childLocMappedInChild s
 -> (exists part, In part (getPartitions multiplexer s) /\ In blockBase (getMappedBlocks part s))
+-> (forall block startaddr, In block (blockBase::childrenList) -> bentryStartAddr block startaddr s
+    -> ~ isKS startaddr s)
 -> isChildBlocksList s childrenList blockBase
 -> NoDup (blockBase::childrenList).
 Proof.
 intros Hnull Hdisjoint HisParent HparentOfPart HnoDupTree Htree HPDchildIsPDT HPDnullEquiv HlocProps.
-revert blockBase. induction childrenList; intros blockBase HbaseMapped HchildrenList.
+revert blockBase. induction childrenList; intros blockBase HbaseMapped HblocksNotKerns HchildrenList.
 - apply NoDup_cons; try(apply NoDup_nil). auto.
 - destruct HbaseMapped as [part (HpartIsPart & HbaseMapped)].
   assert(HchildrenListCopy: isChildBlocksList s (a :: childrenList) blockBase) by assumption.
@@ -6670,6 +6693,11 @@ revert blockBase. induction childrenList; intros blockBase HbaseMapped Hchildren
   { unfold sh1entryInChildLocation. rewrite HlookupSh1. split; auto. }
   assert(HchildLocW: sh1entryInChildLocationWeak (CPaddr (blockBase+sh1offset)) a s).
   { unfold sh1entryInChildLocationWeak. rewrite HlookupSh1. auto. }
+  assert(HblocksNotKernsRec: forall block startaddr, In block (a::childrenList)
+    -> bentryStartAddr block startaddr s -> ~ isKS startaddr s).
+  {
+    intros block startaddr HblockIn. apply HblocksNotKerns. simpl in *. auto.
+  }
   destruct (beqAddr (PDchild s0) nullAddr) eqn:HbeqChildNull.
   + rewrite <-DTL.beqAddrTrue in HbeqChildNull. rewrite HbeqChildNull in *.
     specialize(HPDnullEquiv part blockBase (CPaddr (blockBase+sh1offset)) HpartIsPart
@@ -6683,22 +6711,29 @@ revert blockBase. induction childrenList; intros blockBase HbaseMapped Hchildren
   + rewrite <-beqAddrFalse in *.
     assert(HlocPropsCopy: childLocMappedInChild s) by assumption.
     assert(HPDchildIsPDTCopy: pdchildIsPDT s) by assumption.
-    specialize(HlocProps part blockBase (CPaddr (blockBase + sh1offset)) a (PDchild s0) HpartIsPart HbaseMapped
-      Hsh1 HPDchild HchildLocW HbeqChildNull). destruct HlocProps as (HbeqANull & HAMapped & HstartsEq).
+    assert(HbaseIn: In blockBase (blockBase :: a :: childrenList)) by (simpl; auto).
+    assert(HstartBase: bentryStartAddr blockBase (startAddr (blockrange b)) s).
+    { unfold bentryStartAddr. rewrite HlookupBase. reflexivity. }
+    assert(HblocksNotKernsCopy: forall block startaddr, In block (blockBase::a::childrenList)
+       -> bentryStartAddr block startaddr s -> ~ isKS startaddr s) by assumption.
+    specialize(HblocksNotKerns blockBase (startAddr (blockrange b)) HbaseIn HstartBase).
+    specialize(HlocProps part blockBase (CPaddr (blockBase + sh1offset)) a (PDchild s0) (startAddr (blockrange b))
+      HpartIsPart HbaseMapped Hsh1 HPDchild HchildLocW HbeqChildNull HstartBase HblocksNotKerns).
+    destruct HlocProps as (HbeqANull & HAMapped & HstartA).
     specialize(HPDchildIsPDT part blockBase (CPaddr (blockBase+sh1offset)) (PDchild s0) HpartIsPart HbaseMapped Hsh1
       HPDchild HbeqChildNull). assert(HchildIsPart: In (PDchild s0) (getPartitions multiplexer s)).
     { apply childrenPartitionInPartitionList with part; trivial. }
     assert(HaMapped: exists child, In child (getPartitions multiplexer s) /\ In a (getMappedBlocks child s)).
     { exists (PDchild s0). auto. }
-    specialize(IHchildrenList a HaMapped HchildrenList). apply NoDup_cons; trivial.
+    specialize(IHchildrenList a HaMapped HblocksNotKernsRec HchildrenList). apply NoDup_cons; trivial.
     assert(HbeqListNull: partitionsFromChildList s (a::childrenList) blockBase <> []).
     {
       simpl. rewrite HlookupBase. rewrite HlookupSh1. rewrite beqAddrFalse in *. rewrite HbeqChildNull. intro Hcontra.
       apply app_eq_nil in Hcontra. destruct Hcontra. congruence.
     }
     pose proof (partitionsFromChildListAreParentsList s (a::childrenList) blockBase part Hnull HisParent HparentOfPart
-      HnoDupTree HPDchildIsPDTCopy HlocPropsCopy HpartIsPart HbaseMapped HbeqListNull HchildrenListCopy)
-      as HparentsList.
+      HnoDupTree HPDchildIsPDTCopy HlocPropsCopy HpartIsPart HbaseMapped HbeqListNull HblocksNotKernsCopy
+      HchildrenListCopy) as HparentsList.
     (*assert(HhdEq: hd nullAddr (partitionsFromChildList s (a :: childrenList) blockBase)
       = hd (PDchild s0) (partitionsFromChildList s childrenList a)).
     {

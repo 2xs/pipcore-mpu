@@ -642,17 +642,18 @@ In partition (getPartitions multiplexer s)
 -> In child (getChildren partition s) /\ incl (getAllPaddrAux [block] s) (getMappedPaddr child s).*)
 
 Definition childLocMappedInChild s :=
-forall partition block sh1entryaddr blockChild idchild,
+forall partition block sh1entryaddr blockChild idchild startaddr,
 In partition (getPartitions multiplexer s)
 -> In block (getMappedBlocks partition s)
 -> sh1entryAddr block sh1entryaddr s
 -> sh1entryPDchild sh1entryaddr idchild s
 -> sh1entryInChildLocationWeak sh1entryaddr blockChild s
 -> idchild <> nullAddr
+-> bentryStartAddr block startaddr s
+-> ~ isKS startaddr s
 -> blockChild <> nullAddr
     /\ In blockChild (getMappedBlocks idchild s)
-    /\ forall startaddr, bentryStartAddr block startaddr s
-        -> bentryStartAddr blockChild startaddr s.
+    /\ bentryStartAddr blockChild startaddr s.
 
 Definition childBlockNullIfChildNull s :=
 forall partition block sh1entryaddr,

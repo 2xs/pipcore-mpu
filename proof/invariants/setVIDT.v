@@ -1265,15 +1265,22 @@ assert(parentBlocksBoundsIfNoNext newS).
 assert(childLocMappedInChild newS).
 { (* BEGIN childLocMappedInChild newS *)
   assert(Hcons0: childLocMappedInChild s) by intuition.
-  intros part block sh1entryaddr blockChild idchild HpartIsPart HblockMapped Hsh1 HPDchild Hloc HbeqIdChildNull.
+  intros part block sh1entryaddr blockChild idchild startaddr HpartIsPart HblockMapped Hsh1 HPDchild Hloc
+    HbeqIdChildNull Hstart HstartNotKS.
   rewrite HgetPartsEq in *. rewrite HgetMappedBEq in *. unfold sh1entryAddr in *. unfold sh1entryPDchild in *.
-  unfold sh1entryInChildLocationWeak in *. unfold bentryStartAddr at 1. simpl in *.
+  unfold sh1entryInChildLocationWeak in *. unfold bentryStartAddr in Hstart. simpl in *.
   destruct (beqAddr pdpart block) eqn:HbeqPartBlock; try(exfalso; congruence).
   destruct (beqAddr pdpart sh1entryaddr) eqn:HbeqPartSh1; try(exfalso; congruence).
   rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-  specialize(Hcons0 part block sh1entryaddr blockChild idchild HpartIsPart HblockMapped Hsh1 HPDchild Hloc
-    HbeqIdChildNull). destruct Hcons0 as (HbeqBCNull & HBCMapped & HstartsEq). split; trivial. split; trivial.
-  intros startaddr Hstart. specialize(HstartsEq startaddr Hstart). unfold bentryStartAddr in *. simpl.
+  assert(HstartNotKSs: ~isKS startaddr s).
+  {
+    contradict HstartNotKS. unfold isKS in *. simpl. destruct (beqAddr pdpart startaddr) eqn:HbeqPartStart.
+    { rewrite <-DTL.beqAddrTrue in HbeqPartStart. subst startaddr. rewrite HlookupPart in *. congruence. }
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
+  }
+  specialize(Hcons0 part block sh1entryaddr blockChild idchild startaddr HpartIsPart HblockMapped Hsh1 HPDchild Hloc
+    HbeqIdChildNull Hstart HstartNotKSs). destruct Hcons0 as (HbeqBCNull & HBCMapped & HstartChild). split; trivial.
+  split; trivial. unfold bentryStartAddr in *. simpl.
   destruct (beqAddr pdpart blockChild) eqn:HbeqPartBC.
   { rewrite <-DTL.beqAddrTrue in HbeqPartBC. subst blockChild. rewrite HlookupPart in *. congruence. }
   rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial.

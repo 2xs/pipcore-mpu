@@ -1697,14 +1697,15 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
     assert(childLocMappedInChild s).
     { (* BEGIN childLocMappedInChild s *)
       assert(Hcons0: childLocMappedInChild s0) by intuition.
-      intros part block sh1entryaddr blockChild idchild HpartIsPart HblockMapped Hsh1 HPDchild Hloc HbeqIdChildNull.
+      intros part block sh1entryaddr blockChild idchild startaddr HpartIsPart HblockMapped Hsh1 HPDchild Hloc
+        HbeqIdChildNull Hstart HstartNotKS. unfold bentryStartAddr in *. unfold isKS in *.
       rewrite getPartitionsEqLookup with (s0 := s0) in HpartIsPart; trivial.
       rewrite getMappedBlocksEqLookup with (s0 := s0) in HblockMapped; trivial. unfold sh1entryAddr in *.
-      unfold sh1entryPDchild in *. unfold sh1entryInChildLocationWeak in *. unfold isBE in *. rewrite HlookupsEq in *.
-      specialize(Hcons0 part block sh1entryaddr blockChild idchild HpartIsPart HblockMapped
-        Hsh1 HPDchild Hloc HbeqIdChildNull). destruct Hcons0 as (HbeqBCNull & HblockCMapped & HstartIsOrigin).
-      split; trivial. split. rewrite getMappedBlocksEqLookup with (s0 := s0); trivial. unfold bentryStartAddr.
-      rewrite HlookupsEq. rewrite HlookupsEq. assumption.
+      unfold sh1entryPDchild in *. unfold sh1entryInChildLocationWeak in *. rewrite HlookupsEq in *.
+      specialize(Hcons0 part block sh1entryaddr blockChild idchild startaddr HpartIsPart HblockMapped
+        Hsh1 HPDchild Hloc HbeqIdChildNull Hstart HstartNotKS).
+      destruct Hcons0 as (HbeqBCNull & HblockCMapped & HstartIsOrigin).
+      split; trivial. split; trivial. rewrite getMappedBlocksEqLookup with (s0 := s0); trivial.
       (* END childLocMappedInChild *)
     }
     assert(childBlockNullIfChildNull s).
@@ -1718,18 +1719,6 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
       assumption.
       (* END pdchildIsPDT *)
     }
-
-    (*assert(childLocMappedInChild s).
-    { (* BEGIN childLocMappedInChild s *)
-      assert(Hcons0: childLocMappedInChild s0) by intuition.
-      intros part block sh1entryaddr blockChild idchild HpartIsPart HblockMapped Hsh1 HPDchild Hloc
-        HbeqIdChildNull. rewrite getPartitionsEqLookup with (s0 := s0) in *; trivial.
-      rewrite getMappedBlocksEqLookup with (s0 := s0) in *; trivial. unfold sh1entryAddr in *.
-      unfold sh1entryPDchild in *. unfold sh1entryInChildLocationWeak in *. unfold isBE in *. unfold bentryStartAddr.
-      rewrite HlookupsEq in *. rewrite HlookupsEq in *. specialize(Hcons0 part block sh1entryaddr blockChild idchild
-        HpartIsPart HblockMapped Hsh1 HPDchild Hloc HbeqIdChildNull). assumption.
-      (* END childLocMappedInChild *)
-    }*)
     intuition.
   }
   split.
@@ -4950,16 +4939,22 @@ assert(parentBlocksBoundsIfNoNext s).
 assert(childLocMappedInChild s).
 { (* BEGIN childLocMappedInChild s *)
   assert(Hcons0: childLocMappedInChild s0) by (unfold consistency in *; unfold consistency2 in *; intuition).
-  intros part block sh1entryaddr blockChild idchild HpartBisIsPart HblockMapped Hsh1 HPDchild Hloc HbeqIdChildNull.
+  intros part block sh1entryaddr blockChild idchild startaddr HpartBisIsPart HblockMapped Hsh1 HPDchild Hloc
+    HbeqIdChildNull Hstart HstartNotKS.
   rewrite HgetPartsEq in *. assert(isPDT part s0).
   { apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition. }
-  rewrite HgetMappedEq in HblockMapped; trivial. unfold sh1entryAddr in *. unfold bentryStartAddr.
+  rewrite HgetMappedEq in HblockMapped; trivial. unfold sh1entryAddr in *. unfold bentryStartAddr in *.
   unfold scentryNext in *. assert(HlookupBlock: exists bentry, lookup block (memory s0) beqAddr = Some(bentry)).
   {
     apply mappedBlockIsBE in HblockMapped. destruct HblockMapped as [bentry (Hlookup & _)]. exists (BE bentry).
     assumption.
   }
-  rewrite HlookupSomeEq in Hsh1; trivial. rewrite HlookupSomeEq; trivial.
+  rewrite HlookupSomeEq in Hsh1; trivial. rewrite HlookupSomeEq in Hstart; trivial.
+  assert(HstartNotKSs0: ~ isKS startaddr s0).
+  {
+    contradict HstartNotKS. unfold isKS in *. rewrite HlookupSomeEq; trivial.
+    destruct (lookup startaddr (memory s0) beqAddr); try(exfalso; congruence). exists v. reflexivity.
+  }
   assert(HlookupSh1: exists entry, lookup sh1entryaddr (memory s0) beqAddr = Some(entry)).
   {
     destruct (lookup block (memory s0) beqAddr) eqn:HlookupB; try(exfalso; congruence).
@@ -5000,17 +4995,17 @@ assert(childLocMappedInChild s).
     (*HnewBE + Hlookups1s0Eq*)
 (*HunchangedAddresses HblockUntouched *)
   }*)
-  specialize(Hcons0 part block sh1entryaddr blockChild idchild HpartBisIsPart HblockMapped Hsh1 HPDchild Hloc
-    HbeqIdChildNull). destruct Hcons0 as (HbeqBCNull & HBCMapped & HstartsEq). split; trivial.
+  specialize(Hcons0 part block sh1entryaddr blockChild idchild startaddr HpartBisIsPart HblockMapped Hsh1 HPDchild
+    Hloc HbeqIdChildNull Hstart HstartNotKSs0). destruct Hcons0 as (HbeqBCNull & HBCMapped & HstartChild).
+  split; trivial.
   assert(In blockChild (getMappedBlocks idchild s)).
   {
     rewrite HgetMappedEq; trivial. unfold getMappedBlocks in *. unfold getKSEntries in *. unfold isPDT.
     destruct (lookup idchild (memory s0) beqAddr); try(simpl in *; congruence).
     destruct v; try(simpl in *; congruence). trivial.
   }
-  split; trivial. intros startaddr Hstart. specialize(HstartsEq startaddr Hstart). unfold bentryStartAddr in *.
-  rewrite HlookupSomeEq; trivial. destruct (lookup blockChild (memory s0) beqAddr); try(exfalso; congruence).
-  exists v. reflexivity.
+  split; trivial. rewrite HlookupSomeEq; trivial. unfold bentryStartAddr in *.
+  destruct (lookup blockChild (memory s0) beqAddr); try(exfalso; congruence). exists v. reflexivity.
   (* END childLocMappedInChild *)
 }
 
