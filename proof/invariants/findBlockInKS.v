@@ -934,6 +934,7 @@ case_eq kernelstructureisnull.
 		    rewrite HksNull in *.
 		    exfalso ; congruence.
 	    +	(* (structure idpdentry) <> nullAddr *)
+        unfold maxNbPreparePlusOne in *.
 		    induction ((filterOptionPaddr (getKSEntriesAux (maxNbPrepare+1) (structure idpdentry) s))) ; simpl in *;
                 intuition.
 		    subst.

@@ -1411,13 +1411,13 @@ intro vidtAddrNull. destruct vidtAddrNull.
     intuition.
   }
   intro vidtSize. eapply bindRev.
-  { (** paddrAddIdxMOpt **)
-    unfold paddrAddIdxMOpt. destruct (le_dec (vidtaddr + vidtSize) maxAddr) eqn:Hadd.
+  { (** paddrAddIdx **)
+    unfold MAL.paddrAddIdx. unfold paddrAddIdxMOpt. destruct (le_dec (vidtaddr + vidtSize) maxAddr) eqn:Hadd.
     - eapply weaken. apply WP.ret. intros s Hprops.
       instantiate(1 := fun endaddr s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\
         consistency s /\ curPd = currentPartition s /\ isPDT globalPd s /\  beqAddr nullAddr vidtaddr = false /\
         isBE vidtBlock s /\ bentryPFlag vidtBlock true s /\ bentryAFlag vidtBlock true s /\
-        vidtSize = Constants.vidtSize /\ (endaddr <> None -> endaddr = Some (CPaddr (vidtaddr + vidtSize)))
+        vidtSize = Constants.vidtSize /\ (endaddr <> nullAddr -> endaddr = CPaddr (vidtaddr + vidtSize))
         /\ In vidtBlock (filterOptionPaddr (getKSEntries globalPd s))
         /\ exists kernList firstKernList lastElem nidx blockStart bentryLast,
             bentryStartAddr vidtBlock blockStart s /\ isListOfKernels kernList globalPd s
@@ -1430,8 +1430,9 @@ intro vidtAddrNull. destruct vidtAddrNull.
         Hsize & HblockInKSE & Hlist). intuition. unfold isBE. unfold bentryPFlag in *.
       destruct (lookup vidtBlock (memory s) beqAddr); try(congruence). destruct v; try(congruence). trivial.
   }
-  intro vidtPotEndAddr. destruct vidtPotEndAddr as [vidtEndAddr | ].
-  + eapply bindRev.
+  intro vidtPotEndAddr. destruct (beqAddr vidtPotEndAddr nullAddr) eqn:HbeqVidtNull.
+  + eapply weaken. apply WP.ret. intros s Hprops. simpl. intuition.
+  + rewrite <-beqAddrFalse in *. eapply bindRev.
     { (** MAL.readBlockEndFromBlockEntryAddr **)
       eapply weaken. apply readBlockEndFromBlockEntryAddr. intros s Hprops. simpl. split. apply Hprops. intuition.
     }
@@ -1441,10 +1442,8 @@ intro vidtAddrNull. destruct vidtAddrNull.
       instantiate(1 := fun leEnds s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\
           consistency s /\ curPd = currentPartition s /\ isPDT globalPd s /\ beqAddr nullAddr vidtaddr = false /\
           isBE vidtBlock s /\ bentryPFlag vidtBlock true s /\ bentryAFlag vidtBlock true s /\
-          vidtSize = Constants.vidtSize /\ vidtEndAddr = CPaddr (vidtaddr + vidtSize)
-          /\ leEnds = paddrLe vidtBlockEndAddr vidtEndAddr). intuition.
-      assert(Hdiff: Some vidtEndAddr <> None) by (intro; congruence). specialize(H11 Hdiff). injection H11 as Hres.
-      assumption.
+          vidtSize = Constants.vidtSize /\ vidtPotEndAddr = CPaddr (vidtaddr + vidtSize)
+          /\ leEnds = paddrLe vidtBlockEndAddr vidtPotEndAddr). intuition.
     }
     intro overlap. destruct overlap.
     { (* case overlap = true *)
@@ -1490,5 +1489,4 @@ intro vidtAddrNull. destruct vidtAddrNull.
       }
       intro. eapply weaken. apply WP.ret. intros s Hprops. simpl.
       destruct Hprops as [s0 [pdentry [newPDEntry Hprops]]]. intuition.
-  + eapply weaken. apply WP.ret. intros s Hprops. simpl. intuition.
 Qed.

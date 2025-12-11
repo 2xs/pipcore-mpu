@@ -582,6 +582,7 @@ case_eq kernelstructureisnull.
 		rewrite <- DependentTypeLemmas.beqAddrTrue in HstructureNull.
 		exfalso ; congruence.
 	-  (* (structure pdentry) <> nullAddr *)
+    unfold maxNbPreparePlusOne in *.
 		induction ((filterOptionPaddr (getKSEntriesAux (maxNbPrepare+1) (structure pdentry) s))).
 		-- intuition.
 		-- simpl in *. intuition.
