@@ -143,6 +143,9 @@ intro vidtBlockGlobalId. destruct (beqAddr vidtBlockGlobalId blockToRemoveInCurr
 (* case vidtBlockGlobalId <> blockToRemoveInCurrPartAddr *)
 eapply bindRev.
 {	(* Internal.removeBlockInChildAndDescendants *)
-  eapply weaken.
+  eapply weaken. admit. admit.
 }
-intro blockIsRemoved.
+intro blockIsRemoved. destruct (negb blockIsRemoved) eqn:HnRemoved.
+- admit.
+- admit.
+Admitted.
