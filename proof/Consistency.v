@@ -663,6 +663,18 @@ In partition (getPartitions multiplexer s)
 -> sh1entryPDchild sh1entryaddr nullAddr s
 -> sh1entryInChildLocation sh1entryaddr nullAddr s.
 
+Definition childLocHasSameStart s :=
+forall partition block sh1entryaddr blockChild idchild,
+In partition (getPartitions multiplexer s)
+-> In block (getMappedBlocks partition s)
+-> sh1entryAddr block sh1entryaddr s
+-> sh1entryPDchild sh1entryaddr idchild s
+-> sh1entryInChildLocationWeak sh1entryaddr blockChild s
+-> idchild <> nullAddr
+-> blockChild <> nullAddr
+-> (forall startaddr, bentryStartAddr block startaddr s
+    -> bentryStartAddr blockChild startaddr s).
+
 
 (** ** First batch of consistency properties *)
 Definition consistency1 s :=
@@ -723,7 +735,8 @@ noChildImpliesAddressesNotShared s /\
 kernelsAreNotAccessible s /\
 blockAndNextAreSideBySide s /\
 parentBlocksBoundsIfNoNext s
-/\ childLocMappedInChild s.
+/\ childLocMappedInChild s
+/\ childLocHasSameStart s.
 
 (** ** Conjunction of all consistency properties *)
 Definition consistency s :=

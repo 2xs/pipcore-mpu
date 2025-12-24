@@ -3619,6 +3619,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            destruct v; try(congruence). destruct Hcons0 as (Hcons0 & _). split; trivial. intro. exfalso; congruence.
            (* END childBlockNullIfChildNull *)
          }
+
+         (* assert(childLocHasSameStart s1).
+         { (* BEGIN childLocHasSameStart s *)
+           apply childLocHasSameStartPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END childLocHasSameStart *)
+         } *)
          unfold consistency1. intuition.
        }
 
@@ -5434,6 +5443,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                destruct Hcons0 as (Hcons0 & _). split; trivial. intro. exfalso; congruence.
                (* END pdchildIsPDT *)
              }
+
+             (* assert(childLocHasSameStart s).
+             { (* BEGIN childLocHasSameStart s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply childLocHasSameStartPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END childLocHasSameStart *)
+             } *)
 
              unfold consistency1. intuition.
        ++ split.
@@ -9761,6 +9779,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            destruct v; try(congruence). destruct Hcons0 as (Hcons0 & _). split; trivial. intro. exfalso; congruence.
            (* END childBlockNullIfChildNull *)
          }
+
+         (* assert(childLocHasSameStart s1).
+         { (* BEGIN childLocHasSameStart s1 *)
+           apply childLocHasSameStartPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END childLocHasSameStart *)
+         } *)
          unfold consistency1. intuition.
        }
 
@@ -11456,6 +11483,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                destruct Hcons0 as (Hcons0 & _). split; trivial. intro. exfalso; congruence.
                (* END pdchildIsPDT *)
              }
+
+             (* assert(childLocHasSameStart s).
+             { (* BEGIN childLocHasSameStart s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply childLocHasSameStartPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END childLocHasSameStart *)
+             } *)
 
              unfold consistency1. intuition.
        ++ split.
@@ -15837,6 +15873,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END childBlockNullIfChildNull *)
          }
 
+         (* assert(childLocHasSameStart s1).
+         { (* BEGIN childLocHasSameStart s1 *)
+           apply childLocHasSameStartPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false;
+                unfold consistency1 in *; intuition.
+           (* END childLocHasSameStart *)
+         } *)
+
          unfold consistency1. intuition.
        }
 
@@ -17570,6 +17615,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                destruct Hcons0 as (Hcons0 & _). split; trivial. intro. exfalso; congruence.
                (* END pdchildIsPDT *)
              }
+
+             (* assert(childLocHasSameStart s).
+             { (* BEGIN childLocHasSameStart s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply childLocHasSameStartPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END childLocHasSameStart *)
+             } *)
 
              unfold consistency1. intuition.
        ++ split.
@@ -22340,6 +22394,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END childBlockNullIfChildNull *)
          }
 
+         (*assert(childLocHasSameStart s1).
+         { (* BEGIN childLocHasSameStart s1 *)
+           apply childLocHasSameStartPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false;
+                unfold consistency1 in *; intuition.
+           (* END childLocHasSameStart *)
+         }*)
+
          unfold consistency1. intuition.
        }
 
@@ -24137,6 +24200,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                destruct Hcons0 as (Hcons0 & _). split; trivial. intro. exfalso; congruence.
                (* END pdchildIsPDT *)
              }
+
+             (* assert(childLocHasSameStart s).
+             { (* BEGIN childLocHasSameStart s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply childLocHasSameStartPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END childLocHasSameStart *)
+             } *)
 
              unfold consistency1. intuition.
        ++ split.

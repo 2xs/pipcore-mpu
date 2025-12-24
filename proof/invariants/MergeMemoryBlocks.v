@@ -1417,6 +1417,31 @@ intro block2Next. eapply bindRev.
     (* END childLocMappedInChild *)
   }
 
+  assert(childLocMappedInChildIfAcc newS).
+  { (* BEGIN childLocMappedInChildIfAcc newS *)
+    assert(Hcons0: childLocMappedInChildIfAcc s) by (unfold consistency2 in *; intuition).
+    intros part block sh1entryaddr blockChild idchild startaddr HpartBisIsPart HblockMapped Hsh1 HPDchild Hloc
+      HbeqIdChildNull Hstart HAflagBC.
+    rewrite HgetPartsEq in *. assert(isPDT part s).
+    { apply partitionsArePDT; trivial; unfold consistency1 in *; intuition. }
+    rewrite HgetMappedBEq in HblockMapped; trivial. unfold sh1entryAddr in *. unfold sh1entryInChildLocationWeak in *.
+    unfold sh1entryPDchild in *. unfold bentryStartAddr in *. unfold bentryAFlag in *. simpl in *.
+    destruct (beqAddr (CPaddr (block1InCurrPartAddr+scoffset)) block) eqn:HbeqSceBlock; try(exfalso; congruence).
+    destruct (beqAddr (CPaddr (block1InCurrPartAddr+scoffset)) blockChild) eqn:HbeqSceBC; try(exfalso; congruence).
+    destruct (beqAddr (CPaddr (block1InCurrPartAddr+scoffset)) sh1entryaddr) eqn:HbeqSceSh1; try(exfalso; congruence).
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
+    specialize(Hcons0 part block sh1entryaddr blockChild idchild startaddr HpartBisIsPart HblockMapped Hsh1 HPDchild
+      Hloc HbeqIdChildNull Hstart HAflagBC). destruct Hcons0 as (HbeqBCNull & HBCMapped & HstartChild).
+    split; trivial. assert(isPDT idchild s).
+    {
+      unfold getMappedBlocks in *. unfold getKSEntries in *. unfold isPDT.
+      destruct (lookup idchild (memory s) beqAddr); try(simpl in *; congruence).
+      destruct v; try(simpl in *; congruence). trivial.
+    }
+    rewrite HgetMappedBEq; auto.
+    (* END childLocMappedInChild *)
+  }
+
   assert(verticalSharing newS).
   { (* BEGIN verticalSharing newS *)
     intros pdparent child HparentIsPart HchildIsChild. rewrite HgetPartsEq in *.
@@ -1465,6 +1490,7 @@ intro block2Next. eapply bindRev.
       /\ noChildImpliesAddressesNotShared s
       /\ kernelsAreNotAccessible s
       /\ childLocMappedInChild s
+      /\ childLocMappedInChildIfAcc s
       /\ verticalSharing s
       /\ partitionsIsolation s
       /\ kernelDataIsolation s
@@ -1551,7 +1577,8 @@ intro block2End. eapply bindRev.
 { (** MAL.writeBlockEndFromBlockEntryAddr **)
   eapply weaken. apply writeBlockEndFromBlockEntryAddr. intros s Hprops. simpl.
   destruct Hprops as ([s0 [scentry1 [sh1entryaddr1 [sh1entryaddr2 (Hs & Hblock1Eq & Hblock2Eq & Hconsist1s &
-    HnoDupMapped & Haccess & Hshared & HchildBlockProp & HnoChild & HkernNotAcc & HlocProps & HVS & HPI & HKDI & Hcurr
+    HnoDupMapped & Haccess & Hshared & HchildBlockProp & HnoChild & HkernNotAcc & HlocProps & HlocPropsIfAcc & HVS &
+    HPI & HKDI & Hcurr
     & Hsh11 & Hsh12 & HPDchild2 & HAflag1 & HAflag2 & HPflag2 & HPflag1 & HPDchild1 & Hblock2Mapped & Hblock1Mapped &
     Hconsists0 & HVSs0 & HPIs0 & HKDIs0 & HcurrEqs0 & HgetPartsEqs0 & HgetChildrenEqs0 & HgetMappedBEqs0 &
     HlookupSce1s0 & Hsh11s0 & Hsh12s0 & HPDchild2s0 & HAflag1s0 & HAflag2s0 & HPflag2s0 & HPflag1s0 & HPDchild1s0 &
@@ -1641,6 +1668,7 @@ intro block2End. eapply bindRev.
       /\ noChildImpliesAddressesNotShared s1
       /\ kernelsAreNotAccessible s1
       /\ childLocMappedInChild s1
+      /\ childLocMappedInChildIfAcc s1
       /\ verticalSharing s1
       /\ partitionsIsolation s1
       /\ kernelDataIsolation s1
@@ -3108,7 +3136,8 @@ intro. eapply bindRev.
   destruct Hprops as [s1 [s0 [scentry1 [sh1entryaddr1 [sh1entryaddr2 [bentry1 [pdentryCurr (Hs & HnewB & Hs1 &
     Hblock1 & Hblock2 & HltEnds & HlebMinSize2 & HbeqBlocks & HcurrEqss1 & HgetPartsEq & HgetChildrenEqss1 &
     HgetMappedBEqss1 & HlookupCurrs1 & HlookupBlock1s1 & Hconsists & Hconsists1 & HnoDups1 & Haccesss1 & Hshareds1 &
-    HchildBlockProps & HnoChilds1 & HkernNotAccs1 & HlocPropss1 & HVSs1 & HPIs1 & HKDIs1 & Hcurrs1 & Hsh11s1 & Hsh12s1
+    HchildBlockProps & HnoChilds1 & HkernNotAccs1 & HlocPropss1 & HlocPropsIfAccs1 & HVSs1 & HPIs1 & HKDIs1 & Hcurrs1
+    & Hsh11s1 & Hsh12s1
     & HPDchild2s1 & HAflag1s1 & HAflag2s1 & HPflag1s1 & HPflag2s1 & Hstart2s1 & HPDchild1s1 & Hblock2Mappes1 &
     Hblock1Mappeds1 & Hprops)]]]]]]]. unfold isPDT. unfold isBE. unfold bentryPFlag. rewrite HgetMappedBEqss1.
   rewrite Hs. simpl. destruct (beqAddr block1InCurrPartAddr currentPart) eqn:HbeqBlock1Curr.

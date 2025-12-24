@@ -4097,6 +4097,34 @@ eapply bindRev.
         (* END childLocMappedInChild *)
       }
 
+      assert(childLocMappedInChildIfAcc s).
+      { (* BEGIN childLocMappedInChildIfAcc s *)
+        assert(Hcons0: childLocMappedInChildIfAcc s0)
+          by (unfold consistency in *; unfold consistency2 in *; intuition).
+        intros part block sh1entryaddr blockChild idchild startaddr HpartBisIsPart HblockMapped Hsh1 HPDchild Hloc
+          HbeqIdChildNull Hstart HAflagBC. rewrite HgetPartitionspdEq in *. assert(isPDT part s0).
+        { apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition. }
+        rewrite HgetMappedBEq in HblockMapped; trivial. unfold sh1entryAddr in *. unfold sh1entryPDchild in *.
+        unfold sh1entryInChildLocationWeak in *. unfold bentryStartAddr in *. unfold bentryAFlag in *.
+        rewrite <-HsEq in Hsh1. rewrite <-HsEq in Hstart. rewrite <-HsEq in HAflagBC. rewrite <-HsEq.
+        rewrite <-HsEq in Hloc. rewrite <-HsEq in HPDchild. simpl in *. rewrite HsEq.
+        destruct (beqAddr globalIdPD block) eqn:HbeqGlobBlock; try(exfalso; congruence).
+        destruct (beqAddr globalIdPD blockChild) eqn:HbeqGlobBC; try(exfalso; congruence).
+        destruct (beqAddr globalIdPD sh1entryaddr) eqn:HbeqGlobSh1; try(exfalso; congruence).
+        rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
+        specialize(Hcons0 part block sh1entryaddr blockChild idchild startaddr HpartBisIsPart HblockMapped Hsh1
+          HPDchild Hloc HbeqIdChildNull Hstart HAflagBC).
+        destruct Hcons0 as (HbeqBCNull & HBCMapped & HstartChild). split; trivial. split; trivial.
+        assert(isPDT idchild s0).
+        {
+          unfold getMappedBlocks in *. unfold getKSEntries in *. unfold isPDT.
+          destruct (lookup idchild (memory s0) beqAddr); try(simpl in *; congruence).
+          destruct v; try(simpl in *; congruence). trivial.
+        }
+        rewrite HgetMappedBEq; trivial.
+        (* END childLocMappedInChildIfAcc *)
+      }
+
       intuition.
 
     * (* Final state *)
