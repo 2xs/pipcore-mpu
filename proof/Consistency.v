@@ -675,6 +675,11 @@ In partition (getPartitions multiplexer s)
 -> (forall startaddr, bentryStartAddr block startaddr s
     -> bentryStartAddr blockChild startaddr s).
 
+Definition accessibleBlocksArePresent s :=
+forall block,
+bentryAFlag block true s
+-> bentryPFlag block true s.
+
 
 (** ** First batch of consistency properties *)
 Definition consistency1 s :=
@@ -722,7 +727,8 @@ blockBelongsToAPart s /\
 PDflagMeansNoChild s /\
 nbPrepareIsNbKern s
 /\ pdchildIsPDT s
-/\ childBlockNullIfChildNull s.
+/\ childBlockNullIfChildNull s
+/\ accessibleBlocksArePresent s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=

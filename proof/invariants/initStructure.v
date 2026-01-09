@@ -1541,6 +1541,14 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
       (* END childBlockNullIfChildNull *)
     }
 
+    assert(accessibleBlocksArePresent s).
+    { (* BEGIN accessibleBlocksArePresent s *)
+      assert(Hcons0: accessibleBlocksArePresent s0) by intuition.
+      intros block HAflag. unfold bentryAFlag in *. unfold bentryPFlag. rewrite HlookupsEq in *.
+      specialize(Hcons0 block HAflag). assumption.
+      (* END accessibleBlocksArePresent *)
+    }
+
     assert(noDupMappedPaddrList s).
     { (* BEGIN noDupMappedPaddrList s *)
       assert(Hcons0: noDupMappedPaddrList s0) by intuition. intros partition HpartIsPDT. unfold isPDT in *.
@@ -1719,6 +1727,13 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
       rewrite HlookupsEq. specialize(Hcons0 part block sh1entryaddr HpartIsPart HblockMapped Hsh1 HPDchild).
       assumption.
       (* END pdchildIsPDT *)
+    }
+    assert(accessibleBlocksArePresent s).
+    { (* BEGIN accessibleBlocksArePresent s *)
+      assert(Hcons0: accessibleBlocksArePresent s0) by intuition.
+      intros block HAflag. unfold bentryAFlag in *. unfold bentryPFlag. rewrite HlookupsEq in *.
+      specialize(Hcons0 block HAflag). assumption.
+      (* END accessibleBlocksArePresent *)
     }
     assert(childLocHasSameStart s).
     { (* BEGIN childLocHasSameStart s *)
@@ -4623,6 +4638,36 @@ assert(childBlockNullIfChildNull s).
   unfold sh1entryInChildLocation in *. destruct (lookup sh1entryaddr (memory s0) beqAddr); try(congruence).
   destruct v; try(congruence). destruct Hcons0 as (HchildLoc & _). split; trivial. intro. exfalso; congruence.
   (* END pdchildIsPDT *)
+}
+
+assert(accessibleBlocksArePresent s).
+{ (* BEGIN accessibleBlocksArePresent s *)
+  assert(Hcons0: accessibleBlocksArePresent s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+  intros block HAflag. unfold bentryAFlag in *. unfold bentryPFlag. assert(isBE block s).
+  {
+    unfold isBE. destruct (lookup block (memory s) beqAddr); try(congruence). destruct v; try(congruence). trivial.
+  }
+  rewrite HblocksAreBEss1 in *; trivial.
+  assert(HpropsOr: (exists kernIdx:index, kernIdx <= kernelStructureEntriesNb-1 /\ block = CPaddr (kernStart+kernIdx))
+      \/ ~(exists kernIdx:index, kernIdx <= kernelStructureEntriesNb-1 /\ block = CPaddr (kernStart+kernIdx)))
+    by (apply classic).
+  destruct HpropsOr as [HblockIn | HblockNotIn].
+  {
+    destruct HblockIn as [kernIdx (HlebIdxKernNb & HeqBlock)]. subst block. exfalso.
+    destruct (Nat.ltb kernIdx (kernelStructureEntriesNb-1)) eqn:HltIdxKernNb.
+    - apply Nat.ltb_lt in HltIdxKernNb. specialize(HnewBE kernIdx HltIdxKernNb).
+      destruct HnewBE as [l HnewBE]. rewrite HnewBE in *. simpl in HAflag. congruence.
+    - apply Nat.ltb_ge in HltIdxKernNb. assert(Heq: i kernIdx = kernelStructureEntriesNb-1) by lia.
+      rewrite Heq in *. pose proof KSEntriesNbNotZero. rewrite Nat.add_sub_assoc in HAflag; try(lia).
+      destruct HlastBlock as [l HlastBlock]. rewrite HlastBlock in *. simpl in HAflag. congruence.
+  }
+  assert(Hindex: forall kernIdx: index, kernIdx <= kernelStructureEntriesNb-1
+      -> block <> CPaddr (kernStart+kernIdx)).
+  {
+    intros kernIdx HlebIdxKernNb Hcontra. contradict HblockNotIn. exists kernIdx. auto.
+  }
+  rewrite Hlookups1s0Eq; trivial. rewrite Hlookups1s0Eq in HAflag; trivial. apply Hcons0; trivial.
+  (* END accessibleBlocksArePresent *)
 }
 
 assert(childLocHasSameStart s).

@@ -5964,6 +5964,55 @@ destruct HpropsOr as [Hss1Eq | Hs].
   specialize(Htrees1 child pdparent parentsList HchildNotRoot HchildIsPart Hparents1 HparentsLists1). assumption.
 Qed.
 
+Lemma accessibleBlocksArePresentPreservedIsBuilt s s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry newMPU
+flag:
+accessibleBlocksArePresent s0
+-> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
+-> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
+-> bentryPFlag blockInParentPartitionAddr true s0
+-> (s = s1
+    \/
+     s =
+     {|
+       currentPartition := currentPartition s1;
+       memory :=
+         add pdAddr
+           (PDT
+              {|
+                structure := structure pdentry1;
+                firstfreeslot := firstfreeslot pdentry1;
+                nbfreeslots := nbfreeslots pdentry1;
+                nbprepare := nbprepare pdentry1;
+                parent := ADT.parent pdentry1;
+                MPU := newMPU;
+                vidtAddr := vidtAddr pdentry1
+              |}) (memory s1) beqAddr
+     |})
+-> s1 =
+      {|
+        currentPartition := currentPartition s0;
+        memory :=
+          add blockInParentPartitionAddr
+            (BE
+               (CBlockEntry (read bentry) (write bentry) (exec bentry) (present bentry) flag
+                  (blockindex bentry) (blockrange bentry))) (memory s0) beqAddr
+      |}
+-> accessibleBlocksArePresent s.
+Proof.
+intros HaccArePres HlookupPart HlookupBlock HPflag HpropsOr Hs1 block HAflag. unfold bentryAFlag in *.
+unfold bentryPFlag in *. assert(HlookupEq: lookup block (memory s) beqAddr = lookup block (memory s1) beqAddr).
+{
+  destruct HpropsOr as [Heq | Hs]; try(subst s; reflexivity). rewrite Hs in HAflag. rewrite Hs.
+  simpl in *. destruct (beqAddr pdAddr block) eqn:HbeqPartBlock; try(exfalso; congruence).
+  rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; auto.
+}
+rewrite HlookupEq in *. rewrite Hs1 in HAflag. rewrite Hs1. simpl in *.
+destruct (beqAddr blockInParentPartitionAddr block) eqn:HbeqBlocks.
+- unfold CBlockEntry. rewrite HlookupBlock in *. assert(blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
+  destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia). auto.
+- rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. apply HaccArePres; trivial.
+Qed.
+
 (* General properties on important tools *)
 
 Lemma lookupBENotPresEqWriteAccess addr startaddr endaddr statesList initState parentsList pdparent flag s:

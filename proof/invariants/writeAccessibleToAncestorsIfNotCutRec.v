@@ -3620,6 +3620,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END childBlockNullIfChildNull *)
          }
 
+         assert(accessibleBlocksArePresent s1).
+         { (* BEGIN accessibleBlocksArePresent s *)
+           apply accessibleBlocksArePresentPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END accessibleBlocksArePresent *)
+         }
+
          (* assert(childLocHasSameStart s1).
          { (* BEGIN childLocHasSameStart s *)
            apply childLocHasSameStartPreservedIsBuilt with s1 s0 pdparent pdentryParent
@@ -5442,6 +5451,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                destruct (lookup sh1entryaddr (memory s1) beqAddr); try(congruence). destruct v; try(congruence).
                destruct Hcons0 as (Hcons0 & _). split; trivial. intro. exfalso; congruence.
                (* END pdchildIsPDT *)
+             }
+
+             assert(accessibleBlocksArePresent s).
+             { (* BEGIN accessibleBlocksArePresent s *)
+               revert Hs1.
+               apply accessibleBlocksArePresentPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END accessibleBlocksArePresent *)
              }
 
              (* assert(childLocHasSameStart s).
@@ -9780,6 +9798,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END childBlockNullIfChildNull *)
          }
 
+         assert(accessibleBlocksArePresent s1).
+         { (* BEGIN accessibleBlocksArePresent s *)
+           apply accessibleBlocksArePresentPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END accessibleBlocksArePresent *)
+         }
+
          (* assert(childLocHasSameStart s1).
          { (* BEGIN childLocHasSameStart s1 *)
            apply childLocHasSameStartPreservedIsBuilt with s1 s0 pdparent pdentryParent
@@ -11482,6 +11509,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                destruct (lookup sh1entryaddr (memory s1) beqAddr); try(congruence). destruct v; try(congruence).
                destruct Hcons0 as (Hcons0 & _). split; trivial. intro. exfalso; congruence.
                (* END pdchildIsPDT *)
+             }
+
+             assert(accessibleBlocksArePresent s).
+             { (* BEGIN accessibleBlocksArePresent s *)
+               revert Hs1.
+               apply accessibleBlocksArePresentPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END accessibleBlocksArePresent *)
              }
 
              (* assert(childLocHasSameStart s).
@@ -15873,6 +15909,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END childBlockNullIfChildNull *)
          }
 
+         assert(accessibleBlocksArePresent s1).
+         { (* BEGIN accessibleBlocksArePresent s1 *)
+           apply accessibleBlocksArePresentPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false;
+                unfold consistency1 in *; intuition.
+           (* END accessibleBlocksArePresent *)
+         }
+
          (* assert(childLocHasSameStart s1).
          { (* BEGIN childLocHasSameStart s1 *)
            apply childLocHasSameStartPreservedIsBuilt with s1 s0 pdparent pdentryParent
@@ -17616,6 +17661,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                (* END pdchildIsPDT *)
              }
 
+             assert(accessibleBlocksArePresent s).
+             { (* BEGIN accessibleBlocksArePresent s *)
+               revert Hs1.
+               apply accessibleBlocksArePresentPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END accessibleBlocksArePresent *)
+             }
+
              (* assert(childLocHasSameStart s).
              { (* BEGIN childLocHasSameStart s *)
                revert Hs1 HnoPDFlagBlock.
@@ -18831,8 +18885,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
             - subst parentsList. assumption.
           }
           apply Hres.
-        - apply mappedBlockIsBE in HblockInPart1. destruct HblockInPart1 as [bentry (HlookupBlockPart1 & Hpresent)].
-          unfold bentryPFlag. rewrite HlookupBlockPart1. apply eq_sym. assumption.
       }
       unfold bentryAFlag in *. destruct (lookup blockPart1 (memory s) beqAddr); try(congruence).
       destruct v; congruence.
@@ -22366,7 +22418,7 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
          }
 
          assert(childBlockNullIfChildNull s1).
-         { (* BEGIN childBlockNullIfChildNull s *)
+         { (* BEGIN childBlockNullIfChildNull s1 *)
            assert(Hcons0: childBlockNullIfChildNull s0) by (unfold consistency1 in *; intuition).
            intros part block sh1entryaddr HpartBisIsPart HblockMapped Hsh1 HPDchild.
            rewrite HgetPartEq in *. assert(HgetBlocksEq: getMappedBlocks part s1 = getMappedBlocks part s0).
@@ -22392,6 +22444,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            unfold sh1entryInChildLocation in *. destruct (lookup sh1entryaddr (memory s0) beqAddr); try(congruence).
            destruct v; try(congruence). destruct Hcons0 as (Hcons0 & _). split; trivial. intro. exfalso; congruence.
            (* END childBlockNullIfChildNull *)
+         }
+
+         assert(accessibleBlocksArePresent s1).
+         { (* BEGIN accessibleBlocksArePresent s1 *)
+           apply accessibleBlocksArePresentPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false;
+                unfold consistency1 in *; intuition.
+           (* END accessibleBlocksArePresent *)
          }
 
          (*assert(childLocHasSameStart s1).
@@ -24199,6 +24260,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                destruct (lookup sh1entryaddr (memory s1) beqAddr); try(congruence). destruct v; try(congruence).
                destruct Hcons0 as (Hcons0 & _). split; trivial. intro. exfalso; congruence.
                (* END pdchildIsPDT *)
+             }
+
+             assert(accessibleBlocksArePresent s).
+             { (* BEGIN accessibleBlocksArePresent s *)
+               revert Hs1.
+               apply accessibleBlocksArePresentPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END accessibleBlocksArePresent *)
              }
 
              (* assert(childLocHasSameStart s).

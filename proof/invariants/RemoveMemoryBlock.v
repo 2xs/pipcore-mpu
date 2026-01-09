@@ -39,7 +39,7 @@ Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPrecon
 Proof.StateLib (*Proof.InternalLemmas Proof.InternalLemmas2*) Proof.DependentTypeLemmas.
 
 Require Import Invariants (*GetTableAddr UpdateShadow2Structure UpdateShadow1Structure
-               PropagatedProperties MapMMUPage*) findBlockInKSWithAddr.
+               PropagatedProperties MapMMUPage*) findBlockInKSWithAddr removeBlockInChildAndDescendants.
 
 From Stdlib Require Import Bool List EqNat.
 
@@ -143,9 +143,30 @@ intro vidtBlockGlobalId. destruct (beqAddr vidtBlockGlobalId blockToRemoveInCurr
 (* case vidtBlockGlobalId <> blockToRemoveInCurrPartAddr *)
 eapply bindRev.
 {	(* Internal.removeBlockInChildAndDescendants *)
-  eapply weaken. admit. admit.
+  eapply weaken. apply removeBlockInChildAndDescendants. intros s Hprops. simpl.
+  destruct Hprops as ((((HPI & HKDi & HVS & Hconsist & Hcurr & HBTREq & HPflagBTR & HBTRMapped & HbeqNullBTR &
+    HbeqNullChild & [sh1entryaddrBis (HPDchild & Hsh1Bis)]) & [sh1entry [sh1entryaddr (HlookupSh1 & Hsh1 & Hloc)]]) &
+    HbeqNullBTRChild) & _). assert(isBE blockToRemoveInCurrPartAddr s).
+  {
+    unfold isBE. unfold bentryPFlag in *.
+    destruct (lookup blockToRemoveInCurrPartAddr (memory s) beqAddr); try(congruence).
+    destruct v; try(congruence). trivial.
+  }
+  assert(isBE blockToRemoveInChildAddr s).
+  {
+    unfold sh1entryInChildLocation in *. destruct (lookup sh1entryaddr (memory s) beqAddr); try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). destruct Hloc as (_ & Hres). rewrite <-beqAddrFalse in *.
+    apply not_eq_sym in HbeqNullBTRChild. apply Hres; assumption.
+  }
+  assert(In currentPart (getPartitions multiplexer s)).
+  {
+    subst currentPart. unfold consistency in *; unfold consistency1 in *; intuition.
+  }
+  intuition. exists sh1entryaddr. unfold sh1entryAddr in *.
+  destruct (lookup blockToRemoveInCurrPartAddr (memory s) beqAddr); try(exfalso; congruence).
+  destruct v; try(exfalso; congruence). subst sh1entryaddr. subst sh1entryaddrBis. auto.
 }
 intro blockIsRemoved. destruct (negb blockIsRemoved) eqn:HnRemoved.
-- admit.
-- admit.
-Admitted.
+- eapply weaken. apply WP.ret. intuition.
+- eapply weaken. apply WP.ret. intuition.
+Qed.

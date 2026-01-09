@@ -31389,6 +31389,36 @@ assert(childBlockNullIfChildNull s).
   (* END pdchildIsPDT *)
 }
 
+assert(accessibleBlocksArePresent s).
+{ (* BEGIN accessibleBlocksArePresent s *)
+  assert(Hcons0: accessibleBlocksArePresent s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+  intros block HAflag. unfold bentryPFlag. unfold bentryAFlag in *. rewrite Hs in HAflag. rewrite Hs. simpl in *.
+  rewrite beqAddrTrue in *. clear HlookupSces9. destruct (beqAddr sceaddr block) eqn:HbeqSceSh1; try(congruence).
+  rewrite beqnewBsce in *. simpl in *. destruct (beqAddr newBlockEntryAddr block) eqn:HbeqBlocks.
+  - unfold CBlockEntry in *.
+    destruct (lt_dec (blockindex bentry5) kernelStructureEntriesNb); try(lia).
+    destruct (lt_dec (blockindex bentry4) kernelStructureEntriesNb); try(lia).
+    destruct (lt_dec (blockindex bentry3) kernelStructureEntriesNb); try(lia).
+    destruct (lt_dec (blockindex bentry2) kernelStructureEntriesNb); try(lia).
+    destruct (lt_dec (blockindex bentry1) kernelStructureEntriesNb); try(lia).
+    destruct (lt_dec (blockindex bentry0) kernelStructureEntriesNb); try(lia).
+    destruct (lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia). simpl in *. rewrite H7. simpl.
+    rewrite H8. simpl. rewrite H9. simpl. rewrite H10. auto.
+  - rewrite beqpdnewB in *.
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
+    rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
+    rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
+    rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
+    rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
+    rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
+    rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial. simpl in *.
+    destruct (beqAddr pdinsertion block) eqn:HbeqPdBlock; try(congruence). rewrite beqAddrTrue in *.
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
+    rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
+    rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial. apply Hcons0; trivial.
+  (* END accessibleBlocksArePresent *)
+}
+
 intuition.
 
 - (* BEGIN kernelsAreNotAccessible s *)
