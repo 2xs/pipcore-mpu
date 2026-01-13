@@ -1087,7 +1087,7 @@ initStructure kernStart kernEnd
   fun initSucc s => consistency1 s /\ noDupMappedPaddrList s /\ accessibleParentPaddrIsAccessibleIntoChild s
     /\ sharedBlockPointsToChild s /\ adressesRangePreservedIfOriginAndNextOk s /\ childsBlocksPropsInParent s
     /\ noChildImpliesAddressesNotShared s /\ blockAndNextAreSideBySide s /\ parentBlocksBoundsIfNoNext s
-    /\ childLocMappedInChild s
+    /\ childLocMappedInChild s /\ childLocHasSameStart s
     /\ verticalSharing s /\ partitionsIsolation s /\ kernelDataIsolation s
     /\ initSucc = true
     /\ (forall block startaddr, startaddr <> kernStart -> bentryStartAddr block startaddr s

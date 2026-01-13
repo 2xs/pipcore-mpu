@@ -1043,6 +1043,14 @@ assert(childBlockNullIfChildNull newS).
   (* END childBlockNullIfChildNull *)
 }
 
+assert(accessibleBlocksArePresent newS).
+{ (* BEGIN accessibleBlocksArePresent newS *)
+  assert(Hcons0: accessibleBlocksArePresent s) by intuition. intros block HAflag. unfold bentryAFlag in *.
+  unfold bentryPFlag. simpl in *. destruct (beqAddr pdpart block) eqn:HbeqPartBlock; try(congruence).
+  rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. apply Hcons0; assumption.
+  (* END accessibleBlocksArePresent *)
+}
+
 assert(noDupMappedPaddrList newS).
 { (* BEGIN noDupMappedPaddrList newS *)
   assert(Hcons0: noDupMappedPaddrList s) by intuition. intros partition HpartIsPDT. rewrite HgetMappedPEq.
@@ -1285,6 +1293,24 @@ assert(childLocMappedInChild newS).
   { rewrite <-DTL.beqAddrTrue in HbeqPartBC. subst blockChild. rewrite HlookupPart in *. congruence. }
   rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
   (* END childLocMappedInChild *)
+}
+
+assert(childLocHasSameStart newS).
+{ (* BEGIN childLocHasSameStart newS *)
+  assert(Hcons0: childLocHasSameStart s) by intuition.
+  intros part block sh1entryaddr blockChild idchild HpartIsPart HblockMapped Hsh1 HPDchild Hloc
+    HbeqIdChildNull HbeqBCNull startaddr Hstart.
+  rewrite HgetPartsEq in *. rewrite HgetMappedBEq in *. unfold sh1entryAddr in *. unfold sh1entryPDchild in *.
+  unfold sh1entryInChildLocationWeak in *. unfold bentryStartAddr in Hstart. simpl in *.
+  destruct (beqAddr pdpart block) eqn:HbeqPartBlock; try(exfalso; congruence).
+  destruct (beqAddr pdpart sh1entryaddr) eqn:HbeqPartSh1; try(exfalso; congruence).
+  rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
+  specialize(Hcons0 part block sh1entryaddr blockChild idchild HpartIsPart HblockMapped Hsh1 HPDchild Hloc
+    HbeqIdChildNull HbeqBCNull startaddr Hstart). unfold bentryStartAddr in *. simpl.
+  destruct (beqAddr pdpart blockChild) eqn:HbeqPartBC.
+  { rewrite <-DTL.beqAddrTrue in HbeqPartBC. subst blockChild. rewrite HlookupPart in *. congruence. }
+  rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+  (* END childLocHasSameStart *)
 }
 
 assert(partitionsIsolation newS).
