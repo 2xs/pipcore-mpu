@@ -56,6 +56,7 @@ CFLAGS=-Wall -Wextra
 CFLAGS+=-std=gnu99
 
 CFLAGS+=$(ARCH_CFLAGS)
+CFLAGS+=$(FAE_INCLUDE_DIRECTORY_CFLAGS)
 ASFLAGS=$(ARCH_ASFLAGS)
 LDFLAGS=$(ARCH_LDFLAGS)
 
@@ -94,6 +95,9 @@ COQ_INVARIANTS_DIR=$(COQ_PROOF_DIR)/invariants
 
 # Architecture agnostic C dirs
 C_MODEL_INTERFACE_INCLUDE_DIR=$(SRC_DIR)/interface
+
+# CRT0 related directory
+CRT0_DIR=$(SRC_DIR)/partition_crt0
 
 # Architecture dependent C dirs
 ARCH_DEPENDENT_DIR=$(SRC_DIR)/arch
@@ -393,6 +397,7 @@ $(C_TARGET_BOOT_OBJ):\
                         -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
                         -I $(C_TARGET_MDK_INCLUDE_DIR)\
                         -I $(C_TARGET_UART_INCLUDE_DIR)\
+                        -I $(CRT0_DIR)\
                         -c -o $@ $<
 
 $(C_TARGET_CMSIS_OBJ):\

@@ -446,7 +446,7 @@ getFaultedAddress(stackedContext_t *ctx, void **addr, memFaultCause_t *cause)
 	{
 		printf("Error: The partition %p unmapped its MPU "
 			"region 0...\n", (void *) getCurPartition());
-		*addr = (void *) 0;
+		*addr = (void *) 0xDEADBEEF;
 		*cause = UNKNOWN;
 	}
 	else

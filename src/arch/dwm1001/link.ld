@@ -99,13 +99,21 @@ __mpuRegion0Size = 32K ;
 __mpuRegion0Start = __ramStart ;
 __mpuRegion0End = __ramStart + __mpuRegion0Size ;
 
-__mpuRegion1Size = __ramSize - __mpuRegion0Size - __pipRamSize ;
+__mpuRegion1Size = 16K ;
 __mpuRegion1Start = __mpuRegion0End ;
 __mpuRegion1End = __mpuRegion1Start + __mpuRegion1Size ;
 
-__mpuRegion2Size = __romEnd - __unusedRomStart ;
-__mpuRegion2Start = __unusedRomStart ;
+__mpuRegion2Size = 8K ;
+__mpuRegion2Start = __mpuRegion1End ;
 __mpuRegion2End = __mpuRegion2Start + __mpuRegion2Size ;
+
+__mpuRegion3Size = 4K ;
+__mpuRegion3Start = __mpuRegion2End ;
+__mpuRegion3End = __mpuRegion3Start + __mpuRegion3Size ;
+
+__mpuRegion4Size = __romEnd - __unusedRomStart ;
+__mpuRegion4Start = __unusedRomStart ;
+__mpuRegion4End = __mpuRegion4Start + __mpuRegion4Size ;
 
 MEMORY
 {

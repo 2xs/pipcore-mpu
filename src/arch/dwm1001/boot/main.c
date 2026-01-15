@@ -40,7 +40,8 @@
 #include "context.h"
 #include "yield_c.h"
 #include "scs.h"
-#include "interface.h"
+#include "crt0_ctx.h"
+#include "pip_crt0_ctx_data.h"
 #include "memlayout.h"
 #include "stdio.h"
 
@@ -74,28 +75,33 @@ Boot_Handler(void)
 		NVIC_SetPriority(irq, 1);
 	}
 
-	/* Retrive the root partition descriptor structure. */
+	/* Retrieve the root partition descriptor structure. */
 	PDTable_t *rootPartitionDescriptor = getRootPartition();
 
 	/* Get the top of the PSP */
 	uint32_t sp  = (uint32_t) &__rootStackTop;
 
-	/* Reserve on the stack the space necessary for structure. */
-	sp -= sizeof(interface_t);
+	/* Reserve on the stack the space necessary for structures. */
+	sp -= sizeof(crt0_ctx_t);
+	crt0_ctx_t *crt0_ctx = (crt0_ctx_t *)sp;
+	sp -= sizeof(pip_crt0_ctx_data_t);
+	pip_crt0_ctx_data_t *pip_crt0_ctx_data = (pip_crt0_ctx_data_t *)sp;
 
 	/* Copy the ID of the block containing the partition descriptor
 	 * of the root partition. */
-	interface_t *interface     = (interface_t *) sp;
-	interface->partDescBlockId = (void *) rootPartitionDescriptor;
-	interface->stackLimit      = &__rootStackLimit;
-	interface->stackTop        = &__rootStackTop;
-	interface->vidtStart       = &__rootVidtStart;
-	interface->vidtEnd         = &__rootVidtEnd;
-	interface->root            = &__root;
-	interface->unusedRomStart  = &__unusedRomStart;
-	interface->romEnd          = &__romEnd;
-	interface->unusedRamStart  = &__unusedRamStart;
-	interface->ramEnd          = &__rootRamEnd;
+	pip_crt0_ctx_data->partDescBlockId = (void *) rootPartitionDescriptor;
+	pip_crt0_ctx_data->stackLimit      = &__rootStackLimit;
+	pip_crt0_ctx_data->stackTop        = &__rootStackTop;
+	pip_crt0_ctx_data->vidtStart       = &__rootVidtStart;
+	pip_crt0_ctx_data->vidtEnd         = &__rootVidtEnd;
+	pip_crt0_ctx_data->root            = &__root;
+
+	crt0_ctx->bin_base  = &__root;
+	crt0_ctx->nvm_start = &__unusedRomStart;
+	crt0_ctx->nvm_end   = &__romEnd;
+	crt0_ctx->ram_start = &__unusedRamStart;
+	crt0_ctx->ram_end   = &__rootRamEnd;
+	crt0_ctx->argv      = pip_crt0_ctx_data;
 
 	stackedContext_t rootPartCtx;
 	rootPartCtx.isBasicFrame = 1;
@@ -108,7 +114,7 @@ Boot_Handler(void)
 	}
 
 	/* Initialize the root partition context. */
-	rootPartCtx.basicFrame.r0 = sp;
+	rootPartCtx.basicFrame.r0 = (uintptr_t)crt0_ctx;
 	rootPartCtx.basicFrame.pc = (uint32_t) &__root;
 	rootPartCtx.basicFrame.sp = sp;
 	rootPartCtx.basicFrame.xpsr = INITIAL_XPSR;

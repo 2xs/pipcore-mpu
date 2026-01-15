@@ -146,7 +146,7 @@ createAndRegisterRootPartition(void)
 	paddr mpuRegion0Id = insertNewEntry(
 		(paddr) &rootPartDesc,
 		(paddr) &__mpuRegion0Start,
-		(paddr) addressMinusOne(&__mpuRegion0End),
+		(paddr) &__mpuRegion0End,
 		(paddr) &__mpuRegion0Start,
 		(bool) true,
 		(bool) true,
@@ -157,7 +157,7 @@ createAndRegisterRootPartition(void)
 	paddr mpuRegion1Id = insertNewEntry(
 		(paddr) &rootPartDesc,
 		(paddr) &__mpuRegion1Start,
-		(paddr) addressMinusOne(&__mpuRegion1End),
+		(paddr) &__mpuRegion1End,
 		(paddr) &__mpuRegion1Start,
 		(bool) true,
 		(bool) true,
@@ -168,8 +168,30 @@ createAndRegisterRootPartition(void)
 	paddr mpuRegion2Id = insertNewEntry(
 		(paddr) &rootPartDesc,
 		(paddr) &__mpuRegion2Start,
-		(paddr) addressMinusOne(&__mpuRegion2End),
+		(paddr) &__mpuRegion2End,
 		(paddr) &__mpuRegion2Start,
+		(bool) true,
+		(bool) true,
+		(bool) false,
+		readPDNbFreeSlots(&rootPartDesc)
+	);
+
+	paddr mpuRegion3Id = insertNewEntry(
+		(paddr) &rootPartDesc,
+		(paddr) &__mpuRegion3Start,
+		(paddr) &__mpuRegion3End,
+		(paddr) &__mpuRegion3Start,
+		(bool) true,
+		(bool) true,
+		(bool) false,
+		readPDNbFreeSlots(&rootPartDesc)
+	);
+
+	paddr mpuRegion4Id = insertNewEntry(
+		(paddr) &rootPartDesc,
+		(paddr) &__mpuRegion4Start,
+		(paddr) &__mpuRegion4End,
+		(paddr) &__mpuRegion4Start,
 		(bool) true,
 		(bool) true,
 		(bool) true,
@@ -181,6 +203,8 @@ createAndRegisterRootPartition(void)
 	enableBlockInMPU(&rootPartDesc, mpuRegion0Id, 0);
 	enableBlockInMPU(&rootPartDesc, mpuRegion1Id, 1);
 	enableBlockInMPU(&rootPartDesc, mpuRegion2Id, 2);
+	enableBlockInMPU(&rootPartDesc, mpuRegion3Id, 3);
+	enableBlockInMPU(&rootPartDesc, mpuRegion4Id, 4);
 
 	/* Set the first MPU region as the current root partition
 	 * VIDT region in the partition descriptor structure. */

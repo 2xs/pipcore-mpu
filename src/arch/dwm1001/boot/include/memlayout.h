@@ -203,4 +203,32 @@ extern void *__mpuRegion2Start;
  */
 extern void *__mpuRegion2End;
 
+/*!
+ * \brief The start address of the MPU region 3.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__mpuRegion3Start;
+
+/*!
+ * \brief The end address of the MPU region 3.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__mpuRegion3End;
+
+/*!
+ * \brief The start address of the MPU region 4.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__mpuRegion4Start;
+
+/*!
+ * \brief The end address of the MPU region 4.
+ *
+ * \see The definition in the link.ld file.
+ */
+extern void *__mpuRegion4End;
+
 #endif /* __MEMLAYOUT_H__ */
