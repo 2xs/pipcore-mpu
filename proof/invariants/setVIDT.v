@@ -863,17 +863,18 @@ assert(nextImpliesBlockWasCut newS).
 assert(blocksAddressesTypes newS).
 { (* BEGIN blocksAddressesTypes newS *)
   assert(Hcons0: blocksAddressesTypes s) by intuition.
-  intros block startaddr endaddr HstartBlock HendBlock HPflagBlock HPDchildBlock. unfold bentryPFlag in *.
+  intros block startaddr endaddr part HpartIsPart HblockMapped HstartBlock HendBlock HPDchildBlock.
+  rewrite HgetPartsEq in *. rewrite HgetMappedBEq in *. unfold bentryStartAddr in *.
   assert(HlookupBlockEq: lookup block (memory newS) beqAddr = lookup block (memory s) beqAddr).
   {
     simpl in *. destruct (beqAddr pdpart block) eqn:HbeqPartBlock; try(exfalso; congruence).
     rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
   }
-  unfold bentryStartAddr in *. unfold bentryEndAddr in *. rewrite HlookupBlockEq in *. unfold sh1entryPDchild in *.
+  unfold bentryEndAddr in *. rewrite HlookupBlockEq in *. unfold sh1entryPDchild in *.
   simpl in HPDchildBlock.
   destruct (beqAddr pdpart (CPaddr (block+sh1offset))) eqn:HbeqPartSh1; try(exfalso; congruence).
   rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-  specialize(Hcons0 block startaddr endaddr HstartBlock HendBlock HPflagBlock HPDchildBlock).
+  specialize(Hcons0 block startaddr endaddr part HpartIsPart HblockMapped HstartBlock HendBlock HPDchildBlock).
   destruct Hcons0 as [(HKS & Hrange) | [(HPDT & Hrange) | Hrange]].
   - left. split.
     + unfold isKS in *. simpl. destruct (beqAddr pdpart startaddr) eqn:HbeqPartStart.
@@ -929,18 +930,19 @@ assert(blocksAddressesTypes newS).
 assert(notPDTIfNotPDflag newS).
 { (* BEGIN notPDTIfNotPDflag newS *)
   assert(Hcons0: notPDTIfNotPDflag s) by intuition.
-  intros block startaddr sh1entryaddr HstartBlock Hsh1 HPflag HPDflag HPDchild. unfold bentryPFlag in *.
+  intros block startaddr sh1entryaddr part HpartIsPart HblockMapped HstartBlock Hsh1 HPDflag HPDchild.
+  rewrite HgetPartsEq in *. rewrite HgetMappedBEq in *. unfold bentryStartAddr in *.
   assert(HlookupBlockEq: lookup block (memory newS) beqAddr = lookup block (memory s) beqAddr).
   {
     simpl in *. destruct (beqAddr pdpart block) eqn:HbeqPartBlock; try(exfalso; congruence).
     rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
   }
-  unfold bentryStartAddr in *. unfold sh1entryAddr in *. rewrite HlookupBlockEq in *. unfold sh1entryPDchild in *.
+  unfold sh1entryAddr in *. rewrite HlookupBlockEq in *. unfold sh1entryPDchild in *.
   unfold sh1entryPDflag in *. simpl in HPDchild. simpl in HPDflag.
   destruct (beqAddr pdpart sh1entryaddr) eqn:HbeqPartSh1; try(exfalso; congruence).
   rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-  specialize(Hcons0 block startaddr sh1entryaddr HstartBlock Hsh1 HPflag HPDflag HPDchild). unfold isPDT in *.
-  simpl. contradict Hcons0. destruct (beqAddr pdpart startaddr) eqn:HbeqParts.
+  specialize(Hcons0 block startaddr sh1entryaddr part HpartIsPart HblockMapped HstartBlock Hsh1 HPDflag HPDchild).
+  unfold isPDT in *. simpl. contradict Hcons0. destruct (beqAddr pdpart startaddr) eqn:HbeqParts.
   - rewrite <-DTL.beqAddrTrue in HbeqParts. subst startaddr. rewrite HlookupPart. trivial.
   - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
   (* END notPDTIfNotPDflag *)
@@ -949,14 +951,14 @@ assert(notPDTIfNotPDflag newS).
 assert(nextKernAddrIsInSameBlock newS).
 { (* BEGIN nextKernAddrIsInSameBlock newS *)
   assert(Hcons0: nextKernAddrIsInSameBlock s) by intuition.
-  intros block kernel startaddr endaddr HstartBlock HendBlock HPflagBlock HnextInRange HkernIsKS.
-  unfold bentryPFlag in *.
+  intros block kernel startaddr endaddr part HpartIsPart HblockMapped HstartBlock HendBlock HnextInRange HkernIsKS.
+  rewrite HgetPartsEq in *. rewrite HgetMappedBEq in *. unfold bentryStartAddr in *.
   assert(HlookupBlockEq: lookup block (memory newS) beqAddr = lookup block (memory s) beqAddr).
   {
     simpl in *. destruct (beqAddr pdpart block) eqn:HbeqPartBlock; try(exfalso; congruence).
     rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
   }
-  unfold bentryStartAddr in *. unfold bentryEndAddr in *. rewrite HlookupBlockEq in *. unfold sh1entryPDchild in *.
+  unfold bentryEndAddr in *. rewrite HlookupBlockEq in *. unfold sh1entryPDchild in *.
   simpl in HnextInRange.
   destruct (beqAddr pdpart (CPaddr (block + sh1offset))) eqn:HbeqPartSh1; try(exfalso; congruence).
   rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial. unfold isKS in *.
@@ -965,21 +967,8 @@ assert(nextKernAddrIsInSameBlock newS).
     simpl in HkernIsKS. simpl. destruct (beqAddr pdpart kernel) eqn:HbeqPartKern; try(exfalso; congruence).
     rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
   }
-  rewrite HlookupKernEq in *. specialize(Hcons0 block kernel startaddr endaddr). apply Hcons0; assumption.
+  rewrite HlookupKernEq in *. specialize(Hcons0 block kernel startaddr endaddr part). apply Hcons0; assumption.
   (* END nextKernAddrIsInSameBlock *)
-}
-
-assert(blockBelongsToAPart newS).
-{ (* BEGIN blockBelongsToAPart newS *)
-  assert(Hcons0: blockBelongsToAPart s) by intuition. intros block HPflagBlock. unfold bentryPFlag in *.
-  assert(HlookupBlockEq: lookup block (memory newS) beqAddr = lookup block (memory s) beqAddr).
-  {
-    simpl in *. destruct (beqAddr pdpart block) eqn:HbeqPartBlock; try(exfalso; congruence).
-    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-  }
-  rewrite HlookupBlockEq in *. specialize(Hcons0 block HPflagBlock). rewrite HgetPartsEq.
-  destruct Hcons0 as [part (HpartIsPart & HblockMapped)]. exists part. rewrite HgetMappedBEq. auto.
-  (* END blockBelongsToAPart *)
 }
 
 assert(PDflagMeansNoChild newS).
@@ -1211,17 +1200,19 @@ assert(noChildImpliesAddressesNotShared newS).
 
 assert(kernelsAreNotAccessible newS).
 { (* BEGIN kernelsAreNotAccessible newS *)
-  assert(Hcons0: kernelsAreNotAccessible s) by intuition. intros block startaddr Hstart HPflag HstartIsKS.
-  unfold bentryPFlag in *. assert(HlookupBlkEq: lookup block (memory newS) beqAddr = lookup block (memory s) beqAddr).
+  assert(Hcons0: kernelsAreNotAccessible s) by intuition.
+  intros block startaddr part HpartIsPart HblockMapped Hstart HstartIsKS.
+  rewrite HgetPartsEq in *. rewrite HgetMappedBEq in *. unfold bentryStartAddr in *.
+  assert(HlookupBlkEq: lookup block (memory newS) beqAddr = lookup block (memory s) beqAddr).
   {
-    simpl in HPflag. simpl. destruct (beqAddr pdpart block) eqn:HbeqPartBlock; try(exfalso; congruence).
+    simpl in *. simpl. destruct (beqAddr pdpart block) eqn:HbeqPartBlock; try(exfalso; congruence).
     rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
   }
-  unfold bentryStartAddr in *. unfold bentryEndAddr in *. unfold bentryAFlag. rewrite HlookupBlkEq in *.
+  unfold bentryEndAddr in *. unfold bentryAFlag. rewrite HlookupBlkEq in *.
   unfold isKS in *. simpl in HstartIsKS.
   destruct (beqAddr pdpart startaddr) eqn:HbeqPartStart; try(exfalso; congruence). rewrite <-beqAddrFalse in *.
   rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-  specialize(Hcons0 block startaddr Hstart HPflag HstartIsKS). assumption.
+  specialize(Hcons0 block startaddr part HpartIsPart HblockMapped Hstart HstartIsKS). assumption.
   (* END kernelsAreNotAccessible *)
 }
 
@@ -1299,14 +1290,15 @@ assert(childLocHasSameStart newS).
 { (* BEGIN childLocHasSameStart newS *)
   assert(Hcons0: childLocHasSameStart s) by intuition.
   intros part block sh1entryaddr blockChild idchild HpartIsPart HblockMapped Hsh1 HPDchild Hloc
-    HbeqIdChildNull HbeqBCNull startaddr Hstart.
+    HbeqIdChildNull HbeqBCNull.
   rewrite HgetPartsEq in *. rewrite HgetMappedBEq in *. unfold sh1entryAddr in *. unfold sh1entryPDchild in *.
-  unfold sh1entryInChildLocationWeak in *. unfold bentryStartAddr in Hstart. simpl in *.
+  unfold sh1entryInChildLocationWeak in *. unfold bentryStartAddr in *. simpl in *.
   destruct (beqAddr pdpart block) eqn:HbeqPartBlock; try(exfalso; congruence).
   destruct (beqAddr pdpart sh1entryaddr) eqn:HbeqPartSh1; try(exfalso; congruence).
   rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
   specialize(Hcons0 part block sh1entryaddr blockChild idchild HpartIsPart HblockMapped Hsh1 HPDchild Hloc
-    HbeqIdChildNull HbeqBCNull startaddr Hstart). unfold bentryStartAddr in *. simpl.
+    HbeqIdChildNull HbeqBCNull). destruct Hcons0 as (HsameStart & HBCMapped). split; trivial.
+  intros startaddr Hstart. specialize(HsameStart startaddr Hstart). unfold bentryStartAddr in *.
   destruct (beqAddr pdpart blockChild) eqn:HbeqPartBC.
   { rewrite <-DTL.beqAddrTrue in HbeqPartBC. subst blockChild. rewrite HlookupPart in *. congruence. }
   rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial.

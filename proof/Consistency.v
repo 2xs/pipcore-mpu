@@ -569,10 +569,12 @@ pdentryMPU partition MPUlist s
 -> length MPUlist <= MPURegionsNb.
 
 Definition blocksAddressesTypes s :=
-forall block startaddr endaddr,
-bentryStartAddr block startaddr s
+forall block startaddr endaddr part,
+In part (getPartitions multiplexer s)
+-> In block (getMappedBlocks part s)
+-> bentryStartAddr block startaddr s
 -> bentryEndAddr block endaddr s
--> bentryPFlag block true s
+(*-> bentryPFlag block true s*)
 -> sh1entryPDchild (CPaddr (block + sh1offset)) nullAddr s
 -> (isKS startaddr s
       /\ (forall addr, In addr (getAllPaddrBlock startaddr endaddr)
@@ -584,26 +586,32 @@ bentryStartAddr block startaddr s
           -> lookup addr (memory s) beqAddr = None).
 
 Definition notPDTIfNotPDflag s :=
-forall block startaddr sh1entryaddr,
-bentryStartAddr block startaddr s
+forall block startaddr sh1entryaddr part,
+In part (getPartitions multiplexer s)
+-> In block (getMappedBlocks part s)
+-> bentryStartAddr block startaddr s
 -> sh1entryAddr block sh1entryaddr s
--> bentryPFlag block true s
+(*-> bentryPFlag block true s*)
 -> sh1entryPDflag sh1entryaddr false s
 -> sh1entryPDchild sh1entryaddr nullAddr s
 -> ~ isPDT startaddr s.
 
 Definition kernelsAreNotAccessible s :=
-forall block startaddr,
-bentryStartAddr block startaddr s
--> bentryPFlag block true s
+forall block startaddr part,
+In part (getPartitions multiplexer s)
+-> In block (getMappedBlocks part s)
+-> bentryStartAddr block startaddr s
+(*-> bentryPFlag block true s*)
 -> isKS startaddr s
 -> bentryAFlag block false s.
 
 Definition nextKernAddrIsInSameBlock s :=
-forall block kernel startaddr endaddr,
-bentryStartAddr block startaddr s
+forall block kernel startaddr endaddr part,
+In part (getPartitions multiplexer s)
+-> In block (getMappedBlocks part s)
+-> bentryStartAddr block startaddr s
 -> bentryEndAddr block endaddr s
--> bentryPFlag block true s
+(*-> bentryPFlag block true s*)
 -> sh1entryPDchild (CPaddr (block+sh1offset)) nullAddr s
 -> isKS kernel s
 -> In (CPaddr (kernel + nextoffset)) (getAllPaddrBlock startaddr endaddr)
@@ -673,7 +681,8 @@ In partition (getPartitions multiplexer s)
 -> idchild <> nullAddr
 -> blockChild <> nullAddr
 -> (forall startaddr, bentryStartAddr block startaddr s
-    -> bentryStartAddr blockChild startaddr s).
+    -> bentryStartAddr blockChild startaddr s)
+    /\ In blockChild (getMappedBlocks idchild s).
 
 Definition accessibleBlocksArePresent s :=
 forall block,
@@ -723,7 +732,7 @@ nextImpliesBlockWasCut s /\
 blocksAddressesTypes s /\
 notPDTIfNotPDflag s /\
 nextKernAddrIsInSameBlock s /\
-blockBelongsToAPart s /\
+(*blockBelongsToAPart s /\*)
 PDflagMeansNoChild s /\
 nbPrepareIsNbKern s
 /\ pdchildIsPDT s

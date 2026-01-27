@@ -7040,6 +7040,29 @@ assert(HbaseInList: In pdbasepartition (headParentsList ++ [pdbasepartition])).
 specialize(HnoDup pdbasepartition HbaseInList). congruence.
 Qed.
 
+Lemma parentOfPartNotInParentsLists pdbasepartition parentsList s :
+partitionTreeIsTree s
+-> parentOfPartitionIsPartition s
+-> In pdbasepartition (getPartitions multiplexer s)
+-> isParentsList s parentsList pdbasepartition
+-> NoDup (pdbasepartition::parentsList).
+Proof.
+intros HpartTree HparentOfPart. revert pdbasepartition.
+induction parentsList; intros pdbasepartition HbaseIsPart HparentsList.
+- apply NoDup_cons_iff. split; auto. apply NoDup_nil.
+- simpl in *. destruct (lookup a (memory s) beqAddr) eqn:HlookupA; try(exfalso; congruence).
+  destruct v; try(exfalso; congruence). destruct HparentsList as (HbaseNotRoot & [pdentry (Hlookup & Ha)] & Hrec).
+  apply NoDup_cons_iff. assert(HparentOfPartCopy: parentOfPartitionIsPartition s) by assumption.
+  specialize(HparentOfPartCopy pdbasepartition pdentry Hlookup).
+  destruct HparentOfPartCopy as (HparentIsPartCopy & _ & HbeqParentBase). specialize(HparentIsPartCopy HbaseNotRoot).
+  rewrite <-Ha in *. destruct HparentIsPartCopy as (_ & HaIsPart).
+  split; try(apply IHparentsList; trivial).
+  simpl. apply and_not_or. assert(HparentOfPartCopy: parentOfPartitionIsPartition s) by assumption.
+  specialize(HparentOfPart a p HlookupA).
+  destruct HparentOfPart as (HparentIsPart & HparentOfRoot & HparentNotA). split; auto.
+  apply HpartTree with a; trivial. unfold pdentryParent. rewrite Hlookup. auto.
+Qed.
+
 (*Lemma nbFreeLowerThanPrepared partition nbPrepare nbFreeSlots s:
 maxNbPrepareIsMaxNbKernels s
 -> NbFreeSlotsISNbFreeSlotsInList s

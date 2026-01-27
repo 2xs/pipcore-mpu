@@ -954,7 +954,15 @@ eapply bindRev.
     apply negb_false_iff in H4. subst addrIsAccessible.
     assert(HkernNotAcc: kernelsAreNotAccessible s) by (unfold consistency in *; unfold consistency2 in *; intuition).
     assert(HPflag: bentryPFlag blockToShareInCurrPartAddr addrIsPresent s) by intuition. apply negb_false_iff in H5.
-    subst addrIsPresent. specialize(HkernNotAcc blockToShareInCurrPartAddr blockstart Hstart HPflag Hcontra).
+    subst addrIsPresent. assert(HBTSMapped: In blockToShareInCurrPartAddr (getMappedBlocks currentPart s)).
+    {
+      assert(Hres: exists entry, lookup blockToShareInCurrPartAddr (memory s) beqAddr = Some (BE entry)
+          /\ blockToShareInCurrPartAddr = idBlockToShare
+          /\ bentryPFlag blockToShareInCurrPartAddr true s
+          /\ In blockToShareInCurrPartAddr (getMappedBlocks currentPart s)) by intuition.
+      destruct Hres as [_ (_ & _ & _ & Hres)]. assumption.
+    }
+    specialize(HkernNotAcc blockToShareInCurrPartAddr blockstart currentPart HcurrIsPart HBTSMapped Hstart Hcontra).
     unfold bentryAFlag in *.
     destruct (lookup blockToShareInCurrPartAddr (memory s) beqAddr); try(congruence). destruct v; congruence.
   }
@@ -12631,10 +12639,31 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
     (* END MPUsizeIsBelowMax *)
   }
 
+  assert(HblockMappedEqss10: forall part, isPDT part s10 -> getMappedBlocks part s = getMappedBlocks part s10).
+  {
+    intros part HpartIsPDT.
+    assert(HgetBlocksEqs11: getMappedBlocks part s = getMappedBlocks part s11).
+    {
+      rewrite HsEq11. apply getMappedBlocksEqSHE.
+      - unfold isPDT in *. rewrite Hs11. simpl.
+        destruct (beqAddr sh1eaddr part) eqn:HbeqSh1Part.
+        { rewrite <-DTL.beqAddrTrue in HbeqSh1Part. subst part. rewrite HlookupSh1s0 in *. congruence. }
+        rewrite <-beqAddrFalse in HbeqSh1Part.
+        rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
+      - unfold isSHE. rewrite HlookupSh1s11. trivial.
+    }
+    rewrite HgetBlocksEqs11. rewrite Hs11. apply getMappedBlocksEqSHE; assumption.
+  }
+
   assert(blocksAddressesTypes s).
   { (* BEGIN blocksAddressesTypes s *)
     assert(Hcons0: blocksAddressesTypes s10) by (unfold consistency in *; unfold consistency1 in *; intuition).
-    intros block startaddr endaddr Hstart Hend HPflag HPDchild.
+    intros block startaddr endaddr part HpartIsPart HblockMapped Hstart Hend HPDchild. rewrite HgetPartsEqs10 in *.
+    assert(isPDT part s10).
+    {
+      apply partitionsArePDT; trivial; unfold consistency1 in *; intuition.
+    }
+    rewrite HblockMappedEqss10 in HblockMapped; trivial.
     assert(HlookupBlockEq: lookup block (memory s) beqAddr = lookup block (memory s10) beqAddr).
     {
       unfold bentryStartAddr in Hstart. rewrite HsEq in Hstart. rewrite HsEq. simpl in *.
@@ -12642,7 +12671,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
       rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
       rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
     }
-    unfold bentryStartAddr in *. unfold bentryEndAddr in *. unfold bentryPFlag in *. rewrite HlookupBlockEq in *.
+    unfold bentryStartAddr in *. unfold bentryEndAddr in *. rewrite HlookupBlockEq in *.
     unfold sh1entryPDchild in *.
     rewrite HsEq in HPDchild. simpl in *. destruct (beqAddr sh1eaddr (CPaddr (block + sh1offset))) eqn:HbeqSh1s.
     {
@@ -12652,7 +12681,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
     rewrite beqAddrTrue in HPDchild. rewrite <-beqAddrFalse in *.
     rewrite removeDupIdentity in HPDchild; try(apply not_eq_sym; assumption).
     rewrite removeDupIdentity in HPDchild; try(apply not_eq_sym; assumption).
-    specialize(Hcons0 block startaddr endaddr Hstart Hend HPflag HPDchild).
+    specialize(Hcons0 block startaddr endaddr part HpartIsPart HblockMapped Hstart Hend HPDchild).
     destruct Hcons0 as [(HKS & Haddr) | [(HPDT & Haddr) | Hnone]].
     - left. split.
       + unfold isKS in *. rewrite HsEq. simpl. destruct (beqAddr sh1eaddr startaddr) eqn:HbeqSh1Start.
@@ -12716,7 +12745,12 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
   assert(notPDTIfNotPDflag s).
   { (* BEGIN notPDTIfNotPDflag s *)
     assert(Hcons0: notPDTIfNotPDflag s10) by (unfold consistency in *; unfold consistency1 in *; intuition).
-    intros block startaddr sh1entryaddr Hstart Hsh1 HPflag HPDflag HPDchild.
+    intros block startaddr sh1entryaddr part HpartIsPart HblockMapped Hstart Hsh1 HPDflag HPDchild.
+    rewrite HgetPartsEqs10 in *. assert(isPDT part s10).
+    {
+      apply partitionsArePDT; trivial; unfold consistency1 in *; intuition.
+    }
+    rewrite HblockMappedEqss10 in HblockMapped; trivial.
     assert(HlookupBlockEq: lookup block (memory s) beqAddr = lookup block (memory s10) beqAddr).
     {
       unfold bentryStartAddr in Hstart. rewrite HsEq in Hstart. rewrite HsEq. simpl in *.
@@ -12738,8 +12772,8 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
       rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
     }
     unfold sh1entryPDflag in *. unfold sh1entryPDchild in *. rewrite HlookupSh1Eq in *.
-    specialize(Hcons0 block startaddr sh1entryaddr Hstart Hsh1 HPflag HPDflag HPDchild). contradict Hcons0.
-    unfold isPDT in *. rewrite HsEq in Hcons0. simpl in *.
+    specialize(Hcons0 block startaddr sh1entryaddr part HpartIsPart HblockMapped Hstart Hsh1 HPDflag HPDchild).
+    contradict Hcons0. unfold isPDT in *. rewrite HsEq in Hcons0. simpl in *.
     destruct (beqAddr sh1eaddr startaddr) eqn:HbeqSh1Start; try(exfalso; congruence).
     rewrite beqAddrTrue in Hcons0. rewrite <-beqAddrFalse in *.
     rewrite removeDupIdentity in Hcons0; try(apply not_eq_sym; assumption).
@@ -12750,7 +12784,12 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
   assert(nextKernAddrIsInSameBlock s).
   { (* BEGIN nextKernAddrIsInSameBlock s *)
     assert(Hcons0: nextKernAddrIsInSameBlock s10) by (unfold consistency in *; unfold consistency1 in *; intuition).
-    intros block kernel startaddr endaddr Hstart Hend HPflag HPDchild HkernIsKS.
+    intros block kernel startaddr endaddr part HpartIsPart HblockMapped Hstart Hend HPDchild HkernIsKS.
+    rewrite HgetPartsEqs10 in *. assert(isPDT part s10).
+    {
+      apply partitionsArePDT; trivial; unfold consistency1 in *; intuition.
+    }
+    rewrite HblockMappedEqss10 in HblockMapped; trivial.
     assert(HlookupBlockEq: lookup block (memory s) beqAddr = lookup block (memory s10) beqAddr).
     {
       unfold bentryStartAddr in Hstart. rewrite HsEq in Hstart. rewrite HsEq. simpl in *.
@@ -12773,41 +12812,9 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
     rewrite beqAddrTrue in *. rewrite <-beqAddrFalse in *.
     rewrite removeDupIdentity in *; try(apply not_eq_sym; assumption).
     rewrite removeDupIdentity in *; try(apply not_eq_sym; assumption).
-    specialize(Hcons0 block kernel startaddr endaddr Hstart Hend HPflag HPDchild HkernIsKS). assumption.
+    specialize(Hcons0 block kernel startaddr endaddr part HpartIsPart HblockMapped Hstart Hend HPDchild HkernIsKS).
+    assumption.
     (* END nextKernAddrIsInSameBlock *)
-  }
-
-  assert(blockBelongsToAPart s).
-  { (* BEGIN blockBelongsToAPart s *)
-    assert(Hcons0: blockBelongsToAPart s10) by (unfold consistency in *; unfold consistency1 in *; intuition).
-    intros block HblockIsBE.
-    assert(HlookupBlockEq: lookup block (memory s) beqAddr = lookup block (memory s10) beqAddr).
-    {
-      unfold bentryPFlag in HblockIsBE. rewrite HsEq in HblockIsBE. rewrite HsEq. simpl in *.
-      destruct (beqAddr sh1eaddr block) eqn:HbeqSh1Block; try(exfalso; congruence). rewrite beqAddrTrue.
-      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
-      rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
-    }
-    unfold bentryPFlag in *. rewrite HlookupBlockEq in *. specialize(Hcons0 block HblockIsBE).
-    destruct Hcons0 as [part (HpartIsPart & HblockMapped)]. exists part. rewrite HgetPartsEqs10. split. assumption.
-    assert(HgetBlocksPartEqs10: getMappedBlocks part s = getMappedBlocks part s10).
-    {
-      assert(HpartIsPDTs10: isPDT part s10).
-      { apply partitionsArePDT; try(assumption); unfold consistency1 in *; intuition. }
-      assert(HgetBlocksEqs11: getMappedBlocks part s = getMappedBlocks part s11).
-      {
-        rewrite HsEq11. apply getMappedBlocksEqSHE.
-        - unfold isPDT in *. rewrite Hs11. simpl.
-          destruct (beqAddr sh1eaddr part) eqn:HbeqSh1Part.
-          { rewrite <-DTL.beqAddrTrue in HbeqSh1Part. subst part. rewrite HlookupSh1s0 in *. congruence. }
-          rewrite <-beqAddrFalse in HbeqSh1Part.
-          rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
-        - unfold isSHE. rewrite HlookupSh1s11. trivial.
-      }
-      rewrite HgetBlocksEqs11. rewrite Hs11. apply getMappedBlocksEqSHE; assumption.
-    }
-    rewrite HgetBlocksPartEqs10. assumption.
-    (* END blockBelongsToAPart *)
   }
 
   assert(PDflagMeansNoChild s).
@@ -12834,7 +12841,12 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
   assert(kernelsAreNotAccessible s).
   { (* BEGIN kernelsAreNotAccessible s *)
     assert(Hcons0: kernelsAreNotAccessible s10) by (unfold consistency in *; unfold consistency1 in *; intuition).
-    intros block startaddr Hstart HPflag HstartIsKS.
+    intros block startaddr part HpartIsPart HblockMapped Hstart HstartIsKS.
+    rewrite HgetPartsEqs10 in *. assert(isPDT part s10).
+    {
+      apply partitionsArePDT; trivial; unfold consistency1 in *; intuition.
+    }
+    rewrite HblockMappedEqss10 in HblockMapped; trivial.
     assert(HlookupBlockEq: lookup block (memory s) beqAddr = lookup block (memory s10) beqAddr).
     {
       unfold bentryStartAddr in Hstart. rewrite HsEq in Hstart. rewrite HsEq. simpl in *.
@@ -12842,14 +12854,14 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
       rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
       rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
     }
-    unfold bentryStartAddr in *. unfold bentryPFlag in *. rewrite HlookupBlockEq in *.
+    unfold bentryStartAddr in *. rewrite HlookupBlockEq in *.
     unfold isKS in HstartIsKS. rewrite HsEq in HstartIsKS. simpl in *.
     destruct (beqAddr sh1eaddr startaddr) eqn:HbeqSh1Start; try(exfalso; congruence).
     rewrite beqAddrTrue in HstartIsKS. rewrite <-beqAddrFalse in *.
     rewrite removeDupIdentity in HstartIsKS; try(apply not_eq_sym; assumption).
     rewrite removeDupIdentity in HstartIsKS; try(apply not_eq_sym; assumption).
-    specialize(Hcons0 block startaddr Hstart HPflag HstartIsKS). unfold bentryAFlag in *. rewrite HsEq. simpl.
-    destruct (beqAddr sh1eaddr block) eqn:HbeqSh1Block.
+    specialize(Hcons0 block startaddr part HpartIsPart HblockMapped Hstart HstartIsKS). unfold bentryAFlag in *.
+    rewrite HsEq. simpl. destruct (beqAddr sh1eaddr block) eqn:HbeqSh1Block.
     { rewrite <-DTL.beqAddrTrue in HbeqSh1Block. subst block. rewrite HlookupSh1s0 in *. congruence. }
     rewrite beqAddrTrue. rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
     rewrite removeDupIdentity; try(apply not_eq_sym); assumption.
@@ -13616,31 +13628,6 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
       rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
       rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
       rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-      (*assert(Hlocs0: sh1entryInChildLocation sh1entryaddr blockChild s0).
-      {
-        unfold sh1entryInChildLocation. destruct (lookup sh1entryaddr (memory s0) beqAddr); try(congruence).
-        destruct v; try(congruence). destruct Hloc as (Hloc & HlocIsBE). split; trivial. clear Hloc.
-        intro HbeqBCNull. specialize(HlocIsBE HbeqBCNull). unfold isBE in *. simpl in *. rewrite beqAddrTrue in *.
-        destruct (beqAddr sh1eaddr blockChild) eqn:HbeqSh1BC; try(exfalso; congruence). rewrite <-beqAddrFalse in *.
-        rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial. rewrite beqAddrFalse in *.
-        rewrite beqscesh1 in *. rewrite beqAddrTrue in *. simpl in *.
-        destruct (beqAddr sceaddr blockChild) eqn:HbeqSceBC; try(exfalso; congruence). rewrite beqnewBsce in *.
-        rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial. simpl in *.
-        destruct (beqAddr newBlockEntryAddr blockChild) eqn:HbeqNewBC.
-        - rewrite <-DTL.beqAddrTrue in HbeqNewBC. subst blockChild. rewrite HlookupnewBs0. trivial.
-        - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-          rewrite beqAddrFalse in *. rewrite beqpdnewB in *. rewrite <-beqAddrFalse in *.
-          rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-          rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-          rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-          rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-          rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-          rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial. simpl in *. rewrite beqAddrTrue in *.
-          destruct (beqAddr globalIdPDChild blockChild) eqn:HbeqGlobBC; try(exfalso; congruence).
-          rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-          rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-          rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-      }*)
       specialize(Hcons0 part block sh1entryaddr blockChild idchild startaddr HpartBisIsPart HblockMappeds0 Hsh1
         HPDchild Hloc HbeqIdChildNull Hstart HstartNotKSs0).
       destruct Hcons0 as (HbeqBCNull & HBCMapped & HstartChild). split; trivial.
@@ -13732,7 +13719,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
     destruct (lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia).
     assert(Hcons0: childLocHasSameStart s0) by (unfold consistency in *; unfold consistency2 in *; intuition).
     intros part block sh1entryaddr blockChild idchild HpartBisIsPart HblockMapped Hsh1 HPDchild Hloc
-      HbeqIdChildNull HbeqBCNull startaddr Hstart.
+      HbeqIdChildNull HbeqBCNull.
     destruct (beqAddr newBlockEntryAddr block) eqn:HbeqBlocks.
     {
       rewrite <-DTL.beqAddrTrue in HbeqBlocks. subst block. unfold sh1entryAddr in *. rewrite HlookupnewBs in *.
@@ -13774,7 +13761,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
         rewrite <-beqAddrFalse in *. destruct HblockMapped; try(exfalso; congruence). assumption.
       - rewrite <-beqAddrFalse in *. rewrite <-HmappedblocksEq; assumption.
     }
-    unfold sh1entryAddr in *. unfold bentryStartAddr in *.
+    unfold sh1entryAddr in *. unfold bentryStartAddr at 1.
     assert(HlookupBlockEq: lookup block (memory s) beqAddr = lookup block (memory s0) beqAddr).
     {
       rewrite Hs in Hsh1. rewrite Hs. simpl in *. rewrite beqAddrTrue in *.
@@ -13809,7 +13796,7 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
         destruct v; try(exfalso; congruence). apply CPaddrAddEq in Hsh1; trivial.
       }
       subst block. assert(HstartBTS: bentryStartAddr blockToShareInCurrPartAddr blockstart s0) by intuition.
-      unfold bentryStartAddr in *.
+      split; trivial. intros startaddr Hstart. unfold bentryStartAddr in *.
       destruct (lookup blockToShareInCurrPartAddr (memory s0) beqAddr); try(exfalso; congruence).
       destruct v; try(exfalso; congruence). rewrite <-HstartBTS in *. subst startaddr. rewrite HlookupnewBs.
       destruct HstartendEq. auto.
@@ -13832,60 +13819,55 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
       rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
       rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
       specialize(Hcons0 part block sh1entryaddr blockChild idchild HpartBisIsPart HblockMappeds0 Hsh1
-        HPDchild Hloc HbeqIdChildNull HbeqBCNull startaddr Hstart).
+        HPDchild Hloc HbeqIdChildNull HbeqBCNull). destruct Hcons0 as (HsameStart & HBCMapped).
       assert(HbeqNewBC: newBlockEntryAddr <> blockChild).
       {
-        assert(HpropsOr: isKS startaddr s0 \/ ~isKS startaddr s0) by (apply Classical_Prop.classic).
-        destruct HpropsOr as [HstartIsKS | HstartNotKS].
-        - intro. subst blockChild. unfold bentryStartAddr in *. rewrite HlookupnewBs0 in *.
-          destruct (lookup (CPaddr (newBlockEntryAddr + sh1offset)) (memory s0) beqAddr); try(congruence).
-          destruct v; try(congruence).
-          destruct (lookup (CPaddr (newBlockEntryAddr + scoffset)) (memory s0) beqAddr); try(congruence).
-          destruct v; try(congruence). destruct HfirstFree as (HfirstFree & _). rewrite HfirstFree in *.
-          subst startaddr. unfold isKS in *.
-          assert(isPADDR nullAddr s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-          unfold isPADDR in *. destruct (lookup nullAddr (memory s0) beqAddr); try(congruence).
-          destruct v; congruence.
-        - assert(HlocProps: childLocMappedInChild s0)
-            by (unfold consistency in *; unfold consistency2 in *; intuition).
-          specialize(HlocProps part block sh1entryaddr blockChild idchild startaddr HpartBisIsPart HblockMappeds0 Hsh1
-            HPDchild Hloc HbeqIdChildNull Hstart HstartNotKS). destruct HlocProps as (_ & HBCMapped & _).
-          intro. subst blockChild. apply mappedBlockIsBE in HBCMapped.
-          destruct HBCMapped as [bentryBis (Hlookup & Hpres)]. rewrite HlookupnewBs0 in *.
-          injection Hlookup as HbentriesEq. subst bentryBis.
-          destruct (lookup (CPaddr (newBlockEntryAddr + sh1offset)) (memory s0) beqAddr); try(congruence).
-          destruct v; try(congruence).
-          destruct (lookup (CPaddr (newBlockEntryAddr + scoffset)) (memory s0) beqAddr); try(congruence).
-          destruct v; try(congruence). destruct HfirstFree as (_ & _ & _ & _ & Hcontra & _). congruence.
+        intro. subst blockChild. apply mappedBlockIsBE in HBCMapped.
+        destruct HBCMapped as [bentryBis (Hlookup & Hpres)]. rewrite HlookupnewBs0 in *.
+        injection Hlookup as HbentriesEq. subst bentryBis.
+        destruct (lookup (CPaddr (newBlockEntryAddr + sh1offset)) (memory s0) beqAddr); try(congruence).
+        destruct v; try(congruence).
+        destruct (lookup (CPaddr (newBlockEntryAddr + scoffset)) (memory s0) beqAddr); try(congruence).
+        destruct v; try(congruence). destruct HfirstFree as (_ & _ & _ & _ & Hcontra & _). congruence.
       }
-      unfold bentryStartAddr in *. rewrite Hs.
-      simpl. rewrite beqAddrTrue. destruct (beqAddr sh1eaddr blockChild) eqn:HbeqSh1BC.
-      {
-        rewrite <-DTL.beqAddrTrue in HbeqSh1BC. subst blockChild. rewrite HSHEs10Eq in *. rewrite HlookupSh1s0 in *.
-        congruence.
-      }
-      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
-      rewrite beqAddrFalse in *. rewrite beqscesh1. rewrite beqAddrTrue. simpl.
-      destruct (beqAddr sceaddr blockChild) eqn:HbeqSceBC.
-      {
-        rewrite <-DTL.beqAddrTrue in HbeqSceBC. subst blockChild. rewrite HlookupSces0 in *. congruence.
-      }
-      rewrite beqnewBsce. rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
-      simpl. rewrite beqAddrFalse in *. rewrite HbeqNewBC. rewrite beqpdnewB. rewrite <-beqAddrFalse in *.
-      rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
-      rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
-      rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
-      rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
-      rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
-      rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
-      rewrite removeDupIdentity; try(apply not_eq_sym); trivial. simpl.
-      destruct (beqAddr globalIdPDChild blockChild) eqn:HbeqGlobBC.
-      {
-        rewrite <-DTL.beqAddrTrue in HbeqGlobBC. subst blockChild. rewrite Hpdinsertions0 in *. congruence.
-      }
-      rewrite beqAddrTrue. rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
-      rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
-      rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+      split.
+      + intros startaddr Hstart. specialize(HsameStart startaddr Hstart). unfold bentryStartAddr in *. rewrite Hs.
+        simpl. rewrite beqAddrTrue. destruct (beqAddr sh1eaddr blockChild) eqn:HbeqSh1BC.
+        {
+          rewrite <-DTL.beqAddrTrue in HbeqSh1BC. subst blockChild. rewrite HSHEs10Eq in *. rewrite HlookupSh1s0 in *.
+          congruence.
+        }
+        rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+        rewrite beqAddrFalse in *. rewrite beqscesh1. rewrite beqAddrTrue. simpl.
+        destruct (beqAddr sceaddr blockChild) eqn:HbeqSceBC.
+        {
+          rewrite <-DTL.beqAddrTrue in HbeqSceBC. subst blockChild. rewrite HlookupSces0 in *. congruence.
+        }
+        rewrite beqnewBsce. rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+        simpl. rewrite beqAddrFalse in *. rewrite HbeqNewBC. rewrite beqpdnewB. rewrite <-beqAddrFalse in *.
+        rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+        rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+        rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+        rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+        rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+        rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+        rewrite removeDupIdentity; try(apply not_eq_sym); trivial. simpl.
+        destruct (beqAddr globalIdPDChild blockChild) eqn:HbeqGlobBC.
+        {
+          rewrite <-DTL.beqAddrTrue in HbeqGlobBC. subst blockChild. rewrite Hpdinsertions0 in *. congruence.
+        }
+        rewrite beqAddrTrue. rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+        rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+        rewrite removeDupIdentity; try(apply not_eq_sym); trivial.
+      + destruct (beqAddr idchild globalIdPDChild) eqn:HbeqChildren.
+        * rewrite <-DTL.beqAddrTrue in HbeqChildren. subst idchild. apply HpdchildMappedBlocks; auto.
+        * rewrite <-beqAddrFalse in *. assert(isPDT idchild s0).
+          {
+            unfold getMappedBlocks in *. unfold getKSEntries in *. unfold isPDT.
+            destruct (lookup idchild (memory s0) beqAddr); try(simpl in *; congruence).
+            destruct v; try(simpl in *; congruence). trivial.
+          }
+          rewrite HmappedblocksEq; trivial.
     (* END childLocHasSameStart *)
   }
 
