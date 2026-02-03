@@ -931,9 +931,11 @@ Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
 										then (* the slot corresponds to memory shared or prepared
 													with the child to destruct, remove sharing *)
 														(* Set block accessible in current partition *)
-														writeBlockAccessibleFromBlockEntryAddr 	currBlockEntryAddr
+														writeBlockAccessibleFromBlockEntryAddr currBlockEntryAddr
 																																true ;;
 														writeSh1EntryFromBlockEntryAddr currBlockEntryAddr nullAddr false nullAddr ;;
+                            (* forget the types inside the block, since it does not belong to the tree now *)
+                            forgetBlock blockID endBlock ;;
 													(* 	whatever the accessibility of the block that could
 															not be accessible because of the child's operations,
 															set the block accessible again*)

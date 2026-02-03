@@ -877,3 +877,35 @@ Definition paddrAddIdx (n : paddr) (m : index) : LLI paddr :=
   | None => ret nullAddr
   | Some PAddr => ret PAddr
   end.
+
+(** The [forgetBlockAux] function recursively zeroes all addresses until it reaches
+  the <startAddr>
+  Stop condition: reached base address
+  Processing: zeroes the current address
+  Recursive calls: until base address
+  *)
+Fixpoint forgetBlockAux (timeout : nat) (startAddr currentAddr : paddr): LLI unit :=
+  match timeout with
+  | 0 => ret tt (*Stop condition 1: reached end of structure list*)
+  | S timeout1 => (*erase the current address*)
+    modify (fun s => {|
+      currentPartition := s.(currentPartition);
+      memory := removeDup currentAddr s.(memory) beqAddr
+  |}) ;;
+  if beqAddr currentAddr startAddr
+  then
+    (*Reached start address, no more addresses to erase*)
+    ret tt
+  else
+    (*Continue to erase lower addresses*)
+    perform predAddr := Paddr.pred currentAddr in
+    forgetBlockAux timeout1 startAddr predAddr
+ end.
+
+(** The [forgetBlock] function fixes the timeout value of [forgetBlockAux] *)
+Definition forgetBlock (startAddr endAddr : paddr) : LLI bool :=
+  perform isEndAddrBeforeStartAddr := Paddr.leb endAddr startAddr in
+  if isEndAddrBeforeStartAddr then ret false else
+  perform realEnd := Paddr.pred endAddr in
+  forgetBlockAux N startAddr realEnd ;;
+  ret true.

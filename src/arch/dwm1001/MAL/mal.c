@@ -944,6 +944,19 @@ bool eraseBlock (paddr startAddr, paddr endAddr)
 }
 
 /*!
+ * \fn bool forgetBlock (paddr startAddr, paddr endAddr)
+ * \brief Erases the types inside the memory block defined by (startAddr, endAddr).
+ * \param startAddr The block's start address
+ * \param endAddr The block's end address
+ * \return 0 if the block has been sucessfully erased, -1 otherwise
+ */
+bool forgetBlock (paddr startAddr, paddr endAddr)
+{
+        //TODO do we really erase the block ?
+	return true;
+}
+
+/*!
  * \fn void initPDTable(paddr)
  * \brief Initialises PD table at paddr with a default PD table
  */
