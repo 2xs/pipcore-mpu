@@ -179,7 +179,7 @@ You can pass several arguments to ```make``` to compile Pip-MPU.
 
 * `proofs`: Proofs target
 
-* `doc` | `doc-c` | `doc-coq` | `gettingstarted`: Documentation targets
+* `doc` | `doc-c` | `doc-rocq` | `gettingstarted`: Documentation targets
 
 * `clean` | `realclean`: Clean targets
 

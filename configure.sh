@@ -39,23 +39,21 @@ set -e
 as_minimum_version=
 cc_minimum_version=
 ld_minimum_version=
-coqc_minimum_version=
+rocq_minimum_version=
 
 # Regular expressions used to extract version number
 cc_regex=
 as_regex=
 ld_regex=
-coqc_regex=
+rocq_regex=
 
 # Global variables
 cc=
 as=
 ld=
 objcopy=
-coqc=
+rocq=
 dx=
-coqdep=
-coqdoc=
 pdflatex=
 gdb=
 doxygen=
@@ -123,7 +121,7 @@ Usage: %s <MANDATORY ARGUMENTS> [OPTIONAL ARGUMENTS]
     --objcopy=<x>             Explicitly use a path to objcopy rather than
                               trying to find it in the \$PATH variable.
 
-    --coq-compiler=<x>        Explicitly use a path to the Coq compiler rather
+    --rocq=<x>                Explicitly use a path to the Rocq Prover rather
                               than trying to find it in the \$PATH variable.
 
     --dx=<x>                  Set the directory in which dx C printer is
@@ -131,12 +129,6 @@ Usage: %s <MANDATORY ARGUMENTS> [OPTIONAL ARGUMENTS]
                               configuration). If you installed dx with opam, it
                               should be \"$(opam var dx:lib)\".
                               If not set, digger will be used.
-
-    --coqdep=<x>              Explicitly use a path to coqdep rather than trying
-                              to find it in the \$PATH variable.
-
-    --coqdoc=<x>              Explicitly use a path to coqdoc rather than trying
-                              to find it in the \$PATH variable.
 
     --doxygen=<x>             Explicitly use a path to Doxygen rather than
                               trying to find it in the \$PATH variable.
@@ -190,16 +182,14 @@ cat <<EOF > toolchain.mk
 #  knowledge of the CeCILL license and that you accept its terms.             #
 ###############################################################################
 
-# Tool to convert Coq code into C code
+# Tool to convert Rocq code into C code
 DIGGER_DIR   = tools/digger
 DIGGER     := \$(DIGGER_DIR)/digger
 
 DXDIR := $dx
 
-# Coq Proof Assistant
-COQC   := $coqc
-COQDEP := $coqdep
-COQDOC := $coqdoc
+# Rocq Prover
+ROCQ := $rocq
 
 # GNU C Compiler
 CC := $cc
@@ -291,17 +281,11 @@ parse_arguments() {
 			--objcopy)
 				objcopy=$value
 				;;
-			--coq-compiler)
-				coqc=$value
+			--rocq)
+			  rocq=$value
 				;;
 			--dx)
 				dx=$value
-				;;
-			--coqdep)
-				coqdep=$value
-				;;
-			--coqdoc)
-				coqdoc=$value
 				;;
 			--gdb)
 				gdb=$value
@@ -516,13 +500,11 @@ configure_global_variables() {
 			as=${as:='arm-none-eabi-gcc'}
 			ld=${ld:='arm-none-eabi-gcc'}
 			objcopy=${objcopy:='arm-none-eabi-objcopy'}
-			coqc=${coqc:='coqc'}
+			rocq=${rocq:='rocq'}
 			pdflatex=${pdflatex:='pdflatex'}
 			gdb=${gdb:='gdb-multiarch'}
 			doxygen=${doxygen:='doxygen'}
 			make=${make:='make'}
-			coqdep=${coqdep:='coqdep'}
-			coqdoc=${coqdoc:='coqdoc'}
 
 			### Regular expressions used to extract the version
 			### number from the "--version" output
@@ -530,7 +512,7 @@ configure_global_variables() {
 			cc_regex='^.*gcc ([^)]\+) \([^ \n]\+\).*$'
 			as_regex='^.*gcc ([^)]\+) \([^ \n]\+\).*$'
 			ld_regex='^.*gcc ([^)]\+) \([^ \n]\+\).*$'
-			coqc_regex='^The Coq Proof Assistant, version \([^ \n]\+\).*$'
+			rocq_regex='^The Rocq Prover, version \([^ \n]\+\).*$'
 
 			### Minimum versions of the toolchain for the selected
 			### architecture
@@ -538,7 +520,7 @@ configure_global_variables() {
 			as_minimum_version='8.3.1'
 			cc_minimum_version='8.3.1'
 			ld_minimum_version='8.3.1'
-			coqc_minimum_version='8.13.1'
+			rocq_minimum_version='9.0.0'
 
 			### CFLAGS for the selected architecture
 
@@ -619,14 +601,12 @@ main() {
 	if [ -z "$no_command_check" ]
 	then
 		# These commands need to have their paths and version numbers validated
-		validate_command_path_version_wrapper "$cc" "$cc_regex" "$cc_minimum_version"
-		validate_command_path_version_wrapper "$as" "$as_regex" "$as_minimum_version"
-		validate_command_path_version_wrapper "$ld" "$ld_regex" "$ld_minimum_version"
-		validate_command_path_version_wrapper "$coqc" "$coqc_regex" "$coqc_minimum_version"
+		validate_command_path_version_wrapper "$cc"   "$cc_regex"   "$cc_minimum_version"
+		validate_command_path_version_wrapper "$as"   "$as_regex"   "$as_minimum_version"
+		validate_command_path_version_wrapper "$ld"   "$ld_regex"   "$ld_minimum_version"
+		validate_command_path_version_wrapper "$rocq" "$rocq_regex" "$rocq_minimum_version"
 
 		# These commands need to have only their paths validated
-		validate_command_path_wrapper "$coqdep"
-		validate_command_path_wrapper "$coqdoc"
 		validate_command_path_wrapper "$objcopy"
 		validate_command_path_wrapper "$pdflatex"
 		validate_command_path_wrapper "$gdb"

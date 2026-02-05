@@ -8,7 +8,7 @@
 ## Documentation
 
 * `doxygen` for C
-* `coqdoc` for coq
+* `rocq doc` for Rocq
 * Start each file with a comment with a module description
 
 ## `git`
