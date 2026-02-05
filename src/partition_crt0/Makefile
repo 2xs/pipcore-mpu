@@ -46,7 +46,7 @@ CFLAGS         += -Werror
 CFLAGS         += -mthumb
 CFLAGS         += -mcpu=cortex-m4
 CFLAGS         += -ffreestanding
-CFLAGS         += -I ../../$(FAE_INCLUDE_DIRECTORY)
+CFLAGS         += -I $(FAE_INCLUDE_DIRECTORY)
 ifdef DEBUG
 CFLAGS         += -Og
 CFLAGS         += -ggdb

@@ -255,7 +255,7 @@ parse_arguments() {
 				architecture=$value
 				;;
 			--fae-directory)
-				fae_directory=$value
+				fae_directory=${value:+$(realpath "$value")}
 				;;
 			--no-command-check)
 				no_command_check=1
@@ -285,7 +285,7 @@ parse_arguments() {
 			  rocq=$value
 				;;
 			--dx)
-				dx=$value
+				dx=${value:+$(realpath "$value")}
 				;;
 			--gdb)
 				gdb=$value
