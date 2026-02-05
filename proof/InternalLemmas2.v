@@ -7063,32 +7063,112 @@ induction parentsList; intros pdbasepartition HbaseIsPart HparentsList.
   apply HpartTree with a; trivial. unfold pdentryParent. rewrite Hlookup. auto.
 Qed.
 
-(*Lemma nbFreeLowerThanPrepared partition nbPrepare nbFreeSlots s:
-maxNbPrepareIsMaxNbKernels s
--> NbFreeSlotsISNbFreeSlotsInList s
--> inclFreeSlotsBlockEntries s
--> pdentryNbPrepare partition nbPrepare s
--> pdentryNbFreeSlots partition nbFreeSlots s
--> nbFreeSlots <= nbPrepare*kernelStructureEntriesNb.
+Lemma PDflagImpliesChild part block startaddr s:
+isPADDR nullAddr s
+-> In block (getMappedBlocks part s)
+-> bentryStartAddr block startaddr s
+-> sh1entryPDflag (CPaddr (block+sh1offset)) true s
+-> In startaddr (getChildren part s).
 Proof.
-intros HmaxNbPrep HnbFreeList HinclFreeKS HnbPrep HnbFree.
-assert(HpartIsPDT: isPDT partition s).
+intros Hnull HblockMapped Hstart HPDflag. unfold getChildren. assert(HpartIsPDT: isPDT part s).
 {
-  unfold isPDT. unfold pdentryNbPrepare in *. destruct (lookup partition (memory s) beqAddr); try(congruence).
-  destruct v; try(congruence). trivial.
+  unfold getMappedBlocks in *. unfold getKSEntries in *. unfold isPDT.
+  destruct (lookup part (memory s) beqAddr); try(simpl in *; congruence). destruct v; try(simpl in *; congruence).
+  trivial.
 }
-specialize(HnbFreeList partition nbFreeSlots HpartIsPDT HnbFree).
-destruct HnbFreeList as [optFreeSlots (Hlist & HwellFormedList & HnbFreeList)].
-
-inclFreeSlotsBlockEntries
-KernelStructureStartFromBlockEntryAddrIsKS
+unfold isPDT in *. destruct (lookup part (memory s) beqAddr); try(simpl; congruence).
+destruct v; try(simpl; congruence). induction (getMappedBlocks part s); simpl in *; try(congruence).
+unfold getPDs in *. simpl. destruct HblockMapped as [Heq | HblockMapped].
+- subst a. assert(Hchild: childFilter s block = true).
+  {
+    unfold childFilter. unfold bentryStartAddr in *. unfold sh1entryPDflag in *.
+    destruct (lookup block (memory s) beqAddr); try(exfalso; congruence). destruct v; try(exfalso; congruence).
+    unfold Paddr.addPaddrIdx. unfold CPaddr in *. assert(block + sh1offset <= maxAddr).
+    {
+      destruct (le_dec (block + sh1offset) maxAddr); try(lia). exfalso.
+      assert(HnullEq: {| p := 0; Hp := ADT.CPaddr_obligation_2 (block + sh1offset) n |} = nullAddr).
+      { cbn. f_equal. apply proof_irrelevance. }
+      rewrite HnullEq in *. unfold isPADDR in *. destruct (lookup nullAddr (memory s) beqAddr); try(congruence).
+      destruct v; congruence.
+    }
+    destruct (le_dec (block + sh1offset) maxAddr); try(lia).
+    replace (StateLib.Paddr.addPaddrIdx_obligation_1 block sh1offset l0) with
+      (ADT.CPaddr_obligation_1 (block + sh1offset) l0); try(apply proof_irrelevance).
+    set(sh1entryaddr := {| p := block + sh1offset; Hp := ADT.CPaddr_obligation_1 (block + sh1offset) l0 |}).
+    fold sh1entryaddr in HPDflag. destruct (lookup sh1entryaddr (memory s) beqAddr); try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). auto.
+  }
+  rewrite Hchild. simpl. unfold bentryStartAddr in *. left.
+  destruct (lookup block (memory s) beqAddr); try(exfalso; congruence). destruct v; try(exfalso; congruence). auto.
+- specialize(IHl HblockMapped). destruct (childFilter s a); trivial. simpl. auto.
 Qed.
 
-Lemma freeSlotsAreBlocks partition optFreeSlots s:
-inclFreeSlotsBlockEntries s
--> optFreeSlots = getFreeSlotsList partition s
--> exists kernList, isListOfKernels kernList partition s
-    /\ length optFreeSlots <= length kernList*kernelStructureEntriesNb.
+Lemma noDupPartitionTreeExtAux n part basePart s:
+length (getPartitionsAux n basePart s) < n
+-> NoDup (getPartitionsAux n basePart s)
+-> In part (getPartitionsAux n basePart s)
+-> NoDup (getPartitionsAux n part s).
 Proof.
+revert basePart. induction n; intros basePart Hlen HnoDup HpartIsPart; try(simpl in *; exfalso; congruence).
+simpl in HnoDup. simpl in Hlen. simpl in HpartIsPart.
+assert(HnewLen: length (flat_map (fun p : paddr => getPartitionsAux n p s) (getChildren basePart s)) < n) by lia.
+clear Hlen. apply NoDup_cons_iff in HnoDup. destruct HnoDup as (HbaseNotIn & HnoDup).
+destruct HpartIsPart as [Heq | HpartIsPart]; try(subst basePart; simpl; apply NoDup_cons_iff; auto).
+induction (getChildren basePart s); try(simpl in *; exfalso; congruence). simpl in HpartIsPart. simpl in HnewLen.
+apply in_app_or in HpartIsPart. simpl in HbaseNotIn. simpl in HnoDup.
+apply Lib.in_app_or_neg in HbaseNotIn. destruct HbaseNotIn as (HbaseNotInA & HbaseNotIn).
+apply Lib.NoDupSplitInclIff in HnoDup. destruct HnoDup as ((HnoDupA & HnoDup) & Hdisjoint).
+rewrite length_app in HnewLen. assert(HlenA: length (getPartitionsAux n a s) < n) by lia.
+assert(HnewLenRec: length (flat_map (fun p : paddr => getPartitionsAux n p s) l) < n) by lia.
+destruct HpartIsPart as [HpartInA | HpartIsPart].
+- specialize(IHn a HlenA HnoDupA HpartInA). rewrite getPartitionsEnd; trivial.
+  apply getPartitionsLenDescendants with a; trivial.
+- apply IHl; assumption.
+Qed.
 
-Qed.*)
+Lemma noDupPartitionTreeExt part s:
+noDupPartitionTree s
+-> In part (getPartitions multiplexer s)
+-> NoDup (getPartitions part s).
+Proof.
+intro HnoDup. assert(Hlen: length (getPartitions multiplexer s) <= maxAddr + 1).
+{ apply lengthNoDupPartitions; assumption. }
+revert HnoDup. unfold noDupPartitionTree. unfold getPartitions in *. apply noDupPartitionTreeExtAux. lia.
+Qed.
+
+Lemma getPartitionsAuxExtWithMidpoint n m part basePart midPart s:
+In part (getPartitionsAux m midPart s)
+-> In midPart (getPartitionsAux n basePart s)
+-> In part (getPartitionsAux (n+m) basePart s).
+Proof.
+intro HpartIn. revert basePart. induction n; intros basePart HmidIn; try(simpl in *; exfalso; congruence).
+simpl in HmidIn. destruct HmidIn as [Heq | HmidIn].
+- subst midPart. destruct n.
+  + rewrite plus_O_n in *. rewrite Nat.add_comm. apply getPartitionsAuxSbound. assumption.
+  + replace (S (S n)+m) with ((S n+m)+1); try(lia). apply getPartitionsAuxSbound. apply IHn. simpl. auto.
+- simpl. right. induction (getChildren basePart s); simpl in *; try(congruence). apply in_app_or in HmidIn.
+  apply in_or_app. destruct HmidIn as [HmidInA | HmidIn].
+  + left. apply IHn; assumption.
+  + right. apply IHl; assumption.
+Qed.
+
+Lemma getPartitionsAuxExt n m part basePart s:
+In part (getPartitionsAux n basePart s)
+-> In part (getPartitionsAux (n+m) basePart s).
+Proof.
+revert basePart. induction n; simpl; intros basePart HpartIn; try(exfalso; congruence).
+destruct HpartIn as [Heq | HpartIn]; auto. right. induction (getChildren basePart s); simpl in *; try(congruence).
+apply in_app_or in HpartIn. apply in_or_app. destruct HpartIn as [HpartInA | HpartIn].
+- left. apply IHn; assumption.
+- right. apply IHl; assumption.
+Qed.
+
+Lemma childrenAreSubParts part child s:
+In child (getChildren part s)
+-> In child (getPartitions part s).
+Proof.
+intro HchildIsChild. unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. right.
+induction (getChildren part s); simpl in *; try(congruence). apply in_or_app.
+destruct HchildIsChild as [Heq | HchildIsChild]; try(right; apply IHl; assumption). subst a. left.
+rewrite Nat.add_1_r. simpl. auto.
+Qed.
