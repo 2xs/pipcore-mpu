@@ -1,7 +1,7 @@
 #!/bin/sh
 ###############################################################################
-#  © Université de Lille, The Pip Development Team (2015-2024)                #
-#  Copyright (C) 2020-2024 Orange                                             #
+#  © Université de Lille, The Pip Development Team (2015-2025)                #
+#  Copyright (C) 2020-2025 Orange                                             #
 #                                                                             #
 #  This software is a computer program whose purpose is to run a minimal,     #
 #  hypervisor relying on proven properties such as memory isolation.          #
@@ -86,6 +86,8 @@ Usage: %s <MANDATORY ARGUMENTS> [OPTIONAL ARGUMENTS]
 
     --architecture=<x>        The target architecture name:
                                   - \"dwm1001\"
+    --fae-directory=<x>       The FAE format include directory filepath such as
+                              ../fae_format/src/include for example.
 
   OPTIONAL ARGUMENTS:
 
@@ -155,8 +157,8 @@ Usage: %s <MANDATORY ARGUMENTS> [OPTIONAL ARGUMENTS]
 generate_toolchains() {
 cat <<EOF > toolchain.mk
 ###############################################################################
-#  © Université de Lille, The Pip Development Team (2015-2024)                #
-#  Copyright (C) 2020-2024 Orange                                             #
+#  © Université de Lille, The Pip Development Team (2015-2025)                #
+#  Copyright (C) 2020-2025 Orange                                             #
 #                                                                             #
 #  This software is a computer program whose purpose is to run a minimal,     #
 #  hypervisor relying on proven properties such as memory isolation.          #
@@ -218,6 +220,11 @@ GDB := $gdb
 
 TARGET    = $target
 
+# FAE format related options
+FAE_DIRECTORY                = $fae_directory
+FAE_INCLUDE_DIRECTORY        = $fae_include_directory
+FAE_INCLUDE_DIRECTORY_CFLAGS = $fae_include_directory_cflags
+
 # Arch related options
 ARCH_CFLAGS   = $arch_cflags
 ARCH_LDFLAGS  = $arch_ldflags
@@ -256,6 +263,9 @@ parse_arguments() {
 				;;
 			--architecture)
 				architecture=$value
+				;;
+			--fae-directory)
+				fae_directory=$value
 				;;
 			--no-command-check)
 				no_command_check=1
@@ -579,11 +589,14 @@ configure_global_variables() {
 			padding_value='0xff'
 			padding_pow2='32'
 
-			return 0
 			;;
 		*)
 			usage && return 1
 	esac
+
+	fae_include_directory="$fae_directory"'/src/include'
+	fae_include_directory_cflags='-I '$fae_include_directory
+	return 0
 }
 
 # The main function of the script
@@ -592,6 +605,11 @@ main() {
 
 	# Check if the mandatory arguments are set
 	if [ -z "$architecture" ]
+	then
+		usage && return 1
+	fi
+
+	if [ -z "$fae_directory" ]
 	then
 		usage && return 1
 	fi

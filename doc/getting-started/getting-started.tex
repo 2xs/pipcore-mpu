@@ -101,7 +101,7 @@ showstringspaces=false,
     urlcolor=black
 }
 
-\author{Nicolas Dejon - Damien Amara - Claire Soyez-Martin}
+\author{Nicolas Dejon - Damien Amara - Claire Soyez-Martin - Grégory Guche}
 \title{Pip-MPU 101 -  Tutorial \\ Getting started on ARM Cortex-M \\ Example with a simple Hello world and a scheduler partition on the DWM1001-DEV (Arm Cortex-M4) board\\}
 
 \begin{document}
@@ -158,7 +158,7 @@ These tools are needed for cross-compiling bare-metal C for ARM Cortex-M chips.
 arm-none-eabi-gcc is the only C compiler known to compile Pip-MPU correctly.
 CLANG, for example, is not supported. To that end, you need a version of GCC capable of producing 32bits ELF binaries.
 
-The last working version is v12.1.0.
+The last working version is v13.3.1.
 
 \index{gdb-multiarch} \marginlabel{GNU Debugger multiarch:}
 The GNU Debugger allows you to debug a partition while it is executed on the
@@ -201,7 +201,7 @@ Update the apt package index before installing the packages:
 
 \begin{lstlisting}[style=BashStyle]
 > sudo apt update
-> sudo apt install git make opam gdb-multiarch texlive-latex-base doxygen haskell-stack
+> sudo apt install git make opam gdb-multiarch texlive-latex-base texlive-latex-recommended texlive-latex-extra doxygen haskell-stack
 \end{lstlisting}
 
 In addition to these packages, it is necessary to install the ARM GNU toolchain. As of today, it is preferable to to so manually\footnote{See the first 
@@ -278,6 +278,28 @@ We use opam to install Coq tools required to extract the code base.
 > coqc -v
 \end{lstlisting}
 
+\index{faesrc}\marginlabel{Retrieve FAE format:}
+ELF file format is complex to parse, which makes it error-prone.\\
+Furthermore, it contains many information not necessary for the CRT0 to perform relocation.
+
+FAE file format was designed to be a simple \textit{ad hoc} binary file format keeping only the necessary information for relocation.\\
+It comes also with a default CRT0 implementation and the C structures needed to design custom versions of it.
+Pip needs these latter for its own version of CRT0.
+For details, please consult FAE format's \href{https://gitlab.univ-lille.fr/2xs/pip/fae_format/-/blob/master/README.md?ref_type=heads}{README.md}
+and \href{https://gitlab.univ-lille.fr/2xs/pip/fae_format/-/blob/master/GETTING_STARTED.md?ref_type=heads}{GETTING\_STARTED.md}.
+
+Clone the FAE format repository to another directory outside the PIP-MPU kernel.
+\begin{lstlisting}[style=BashStyle]
+> cd <another directory>
+> git clone https://gitlab.univ-lille.fr/2xs/pip/fae_format.git
+> cd fae_format
+\end{lstlisting}
+
+Before leaving the directory, make sure that repository resources have been generated.
+\begin{lstlisting}[style=BashStyle]
+> fae_format$ make
+\end{lstlisting}
+
 \subsection{Build Pip-MPU} \label{buildpip}
 Before doing anything else, you need to configure the partition building toolchain for the dwm1001 board.
 The optional argument \textit{--debugging-mode=semihosting} enables semihosting outputs.
@@ -285,19 +307,24 @@ Then, compile the kernel.
 % TODO: remove --no-command-check
 Note that the partitions use the same building toolchain as Pip-MPU's.
 
-To compile the kernel, the path to the dx library is required. That path can change depending on how dx was installed. 
+To compile the kernel, two paths are required.The first one is the path to dx, that can change depending on how
+dx was installed.
+
 If it was installed using opam, the path should be of the form
 
 \begin{lstlisting}[style=BashStyle]
 /home/<user>/.opam/coq8.13.1/lib/dx
 \end{lstlisting}
 
-where $<$user$>$ is the username used on your computer. Then, using this path, it is possible to compile the kernel with 
-the following commands:
+where $<$user$>$ is the username used on your computer.
+
+The second path is the directory where fae format repository has been checked out.
+
+With these two paths, it is possible to compile the kernel with the following commands:
 
 \begin{lstlisting}[style=BashStyle]
 # configure the building toolchain
-> pipcore-mpu$ ./configure.sh --architecture=dwm1001 --debugging-mode=semihosting --no-command-check  --boot-sequence=default --dx=<path to dx>
+> pipcore-mpu$ ./configure.sh --architecture=dwm1001 --fae-directory=<path to fae format> --debugging-mode=semihosting --no-command-check  --boot-sequence=default --dx=<path to dx>
 # compile the kernel
 > pipcore-mpu$ make all
 # check Pip-MPU has successfully compiled:
@@ -321,8 +348,24 @@ Clone the example in another directory \textit{"hello world dir"}, outside the P
 > cd pip-mpu-hello-world
 \end{lstlisting}
 
-\subsection{Compile the project}
-This project inherits Pip-MPU's toolchain configuration (set up at \ref{buildpip}).
+\subsection{Compile the project} \label{compileproject}
+Before the actual compilation, the Makefile of this project needs to know where both Pip-MPU and FAE format directories are.\\
+To do so, edit a \textit{directories.mk} file at the root of the repository.\\
+This file will be included and used in the final Makefile.\\
+It must contain two variables :
+\begin{itemize}
+    \item FAE\_DIRECTORY\_PATH, indicating the location of FAE format,
+    \item PIPCORE\_MPU\_DIRECTORY\_PATH, indicating the location of Pip-MPU.
+\end{itemize}
+
+For example:
+\begin{lstlisting}[style=BashStyle]
+> pip-mpu-hello-world$ cat directories.mk
+FAE_DIRECTORY_PATH=../fae_format
+PIPCORE_MPU_DIRECTORY_PATH=../pipcore-mpu
+\end{lstlisting}
+
+At last, this project inherits Pip-MPU's toolchain configuration (set up at \ref{buildpip}).
 It is then enough to invoke the \texttt{make} command.
 
 \begin{lstlisting}[style=BashStyle]
@@ -334,7 +377,7 @@ Return to the kernel's directory and link Pip-MPU's binary with the project's bi
 them as follows:
 
 \begin{lstlisting}[style=BashStyle]
-> pipcore-mpu$ cat pip.bin <another directory>/pip-mpu-hello-world/pip-mpu-hello-world.bin > pip+root.bin
+> pipcore-mpu$ cat pip.bin <another directory>/pip-mpu-hello-world/build/pip-mpu-hello-world.fae > pip+root.bin
 \end{lstlisting}
 
 The script produces the final binary, that can then be flashed and run, as shown in \cref{fourth}.
@@ -345,13 +388,13 @@ initialized. That initialization sets up the memory so that Pip-MPU has a reserv
 meaning that nothing in the system can access that memory. Moreover, Pip-MPU's initialization retrieves information about that memory 
 block, notably the exact physical addresses included in it, and creates a root partition, that is to be initialized in another project 
 (in our case, the hello-word project). This creates some information about that root partition, that is passed down to the other 
-project using an interface.
+project using a context.
 
 The hello-world project is compiled using a file named \textit{link.ld}, which indicates in which order the different parts should be 
 put in the final executable file. Notably, it indicates that the first function to be executed after Pip-MPU's initialization is the 
 \textit{\_start} function from the file \textit{crt0.c}. That function stores the necessary data about the available memory, then calls 
-the \textit{main} function from the file \textit{main.c}, to which it gives as parameter the interface it received from Pip-MPU. That 
-interface gives information about the root partition initialized by Pip-MPU, notably the ID of its partition descriptor, which is used 
+the \textit{main} function from the file \textit{main.c}, to which it gives as parameter the crt0 context it received from Pip-MPU. That
+context gives information about the root partition initialized by Pip-MPU, notably the ID of its partition descriptor, which is used
 in most of Pip-MPU's primitives. %TODO detail that?
 
 In this project, the \textit{main} function does not look at any parameter it might receive nor returns anything. The fact that it does 
@@ -393,17 +436,19 @@ Clone the project in another directory, outside the Pip-MPU kernel.
 
 \marginlabel{Compilation}
 
-This project inherits Pip-MPU's toolchain configuration (set up at \ref{buildpip}). It is then enough to invoke the \texttt{make} 
-command.
+This project inherits Pip-MPU's toolchain configuration (set up at \ref{buildpip}).
 
+It must also follow the FAE format usage guidelines, as given at \ref{compileproject}.
+
+Once these prerequisites fullfilled, it is then enough to invoke the \texttt{make} command.
 \begin{lstlisting}[style=BashStyle]
 > pip-mpu-launcher$ make
 \end{lstlisting}
 
-This command produces a binary file pip-mpu-launcher{.}bin, which can ben used to produce the final binary with a call to cat:
+This command produces a binary file pip-mpu-launcher{.}fae, which can ben used to produce the final binary with a call to cat:
 
 \begin{lstlisting}[style=BashStyle]
-> pip-mpu-launcher$ cat <Pip-MPU directory>/pip.bin pip-mpu-launcher.bin > pip+root.bin
+> pip-mpu-launcher$ cat <Pip-MPU directory>/pip.bin build/pip-mpu-launcher.fae > pip+root.bin
 \end{lstlisting}
 
 That final binary can then be flashed on the target board (see \cref{fourth}).
@@ -423,9 +468,9 @@ not the most efficient, so feel free to improve it. The project presented here i
     \item root contains the files necessary for the compilation of the root partition.
 \end{itemize}
 
-In this project, the "include" folder contains only one file, that enables semihosting and that will not be detailed here.
+In this project, the "include" folder contains one file for semihosting and the other one for calling Pip services.
 
-Both the "child" and "root" folders have the same structure: a "relocator" folder whose files deal with the structure of the memory, 
+Both the "child" and "root" folders have the same structure:
 a "link{.}ld" file that deals with the structure of the final binary file, a "main{.}c" file containing the partition's program, and 
 a Makefile that defines the command \texttt{make} for that folder. This structure allows each partition to be separately compiled, 
 even though the goal is to combine the binaries. In what follows, we focus on the contents of the "main{.}c" files, as the others 
@@ -460,11 +505,11 @@ occurs, and this is how we emulate it.
 
 The rest of the function is dealt with by two functions. To print strings, we use the function \textit{puts}, defined in the file 
 include/semihosting{.}h, which takes a constant string of characters and prints it. The change of partition is done through the function 
-\textit{Pip\_yield}, which takes the ID of the partition to switch to and information about how to store and restore the contexts, and 
-yields to the indicated partition, restoring the indicated context with the indicated flags. That function uses particular tables, called 
-VIDTs. Each partition has exactly one VIDT, in which it stores contexts of execution. Each index of a VIDT corresponds to an interruption, 
-or to a way of changing the partition. In this project, we do not use interruptions, so we will always store and retrieve the contexts at 
-the index 0 of the VIDTs. Formally, the function Pip\_yield takes five parameters:
+\textit{Pip\_yield}, defined in the file include/pip-mpu{.}h. This service takes the ID of the partition to switch to and information
+about how to store and restore the contexts, and yields to the indicated partition, restoring the indicated context with the indicated flags.
+That function uses particular tables, called VIDTs. Each partition has exactly one VIDT, in which it stores contexts of execution.
+Each index of a VIDT corresponds to an interruption, or to a way of changing the partition. In this project, we do not use interruptions,
+so we will always store and retrieve the contexts at the index 0 of the VIDTs. Formally, the function Pip\_yield takes five parameters:
 \begin{itemize}
     \item a pointer calleePartDescBlockId, which indicates the ID of the memory block containing the partition description of the 
     partition we want to yield to (a value of 0 calls the parent of the current partition, which is the partition itself when it is the 
@@ -484,7 +529,7 @@ puts("3\n");
 Pip_yield(0, 0, 0, 1, 1);
 \end{lstlisting}
 In the call to Pip\_yield, we call the parent by setting the first parameter to 0, we store the current context at the index 0 of the 
-child's VIDT, and we retrive the parent's context at the index 0 of its VIDT.
+child's VIDT, and we retrieve the parent's context at the index 0 of its VIDT.
 
 Since we want to repeat that three times, we repeat these two lines, changing only the string in the call to puts. Each time Pip\_yield is 
 called, the current context of execution is stored so that, if the parent calls back the child partition, the execution is resumed at the 
@@ -503,7 +548,7 @@ The goal of this tutorial is to show how to deal with partitions using Pip, so w
 the child defined above, yields three times, then deletes the partition to clean the memory, and loops indefinitely. The entry point for 
 that root partition is the function \textit{start} of the file root/main{.}c, defined as follows:
 \begin{lstlisting}[language=C]
-void start(interface_t *interface)
+void start(crt0_context_t *crt0_ctx)
 {
     ...
 
@@ -530,7 +575,7 @@ completely its program. If we do not take into account the error codes that can 
 the function start is as follows:
 
 \begin{lstlisting}[language=C]
-root_memory_init(interface);
+root_memory_init(crt0_ctx);
 root_partition_create();
 
 size_t i;
@@ -539,7 +584,7 @@ for (i = 0; i < 3; i++) {
 }
 
 root_partition_delete();
-root_memory_cleanup(interface);
+root_memory_cleanup(crt0_ctx);
 \end{lstlisting}
 
 Now let's talk a bit about what the four functions do.
@@ -707,7 +752,7 @@ In the \texttt{gdb-multiarch} terminal (Terminal 2):
 \end{lstlisting}
 
 \subsubsection{Option 1 : openocd}
-The outputs should be alredy visible in Terminal 1.
+The outputs should be already visible in Terminal 1.
 
 \subsubsection{Option 2: Segger}
 You need to open a telnet to see the outputs.

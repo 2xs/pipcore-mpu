@@ -335,7 +335,9 @@ bool checkMPUEntryZero(paddr addr, uint32_t size) {
 	if (size < getMinBlockSize() || (is_power_of_two(size) == false))
 		return false;
 
-	return ( (((uintptr_t)addr) % size) == 0 );
+    uintptr_t start_addr = (uintptr_t)((block_t *)addr)->startAddr;
+
+	return ( (((uintptr_t)start_addr) % size) == 0 );
 }
 
 /*!
