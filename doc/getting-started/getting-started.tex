@@ -155,45 +155,49 @@ In order to create your own partitions on top of Pip-MPU, you need an appropriat
 These tools are needed for cross-compiling bare-metal C for ARM Cortex-M chips.
 
 \index{gcc}\marginlabel{GNU C Cross Compiler:}
-arm-none-eabi-gcc is the only C compiler known to compile Pip-MPU correctly.
-CLANG, for example, is not supported. To that end, you need a version of GCC capable of producing 32bits ELF binaries.
+\texttt{arm-none-eabi-gcc} is the only C compiler known to compile Pip-MPU correctly.
+\texttt{clang}, for example, is not supported. To that end, you need a version of GCC capable of producing 32bits ELF binaries.
 
-The last working version is v13.3.1.
+The last known working version is v14.2.0.
 
 \index{gdb-multiarch} \marginlabel{GNU Debugger multiarch:}
 The GNU Debugger allows you to debug a partition while it is executed on the
 top of Pip. This is very useful during the development process. That's the
 reason why GDB is not mandatory but highly recommended.
 
-
-\index{stack}\marginlabel{Haskell Stack:}
-In old versions of the project, Pip-MPU used Digger, a home-made extractor to convert Coq code into C code.
-In order to compile this Extractor, which is written in Haskell, we use the Stack tool to download and install automatically the required GHC and libraries.
-
-The last working version of Stack is v2.7.5 and Digger's is v0.3.0.0.
-
-\index{coq}\marginlabel{Coq Proof Assistant:}
+\index{rocq}\marginlabel{The Rocq Prover:}
 Pip-MPU's source code and formal proof of its memory isolation properties are written
-using the Coq proof assistant. In order to compile Coq files and
-generate the required intermediate files for the kernel to build, you will need the 8.13.1 version of Coq.
-
-This was also tested successfully with Coq 8.15.0.
+using the Rocq Prover. In order to compile Rocq files and
+generate the required intermediate files for the kernel to build, you will need the 9.0.0 version of Rocq.
 
 \index{opam} \marginlabel{OCaml Package Manager:}
 Opam is the package manager for the OCaml programming language, the language in
-which Coq is implemented. This is the proper way to install and pin the Coq
-Proof Assistant to a specific version.
+which Rocq is implemented. This is the proper way to install and pin the Rocq
+Prover to a specific version.
 
 \index{gnu}\marginlabel{GNU Toolchain:}
 GNU Sed and GNU Make are required to perform the compilation.
 
-The last working versions of sed is v4.8 and of make is v4.3.
+The last working versions of \texttt{sed} is v4.9 and of \texttt{make} is v4.4.1.
 
 \index{doxygen}\marginlabel{Doxygen:}
-Pip-MPU's documentation is generated through CoqDoc (included with Coq) for the Coq part, and Doxygen for the C part.
+Pip-MPU's documentation is generated through \texttt{rocq doc} (included with Rocq) for the Rocq parts, and Doxygen for the C parts.
 The documentation is not mandatory to compile Pip-MPU, but it is highly required that you compile it and keep it somewhere safe so you always have some reference to read if you need some information about Pip-MPU's internals.
 
-The last working version of doxygen is v1.9.3.
+The last working version of doxygen is v1.16.1.
+
+\index{compcert}\marginlabel{$\partial x$, Elpi \& CompCert:}
+Pip-MPU's compilation chain targets an intermediate representation of C code from the CompCert project, to be able to prove the preservation of the semantic from Rocq's code down to the generated assembly.
+The tool achieving this compilation is called $\partial x$, and relies on Rocq-Elpi and the CompCert project.
+
+The last working version of $\partial x$ is compatible with CompCert 3.16 and Rocq-Elpi 3.2.0.
+
+
+\index{stack}\marginlabel{Haskell Stack (unmaintained):}
+In old versions of the project, Pip-MPU used Digger, a home-made extractor to convert Rocq code into C code, which is now unmaintained.
+In order to compile this Extractor, which is written in Haskell, we used the Stack tool to download and install automatically the required GHC and libraries.
+
+The last working version of Stack is v2.7.5 and Digger's is v0.3.0.0.
 
 \subsection{Install required packages}
 
@@ -217,7 +221,7 @@ these links are created as follows:
 > sudo ln -s /usr/share/gcc-arm-none-eabi-YOUR-VERSION/bin/arm-none-eabi-objcopy /usr/bin/arm-none-eabi-objcopy
 \end{lstlisting}
 
-Note that only some of these tools (arm-none-eabi-gcc and arm-none-eabi-ld) are necessary for this project.
+Note that only some of these tools (\texttt{arm-none-eabi-gcc} and \texttt{arm-none-eabi-ld}) are necessary for this project.
 
 \subsection{Get the source}
 \index{Pipsrc}\marginlabel{Pip-MPU source:}
@@ -239,43 +243,30 @@ This repository contains Pip-MPU's kernel, proof and documentation. Still,
 it is not ready to compile yet, as it provides no partition to run.
 This is covered in \cref{second}.
 
-\index{diggersrc}\marginlabel{Set up Digger:}
-As said previously, old versions of Pip-MPU used an extractor to convert Coq code into C code.
-For the sake of completion, here is how to get it: the source is included in Pip-MPU's main repository as a submodule.
-\begin{lstlisting}[style=BashStyle]
-> pipcore-mpu$ git submodule init
-# checkout to expected version
-> pipcore-mpu$ git submodule update
-# build Digger, these could take a few minutes
-> pipcore-mpu$ make -C tools/digger
-\end{lstlisting}
-The compilation might complain about a missing GHC version : type in the asked command to install the required GHC version (usually "\texttt{stack setup}"), and type in \texttt{make} again to grab the required libraries and build the extractor.
-
-\index{dxsrc}\marginlabel{Set up dx:}
-The most recent version of pipcore-mpu uses dx instead of Digger to get the C code. The README 
+\index{dxsrc}\marginlabel{Set up $\partial x$ \& Rocq:}
+The most recent version of pipcore-mpu uses $\partial x$ instead of Digger to get the C code. The README 
 of that project details the necessary steps to compile it, but here is an abridged version.
 
 \begin{lstlisting}[style=BashStyle]
 > git clone https://gitlab.univ-lille.fr/2xs/dx
 > cd dx
+> git switch rocq9.0
+> opam switch create pip 4.14.2
+> eval $(opam env)
 > opam repository add coq-released https://coq.inria.fr/opam/released
-> opam install -b coq coq-elpi coq-compcert
+> opam install coq=9.0.0 coq-elpi=3.2.0 menhir=20250912
+> opam install -b coq-compcert=3.16
 > opam pin .
 \end{lstlisting}
 
-Once both pipcore-mpu and dx are compiled, it is possible to use dx in the execution of pipcore-mpu by adding an optionnal argument, as explained below.
+Once both pipcore-mpu and $\partial x$ are compiled, it is possible to use $\partial x$ in the execution of pipcore-mpu by adding an optional argument, as explained below.
 
-\index{coqcsrc}\marginlabel{Set up the Coq 8.13.1 environment:}
-We use opam to install Coq tools required to extract the code base.
+\index{coqcsrc}\marginlabel{Check the Rocq 9.0.0 environment:}
+The previous commands should have installed the required Rocq dependencies.
 
 \begin{lstlisting}[style=BashStyle]
-> opam switch create coq8.13.1 4.10.2
-> opam init
-> eval $(opam env)
-# pin Coq version to 8.13.1, these could take a few minutes
-> opam pin add coq 8.13.1
 # test installation, the command must end successfully
-> coqc -v
+> rocq -v
 \end{lstlisting}
 
 \index{faesrc}\marginlabel{Retrieve FAE format:}
@@ -285,8 +276,8 @@ Furthermore, it contains many information not necessary for the CRT0 to perform 
 FAE file format was designed to be a simple \textit{ad hoc} binary file format keeping only the necessary information for relocation.\\
 It comes also with a default CRT0 implementation and the C structures needed to design custom versions of it.
 Pip needs these latter for its own version of CRT0.
-For details, please consult FAE format's \href{https://gitlab.univ-lille.fr/2xs/pip/fae_format/-/blob/master/README.md?ref_type=heads}{README.md}
-and \href{https://gitlab.univ-lille.fr/2xs/pip/fae_format/-/blob/master/GETTING_STARTED.md?ref_type=heads}{GETTING\_STARTED.md}.
+For details, please consult FAE format's \href{https://gitlab.univ-lille.fr/2xs/pip/fae_format/-/blob/master/README.md?ref_type=heads}{\texttt{README.md}}
+and \href{https://gitlab.univ-lille.fr/2xs/pip/fae_format/-/blob/master/GETTING_STARTED.md?ref_type=heads}{\texttt{GETTING\_STARTED.md}}.
 
 Clone the FAE format repository to another directory outside the PIP-MPU kernel.
 \begin{lstlisting}[style=BashStyle]
@@ -300,6 +291,18 @@ Before leaving the directory, make sure that repository resources have been gene
 > fae_format$ make
 \end{lstlisting}
 
+\index{diggersrc}\marginlabel{Set up Digger (unmaintained):}
+As said previously, old versions of Pip-MPU used an extractor to convert Rocq code into C code.
+For the sake of completion, here is how to get it: the source is included in Pip-MPU's main repository as a submodule.
+\begin{lstlisting}[style=BashStyle]
+> pipcore-mpu$ git submodule init
+# checkout to expected version
+> pipcore-mpu$ git submodule update
+# build Digger, these could take a few minutes
+> pipcore-mpu$ make -C tools/digger
+\end{lstlisting}
+The compilation might complain about a missing GHC version : type in the asked command to install the required GHC version (usually "\texttt{stack setup}"), and type in \texttt{make} again to grab the required libraries and build the extractor.
+
 \subsection{Build Pip-MPU} \label{buildpip}
 Before doing anything else, you need to configure the partition building toolchain for the dwm1001 board.
 The optional argument \textit{--debugging-mode=semihosting} enables semihosting outputs.
@@ -307,13 +310,13 @@ Then, compile the kernel.
 % TODO: remove --no-command-check
 Note that the partitions use the same building toolchain as Pip-MPU's.
 
-To compile the kernel, two paths are required.The first one is the path to dx, that can change depending on how
-dx was installed.
+To compile the kernel, two paths are required.The first one is the path to $\partial x$, that can change depending on how
+$\partial x$ was installed.
 
 If it was installed using opam, the path should be of the form
 
 \begin{lstlisting}[style=BashStyle]
-/home/<user>/.opam/coq8.13.1/lib/dx
+/home/<user>/.opam/pip/lib/dx
 \end{lstlisting}
 
 where $<$user$>$ is the username used on your computer.
