@@ -1197,10 +1197,13 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
     assert(PDTIfPDFlag s).
     { (* BEGIN PDTIfPDFlag s *)
       assert(Hcons0: PDTIfPDFlag s0) by intuition.
-      intros idPDchild sh1entryaddrBis Hcheck. unfold checkChild in Hcheck. unfold sh1entryAddr in Hcheck.
+      intros idPDchild sh1entryaddrBis part HpartIsPart HblockMapped Hcheck. unfold checkChild in Hcheck.
+      unfold sh1entryAddr in Hcheck.
+      rewrite getPartitionsEqLookup with multiplexer s s0 in *; try(assumption).
+      rewrite getMappedBlocksEqLookup with part s s0 in *; try(assumption).
       rewrite HlookupsEq in Hcheck. rewrite HlookupsEq in Hcheck. unfold bentryAFlag. unfold bentryPFlag.
       unfold bentryStartAddr. unfold entryPDT. rewrite HlookupsEq.
-      specialize(Hcons0 idPDchild sh1entryaddrBis Hcheck).
+      specialize(Hcons0 idPDchild sh1entryaddrBis part HpartIsPart HblockMapped Hcheck).
       destruct Hcons0 as (HAFlag & HPFlag & [startaddr (Hstart & HstartIsPDT)]). split. assumption. split.
       assumption. exists startaddr. split. assumption. unfold entryPDT in HstartIsPDT.
       destruct (lookup idPDchild (memory s0) beqAddr); try(congruence). destruct v; try(congruence).
@@ -2296,6 +2299,7 @@ assert(HgetChildrenEq: forall partition, isPDT partition s0
 assert(HgetPartsEq: getPartitions multiplexer s = getPartitions multiplexer s0).
 {
   apply getPartsEqPrepare; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition.
+  unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
 assert(HgetConfigBEq: forall partition, isPDT partition s0
   -> getConfigBlocks partition s = getConfigBlocks partition s0).
@@ -2549,7 +2553,10 @@ assert(wellFormedFstShadowIfBlockEntry s).
 assert(PDTIfPDFlag s).
 { (* BEGIN PDTIfPDFlag s *)
   assert(Hcons0: PDTIfPDFlag s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-  intros block sh1entryaddr (HcheckChild & Hsh1).
+  intros block sh1entryaddr part HpartIsPart HblockMapped (HcheckChild & Hsh1). rewrite HgetPartsEq in *.
+  assert(isPDT part s0).
+  { apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition. }
+  rewrite HgetMappedEq in HblockMapped; trivial.
   assert(HlookupBlockEqss1: lookup block (memory s) beqAddr = lookup block (memory s1) beqAddr).
   {
     apply HblocksAreBEss1. unfold isBE. unfold sh1entryAddr in Hsh1.
@@ -2629,7 +2636,7 @@ assert(PDTIfPDFlag s).
   }
   rewrite HlookupSh1Eq in HcheckChild.
   assert(HcheckChilds0: true = checkChild block s0 sh1entryaddr /\ sh1entryAddr block sh1entryaddr s0) by intuition.
-  specialize(Hcons0 block sh1entryaddr HcheckChilds0).
+  specialize(Hcons0 block sh1entryaddr part HpartIsPart HblockMapped HcheckChilds0).
   destruct Hcons0 as (HAflag & HPflag & [startaddr (Hstart & HstartIsPDT)]). split. assumption. split. assumption.
   exists startaddr. split. assumption. unfold entryPDT in HstartIsPDT.
   destruct (lookup block (memory s0) beqAddr); try(congruence). destruct v; try(congruence).

@@ -61,11 +61,9 @@ intro currentPart.
 eapply bindRev.
 { (** Internal.getGlobalIdPDCurrentOrChild **)
 	eapply weaken. apply getGlobalIdPDCurrentOrChild.
-	intros. simpl. split. apply H. intuition.
-	subst currentPart.
-	apply currentPartIsPDT ;
-	unfold consistency in * ; unfold consistency1 in * ;
-	intuition.
+	intros. simpl. split. apply H. intuition; subst currentPart.
+  - unfold consistency in *; unfold consistency1 in *; intuition.
+	- apply currentPartIsPDT ; unfold consistency in * ; unfold consistency1 in * ; intuition.
 }
 intro globalIdPD.
 eapply bindRev.

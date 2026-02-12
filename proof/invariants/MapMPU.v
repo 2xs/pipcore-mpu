@@ -60,10 +60,11 @@ eapply bindRev.
 intro currentPart.
 eapply bindRev.
 { (** Internal.getGlobalIdPDCurrentOrChild **)
-	eapply weaken. apply getGlobalIdPDCurrentOrChild.
-	intros s HsecProp. simpl. split. apply HsecProp. intuition. subst currentPart.
-  unfold consistency in * ; unfold consistency1 in *.
-		eapply currentPartIsPDT ; intuition.
+	eapply weaken. apply getGlobalIdPDCurrentOrChildPrecise.
+	intros s HsecProp. simpl. split. apply HsecProp. split. intuition.
+  destruct HsecProp as (HsecProp & Hcurr). subst currentPart.
+  split; unfold consistency in * ; unfold consistency1 in *. intuition.
+  eapply currentPartIsPDT ; intuition.
 }
 intro globalIdPD.
 eapply bindRev.
@@ -95,27 +96,34 @@ case_eq addrIsNull.
 	case_eq blockIsNull.
 	+ (* case_eq blockIsNull = true *)
 		intros. set(Psep:= fun s:state => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s).
-    set(blockToEnableAddr:= nullAddr).
+    set(blockToEnableAddr:= nullAddr). unfold blockToEnableAddr at 1.
     assert(Hweak: forall s : state,
         ((((((partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s) /\
             currentPart = currentPartition s) /\
-           consistency s /\ (globalIdPD <> nullAddr -> isPDT globalIdPD s)) /\
-          beqAddr nullAddr globalIdPD = false) /\ globalIdPD <> nullAddr) /\
+           consistency s
+            /\ (globalIdPD <> nullAddr -> isPDT globalIdPD s /\
+                (currentPart = globalIdPD \/ In globalIdPD (getChildren currentPart s)))) /\
+                  beqAddr blockToEnableAddr globalIdPD = false) /\ globalIdPD <> nullAddr) /\
         isPDT globalIdPD s) /\ beqAddr nullAddr idBlockToEnable = true
       -> Psep s /\ consistency s /\ globalIdPD <> nullAddr /\ isPDT globalIdPD s
          /\ (blockToEnableAddr <> nullAddr
             -> (In blockToEnableAddr (getAccessibleMappedBlocks globalIdPD s)))).
     { intros s Hprops. subst Psep. simpl. intuition. }
-    apply weaken with (Q:= fun s:state => Psep s /\ consistency s /\ globalIdPD <> nullAddr /\ isPDT globalIdPD s
-         /\ (blockToEnableAddr <> nullAddr
-            -> (In blockToEnableAddr (getAccessibleMappedBlocks globalIdPD s)))).
-		eapply strengthen. apply enableBlockInMPU.
-    * simpl. intros s is_mapped. intro Hprops. destruct Hprops as [s0 Hprops]. clear Hweak. subst Psep.
-      simpl in Hprops.
+    eapply strengthen. eapply weaken. apply enableBlockInMPU.
+    * simpl. intros s Hprops. subst Psep. split. apply Hprops. intuition.
+    * simpl. intros s is_mapped Hprops. destruct Hprops as [s0 Hprops]. clear Hweak. simpl in Hprops.
       destruct Hprops as [HsecProps (Hconsts0 & (HPDTs0 & (Hconsts & (HGlobNotNull & (HPDTs0Bis & (HPDTs
                         & Hprops))))))].
-      destruct Hprops as [entry0 Hprops].
-      intuition.
+      destruct Hprops as [entry0 Hprops]. assert(In globalIdPD (getPartitions multiplexer s0)).
+      {
+        assert(HcurrIsPart: In (currentPartition s0) (getPartitions multiplexer s0)).
+        { unfold consistency in *; unfold consistency1 in *; intuition. }
+        intuition; subst currentPart.
+         ++ subst globalIdPD. assumption.
+         ++ apply childrenPartitionInPartitionList with (currentPartition s0); trivial;
+              unfold consistency in *; unfold consistency1 in *; intuition.
+      }
+      split; try(split; try(split)); trivial.
       -- (* partitionsIsolation s *)
          apply MapMPUHI with globalIdPD blockToEnableAddr MPURegionNb is_mapped s0 s0 entry0 entry0.
          unfold MapMPUPropagatedProperties; intuition.
@@ -125,7 +133,6 @@ case_eq addrIsNull.
       -- (* verticalSharing s *)
          apply MapMPUVS with globalIdPD blockToEnableAddr MPURegionNb is_mapped s0 s0 entry0 entry0.
          unfold MapMPUPropagatedProperties; intuition.
-    * simpl. intros s Hprops. subst Psep. intuition.
 	+ (* case_eq blockIsNull = false *)
 		intros.
 		eapply WP.bindRev.
@@ -230,12 +237,14 @@ case_eq addrIsNull.
                 /\ consistency s
                 /\ (exists startaddr endaddr,
                       bentryStartAddr blockToEnableAddr startaddr s /\
-                      bentryEndAddr blockToEnableAddr endaddr s /\ i size = endaddr - startaddr)).
+                      bentryEndAddr blockToEnableAddr endaddr s /\ i size = endaddr - startaddr)
+                /\ In globalIdPD (getPartitions multiplexer s)).
         assert(Hweak: forall s : state,
             ((((((((((((partitionsIsolation s /\
                      kernelDataIsolation s /\ verticalSharing s /\ consistency s) /\
                     currentPart = currentPartition s) /\
-                   consistency s /\ (globalIdPD <> nullAddr -> isPDT globalIdPD s)) /\
+                   consistency s /\ (globalIdPD <> nullAddr -> isPDT globalIdPD s /\
+                    (currentPart = globalIdPD \/ In globalIdPD (getChildren currentPart s)))) /\
                   beqAddr nullAddr globalIdPD = false) /\ globalIdPD <> nullAddr) /\
                 isPDT globalIdPD s) /\ beqAddr nullAddr idBlockToEnable = false) /\
                 consistency s /\
@@ -257,12 +266,23 @@ case_eq addrIsNull.
         {
           intros s Hprops. subst P. simpl.
           rewrite negb_false_iff in H2; subst addrIsAccessible; rewrite negb_false_iff in H3;
-              subst addrIsPresent; intuition.
+              subst addrIsPresent.
+          assert(In currentPart (getPartitions multiplexer s)).
+          {
+            assert(currentPart = currentPartition s) by intuition. subst currentPart.
+            unfold consistency in *; unfold consistency1 in *; intuition.
+          }
+          assert(In globalIdPD (getPartitions multiplexer s)).
+          {
+            destruct Hprops as ((((((Hprops & _) & _) & _) & _) & _) & Hconsist & _).
+            intuition; try(subst globalIdPD; assumption).
+            apply childrenPartitionInPartitionList with currentPart; trivial;
+                unfold consistency in *; unfold consistency1 in *; intuition.
+          }
+          intuition.
         }
-        apply weaken with (Q:= fun s:state => P s /\ consistency s /\ currentPart = currentPartition s
-                                              /\ globalIdPD <> nullAddr /\ isPDT globalIdPD s).
-        * apply removeBlockFromPhysicalMPUIfAlreadyMapped.
-        * intros s Hprops. apply Hweak. intuition.
+        eapply weaken. apply removeBlockFromPhysicalMPUIfAlreadyMapped.
+        intros s Hprops. apply Hweak. intuition.
       }
       { (** Internal.enableBlockInMPU **)
         intros. simpl.
@@ -294,7 +314,8 @@ case_eq addrIsNull.
                                         MPU := addElementAt MPURegionNb0 nullAddr (MPU pdentry) nullAddr;
                                         vidtAddr := vidtAddr pdentry
                                       |}) (memory s0) beqAddr
-                             |})))).
+                             |})))
+                    /\ In globalIdPD (getPartitions multiplexer s0)).
         assert(Hweak: forall s:state,
                   (exists s0 : state,
                    (partitionsIsolation s0 /\ kernelDataIsolation s0 /\ verticalSharing s0
@@ -329,6 +350,7 @@ case_eq addrIsNull.
                                         vidtAddr := vidtAddr pdentry
                                       |}) (memory s0) beqAddr
                              |})))
+                    /\ In globalIdPD (getPartitions multiplexer s0)
                     /\ consistency s /\ globalIdPD <> nullAddr /\ isPDT globalIdPD s)
                 -> Psep s /\ consistency s /\ globalIdPD <> nullAddr /\ isPDT globalIdPD s
                   /\ (blockToEnableAddr <> nullAddr
@@ -338,7 +360,7 @@ case_eq addrIsNull.
           destruct Hprops as [s0 Hprops]. split.
           * exists s0. intuition. right. destruct H17 as [bentry Hprops]. exists bentry. intuition.
           * intuition.
-            unfold getAccessibleMappedBlocks. apply isPDTLookupEq in H16. destruct H16 as [entry Hlookups].
+            unfold getAccessibleMappedBlocks. apply isPDTLookupEq in H18. destruct H18 as [entry Hlookups].
             rewrite Hlookups.
             destruct H17 as [bentry (HlookupBentry & (HblockEq & (HisPresent & HinMappedBlocks)))].
             destruct H9 as [pdentry (Hlookups0 & Hprops)].
@@ -363,7 +385,7 @@ case_eq addrIsNull.
             -- assert(~In blockToEnableAddr nil) by apply in_nil. congruence.
             -- destruct (beqAddr blockToEnableAddr a0) eqn:HbeqBlockA.
                ++ rewrite <-DependentTypeLemmas.beqAddrTrue in HbeqBlockA. subst a0. simpl.
-                  unfold bentryAFlag in *. rewrite HlookupBentry in *. rewrite <-H15. apply in_eq.
+                  unfold bentryAFlag in *. rewrite HlookupBentry in *. rewrite <-H16. apply in_eq.
                ++ apply in_inv in HinMappedBlocks. rewrite <-beqAddrFalse in HbeqBlockA.
                   destruct HinMappedBlocks as [Hcontra | HinMappedBlocks]; try(exfalso; congruence).
                   apply IHl in HinMappedBlocks. simpl.
@@ -371,15 +393,13 @@ case_eq addrIsNull.
                   ** destruct (accessible b); try(apply HinMappedBlocks). apply in_cons. assumption.
                   ** assumption.
         }
-        eapply weaken with (Q:= fun s => Psep s /\ consistency s /\ globalIdPD <> nullAddr /\ isPDT globalIdPD s
-                                        /\ (blockToEnableAddr <> nullAddr
-                                            -> In blockToEnableAddr (getAccessibleMappedBlocks globalIdPD s))).
-        eapply strengthen. apply enableBlockInMPU.
-        * intros s is_mapped. simpl. intro Hprops. destruct Hprops as [s1 Hprops]. clear Hweak.
+        eapply strengthen. eapply weaken. apply enableBlockInMPU.
+        * simpl. intros s Hprops. apply Hweak. destruct Hprops as [s0 Hprops]. exists s0. intuition.
+        * simpl. intros s is_mapped Hprops. destruct Hprops as [s1 Hprops]. clear Hweak.
           destruct Hprops as [Hlinks0s1 Hprops]. subst Psep. simpl in Hlinks0s1.
           destruct Hlinks0s1 as [s0 Hlinks0s1].
           destruct Hlinks0s1 as [HPIs0 (HKIs0 & (HVSs0 & (Hconsts0 & (HidBlockNotNull & (Hbentry & (HblockNotNull
-                                  & Hlinks0s1))))))].
+                                  & Hlinks0s1 & HglobIsPart))))))].
           rewrite <-beqAddrFalse in *. destruct Hbentry as [Hcontra | Hbentry]; try(congruence).
           destruct Hbentry as [bentry0 Hbentry].
           destruct Hlinks0s1 as [entry0 Hlinks0s1].
@@ -398,6 +418,5 @@ case_eq addrIsNull.
              apply MapMPUVS with globalIdPD blockToEnableAddr MPURegionNb is_mapped s0 s1 entry0 entry1.
              unfold MapMPUPropagatedProperties; intuition.
           -- intuition.
-        * intro s. simpl. intro Hprops. apply Hweak. destruct Hprops as [s0 Hprops]. exists s0. intuition.
       }
 Qed.

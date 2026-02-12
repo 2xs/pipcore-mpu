@@ -649,7 +649,9 @@ case_eq PDChildAddrIsNull.
       by (unfold consistency in *; unfold consistency1 in *; intuition).
   assert(HmultiPDT: multiplexerIsPDT s)
       by (unfold consistency in *; unfold consistency1 in *; intuition).
-  assert(HcurrentIsPDT: isPDT (currentPartition s) s) by (apply currentPartIsPDT; intuition).
+  assert(HnoDupTree: noDupPartitionTree s)
+      by (unfold consistency in *; unfold consistency1 in *; intuition).
+  assert(HcurrentIsPDT: isPDT (currentPartition s) s) by (apply currentPartIsPDT; trivial).
   assert(HcurrEq: currentPart = currentPartition s) by intuition.
   rewrite <- HcurrEq in *.
   assert(HpropsPlus: partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s
@@ -799,7 +801,7 @@ case_eq PDChildAddrIsNull.
     assert(Hcons0: childLocHasSameStart s0) by (unfold consistency in *; unfold consistency2 in *; intuition).
     specialize(Hcons0 partition block sh1entryaddr blockChild idchild).
     apply childLocHasSameStartPartialPreservedIsBuiltRec with blockToShareInCurrPartAddr; trivial.
-    1,2,3,4,5,6,7,8,9: unfold consistency in *; unfold consistency1 in *; intuition.
+    1-10: unfold consistency in *; unfold consistency1 in *; intuition.
     1,2: unfold consistency in *; unfold consistency2 in *; intuition.
     1,2,3: intuition. intro. exfalso; congruence.
   }
@@ -1195,7 +1197,7 @@ case_eq PDChildAddrIsNull.
     assert(Heq: getMappedBlocks currentPart s = getMappedBlocks currentPart s0).
     {
       revert HisBuilt. apply getMappedBlocksEqBuiltWithWriteAcc with blockBase bentryBases0; trivial.
-      1,2,3,4,5,6,8,9,11,13: unfold consistency in *; unfold consistency1 in *; intuition.
+      1,2,3,4,5,6,8,9,11,13,14: unfold consistency in *; unfold consistency1 in *; intuition.
       1,2: unfold consistency in *; unfold consistency2 in *; intuition.
       1,2,3,4,5,6,7: intuition.
     }
@@ -1715,7 +1717,9 @@ case_eq PDChildAddrIsNull.
                     isPDT partition s0 -> getConfigPaddr partition s = getConfigPaddr partition s0)
                 /\ (forall partition : paddr,
                     (partition = currentPart -> False) ->
-                    isPDT partition s0 -> getPartitions partition s = getPartitions partition s0)
+                    isPDT partition s0
+                    -> In partition (getPartitions multiplexer s0)
+                    -> getPartitions partition s = getPartitions partition s0)
                 /\ (forall partition : paddr,
                     (partition = currentPart -> False) ->
                     isPDT partition s0 -> getChildren partition s = getChildren partition s0)
@@ -2017,6 +2021,7 @@ case_eq PDChildAddrIsNull.
       - unfold consistency in HconsistInit; unfold consistency1 in HconsistInit; intuition.
       - unfold consistency in HconsistInit; unfold consistency1 in HconsistInit; intuition.
       - unfold consistency in HconsistInit; unfold consistency2 in HconsistInit; intuition.
+      - unfold consistency in HconsistInit; unfold consistency1 in HconsistInit; intuition.
       - unfold consistency in HconsistInit; unfold consistency1 in HconsistInit; intuition.
       - unfold consistency in HconsistInit; unfold consistency1 in HconsistInit; intuition.
       - assert(HlastPart: exists lastPart pdentryLast,
@@ -2547,9 +2552,11 @@ case_eq PDChildAddrIsNull.
     }
     split.
     {
-      intros part HpartNotCurr HpartIsPDT. specialize(HgetPartsEq part HpartNotCurr HpartIsPDT).
+      intros part HpartNotCurr HpartIsPDT HpartIsPart.
+      specialize(HgetPartsEq part HpartNotCurr HpartIsPDT HpartIsPart).
       rewrite <-HgetPartsEq. apply getPartitionsAuxEqBEPDflagFalse with bentryShare
-          (CPaddr (blockToShareInCurrPartAddr + sh1offset)); try(assumption).
+          (CPaddr (blockToShareInCurrPartAddr + sh1offset)); trivial.
+      2,3: unfold consistency1 in *; intuition.
       - unfold isPDT in *. rewrite Hs. simpl.
         destruct (beqAddr sceaddr part) eqn:HbeqPartSce.
         {
@@ -2576,7 +2583,7 @@ case_eq PDChildAddrIsNull.
         rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
         rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
         rewrite removeDupIdentity; try(apply not_eq_sym; assumption). assumption.
-      - unfold consistency1 in Hconsist. intuition.
+      - rewrite HgetPartss. rewrite HgetPartss2'. assumption.
     }
     split.
     {
@@ -2917,8 +2924,9 @@ case_eq PDChildAddrIsNull.
     {
       rewrite Hs. rewrite <-HgetCurrEqs0.
       apply getPartitionsEqBEPDflagFalse with bentryShare (CPaddr (blockToShareInCurrPartAddr + sh1offset));
-          try(assumption). unfold consistency1 in *; intuition. unfold consistency1 in *; intuition.
-      apply lookupSh1EntryAddr with bentryShare. assumption.
+          trivial. 1,2,4: unfold consistency1 in *; intuition.
+      - apply lookupSh1EntryAddr with bentryShare; trivial.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
 
     assert(nullAddrExists s).
@@ -2951,10 +2959,17 @@ case_eq PDChildAddrIsNull.
       (* END wellFormedFstShadowIfBlockEntry *)
     }
 
+    assert(HgetMappedBEq: forall part, getMappedBlocks part s = getMappedBlocks part s1).
+    {
+      intro part. rewrite Hs. rewrite <-HgetCurrEqs0. apply getMappedBlocksEqBENoChange with bentryShare.
+      assumption. rewrite HnewB. simpl. reflexivity.
+    }
+
     assert(PDTIfPDFlag s).
     { (* BEGIN PDTIfPDFlag s *)
       assert(Hcons0: PDTIfPDFlag s1) by (unfold consistency1 in *; intuition).
-      intros idPDchild sh1entryaddr HcheckChild.
+      intros idPDchild sh1entryaddr part HpartIsPart HblockMapped HcheckChild. rewrite HgetPartsEq in *.
+      rewrite HgetMappedBEq in *.
       assert(HcheckChilds1: true = checkChild idPDchild s1 sh1entryaddr
                             /\ sh1entryAddr idPDchild sh1entryaddr s1).
       {
@@ -2977,7 +2992,7 @@ case_eq PDChildAddrIsNull.
         destruct (beqAddr blockToShareInCurrPartAddr sh1entryaddr) eqn:HbeqBlockSh1; try(exfalso; congruence).
         rewrite <-beqAddrFalse in HbeqBlockSh1. rewrite removeDupIdentity in HcheckChild; intuition.
       }
-      specialize(Hcons0 idPDchild sh1entryaddr HcheckChilds1).
+      specialize(Hcons0 idPDchild sh1entryaddr part HpartIsPart HblockMapped HcheckChilds1).
       destruct Hcons0 as (HAFlag & HPFlag & Hstart). unfold bentryAFlag in *. unfold bentryPFlag in *.
       unfold bentryStartAddr in *. unfold entryPDT in *. rewrite Hs. simpl.
       destruct (beqAddr blockToShareInCurrPartAddr idPDchild) eqn:HbeqBlockChild.
@@ -3714,9 +3729,8 @@ case_eq PDChildAddrIsNull.
       assert(HgetChildrenEq: getChildren pdparent s = getChildren pdparent s1).
       {
         rewrite Hs. rewrite <-HgetCurrEqs0. apply getChildrenEqBEPDflagFalse with bentryShare
-            (CPaddr (blockToShareInCurrPartAddr + sh1offset)); try(assumption).
-        - apply partitionsArePDT. unfold consistency1 in *; intuition. unfold consistency1 in *; intuition.
-          assumption.
+            (CPaddr (blockToShareInCurrPartAddr + sh1offset)); trivial.
+        - apply partitionsArePDT; trivial; unfold consistency1 in *; intuition.
         - apply lookupSh1EntryAddr with bentryShare. assumption.
       }
       rewrite HgetChildrenEq in HpartIsChild. specialize(Hcons0 partition pdparent HparentIsPart HpartIsChild).
@@ -3957,9 +3971,9 @@ case_eq PDChildAddrIsNull.
       assert(HgetChildrenEq: getChildren pdparent s = getChildren pdparent s1).
       {
         rewrite Hs. apply getChildrenEqBEPDflagFalse with bentryShare
-          (CPaddr (blockToShareInCurrPartAddr + sh1offset)); try(assumption). apply partitionsArePDT.
-        unfold consistency1 in *; intuition. unfold consistency1 in *; intuition. assumption.
-        apply lookupSh1EntryAddr with bentryShare. assumption.
+          (CPaddr (blockToShareInCurrPartAddr + sh1offset)); trivial.
+        - apply partitionsArePDT; trivial; unfold consistency1 in *; intuition.
+        - apply lookupSh1EntryAddr with bentryShare. assumption.
       }
       assert(HgetMappedChildEq: getMappedBlocks child s = getMappedBlocks child s1).
       {
@@ -4012,12 +4026,11 @@ case_eq PDChildAddrIsNull.
           assert(Hdisjoint: DisjointKSEntries s1) by (unfold consistency1 in *; intuition).
           assert(HparentIsPDT: isPDT pdparent s1).
           {
-            apply partitionsArePDT. unfold consistency1 in *; intuition.
-            unfold consistency1 in *; intuition. assumption.
+            apply partitionsArePDT; trivial; unfold consistency1 in *; intuition.
           }
           assert(HchildIsPDT: isPDT child s1).
           {
-            apply childrenArePDT with pdparent. unfold consistency1 in *; intuition. assumption.
+            apply childrenArePDT with pdparent; trivial; unfold consistency1 in *; intuition.
           }
           specialize(Hdisjoint pdparent child HparentIsPDT HchildIsPDT HbeqParentChild).
           destruct Hdisjoint as [list1 [list2 (Hlist1 & Hlist2 & Hdisjoint)]]. subst list1. subst list2.
@@ -4126,7 +4139,9 @@ case_eq PDChildAddrIsNull.
                       isPDT partition s0 -> getConfigPaddr partition s = getConfigPaddr partition s0) /\
                      (forall partition : paddr,
                       (partition = currentPart -> False) ->
-                      isPDT partition s0 -> getPartitions partition s = getPartitions partition s0) /\
+                      isPDT partition s0
+                      -> In partition (getPartitions multiplexer s0)
+                      -> getPartitions partition s = getPartitions partition s0) /\
                      (forall partition : paddr,
                       (partition = currentPart -> False) ->
                       isPDT partition s0 -> getChildren partition s = getChildren partition s0) /\
@@ -4234,7 +4249,9 @@ case_eq PDChildAddrIsNull.
                     isPDT partition s0 -> getConfigPaddr partition s = getConfigPaddr partition s0) /\
                    (forall partition : paddr,
                     (partition = currentPart -> False) ->
-                    isPDT partition s0 -> getPartitions partition s = getPartitions partition s0) /\
+                    isPDT partition s0
+                    -> In partition (getPartitions multiplexer s0)
+                    -> getPartitions partition s = getPartitions partition s0) /\
                    (forall partition : paddr,
                     (partition = currentPart -> False) ->
                     isPDT partition s0 -> getChildren partition s = getChildren partition s0) /\
@@ -5442,12 +5459,6 @@ case_eq PDChildAddrIsNull.
      (* END nbPrepareIsNbKern *)
     }
 
-    assert(HgetMappedBEq: forall part, getMappedBlocks part s = getMappedBlocks part s1).
-    {
-      intro part. rewrite Hs. apply getMappedBlocksEqBENoChange with bentryShare; try(assumption).
-      rewrite HnewB. simpl. reflexivity.
-    }
-
     assert(HgetChildrenEq: forall part, isPDT part s1 -> getChildren part s = getChildren part s1).
     {
       intros part HpartIsPDT. rewrite Hs. apply getChildrenEqBENoStartNoPresentChange with bentryShare; trivial;
@@ -5655,8 +5666,9 @@ case_eq PDChildAddrIsNull.
     {
       rewrite Hs. rewrite <-HgetCurrEqs0.
       apply getPartitionsEqBEPDflagFalse with bentryShare (CPaddr (blockToShareInCurrPartAddr + sh1offset));
-          try(assumption). unfold consistency1 in *; intuition. unfold consistency1 in *; intuition.
-      apply lookupSh1EntryAddr with bentryShare. assumption.
+          trivial. 1,2,4: unfold consistency1 in *; intuition.
+      - apply lookupSh1EntryAddr with bentryShare. assumption.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     assert(HgetMappedEq: forall part, getMappedBlocks part s = getMappedBlocks part s1).
     {
@@ -5792,7 +5804,9 @@ case_eq PDChildAddrIsNull.
                isPDT partition s1 -> getConfigPaddr partition s = getConfigPaddr partition s1) /\
               (forall partition : paddr,
                (partition = currentPart -> False) ->
-               isPDT partition s1 -> getPartitions partition s = getPartitions partition s1) /\
+               isPDT partition s1
+               -> In partition (getPartitions multiplexer s1)
+               -> getPartitions partition s = getPartitions partition s1) /\
               (forall partition : paddr,
                (partition = currentPart -> False) ->
                isPDT partition s1 -> getChildren partition s = getChildren partition s1) /\
@@ -5901,6 +5915,7 @@ case_eq PDChildAddrIsNull.
         /\ lookup idNewSubblock (memory s3) beqAddr = Some (BE bentry6)
         /\ lookup (CPaddr (idNewSubblock + scoffset)) (memory s3) beqAddr = Some (SCE scentryNew)
         /\ (forall partition, partition <> currentPart -> isPDT partition s2
+                              -> In partition (getPartitions multiplexer s2)
                               -> getPartitions partition s3 = getPartitions partition s2)
         /\ (forall partition, partition <> currentPart -> isPDT partition s2
                               -> getConfigPaddr partition s3 = getConfigPaddr partition s2)
@@ -6032,7 +6047,9 @@ case_eq PDChildAddrIsNull.
                  isPDT partition s0 -> getConfigPaddr partition s2 = getConfigPaddr partition s0) /\
                 (forall partition : paddr,
                  (partition = currentPart -> False) ->
-                 isPDT partition s0 -> getPartitions partition s2 = getPartitions partition s0) /\
+                 isPDT partition s0
+                 -> In partition (getPartitions multiplexer s0)
+                 -> getPartitions partition s2 = getPartitions partition s0) /\
                 (forall partition : paddr,
                  (partition = currentPart -> False) ->
                  isPDT partition s0 -> getChildren partition s2 = getChildren partition s0) /\
@@ -6230,10 +6247,26 @@ case_eq PDChildAddrIsNull.
       (* END wellFormedFstShadowIfBlockEntry *)
     }
 
+    assert(HcurrPartEq: currentPartition newS = currentPartition s).
+    { simpl. reflexivity. }
+
+    assert(HgetPartsEq: getPartitions multiplexer newS = getPartitions multiplexer s).
+    {
+      apply getPartitionsEqSCE; trivial. 1,2: unfold consistency1 in *; intuition.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+    }
+    assert(HgetMappedBEq: forall part, isPDT part s -> getMappedBlocks part newS = getMappedBlocks part s).
+    {
+      intros part HpartIsPDT. apply getMappedBlocksEqSCE; trivial.
+    }
+
     assert(PDTIfPDFlag newS).
     { (* BEGIN PDTIfPDFlag newS *)
       assert(Hcons0: PDTIfPDFlag s) by (unfold consistency1 in *; intuition).
-      intros idPDchild sh1entryaddr (HcheckChild & Hsh1entry).
+      intros idPDchild sh1entryaddr part HpartIsPart HblockMapped (HcheckChild & Hsh1entry). rewrite HgetPartsEq in *.
+      assert(isPDT part s).
+      { apply partitionsArePDT; trivial; unfold consistency1 in *; intuition. }
+      rewrite HgetMappedBEq in *; trivial.
       assert(HcheckChilds: true = checkChild idPDchild s sh1entryaddr
                             /\ sh1entryAddr idPDchild sh1entryaddr s).
       {
@@ -6247,8 +6280,8 @@ case_eq PDChildAddrIsNull.
             try(exfalso; congruence). rewrite <-beqAddrFalse in HbeqNewSceIdSh1.
         rewrite removeDupIdentity in HcheckChild; intuition.
       }
-      specialize(Hcons0 idPDchild sh1entryaddr HcheckChilds). destruct Hcons0 as (HAFlag & HPFlag & [startaddr
-        (Hstart & HentryStart)]).
+      specialize(Hcons0 idPDchild sh1entryaddr part HpartIsPart HblockMapped HcheckChilds).
+      destruct Hcons0 as (HAFlag & HPFlag & [startaddr (Hstart & HentryStart)]).
       assert(HlookupEq: lookup idPDchild (memory newS) beqAddr = lookup idPDchild (memory s) beqAddr).
       {
         simpl. unfold sh1entryAddr in Hsh1entry. simpl in Hsh1entry.
@@ -6383,14 +6416,6 @@ case_eq PDChildAddrIsNull.
       }
       rewrite <-beqAddrFalse in HbeqNewSceMult. rewrite removeDupIdentity; intuition.
       (* END multiplexerIsPDT *)
-    }
-
-    assert(HcurrPartEq: currentPartition newS = currentPartition s).
-    { simpl. reflexivity. }
-
-    assert(HgetPartsEq: getPartitions multiplexer newS = getPartitions multiplexer s).
-    {
-      apply getPartitionsEqSCE; try(assumption). unfold consistency1 in *; intuition.
     }
 
     assert(currentPartitionInPartitionsList newS).
@@ -6807,8 +6832,7 @@ case_eq PDChildAddrIsNull.
       intros partition pdparent HparentIsPart HpartIsChild. rewrite HgetPartsEq in HparentIsPart.
       assert(HgetChildrenEq: getChildren pdparent newS = getChildren pdparent s).
       {
-        apply getChildrenEqSCE; try(assumption). apply partitionsArePDT; try(assumption).
-        unfold consistency1 in *; intuition.
+        apply getChildrenEqSCE; trivial. apply partitionsArePDT; trivial; unfold consistency1 in *; intuition.
       }
       rewrite HgetChildrenEq in HpartIsChild. specialize(Hcons0 partition pdparent HparentIsPart HpartIsChild).
       unfold pdentryParent in *. simpl.
@@ -6983,14 +7007,13 @@ case_eq PDChildAddrIsNull.
         HPFlag. rewrite HgetPartsEq in HparentIsPart.
       assert(HgetChildrenEq: getChildren pdparent newS = getChildren pdparent s).
       {
-        apply getChildrenEqSCE; try(assumption). apply partitionsArePDT; try(assumption).
-        unfold consistency1 in *; intuition.
+        apply getChildrenEqSCE; try(assumption). apply partitionsArePDT; trivial; unfold consistency1 in *; intuition.
       }
       rewrite HgetChildrenEq in HchildIsChild.
       assert(HgetMappedBlocksChildEq: getMappedBlocks child newS = getMappedBlocks child s).
       {
-        apply getMappedBlocksEqSCE; try(assumption). apply childrenArePDT with pdparent.
-        unfold consistency1 in *; intuition. assumption.
+        apply getMappedBlocksEqSCE; try(assumption). apply childrenArePDT with pdparent; trivial;
+          unfold consistency1 in *; intuition.
       }
       assert(HlookupEq: lookup block (memory newS) beqAddr = lookup block (memory s) beqAddr).
       {
@@ -7006,8 +7029,8 @@ case_eq PDChildAddrIsNull.
         HstartParent & HendParent & Hbounds)]]]. exists blockParent. exists startParent. exists endParent.
       assert(HgetMappedBlocksParentEq: getMappedBlocks pdparent newS = getMappedBlocks pdparent s).
       {
-        apply getMappedBlocksEqSCE; try(assumption). apply partitionsArePDT; try(assumption).
-        unfold consistency1 in *; intuition.
+        apply getMappedBlocksEqSCE; try(assumption). apply partitionsArePDT; trivial;
+          unfold consistency1 in *; intuition.
       }
       assert(HlookupBlockParentEq: lookup blockParent (memory newS) beqAddr
                                     = lookup blockParent (memory s) beqAddr).
@@ -7145,8 +7168,8 @@ case_eq PDChildAddrIsNull.
       }
       assert(HgetMappedBlocksPartEq: getMappedBlocks part newS = getMappedBlocks part s).
       {
-        apply getMappedBlocksEqSCE; try(assumption). apply partitionsArePDT; try(assumption).
-        unfold consistency1 in *; intuition.
+        apply getMappedBlocksEqSCE; try(assumption). apply partitionsArePDT; trivial;
+          unfold consistency1 in *; intuition.
       }
       assert(HparentOfPart: parentOfPartitionIsPartition s) by (unfold consistency1 in *; intuition).
       specialize(HparentOfPart part pdentryPart HlookupParts).
@@ -7218,8 +7241,8 @@ case_eq PDChildAddrIsNull.
       }
       assert(HgetMappedBlocksPartEq: getMappedBlocks part newS = getMappedBlocks part s).
       {
-        apply getMappedBlocksEqSCE; try(assumption). apply partitionsArePDT; try(assumption).
-        unfold consistency1 in *; intuition.
+        apply getMappedBlocksEqSCE; try(assumption). apply partitionsArePDT; trivial;
+          unfold consistency1 in *; intuition.
       }
       assert(HparentOfPart: parentOfPartitionIsPartition s) by (unfold consistency1 in *; intuition).
       specialize(HparentOfPart part pdentryPart HlookupParts).
@@ -7337,8 +7360,7 @@ case_eq PDChildAddrIsNull.
                         -> getMappedBlocks partition s2 = getMappedBlocks partition s0) by intuition.
         assert(HparentIsPDT: isPDT (parent pdentryPart) s0).
         {
-          apply partitionsArePDT. unfold consistency in *; unfold consistency1 in *; intuition.
-          unfold consistency in *; unfold consistency1 in *; intuition.
+          apply partitionsArePDT. 1-3: unfold consistency in *; unfold consistency1 in *; intuition.
           assert(Hs4s0: getPartitions multiplexer s4 = getPartitions multiplexer s0) by intuition.
           assert(Hs1s4: getPartitions multiplexer s1 = getPartitions multiplexer s4) by intuition.
           rewrite <-Hs4s0. rewrite <-Hs1s4.
@@ -7349,16 +7371,17 @@ case_eq PDChildAddrIsNull.
               destruct blockToShareEnabled.
               - assert(HtrivTrue: is_true true) by (unfold is_true; reflexivity). specialize(Henabled HtrivTrue).
                 destruct Henabled as [pdentryCurrs (Hs & Henabled)]. rewrite Hs.
-                apply getPartitionsEqPDT with pdentryCurrs2; try(assumption). simpl. reflexivity.
-                unfold consistency1 in *; intuition. unfold consistency1 in *; intuition.
+                apply getPartitionsEqPDT with pdentryCurrs2; trivial.
+                1-3: unfold consistency1 in *; intuition.
+                unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
               - assert(HtrivFalse: ~is_true false) by (unfold is_true; intro Hcontra; congruence).
                 specialize(HnotEnabled HtrivFalse). subst s. reflexivity.
             }
             rewrite Hss2. rewrite Hs2. assert(HcurrEq: currentPartition s0 = currentPartition s1).
             { rewrite H84. simpl. reflexivity. }
             rewrite HcurrEq. apply getPartitionsEqBEPDflagNoChangePresentNoChangeStartNoChange with bentryShare
-                (CPaddr (blockToShareInCurrPartAddr + sh1offset)); try(assumption).
-            unfold consistency1 in *; intuition. unfold consistency1 in *; intuition.
+                (CPaddr (blockToShareInCurrPartAddr + sh1offset)); trivial.
+            1,2,7,8: unfold consistency1 in *; intuition.
             apply lookupSh1EntryAddr with bentryShare. assumption.
             unfold sh1entryPDflag in *. rewrite Hs2 in *. simpl in *.
             destruct (beqAddr blockToShareInCurrPartAddr (CPaddr (blockToShareInCurrPartAddr + sh1offset)))
@@ -7372,7 +7395,7 @@ case_eq PDChildAddrIsNull.
             simpl. unfold CBlock. assert(cutAddr <= maxIdx) by (rewrite maxIdxEqualMaxAddr; apply Hp).
             destruct (Compare_dec.le_dec (cutAddr - startAddr (blockrange bentryShare)) maxIdx); try(lia).
             simpl. reflexivity.
-            unfold consistency1 in *; intuition.
+            unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
           }
           rewrite <-Hss1. assumption.
         }
@@ -7634,11 +7657,6 @@ case_eq PDChildAddrIsNull.
       (* END nextImpliesBlockWasCut *)
     }
 
-    assert(HgetMappedBEq: forall part, isPDT part s -> getMappedBlocks part newS = getMappedBlocks part s).
-    {
-      intros part HpartIsPDT. apply getMappedBlocksEqSCE; trivial.
-    }
-
     assert(blocksAddressesTypes newS).
     { (* BEGIN blocksAddressesTypes newS *)
       assert(Hcons0: blocksAddressesTypes s) by (unfold consistency1 in *; intuition).
@@ -7825,7 +7843,8 @@ case_eq PDChildAddrIsNull.
     destruct HwellFormedShadow as [sce (HsceIsSCE & Hsce)]. subst sce.
     assert(HgetPartsEq: getPartitions multiplexer newS = getPartitions multiplexer s).
     {
-      apply getPartitionsEqSCE; try(assumption). unfold consistency1 in *; intuition.
+      apply getPartitionsEqSCE; trivial. 1,2: unfold consistency1 in *; intuition.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     assert(HgetMappedBEq: forall part, isPDT part s -> getMappedBlocks part newS = getMappedBlocks part s).
     {
@@ -7848,7 +7867,9 @@ case_eq PDChildAddrIsNull.
       rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym; assumption).
       assert(HgetPartsEqss2: getPartitions multiplexer s = getPartitions multiplexer s2).
       {
-        rewrite Hs. apply getPartitionsEqPDT with pdentryCurrs2; trivial; unfold consistency1 in *; intuition.
+        rewrite Hs. apply getPartitionsEqPDT with pdentryCurrs2; trivial.
+        1-3: unfold consistency1 in *; intuition.
+        unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
       }
       rewrite HgetPartsEqss2 in *. assert(HgetMappedBEqss2: getMappedBlocks part s = getMappedBlocks part s2).
       {
@@ -8073,6 +8094,7 @@ case_eq PDChildAddrIsNull.
         /\ lookup idNewSubblock (memory s3) beqAddr = Some (BE bentry6)
         /\ lookup (CPaddr (idNewSubblock + scoffset)) (memory s3) beqAddr = Some (SCE scentryNew)
         /\ (forall partition, partition <> currentPart -> isPDT partition s2
+                              -> In partition (getPartitions multiplexer s2)
                               -> getPartitions partition s3 = getPartitions partition s2)
         /\ (forall partition, partition <> currentPart -> isPDT partition s2
                               -> getConfigPaddr partition s3 = getConfigPaddr partition s2)
@@ -8203,7 +8225,9 @@ case_eq PDChildAddrIsNull.
                  isPDT partition s0 -> getConfigPaddr partition s2 = getConfigPaddr partition s0) /\
                 (forall partition : paddr,
                  (partition = currentPart -> False) ->
-                 isPDT partition s0 -> getPartitions partition s2 = getPartitions partition s0) /\
+                 isPDT partition s0
+                 -> In partition (getPartitions multiplexer s0)
+                 -> getPartitions partition s2 = getPartitions partition s0) /\
                 (forall partition : paddr,
                  (partition = currentPart -> False) ->
                  isPDT partition s0 -> getChildren partition s2 = getChildren partition s0) /\
@@ -8403,10 +8427,26 @@ case_eq PDChildAddrIsNull.
     (* END wellFormedFstShadowIfBlockEntry *)
   }
 
+  assert(HcurrPartEq: currentPartition newS = currentPartition s).
+  { simpl. reflexivity. }
+
+  assert(HgetPartsEq: getPartitions multiplexer newS = getPartitions multiplexer s).
+  {
+    apply getPartitionsEqSCE; trivial. 1-3: unfold consistency1 in *; intuition.
+    unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+  }
+  assert(HgetMappedBEq: forall part, isPDT part s -> getMappedBlocks part newS = getMappedBlocks part s).
+  {
+    intros part HpartIsPDT. apply getMappedBlocksEqSCE; trivial.
+  }
+
   assert(PDTIfPDFlag newS).
   { (* BEGIN PDTIfPDFlag newS *)
     assert(Hcons0: PDTIfPDFlag s) by (unfold consistency1 in *; intuition).
-    intros idPDchild sh1entryaddr (HcheckChild & Hsh1entry).
+    intros idPDchild sh1entryaddr part HpartIsPart HblockMapped (HcheckChild & Hsh1entry). rewrite HgetPartsEq in *.
+    assert(isPDT part s).
+    { apply partitionsArePDT; trivial; unfold consistency1 in *; intuition. }
+    rewrite HgetMappedBEq in *; trivial.
     assert(HcheckChilds: true = checkChild idPDchild s sh1entryaddr
                           /\ sh1entryAddr idPDchild sh1entryaddr s).
     {
@@ -8420,8 +8460,8 @@ case_eq PDChildAddrIsNull.
           try(exfalso; congruence). rewrite <-beqAddrFalse in HbeqBlockSceIdSh1.
       rewrite removeDupIdentity in HcheckChild; intuition.
     }
-    specialize(Hcons0 idPDchild sh1entryaddr HcheckChilds). destruct Hcons0 as (HAFlag & HPFlag & [startaddr
-      (Hstart & HentryStart)]).
+    specialize(Hcons0 idPDchild sh1entryaddr part HpartIsPart HblockMapped HcheckChilds).
+    destruct Hcons0 as (HAFlag & HPFlag & [startaddr (Hstart & HentryStart)]).
     assert(HlookupEq: lookup idPDchild (memory newS) beqAddr = lookup idPDchild (memory s) beqAddr).
     {
       simpl. unfold sh1entryAddr in Hsh1entry. simpl in Hsh1entry.
@@ -8545,15 +8585,6 @@ case_eq PDChildAddrIsNull.
     }
     rewrite <-beqAddrFalse in HbeqBlockSceMult. rewrite removeDupIdentity; intuition.
     (* END multiplexerIsPDT *)
-  }
-
-  assert(HcurrPartEq: currentPartition newS = currentPartition s).
-  { simpl. reflexivity. }
-
-  assert(HgetPartsEq: getPartitions multiplexer newS = getPartitions multiplexer s).
-  {
-    apply getPartitionsEqSCE; try(assumption). unfold consistency1 in *; intuition.
-    unfold consistency1 in *; intuition.
   }
 
   assert(currentPartitionInPartitionsList newS).
@@ -8965,8 +8996,8 @@ case_eq PDChildAddrIsNull.
     intros partition pdparent HparentIsPart HpartIsChild. rewrite HgetPartsEq in HparentIsPart.
     assert(HgetChildrenEq: getChildren pdparent newS = getChildren pdparent s).
     {
-      apply getChildrenEqSCE; try(assumption). apply partitionsArePDT; try(assumption).
-      unfold consistency1 in *; intuition. unfold consistency1 in *; intuition.
+      apply getChildrenEqSCE; try(assumption). apply partitionsArePDT; trivial;
+        unfold consistency1 in *; intuition.
     }
     rewrite HgetChildrenEq in HpartIsChild. specialize(Hcons0 partition pdparent HparentIsPart HpartIsChild).
     unfold pdentryParent in *. simpl.
@@ -9142,14 +9173,14 @@ case_eq PDChildAddrIsNull.
       HPFlag. rewrite HgetPartsEq in HparentIsPart.
     assert(HgetChildrenEq: getChildren pdparent newS = getChildren pdparent s).
     {
-      apply getChildrenEqSCE; try(assumption). apply partitionsArePDT; try(assumption).
-      unfold consistency1 in *; intuition. unfold consistency1 in *; intuition.
+      apply getChildrenEqSCE; try(assumption). apply partitionsArePDT; trivial;
+        unfold consistency1 in *; intuition.
     }
     rewrite HgetChildrenEq in HchildIsChild.
     assert(HgetMappedBlocksChildEq: getMappedBlocks child newS = getMappedBlocks child s).
     {
-      apply getMappedBlocksEqSCE; try(assumption). apply childrenArePDT with pdparent.
-      unfold consistency1 in *; intuition. assumption.
+      apply getMappedBlocksEqSCE; try(assumption). apply childrenArePDT with pdparent; trivial;
+        unfold consistency1 in *; intuition.
     }
     assert(HlookupEq: lookup block (memory newS) beqAddr = lookup block (memory s) beqAddr).
     {
@@ -9165,8 +9196,8 @@ case_eq PDChildAddrIsNull.
       HstartParent & HendParent & Hbounds)]]]. exists blockParent. exists startParent. exists endParent.
     assert(HgetMappedBlocksParentEq: getMappedBlocks pdparent newS = getMappedBlocks pdparent s).
     {
-      apply getMappedBlocksEqSCE; try(assumption). apply partitionsArePDT; try(assumption).
-      unfold consistency1 in *; intuition. unfold consistency1 in *; intuition.
+      apply getMappedBlocksEqSCE; try(assumption). apply partitionsArePDT; trivial;
+        unfold consistency1 in *; intuition.
     }
     assert(HlookupBlockParentEq: lookup blockParent (memory newS) beqAddr
                                   = lookup blockParent (memory s) beqAddr).
@@ -9306,9 +9337,8 @@ case_eq PDChildAddrIsNull.
     }
     assert(HgetMappedBlocksPartEq: getMappedBlocks part newS = getMappedBlocks part s).
     {
-      apply getMappedBlocksEqSCE; try(assumption). apply partitionsArePDT; try(assumption).
-      unfold consistency1 in *; intuition.
-      unfold consistency1 in *; intuition.
+      apply getMappedBlocksEqSCE; try(assumption). apply partitionsArePDT; trivial;
+       unfold consistency1 in *; intuition.
     }
     assert(HparentOfPart: parentOfPartitionIsPartition s) by (unfold consistency1 in *; intuition).
     rewrite HgetMappedBlocksPartEq in HblockMapped. specialize(HparentOfPart part pdentryPart HlookupParts).
@@ -9381,9 +9411,8 @@ case_eq PDChildAddrIsNull.
     }
     assert(HgetMappedBlocksPartEq: getMappedBlocks part newS = getMappedBlocks part s).
     {
-      apply getMappedBlocksEqSCE; try(assumption). apply partitionsArePDT; try(assumption).
-      unfold consistency1 in *; intuition.
-      unfold consistency1 in *; intuition.
+      apply getMappedBlocksEqSCE; try(assumption). apply partitionsArePDT; trivial;
+        unfold consistency1 in *; intuition.
     }
     assert(HparentOfPart: parentOfPartitionIsPartition s) by (unfold consistency1 in *; intuition).
     specialize(HparentOfPart part pdentryPart HlookupParts).
@@ -9401,24 +9430,25 @@ case_eq PDChildAddrIsNull.
       {
         assert(Hss3: getPartitions multiplexer s = getPartitions multiplexer s3).
         {
-          rewrite Hs. apply getPartitionsEqSCE. unfold consistency1 in *; intuition.
+          rewrite Hs. apply getPartitionsEqSCE. 1,3,4: unfold consistency1 in *; intuition.
           unfold isSCE. rewrite HlookupNewSces3. trivial.
-          unfold consistency1 in *; intuition.
+          unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
         }
         assert(Hs3s2: getPartitions multiplexer s3 = getPartitions multiplexer s2).
         {
           destruct blockToShareEnabled.
           - assert(HtrivTrue: is_true true) by (unfold is_true; reflexivity). specialize(Henabled HtrivTrue).
             destruct Henabled as [pdentryCurrs (Hs3 & Henabled)]. rewrite Hs3.
-            apply getPartitionsEqPDT with pdentryCurrs2; try(assumption). simpl. reflexivity.
-            unfold consistency1 in *; intuition. unfold consistency1 in *; intuition.
+            apply getPartitionsEqPDT with pdentryCurrs2; trivial.
+            1-3: unfold consistency1 in *; intuition.
+            unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
           - assert(HtrivFalse: ~is_true false) by (unfold is_true; intro Hcontra; congruence).
             specialize(HnotEnabled HtrivFalse). subst s3. reflexivity.
         }
         rewrite Hss3. rewrite Hs3s2. rewrite Hs2.
         apply getPartitionsEqBEPDflagNoChangePresentNoChangeStartNoChange with bentryShares0
-            (CPaddr (blockToShareInCurrPartAddr + sh1offset)); try(assumption).
-        unfold consistency1 in *; intuition. unfold consistency1 in *; intuition.
+            (CPaddr (blockToShareInCurrPartAddr + sh1offset)); trivial.
+        1,2,7,8: unfold consistency1 in *; intuition.
         apply lookupSh1EntryAddr with bentryShares0. assumption.
         unfold sh1entryPDflag in *. rewrite Hs2 in *. simpl in *.
         destruct (beqAddr blockToShareInCurrPartAddr (CPaddr (blockToShareInCurrPartAddr + sh1offset)))
@@ -9432,7 +9462,7 @@ case_eq PDChildAddrIsNull.
         simpl. unfold CBlock. assert(cutAddr <= maxIdx) by (rewrite maxIdxEqualMaxAddr; apply Hp).
         destruct (Compare_dec.le_dec (cutAddr - startAddr (blockrange bentryShares0)) maxIdx); try(lia).
         simpl. reflexivity.
-        unfold consistency1 in *; intuition.
+        unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
       }
       assert(HpartIsChild: In part (getChildren (parent pdentryPart) s1)).
       {
@@ -9635,8 +9665,7 @@ case_eq PDChildAddrIsNull.
           assert(Hdisjoint: DisjointKSEntries s1) by (unfold consistency1 in *; intuition).
           assert(HparentIsPDT: isPDT (parent pdentryPart) s1).
           {
-            apply partitionsArePDT; try(assumption). unfold consistency1 in *; intuition.
-            unfold consistency1 in *; intuition.
+            apply partitionsArePDT; trivial; unfold consistency1 in *; intuition.
           }
           assert(HpartIsPDT: isPDT part s1).
           {
@@ -9734,11 +9763,6 @@ case_eq PDChildAddrIsNull.
       assumption. cbn -[newS]. simpl in Hincl. rewrite HlookupBlockEq. rewrite HlookupBlockParentEq.
       assumption.
     (* END nextImpliesBlockWasCut *)
-  }
-
-  assert(HgetMappedBEq: forall part, isPDT part s -> getMappedBlocks part newS = getMappedBlocks part s).
-  {
-    intros part HpartIsPDT. apply getMappedBlocksEqSCE; trivial.
   }
 
   assert(blocksAddressesTypes newS).
@@ -9937,8 +9961,8 @@ case_eq PDChildAddrIsNull.
   destruct HwellFormedShadow as [sce (HsceIsSCE & Hsce)]. subst sce.
   assert(HgetPartsEq: getPartitions multiplexer newS = getPartitions multiplexer s).
   {
-    apply getPartitionsEqSCE; try(assumption). unfold consistency1 in *; intuition.
-    unfold consistency1 in *; intuition.
+    apply getPartitionsEqSCE; try(assumption). 1-3: unfold consistency1 in *; intuition.
+    unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
 
   assert(HgetMappedBEq: forall part, isPDT part s -> getMappedBlocks part newS = getMappedBlocks part s).
@@ -10112,10 +10136,9 @@ case_eq PDChildAddrIsNull.
   {
     destruct newSubEnabled.
     - specialize(HnewEnabled HtrivTrue). destruct HnewEnabled as [pdentryCurrs (Hs & HnewEnabled)].
-      rewrite Hs. apply getPartitionsEqPDT with pdentryCurrs5; try(assumption).
-      simpl. reflexivity.
-      unfold consistency1 in *; intuition.
-      unfold consistency1 in *; intuition.
+      rewrite Hs. apply getPartitionsEqPDT with pdentryCurrs5; trivial.
+      1-3: unfold consistency1 in *; intuition.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     - specialize(HnewNotEnabled HtrivFalse). subst s. reflexivity.
   }
 
@@ -10125,34 +10148,33 @@ case_eq PDChildAddrIsNull.
     assert(HgetPartsCurrEqs2s1: getPartitions multiplexer s2 = getPartitions multiplexer s1).
     {
       rewrite Hs2. apply getPartitionsEqBEPDflagFalse with bentryShares0
-          (CPaddr (blockToShareInCurrPartAddr + sh1offset)); try(assumption).
-      unfold consistency1 in *; intuition.
-      unfold consistency1 in *; intuition.
+          (CPaddr (blockToShareInCurrPartAddr + sh1offset)); trivial.
+      1,2,4: unfold consistency1 in *; intuition.
       apply lookupSh1EntryAddr with bentryShares0. assumption.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     assert(HgetPartsCurrEqs3s2: getPartitions multiplexer s3 = getPartitions multiplexer s2).
     {
       destruct blockToShareEnabled.
       - specialize(HblockEnabled HtrivTrue). destruct HblockEnabled as [pdentryCurrs3 (Hs3 & HblockEnabled)].
-        rewrite Hs3. apply getPartitionsEqPDT with pdentryCurrs2; try(assumption).
-        simpl. reflexivity.
-        unfold consistency1 in *; intuition.
-        unfold consistency1 in *; intuition.
+        rewrite Hs3. apply getPartitionsEqPDT with pdentryCurrs2; trivial.
+        1-3: unfold consistency1 in *; intuition.
+        unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
       - specialize(HblockNotEnabled HtrivFalse). subst s3. reflexivity.
     }
     assert(HgetPartsCurrEqs4s3: getPartitions multiplexer s4 = getPartitions multiplexer s3).
     {
       rewrite Hs4. apply getPartitionsEqSCE.
-      unfold consistency1 in *; intuition.
+      1,3,4: unfold consistency1 in *; intuition.
       unfold isSCE. rewrite HlookupNewSces3. trivial.
-      unfold consistency1 in *; intuition.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     assert(HgetPartsCurrEqs5s4: getPartitions multiplexer s5 = getPartitions multiplexer s4).
     {
       rewrite Hs5. apply getPartitionsEqSCE.
-      unfold consistency1 in *; intuition.
+      1,3,4: unfold consistency1 in *; intuition.
       unfold isSCE. rewrite HlookupBlockSces4. trivial.
-      unfold consistency1 in *; intuition.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartsCurrEqs2s1. rewrite <-HgetPartsCurrEqs3s2. rewrite <-HgetPartsCurrEqs4s3.
     rewrite <-HgetPartsCurrEqs5s4. assumption.
@@ -10603,10 +10625,7 @@ case_eq PDChildAddrIsNull.
     rewrite HgetPartsEqss0 in HparentIsPart.
     assert(HparentIsPDT: isPDT pdparent s0).
     {
-      apply partitionsArePDT.
-      unfold consistency in *; unfold consistency1 in *; intuition.
-      unfold consistency in *; unfold consistency1 in *; intuition.
-      assumption.
+      apply partitionsArePDT;trivial; unfold consistency in *; unfold consistency1 in *; intuition.
     }
     rewrite HgetChildrenEqss0 in Hchild1IsChild; try(assumption).
     rewrite HgetChildrenEqss0 in Hchild2IsChild; try(assumption).
@@ -10616,9 +10635,7 @@ case_eq PDChildAddrIsNull.
     {
       assert(Hchild1IsPDT: isPDT child1 s0).
       {
-        apply childrenArePDT with pdparent.
-        unfold consistency in *; unfold consistency1 in *; intuition.
-        assumption.
+        apply childrenArePDT with pdparent; trivial; unfold consistency in *; unfold consistency1 in *; intuition.
       }
       specialize(HgetUsedEqss0 child1 Hchild1IsPDT addr). assumption.
     }
@@ -10626,9 +10643,7 @@ case_eq PDChildAddrIsNull.
     {
       assert(Hchild2IsPDT: isPDT child2 s0).
       {
-        apply childrenArePDT with pdparent.
-        unfold consistency in *; unfold consistency1 in *; intuition.
-        assumption.
+        apply childrenArePDT with pdparent; trivial; unfold consistency in *; unfold consistency1 in *; intuition.
       }
       specialize(HgetUsedEqss0 child2 Hchild2IsPDT addr). assumption.
     }
@@ -10642,15 +10657,11 @@ case_eq PDChildAddrIsNull.
     rewrite HgetPartsEqss0 in Hpart2IsPart. specialize(HKDIs0 part1 part2 Hpart1IsPart Hpart2IsPart addr).
     assert(Hpart1IsPDT: isPDT part1 s0).
     {
-      apply partitionsArePDT; try(assumption).
-      unfold consistency in *; unfold consistency1 in *; intuition.
-      unfold consistency in *; unfold consistency1 in *; intuition.
+      apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition.
     }
     assert(Hpart2IsPDT: isPDT part2 s0).
     {
-      apply partitionsArePDT; try(assumption).
-      unfold consistency in *; unfold consistency1 in *; intuition.
-      unfold consistency in *; unfold consistency1 in *; intuition.
+      apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition.
     }
     rewrite HgetConfigEqss0; try(assumption).
     destruct (beqAddr part1 currentPart) eqn:HbeqPart1Curr.
@@ -10660,21 +10671,17 @@ case_eq PDChildAddrIsNull.
     - rewrite <-beqAddrFalse in HbeqPart1Curr. specialize(HgetAccPaddrEqss0 part1 HbeqPart1Curr Hpart1IsPDT).
       rewrite HgetAccPaddrEqss0 in HaddrAccMapped. specialize(HKDIs0 HaddrAccMapped). assumption.
   }
-
   split. assumption. split.
   {
     intros pdparent child HparentIsPart HchildIsChild addr HaddrIsUsed. rewrite HgetPartsEqss0 in HparentIsPart.
     assert(HparentIsPDT: isPDT pdparent s0).
     {
-      apply partitionsArePDT; try(assumption).
-      unfold consistency in *; unfold consistency1 in *; intuition.
-      unfold consistency in *; unfold consistency1 in *; intuition.
+      apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition.
     }
     rewrite HgetChildrenEqss0 in HchildIsChild; try(assumption).
     assert(HchildIsPDT: isPDT child s0).
     {
-      apply childrenArePDT with pdparent; try(assumption).
-      unfold consistency in *; unfold consistency1 in *; intuition.
+      apply childrenArePDT with pdparent; trivial; unfold consistency in *; unfold consistency1 in *; intuition.
     }
     specialize(HgetUsedEqss0 child HchildIsPDT addr). destruct HgetUsedEqss0 as (HgetUsedEqss0 & _).
     apply HgetUsedEqss0 in HaddrIsUsed.
@@ -11007,16 +11014,12 @@ case_eq PDChildAddrIsNull.
     rewrite HgetPartsEqss0 in HparentIsPart.
     assert(HparentIsPDT: isPDT pdparent s0).
     {
-      apply partitionsArePDT.
-      unfold consistency in *; unfold consistency1 in *; intuition.
-      unfold consistency in *; unfold consistency1 in *; intuition.
-      assumption.
+      apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition.
     }
     rewrite HgetChildrenEqss0 in HchildIsChild; try(assumption).
     assert(HchildIsPDT: isPDT child s0).
     {
-      apply childrenArePDT with pdparent; try(assumption).
-      unfold consistency in *; unfold consistency1 in *; intuition.
+      apply childrenArePDT with pdparent; trivial; unfold consistency in *; unfold consistency1 in *; intuition.
     }
     assert(HaddrAccParents0: In addr (getAccessibleMappedPaddr pdparent s0)).
     {
@@ -11313,16 +11316,12 @@ case_eq PDChildAddrIsNull.
     rewrite HgetPartsEqss0 in HparentIsPart.
     assert(HparentIsPDT: isPDT pdparent s0).
     {
-      apply partitionsArePDT.
-      unfold consistency in *; unfold consistency1 in *; intuition.
-      unfold consistency in *; unfold consistency1 in *; intuition.
-      assumption.
+      apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition.
     }
     rewrite HgetChildrenEqss0 in HchildIsChild; try(assumption).
     assert(HchildIsPDT: isPDT child s0).
     {
-      apply childrenArePDT with pdparent; try(assumption).
-      unfold consistency in *; unfold consistency1 in *; intuition.
+      apply childrenArePDT with pdparent; trivial; unfold consistency in *; unfold consistency1 in *; intuition.
     }
     apply HgetUsedEqss0 in HaddrIsUsedChild; try(assumption).
     destruct (beqAddr pdparent currentPart) eqn:HbeqParentCurr.
@@ -11336,8 +11335,8 @@ case_eq PDChildAddrIsNull.
           HlookupCurrs0 HblockMappedCurrs0 Hsh1 HPDChildBlocks0 child addr HchildIsChild).
       assert(HchildIsPart: In child (getPartitions multiplexer s0)).
       {
-        revert HchildIsChild. apply childrenPartitionInPartitionList; try(assumption).
-        unfold consistency in *; unfold consistency1 in *; intuition.
+        revert HchildIsChild. apply childrenPartitionInPartitionList; trivial;
+          unfold consistency in *; unfold consistency1 in *; intuition.
       }
       specialize(HKDIs0 currentPart child HparentIsPart HchildIsPart).
       destruct (beqAddr idNewSubblock blockParent) eqn:HbeqNewBlockParent.
@@ -11894,9 +11893,7 @@ case_eq PDChildAddrIsNull.
       HPFlagParent HlebStart HlebEnd. rewrite HgetPartsEqss0 in HparentIsPart.
     assert(HparentIsPDTs0: isPDT pdparent s0).
     {
-      apply partitionsArePDT; try(assumption).
-      unfold consistency in *; unfold consistency1 in *; intuition.
-      unfold consistency in *; unfold consistency1 in *; intuition.
+      apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition.
     }
     rewrite HgetChildrenEqss0 in HchildIsChild; try(assumption).
     assert(Hparent: isParent s0) by (unfold consistency in *; unfold consistency1 in *; intuition).

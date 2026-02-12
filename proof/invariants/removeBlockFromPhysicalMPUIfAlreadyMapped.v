@@ -100,7 +100,8 @@ Internal.enableBlockInMPU globalIdPD blockToEnableAddr MPURegionNb
 		       /\ (forall partition : paddr,
 												       partition <> globalIdPD ->
 												       isPDT partition s0 ->
-												       getPartitions partition s = getPartitions partition s0)
+                               In partition (getPartitions multiplexer s0)
+												       -> getPartitions partition s = getPartitions partition s0)
 		       /\ (forall partition : paddr,
 												       partition <> globalIdPD ->
 												       isPDT partition s0 ->
@@ -234,7 +235,8 @@ Internal.enableBlockInMPU globalIdPD blockToEnableAddr MPURegionNb
 		       /\ (forall partition : paddr,
 												       partition <> globalIdPD ->
 												       isPDT partition s0 ->
-												       getPartitions partition s = getPartitions partition s0)
+                               In partition (getPartitions multiplexer s0)
+												       -> getPartitions partition s = getPartitions partition s0)
 		       /\ (forall partition : paddr,
 												       partition <> globalIdPD ->
 												       isPDT partition s0 ->

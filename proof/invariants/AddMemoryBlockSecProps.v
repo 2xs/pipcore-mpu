@@ -832,10 +832,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 				rewrite beqchildpd in *.
 
 				assert(HPDTparents0 : isPDT parent s0).
-				{ eapply partitionsArePDT ; intuition.
-					unfold consistency in * ; unfold consistency1 in * ; intuition.
-					unfold consistency in * ; unfold consistency1 in * ; intuition.
-				}
+				{ eapply partitionsArePDT ; trivial; unfold consistency in * ; unfold consistency1 in * ; intuition. }
 				assert(HparentidpdNotEq : parent <> globalIdPDChild). (* child not currentPart *)
 				{
 					eapply childparentNotEq with s0; intuition.
@@ -955,10 +952,7 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 		-- (* parent <> globalIdPDChild *)
 				rewrite <- beqAddrFalse in *.
 				assert(HPDTparents0 : isPDT parent s0).
-				{ eapply partitionsArePDT ; intuition.
-					unfold consistency in * ; unfold consistency1 in * ; intuition.
-					unfold consistency in * ; unfold consistency1 in * ; intuition.
-				}
+				{ eapply partitionsArePDT ; trivial; unfold consistency in * ; unfold consistency1 in * ; intuition. }
 
 				assert(HchildrenparentEq : getChildren parent s = getChildren parent s0).
 				{ apply HChildrenEqNotInParts0 ; intuition. }
@@ -1192,10 +1186,7 @@ destruct (beqAddr part1 globalIdPDChild) eqn:beqpart1pd ; try(exfalso ; congruen
 			rewrite <- beqAddrFalse in *.
 
 			assert(HPDTpart2s0 : isPDT part2 s0).
-			{ eapply partitionsArePDT ; intuition.
-				unfold consistency in * ; unfold consistency1 in * ; intuition.
-				unfold consistency in * ; unfold consistency1 in * ; intuition.
-			}
+			{ eapply partitionsArePDT ; trivial; unfold consistency in * ; unfold consistency1 in * ; intuition. }
 
 			assert(Hconfigchild2Eq : getConfigPaddr part2 s = getConfigPaddr part2 s0).
 			{ eapply HConfigPaddrEqNotInParts0 ; intuition. }
@@ -1263,10 +1254,7 @@ destruct (beqAddr part1 globalIdPDChild) eqn:beqpart1pd ; try(exfalso ; congruen
 	- (* part1 <> globalIdPDChild *)
 		rewrite <- beqAddrFalse in *.
 		assert(HPDTpart1s0 : isPDT part1 s0).
-		{ eapply partitionsArePDT ; intuition.
-			unfold consistency in * ; unfold consistency1 in * ; intuition.
-			unfold consistency in * ; unfold consistency1 in * ; intuition.
-		}
+		{ eapply partitionsArePDT ; trivial; unfold consistency in * ; unfold consistency1 in * ; intuition. }
 		assert(Haccessible1Eq : getAccessibleMappedPaddr part1 s = getAccessibleMappedPaddr part1 s0)
 			by (eapply HAccessibleMappedPaddrEqNotInParts0 ; intuition).
 		rewrite Haccessible1Eq in *.
@@ -1284,10 +1272,7 @@ destruct (beqAddr part1 globalIdPDChild) eqn:beqpart1pd ; try(exfalso ; congruen
 		-- (* part2 <> globalIdPDChild *)
 				rewrite <- beqAddrFalse in *.
 				assert(HPDTpart2s0 : isPDT part2 s0).
-				{ eapply partitionsArePDT ; intuition.
-					unfold consistency in * ; unfold consistency1 in * ; intuition.
-					unfold consistency in * ; unfold consistency1 in * ; intuition.
-				}
+				{ eapply partitionsArePDT ; trivial; unfold consistency in * ; unfold consistency1 in * ; intuition. }
 				assert(Hconfig2Eq : getConfigPaddr part2 s = getConfigPaddr part2 s0)
 					by (eapply HConfigPaddrEqNotInParts0 ; intuition).
 				rewrite Hconfig2Eq in *.
@@ -1389,17 +1374,13 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 
 
 		assert(HPDTparents : isPDT parent s).
-		{ eapply partitionsArePDT ; intuition.
-			unfold consistency in * ; unfold consistency1 in * ; intuition.
+		{
+      apply partitionsArePDT; trivial; unfold consistency in * ; unfold consistency1 in * ; intuition.
 		}
 		assert(HPDTchild1s : isPDT child1 s).
-		{ eapply childrenArePDT.
-			unfold consistency in * ; unfold consistency1 in * ; intuition.
-			apply Hchild1IsChild. }
+		{ apply childrenArePDT with parent; trivial; unfold consistency in * ; unfold consistency1 in * ; intuition. }
 		assert(HPDTchild2s : isPDT child2 s).
-		{ eapply childrenArePDT.
-			unfold consistency in * ; unfold consistency1 in * ; intuition.
-			apply Hchild2IsChild. }
+		{ apply childrenArePDT with parent; trivial; unfold consistency in * ; unfold consistency1 in * ; intuition. }
 		assert(beqnewBparent : beqAddr newBlockEntryAddr parent = false).
 		{ rewrite <- beqAddrFalse ; intro Hf.
 			subst parent ; unfold isPDT in * ; unfold isBE in *.
@@ -1489,9 +1470,8 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 			assert(HNoDupPartTree : noDupPartitionTree s)
 				by (unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency s*)
 			assert(HPDTparent : isPDT parent s0).
-			{ eapply partitionsArePDT ; intuition.
-				unfold consistency in * ; unfold consistency1 in * ; intuition.
-				unfold consistency in * ; unfold consistency1 in * ; intuition.
+			{
+        eapply partitionsArePDT; trivial;	unfold consistency in * ; unfold consistency1 in * ; intuition.
 			}
 			assert(HglobalChildNotEq : parent <> globalIdPDChild).
 			{ eapply childparentNotEq with s ; try (rewrite HparentEq in *) ; intuition. }
@@ -1629,9 +1609,8 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 			assert(HNoDupPartTree : noDupPartitionTree s)
 				by (unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency s*)
 			assert(HPDTparent : isPDT parent s0).
-			{ eapply partitionsArePDT ; intuition.
-				unfold consistency in * ; unfold consistency1 in * ; intuition.
-				unfold consistency in * ; unfold consistency1 in * ; intuition.
+			{
+        eapply partitionsArePDT; trivial; unfold consistency in * ; unfold consistency1 in * ; intuition.
 			}
 			assert(HglobalChildNotEq : parent <> globalIdPDChild).
 			{ eapply childparentNotEq with s ; try (rewrite HparentEq in *) ; intuition. }
@@ -1771,9 +1750,8 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 
 		rewrite <- beqAddrFalse in *.
 		assert(HPDTparent : isPDT parent s0).
-		{ eapply partitionsArePDT ; intuition.
-			unfold consistency in * ; unfold consistency1 in * ; intuition.
-			unfold consistency in * ; unfold consistency1 in * ; intuition.
+		{
+      eapply partitionsArePDT; trivial; unfold consistency in * ; unfold consistency1 in * ; intuition.
 		}
 
 		assert(HNoDupPartTree : noDupPartitionTree s)

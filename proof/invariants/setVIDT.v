@@ -39,7 +39,7 @@ Require Import Model.ADT Core.Services.
 Require Import Proof.Isolation Proof.Hoare Proof.Consistency Proof.WeakestPreconditions
   Proof.StateLib Proof.DependentTypeLemmas Proof.InternalLemmas Proof.InternalLemmas2.
 Require Import Invariants getGlobalIdPDCurrentOrChild findBlockInKS findBlockInKSWithAddr.
-From Stdlib Require Import Compare_dec Bool List Logic.ProofIrrelevance.
+From Stdlib Require Import Compare_dec Bool List Logic.ProofIrrelevance Lia.
 
 Require Import Model.Monad Model.MALInternal Model.Lib (* for visibility *).
 
@@ -110,6 +110,7 @@ set(newS := {|
 assert(HgetPartsEq: getPartitions multiplexer newS = getPartitions multiplexer s).
 {
   apply getPartitionsEqPDT with p; trivial; intuition.
+  unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
 assert(HgetKSEq: forall partition, getKSEntries partition newS = getKSEntries partition s).
 {
@@ -176,8 +177,9 @@ assert(wellFormedFstShadowIfBlockEntry newS).
 
 assert(PDTIfPDFlag newS).
 { (* BEGIN PDTIfPDFlag newS *)
-  assert(Hcons0: PDTIfPDFlag s) by intuition. intros idPDchild sh1entryaddr HcheckChild.
-  unfold sh1entryAddr in *. unfold checkChild in *.
+  assert(Hcons0: PDTIfPDFlag s) by intuition.
+  intros idPDchild sh1entryaddr part HpartIsPart HblockMapped HcheckChild. rewrite HgetPartsEq in *.
+  rewrite HgetMappedBEq in *. unfold sh1entryAddr in *. unfold checkChild in *.
   assert(HlookupBlockEq: lookup idPDchild (memory newS) beqAddr = lookup idPDchild (memory s) beqAddr).
   {
     destruct HcheckChild as (_ & Hsh1). simpl in *.
@@ -193,7 +195,8 @@ assert(PDTIfPDFlag newS).
     destruct (beqAddr pdpart sh1entryaddr) eqn:HbeqGlobSh1; try(exfalso; congruence).
     rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
   }
-  specialize(Hcons0 idPDchild sh1entryaddr HcheckChilds0). unfold bentryAFlag in *. unfold bentryPFlag in *.
+  specialize(Hcons0 idPDchild sh1entryaddr part HpartIsPart HblockMapped HcheckChilds0). unfold bentryAFlag in *.
+  unfold bentryPFlag in *.
   unfold bentryStartAddr in *. unfold entryPDT in *. rewrite HlookupBlockEq.
   destruct Hcons0 as (HAflag & HPflag & [startaddr (Hstart & HstartIsPDT)]). split; trivial. split; trivial.
   exists startaddr. split; trivial. destruct (lookup idPDchild (memory s) beqAddr); try(congruence).
@@ -1345,8 +1348,10 @@ unfold setVIDT. eapply bindRev.
 }
 intro curPd. eapply bindRev.
 { (** Internal.getGlobalIdPDCurrentOrChild **)
-  eapply weaken. apply getGlobalIdPDCurrentOrChild. intros s Hprops. simpl. split. apply Hprops. intuition.
-  subst curPd. apply partitionsArePDT; unfold consistency in *; unfold consistency1 in *; intuition.
+  eapply weaken. apply getGlobalIdPDCurrentOrChild. intros s Hprops. simpl. split. apply Hprops.
+  intuition; subst curPd.
+  - unfold consistency in *; unfold consistency1 in *; intuition.
+  - apply partitionsArePDT; unfold consistency in *; unfold consistency1 in *; intuition.
 }
 intro globalPd. eapply bindRev.
 { (** Internal.compareAddrToNull **)

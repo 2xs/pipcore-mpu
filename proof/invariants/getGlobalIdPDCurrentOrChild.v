@@ -47,7 +47,7 @@ From Stdlib Require Import List.
 Module WP := WeakestPreconditions.
 
 Lemma getGlobalIdPDCurrentOrChild (currentPartition idPDToCheck : paddr) (P : state -> Prop):
-{{fun s => P s /\ consistency s
+{{fun s => P s /\ consistency s /\ In currentPartition (getPartitions multiplexer s)
 					/\ isPDT currentPartition s}}
 Internal.getGlobalIdPDCurrentOrChild currentPartition idPDToCheck
 {{fun idPDChild s  => P s /\ consistency s /\
@@ -82,24 +82,24 @@ case_eq isCurrentPart.
 		{ (** MAL.readBlockStartFromBlockEntryAddr *)
 			eapply weaken. apply readBlockStartFromBlockEntryAddr.
 			intros. simpl. split. apply H1. intuition.
-			destruct H5. intuition. destruct H3.
+			destruct H6. intuition. destruct H3.
 			unfold isBE. intuition. rewrite H3 ; trivial.
 		}
 		intro idPDChild.
 		{ (** ret *)
 		eapply weaken. apply WP.ret.
 		simpl. intros. intuition.
-		destruct H6.
+		destruct H7.
 		assert(HPDTIfPDFlag : PDTIfPDFlag s) by
 			(unfold consistency in * ; unfold consistency1 in * ; intuition).
 		unfold PDTIfPDFlag in *.
-		intuition. unfold entryPDT in *. destruct H6. intuition.
-		destruct H9 as [Hsh1entry Hsh1entryaddr].
+		intuition. unfold entryPDT in *. destruct H7. intuition.
+		destruct H10 as [Hsh1entry Hsh1entryaddr].
 		destruct Hsh1entryaddr.
-		assert(Hconj := conj H8 H9).
-		specialize (HPDTIfPDFlag idPDToCheck x Hconj).
+		assert(Hconj := conj H9 H10).
+		specialize (HPDTIfPDFlag idPDToCheck x currentPartition H6 H12 Hconj).
 		destruct HPDTIfPDFlag as [HAFlag (HPFlag & (startaddr & HPDTIfPDFlag))]. intuition.
-		unfold bentryStartAddr in *. rewrite H6 in *. subst.
+		unfold bentryStartAddr in *. rewrite H7 in *. subst.
 		unfold isPDT.
 		destruct (lookup (startAddr (blockrange x0)) (memory s) beqAddr) eqn:Hlookup ; try (exfalso ; congruence).
 		destruct v eqn:Hv ; try (exfalso ; congruence) ; trivial.
@@ -113,7 +113,7 @@ case_eq isCurrentPart.
 Qed.
 
 Lemma getGlobalIdPDCurrentOrChildPrecise (currentPartition idPDToCheck : paddr) (P : state -> Prop):
-{{fun s => P s /\ consistency s
+{{fun s => P s /\ consistency s /\ In currentPartition (getPartitions multiplexer s)
 					/\ isPDT currentPartition s}}
 Internal.getGlobalIdPDCurrentOrChild currentPartition idPDToCheck
 {{fun idPDChild s  => P s /\ consistency s /\
@@ -161,7 +161,8 @@ case_eq isCurrentPart.
     intro idPDChild.
     (** ret *)
     eapply weaken. apply WP.ret.
-    simpl. intros s Hprops. destruct Hprops as ((((HP & Hconsist & HcurrIsPDT) & HbeqIdCurr) & Hsh1) & Hstart).
+    simpl. intros s Hprops. destruct Hprops as ((((HP & Hconsist & HcurrIsPart & HcurrIsPDT) & HbeqIdCurr) & Hsh1) &
+      Hstart).
     split; trivial. split; trivial. intro HbeqIdNull. assert(Htriv: true = true) by trivial.
     specialize(Hsh1 Htriv). destruct Hsh1 as [sh1entryaddr (HcheckChild & HlookupId & Hsh1 & HidIsPart)].
     destruct Hsh1 as [sh1entry (Hsh1 & HlookupSh1)].
@@ -169,7 +170,7 @@ case_eq isCurrentPart.
 	    (unfold consistency in * ; unfold consistency1 in * ; intuition).
     assert(Hprops: true = checkChild idPDToCheck s sh1entryaddr /\ sh1entryAddr idPDToCheck sh1entryaddr s).
     { split; trivial. }
-    specialize(HPDTIfPDFlag idPDToCheck sh1entryaddr Hprops).
+    specialize(HPDTIfPDFlag idPDToCheck sh1entryaddr currentPartition HcurrIsPart HidIsPart Hprops).
     destruct HPDTIfPDFlag as [HAFlag (HPFlag & [startaddr (HstartBis & HentryPDT)])].
     destruct HlookupId as [bentry HlookupId]. split.
     * unfold bentryStartAddr in *. unfold entryPDT in *. rewrite HlookupId in *. subst startaddr.

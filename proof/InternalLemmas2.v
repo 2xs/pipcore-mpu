@@ -256,6 +256,8 @@ Lemma getPartitionsAuxEqPDTNewEmptyPart partition newPart newPDEntry s0 n:
 -> structure newPDEntry = nullAddr
 -> StructurePointerIsKS s0
 -> PDTIfPDFlag s0
+-> noDupPartitionTree s0
+-> In partition (getPartitions multiplexer s0)
 -> getPartitionsAux n partition {|
                                   currentPartition := currentPartition s0;
                                   memory := add newPart (PDT newPDEntry)
@@ -270,7 +272,7 @@ induction n.
 - intros.
 	unfold getPartitionsAux in *.
 	intuition.
-- intros partition Hlookupds0 HbeqStructNull HstructIsKSs0 HPDTIfPDflags0.
+- intros partition Hlookupds0 HbeqStructNull HstructIsKSs0 HPDTIfPDflags0 HnoDupTree HpartIsPart.
 	unfold getPartitionsAux.
 	fold getPartitionsAux.
 	f_equal.
@@ -287,6 +289,9 @@ induction n.
 	{ intros.
 		apply childrenArePDT with partition ; intuition.
 	}
+  assert(HchildrenAreParts: forall child, In child (getChildren partition s0)
+    -> In child (getPartitions multiplexer s0)).
+  { intros. apply childrenPartitionInPartitionList with partition ; intuition. }
 	induction (getChildren partition s0).
 	-- intuition.
 	-- simpl in *. f_equal.
@@ -300,6 +305,8 @@ Lemma getPartitionsEqPDTNewEmptyPart partition newPart newPDEntry s0 :
 -> structure newPDEntry = nullAddr
 -> StructurePointerIsKS s0
 -> PDTIfPDFlag s0
+-> noDupPartitionTree s0
+-> In partition (getPartitions multiplexer s0)
 -> getPartitions partition {|
                              currentPartition := currentPartition s0;
                              memory := add newPart (PDT newPDEntry)
@@ -309,7 +316,7 @@ Proof.
 set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
-intros HlookupNews0 HbeqStructNull HstructKSs0 HPDTIfPDflags0.
+intros HlookupNews0 HbeqStructNull HstructKSs0 HPDTIfPDflags0 HnoDupTree HpartIsPart.
 unfold getPartitions.
 assert(HPartitionsEq : (getPartitionsAux (maxAddr + 2) partition s') =
 													(getPartitionsAux (maxAddr + 2) partition s0)).
@@ -864,6 +871,7 @@ isChild s
 -> PDTIfPDFlag s
 -> multiplexerIsPDT s
 -> parentOfPartitionIsPartition s
+-> noDupPartitionTree s
 -> childPaddrIsIntoParent s
 -> In desc (getPartitions multiplexer s)
 -> In partition (getPartitions multiplexer s)
@@ -871,7 +879,7 @@ isChild s
 -> In addr (getMappedPaddr desc s)
 -> In addr (getMappedPaddr partition s).
 Proof.
-intros HisChild HPDTIfPDFlag HmultIsPDT HparentOfPart HchildInclParent HdescIsPart HpartIsPart HdescIsDesc
+intros HisChild HPDTIfPDFlag HmultIsPDT HparentOfPart HnoDupTree HchildInclParent HdescIsPart HpartIsPart HdescIsDesc
   HaddrMappedDesc.
 revert desc HaddrMappedDesc HdescIsPart HdescIsDesc.
 unfold completeParentsList in *. induction (S (S maxAddr)); intros; simpl in *; try(exfalso; congruence).
@@ -904,6 +912,7 @@ isChild s
 -> PDTIfPDFlag s
 -> multiplexerIsPDT s
 -> parentOfPartitionIsPartition s
+-> noDupPartitionTree s
 -> blockInChildHasAtLeastEquivalentBlockInParent s
 -> In desc (getPartitions multiplexer s)
 -> In partition (getPartitions multiplexer s)
@@ -916,7 +925,7 @@ isChild s
     /\ bentryEndAddr blockAnc endAnc s
     /\ startAnc <= startDesc /\ endAnc >= endDesc.
 Proof.
-intros HisChild HPDTIfPDFlag HmultIsPDT HparentOfPart HequivParent HdescIsPart HpartIsPart HdescIsDesc.
+intros HisChild HPDTIfPDFlag HmultIsPDT HparentOfPart HnoDupTree HequivParent HdescIsPart HpartIsPart HdescIsDesc.
 revert desc blockDesc startDesc endDesc HdescIsPart HdescIsDesc.
 unfold completeParentsList in *. induction (S (S maxAddr)); intros desc blockDesc startDesc endDesc HdescIsPart
   HdescIsDesc HstartDesc HendDesc HblockDescMapped; simpl in *; try(exfalso; congruence).
@@ -1203,13 +1212,14 @@ Lemma completeParentsListChild part1 part2 s:
 PDTIfPDFlag s
 -> multiplexerIsPDT s
 -> parentOfPartitionIsPartition s
+-> noDupPartitionTree s
 -> In part2 (getPartitions multiplexer s)
 -> In part1 (filterOptionPaddr (completeParentsList part2 s))
 -> exists child, pdentryParent child part1 s
                 /\ In child (getPartitions multiplexer s)
                 /\ In child (part2::(filterOptionPaddr (completeParentsList part2 s))).
 Proof.
-intros HPDTIfPDFlag HmultIsPDT HparentOfPart. unfold completeParentsList. revert part2.
+intros HPDTIfPDFlag HmultIsPDT HparentOfPart HnoDupTree. unfold completeParentsList. revert part2.
 induction (S (S maxAddr)); intros part2 Hpart2IsPart Hpart1IsAnc; simpl in *; try(exfalso; congruence).
 assert(Hpart2IsPDT: isPDT part2 s).
 { apply partitionsArePDT; assumption. }
@@ -1266,8 +1276,8 @@ destruct v; try(congruence).
 assert(HeqTriv: CPaddr (block + sh1offset) = CPaddr (block + sh1offset)) by reflexivity.
 specialize(HnoChild part1 p block (CPaddr (block + sh1offset)) Hpart1IsPart HlookupPart1 HblockMapped1 HeqTriv
   HPDchild). clear Hpart1IsPDT. clear HeqTriv.
-pose proof (completeParentsListChild part1 part2 s HPDTIfPDFlag HmultIsPDT HparentOfPart Hpart2IsPart Hcontra)
-  as HcontraChild. destruct HcontraChild as [child (Hparent & HchildIsPart & HchildIsAnc)].
+pose proof (completeParentsListChild part1 part2 s HPDTIfPDFlag HmultIsPDT HparentOfPart HnoDupTree Hpart2IsPart
+  Hcontra) as HcontraChild. destruct HcontraChild as [child (Hparent & HchildIsPart & HchildIsAnc)].
 assert(HbeqChildRoot: child <> constantRootPartM).
 {
   unfold pdentryParent in *. intro HbeqChildRoot.
@@ -1684,7 +1694,8 @@ Qed.
 
 Lemma getPartitionsAuxEqSHEPDflagTrue partition addr block startaddr sh1entryaddr newEntry sh1entry0 s0 n :
 nullAddrExists s0 ->
-lookup sh1entryaddr (memory s0) beqAddr = Some (SHE sh1entry0) ->
+noDupPartitionTree s0
+-> lookup sh1entryaddr (memory s0) beqAddr = Some (SHE sh1entry0) ->
 sh1entryAddr block sh1entryaddr s0 ->
 bentryStartAddr block startaddr s0 ->
 PDflag newEntry = true ->
@@ -1694,23 +1705,27 @@ getChildren startaddr {|
                         memory := add sh1entryaddr (SHE newEntry)
                                     (memory s0) beqAddr |} = [] ->
 isPDT partition s0 ->
-In addr (getPartitionsAux n partition {|
+In partition (getPartitions multiplexer s0)
+-> In addr (getPartitionsAux n partition {|
                 currentPartition := currentPartition s0;
                 memory := add sh1entryaddr (SHE newEntry)
                             (memory s0) beqAddr |})
 -> startaddr = addr \/ In addr (getPartitionsAux n partition s0).
 Proof.
-intros Hnull HlookupSh1 Hsh1 Hstart HPDflag HPDTIfPDFlag HgetChildrenNew. revert partition.
+intros Hnull HnoDupTree HlookupSh1 Hsh1 Hstart HPDflag HPDTIfPDFlag HgetChildrenNew. revert partition.
 set (s := {|
             currentPartition := currentPartition s0;
             memory := _ |}). fold s in HgetChildrenNew.
-induction n; simpl; intros partition HpartIsPDT HaddrInParts; try(exfalso; congruence).
+induction n; simpl; intros partition HpartIsPDT HpartIsPart HaddrInParts; try(exfalso; congruence).
 destruct HaddrInParts as [HaddrIsPart | HaddrInPartsRec]; try(right; left; assumption).
 assert(Hchildren: forall addr, In addr (getChildren partition s)
                               -> In addr (startaddr :: getChildren partition s0)).
 {
   intro addrBis. apply getChildrenEqSHEPDflagTrue with block sh1entry0; assumption.
 }
+assert(HchildrenAreParts: forall child, In child (getChildren partition s0)
+  -> In child (getPartitions multiplexer s0)).
+{ intros. apply childrenPartitionInPartitionList with partition ; intuition. }
 induction (getChildren partition s); simpl in *; try(exfalso; congruence). apply in_app_or in HaddrInPartsRec.
 assert(HchildrenRec: forall addr, In addr l -> In addr (startaddr :: getChildren partition s0)).
 {
@@ -1723,7 +1738,8 @@ destruct HaddrInPartsRec as [HaddrInA | HaddrInPartsRecRec].
     simpl in HaddrInA. destruct HaddrInA as [Hleft | Hcontra]; try(exfalso; congruence). left. assumption.
   + assert(HaIsPDT: isPDT a s0).
     { apply childrenArePDT with partition; assumption. }
-    specialize(IHn a HaIsPDT HaddrInA). destruct IHn as [HstartIsAddr | HaddrInAs0]; try(left; assumption).
+    specialize(HchildrenAreParts a HAIsChild). specialize(IHn a HaIsPDT HchildrenAreParts HaddrInA).
+    destruct IHn as [HstartIsAddr | HaddrInAs0]; try(left; assumption).
     right. right. clear HchildrenRec. clear IHl. induction (getChildren partition s0); simpl in *; try(congruence).
     apply in_or_app. destruct HAIsChild as [Ha | HAIsChildRec].
     * subst a0. left. assumption.
@@ -1734,7 +1750,8 @@ Qed.
 (* DUP *)
 Lemma getPartitionsEqSHEPDflagTrue partition addr block startaddr sh1entryaddr newEntry sh1entry0 s0:
 nullAddrExists s0 ->
-lookup sh1entryaddr (memory s0) beqAddr = Some (SHE sh1entry0) ->
+noDupPartitionTree s0
+-> lookup sh1entryaddr (memory s0) beqAddr = Some (SHE sh1entry0) ->
 sh1entryAddr block sh1entryaddr s0 ->
 bentryStartAddr block startaddr s0 ->
 PDflag newEntry = true ->
@@ -1745,7 +1762,8 @@ getChildren startaddr
     memory := add sh1entryaddr (SHE newEntry) (memory s0) beqAddr
   |} = [] ->
 isPDT partition s0 ->
-In addr (getPartitions partition {|
+In partition (getPartitions multiplexer s0)
+-> In addr (getPartitions partition {|
 						currentPartition := currentPartition s0;
 						memory := add sh1entryaddr (SHE newEntry)
             (memory s0) beqAddr |})
@@ -1754,7 +1772,7 @@ Proof.
 set (s := {|
             currentPartition := currentPartition s0;
             memory := _ |}).
-intros Hnull HlookupSh1 Hsh1 Hstart HPDflag HPDTIfPDflags0 HgetChildrenNew HPDTs0.
+intros Hnull HnoDupTree HlookupSh1 Hsh1 Hstart HPDflag HPDTIfPDflags0 HgetChildrenNew HPDTs0 HpartIsPart.
 unfold getPartitions. apply getPartitionsAuxEqSHEPDflagTrue with block sh1entry0; assumption.
 Qed.
 
@@ -1888,7 +1906,11 @@ Qed.
 
 Lemma getPartitionsAuxEqSHEPDflagTrueRev partition addr block startaddr sh1entryaddr newEntry sh1entry0 s0 n :
 nullAddrExists s0 ->
-lookup sh1entryaddr (memory s0) beqAddr = Some (SHE sh1entry0) ->
+noDupPartitionTree {|
+              currentPartition := currentPartition s0;
+              memory := add sh1entryaddr (SHE newEntry)
+                          (memory s0) beqAddr |}
+-> lookup sh1entryaddr (memory s0) beqAddr = Some (SHE sh1entry0) ->
 sh1entryAddr block sh1entryaddr s0 ->
 bentryStartAddr block startaddr s0 ->
 PDflag newEntry = true ->
@@ -1898,23 +1920,30 @@ PDTIfPDFlag {|
                           (memory s0) beqAddr |} ->
 getChildren startaddr s0 = [] ->
 isPDT partition s0
+-> In partition (getPartitions multiplexer {|
+              currentPartition := currentPartition s0;
+              memory := add sh1entryaddr (SHE newEntry)
+                          (memory s0) beqAddr |})
 -> In addr (getPartitionsAux n partition s0)
 -> In addr (getPartitionsAux n partition {|
                 currentPartition := currentPartition s0;
                 memory := add sh1entryaddr (SHE newEntry)
                             (memory s0) beqAddr |}).
 Proof.
-intros Hnull HlookupSh1 Hsh1 Hstart HPDflag HPDTIfPDFlag HgetChildrenNew. revert partition.
+intros Hnull HnoDupTree HlookupSh1 Hsh1 Hstart HPDflag HPDTIfPDFlag HgetChildrenNew. revert partition.
 set (s := {|
             currentPartition := currentPartition s0;
             memory := _ |}). fold s in HgetChildrenNew.
-induction n; simpl; intros partition HpartIsPDT HaddrInParts; try(exfalso; congruence).
+induction n; simpl; intros partition HpartIsPDT HpartIspart HaddrInParts; try(exfalso; congruence).
 destruct HaddrInParts as [HaddrIsPart | HaddrInPartsRec]; try(left; assumption).
 assert(Hchildren: forall addr, In addr (getChildren partition s0)
                               -> In addr (getChildren partition s)).
 {
   intro addrBis. apply getChildrenEqSHEPDflagTrueRev with block startaddr sh1entry0; assumption.
 }
+assert(HchildrenAreParts: forall child, In child (getChildren partition s)
+  -> In child (getPartitions multiplexer s)).
+{ intros. apply childrenPartitionInPartitionList with partition ; intuition. }
 induction (getChildren partition s0); simpl in *; try(exfalso; congruence). apply in_app_or in HaddrInPartsRec.
 assert(HchildrenRec: forall addr, In addr l -> In addr (getChildren partition s)).
 {
@@ -1929,18 +1958,24 @@ destruct HaddrInPartsRec as [HaddrInA | HaddrInPartsRecRec].
     unfold isPDT in *. simpl in *. destruct (beqAddr sh1entryaddr a) eqn:HbeqSh1A; try(exfalso; congruence).
     rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in HaIsPDTs; try(apply not_eq_sym); assumption.
   }
-  specialize(IHn a HaIsPDT HaddrInA). right. clear HchildrenRec. clear IHl.
+  assert(HaIsPart: In a (getPartitions multiplexer s)).
+  { apply childrenPartitionInPartitionList with partition; trivial. }
+  specialize(IHn a HaIsPDT HaIsPart HaddrInA). right. clear HchildrenRec. clear IHl.
   induction (getChildren partition s); simpl in *; try(congruence). apply in_or_app.
   destruct Hchildren as [Ha | HAIsChildRec].
   + subst a0. left. assumption.
-  + right. apply IHl0; assumption.
+  + right. apply IHl0; trivial. intros. apply HchildrenAreParts; auto.
 - apply IHl; assumption.
 Qed.
 
 (* DUP *)
 Lemma getPartitionsEqSHEPDflagTrueRev partition addr block startaddr sh1entryaddr newEntry sh1entry0 s0:
 nullAddrExists s0 ->
-lookup sh1entryaddr (memory s0) beqAddr = Some (SHE sh1entry0) ->
+noDupPartitionTree {|
+              currentPartition := currentPartition s0;
+              memory := add sh1entryaddr (SHE newEntry)
+                          (memory s0) beqAddr |}
+-> lookup sh1entryaddr (memory s0) beqAddr = Some (SHE sh1entry0) ->
 sh1entryAddr block sh1entryaddr s0 ->
 bentryStartAddr block startaddr s0 ->
 PDflag newEntry = true ->
@@ -1950,6 +1985,10 @@ PDTIfPDFlag {|
                           (memory s0) beqAddr |} ->
 getChildren startaddr s0 = [] ->
 isPDT partition s0
+-> In partition (getPartitions multiplexer {|
+              currentPartition := currentPartition s0;
+              memory := add sh1entryaddr (SHE newEntry)
+                          (memory s0) beqAddr |})
 -> In addr (getPartitions partition s0)
 -> In addr (getPartitions partition {|
 						currentPartition := currentPartition s0;
@@ -3487,19 +3526,28 @@ Lemma getPartsAuxEqPrepare n root s s0:
   -> lookup addr (memory s) beqAddr = lookup addr (memory s0) beqAddr)
 -> (forall partition, isPDT partition s0 -> getChildren partition s = getChildren partition s0)
 -> PDTIfPDFlag s0
+-> noDupPartitionTree s0
 -> isPDT root s0
+-> In root (getPartitions multiplexer s0)
 -> getPartitionsAux n root s = getPartitionsAux n root s0.
 Proof.
-intros HlookupSomeEq HgetChildrenEq HPDTIfPDFlag. revert root.
-induction n; intros root HrootIsPDT; simpl; try(reflexivity).
+intros HlookupSomeEq HgetChildrenEq HPDTIfPDFlag HnoDupTree. revert root.
+induction n; intros root HrootIsPDT HrootIsPart; simpl; try(reflexivity).
 f_equal. rewrite HgetChildrenEq; try(assumption).
 assert(HchildrenArePDT: forall child, In child (getChildren root s0) -> isPDT child s0).
 {
   intros child HchildIsChild. apply childrenArePDT with root; assumption.
 }
+assert(HchildrenAreParts: forall child, In child (getChildren root s0)
+  -> In child (getPartitions multiplexer s0)).
+{ intros. apply childrenPartitionInPartitionList with root ; intuition. }
 induction (getChildren root s0) as [ | el childList]; simpl; try(reflexivity). f_equal.
-- apply IHn. apply HchildrenArePDT. simpl. left. reflexivity.
-- apply IHchildList. intros child HchildInList. apply HchildrenArePDT. simpl. right. assumption.
+- apply IHn.
+  + apply HchildrenArePDT; simpl; auto.
+  + apply HchildrenAreParts; simpl; auto.
+- apply IHchildList; intros child HchildInList.
+  + apply HchildrenArePDT; simpl; auto.
+  + apply HchildrenAreParts; simpl; auto.
 Qed.
 
 Lemma getPartsEqPrepare root s s0:
@@ -3507,7 +3555,9 @@ Lemma getPartsEqPrepare root s s0:
   -> lookup addr (memory s) beqAddr = lookup addr (memory s0) beqAddr)
 -> (forall partition, isPDT partition s0 -> getChildren partition s = getChildren partition s0)
 -> PDTIfPDFlag s0
+-> noDupPartitionTree s0
 -> isPDT root s0
+-> In root (getPartitions multiplexer s0)
 -> getPartitions root s = getPartitions root s0.
 Proof.
 unfold getPartitions. apply getPartsAuxEqPrepare.
@@ -4290,23 +4340,25 @@ nullAddrExists s0
 -> noDupListOfKerns s0
 -> maxNbPrepareIsMaxNbKernels s0
 -> PDTIfPDFlag s0
+-> noDupPartitionTree s0
 -> addr + nextoffset <= maxAddr
 (*-> isKS newEntry s0*)
 -> lookup (CPaddr (addr+nextoffset)) (memory s0) beqAddr = Some(PADDR nullAddr)
 -> (forall part kernList, isListOfKernels kernList part s0 -> ~In addr kernList)
 -> lookup partition (memory s0) beqAddr = Some (PDT pdentry)
+-> In partition (getPartitions multiplexer s0)
 -> getPartitionsAux n partition {|
                                   currentPartition := currentPartition s0;
                                   memory := add (CPaddr (addr+nextoffset)) (PADDR newEntry) (memory s0) beqAddr
                                 |}
 = getPartitionsAux n partition s0.
 Proof.
-intros Hnull HnextValid Hstruct HnoDupKern HmaxNb HPDTIfPDFlag HlebNextMax (*HnewIsKS*) HlookupNext
+intros Hnull HnextValid Hstruct HnoDupKern HmaxNb HPDTIfPDFlag HnoDupTree HlebNextMax (*HnewIsKS*) HlookupNext
   HkernList.
 revert n partition pdentry.
 set (s := {|
             currentPartition := currentPartition s0;
-            memory := _ |}). induction n; intros partition pdentry HlookupPart; simpl; try(reflexivity).
+            memory := _ |}). induction n; intros partition pdentry HlookupPart HpartIsPart; simpl; try(reflexivity).
 f_equal. assert(HChildrenEq: (getChildren partition s) = (getChildren partition s0)).
 {
   apply getChildrenEqPADDR with pdentry; trivial.
@@ -4322,12 +4374,16 @@ f_equal. assert(HChildrenEq: (getChildren partition s) = (getChildren partition 
 rewrite HChildrenEq. rewrite flat_map_concat_map. rewrite flat_map_concat_map. f_equal. clear HChildrenEq.
 assert(HchildrenArePDT : forall child, In child (getChildren partition s0) -> isPDT child s0).
 { intros. apply childrenArePDT with partition; assumption. }
+assert(HchildrenAreParts: forall child, In child (getChildren partition s0)
+  -> In child (getPartitions multiplexer s0)).
+{ intros. apply childrenPartitionInPartitionList with partition ; intuition. }
 induction (getChildren partition s0); simpl; f_equal.
 - assert(HaIsChild: In a (a::l)) by (simpl; left; reflexivity). specialize(HchildrenArePDT a HaIsChild).
+  specialize(HchildrenAreParts a HaIsChild).
   unfold isPDT in *. destruct (lookup a (memory s0) beqAddr) eqn:HlookupA; try(exfalso; congruence).
   destruct v; try(exfalso; congruence). apply IHn with p; assumption.
 - apply IHl. intros child HchildInL. assert(HchildInLRec: In child (a::l)) by (simpl; right; assumption).
-  apply HchildrenArePDT; assumption.
+  apply HchildrenArePDT; assumption. intros. apply HchildrenAreParts; simpl; auto.
 Qed.
 
 Lemma getPartitionsEqPADDR partition (addr:paddr) newEntry s0:
@@ -4337,11 +4393,13 @@ nullAddrExists s0
 -> noDupListOfKerns s0
 -> maxNbPrepareIsMaxNbKernels s0
 -> PDTIfPDFlag s0
+-> noDupPartitionTree s0
 -> addr + nextoffset <= maxAddr
 (*-> isKS newEntry s0*)
 -> lookup (CPaddr (addr+nextoffset)) (memory s0) beqAddr = Some(PADDR nullAddr)
 -> (forall part kernList, isListOfKernels kernList part s0 -> ~In addr kernList)
 -> isPDT partition s0
+-> In partition (getPartitions multiplexer s0)
 -> getPartitions partition {|
                              currentPartition := currentPartition s0;
                              memory := add (CPaddr (addr+nextoffset)) (PADDR newEntry) (memory s0) beqAddr
@@ -4624,27 +4682,37 @@ lookup currentPart (memory s0) beqAddr = Some(PDT pdentry)
 -> nextKernelIsValid s0
 -> maxNbPrepareIsMaxNbKernels s0
 -> PDTIfPDFlag s0
+-> noDupPartitionTree s0
 -> length (completeListOfKernels (structure pdentry) s0) < maxNbPrepare
 -> (forall block,
     In block (filterOptionPaddr (getKSEntriesInStructAux (maxIdx+1) kernel s0 (CIndex (kernelStructureEntriesNb-1))))
     -> bentryPFlag block false s0)
 -> isPDT partition s0
+-> In partition (getPartitions multiplexer s0)
 -> getPartitionsAux n partition {|
                                   currentPartition := currentPartition s0;
                                   memory := add currentPart (PDT newPDEntry) (memory s0) beqAddr |}
     = getPartitionsAux n partition s0.
 Proof.
-intros HlookupNews0 HnewStruct HkernIsKS HlookupNext Hstruct Hnull HnextValid HmaxPrep HPDTIfPDFlag Hlen
-  HnewBlocksAreNotPres. revert partition. set (s := {| currentPartition := currentPartition s0; memory := _ |}).
-induction n; intros partition HpartIsPDT; simpl; f_equal.
+intros HlookupNews0 HnewStruct HkernIsKS HlookupNext Hstruct Hnull HnextValid HmaxPrep HPDTIfPDFlag HnoDupTree Hlen
+  HnewBlocksAreNotPres. revert partition.
+set (s := {| currentPartition := currentPartition s0; memory := _ |}).
+induction n; intros partition HpartIsPDT HpartIsPart; simpl; f_equal.
 assert(HgetChildrenEq: (getChildren partition s) = (getChildren partition s0)).
 { apply getChildrenEqPDTNewEmptyStruct with pdentry kernel; trivial. }
 rewrite HgetChildrenEq. rewrite flat_map_concat_map. rewrite flat_map_concat_map. f_equal. clear HgetChildrenEq.
 assert(HchildrenArePDT : forall child, In child (getChildren partition s0) -> isPDT child s0).
 { intros. apply childrenArePDT with partition ; intuition. }
+assert(HchildrenAreParts: forall child, In child (getChildren partition s0)
+  -> In child (getPartitions multiplexer s0)).
+{ intros. apply childrenPartitionInPartitionList with partition ; intuition. }
 induction (getChildren partition s0); simpl; trivial. f_equal.
-- apply IHn. apply HchildrenArePDT. simpl. left. reflexivity.
-- apply IHl. intros child HchildInList. apply HchildrenArePDT. simpl. right. assumption.
+- apply IHn.
+  + apply HchildrenArePDT; simpl; auto.
+  + apply HchildrenAreParts; simpl; auto.
+- apply IHl.
+  + intros child HchildInList. apply HchildrenArePDT; simpl; auto.
+  + intros child HchildInList. apply HchildrenAreParts; simpl; auto.
 Qed.
 
 Lemma getPartitionsEqPDTNewEmptyStruct partition currentPart pdentry newPDEntry kernel s0 :
@@ -4657,17 +4725,19 @@ lookup currentPart (memory s0) beqAddr = Some(PDT pdentry)
 -> nextKernelIsValid s0
 -> maxNbPrepareIsMaxNbKernels s0
 -> PDTIfPDFlag s0
+-> noDupPartitionTree s0
 -> length (completeListOfKernels (structure pdentry) s0) < maxNbPrepare
 -> (forall block,
     In block (filterOptionPaddr (getKSEntriesInStructAux (maxIdx+1) kernel s0 (CIndex (kernelStructureEntriesNb-1))))
     -> bentryPFlag block false s0)
 -> isPDT partition s0
+-> In partition (getPartitions multiplexer s0)
 -> getPartitions partition {|
                              currentPartition := currentPartition s0;
                              memory := add currentPart (PDT newPDEntry) (memory s0) beqAddr |}
   = getPartitions partition s0.
 Proof.
-unfold getPartitions. apply getPartitionsAuxEqPDTNewEmptyStruct.
+unfold getPartitions at 2. apply getPartitionsAuxEqPDTNewEmptyStruct.
 Qed.
 
 Lemma completeListOfKernelsAuxEqBE n kernel block newBEntry s0:

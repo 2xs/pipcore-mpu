@@ -36,7 +36,7 @@ Require Import Model.ADT Model.Lib Model.MAL Model.Monad.
 
 Require Import Proof.StateLib Proof.Isolation Proof.Consistency Proof.DependentTypeLemmas Proof.InternalLemmas.
 
-From Stdlib Require Import List.
+From Stdlib Require Import List Lia.
 
 Definition MapMPUPropagatedProperties
 globalIdPD blockToEnableAddr
@@ -98,7 +98,9 @@ globalIdPD <> nullAddr
       isPDT partition s1 -> getConfigPaddr partition s = getConfigPaddr partition s1) /\
      (forall partition : paddr,
       partition <> globalIdPD ->
-      isPDT partition s1 -> getPartitions partition s = getPartitions partition s1) /\
+      isPDT partition s1
+      -> In partition (getPartitions multiplexer s1)
+      -> getPartitions partition s = getPartitions partition s1) /\
      (forall partition : paddr,
       partition <> globalIdPD ->
       isPDT partition s1 -> getChildren partition s = getChildren partition s1) /\
@@ -143,7 +145,8 @@ globalIdPD <> nullAddr
          MPU := addElementAt MPURegionNb blockToEnableAddr (MPU entry1) nullAddr;
          vidtAddr := vidtAddr entry1
        |} /\ pdentryNbFreeSlots globalIdPD (nbfreeslots entry1) s)
-/\ (~ is_true is_mapped -> s = s1).
+/\ (~ is_true is_mapped -> s = s1)
+/\ In globalIdPD (getPartitions multiplexer s0).
 
 Lemma MapMPUVS
 globalIdPD blockToEnableAddr
@@ -168,7 +171,7 @@ intro hyps. unfold MapMPUPropagatedProperties in *.
 (* reconstuct hypotheses *)
 destruct hyps as [HglobNotNull (HPIs0 & (HKIs0 & (HVSs0 & (Hconsts0 & (HPDTs0 & (Hlookups0 &
 (Hlinks0s1 & (HPDTs1 & (Hconsts1 & (Hlookups1 & (HPDTs & (Hconsts & (HgetKSEqs & (HhelpConsts &
-(HisPDTEq & (Hlinks1sIfMapped & Hlinks1sIfNotMapped))))))))))))))))].
+(HisPDTEq & (Hlinks1sIfMapped & Hlinks1sIfNotMapped & HglobIsPart))))))))))))))))].
 destruct HhelpConsts as [HmultiPDT (HgetKSEq & (HgetMappedPaddrEq & (HgetConfigEq & (HgetPartitionsEq &
                           (HgetChildrenEq & (HgetMappedBlocksEq & (HgetAccMappedBlocksEq &
                                                                   HgetAccMappedPaddrEq)))))))].
@@ -197,7 +200,9 @@ assert(HparentEq : getPartitions multiplexer s = getPartitions multiplexer s0).
         assert(Htrue: is_true true) by intuition.
         apply Hlinks1sIfMapped in Htrue.
         destruct Htrue as [pdentry (Hs & (Hlookups & (Hpdentry & HnbFreeSlots)))].
-        rewrite Hs. apply getPartitionsEqPDT with entry1; intuition.
+        rewrite Hs. apply getPartitionsEqPDT with entry1; trivial.
+        * unfold consistency in *; unfold consistency1 in *; intuition.
+        * subst globalIdPD. unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
       + (* is_mapped = false *)
         assert(Htrue: ~ is_true false) by (unfold is_true; intro Hcontra; congruence).
         apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
@@ -205,19 +210,24 @@ assert(HparentEq : getPartitions multiplexer s = getPartitions multiplexer s0).
       rewrite <-DependentTypeLemmas.beqAddrFalse in HbeqMultiGlob.
       apply HgetPartitionsEq. assumption.
       assert(HmultiPDTEq: isPDT multiplexer s = isPDT multiplexer s1) by intuition.
-      rewrite <-HmultiPDTEq. assumption.
+      rewrite <-HmultiPDTEq; trivial.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
   rewrite HparentEq. destruct Hlinks0s1 as [Heqs0s1 | Hlinks0s1]; try(subst; intuition).
   destruct Hlinks0s1 as [MPURegionNb0 Hs1]. rewrite Hs1.
   apply getPartitionsEqPDT with entry0; intuition.
+  - unfold consistency in *; unfold consistency1 in *; intuition.
+  - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
 rewrite HparentEq in *.
 
-assert(HPartitionsEqs1s0: forall partition, getPartitions partition s1 = getPartitions partition s0).
+assert(HPartitionsEqs1s0: getPartitions multiplexer s1 = getPartitions multiplexer s0).
 {
   destruct Hlinks0s1 as [Heqs0s1 | Hlinks0s1]; try(subst; intuition).
   destruct Hlinks0s1 as [MPURegionNb0 Hs1]. rewrite Hs1.
   apply getPartitionsEqPDT with entry0; intuition.
+  - unfold consistency in *; unfold consistency1 in *; intuition.
+  - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
 
 assert(HChildrenEqs1s0: forall partition, getChildren partition s1 = getChildren partition s0).
@@ -276,8 +286,9 @@ assert(HusedPaddrGlobEq: getUsedPaddr globalIdPD s = getUsedPaddr globalIdPD s0)
 
 assert(HPDTParents1: isPDT parent s1).
 {
-  eapply partitionsArePDT; try(assumption). specialize(HPartitionsEqs1s0 multiplexer).
-  rewrite HPartitionsEqs1s0. assumption.
+  eapply partitionsArePDT; trivial.
+  - unfold consistency in *; unfold consistency1 in *; intuition.
+  - rewrite HPartitionsEqs1s0. assumption.
 }
 destruct (beqAddr child globalIdPD) eqn:HbeqChildGlob.
 - (* child = globalIdPD *)
@@ -347,9 +358,10 @@ destruct (beqAddr child globalIdPD) eqn:HbeqChildGlob.
     rewrite HmappedPaddrGlobEq in *.
     assert(HPDTChilds1: isPDT child s1).
     {
-      apply childrenArePDT with globalIdPD; try(assumption).
-      assert(HChildrenEq: getChildren globalIdPD s1 = getChildren globalIdPD s0) by apply HChildrenEqs1s0.
-      rewrite HChildrenEq. assumption.
+      apply childrenArePDT with globalIdPD; trivial.
+      - rewrite HPartitionsEqs1s0. assumption.
+      - assert(HChildrenEq: getChildren globalIdPD s1 = getChildren globalIdPD s0) by apply HChildrenEqs1s0.
+        rewrite HChildrenEq. assumption.
     }
     assert(HPDTChilds0: isPDT child s0) by (apply childrenArePDT with globalIdPD; try(assumption)).
     assert(HusedPaddrChildEq: getUsedPaddr child s = getUsedPaddr child s0).
@@ -399,9 +411,10 @@ destruct (beqAddr child globalIdPD) eqn:HbeqChildGlob.
     rewrite HmappedPaddrParentEq in *.
     assert(HPDTChilds1: isPDT child s1).
     {
-      apply childrenArePDT with parent; try(assumption).
-      assert(HChildrenParentEq: getChildren parent s1 = getChildren parent s0) by apply HChildrenEqs1s0.
-      rewrite HChildrenParentEq. assumption.
+      apply childrenArePDT with parent; trivial.
+      - rewrite HPartitionsEqs1s0. assumption.
+      - assert(HChildrenParentEq: getChildren parent s1 = getChildren parent s0) by apply HChildrenEqs1s0.
+        rewrite HChildrenParentEq. assumption.
     }
     assert(HPDTChilds0: isPDT child s0) by (apply childrenArePDT with parent; try(assumption)).
     assert(HusedPaddrChildEq: getUsedPaddr child s = getUsedPaddr child s0).
@@ -457,7 +470,7 @@ intro hyps. unfold MapMPUPropagatedProperties in *.
 (* reconstuct hypotheses *)
 destruct hyps as [HglobNotNull (HPIs0 & (HKIs0 & (HVSs0 & (Hconsts0 & (HPDTs0 & (Hlookups0 &
 (Hlinks0s1 & (HPDTs1 & (Hconsts1 & (Hlookups1 & (HPDTs & (Hconsts & (HgetKSEqs & (HhelpConsts &
-(HisPDTEq & (Hlinks1sIfMapped & Hlinks1sIfNotMapped))))))))))))))))].
+(HisPDTEq & (Hlinks1sIfMapped & Hlinks1sIfNotMapped & HglobIsPart))))))))))))))))].
 destruct HhelpConsts as [HmultiPDT (HgetKSEq & (HgetMappedPaddrEq & (HgetConfigEq & (HgetPartitionsEq &
                           (HgetChildrenEq & (HgetMappedBlocksEq & (HgetAccMappedBlocksEq &
                                                                   HgetAccMappedPaddrEq)))))))].
@@ -484,7 +497,9 @@ assert(HparentEqs1 : getPartitions multiplexer s = getPartitions multiplexer s1)
       assert(Htrue: is_true true) by intuition.
       apply Hlinks1sIfMapped in Htrue.
       destruct Htrue as [pdentry (Hs & (Hlookups & (Hpdentry & HnbFreeSlots)))].
-      rewrite Hs. apply getPartitionsEqPDT with entry1; intuition.
+      rewrite Hs. apply getPartitionsEqPDT with entry1; trivial.
+      * unfold consistency in *; unfold consistency1 in *; intuition.
+      * subst globalIdPD. unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     + (* is_mapped = false *)
       assert(Htrue: ~ is_true false) by (unfold is_true; intro Hcontra; congruence).
       apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
@@ -492,7 +507,8 @@ assert(HparentEqs1 : getPartitions multiplexer s = getPartitions multiplexer s1)
     rewrite <-DependentTypeLemmas.beqAddrFalse in HbeqMultiGlob.
     apply HgetPartitionsEq. assumption.
     assert(HmultiPDTEq: isPDT multiplexer s = isPDT multiplexer s1) by intuition.
-    rewrite <-HmultiPDTEq. assumption.
+    rewrite <-HmultiPDTEq; trivial.
+    unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
 assert(HaccessPaddrEq: getAccessibleMappedPaddr globalIdPD s = getAccessibleMappedPaddr globalIdPD s0).
 {
@@ -539,6 +555,8 @@ assert(HparentEq : getPartitions multiplexer s = getPartitions multiplexer s0).
   rewrite HparentEqs1. destruct Hlinks0s1 as [Heqs0s1 | Hlinks0s1]; try(subst; intuition).
   destruct Hlinks0s1 as [MPURegionNb0 Hs1]. rewrite Hs1.
   apply getPartitionsEqPDT with entry0; intuition.
+  - unfold consistency in *; unfold consistency1 in *; intuition.
+  - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
 rewrite HparentEq in *.
 
@@ -556,9 +574,13 @@ destruct (beqAddr part1 globalIdPD) eqn:HbeqPart1Glob.
   + (* part2 <> globalIdPD *)
     rewrite <- DependentTypeLemmas.beqAddrFalse in HbeqPart2Glob.
 		specialize (HKIs0 globalIdPD part2 Hpart1PartTree Hpart2PartTree).
-		assert(HPDTpart2s0 : isPDT part2 s0) by (eapply partitionsArePDT ; intuition).
-		assert(HPDTpart2s1 : isPDT part2 s1)
-            by (eapply partitionsArePDT; try(assumption); rewrite <-HparentEqs1; assumption).
+		assert(HPDTpart2s0 : isPDT part2 s0).
+    { apply partitionsArePDT ; trivial. unfold consistency in *; unfold consistency1 in *; intuition. }
+		assert(HPDTpart2s1 : isPDT part2 s1).
+    {
+      apply partitionsArePDT; trivial. unfold consistency in *; unfold consistency1 in *; intuition.
+      rewrite <-HparentEqs1; assumption.
+    }
 		assert(HconfigPart2Eq: getConfigPaddr part2 s = getConfigPaddr part2 s0).
     {
       assert(HconfigPart2Eq: getConfigPaddr part2 s = getConfigPaddr part2 s1) by (apply HgetConfigEq; intuition).
@@ -574,9 +596,14 @@ destruct (beqAddr part1 globalIdPD) eqn:HbeqPart1Glob.
     rewrite <- DependentTypeLemmas.beqAddrTrue in HbeqPart2Glob.
 	  rewrite HbeqPart2Glob in *.
 		specialize (HKIs0 part1 globalIdPD Hpart1PartTree Hpart2PartTree).
-		assert(HPDTpart1s0 : isPDT part1 s0) by (eapply partitionsArePDT ; intuition).
-		assert(HPDTpart1s1 : isPDT part1 s1)
-            by (eapply partitionsArePDT; try(assumption); rewrite <-HparentEqs1; assumption).
+		assert(HPDTpart1s0 : isPDT part1 s0).
+    { apply partitionsArePDT; trivial. unfold consistency in *; unfold consistency1 in *; intuition. }
+		assert(HPDTpart1s1 : isPDT part1 s1).
+    {
+      apply partitionsArePDT; trivial.
+      - unfold consistency in *; unfold consistency1 in *; intuition.
+      - rewrite <-HparentEqs1; assumption.
+    }
     rewrite HconfigPaddrEq.
     assert(HaccessPaddrPart1Eq: getAccessibleMappedPaddr part1 s = getAccessibleMappedPaddr part1 s0).
     {
@@ -590,12 +617,22 @@ destruct (beqAddr part1 globalIdPD) eqn:HbeqPart1Glob.
   + (* part2 <> globalIdPD *)
     rewrite <- DependentTypeLemmas.beqAddrFalse in HbeqPart2Glob.
 		specialize (HKIs0 part1 part2 Hpart1PartTree Hpart2PartTree).
-		assert(HPDTpart1s0 : isPDT part1 s0) by (eapply partitionsArePDT ; intuition).
-		assert(HPDTpart1s1 : isPDT part1 s1)
-            by (eapply partitionsArePDT; try(assumption); rewrite <-HparentEqs1; assumption).
-		assert(HPDTpart2s0 : isPDT part2 s0) by (eapply partitionsArePDT ; intuition).
-		assert(HPDTpart2s1 : isPDT part2 s1)
-            by (eapply partitionsArePDT; try(assumption); rewrite <-HparentEqs1; assumption).
+		assert(HPDTpart1s0 : isPDT part1 s0).
+    { apply partitionsArePDT; trivial. unfold consistency in *; unfold consistency1 in *; intuition. }
+		assert(HPDTpart1s1 : isPDT part1 s1).
+    {
+      apply partitionsArePDT; trivial.
+      - unfold consistency in *; unfold consistency1 in *; intuition.
+      - rewrite <-HparentEqs1. assumption.
+    }
+		assert(HPDTpart2s0 : isPDT part2 s0).
+    { apply partitionsArePDT; trivial. unfold consistency in *; unfold consistency1 in *; intuition. }
+		assert(HPDTpart2s1 : isPDT part2 s1).
+    {
+      eapply partitionsArePDT; trivial.
+      - unfold consistency in *; unfold consistency1 in *; intuition.
+      - rewrite <-HparentEqs1; assumption.
+    }
     (* DUP *)
     assert(HaccessPaddrPart1Eq: getAccessibleMappedPaddr part1 s = getAccessibleMappedPaddr part1 s0).
     {
@@ -661,8 +698,10 @@ unfold partitionsIsolation in *.
 intros parent child1 child2 HparentPartTree Hchild1IsChild Hchild2IsChild Hchild1child2NotEq.
 
 assert(HPDTparents : isPDT parent s) by (eapply partitionsArePDT; intuition).
-assert(HPDTchild1s : isPDT child1 s) by (eapply childrenArePDT; try(assumption); apply Hchild1IsChild).
-assert(HPDTchild2s : isPDT child2 s) by (eapply childrenArePDT; try(assumption); apply Hchild2IsChild).
+assert(HPDTchild1s : isPDT child1 s).
+{ eapply childrenArePDT with parent; trivial. }
+assert(HPDTchild2s : isPDT child2 s).
+{ eapply childrenArePDT with parent; trivial. }
 assert(HparentEqs1 : getPartitions multiplexer s = getPartitions multiplexer s1).
 {
   destruct (beqAddr multiplexer globalIdPD) eqn:HbeqMultiGlob.
@@ -673,7 +712,9 @@ assert(HparentEqs1 : getPartitions multiplexer s = getPartitions multiplexer s1)
       assert(Htrue: is_true true) by intuition.
       apply Hlinks1sIfMapped in Htrue.
       destruct Htrue as [pdentry (Hs & (Hlookups & (Hpdentry & HnbFreeSlots)))].
-      rewrite Hs. apply getPartitionsEqPDT with entry1; intuition.
+      rewrite Hs. apply getPartitionsEqPDT with entry1; trivial.
+      * unfold consistency in *; unfold consistency1 in *; intuition.
+      * unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     + (* is_mapped = false *)
       assert(Htrue: ~ is_true false) by (unfold is_true; intro Hcontra; congruence).
       apply Hlinks1sIfNotMapped in Htrue. subst s. reflexivity.
@@ -681,13 +722,16 @@ assert(HparentEqs1 : getPartitions multiplexer s = getPartitions multiplexer s1)
     rewrite <-DependentTypeLemmas.beqAddrFalse in HbeqMultiGlob.
     apply HgetPartitionsEq. assumption.
     assert(HmultiPDTEq: isPDT multiplexer s = isPDT multiplexer s1) by intuition.
-    rewrite <-HmultiPDTEq. assumption.
+    rewrite <-HmultiPDTEq; trivial.
+    unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
 assert(HparentEq : getPartitions multiplexer s = getPartitions multiplexer s0).
 {
   rewrite HparentEqs1. destruct Hlinks0s1 as [Heqs0s1 | Hlinks0s1]; try(subst; intuition).
   destruct Hlinks0s1 as [MPURegionNb0 Hs1]. rewrite Hs1.
   apply getPartitionsEqPDT with entry0; intuition.
+  - unfold consistency in *; unfold consistency1 in *; intuition.
+  - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
 rewrite HparentEq in *.
 assert(HChildrenEqs1s0: forall partition, getChildren partition s1 = getChildren partition s0).
@@ -763,8 +807,12 @@ assert(HusedPaddrGlobEq: getUsedPaddr globalIdPD s = getUsedPaddr globalIdPD s0)
 destruct (beqAddr child1 globalIdPD) eqn:HbeqChild1Glob.
 - (* child1 = globalIdPD *)
   rewrite <- DependentTypeLemmas.beqAddrTrue in HbeqChild1Glob. rewrite HbeqChild1Glob in *.
-		assert(HPDTpart1s1 : isPDT parent s1)
-            by (eapply partitionsArePDT; try(assumption); rewrite <-HparentEqs1; assumption).
+	assert(HPDTpart1s1 : isPDT parent s1).
+  {
+    apply partitionsArePDT; trivial.
+    - unfold consistency in *; unfold consistency1 in *; intuition.
+    - rewrite <-HparentEqs1; assumption.
+  }
 	assert(HglobalChildNotEq : parent <> globalIdPD).
 	{ eapply childparentNotEq with s ; try (rewrite HparentEq in *) ; intuition. }
   assert(HChildrenEq: getChildren parent s = getChildren parent s0).
@@ -775,9 +823,10 @@ destruct (beqAddr child1 globalIdPD) eqn:HbeqChild1Glob.
   rewrite HChildrenEq in *.
   assert(HPDTChilds1: isPDT child2 s1).
   {
-    apply childrenArePDT with parent; try(assumption).
-    assert(HChildrenParentEq: getChildren parent s1 = getChildren parent s0) by apply HChildrenEqs1s0.
-    rewrite HChildrenParentEq. assumption.
+    apply childrenArePDT with parent; trivial.
+    - rewrite <-HparentEqs1. assumption.
+    - assert(HChildrenParentEq: getChildren parent s1 = getChildren parent s0) by apply HChildrenEqs1s0.
+      rewrite HChildrenParentEq. assumption.
   }
   assert(HPDTChilds0: isPDT child2 s0) by (apply childrenArePDT with parent; try(assumption)).
 
@@ -815,8 +864,12 @@ destruct (beqAddr child1 globalIdPD) eqn:HbeqChild1Glob.
   destruct (beqAddr child2 globalIdPD) eqn:HbeqChild2Glob.
   + (* child2 = globalIdPD *)
     rewrite <- DependentTypeLemmas.beqAddrTrue in HbeqChild2Glob. rewrite HbeqChild2Glob in *.
-	  assert(HPDTpart1s1 : isPDT parent s1)
-            by (eapply partitionsArePDT; try(assumption); rewrite <-HparentEqs1; assumption).
+	  assert(HPDTpart1s1 : isPDT parent s1).
+    {
+      apply partitionsArePDT; trivial.
+      - unfold consistency in *; unfold consistency1 in *; intuition.
+      - rewrite <-HparentEqs1; assumption.
+    }
 	  assert(HglobalChildNotEq : parent <> globalIdPD).
 	  { eapply childparentNotEq with s ; try (rewrite HparentEq in *) ; intuition. }
     assert(HChildrenEq: getChildren parent s = getChildren parent s0).
@@ -827,9 +880,10 @@ destruct (beqAddr child1 globalIdPD) eqn:HbeqChild1Glob.
     rewrite HChildrenEq in *.
     assert(HPDTChilds1: isPDT child1 s1).
     {
-      apply childrenArePDT with parent; try(assumption).
-      assert(HChildrenParentEq: getChildren parent s1 = getChildren parent s0) by apply HChildrenEqs1s0.
-      rewrite HChildrenParentEq. assumption.
+      apply childrenArePDT with parent; trivial.
+      - rewrite <-HparentEqs1. assumption.
+      - assert(HChildrenParentEq: getChildren parent s1 = getChildren parent s0) by apply HChildrenEqs1s0.
+        rewrite HChildrenParentEq. assumption.
     }
     assert(HPDTChilds0: isPDT child1 s0) by (apply childrenArePDT with parent; try(assumption)).
 
@@ -874,18 +928,20 @@ destruct (beqAddr child1 globalIdPD) eqn:HbeqChild1Glob.
       rewrite HpdChildrenEq in *.
       assert(HPDTChilds1: isPDT child1 s1).
       {
-        apply childrenArePDT with globalIdPD; try(assumption).
-        assert(HChildrenParentEq: getChildren globalIdPD s1 = getChildren globalIdPD s0) by apply HChildrenEqs1s0.
-        assert(H: getChildren globalIdPD s1 = getChildren globalIdPD s0) by (apply HChildrenEqs1s0).
-        rewrite H. assumption.
+        apply childrenArePDT with globalIdPD; trivial.
+        - rewrite <-HparentEqs1. assumption.
+        - assert(HChildrenParentEq: getChildren globalIdPD s1 = getChildren globalIdPD s0) by apply HChildrenEqs1s0.
+          assert(H: getChildren globalIdPD s1 = getChildren globalIdPD s0) by (apply HChildrenEqs1s0).
+          rewrite H. assumption.
       }
       assert(HPDTChilds0: isPDT child1 s0) by (apply childrenArePDT with globalIdPD; try(assumption)).
       assert(HPDTChild2s1: isPDT child2 s1).
       {
-        apply childrenArePDT with globalIdPD; try(assumption).
-        assert(HChildrenParentEq: getChildren globalIdPD s1 = getChildren globalIdPD s0) by apply HChildrenEqs1s0.
-        assert(H: getChildren globalIdPD s1 = getChildren globalIdPD s0) by (apply HChildrenEqs1s0).
-        rewrite H. assumption.
+        apply childrenArePDT with globalIdPD; trivial.
+        - rewrite <-HparentEqs1. assumption.
+        - assert(HChildrenParentEq: getChildren globalIdPD s1 = getChildren globalIdPD s0) by apply HChildrenEqs1s0.
+          assert(H: getChildren globalIdPD s1 = getChildren globalIdPD s0) by (apply HChildrenEqs1s0).
+          rewrite H. assumption.
       }
       assert(HPDTChild2s0: isPDT child2 s0) by (apply childrenArePDT with globalIdPD; try(assumption)).
 
@@ -947,8 +1003,12 @@ destruct (beqAddr child1 globalIdPD) eqn:HbeqChild1Glob.
       rewrite HusedPaddrChild2Eq. assumption.
     * (* parent <> globalIdPD *)
       rewrite <- DependentTypeLemmas.beqAddrFalse in HbeqParentGlob.
-		  assert(HPDTpart1s1 : isPDT parent s1)
-              by (eapply partitionsArePDT; try(assumption); rewrite <-HparentEqs1; assumption).
+		  assert(HPDTpart1s1: isPDT parent s1).
+      {
+        apply partitionsArePDT; trivial.
+        - unfold consistency in *; unfold consistency1 in *; intuition.
+        - rewrite <-HparentEqs1; assumption.
+      }
       assert(HChildrenParentEq: getChildren parent s = getChildren parent s0).
       {
         assert(HChildrenParentEq: getChildren parent s = getChildren parent s1)
@@ -958,16 +1018,18 @@ destruct (beqAddr child1 globalIdPD) eqn:HbeqChild1Glob.
       rewrite HChildrenParentEq in *.
       assert(HPDTChilds1: isPDT child1 s1).
       {
-        apply childrenArePDT with parent; try(assumption).
-        assert(H: getChildren parent s1 = getChildren parent s0) by (apply HChildrenEqs1s0).
-        rewrite H. assumption.
+        apply childrenArePDT with parent; trivial.
+        - rewrite <-HparentEqs1; assumption.
+        - assert(H: getChildren parent s1 = getChildren parent s0) by (apply HChildrenEqs1s0).
+          rewrite H. assumption.
       }
       assert(HPDTChilds0: isPDT child1 s0) by (apply childrenArePDT with parent; try(assumption)).
       assert(HPDTChild2s1: isPDT child2 s1).
       {
-        apply childrenArePDT with parent; try(assumption).
-        assert(H: getChildren parent s1 = getChildren parent s0) by (apply HChildrenEqs1s0).
-        rewrite H. assumption.
+        apply childrenArePDT with parent; trivial.
+        - rewrite <-HparentEqs1; assumption.
+        - assert(H: getChildren parent s1 = getChildren parent s0) by (apply HChildrenEqs1s0).
+          rewrite H. assumption.
       }
       assert(HPDTChild2s0: isPDT child2 s0) by (apply childrenArePDT with parent; try(assumption)).
 

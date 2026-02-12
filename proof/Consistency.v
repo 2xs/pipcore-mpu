@@ -67,8 +67,10 @@ bentryEndAddr block endaddr s ->
 (** **  If the PDflag of a Shadow 1 entry is set, then
     the linked block in the Blocks structure hosts a PD structure. **)
 Definition PDTIfPDFlag s :=
-forall idPDchild sh1entryaddr,
-true = StateLib.checkChild idPDchild s sh1entryaddr /\
+forall idPDchild sh1entryaddr part,
+In part (getPartitions multiplexer s)
+-> In idPDchild (getMappedBlocks part s)
+-> true = StateLib.checkChild idPDchild s sh1entryaddr /\
 sh1entryAddr idPDchild sh1entryaddr s ->
 bentryAFlag idPDchild false s /\
 bentryPFlag idPDchild true s /\

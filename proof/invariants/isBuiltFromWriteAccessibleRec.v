@@ -2413,8 +2413,12 @@ destruct (beqAddr pdAddr sh1entryaddr) eqn:HbeqParentSh1.
 rewrite <-beqAddrFalse in HbeqParentSh1. rewrite removeDupIdentity; intuition.
 Qed.
 
-Lemma  PDTIfPDFlagPreservedIsBuiltFalse s s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry newMPU:
+Lemma PDTIfPDFlagPreservedIsBuiltFalse s s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry newMPU:
 PDTIfPDFlag s0
+-> multiplexerIsPDT s0
+-> wellFormedFstShadowIfBlockEntry s0
+-> StructurePointerIsKS s0
+-> noDupPartitionTree s0
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
 -> (s = s1
@@ -2446,11 +2450,40 @@ PDTIfPDFlag s0
       |}
 -> PDTIfPDFlag s.
 Proof.
-intros HPDTIfPDFlag HlookupPdAddr HlookupBlock HpropsOr Hs1.
+intros HPDTIfPDFlag HmultIsPDT HwellFormed Hstruct HnoDupTree HlookupPdAddr HlookupBlock HpropsOr Hs1.
 assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
+assert(HgetPartEq: getPartitions multiplexer s1 = getPartitions multiplexer s0).
+{
+  rewrite Hs1. unfold multiplexerIsPDT in HmultIsPDT.
+  apply getPartitionsEqBEPDflagNoChangePresentNoChangeStartNoChange
+       with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
+     try(assumption);
+     try(unfold CBlockEntry;
+         destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia);
+         simpl; reflexivity).
+  - unfold sh1entryAddr. rewrite HlookupBlock. reflexivity.
+  - simpl. destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset)))
+          eqn:HbeqBlockBlockSh1.
+    {
+      assert(HblockIsBE: isBE blockInParentPartitionAddr s0) by (unfold isBE; rewrite HlookupBlock; trivial).
+      specialize(HwellFormed blockInParentPartitionAddr HblockIsBE).
+      rewrite <-DTL.beqAddrTrue in HbeqBlockBlockSh1. rewrite <-HbeqBlockBlockSh1 in *.
+      unfold isSHE in HwellFormed. rewrite HlookupBlock in HwellFormed. exfalso; congruence.
+    }
+    rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+  - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+}
+assert(HgetMappedEqs1: forall partition, getMappedBlocks partition s1 = getMappedBlocks partition s0).
+{
+  intro partition. rewrite Hs1.
+  apply getMappedBlocksEqBENoChange with bentry; try(assumption);
+        try(unfold CBlockEntry;
+            destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia);
+            simpl; reflexivity).
+}
 assert(HPDTIfPDFlags1: PDTIfPDFlag s1).
 {
-  unfold PDTIfPDFlag in *. intros idPDchild sh1entryaddr HcheckChild.
+  unfold PDTIfPDFlag in *. intros idPDchild sh1entryaddr part HpartIsPart HblockMapped HcheckChild.
   assert(HcheckChilds0: true = checkChild idPDchild s0 sh1entryaddr
                         /\ sh1entryAddr idPDchild sh1entryaddr s0).
   {
@@ -2469,7 +2502,8 @@ assert(HPDTIfPDFlags1: PDTIfPDFlag s1).
             try(exfalso; congruence).
       rewrite <-beqAddrFalse in HbeqBlockSh1. rewrite removeDupIdentity in HcheckChild; intuition.
   }
-  specialize(HPDTIfPDFlag idPDchild sh1entryaddr HcheckChilds0).
+  rewrite HgetPartEq in *. rewrite HgetMappedEqs1 in *.
+  specialize(HPDTIfPDFlag idPDchild sh1entryaddr part HpartIsPart HblockMapped HcheckChilds0).
   destruct HPDTIfPDFlag as (HAFlag & HPFlag & [startaddr (Hstart & Hentry)]). unfold bentryAFlag in *.
   unfold bentryPFlag in *. unfold bentryStartAddr in *. unfold entryPDT in *.
   rewrite Hs1. simpl.
@@ -2508,7 +2542,23 @@ assert(HlookupPdAddrs1: lookup pdAddr (memory s1) beqAddr = Some (PDT pdentry1))
 }
 destruct HpropsOr as [Hss1Eq | Hs].
 - subst s. assumption.
-- unfold PDTIfPDFlag in *. intros idPDchild sh1entryaddr HcheckChild.
+- unfold PDTIfPDFlag in *. intros idPDchild sh1entryaddr part HpartIsPart HblockMapped HcheckChild.
+  assert(StructurePointerIsKS s1).
+  {
+    apply StructurePointerIsKSPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
+        newMPU false; intuition.
+  }
+  assert(HgetPartEqs: getPartitions multiplexer s = getPartitions multiplexer s1).
+  {
+    rewrite Hs. apply getPartitionsEqPDT with pdentry1; trivial.
+    * unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+    * unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+  }
+  assert(HgetMappedEq: forall partition, getMappedBlocks partition s = getMappedBlocks partition s1).
+  {
+    intro partition. rewrite Hs. apply getMappedBlocksEqPDT with pdentry1; try(assumption).
+    simpl. reflexivity.
+  }
   assert(HcheckChilds1: true = checkChild idPDchild s1 sh1entryaddr
                         /\ sh1entryAddr idPDchild sh1entryaddr s1).
   {
@@ -2523,7 +2573,8 @@ destruct HpropsOr as [Hss1Eq | Hs].
     destruct (beqAddr pdAddr sh1entryaddr) eqn:HbeqBlockSh1; try(exfalso; congruence).
     rewrite <-beqAddrFalse in HbeqBlockSh1. rewrite removeDupIdentity in HcheckChild; intuition.
   }
-  specialize(HPDTIfPDFlags1 idPDchild sh1entryaddr HcheckChilds1).
+  rewrite HgetPartEqs in *. rewrite HgetMappedEq in *.
+  specialize(HPDTIfPDFlags1 idPDchild sh1entryaddr part HpartIsPart HblockMapped HcheckChilds1).
   destruct HPDTIfPDFlags1 as (HAFlag & HPFlag & [startaddr (Hstart & Hentry)]). unfold bentryAFlag in *.
   unfold bentryPFlag in *. unfold bentryStartAddr in *. unfold entryPDT in *.
   rewrite Hs. simpl.
@@ -2544,6 +2595,10 @@ Qed.
 Lemma PDTIfPDFlagPreservedIsBuilt s s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry newMPU
 flag:
 PDTIfPDFlag s0
+-> multiplexerIsPDT s0
+-> wellFormedFstShadowIfBlockEntry s0
+-> StructurePointerIsKS s0
+-> noDupPartitionTree s0
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
 -> false = checkChild blockInParentPartitionAddr s0 (CPaddr (blockInParentPartitionAddr + sh1offset))
@@ -2576,11 +2631,41 @@ PDTIfPDFlag s0
       |}
 -> PDTIfPDFlag s.
 Proof.
-intros HPDTIfPDFlag HlookupPdAddr HlookupBlock HPDFlagFalse HpropsOr Hs1.
+intros HPDTIfPDFlag HmultIsPDT HwellFormed Hstruct HnoDupTree HlookupPdAddr HlookupBlock HPDFlagFalse HpropsOr Hs1.
 assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
+assert(HgetPartEq: getPartitions multiplexer s1 = getPartitions multiplexer s0).
+{
+  rewrite Hs1. unfold multiplexerIsPDT in HmultIsPDT.
+  apply getPartitionsEqBEPDflagNoChangePresentNoChangeStartNoChange
+       with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
+     try(assumption);
+     try(unfold CBlockEntry;
+         destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia);
+         simpl; reflexivity).
+  - unfold sh1entryAddr. rewrite HlookupBlock. reflexivity.
+  - simpl. destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset)))
+          eqn:HbeqBlockBlockSh1.
+    {
+      assert(HblockIsBE: isBE blockInParentPartitionAddr s0) by (unfold isBE; rewrite HlookupBlock; trivial).
+      specialize(HwellFormed blockInParentPartitionAddr HblockIsBE).
+      rewrite <-DTL.beqAddrTrue in HbeqBlockBlockSh1. rewrite <-HbeqBlockBlockSh1 in *.
+      unfold isSHE in HwellFormed. rewrite HlookupBlock in HwellFormed. exfalso; congruence.
+    }
+    rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+  - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+}
+assert(HgetMappedEqs1: forall partition, getMappedBlocks partition s1 = getMappedBlocks partition s0).
+{
+  intro partition. rewrite Hs1.
+  apply getMappedBlocksEqBENoChange with bentry; try(assumption);
+        try(unfold CBlockEntry;
+            destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia);
+            simpl; reflexivity).
+}
 assert(HPDTIfPDFlags1: PDTIfPDFlag s1).
 {
-  unfold PDTIfPDFlag in *. intros idPDchild sh1entryaddr HcheckChild.
+  unfold PDTIfPDFlag in *. intros idPDchild sh1entryaddr part HpartIsPart HblockMapped HcheckChild.
+  rewrite HgetPartEq in *. rewrite HgetMappedEqs1 in *.
   assert(HcheckChilds0: true = checkChild idPDchild s0 sh1entryaddr
                         /\ sh1entryAddr idPDchild sh1entryaddr s0).
   {
@@ -2599,7 +2684,7 @@ assert(HPDTIfPDFlags1: PDTIfPDFlag s1).
             try(exfalso; congruence).
       rewrite <-beqAddrFalse in HbeqBlockSh1. rewrite removeDupIdentity in HcheckChild; intuition.
   }
-  specialize(HPDTIfPDFlag idPDchild sh1entryaddr HcheckChilds0).
+  specialize(HPDTIfPDFlag idPDchild sh1entryaddr part HpartIsPart HblockMapped HcheckChilds0).
   destruct HPDTIfPDFlag as (HAFlag & HPFlag & [startaddr (Hstart & Hentry)]). unfold bentryAFlag in *.
   unfold bentryPFlag in *. unfold bentryStartAddr in *. unfold entryPDT in *.
   rewrite Hs1. simpl.
@@ -2631,7 +2716,24 @@ assert(HlookupPdAddrs1: lookup pdAddr (memory s1) beqAddr = Some (PDT pdentry1))
 }
 destruct HpropsOr as [Hss1Eq | Hs].
 - subst s. assumption.
-- unfold PDTIfPDFlag in *. intros idPDchild sh1entryaddr HcheckChild.
+- unfold PDTIfPDFlag in *. intros idPDchild sh1entryaddr part HpartIsPart HblockMapped HcheckChild.
+  assert(StructurePointerIsKS s1).
+  {
+    apply StructurePointerIsKSPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
+        newMPU flag; intuition.
+  }
+  assert(HgetPartEqs: getPartitions multiplexer s = getPartitions multiplexer s1).
+  {
+    rewrite Hs. apply getPartitionsEqPDT with pdentry1; trivial.
+    * unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+    * unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+  }
+  assert(HgetMappedEq: forall partition, getMappedBlocks partition s = getMappedBlocks partition s1).
+  {
+    intro partition. rewrite Hs. apply getMappedBlocksEqPDT with pdentry1; try(assumption).
+    simpl. reflexivity.
+  }
+  rewrite HgetPartEqs in *. rewrite HgetMappedEq in *.
   assert(HcheckChilds1: true = checkChild idPDchild s1 sh1entryaddr
                         /\ sh1entryAddr idPDchild sh1entryaddr s1).
   {
@@ -2646,7 +2748,7 @@ destruct HpropsOr as [Hss1Eq | Hs].
     destruct (beqAddr pdAddr sh1entryaddr) eqn:HbeqBlockSh1; try(exfalso; congruence).
     rewrite <-beqAddrFalse in HbeqBlockSh1. rewrite removeDupIdentity in HcheckChild; intuition.
   }
-  specialize(HPDTIfPDFlags1 idPDchild sh1entryaddr HcheckChilds1).
+  specialize(HPDTIfPDFlags1 idPDchild sh1entryaddr part HpartIsPart HblockMapped HcheckChilds1).
   destruct HPDTIfPDFlags1 as (HAFlag & HPFlag & [startaddr (Hstart & Hentry)]). unfold bentryAFlag in *.
   unfold bentryPFlag in *. unfold bentryStartAddr in *. unfold entryPDT in *.
   rewrite Hs. simpl.
@@ -2753,6 +2855,7 @@ isChild s0
 -> parentOfPartitionIsPartition s0
 -> StructurePointerIsKS s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> false = checkChild blockInParentPartitionAddr s0 (CPaddr (blockInParentPartitionAddr + sh1offset))
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
@@ -2785,7 +2888,7 @@ isChild s0
       |}
 -> isChild s.
 Proof.
-intros HisChild HmultIsPDT HPDTIfPDFlag HwellFormed HparentIsPart Hstruct Hnull HnoPDFlag HlookupPdAddr
+intros HisChild HmultIsPDT HPDTIfPDFlag HwellFormed HparentIsPart Hstruct Hnull HnoDupTree HnoPDFlag HlookupPdAddr
   HlookupBlock HpropsOr Hs1.
 assert(HblockIsBE: isBE blockInParentPartitionAddr s0).
 { unfold isBE. rewrite HlookupBlock. trivial. }
@@ -2808,6 +2911,7 @@ assert(HgetPartEq: getPartitions multiplexer s1 = getPartitions multiplexer s0).
       unfold isSHE in HwellFormed. rewrite HlookupBlock in HwellFormed. exfalso; congruence.
     }
     rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+  - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
 assert(HlookupPdAddrs1: lookup pdAddr (memory s1) beqAddr = Some (PDT pdentry1)).
 {
@@ -2864,13 +2968,13 @@ destruct HpropsOr as [Hss1Eq | Hs].
   unfold isChild in *. intros part parent HpartIsPart HparentIsParent.
   assert(HgetPartEqs: getPartitions multiplexer s = getPartitions multiplexer s1).
   {
-    rewrite Hs. apply getPartitionsEqPDT with pdentry1.
-    * assumption.
-    * simpl. reflexivity.
+    rewrite Hs. apply getPartitionsEqPDT with pdentry1; trivial.
     * apply StructurePointerIsKSPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           newMPU flag; intuition.
     * apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           newMPU flag; intuition.
+    * unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+    * unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
   assert(HpdentryParentEq: pdentryParent part parent s = pdentryParent part parent s1).
   {
@@ -2901,6 +3005,7 @@ isChild s0
 -> parentOfPartitionIsPartition s0
 -> StructurePointerIsKS s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
 -> (s = s1
@@ -2932,7 +3037,7 @@ isChild s0
       |}
 -> isChild s.
 Proof.
-intros HisChild HmultIsPDT HPDTIfPDFlag HwellFormed HparentIsPart Hstruct Hnull HlookupPdAddr
+intros HisChild HmultIsPDT HPDTIfPDFlag HwellFormed HparentIsPart Hstruct Hnull HnoDupTree HlookupPdAddr
   HlookupBlock HpropsOr Hs1.
 assert(HblockIsBE: isBE blockInParentPartitionAddr s0).
 { unfold isBE. rewrite HlookupBlock. trivial. }
@@ -2955,6 +3060,7 @@ assert(HgetPartEq: getPartitions multiplexer s1 = getPartitions multiplexer s0).
       unfold isSHE in HwellFormed. rewrite HlookupBlock in HwellFormed. exfalso; congruence.
     }
     rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+  - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
 assert(HlookupPdAddrs1: lookup pdAddr (memory s1) beqAddr = Some (PDT pdentry1)).
 {
@@ -3011,13 +3117,13 @@ destruct HpropsOr as [Hss1Eq | Hs].
   unfold isChild in *. intros part parent HpartIsPart HparentIsParent.
   assert(HgetPartEqs: getPartitions multiplexer s = getPartitions multiplexer s1).
   {
-    rewrite Hs. apply getPartitionsEqPDT with pdentry1.
-    * assumption.
-    * simpl. reflexivity.
+    rewrite Hs. apply getPartitionsEqPDT with pdentry1; trivial.
     * apply StructurePointerIsKSPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           newMPU false; intuition.
     * apply PDTIfPDFlagPreservedIsBuiltFalse with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           newMPU; intuition.
+    * unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+    * unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
   assert(HpdentryParentEq: pdentryParent part parent s = pdentryParent part parent s1).
   {
@@ -3047,6 +3153,7 @@ parentOfPartitionIsPartition s0
 -> PDTIfPDFlag s0
 -> wellFormedFstShadowIfBlockEntry s0
 -> StructurePointerIsKS s0
+-> noDupPartitionTree s0
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
 -> (s = s1
@@ -3078,7 +3185,7 @@ parentOfPartitionIsPartition s0
       |}
 -> parentOfPartitionIsPartition s.
 Proof.
-intros HparentOfPart HmultPDT HPDTIfPDFlag HwellFormedShadow Hstruct HlookupPdAddr HlookupBlock
+intros HparentOfPart HmultPDT HPDTIfPDFlag HwellFormedShadow Hstruct HnoDupTree HlookupPdAddr HlookupBlock
     HpropsOr Hs1.
 assert(HlookupPdAddrs1: lookup pdAddr (memory s1) beqAddr = Some (PDT pdentry1)).
 {
@@ -3136,6 +3243,7 @@ assert(parentOfPartitionIsPartition s1).
       unfold CBlockEntry. assert(blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
       destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia).
       simpl. reflexivity.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite HgetPartsEq. assumption.
   - split. intro HpartIsRoot. specialize(HparentOfRoot HpartIsRoot). assumption. assumption.
@@ -3163,6 +3271,28 @@ destruct HpropsOr as [Hss1Eq | Hs].
   destruct HlookupPart's1 as [pdentrys1 (HlookupPart's1 & HparentPartEq)].
   specialize(Hcons0 part pdentrys1 HlookupPart's1).
   destruct Hcons0 as [HparentOfParts1 (HparentOfRoot & HparentPartNotEq)].
+  assert(HgetPartEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s0).
+  {
+    rewrite Hs1. unfold multiplexerIsPDT in HmultPDT.
+    assert(blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
+    apply getPartitionsEqBEPDflagNoChangePresentNoChangeStartNoChange
+         with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
+       try(assumption);
+       try(unfold CBlockEntry;
+           destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia);
+           simpl; reflexivity).
+    - unfold sh1entryAddr. rewrite HlookupBlock. reflexivity.
+    - simpl. destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset)))
+            eqn:HbeqBlockBlockSh1.
+      {
+        assert(HblockIsBE: isBE blockInParentPartitionAddr s0) by (unfold isBE; rewrite HlookupBlock; trivial).
+        specialize(HwellFormedShadow blockInParentPartitionAddr HblockIsBE).
+        rewrite <-DTL.beqAddrTrue in HbeqBlockBlockSh1. rewrite <-HbeqBlockBlockSh1 in *.
+        unfold isSHE in HwellFormedShadow. rewrite HlookupBlock in HwellFormedShadow. exfalso; congruence.
+      }
+      rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+    - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+  }
   split.
   - intro Hpart'NotRoot. specialize(HparentOfParts1 Hpart'NotRoot). rewrite Hs. simpl.
     destruct (beqAddr pdAddr (parent pdentry)) eqn:HbeqParentEntryParent.
@@ -3194,12 +3324,13 @@ destruct HpropsOr as [Hss1Eq | Hs].
                                                     |} = getPartitions multiplexer s1).
       {
         rewrite Hs1. rewrite <-HbeqParentEntryParent in *.
-        apply getPartitionsEqPDT with pdentry1; try(rewrite <-Hs1); try(assumption).
-        simpl. reflexivity.
+        apply getPartitionsEqPDT with pdentry1; try(rewrite <-Hs1); trivial.
         apply StructurePointerIsKSPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr
             bentry newMPU false; intuition.
         apply PDTIfPDFlagPreservedIsBuiltFalse with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
             newMPU; intuition.
+        unfold noDupPartitionTree. rewrite HgetPartEqs1. assumption.
+        unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
       }
       rewrite HgetPartsEq. rewrite <-HparentPartEq. intuition.
     * (* pdAddr <> parent pdentry *)
@@ -3227,6 +3358,8 @@ destruct HpropsOr as [Hss1Eq | Hs].
             bentry newMPU false; intuition.
         apply PDTIfPDFlagPreservedIsBuiltFalse with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
             newMPU; intuition.
+        unfold noDupPartitionTree. rewrite HgetPartEqs1. assumption.
+        unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
       }
       rewrite HgetPartsEq. rewrite <-HparentPartEq. assumption.
   - split. intro HpartIsRoot. specialize(HparentOfRoot HpartIsRoot). rewrite HparentPartEq in *.
@@ -3240,6 +3373,7 @@ parentOfPartitionIsPartition s0
 -> PDTIfPDFlag s0
 -> wellFormedFstShadowIfBlockEntry s0
 -> StructurePointerIsKS s0
+-> noDupPartitionTree s0
 -> false = checkChild blockInParentPartitionAddr s0 (CPaddr (blockInParentPartitionAddr + sh1offset))
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
@@ -3272,7 +3406,7 @@ parentOfPartitionIsPartition s0
       |}
 -> parentOfPartitionIsPartition s.
 Proof.
-intros HparentOfPart HmultPDT HPDTIfPDFlag HwellFormedShadow Hstruct HnoPDFlag HlookupPdAddr HlookupBlock
+intros HparentOfPart HmultPDT HPDTIfPDFlag HwellFormedShadow Hstruct HnoDupTree HnoPDFlag HlookupPdAddr HlookupBlock
     HpropsOr Hs1.
 assert(HlookupPdAddrs1: lookup pdAddr (memory s1) beqAddr = Some (PDT pdentry1)).
 {
@@ -3282,6 +3416,19 @@ assert(HlookupPdAddrs1: lookup pdAddr (memory s1) beqAddr = Some (PDT pdentry1))
     rewrite HlookupBlock in HlookupPdAddr. exfalso; congruence.
   }
   rewrite <-beqAddrFalse in HbeqBlockPdAddr. rewrite removeDupIdentity; intuition.
+}
+assert(HgetPartsEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s0).
+{
+  rewrite Hs1.
+  apply getPartitionsEqBEPDflagFalse with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
+      try(unfold multiplexerIsPDT in *; assumption).
+  apply lookupSh1EntryAddr with bentry. assumption.
+  unfold sh1entryPDflag. unfold checkChild in HnoPDFlag. rewrite HlookupBlock in HnoPDFlag.
+  assert(HblockIsBE: isBE blockInParentPartitionAddr s0) by (unfold isBE; rewrite HlookupBlock; trivial).
+  specialize(HwellFormedShadow blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormedShadow.
+  destruct (lookup (CPaddr (blockInParentPartitionAddr + sh1offset)) (memory s0) beqAddr); try(congruence).
+  destruct v; try(congruence).
+  unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
 assert(parentOfPartitionIsPartition s1).
 {
@@ -3308,19 +3455,7 @@ assert(parentOfPartitionIsPartition s1).
     }
     (* blockInParentPartitionAddr <> parent entry *)
     rewrite <-beqAddrFalse in HbeqBlockParent. rewrite removeDupIdentity; intuition.
-    assert(HgetPartsEq: getPartitions multiplexer s1 = getPartitions multiplexer s0).
-    {
-      rewrite Hs1.
-      apply getPartitionsEqBEPDflagFalse with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
-          try(unfold multiplexerIsPDT in *; assumption).
-      apply lookupSh1EntryAddr with bentry. assumption.
-      unfold sh1entryPDflag. unfold checkChild in HnoPDFlag. rewrite HlookupBlock in HnoPDFlag.
-      assert(HblockIsBE: isBE blockInParentPartitionAddr s0) by (unfold isBE; rewrite HlookupBlock; trivial).
-      specialize(HwellFormedShadow blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormedShadow.
-      destruct (lookup (CPaddr (blockInParentPartitionAddr + sh1offset)) (memory s0) beqAddr); try(congruence).
-      destruct v; try(congruence).
-    }
-    rewrite HgetPartsEq. assumption.
+    rewrite HgetPartsEqs1. assumption.
   - split. intro HpartIsRoot. specialize(HparentOfRoot HpartIsRoot). assumption. assumption.
 }
 destruct HpropsOr as [Hss1Eq | Hs].
@@ -3383,6 +3518,8 @@ destruct HpropsOr as [Hss1Eq | Hs].
             bentry newMPU flag; intuition.
         apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
             newMPU flag; intuition.
+        unfold noDupPartitionTree. rewrite HgetPartsEqs1. assumption.
+        unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
       }
       rewrite HgetPartsEq. rewrite <-HparentPartEq. intuition.
     * (* pdAddr <> parent pdentry *)
@@ -3410,6 +3547,8 @@ destruct HpropsOr as [Hss1Eq | Hs].
             bentry newMPU flag; intuition.
         apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
             newMPU flag; intuition.
+        unfold noDupPartitionTree. rewrite HgetPartsEqs1. assumption.
+        unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
       }
       rewrite HgetPartsEq. rewrite <-HparentPartEq. assumption.
   - split. intro HpartIsRoot. specialize(HparentOfRoot HpartIsRoot). rewrite HparentPartEq in *.
@@ -3424,6 +3563,7 @@ childsBlocksPropsInParent s0
 -> multiplexerIsPDT s0
 -> StructurePointerIsKS s0
 -> DisjointKSEntries s0
+-> noDupPartitionTree s0
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
 -> bentryStartAddr blockInParentPartitionAddr startaddr s0
@@ -3469,7 +3609,7 @@ childsBlocksPropsInParent s0
             -> startaddr = startChild /\ endaddr = endChild)
 -> childsBlocksPropsInParent s.
 Proof.
-intros HchildsBlocksProps HwellFormed HPDTIfPDFlag HmultIsPDT Hstruct Hdisjoint HlookupPdAddr HlookupBlock
+intros HchildsBlocksProps HwellFormed HPDTIfPDFlag HmultIsPDT Hstruct Hdisjoint HnoDupTree HlookupPdAddr HlookupBlock
     HstartBlock HendBlock HblockMapped HpdAddrIsPart HpropsOr Hs1 HPDFlag HblockNotCut child parentPart
     blockChild startChild endChild blockParent startParent endParent HparentIsPart HchildIsChild
     HblockChildMapped HstartChild HendChild HPFlagChild HblockParentMapped HstartParent HendParent HPFlagParent
@@ -3514,15 +3654,6 @@ assert(Hstructs1: StructurePointerIsKS s1).
   apply StructurePointerIsKSPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
         (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU) flag; intuition.
 }
-assert(HgetPartMultEq: getPartitions multiplexer s = getPartitions multiplexer s1).
-{
-  destruct HpropsOr as [Hss1Eq | Hs].
-  - subst s. reflexivity.
-  - rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
-    apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
-          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU) flag; try(intuition; congruence).
-}
-rewrite HgetPartMultEq in HparentIsPart.
 assert(HgetPartMultEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s0).
 {
   rewrite Hs1. unfold multiplexerIsPDT in HmultIsPDT.
@@ -3535,8 +3666,19 @@ assert(HgetPartMultEqs1: getPartitions multiplexer s1 = getPartitions multiplexe
   - unfold sh1entryAddr. rewrite HlookupBlock. reflexivity.
   - simpl. rewrite HbeqBlockBlockSh1. rewrite <-beqAddrFalse in HbeqBlockBlockSh1.
     rewrite removeDupIdentity; intuition.
+  - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
-rewrite HgetPartMultEqs1 in HparentIsPart.
+assert(HgetPartMultEq: getPartitions multiplexer s = getPartitions multiplexer s1).
+{
+  destruct HpropsOr as [Hss1Eq | Hs].
+  - subst s. reflexivity.
+  - rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
+    apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
+          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU) flag; try(intuition; congruence).
+    + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+    + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+}
+rewrite HgetPartMultEq in HparentIsPart. rewrite HgetPartMultEqs1 in HparentIsPart.
 assert(HgetChildrenEq: getChildren parentPart s = getChildren parentPart s1).
 {
   destruct HpropsOr as [Hss1Eq | Hs].
@@ -3779,6 +3921,7 @@ childsBlocksPropsInParent s0
 -> multiplexerIsPDT s0
 -> StructurePointerIsKS s0
 -> DisjointKSEntries s0
+-> noDupPartitionTree s0
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
 -> bentryStartAddr blockInParentPartitionAddr startaddr s0
@@ -3823,7 +3966,7 @@ childsBlocksPropsInParent s0
             -> startaddr = startChild /\ endaddr = endChild)
 -> childsBlocksPropsInParent s.
 Proof.
-intros HchildsBlocksProps HwellFormed HPDTIfPDFlag HmultIsPDT Hstruct Hdisjoint HlookupPdAddr HlookupBlock
+intros HchildsBlocksProps HwellFormed HPDTIfPDFlag HmultIsPDT Hstruct Hdisjoint HnoDupTree HlookupPdAddr HlookupBlock
     HstartBlock HendBlock HblockMapped HpdAddrIsPart HpropsOr Hs1 HblockNotCut child parentPart
     blockChild startChild endChild blockParent startParent endParent HparentIsPart HchildIsChild
     HblockChildMapped HstartChild HendChild HPFlagChild HblockParentMapped HstartParent HendParent HPFlagParent
@@ -3868,15 +4011,6 @@ assert(Hstructs1: StructurePointerIsKS s1).
   apply StructurePointerIsKSPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
         (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU) false; intuition.
 }
-assert(HgetPartMultEq: getPartitions multiplexer s = getPartitions multiplexer s1).
-{
-  destruct HpropsOr as [Hss1Eq | Hs].
-  - subst s. reflexivity.
-  - rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
-    apply PDTIfPDFlagPreservedIsBuiltFalse with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
-          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU); try(intuition; congruence).
-}
-rewrite HgetPartMultEq in HparentIsPart.
 assert(HgetPartMultEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s0).
 {
   rewrite Hs1. unfold multiplexerIsPDT in HmultIsPDT.
@@ -3889,8 +4023,19 @@ assert(HgetPartMultEqs1: getPartitions multiplexer s1 = getPartitions multiplexe
   - unfold sh1entryAddr. rewrite HlookupBlock. reflexivity.
   - simpl. rewrite HbeqBlockBlockSh1. rewrite <-beqAddrFalse in HbeqBlockBlockSh1.
     rewrite removeDupIdentity; intuition.
+  - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
-rewrite HgetPartMultEqs1 in HparentIsPart.
+assert(HgetPartMultEq: getPartitions multiplexer s = getPartitions multiplexer s1).
+{
+  destruct HpropsOr as [Hss1Eq | Hs].
+  - subst s. reflexivity.
+  - rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
+    apply PDTIfPDFlagPreservedIsBuiltFalse with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
+          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU); try(intuition; congruence).
+    + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+    + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+}
+rewrite HgetPartMultEq in HparentIsPart. rewrite HgetPartMultEqs1 in HparentIsPart.
 assert(HgetChildrenEq: getChildren parentPart s = getChildren parentPart s1).
 {
   destruct HpropsOr as [Hss1Eq | Hs].
@@ -4133,6 +4278,7 @@ childsBlocksPropsInParentPartial pdbasepart s0
 -> multiplexerIsPDT s0
 -> StructurePointerIsKS s0
 -> DisjointKSEntries s0
+-> noDupPartitionTree s0
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
 -> bentryStartAddr blockInParentPartitionAddr startaddr s0
@@ -4178,7 +4324,7 @@ childsBlocksPropsInParentPartial pdbasepart s0
             -> startaddr = startChild /\ endaddr = endChild)
 -> childsBlocksPropsInParentPartial pdbasepart s.
 Proof.
-intros HchildsBlocksProps HwellFormed HPDTIfPDFlag HmultIsPDT Hstruct Hdisjoint HlookupPdAddr HlookupBlock
+intros HchildsBlocksProps HwellFormed HPDTIfPDFlag HmultIsPDT Hstruct Hdisjoint HnoDupTree HlookupPdAddr HlookupBlock
     HstartBlock HendBlock HblockMapped HpdAddrIsPart HpropsOr Hs1 HPDFlag HblockNotCut child parentPart
     blockChild startChild endChild blockParent startParent endParent HbeqParentBase HparentIsPart HchildIsChild
     HblockChildMapped HstartChild HendChild HPFlagChild HblockParentMapped HstartParent HendParent HPFlagParent
@@ -4223,15 +4369,6 @@ assert(Hstructs1: StructurePointerIsKS s1).
   apply StructurePointerIsKSPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
         (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU) flag; intuition.
 }
-assert(HgetPartMultEq: getPartitions multiplexer s = getPartitions multiplexer s1).
-{
-  destruct HpropsOr as [Hss1Eq | Hs].
-  - subst s. reflexivity.
-  - rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
-    apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
-          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU) flag; try(intuition; congruence).
-}
-rewrite HgetPartMultEq in HparentIsPart.
 assert(HgetPartMultEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s0).
 {
   rewrite Hs1. unfold multiplexerIsPDT in HmultIsPDT.
@@ -4244,8 +4381,19 @@ assert(HgetPartMultEqs1: getPartitions multiplexer s1 = getPartitions multiplexe
   - unfold sh1entryAddr. rewrite HlookupBlock. reflexivity.
   - simpl. rewrite HbeqBlockBlockSh1. rewrite <-beqAddrFalse in HbeqBlockBlockSh1.
     rewrite removeDupIdentity; intuition.
+  - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
-rewrite HgetPartMultEqs1 in HparentIsPart.
+assert(HgetPartMultEq: getPartitions multiplexer s = getPartitions multiplexer s1).
+{
+  destruct HpropsOr as [Hss1Eq | Hs].
+  - subst s. reflexivity.
+  - rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
+    apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
+          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU) flag; try(intuition; congruence).
+    + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+    + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+}
+rewrite HgetPartMultEq in HparentIsPart. rewrite HgetPartMultEqs1 in HparentIsPart.
 assert(HgetChildrenEq: getChildren parentPart s = getChildren parentPart s1).
 {
   destruct HpropsOr as [Hss1Eq | Hs].
@@ -4488,6 +4636,7 @@ childsBlocksPropsInParentLight s0
 -> multiplexerIsPDT s0
 -> StructurePointerIsKS s0
 -> DisjointKSEntries s0
+-> noDupPartitionTree s0
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
 -> bentryStartAddr blockInParentPartitionAddr startaddr s0
@@ -4533,7 +4682,7 @@ childsBlocksPropsInParentLight s0
             -> startaddr = startChild /\ endaddr = endChild)
 -> childsBlocksPropsInParentLight s.
 Proof.
-intros HchildsBlocksProps HwellFormed HPDTIfPDFlag HmultIsPDT Hstruct Hdisjoint HlookupPdAddr HlookupBlock
+intros HchildsBlocksProps HwellFormed HPDTIfPDFlag HmultIsPDT Hstruct Hdisjoint HnoDupTree HlookupPdAddr HlookupBlock
     HstartBlock HendBlock HblockMapped HpdAddrIsPart HpropsOr Hs1 HPDFlag HblockNotCut child parentPart
     blockChild startChild endChild blockParent startParent endParent HparentIsPart HchildIsChild
     HblockChildMapped HstartChild HendChild HPFlagChild HblockParentMapped HstartParent HendParent HPFlagParent
@@ -4578,15 +4727,6 @@ assert(Hstructs1: StructurePointerIsKS s1).
   apply StructurePointerIsKSPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
         (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU) flag; intuition.
 }
-assert(HgetPartMultEq: getPartitions multiplexer s = getPartitions multiplexer s1).
-{
-  destruct HpropsOr as [Hss1Eq | Hs].
-  - subst s. reflexivity.
-  - rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
-    apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
-          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU) flag; try(intuition; congruence).
-}
-rewrite HgetPartMultEq in HparentIsPart.
 assert(HgetPartMultEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s0).
 {
   rewrite Hs1. unfold multiplexerIsPDT in HmultIsPDT.
@@ -4599,8 +4739,19 @@ assert(HgetPartMultEqs1: getPartitions multiplexer s1 = getPartitions multiplexe
   - unfold sh1entryAddr. rewrite HlookupBlock. reflexivity.
   - simpl. rewrite HbeqBlockBlockSh1. rewrite <-beqAddrFalse in HbeqBlockBlockSh1.
     rewrite removeDupIdentity; intuition.
+  - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
-rewrite HgetPartMultEqs1 in HparentIsPart.
+assert(HgetPartMultEq: getPartitions multiplexer s = getPartitions multiplexer s1).
+{
+  destruct HpropsOr as [Hss1Eq | Hs].
+  - subst s. reflexivity.
+  - rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
+    apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
+          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU) flag; try(intuition; congruence).
+    + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+    + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+}
+rewrite HgetPartMultEq in HparentIsPart. rewrite HgetPartMultEqs1 in HparentIsPart.
 assert(HgetChildrenEq: getChildren parentPart s = getChildren parentPart s1).
 {
   destruct HpropsOr as [Hss1Eq | Hs].
@@ -4778,6 +4929,7 @@ StructurePointerIsKS s0
 -> PDTIfPDFlag s0
 -> multiplexerIsPDT s0
 -> wellFormedFstShadowIfBlockEntry s0
+-> noDupPartitionTree s0
 -> (In partition (getPartitions multiplexer s0)
     -> In block (getMappedBlocks partition s0)
     -> sh1entryAddr block sh1entryaddr s0
@@ -4831,8 +4983,8 @@ StructurePointerIsKS s0
       /\ In blockChild (getMappedBlocks idchild s)
       /\ bentryStartAddr blockChild startaddr s).
 Proof.
-intros HstructIsKS HPDTIfPDFlag HmultIsPDT HwellSh1 HlocMappedPartial HlookupPdAddr HlookupBlock HpropsOr Hs1
-  HcheckChild HpartIsPart HblockMapped Hsh1 HPDchild HchildLoc HbeqChildPartNull Hstart HstartNotKS.
+intros HstructIsKS HPDTIfPDFlag HmultIsPDT HwellSh1 HnoDupTree HlocMappedPartial HlookupPdAddr HlookupBlock HpropsOr
+  Hs1 HcheckChild HpartIsPart HblockMapped Hsh1 HPDchild HchildLoc HbeqChildPartNull Hstart HstartNotKS.
 assert(Hstructs1: StructurePointerIsKS s1).
 {
   apply StructurePointerIsKSPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
@@ -4848,16 +5000,6 @@ assert(HlookupPdAddrs1: lookup pdAddr (memory s1) beqAddr = Some (PDT pdentry1))
   rewrite Hs1. simpl. rewrite HbeqBlockPdAddr. rewrite <-beqAddrFalse in HbeqBlockPdAddr.
   rewrite removeDupIdentity; intuition.
 }
-assert(HgetPartsEq: getPartitions multiplexer s = getPartitions multiplexer s1).
-{
-  destruct HpropsOr as [Hss1Eq | Hs].
-  - subst s. reflexivity.
-  - rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
-    apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
-          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU) flag; try(intuition; congruence).
-}
-rewrite HgetPartsEq in *.
-assert(blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
 destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset)))
    eqn:HbeqBlockBlockSh1.
 {
@@ -4867,6 +5009,7 @@ destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr
   rewrite <-DTL.beqAddrTrue in HbeqBlockBlockSh1. rewrite <-HbeqBlockBlockSh1 in *.
   unfold isSHE in HwellSh1. rewrite HlookupBlock in HwellSh1. exfalso; congruence.
 }
+assert(blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
 assert(HgetPartsEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s0).
 {
   rewrite Hs1. unfold multiplexerIsPDT in HmultIsPDT.
@@ -4879,8 +5022,19 @@ assert(HgetPartsEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s
   - unfold sh1entryAddr. rewrite HlookupBlock. reflexivity.
   - simpl. rewrite HbeqBlockBlockSh1. rewrite <-beqAddrFalse in HbeqBlockBlockSh1.
     rewrite removeDupIdentity; intuition.
+  - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
-rewrite HgetPartsEqs1 in *.
+assert(HgetPartsEq: getPartitions multiplexer s = getPartitions multiplexer s1).
+{
+  destruct HpropsOr as [Hss1Eq | Hs].
+  - subst s. reflexivity.
+  - rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
+    apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
+          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU) flag; try(intuition; congruence).
+    + unfold noDupPartitionTree. rewrite HgetPartsEqs1. assumption.
+    + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+}
+rewrite HgetPartsEq in *. rewrite HgetPartsEqs1 in *.
 assert(HgetMappedEq: forall partition, getMappedBlocks partition s = getMappedBlocks partition s0).
 {
   intro part. assert(HgetMappedEq: getMappedBlocks part s = getMappedBlocks part s1).
@@ -4932,23 +5086,6 @@ assert(HlookupSh1Eq: lookup sh1entryaddr (memory s) beqAddr = lookup sh1entryadd
   rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
 }
 unfold sh1entryPDchild in *. unfold sh1entryInChildLocationWeak in *. rewrite HlookupSh1Eq in *.
-(*assert(HchildLocs0: sh1entryInChildLocationWeak sh1entryaddr blockChild s0).
-{
-  unfold sh1entryInChildLocationWeak. destruct (lookup sh1entryaddr (memory s0) beqAddr); try(congruence).
-  destruct v; try(congruence). destruct HchildLoc as (HchildLoc & HlocNotNull). split; trivial. intro HbeqLocNull.
-  specialize(HlocNotNull HbeqLocNull). assert(HBEs1: isBE blockChild s1).
-  {
-    destruct HpropsOr as [Hss1Eq | Hs].
-    - subst s. assumption.
-    - unfold isBE in *. rewrite Hs in HlocNotNull. simpl in *.
-      destruct (beqAddr pdAddr blockChild) eqn:HbeqParentBlockC; try(exfalso; congruence).
-      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-  }
-  unfold isBE in *. rewrite Hs1 in HBEs1. simpl in *.
-  destruct (beqAddr blockInParentPartitionAddr blockChild) eqn:HbeqBlocks.
-  - rewrite <-DTL.beqAddrTrue in HbeqBlocks. rewrite <-HbeqBlocks. rewrite HlookupBlock. trivial.
-  - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-}*)
 assert(HstartNotKSs0: ~ isKS startaddr s0).
 {
   assert(HstartNotKSs1: ~isKS startaddr s1).
@@ -4996,6 +5133,7 @@ StructurePointerIsKS s0
 -> multiplexerIsPDT s0
 -> wellFormedFstShadowIfBlockEntry s0
 -> childLocHasSameStart s0
+-> noDupPartitionTree s0
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
 -> (s = s1
@@ -5028,7 +5166,7 @@ StructurePointerIsKS s0
 -> false = checkChild blockInParentPartitionAddr s0 (CPaddr (blockInParentPartitionAddr + sh1offset))
 -> childLocHasSameStart s.
 Proof.
-intros HstructIsKS HPDTIfPDFlag HmultIsPDT HwellSh1 HlocSameStart HlookupPdAddr HlookupBlock HpropsOr Hs1
+intros HstructIsKS HPDTIfPDFlag HmultIsPDT HwellSh1 HlocSameStart HnoDupTree HlookupPdAddr HlookupBlock HpropsOr Hs1
   HcheckChild part block sh1entryaddr blockChild idchild HpartIsPart HblockMapped Hsh1 HPDchild HchildLoc
   HbeqChildPartNull HbeqBCNull.
 assert(Hstructs1: StructurePointerIsKS s1).
@@ -5046,15 +5184,6 @@ assert(HlookupPdAddrs1: lookup pdAddr (memory s1) beqAddr = Some (PDT pdentry1))
   rewrite Hs1. simpl. rewrite HbeqBlockPdAddr. rewrite <-beqAddrFalse in HbeqBlockPdAddr.
   rewrite removeDupIdentity; intuition.
 }
-assert(HgetPartsEq: getPartitions multiplexer s = getPartitions multiplexer s1).
-{
-  destruct HpropsOr as [Hss1Eq | Hs].
-  - subst s. reflexivity.
-  - rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
-    apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
-          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU) flag; try(intuition; congruence).
-}
-rewrite HgetPartsEq in *.
 assert(blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
 destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset)))
    eqn:HbeqBlockBlockSh1.
@@ -5077,8 +5206,19 @@ assert(HgetPartsEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s
   - unfold sh1entryAddr. rewrite HlookupBlock. reflexivity.
   - simpl. rewrite HbeqBlockBlockSh1. rewrite <-beqAddrFalse in HbeqBlockBlockSh1.
     rewrite removeDupIdentity; intuition.
+  - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
-rewrite HgetPartsEqs1 in *.
+assert(HgetPartsEq: getPartitions multiplexer s = getPartitions multiplexer s1).
+{
+  destruct HpropsOr as [Hss1Eq | Hs].
+  - subst s. reflexivity.
+  - rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
+    apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
+          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU) flag; try(intuition; congruence).
+    + unfold noDupPartitionTree. rewrite HgetPartsEqs1. assumption.
+    + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+}
+rewrite HgetPartsEq in *. rewrite HgetPartsEqs1 in *.
 assert(HgetMappedEq: forall partition, getMappedBlocks partition s = getMappedBlocks partition s0).
 {
   intro partition. assert(HgetMappedEq: getMappedBlocks partition s = getMappedBlocks partition s1).
@@ -5171,6 +5311,7 @@ StructurePointerIsKS s0
 -> PDTIfPDFlag s0
 -> multiplexerIsPDT s0
 -> wellFormedFstShadowIfBlockEntry s0
+-> noDupPartitionTree s0
 -> (In part (getPartitions multiplexer s0)
       -> In block (getMappedBlocks part s0)
       -> sh1entryAddr block sh1entryaddr s0
@@ -5220,7 +5361,7 @@ StructurePointerIsKS s0
       -> (forall startaddr, bentryStartAddr block startaddr s -> bentryStartAddr blockChild startaddr s)
           /\ In blockChild (getMappedBlocks idchild s)).
 Proof.
-intros HstructIsKS HPDTIfPDFlag HmultIsPDT HwellSh1 HlocSameStart HlookupPdAddr HlookupBlock HpropsOr Hs1
+intros HstructIsKS HPDTIfPDFlag HmultIsPDT HwellSh1 HnoDupTree HlocSameStart HlookupPdAddr HlookupBlock HpropsOr Hs1
   HcheckChild HpartIsPart HblockMapped Hsh1 HPDchild HchildLoc HbeqChildPartNull HbeqBCNull.
 assert(Hstructs1: StructurePointerIsKS s1).
 {
@@ -5237,17 +5378,6 @@ assert(HlookupPdAddrs1: lookup pdAddr (memory s1) beqAddr = Some (PDT pdentry1))
   rewrite Hs1. simpl. rewrite HbeqBlockPdAddr. rewrite <-beqAddrFalse in HbeqBlockPdAddr.
   rewrite removeDupIdentity; intuition.
 }
-assert(HgetPartsEq: getPartitions multiplexer s = getPartitions multiplexer s1).
-{
-  destruct HpropsOr as [Hss1Eq | Hs].
-  - subst s. reflexivity.
-  - rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity. destruct flag.
-    + apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
-          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU) true; try(intuition; congruence).
-    + apply PDTIfPDFlagPreservedIsBuiltFalse with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
-          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU); auto.
-}
-rewrite HgetPartsEq in *.
 assert(blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
 destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset)))
    eqn:HbeqBlockBlockSh1.
@@ -5270,8 +5400,21 @@ assert(HgetPartsEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s
   - unfold sh1entryAddr. rewrite HlookupBlock. reflexivity.
   - simpl. rewrite HbeqBlockBlockSh1. rewrite <-beqAddrFalse in HbeqBlockBlockSh1.
     rewrite removeDupIdentity; intuition.
+  - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
-rewrite HgetPartsEqs1 in *.
+assert(HgetPartsEq: getPartitions multiplexer s = getPartitions multiplexer s1).
+{
+  destruct HpropsOr as [Hss1Eq | Hs].
+  - subst s. reflexivity.
+  - rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity. destruct flag.
+    + apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
+          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU) true; try(intuition; congruence).
+    + apply PDTIfPDFlagPreservedIsBuiltFalse with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
+          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU); auto.
+    + unfold noDupPartitionTree. rewrite HgetPartsEqs1. assumption.
+    + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+}
+rewrite HgetPartsEq in *. rewrite HgetPartsEqs1 in *.
 assert(HgetMappedEq: forall partition, getMappedBlocks partition s = getMappedBlocks partition s0).
 {
   intro partition. assert(HgetMappedEq: getMappedBlocks partition s = getMappedBlocks partition s1).
@@ -5363,6 +5506,7 @@ StructurePointerIsKS s0
 -> PDTIfPDFlag s0
 -> multiplexerIsPDT s0
 -> wellFormedFstShadowIfBlockEntry s0
+-> noDupPartitionTree s0
 -> childLocMappedInChild s0
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
@@ -5395,8 +5539,8 @@ StructurePointerIsKS s0
       |}
 -> childLocMappedInChild s.
 Proof.
-intros HstructIsKS HPDTIfPDFlag HmultIsPDT HwellSh1 HlocMappedPartial HlookupPdAddr HlookupBlock HpropsOr Hs1
-  partition block sh1entryaddr blockChild idchild startaddr HpartIsPart HblockMapped Hsh1 HPDchild HchildLoc
+intros HstructIsKS HPDTIfPDFlag HmultIsPDT HwellSh1 HnoDupTree HlocMappedPartial HlookupPdAddr HlookupBlock HpropsOr
+  Hs1 partition block sh1entryaddr blockChild idchild startaddr HpartIsPart HblockMapped Hsh1 HPDchild HchildLoc
   HbeqChildPartNull Hstart HstartNotKS.
 assert(Hstructs1: StructurePointerIsKS s1).
 {
@@ -5413,15 +5557,6 @@ assert(HlookupPdAddrs1: lookup pdAddr (memory s1) beqAddr = Some (PDT pdentry1))
   rewrite Hs1. simpl. rewrite HbeqBlockPdAddr. rewrite <-beqAddrFalse in HbeqBlockPdAddr.
   rewrite removeDupIdentity; intuition.
 }
-assert(HgetPartsEq: getPartitions multiplexer s = getPartitions multiplexer s1).
-{
-  destruct HpropsOr as [Hss1Eq | Hs].
-  - subst s. reflexivity.
-  - rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
-    apply PDTIfPDFlagPreservedIsBuiltFalse with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
-          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU); try(intuition; congruence).
-}
-rewrite HgetPartsEq in *.
 assert(blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
 destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset)))
    eqn:HbeqBlockBlockSh1.
@@ -5444,8 +5579,19 @@ assert(HgetPartsEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s
   - unfold sh1entryAddr. rewrite HlookupBlock. reflexivity.
   - simpl. rewrite HbeqBlockBlockSh1. rewrite <-beqAddrFalse in HbeqBlockBlockSh1.
     rewrite removeDupIdentity; intuition.
+  - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
-rewrite HgetPartsEqs1 in *.
+assert(HgetPartsEq: getPartitions multiplexer s = getPartitions multiplexer s1).
+{
+  destruct HpropsOr as [Hss1Eq | Hs].
+  - subst s. reflexivity.
+  - rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
+    apply PDTIfPDFlagPreservedIsBuiltFalse with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
+          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr newMPU); try(intuition; congruence).
+    + unfold noDupPartitionTree. rewrite HgetPartsEqs1. assumption.
+    + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+}
+rewrite HgetPartsEq in *. rewrite HgetPartsEqs1 in *.
 assert(HgetMappedEq: forall partition, getMappedBlocks partition s = getMappedBlocks partition s0).
 {
   intro part. assert(HgetMappedEq: getMappedBlocks part s = getMappedBlocks part s1).
@@ -5497,23 +5643,6 @@ assert(HlookupSh1Eq: lookup sh1entryaddr (memory s) beqAddr = lookup sh1entryadd
   rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
 }
 unfold sh1entryPDchild in *. unfold sh1entryInChildLocationWeak in *. rewrite HlookupSh1Eq in *.
-(*assert(HchildLocs0: sh1entryInChildLocation sh1entryaddr blockChild s0).
-{
-  unfold sh1entryInChildLocation. destruct (lookup sh1entryaddr (memory s0) beqAddr); try(congruence).
-  destruct v; try(congruence). destruct HchildLoc as (HchildLoc & HlocNotNull). split; trivial. intro HbeqLocNull.
-  specialize(HlocNotNull HbeqLocNull). assert(HBEs1: isBE blockChild s1).
-  {
-    destruct HpropsOr as [Hss1Eq | Hs].
-    - subst s. assumption.
-    - unfold isBE in *. rewrite Hs in HlocNotNull. simpl in *.
-      destruct (beqAddr pdAddr blockChild) eqn:HbeqParentBlockC; try(exfalso; congruence).
-      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-  }
-  unfold isBE in *. rewrite Hs1 in HBEs1. simpl in *.
-  destruct (beqAddr blockInParentPartitionAddr blockChild) eqn:HbeqBlocks.
-  - rewrite <-DTL.beqAddrTrue in HbeqBlocks. rewrite <-HbeqBlocks. rewrite HlookupBlock. trivial.
-  - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
-}*)
 assert(HstartNotKSs0: ~ isKS startaddr s0).
 {
   assert(HstartNotKSs1: ~isKS startaddr s1).
@@ -5562,6 +5691,7 @@ partitionTreeIsTree s0
 -> multiplexerIsPDT s0
 -> StructurePointerIsKS s0
 -> wellFormedFstShadowIfBlockEntry s0
+-> noDupPartitionTree s0
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
 -> bentryStartAddr blockInParentPartitionAddr startaddr s0
@@ -5598,8 +5728,8 @@ partitionTreeIsTree s0
 -> false = checkChild blockInParentPartitionAddr s0 (CPaddr (blockInParentPartitionAddr + sh1offset))
 -> partitionTreeIsTree s.
 Proof.
-intros Htree HparentOfPart HPDTIfPDFlag HmultPDT Hstruct HwellFormedShadow HlookupPdAddr HlookupBlock Hstart Hend
-    HblockMapped HpdAddrIsPart HpropsOr Hs1 HnoPDFlag.
+intros Htree HparentOfPart HPDTIfPDFlag HmultPDT Hstruct HwellFormedShadow HnoDupTree HlookupPdAddr HlookupBlock
+  Hstart Hend HblockMapped HpdAddrIsPart HpropsOr Hs1 HnoPDFlag.
 assert(HblockIsBE: isBE blockInParentPartitionAddr s0).
 {
   unfold isBE. unfold bentryStartAddr in Hstart.
@@ -5624,6 +5754,7 @@ assert(HgetPartEq: getPartitions multiplexer s1 = getPartitions multiplexer s0).
     unfold isSHE in HwellFormedShadow. rewrite HlookupBlock in HwellFormedShadow. exfalso; congruence.
   }
   rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+  unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
 assert(Htrees1: partitionTreeIsTree s1).
 {
@@ -5682,6 +5813,8 @@ destruct HpropsOr as [Hss1Eq | Hs].
           bentry newMPU flag; intuition.
     apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr
           bentry newMPU flag; intuition.
+    unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+    unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
   intros child pdparent parentsList HchildNotRoot HchildIsPart Hparent HparentsList.
   rewrite HgetPartEqs in HchildIsPart.
@@ -5784,6 +5917,7 @@ partitionTreeIsTree s0
 -> multiplexerIsPDT s0
 -> StructurePointerIsKS s0
 -> wellFormedFstShadowIfBlockEntry s0
+-> noDupPartitionTree s0
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
 -> bentryStartAddr blockInParentPartitionAddr startaddr s0
@@ -5819,8 +5953,8 @@ partitionTreeIsTree s0
       |}
 -> partitionTreeIsTree s.
 Proof.
-intros Htree HparentOfPart HPDTIfPDFlag HmultPDT Hstruct HwellFormedShadow HlookupPdAddr HlookupBlock Hstart Hend
-    HblockMapped HpdAddrIsPart HpropsOr Hs1.
+intros Htree HparentOfPart HPDTIfPDFlag HmultPDT Hstruct HwellFormedShadow HnoDupTree HlookupPdAddr HlookupBlock
+  Hstart Hend HblockMapped HpdAddrIsPart HpropsOr Hs1.
 assert(HblockIsBE: isBE blockInParentPartitionAddr s0).
 {
   unfold isBE. unfold bentryStartAddr in Hstart.
@@ -5845,6 +5979,7 @@ assert(HgetPartEq: getPartitions multiplexer s1 = getPartitions multiplexer s0).
     unfold isSHE in HwellFormedShadow. rewrite HlookupBlock in HwellFormedShadow. exfalso; congruence.
   }
   rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+  unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
 assert(Htrees1: partitionTreeIsTree s1).
 {
@@ -5903,6 +6038,8 @@ destruct HpropsOr as [Hss1Eq | Hs].
           bentry newMPU false; intuition.
     apply PDTIfPDFlagPreservedIsBuiltFalse with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr
           bentry newMPU; intuition.
+    unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+    unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
   intros child pdparent parentsList HchildNotRoot HchildIsPart Hparent HparentsList.
   rewrite HgetPartEqs in HchildIsPart.
@@ -6471,6 +6608,7 @@ partitionsIsolation s0
 -> multiplexerIsPDT s0
 -> wellFormedFstShadowIfBlockEntry s0
 -> StructurePointerIsKS s0
+-> noDupPartitionTree s0
 -> false = checkChild blockInParentPartitionAddr s0 (CPaddr (blockInParentPartitionAddr + sh1offset))
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
@@ -6503,16 +6641,26 @@ partitionsIsolation s0
       |}
 -> partitionsIsolation s.
 Proof.
-intros HPI HPDTIfPDFlag HmultPDT HwellFormed Hstruct HnoPDFlag HlookupPdAddr HlookupBlock HpropsOr Hs1.
+intros HPI HPDTIfPDFlag HmultPDT HwellFormed Hstruct HnoDupTree HnoPDFlag HlookupPdAddr HlookupBlock HpropsOr Hs1.
 assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
+assert(HblockIsBE: isBE blockInParentPartitionAddr s0).
+{ unfold isBE. rewrite HlookupBlock. trivial. }
+assert(HgetPartEq: getPartitions multiplexer s1 = getPartitions multiplexer s0).
+{
+  rewrite Hs1.
+  apply getPartitionsEqBEPDflagFalse with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
+      try(assumption).
+  - apply lookupSh1EntryAddr with bentry; assumption.
+  - unfold sh1entryPDflag. unfold checkChild in HnoPDFlag. rewrite HlookupBlock in HnoPDFlag.
+    specialize(HwellFormed blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormed.
+    destruct (lookup (CPaddr (blockInParentPartitionAddr + sh1offset)) (memory s0) beqAddr);
+        try(congruence). destruct v; try(congruence).
+  - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+}
 assert(HPIs1: partitionsIsolation s1).
 {
   unfold partitionsIsolation in *. intros pdparent child1 child2 HparentIsPart Hchild1IsChild Hchild2IsChild
     HchildrenNotEq addr HaddrInChild1.
-  assert(HblockIsBE: isBE blockInParentPartitionAddr s0).
-  {
-    unfold isBE. rewrite HlookupBlock. trivial.
-  }
   assert(HgetUsedEq: forall partition, isPDT partition s0
                             -> getUsedPaddr partition s1 = getUsedPaddr partition s0).
   {
@@ -6530,17 +6678,6 @@ assert(HPIs1: partitionsIsolation s1).
                 simpl; reflexivity).
     }
     rewrite HgetConfigEq. rewrite HgetMappedEq. reflexivity.
-  }
-  assert(HgetPartEq: getPartitions multiplexer s1 = getPartitions multiplexer s0).
-  {
-    rewrite Hs1.
-    apply getPartitionsEqBEPDflagFalse with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
-        try(assumption).
-    apply lookupSh1EntryAddr with bentry; assumption.
-    unfold sh1entryPDflag. unfold checkChild in HnoPDFlag. rewrite HlookupBlock in HnoPDFlag.
-    specialize(HwellFormed blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormed.
-    destruct (lookup (CPaddr (blockInParentPartitionAddr + sh1offset)) (memory s0) beqAddr);
-        try(congruence). destruct v; try(congruence).
   }
   rewrite HgetPartEq in HparentIsPart.
   assert(isPDT pdparent s0).
@@ -6593,11 +6730,13 @@ destruct HpropsOr as [Hss1Eq | Hs].
     }
     rewrite <-beqAddrFalse in HbeqBlockParent. rewrite removeDupIdentity; intuition.
   }
-  assert(HgetPartEq: getPartitions multiplexer s = getPartitions multiplexer s1).
+  assert(HgetPartEqs: getPartitions multiplexer s = getPartitions multiplexer s1).
   {
-    rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
+    rewrite Hs. apply getPartitionsEqPDT with pdentry1; trivial.
+    - unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+    - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite HgetPartEq in HparentIsPart.
+  rewrite HgetPartEqs in HparentIsPart.
   assert(HgetChildrenEq: getChildren pdparent s = getChildren pdparent s1).
   {
     rewrite Hs. apply getChildrenEqPDT with pdentry1; try(assumption). simpl. reflexivity.
@@ -6636,6 +6775,7 @@ partitionsIsolation s0
 -> multiplexerIsPDT s0
 -> wellFormedFstShadowIfBlockEntry s0
 -> StructurePointerIsKS s0
+-> noDupPartitionTree s0
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
 -> (s = s1
@@ -6667,16 +6807,31 @@ partitionsIsolation s0
       |}
 -> partitionsIsolation s.
 Proof.
-intros HPI HPDTIfPDFlag HmultPDT HwellFormed Hstruct HlookupPdAddr HlookupBlock HpropsOr Hs1.
+intros HPI HPDTIfPDFlag HmultPDT HwellFormed Hstruct HnoDupTree HlookupPdAddr HlookupBlock HpropsOr Hs1.
 assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
+assert(HblockIsBE: isBE blockInParentPartitionAddr s0).
+{ unfold isBE. rewrite HlookupBlock. trivial. }
+assert(HgetPartEq: getPartitions multiplexer s1 = getPartitions multiplexer s0).
+{
+  rewrite Hs1.
+  apply getPartitionsEqBEPDflagNoChangePresentNoChangeStartNoChange with bentry
+    (CPaddr (blockInParentPartitionAddr + sh1offset)); try(assumption).
+  apply lookupSh1EntryAddr with bentry; assumption.
+  simpl. specialize(HwellFormed blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormed.
+  destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset))) eqn:HbeqBlockSh1.
+  {
+    exfalso. rewrite <-DTL.beqAddrTrue in HbeqBlockSh1. rewrite <-HbeqBlockSh1 in *. rewrite HlookupBlock in *.
+    congruence.
+  }
+  rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
+  1,2: unfold CBlockEntry; destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia);
+    simpl; reflexivity.
+  unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+}
 assert(HPIs1: partitionsIsolation s1).
 {
   unfold partitionsIsolation in *. intros pdparent child1 child2 HparentIsPart Hchild1IsChild Hchild2IsChild
     HchildrenNotEq addr HaddrInChild1.
-  assert(HblockIsBE: isBE blockInParentPartitionAddr s0).
-  {
-    unfold isBE. rewrite HlookupBlock. trivial.
-  }
   assert(HgetUsedEq: forall partition, isPDT partition s0
                             -> getUsedPaddr partition s1 = getUsedPaddr partition s0).
   {
@@ -6694,22 +6849,6 @@ assert(HPIs1: partitionsIsolation s1).
                 simpl; reflexivity).
     }
     rewrite HgetConfigEq. rewrite HgetMappedEq. reflexivity.
-  }
-  assert(HgetPartEq: getPartitions multiplexer s1 = getPartitions multiplexer s0).
-  {
-    rewrite Hs1.
-    apply getPartitionsEqBEPDflagNoChangePresentNoChangeStartNoChange with bentry
-      (CPaddr (blockInParentPartitionAddr + sh1offset)); try(assumption).
-    apply lookupSh1EntryAddr with bentry; assumption.
-    simpl. specialize(HwellFormed blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormed.
-    destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset))) eqn:HbeqBlockSh1.
-    {
-      exfalso. rewrite <-DTL.beqAddrTrue in HbeqBlockSh1. rewrite <-HbeqBlockSh1 in *. rewrite HlookupBlock in *.
-      congruence.
-    }
-    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; try(apply not_eq_sym; assumption). reflexivity.
-    1,2: unfold CBlockEntry; destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia);
-      simpl; reflexivity.
   }
   rewrite HgetPartEq in HparentIsPart.
   assert(isPDT pdparent s0).
@@ -6762,11 +6901,13 @@ destruct HpropsOr as [Hss1Eq | Hs].
     }
     rewrite <-beqAddrFalse in HbeqBlockParent. rewrite removeDupIdentity; intuition.
   }
-  assert(HgetPartEq: getPartitions multiplexer s = getPartitions multiplexer s1).
+  assert(HgetPartEqs: getPartitions multiplexer s = getPartitions multiplexer s1).
   {
-    rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
+    rewrite Hs. apply getPartitionsEqPDT with pdentry1; trivial.
+    - unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+    - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite HgetPartEq in HparentIsPart.
+  rewrite HgetPartEqs in HparentIsPart.
   assert(HgetChildrenEq: getChildren pdparent s = getChildren pdparent s1).
   {
     rewrite Hs. apply getChildrenEqPDT with pdentry1; try(assumption). simpl. reflexivity.
@@ -6813,6 +6954,7 @@ partitionsIsolation s0
 -> noDupMappedPaddrList s0
 -> wellFormedBlock s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup buildPart (memory s0) beqAddr = Some (PDT pdentryBuild)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
@@ -6826,17 +6968,17 @@ partitionsIsolation s0
 Proof.
 revert bentryBase. revert blockBase. revert pdentryBuild. revert s0. revert parentsList. revert buildPart.
 induction statesList.
-- simpl. intros buildPart parentsList s0 _ _ _ HPI _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ HisBuilt.
+- simpl. intros buildPart parentsList s0 _ _ _ HPI _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ HisBuilt.
   destruct HisBuilt as [_ Hss0Eq]. subst s. intuition.
 - simpl. intros buildPart parentsList s0 pdentryBuild blockBase bentryBase HPI HPDTIfPDFlag HmultPDT
       HwellFormedShadow Hstruct Hdisjoint HparentOfPart HisChild HchildBlockProps HnoDup HwellFormedBlock
-      Hnull HbuildIsPart HlookupBuild HlookupBlockBase HPFlagBase HnoPDFlagBase HblockBaseMapped HstartBase
+      Hnull HnoDupTree HbuildIsPart HlookupBuild HlookupBlockBase HPFlagBase HnoPDFlagBase HblockBaseMapped HstartBase
       HendBase HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
-                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr (*& (HlastCase*)
+                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HcurrPartEq: currentPartition s0 = currentPartition s1).
   { rewrite Hs1. simpl. reflexivity. }
   assert(HpdAddrIsPart: In pdAddr (getPartitions multiplexer s0)).
@@ -7050,6 +7192,7 @@ induction statesList.
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -7059,6 +7202,12 @@ induction statesList.
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+  }
+  assert(HnoDupTreeA: noDupPartitionTree a).
+  {
+    unfold noDupPartitionTree. rewrite HgetPartsEq. assumption.
   }
   rewrite <-HgetPartsEq in HpdAddrIsPart.
   assert(HlookupParentA: exists pdentry2, lookup pdAddr (memory a) beqAddr = Some (PDT pdentry2)).
@@ -7164,6 +7313,7 @@ verticalSharing s0
 -> multiplexerIsPDT s0
 -> wellFormedFstShadowIfBlockEntry s0
 -> StructurePointerIsKS s0
+-> noDupPartitionTree s0
 -> false = checkChild blockInParentPartitionAddr s0 (CPaddr (blockInParentPartitionAddr + sh1offset))
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
@@ -7196,26 +7346,27 @@ verticalSharing s0
       |}
 -> verticalSharing s.
 Proof.
-intros HVS HPDTIfPDFlag HmultPDT HwellFormed Hstruct HnoPDFlag HlookupPdAddr HlookupBlock HpropsOr Hs1.
+intros HVS HPDTIfPDFlag HmultPDT HwellFormed Hstruct HnoDupTree HnoPDFlag HlookupPdAddr HlookupBlock HpropsOr Hs1.
 assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
+assert(HblockIsBE: isBE blockInParentPartitionAddr s0).
+{
+  unfold isBE. rewrite HlookupBlock. trivial.
+}
+assert(HgetPartEq: getPartitions multiplexer s1 = getPartitions multiplexer s0).
+{
+  rewrite Hs1.
+  apply getPartitionsEqBEPDflagFalse with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
+      try(assumption).
+  apply lookupSh1EntryAddr with bentry; assumption.
+  unfold sh1entryPDflag. unfold checkChild in HnoPDFlag. rewrite HlookupBlock in HnoPDFlag.
+  specialize(HwellFormed blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormed.
+  destruct (lookup (CPaddr (blockInParentPartitionAddr + sh1offset)) (memory s0) beqAddr);
+      try(congruence). destruct v; try(congruence).
+  unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+}
 assert(HVSs1: verticalSharing s1).
 {
   unfold verticalSharing in *. intros pdparent child HparentIsPart HchildIsChild.
-  assert(HblockIsBE: isBE blockInParentPartitionAddr s0).
-  {
-    unfold isBE. rewrite HlookupBlock. trivial.
-  }
-  assert(HgetPartEq: getPartitions multiplexer s1 = getPartitions multiplexer s0).
-  {
-    rewrite Hs1.
-    apply getPartitionsEqBEPDflagFalse with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
-        try(assumption).
-    apply lookupSh1EntryAddr with bentry; assumption.
-    unfold sh1entryPDflag. unfold checkChild in HnoPDFlag. rewrite HlookupBlock in HnoPDFlag.
-    specialize(HwellFormed blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormed.
-    destruct (lookup (CPaddr (blockInParentPartitionAddr + sh1offset)) (memory s0) beqAddr);
-        try(congruence). destruct v; try(congruence).
-  }
   rewrite HgetPartEq in HparentIsPart.
   assert(isPDT pdparent s0).
   {
@@ -7280,11 +7431,13 @@ destruct HpropsOr as [Hss1Eq | Hs].
     }
     rewrite <-beqAddrFalse in HbeqBlockParent. rewrite removeDupIdentity; intuition.
   }
-  assert(HgetPartEq: getPartitions multiplexer s = getPartitions multiplexer s1).
+  assert(HgetPartEqs: getPartitions multiplexer s = getPartitions multiplexer s1).
   {
-    rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
+    rewrite Hs. apply getPartitionsEqPDT with pdentry1; trivial.
+    - unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+    - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite HgetPartEq in HparentIsPart.
+  rewrite HgetPartEqs in HparentIsPart.
   assert(HgetChildrenEq: getChildren pdparent s = getChildren pdparent s1).
   {
     rewrite Hs. apply getChildrenEqPDT with pdentry1; try(assumption). simpl. reflexivity.
@@ -7298,7 +7451,7 @@ destruct HpropsOr as [Hss1Eq | Hs].
   }
   assert(isPDT pdparent s1).
   {
-    apply partitionsArePDT; assumption.
+    apply partitionsArePDT; trivial. unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
   }
   assert(isPDT child s1).
   {
@@ -7327,6 +7480,7 @@ verticalSharing s0
 -> wellFormedBlock s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup buildPart (memory s0) beqAddr = Some (PDT pdentryBuild)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
@@ -7340,17 +7494,17 @@ verticalSharing s0
 Proof.
 revert bentryBase. revert blockBase. revert pdentryBuild. revert s0. revert parentsList. revert buildPart.
 induction statesList.
-- simpl. intros buildPart parentsList s0 _ _ _ HVS _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ HisBuilt.
+- simpl. intros buildPart parentsList s0 _ _ _ HVS _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ HisBuilt.
   destruct HisBuilt as [_ Hss0Eq]. subst s. intuition.
 - simpl. intros buildPart parentsList s0 pdentryBuild blockBase bentryBase HVS HPDTIfPDFlag HmultPDT
       HwellFormedShadow Hstruct Hdisjoint HparentOfPart HisChild HchildBlockProps HnoDup HwellFormedBlock HPI
-      Hnull HbuildIsPart HlookupBuild HlookupBlockBase HPFlagBase HnoPDFlagBase HblockBaseMapped HstartBase
+      Hnull HnoDupTree HbuildIsPart HlookupBuild HlookupBlockBase HPFlagBase HnoPDFlagBase HblockBaseMapped HstartBase
       HendBase HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
-                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr (*& (HlastCase*)
+                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HcurrPartEq: currentPartition s0 = currentPartition s1).
   { rewrite Hs1. simpl. reflexivity. }
   assert(HpdAddrIsPart: In pdAddr (getPartitions multiplexer s0)).
@@ -7570,6 +7724,7 @@ induction statesList.
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -7579,8 +7734,12 @@ induction statesList.
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
   rewrite <-HgetPartsEq in HpdAddrIsPart.
+  assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartsEq. assumption. }
   assert(HlookupParentA: exists pdentry2, lookup pdAddr (memory a) beqAddr = Some (PDT pdentry2)).
   {
     destruct HpropsOr as [Has1Eq | Ha].
@@ -7687,6 +7846,7 @@ kernelDataIsolation s0
 -> StructurePointerIsKS s0
 -> noDupMappedBlocksList s0
 -> DisjointKSEntries s0
+-> noDupPartitionTree s0
 -> false = checkChild blockInParentPartitionAddr s0 (CPaddr (blockInParentPartitionAddr + sh1offset))
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
@@ -7726,27 +7886,28 @@ kernelDataIsolation s0
       |}
 -> kernelDataIsolation s.
 Proof.
-intros HKDI HPDTIfPDFlag HmultPDT HwellFormed Hstruct HnoDup Hdisjoint HnoPDFlag HlookupPdAddr HlookupBlock HPFlag
-    HblockMapped HbaseIsPart HblockAccessBase HlookupBlockBase HstartEq HendEq HpropsOr Hs1.
+intros HKDI HPDTIfPDFlag HmultPDT HwellFormed Hstruct HnoDup Hdisjoint HnoDupTree HnoPDFlag HlookupPdAddr HlookupBlock
+  HPFlag HblockMapped HbaseIsPart HblockAccessBase HlookupBlockBase HstartEq HendEq HpropsOr Hs1.
 assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
+assert(HblockIsBE: isBE blockInParentPartitionAddr s0).
+{
+  unfold isBE. rewrite HlookupBlock. trivial.
+}
+assert(HgetPartEq: getPartitions multiplexer s1 = getPartitions multiplexer s0).
+{
+  rewrite Hs1.
+  apply getPartitionsEqBEPDflagFalse with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
+      try(assumption).
+  apply lookupSh1EntryAddr with bentry; assumption.
+  unfold sh1entryPDflag. unfold checkChild in HnoPDFlag. rewrite HlookupBlock in HnoPDFlag.
+  specialize(HwellFormed blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormed.
+  destruct (lookup (CPaddr (blockInParentPartitionAddr + sh1offset)) (memory s0) beqAddr);
+      try(congruence). destruct v; try(congruence).
+  unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+}
 assert(HKDIs1: kernelDataIsolation s1).
 {
   unfold kernelDataIsolation in *. intros part1 part2 Hpart1IsPart Hpart2IsPart addr HaddrAccMapped.
-  assert(HblockIsBE: isBE blockInParentPartitionAddr s0).
-  {
-    unfold isBE. rewrite HlookupBlock. trivial.
-  }
-  assert(HgetPartEq: getPartitions multiplexer s1 = getPartitions multiplexer s0).
-  {
-    rewrite Hs1.
-    apply getPartitionsEqBEPDflagFalse with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
-        try(assumption).
-    apply lookupSh1EntryAddr with bentry; assumption.
-    unfold sh1entryPDflag. unfold checkChild in HnoPDFlag. rewrite HlookupBlock in HnoPDFlag.
-    specialize(HwellFormed blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormed.
-    destruct (lookup (CPaddr (blockInParentPartitionAddr + sh1offset)) (memory s0) beqAddr);
-        try(congruence). destruct v; try(congruence).
-  }
   rewrite HgetPartEq in *.
   assert(Hpart1PDT: isPDT part1 s0).
   {
@@ -7876,13 +8037,15 @@ destruct HpropsOr as [Hss1Eq | Hs].
     }
     rewrite <-beqAddrFalse in HbeqBlockParent. rewrite removeDupIdentity; intuition.
   }
-  assert(HgetPartEq: getPartitions multiplexer s = getPartitions multiplexer s1).
+  assert(HgetPartEqs: getPartitions multiplexer s = getPartitions multiplexer s1).
   {
-    rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
+    rewrite Hs. apply getPartitionsEqPDT with pdentry1; trivial.
+    - unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+    - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite HgetPartEq in *.
+  rewrite HgetPartEqs in *.
   assert(isPDT part2 s1).
-  { apply partitionsArePDT; assumption. }
+  { apply partitionsArePDT; trivial. unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   assert(HgetConfigEq: getConfigPaddr part2 s = getConfigPaddr part2 s1).
   {
     rewrite Hs. apply getConfigPaddrEqPDT with pdentry1; try(assumption). simpl. reflexivity.
@@ -7904,7 +8067,7 @@ kernelDataIsolation s0
 -> StructurePointerIsKS s0
 -> noDupMappedBlocksList s0
 -> DisjointKSEntries s0
-(*-> false = checkChild blockInParentPartitionAddr s0 (CPaddr (blockInParentPartitionAddr + sh1offset))*)
+-> noDupPartitionTree s0
 -> lookup pdAddr (memory s0) beqAddr = Some (PDT pdentry1)
 -> lookup blockInParentPartitionAddr (memory s0) beqAddr = Some (BE bentry)
 -> bentryPFlag blockInParentPartitionAddr true s0
@@ -7943,34 +8106,35 @@ kernelDataIsolation s0
       |}
 -> kernelDataIsolation s.
 Proof.
-intros HKDI HPDTIfPDFlag HmultPDT HwellFormed Hstruct HnoDup Hdisjoint (*HnoPDFlag*) HlookupPdAddr HlookupBlock
+intros HKDI HPDTIfPDFlag HmultPDT HwellFormed Hstruct HnoDup Hdisjoint HnoDupTree HlookupPdAddr HlookupBlock
     HPFlag HblockMapped HbaseIsPart HblockAccessBase HlookupBlockBase HstartEq HendEq HpropsOr Hs1.
 assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
+assert(HblockIsBE: isBE blockInParentPartitionAddr s0).
+{
+  unfold isBE. rewrite HlookupBlock. trivial.
+}
+assert(HgetPartEq: getPartitions multiplexer s1 = getPartitions multiplexer s0).
+{
+  rewrite Hs1.
+  apply getPartitionsEqBEPDflagNoChangePresentNoChangeStartNoChange with bentry
+      (CPaddr (blockInParentPartitionAddr + sh1offset)); try(assumption).
+  apply lookupSh1EntryAddr with bentry; assumption.
+  specialize(HwellFormed blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormed. simpl.
+  destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset)))
+      eqn:HbeqBlockBlockSh1.
+  {
+    exfalso. rewrite <-DTL.beqAddrTrue in HbeqBlockBlockSh1. rewrite <-HbeqBlockBlockSh1 in *.
+    rewrite HlookupBlock in *. congruence.
+  }
+  rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
+  reflexivity. assert(blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
+  1,2: unfold CBlockEntry; destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia);
+        simpl; reflexivity.
+  unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+}
 assert(HKDIs1: kernelDataIsolation s1).
 {
   unfold kernelDataIsolation in *. intros part1 part2 Hpart1IsPart Hpart2IsPart addr HaddrAccMapped.
-  assert(HblockIsBE: isBE blockInParentPartitionAddr s0).
-  {
-    unfold isBE. rewrite HlookupBlock. trivial.
-  }
-  assert(HgetPartEq: getPartitions multiplexer s1 = getPartitions multiplexer s0).
-  {
-    rewrite Hs1.
-    apply getPartitionsEqBEPDflagNoChangePresentNoChangeStartNoChange with bentry
-        (CPaddr (blockInParentPartitionAddr + sh1offset)); try(assumption).
-    apply lookupSh1EntryAddr with bentry; assumption.
-    specialize(HwellFormed blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormed. simpl.
-    destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset)))
-        eqn:HbeqBlockBlockSh1.
-    {
-      exfalso. rewrite <-DTL.beqAddrTrue in HbeqBlockBlockSh1. rewrite <-HbeqBlockBlockSh1 in *.
-      rewrite HlookupBlock in *. congruence.
-    }
-    rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; try(apply not_eq_sym; assumption).
-    reflexivity. assert(blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
-    1,2: unfold CBlockEntry; destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia);
-          simpl; reflexivity.
-  }
   rewrite HgetPartEq in *.
   assert(Hpart1PDT: isPDT part1 s0).
   {
@@ -8059,13 +8223,15 @@ destruct HpropsOr as [Hss1Eq | Hs].
     }
     rewrite <-beqAddrFalse in HbeqBlockParent. rewrite removeDupIdentity; intuition.
   }
-  assert(HgetPartEq: getPartitions multiplexer s = getPartitions multiplexer s1).
+  assert(HgetPartEqs: getPartitions multiplexer s = getPartitions multiplexer s1).
   {
-    rewrite Hs. apply getPartitionsEqPDT with pdentry1; try(assumption). simpl. reflexivity.
+    rewrite Hs. apply getPartitionsEqPDT with pdentry1; trivial.
+    - unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+    - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite HgetPartEq in *.
+  rewrite HgetPartEqs in *.
   assert(isPDT part2 s1).
-  { apply partitionsArePDT; assumption. }
+  { apply partitionsArePDT; trivial. unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   assert(HgetConfigEq: getConfigPaddr part2 s = getConfigPaddr part2 s1).
   {
     rewrite Hs. apply getConfigPaddrEqPDT with pdentry1; try(assumption). simpl. reflexivity.
@@ -8094,6 +8260,7 @@ kernelDataIsolation s0
 -> noDupMappedBlocksList s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup buildPart (memory s0) beqAddr = Some (PDT pdentryBuild)
 -> lookup blockBuild (memory s0) beqAddr = Some (BE bentryBuild)
@@ -8114,19 +8281,19 @@ kernelDataIsolation s0
 Proof.
 revert bentryBase. revert bentryBuild. revert blockBuild. revert pdentryBuild. revert s0. revert parentsList.
 revert buildPart. induction statesList.
-- simpl. intros buildPart parentsList s0 _ _ _ _ HKDI _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+- simpl. intros buildPart parentsList s0 _ _ _ _ HKDI _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
       HisBuilt.
   destruct HisBuilt as [_ Hss0Eq]. subst s. intuition.
 - simpl. intros buildPart parentsList s0 pdentryBuild blockBuild bentryBuild bentryBase HKDI HPDTIfPDFlag
       HmultPDT HwellFormedShadow Hstruct Hdisjoint HparentOfPart HisChild HchildBlockProps HnoDup
-      HwellFormedBlock HnoDupMapped HPI Hnull HbuildIsPart HlookupBuild HlookupBlockBuild HPFlagBuild
+      HwellFormedBlock HnoDupMapped HPI Hnull HnoDupTree HbuildIsPart HlookupBuild HlookupBlockBuild HPFlagBuild
       HnoPDFlagBuild HblockBuildMapped HstartBuild HendBuild HbaseIsPart HblockBaseMapped HlookupBlockBase
       HstartBase HendBase HbaseNotAncestor HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
-                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr (*& (HlastCase*)
+                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HcurrPartEq: currentPartition s0 = currentPartition s1).
   { rewrite Hs1. simpl. reflexivity. }
   assert(HpdAddrIsPart: In pdAddr (getPartitions multiplexer s0)).
@@ -8338,29 +8505,30 @@ revert buildPart. induction statesList.
   }
   assert(HblockIsBE: isBE blockInParentPartitionAddr s0) by (unfold isBE; rewrite HlookupBlocks0; trivial).
   assert(blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
+  assert(HgetPartMultEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s0).
+  {
+    rewrite Hs1. unfold multiplexerIsPDT in HmultPDT.
+    apply getPartitionsEqBEPDflagNoChangePresentNoChangeStartNoChange
+         with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
+       try(assumption);
+       try(unfold CBlockEntry;
+           destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia);
+           simpl; reflexivity).
+    - unfold sh1entryAddr. rewrite HlookupBlocks0. reflexivity.
+    - simpl.
+      destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset)))
+          eqn:HbeqBlockBlockSh1.
+      {
+        specialize(HwellFormedShadow blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormedShadow.
+        rewrite <-DTL.beqAddrTrue in HbeqBlockBlockSh1. rewrite <-HbeqBlockBlockSh1 in *.
+        rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
+      }
+      rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+    - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+  }
   assert(HgetPartsEq: getPartitions multiplexer a = getPartitions multiplexer s0).
   {
     rewrite HcurrPartEq in HpropsOr.
-    assert(HgetPartMultEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s0).
-    {
-      rewrite Hs1. unfold multiplexerIsPDT in HmultPDT.
-      apply getPartitionsEqBEPDflagNoChangePresentNoChangeStartNoChange
-           with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
-         try(assumption);
-         try(unfold CBlockEntry;
-             destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia);
-             simpl; reflexivity).
-      - unfold sh1entryAddr. rewrite HlookupBlocks0. reflexivity.
-      - simpl.
-        destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset)))
-            eqn:HbeqBlockBlockSh1.
-        {
-          specialize(HwellFormedShadow blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormedShadow.
-          rewrite <-DTL.beqAddrTrue in HbeqBlockBlockSh1. rewrite <-HbeqBlockBlockSh1 in *.
-          rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
-        }
-        rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
-    }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
     - destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentry1; try(assumption).
@@ -8369,8 +8537,11 @@ revert buildPart. induction statesList.
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartsEq in *.
+  rewrite <-HgetPartsEq in *. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartsEq. assumption. }
   assert(HlookupParentA: exists pdentry2, lookup pdAddr (memory a) beqAddr = Some (PDT pdentry2)).
   {
     destruct HpropsOr as [Has1Eq | Ha].
@@ -8598,6 +8769,7 @@ isPADDR nullAddr s0
 -> wellFormedFstShadowIfBlockEntry s0
 -> parentOfPartitionIsPartition s0
 -> isChild s0
+-> noDupPartitionTree s0
 -> noDupMappedPaddrList s0
 -> childsBlocksPropsInParent s0
 -> partitionsIsolation s0
@@ -8611,9 +8783,6 @@ isPADDR nullAddr s0
       -> (forall startaddr, bentryStartAddr block startaddr s0 -> bentryStartAddr blockC startaddr s0)
             /\ In blockC (getMappedBlocks idchild s0))
 -> In buildPart (getPartitions multiplexer s0)
-(*-> lookup buildPart (memory s0) beqAddr = Some (PDT pdentryBuild)
--> lookup blockBuild (memory s0) beqAddr = Some (BE bentryBuild)
--> bentryPFlag blockBuild true s0*)
 -> In blockBuild (getMappedBlocks buildPart s0)
 -> bentryStartAddr blockBuild startaddr s0
 -> bentryEndAddr blockBuild endaddr s0
@@ -8631,8 +8800,8 @@ isPADDR nullAddr s0
 Proof.
 revert s0 parentsList buildPart blockBuild.
 induction statesList; simpl; intros s0 parentsList buildPart blockBuild Hnull Hstruct HPDTIfPDFlag HmultIsPDT
-  Hdisjoint Hwell HwellSh1 HparentOfPart HisChild HnoDup HchildBlockProps HPI HlocSameStartPartial HbuildIsPart
-  HblockBMapped HstartB HendB HcheckChild HisBuilt; try(destruct HisBuilt; subst s; assumption).
+  Hdisjoint Hwell HwellSh1 HparentOfPart HisChild HnoDupTree HnoDup HchildBlockProps HPI HlocSameStartPartial
+  HbuildIsPart HblockBMapped HstartB HendB HcheckChild HisBuilt; try(destruct HisBuilt; subst s; assumption).
 destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
   (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
   & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
@@ -8859,6 +9028,7 @@ assert(HgetPartsEq: getPartitions multiplexer a = getPartitions multiplexer s0).
         rewrite HlookupBlocks0 in *. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+    - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
   rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
   - subst a. reflexivity.
@@ -8868,8 +9038,11 @@ assert(HgetPartsEq: getPartitions multiplexer a = getPartitions multiplexer s0).
         (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
     apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
         (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+    unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+    unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
-rewrite <-HgetPartsEq in *.
+rewrite <-HgetPartsEq in *. assert(HnoDupTreeA: noDupPartitionTree a).
+{ unfold noDupPartitionTree. rewrite HgetPartsEq. assumption. }
 assert(HgetMappedEq: forall part, getMappedBlocks part a = getMappedBlocks part s0).
 {
   rewrite HcurrPartEq in HpropsOr. intro partition.
@@ -9008,6 +9181,7 @@ wellFormedBlock s0
 -> DisjointKSEntries s0
 -> parentOfPartitionIsPartition s0
 -> isChild s0
+-> noDupPartitionTree s0
 -> childsBlocksPropsInParent s0
 -> noDupMappedPaddrList s0
 -> partitionsIsolation s0
@@ -9043,7 +9217,7 @@ wellFormedBlock s0
 Proof.
 revert s0 parentsList buildPart pdentryBuild blockBase. induction statesList; simpl; intros s0 parentsList
   buildPart pdentryBuild blockBase Hwell Hnull HstructIsKS HPDTIfPDFlag HmultIsPDT HwellSh1 Hdisjoint HparentOfPart
-  HisChild HchildBlockProps HnoDup HPI HlocMappedPartial HbuildPIsPart
+  HisChild HnoDupTree HchildBlockProps HnoDup HPI HlocMappedPartial HbuildPIsPart
   HlookupBuildP HstartBase HendBase HbaseMapped HcheckChild HisBuilt HpartIsPart HblockMapped Hsh1 HPDchild
   HchildLoc HbeqChildPartNull Hstart HstartNotKS.
 - destruct HisBuilt. subst s0. apply HlocMappedPartial; trivial.
@@ -9383,6 +9557,7 @@ revert s0 parentsList buildPart pdentryBuild blockBase. induction statesList; si
           rewrite HlookupBlocks0 in HwellSh1. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -9390,8 +9565,11 @@ revert s0 parentsList buildPart pdentryBuild blockBase. induction statesList; si
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HpdAddrIsPart.
+  rewrite <-HgetPartEq in HpdAddrIsPart. assert(noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   revert HisBuilt HpartIsPart HblockMapped Hsh1 HPDchild HchildLoc HbeqChildPartNull Hstart HstartNotKS.
   apply IHstatesList with pdentry1A blockInParentPartitionAddr; trivial.
 Qed.
@@ -9407,6 +9585,7 @@ wellFormedBlock s0
 -> DisjointKSEntries s0
 -> parentOfPartitionIsPartition s0
 -> isChild s0
+-> noDupPartitionTree s0
 -> childsBlocksPropsInParent s0
 -> noDupMappedPaddrList s0
 -> partitionsIsolation s0
@@ -9421,7 +9600,7 @@ wellFormedBlock s0
 Proof.
 revert s0 parentsList buildPart pdentryBuild blockBase. induction statesList; simpl; intros s0 parentsList
   buildPart pdentryBuild blockBase Hwell Hnull HstructIsKS HPDTIfPDFlag HmultIsPDT HwellSh1 Hdisjoint HparentOfPart
-  HisChild HchildBlockProps HnoDup HPI HlocMappedPartial HbuildPIsPart
+  HisChild HnoDupTree HchildBlockProps HnoDup HPI HlocMappedPartial HbuildPIsPart
   HlookupBuildP HstartBase HendBase HbaseMapped HisBuilt.
 - destruct HisBuilt. subst s0. assumption.
 - destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
@@ -9714,6 +9893,7 @@ revert s0 parentsList buildPart pdentryBuild blockBase. induction statesList; si
           rewrite HlookupBlocks0 in HwellSh1. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -9721,9 +9901,12 @@ revert s0 parentsList buildPart pdentryBuild blockBase. induction statesList; si
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuiltFalse with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HpdAddrIsPart. revert HisBuilt.
-  apply IHstatesList with pdentry1A blockInParentPartitionAddr; trivial.
+  rewrite <-HgetPartEq in HpdAddrIsPart. assert(noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
+  revert HisBuilt. apply IHstatesList with pdentry1A blockInParentPartitionAddr; trivial.
 Qed.
 
 Lemma baseBlockAccessibleImpliesNoPDWithIsBuilt s0 s statesList parentsList startaddr endaddr buildPart flag
@@ -9738,6 +9921,7 @@ childsBlocksPropsInParent s0
 -> PDTIfPDFlag s0
 -> multiplexerIsPDT s0
 -> isChild s0
+-> noDupPartitionTree s0
 -> parentOfPartitionIsPartition s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
@@ -9764,8 +9948,8 @@ revert bentryBase. revert blockBase. revert buildPart. revert pdentryBuild. reve
 induction statesList.
 - (* statesList = [] *)
   intros s0 parentsList pdentryBuild buildPart blockBase bentryBase HchildBlockProps Hdisjoint Hstruct
-      HwellFormedShadow HnoDup HwellFormedBlock HaccessPD HPDTIfPDFlag HmultPDT HisChild HparentIsPart
-      HpartIsolation _ HbuildIsPart HlookupBuild HlookupBlockBase HPFlagBase (*HAFlagBase*) HcheckChilcBase
+      HwellFormedShadow HnoDup HwellFormedBlock HaccessPD HPDTIfPDFlag HmultPDT HisChild HnoDupTree HparentIsPart
+      HpartIsolation _ HbuildIsPart HlookupBuild HlookupBlockBase HPFlagBase HcheckChilcBase
       HblockBaseMapped HstartBase HendBase HisBuilt. simpl in *.
   destruct HisBuilt as [Hparents Hss0Eq]. subst s. subst parentsList. simpl. exists buildPart. split.
   reflexivity. intros blockPart bentryPart HlookupBlockPart HPFlagPart HblockPartMapped HstartPart HendPart.
@@ -9777,14 +9961,14 @@ induction statesList.
   subst blockPart. assumption.
 - (* statesList = a::l *)
   intros s0 parentsList pdentryBuild buildPart blockBase bentryBase HchildBlockProps Hdisjoint Hstruct
-      HwellFormedShadow HnoDup HwellFormedBlock HaccessPD HPDTIfPDFlag HmultPDT HisChild HparentIsPart
-      HpartIsolation Hnull HbuildIsPart HlookupBuild HlookupBlockBase HPFlagBase (*HAFlagBase*) HcheckChilcBase
+      HwellFormedShadow HnoDup HwellFormedBlock HaccessPD HPDTIfPDFlag HmultPDT HisChild HnoDupTree HparentIsPart
+      HpartIsolation Hnull HbuildIsPart HlookupBuild HlookupBlockBase HPFlagBase HcheckChilcBase
       HblockBaseMapped HstartBase HendBase HisBuilt. simpl in *.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
                       (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HcurrPartsEq: currentPartition s0 = currentPartition s1).
   {
     rewrite Hs1. simpl. reflexivity.
@@ -10082,6 +10266,7 @@ induction statesList.
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -10089,11 +10274,14 @@ induction statesList.
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HpdAddrIsPart.
+  rewrite <-HgetPartEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   specialize(IHstatesList a newPdEntriesList pdentry1A pdAddr blockInParentPartitionAddr newBentry
              HchildBlockPropsA HdisjointA HstructA HwellFormedShadowA HnoDupA HwellFormedBlockA HaccessPDA
-             HPDTIfPDFlagA HmultPDTA HisChildA HparentIsPartA HpartIsolationA HnullA HpdAddrIsPart
+             HPDTIfPDFlagA HmultPDTA HisChildA HnoDupTreeA HparentIsPartA HpartIsolationA HnullA HpdAddrIsPart
              HlookupAncestorA HlookupBlockA HPFlagA HcheckChildA HblockIsMapped HblockStartA HblockEndA HisBuilt).
   destruct IHstatesList as [lastPart (HlastPart & IHstatesList)]. exists lastPart. split. rewrite HparentsList.
   apply lastRecInc. assumption. assumption.
@@ -10111,6 +10299,7 @@ childsBlocksPropsInParent s0
 -> PDTIfPDFlag s0
 -> multiplexerIsPDT s0
 -> isChild s0
+-> noDupPartitionTree s0
 -> parentOfPartitionIsPartition s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
@@ -10137,12 +10326,12 @@ revert bentryBase. revert blockBase. revert buildPart. revert pdentryBuild. reve
 induction statesList.
 - (* statesList = [] *)
   intros s0 parentsList pdentryBuild buildPart blockBase bentryBase HchildBlockProps Hdisjoint Hstruct
-      HwellFormedShadow HnoDup HwellFormedBlock HaccessPD HPDTIfPDFlag HmultPDT HisChild HparentIsPart
+      HwellFormedShadow HnoDup HwellFormedBlock HaccessPD HPDTIfPDFlag HmultPDT HisChild _ HparentIsPart
       HpartIsolation _ HbuildIsPart HlookupBuild HlookupBlockBase HPFlagBase Hcontra
       HblockBaseMapped HstartBase HendBase HisBuilt. exfalso; congruence.
 - (* statesList = a::l *)
   intros s0 parentsList pdentryBuild buildPart blockBase bentryBase HchildBlockProps Hdisjoint Hstruct
-      HwellFormedShadow HnoDup HwellFormedBlock HaccessPD HPDTIfPDFlag HmultPDT HisChild HparentIsPart
+      HwellFormedShadow HnoDup HwellFormedBlock HaccessPD HPDTIfPDFlag HmultPDT HisChild HnoDupTree HparentIsPart
       HpartIsolation Hnull HbuildIsPart HlookupBuild HlookupBlockBase HPFlagBase _
       HblockBaseMapped HstartBase HendBase HisBuilt. simpl in *.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
@@ -10447,6 +10636,7 @@ induction statesList.
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -10454,8 +10644,12 @@ induction statesList.
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HpdAddrIsPart. destruct newPdEntriesList eqn:HbeqNewPDListNull.
+  rewrite <-HgetPartEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
+  destruct newPdEntriesList eqn:HbeqNewPDListNull.
   + rewrite HparentsList. simpl. exists pdAddr. split. reflexivity. intros blockPart bentryPart HlookupBlockPart
       HPFlagPart HblockPartMapped HstartPart HendPart.
     assert(HstatesListEmpty: statesList = []).
@@ -10478,7 +10672,7 @@ induction statesList.
     rewrite <-HbeqNewPDListNull in *.
     specialize(IHstatesList a newPdEntriesList pdentry1A pdAddr blockInParentPartitionAddr newBentry
              HchildBlockPropsA HdisjointA HstructA HwellFormedShadowA HnoDupA HwellFormedBlockA HaccessPDA
-             HPDTIfPDFlagA HmultPDTA HisChildA HparentIsPartA HpartIsolationA HnullA HpdAddrIsPart
+             HPDTIfPDFlagA HmultPDTA HisChildA HnoDupTreeA HparentIsPartA HpartIsolationA HnullA HpdAddrIsPart
              HlookupAncestorA HlookupBlockA HPFlagA HbeqStatesListNull HblockIsMapped HblockStartA HblockEndA
              HisBuilt).
   destruct IHstatesList as [lastPart (HlastPart & IHstatesList)]. exists lastPart. split. rewrite HparentsList.
@@ -10497,6 +10691,7 @@ childsBlocksPropsInParentLight s0
 -> PDTIfPDFlag s0
 -> multiplexerIsPDT s0
 -> isChild s0
+-> noDupPartitionTree s0
 -> parentOfPartitionIsPartition s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
@@ -10523,12 +10718,12 @@ revert bentryBase. revert blockBase. revert buildPart. revert pdentryBuild. reve
 induction statesList.
 - (* statesList = [] *)
   intros s0 parentsList pdentryBuild buildPart blockBase bentryBase HchildBlockProps Hdisjoint Hstruct
-      HwellFormedShadow HnoDup HwellFormedBlock HaccessPD HPDTIfPDFlag HmultPDT HisChild HparentIsPart
+      HwellFormedShadow HnoDup HwellFormedBlock HaccessPD HPDTIfPDFlag HmultPDT HisChild _ HparentIsPart
       HpartIsolation _ HbuildIsPart HlookupBuild HlookupBlockBase HPFlagBase Hcontra
       HblockBaseMapped HstartBase HendBase HisBuilt. exfalso; congruence.
 - (* statesList = a::l *)
   intros s0 parentsList pdentryBuild buildPart blockBase bentryBase HchildBlockProps Hdisjoint Hstruct
-      HwellFormedShadow HnoDup HwellFormedBlock HaccessPD HPDTIfPDFlag HmultPDT HisChild HparentIsPart
+      HwellFormedShadow HnoDup HwellFormedBlock HaccessPD HPDTIfPDFlag HmultPDT HisChild HnoDupTree HparentIsPart
       HpartIsolation Hnull HbuildIsPart HlookupBuild HlookupBlockBase HPFlagBase _
       HblockBaseMapped HstartBase HendBase HisBuilt. simpl in *.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
@@ -10833,6 +11028,7 @@ induction statesList.
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -10840,6 +11036,8 @@ induction statesList.
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
   rewrite <-HgetPartEq in HpdAddrIsPart. destruct newPdEntriesList eqn:HbeqNewPDListNull.
   + rewrite HparentsList. simpl. exists pdAddr. split. reflexivity. intros blockPart bentryPart HlookupBlockPart
@@ -10861,10 +11059,11 @@ induction statesList.
       destruct statesList; try(intro Hcontra; congruence). exfalso. simpl in HisBuilt.
       destruct HisBuilt as (Hcontra & _). congruence.
     }
-    rewrite <-HbeqNewPDListNull in *.
+    rewrite <-HbeqNewPDListNull in *. assert(HnoDupTreeA: noDupPartitionTree a).
+    { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
     specialize(IHstatesList a newPdEntriesList pdentry1A pdAddr blockInParentPartitionAddr newBentry
              HchildBlockPropsA HdisjointA HstructA HwellFormedShadowA HnoDupA HwellFormedBlockA HaccessPDA
-             HPDTIfPDFlagA HmultPDTA HisChildA HparentIsPartA HpartIsolationA HnullA HpdAddrIsPart
+             HPDTIfPDFlagA HmultPDTA HisChildA HnoDupTreeA HparentIsPartA HpartIsolationA HnullA HpdAddrIsPart
              HlookupAncestorA HlookupBlockA HPFlagA HbeqStatesListNull HblockIsMapped HblockStartA HblockEndA
              HisBuilt).
   destruct IHstatesList as [lastPart (HlastPart & IHstatesList)]. exists lastPart. split. rewrite HparentsList.
@@ -10883,6 +11082,7 @@ parentOfPartitionIsPartition s0
 -> childsBlocksPropsInParent s0
 -> DisjointKSEntries s0
 -> wellFormedBlock s0
+-> noDupPartitionTree s0
 -> noDupMappedPaddrList s0
 -> partitionsIsolation s0
 -> In pdbasepartition (getPartitions multiplexer s0)
@@ -10896,12 +11096,12 @@ parentOfPartitionIsPartition s0
 Proof.
 revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList pdbasepartition blockBase bentryBase HparentOfPart HnullExists _ _ _ _ _ _ _ _ _ _ _ _
+  intros s0 parentsList pdbasepartition blockBase bentryBase HparentOfPart HnullExists _ _ _ _ _ _ _ _ _ _ _ _ _
       _ _ _ _ HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList _]. subst parentsList. simpl. trivial.
 - (* statesList = a::l *)
   intros s0 parentsList pdbasepartition blockBase bentryBase HparentOfPart HnullExists HmultPDT HPDTIfPDFlag
-      HwellFormedShadow Hstruct HisChild HchildBlockProps Hdisjoint HwellFormedBlock HnoDup HpartIsolation
+      HwellFormedShadow Hstruct HisChild HchildBlockProps Hdisjoint HwellFormedBlock HnoDupTree HnoDup HpartIsolation
       HbaseIsPart HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase HisBuilt.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec s0 s (a :: statesList) parentsList pdbasepartition
              startaddr endaddr false) by assumption.
@@ -11209,6 +11409,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
         rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -11218,11 +11419,14 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; intuition.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HpdAddrIsPart.
+  rewrite <-HgetPartEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HparentOfPartA
              HnullExistsA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HisChildA HchildBlockPropsA
-             HdisjointA HwellFormedBlockA HnoDupA HpartIsolationA HpdAddrIsPart HlookupBlockA HPFlagBlockA
+             HdisjointA HwellFormedBlockA HnoDupTreeA HnoDupA HpartIsolationA HpdAddrIsPart HlookupBlockA HPFlagBlockA
              HblockMappedPdAddr HstartBlockA HendBlockA HisBuilt).
   assumption.
 Qed.
@@ -11239,6 +11443,7 @@ parentOfPartitionIsPartition s0
 -> childsBlocksPropsInParent s0
 -> DisjointKSEntries s0
 -> wellFormedBlock s0
+-> noDupPartitionTree s0
 -> noDupMappedPaddrList s0
 -> partitionsIsolation s0
 -> In pdbasepartition (getPartitions multiplexer s0)
@@ -11253,12 +11458,12 @@ parentOfPartitionIsPartition s0
 Proof.
 revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList pdbasepartition blockBase bentryBase HparentOfPart HnullExists _ _ _ _ _ _ _ _ _ _ _ _ _
+  intros s0 parentsList pdbasepartition blockBase bentryBase HparentOfPart HnullExists _ _ _ _ _ _ _ _ _ _ _ _ _ _
       _ _ _ _ HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList _]. subst parentsList. simpl. trivial.
 - (* statesList = a::l *)
   intros s0 parentsList pdbasepartition blockBase bentryBase HparentOfPart HnullExists HmultPDT HPDTIfPDFlag
-      HwellFormedShadow Hstruct HisChild HchildBlockProps Hdisjoint HwellFormedBlock HnoDup HpartIsolation
+      HwellFormedShadow Hstruct HisChild HchildBlockProps Hdisjoint HwellFormedBlock HnoDupTree HnoDup HpartIsolation
       HbaseIsPart HlookupBlockBase HPFlagBase HnoPDFlagBase HblockBaseMapped HstartBase HendBase HisBuilt.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec s0 s (a :: statesList) parentsList pdbasepartition
              startaddr endaddr flag) by assumption.
@@ -11572,6 +11777,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
         rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -11581,11 +11787,14 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HpdAddrIsPart.
+  rewrite <-HgetPartEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HparentOfPartA
              HnullExistsA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HisChildA HchildBlockPropsA
-             HdisjointA HwellFormedBlockA HnoDupA HpartIsolationA HpdAddrIsPart HlookupBlockA HPFlagBlockA
+             HdisjointA HwellFormedBlockA HnoDupTreeA HnoDupA HpartIsolationA HpdAddrIsPart HlookupBlockA HPFlagBlockA
              HcheckChildA HblockMappedPdAddr HstartBlockA HendBlockA HisBuilt).
   assumption.
 Qed.
@@ -11602,6 +11811,7 @@ parentOfPartitionIsPartition s0
 -> childsBlocksPropsInParentLight s0
 -> DisjointKSEntries s0
 -> wellFormedBlock s0
+-> noDupPartitionTree s0
 -> noDupMappedPaddrList s0
 -> partitionsIsolation s0
 -> In pdbasepartition (getPartitions multiplexer s0)
@@ -11616,19 +11826,18 @@ parentOfPartitionIsPartition s0
 Proof.
 revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList pdbasepartition blockBase bentryBase HparentOfPart HnullExists _ _ _ _ _ _ _ _ _ _ _ _ _
+  intros s0 parentsList pdbasepartition blockBase bentryBase HparentOfPart HnullExists _ _ _ _ _ _ _ _ _ _ _ _ _ _
       _ _ _ _ HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList _]. subst parentsList. simpl. trivial.
 - (* statesList = a::l *)
   intros s0 parentsList pdbasepartition blockBase bentryBase HparentOfPart HnullExists HmultPDT HPDTIfPDFlag
-      HwellFormedShadow Hstruct HisChild HchildBlockProps Hdisjoint HwellFormedBlock HnoDup HpartIsolation
+      HwellFormedShadow Hstruct HisChild HchildBlockProps Hdisjoint HwellFormedBlock HnoDupTree HnoDup HpartIsolation
       HbaseIsPart HlookupBlockBase HPFlagBase HnoPDFlagBase HblockBaseMapped HstartBase HendBase HisBuilt.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec s0 s (a :: statesList) parentsList pdbasepartition
              startaddr endaddr flag) by assumption.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentryBase & (pdentryPdAddr &
                         (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & HpropsOr &
-                        (*HbaseCase &*)
                         HnewB & HlookupBlocks0 & HlookupBlocks1 & HPFlagBlock & HstartBlock & HendBlock &
                         HblockMappedPdAddr & HlookupBases0 & HlookupBases1 & HlookupPdAddrs0 & HlookupPdAddrs1 &
                         HpdAddr & HbaseNotRoot & HisBuilt))))))))))].
@@ -11935,6 +12144,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
         rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -11944,11 +12154,14 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HpdAddrIsPart.
+  rewrite <-HgetPartEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HparentOfPartA
              HnullExistsA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HisChildA HchildBlockPropsA
-             HdisjointA HwellFormedBlockA HnoDupA HpartIsolationA HpdAddrIsPart HlookupBlockA HPFlagBlockA
+             HdisjointA HwellFormedBlockA HnoDupTreeA HnoDupA HpartIsolationA HpdAddrIsPart HlookupBlockA HPFlagBlockA
              HcheckChildA HblockMappedPdAddr HstartBlockA HendBlockA HisBuilt).
   assumption.
 Qed.
@@ -11968,6 +12181,7 @@ childsBlocksPropsInParentLight s0
 -> parentOfPartitionIsPartition s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup buildPart (memory s0) beqAddr = Some (PDT pdentryBuild)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
@@ -11992,7 +12206,7 @@ induction statesList.
 - (* statesList = [] *)
   intros s0 parentsList pdentryBuild buildPart blockBase bentryBase HchildBlockProps Hdisjoint Hstruct
       HwellFormedShadow HnoDup HwellFormedBlock HaccessPD HPDTIfPDFlag HmultPDT HisChild HparentIsPart
-      HpartIsolation _ HbuildIsPart HlookupBuild HlookupBlockBase HPFlagBase (*HAFlagBase*) HcheckChilcBase
+      HpartIsolation _ _ HbuildIsPart HlookupBuild HlookupBlockBase HPFlagBase HcheckChilcBase
       HblockBaseMapped HstartBase HendBase HisBuilt. simpl in *.
   destruct HisBuilt as [Hparents Hss0Eq]. subst s. subst parentsList. simpl. exists buildPart. split.
   reflexivity. intros blockPart bentryPart HlookupBlockPart HPFlagPart HblockPartMapped HstartPart HendPart.
@@ -12005,14 +12219,14 @@ induction statesList.
 - (* statesList = a::l *)
   intros s0 parentsList pdentryBuild buildPart blockBase bentryBase HchildBlockProps Hdisjoint Hstruct
       HwellFormedShadow HnoDup HwellFormedBlock HaccessPD HPDTIfPDFlag HmultPDT HisChild HparentIsPart
-      HpartIsolation Hnull HbuildIsPart HlookupBuild HlookupBlockBase HPFlagBase (*HAFlagBase*) HcheckChilcBase
+      HpartIsolation Hnull HnoDupTree HbuildIsPart HlookupBuild HlookupBlockBase HPFlagBase HcheckChilcBase
       HblockBaseMapped HstartBase HendBase HisBuilt.
   simpl in *.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
                       (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HcurrPartsEq: currentPartition s0 = currentPartition s1).
   {
     rewrite Hs1. simpl. reflexivity.
@@ -12310,6 +12524,7 @@ induction statesList.
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -12317,11 +12532,14 @@ induction statesList.
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HpdAddrIsPart.
+  rewrite <-HgetPartEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   specialize(IHstatesList a newPdEntriesList pdentry1A pdAddr blockInParentPartitionAddr newBentry
              HchildBlockPropsA HdisjointA HstructA HwellFormedShadowA HnoDupA HwellFormedBlockA HaccessPDA
-             HPDTIfPDFlagA HmultPDTA HisChildA HparentIsPartA HpartIsolationA HnullA HpdAddrIsPart
+             HPDTIfPDFlagA HmultPDTA HisChildA HparentIsPartA HpartIsolationA HnullA HnoDupTreeA HpdAddrIsPart
              HlookupAncestorA HlookupBlockA HPFlagA HcheckChildA HblockIsMapped HblockStartA HblockEndA HisBuilt).
   destruct IHstatesList as [lastPart (HlastPart & IHstatesList)]. exists lastPart. split. rewrite HparentsList.
   apply lastRecInc. assumption. assumption.
@@ -12342,10 +12560,10 @@ partitionTreeIsTree s0
 -> noDupMappedPaddrList s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In pdbasepartition (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
-(*-> false = checkChild blockBase s0 (CPaddr (blockBase + sh1offset))*)
 -> In blockBase (getMappedBlocks pdbasepartition s0)
 -> bentryStartAddr blockBase startaddr s0
 -> bentryEndAddr blockBase endaddr s0
@@ -12354,12 +12572,12 @@ partitionTreeIsTree s0
 Proof.
 revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList pdbasepartition blockBase bentryBase Htree _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ HisBuilt.
+  intros s0 parentsList pdbasepartition blockBase bentryBase Htree _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [_ HparentsList]. subst s. assumption.
 - (* statesList = a::l *)
   intros s0 parentsList pdbasepartition blockBase bentryBase Htree HparentOfPart HmultPDT HPDTIfPDFlag
       HwellFormedShadow Hstruct HisChild HchildBlockProps Hdisjoint HwellFormedBlock HnoDup HpartIsolation
-      Hnull HbaseIsPart HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase HisBuilt.
+      Hnull HnoDupTree HbaseIsPart HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase HisBuilt.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec s0 s (a :: statesList) parentsList pdbasepartition
              startaddr endaddr flag) by assumption.
   simpl in HisBuilt.
@@ -12658,6 +12876,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
         rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -12667,11 +12886,14 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HpdAddrIsPart.
+  rewrite <-HgetPartEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HtreeA HparentOfPartA
              HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HisChildA HchildBlockPropsA HdisjointA
-             HwellFormedBlockA HnoDupA HpartIsolationA HnullA HpdAddrIsPart HlookupBlockA HPFlagBlockA
+             HwellFormedBlockA HnoDupA HpartIsolationA HnullA HnoDupTreeA HpdAddrIsPart HlookupBlockA HPFlagBlockA
              HblockMappedPdAddr HstartBlockA HendBlockA HisBuilt).
   assumption.
 Qed.
@@ -12691,10 +12913,10 @@ partitionTreeIsTree s0
 -> noDupMappedPaddrList s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In pdbasepartition (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
-(*-> false = checkChild blockBase s0 (CPaddr (blockBase + sh1offset))*)
 -> In blockBase (getMappedBlocks pdbasepartition s0)
 -> bentryStartAddr blockBase startaddr s0
 -> bentryEndAddr blockBase endaddr s0
@@ -12703,12 +12925,12 @@ partitionTreeIsTree s0
 Proof.
 revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList pdbasepartition blockBase bentryBase Htree _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ HisBuilt.
+  intros s0 parentsList pdbasepartition blockBase bentryBase Htree _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [_ HparentsList]. subst s. assumption.
 - (* statesList = a::l *)
   intros s0 parentsList pdbasepartition blockBase bentryBase Htree HparentOfPart HmultPDT HPDTIfPDFlag
       HwellFormedShadow Hstruct HisChild HchildBlockProps Hdisjoint HwellFormedBlock HnoDup HpartIsolation
-      Hnull HbaseIsPart HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase HisBuilt.
+      Hnull HnoDupTree HbaseIsPart HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase HisBuilt.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec s0 s (a :: statesList) parentsList pdbasepartition
              startaddr endaddr flag) by assumption.
   simpl in HisBuilt.
@@ -13007,6 +13229,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
         rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -13016,11 +13239,14 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HpdAddrIsPart.
+  rewrite <-HgetPartEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HtreeA HparentOfPartA
              HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HisChildA HchildBlockPropsA HdisjointA
-             HwellFormedBlockA HnoDupA HpartIsolationA HnullA HpdAddrIsPart HlookupBlockA HPFlagBlockA
+             HwellFormedBlockA HnoDupA HpartIsolationA HnullA HnoDupTreeA HpdAddrIsPart HlookupBlockA HPFlagBlockA
              HblockMappedPdAddr HstartBlockA HendBlockA HisBuilt).
   assumption.
 Qed.
@@ -13039,10 +13265,10 @@ parentOfPartitionIsPartition s0
 -> noDupMappedPaddrList s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In pdbasepartition (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
-(*-> false = checkChild blockBase s0 (CPaddr (blockBase + sh1offset))*)
 -> In blockBase (getMappedBlocks pdbasepartition s0)
 -> bentryStartAddr blockBase startaddr s0
 -> bentryEndAddr blockBase endaddr s0
@@ -13051,13 +13277,13 @@ parentOfPartitionIsPartition s0
 Proof.
 revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList pdbasepartition blockBase bentryBase HparentOfPart _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  intros s0 parentsList pdbasepartition blockBase bentryBase HparentOfPart _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
         HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [_ HparentsList]. subst s. assumption.
 - (* statesList = a::l *)
   intros s0 parentsList pdbasepartition blockBase bentryBase HparentOfPart HmultPDT HPDTIfPDFlag
       HwellFormedShadow Hstruct HisChild HchildBlockProps Hdisjoint HwellFormedBlock HnoDup HpartIsolation
-      Hnull HbaseIsPart HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase HisBuilt.
+      Hnull HnoDupTree HbaseIsPart HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase HisBuilt.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec s0 s (a :: statesList) parentsList pdbasepartition
              startaddr endaddr flag) by assumption.
   simpl in HisBuilt.
@@ -13344,6 +13570,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
         rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -13353,11 +13580,14 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HpdAddrIsPart.
+  rewrite <-HgetPartEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HparentOfPartA
              HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HisChildA HchildBlockPropsA HdisjointA
-             HwellFormedBlockA HnoDupA HpartIsolationA HnullA HpdAddrIsPart HlookupBlockA HPFlagBlockA
+             HwellFormedBlockA HnoDupA HpartIsolationA HnullA HnoDupTreeA HpdAddrIsPart HlookupBlockA HPFlagBlockA
              HblockMappedPdAddr HstartBlockA HendBlockA HisBuilt).
   assumption.
 Qed.
@@ -13376,10 +13606,10 @@ parentOfPartitionIsPartition s0
 -> noDupMappedPaddrList s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In pdbasepartition (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
-(*-> false = checkChild blockBase s0 (CPaddr (blockBase + sh1offset))*)
 -> In blockBase (getMappedBlocks pdbasepartition s0)
 -> bentryStartAddr blockBase startaddr s0
 -> bentryEndAddr blockBase endaddr s0
@@ -13388,13 +13618,13 @@ parentOfPartitionIsPartition s0
 Proof.
 revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList pdbasepartition blockBase bentryBase HparentOfPart _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  intros s0 parentsList pdbasepartition blockBase bentryBase HparentOfPart _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
         HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [_ HparentsList]. subst s. assumption.
 - (* statesList = a::l *)
   intros s0 parentsList pdbasepartition blockBase bentryBase HparentOfPart HmultPDT HPDTIfPDFlag
       HwellFormedShadow Hstruct HisChild HchildBlockProps Hdisjoint HwellFormedBlock HnoDup HpartIsolation
-      Hnull HbaseIsPart HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase HisBuilt.
+      Hnull HnoDupTree HbaseIsPart HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase HisBuilt.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec s0 s (a :: statesList) parentsList pdbasepartition
              startaddr endaddr flag) by assumption.
   simpl in HisBuilt.
@@ -13681,6 +13911,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
         rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -13690,11 +13921,14 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HpdAddrIsPart.
+  rewrite <-HgetPartEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HparentOfPartA
              HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HisChildA HchildBlockPropsA HdisjointA
-             HwellFormedBlockA HnoDupA HpartIsolationA HnullA HpdAddrIsPart HlookupBlockA HPFlagBlockA
+             HwellFormedBlockA HnoDupA HpartIsolationA HnullA HnoDupTreeA HpdAddrIsPart HlookupBlockA HPFlagBlockA
              HblockMappedPdAddr HstartBlockA HendBlockA HisBuilt).
   assumption.
 Qed.
@@ -13712,6 +13946,7 @@ parentOfPartitionIsPartition sInit
 -> childsBlocksPropsInParent sInit
 -> DisjointKSEntries sInit
 -> wellFormedBlock sInit
+-> noDupPartitionTree sInit
 -> noDupMappedPaddrList sInit
 -> partitionTreeIsTree sInit
 -> partitionsIsolation sInit
@@ -13735,7 +13970,6 @@ parentOfPartitionIsPartition sInit
 -> bentryPFlag blockBase true sInit
 -> bentryStartAddr blockBase startaddr sInit
 -> bentryEndAddr blockBase endaddr sInit
-(*-> false = checkChild blockBase sInit (CPaddr (blockBase + sh1offset))*)
 -> s1 =
      {|
        currentPartition := currentPartition s0;
@@ -13769,10 +14003,10 @@ Proof.
 revert blockBase. revert pdbasepartition. revert pdentryBase. revert parentsList. revert sInit.
 induction statesList.
 - (* statesList = [] *)
-  simpl. intros sInit parentsList pdentryBase pdbasepartition blockBase _ _ _ _ _ _ _ _ _ _ _ _ _ HisBuilt
+  simpl. intros sInit parentsList pdentryBase pdbasepartition blockBase _ _ _ _ _ _ _ _ _ _ _ _ _ _ HisBuilt
       HpartIsLast HbaseIsPart HlookupBasesInit HlookupBases0
       HlookupParts0 HlookupParentsInit HlookupParents0 Hpdparent HpartNotRoot HlookupBlocks0 HlookupBlocks1
-      HPFlag Hstart Hend HblockMapped _ _ _ _ (*_*) Hs1 HpropsOr.
+      HPFlag Hstart Hend HblockMapped _ _ _ _ Hs1 HpropsOr.
   destruct HisBuilt as [HparentsList Hs0sInitEq]. subst parentsList. subst s0. simpl. exists pdparent.
   exists []. split. reflexivity. exists realMPU. exists pdentryBase. exists pdentryPdparent.
   exists blockInParentPartitionAddr. exists bentry. exists newBentry. exists s1.
@@ -13807,16 +14041,16 @@ induction statesList.
   intuition.
 - (* statesList = a::l *)
   intros sInit parentsList pdentryBase pdbasepartition blockBase HparentOfPart HnullExists HmultPDT HPDTIfPDFlag
-      HwellFormedShadow Hstruct HisChild HchildBlockProps Hdisjoint HwellFormed HnoDup Htree HpartIsolation
+      HwellFormedShadow Hstruct HisChild HchildBlockProps Hdisjoint HwellFormed HnoDupTree HnoDup Htree HpartIsolation
       HisBuilt HpartIsLast HbaseIsPart HlookupBasesInit HlookupBases0 HlookupParts0 HlookupParentsInit
       HlookupParents0 Hpdparent HpartNotRoot HlookupBlocks0 HlookupBlocks1 HPFlag Hstart Hend HblockMapped
-      HblockBaseMapped HPFlagBase HstartBase HendBase (*HnoPDFlagBase*) Hs1 HpropsOr.
+      HblockBaseMapped HPFlagBase HstartBase HendBase Hs1 HpropsOr.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec sInit s0 (a :: statesList) parentsList pdbasepartition
              startaddr endaddr false) by assumption.
   simpl in HisBuilt. simpl.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU' & (pdentryBase' & (pdentryPdAddr &
                          (blockInParentPartitionAddr' & (bentry' & (newBentry' & (s' & (Hs' & HpropsOr' &
-                          (*HlistEmpty &*) HnewB' & HlookupBlocksInit' & HlookupBlocks' & HPFlag' & Hstart' &
+                          HnewB' & HlookupBlocksInit' & HlookupBlocks' & HPFlag' & Hstart' &
                            Hend' & Hblock'Mapped & HlookupBasesInit' & HlookupBases' & HlookupPdAddrsInit &
                             HlookupPdAddrs' & HpdAddr & HbaseNotRoot & HisBuilt))))))))))].
   assert(HcurrPartsEq: currentPartition sInit = currentPartition s').
@@ -14101,6 +14335,7 @@ induction statesList.
         rewrite HlookupBlocksInit' in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr' as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -14110,8 +14345,11 @@ induction statesList.
         bentry' (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr' realMPU') false; intuition.
       apply PDTIfPDFlagPreservedIsBuilt with s' sInit pdAddr pdentryPdAddr blockInParentPartitionAddr'
         bentry' (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr' realMPU') false; intuition.
+      unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HpdAddrIsPart.
+  rewrite <-HgetPartEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   assert(HnullExistsA: nullAddrExists a).
   {
     assert(HnullExistss1: nullAddrExists s').
@@ -14188,10 +14426,10 @@ induction statesList.
       }
       specialize(IHstatesList s' newPdEntriesList pdentryPdAddr pdAddr blockInParentPartitionAddr' HparentOfPartA
         HnullExistsA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HisChildA HchildBlockPropsA HdisjointA
-        HwellFormedBlockA HnoDupA HtreeA HpartIsolationA HisBuilt HpartIsNewLast HpdAddrIsPart HlookupPdAddrs'
-        HlookupPdAddrs0 HlookupParts0 HlookupParents' HlookupParents0 Hpdparent HpartNotRoot HlookupBlocks0
-        HlookupBlocks1 HPFlag Hstart Hend HblockMapped Hblock'Mapped HPFlagBlockA HstartBlockA HendBlockA
-        Hs1 HpropsOr).
+        HwellFormedBlockA HnoDupTreeA HnoDupA HtreeA HpartIsolationA HisBuilt HpartIsNewLast HpdAddrIsPart
+        HlookupPdAddrs' HlookupPdAddrs0 HlookupParts0 HlookupParents' HlookupParents0 Hpdparent HpartNotRoot
+        HlookupBlocks0 HlookupBlocks1 HPFlag Hstart Hend HblockMapped Hblock'Mapped HPFlagBlockA HstartBlockA
+        HendBlockA Hs1 HpropsOr).
       assumption.
     + destruct Ha as [Ha HMPU].
       assert(HlookupPdAddrEq: lookup pdAddr (memory s0) beqAddr = lookup pdAddr (memory a) beqAddr).
@@ -14238,7 +14476,7 @@ induction statesList.
         rewrite HpdentriesEq2 in *.
         specialize(IHstatesList a newPdEntriesList pdentryPdAddr pdparent blockInParentPartitionAddr'
               HparentOfPartA HnullExistsA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HisChildA
-              HchildBlockPropsA HdisjointA HwellFormedBlockA HnoDupA HtreeA HpartIsolationA HisBuilt
+              HchildBlockPropsA HdisjointA HwellFormedBlockA HnoDupTreeA HnoDupA HtreeA HpartIsolationA HisBuilt
               HpartIsNewLast HpdAddrIsPart HlookupPdAddrA HlookupPdAddrEq HlookupParts0 HlookupPdAddrA
               HlookupPdAddrEq Hpdparent HpartNotRoot HlookupBlocks0 HlookupBlocks1 HPFlag Hstart Hend
               HblockMapped Hblock'Mapped HPFlagBlockA HstartBlockA HendBlockA Hs1 HpropsOr).
@@ -14250,10 +14488,10 @@ induction statesList.
         }
         specialize(IHstatesList a newPdEntriesList pdentryPdAddrA pdAddr blockInParentPartitionAddr'
           HparentOfPartA HnullExistsA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HisChildA
-          HchildBlockPropsA HdisjointA HwellFormedBlockA HnoDupA HtreeA HpartIsolationA HisBuilt HpartIsNewLast
-          HpdAddrIsPart HlookupPdAddrA HlookupPdAddrEq HlookupParts0 HlookupParentA HlookupParents0 Hpdparent
-          HpartNotRoot HlookupBlocks0 HlookupBlocks1 HPFlag Hstart Hend HblockMapped Hblock'Mapped HPFlagBlockA
-          HstartBlockA HendBlockA Hs1 HpropsOr).
+          HchildBlockPropsA HdisjointA HwellFormedBlockA HnoDupTreeA HnoDupA HtreeA HpartIsolationA HisBuilt
+          HpartIsNewLast HpdAddrIsPart HlookupPdAddrA HlookupPdAddrEq HlookupParts0 HlookupParentA HlookupParents0
+          Hpdparent HpartNotRoot HlookupBlocks0 HlookupBlocks1 HPFlag Hstart Hend HblockMapped Hblock'Mapped
+          HPFlagBlockA HstartBlockA HendBlockA Hs1 HpropsOr).
         assumption.
   }
   rewrite HgetMappedBlocksEq in Hblock'Mapped.
@@ -14276,6 +14514,7 @@ parentOfPartitionIsPartition sInit
 -> childsBlocksPropsInParent sInit
 -> DisjointKSEntries sInit
 -> wellFormedBlock sInit
+-> noDupPartitionTree sInit
 -> noDupMappedPaddrList sInit
 -> partitionTreeIsTree sInit
 -> partitionsIsolation sInit
@@ -14333,7 +14572,7 @@ Proof.
 revert blockBase. revert pdbasepartition. revert pdentryBase. revert parentsList. revert sInit.
 induction statesList.
 - (* statesList = [] *)
-  simpl. intros sInit parentsList pdentryBase pdbasepartition blockBase _ _ _ _ _ _ _ _ _ _ _ _ _ HisBuilt
+  simpl. intros sInit parentsList pdentryBase pdbasepartition blockBase _ _ _ _ _ _ _ _ _ _ _ _ _ _ HisBuilt
       HpartIsLast HbaseIsPart HlookupBasesInit HlookupBases0
       HlookupParts0 HlookupParentsInit HlookupParents0 Hpdparent HpartNotRoot HlookupBlocks0 HlookupBlocks1
       HPFlag Hstart Hend HblockMapped _ _ _ _ _ Hs1 HpropsOr.
@@ -14371,7 +14610,7 @@ induction statesList.
   intuition.
 - (* statesList = a::l *)
   intros sInit parentsList pdentryBase pdbasepartition blockBase HparentOfPart HnullExists HmultPDT HPDTIfPDFlag
-      HwellFormedShadow Hstruct HisChild HchildBlockProps Hdisjoint HwellFormed HnoDup Htree HpartIsolation
+      HwellFormedShadow Hstruct HisChild HchildBlockProps Hdisjoint HwellFormed HnoDupTree HnoDup Htree HpartIsolation
       HisBuilt HpartIsLast HbaseIsPart HlookupBasesInit HlookupBases0 HlookupParts0 HlookupParentsInit
       HlookupParents0 Hpdparent HpartNotRoot HlookupBlocks0 HlookupBlocks1 HPFlag Hstart Hend HblockMapped
       HblockBaseMapped HPFlagBase HstartBase HendBase HnoPDFlagBase Hs1 HpropsOr.
@@ -14380,7 +14619,7 @@ induction statesList.
   simpl in HisBuilt. simpl.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU' & (pdentryBase' & (pdentryPdAddr &
                          (blockInParentPartitionAddr' & (bentry' & (newBentry' & (s' & (Hs' & HpropsOr' &
-                          (*HlistEmpty &*) HnewB' & HlookupBlocksInit' & HlookupBlocks' & HPFlag' & Hstart' &
+                          HnewB' & HlookupBlocksInit' & HlookupBlocks' & HPFlag' & Hstart' &
                            Hend' & Hblock'Mapped & HlookupBasesInit' & HlookupBases' & HlookupPdAddrsInit &
                             HlookupPdAddrs' & HpdAddr & HbaseNotRoot & HisBuilt))))))))))].
   assert(HcurrPartsEq: currentPartition sInit = currentPartition s').
@@ -14665,6 +14904,7 @@ induction statesList.
         rewrite HlookupBlocksInit' in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr' as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -14674,8 +14914,11 @@ induction statesList.
         bentry' (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr' realMPU') flag; intuition.
       apply PDTIfPDFlagPreservedIsBuilt with s' sInit pdAddr pdentryPdAddr blockInParentPartitionAddr'
         bentry' (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr' realMPU') flag; intuition.
+      unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HpdAddrIsPart.
+  rewrite <-HgetPartEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   assert(HnullExistsA: nullAddrExists a).
   {
     assert(HnullExistss1: nullAddrExists s').
@@ -14752,10 +14995,10 @@ induction statesList.
       }
       specialize(IHstatesList s' newPdEntriesList pdentryPdAddr pdAddr blockInParentPartitionAddr' HparentOfPartA
         HnullExistsA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HisChildA HchildBlockPropsA HdisjointA
-        HwellFormedBlockA HnoDupA HtreeA HpartIsolationA HisBuilt HpartIsNewLast HpdAddrIsPart HlookupPdAddrs'
-        HlookupPdAddrs0 HlookupParts0 HlookupParents' HlookupParents0 Hpdparent HpartNotRoot HlookupBlocks0
-        HlookupBlocks1 HPFlag Hstart Hend HblockMapped Hblock'Mapped HPFlagBlockA HstartBlockA HendBlockA
-        HcheckChildA Hs1 HpropsOr).
+        HwellFormedBlockA HnoDupTreeA HnoDupA HtreeA HpartIsolationA HisBuilt HpartIsNewLast HpdAddrIsPart
+        HlookupPdAddrs' HlookupPdAddrs0 HlookupParts0 HlookupParents' HlookupParents0 Hpdparent HpartNotRoot
+        HlookupBlocks0 HlookupBlocks1 HPFlag Hstart Hend HblockMapped Hblock'Mapped HPFlagBlockA HstartBlockA
+        HendBlockA HcheckChildA Hs1 HpropsOr).
       assumption.
     + destruct Ha as [Ha HMPU].
       assert(HlookupPdAddrEq: lookup pdAddr (memory s0) beqAddr = lookup pdAddr (memory a) beqAddr).
@@ -14802,7 +15045,7 @@ induction statesList.
         rewrite HpdentriesEq2 in *.
         specialize(IHstatesList a newPdEntriesList pdentryPdAddr pdparent blockInParentPartitionAddr'
               HparentOfPartA HnullExistsA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HisChildA
-              HchildBlockPropsA HdisjointA HwellFormedBlockA HnoDupA HtreeA HpartIsolationA HisBuilt
+              HchildBlockPropsA HdisjointA HwellFormedBlockA HnoDupTreeA HnoDupA HtreeA HpartIsolationA HisBuilt
               HpartIsNewLast HpdAddrIsPart HlookupPdAddrA HlookupPdAddrEq HlookupParts0 HlookupPdAddrA
               HlookupPdAddrEq Hpdparent HpartNotRoot HlookupBlocks0 HlookupBlocks1 HPFlag Hstart Hend
               HblockMapped Hblock'Mapped HPFlagBlockA HstartBlockA HendBlockA HcheckChildA Hs1 HpropsOr).
@@ -14814,10 +15057,10 @@ induction statesList.
         }
         specialize(IHstatesList a newPdEntriesList pdentryPdAddrA pdAddr blockInParentPartitionAddr'
           HparentOfPartA HnullExistsA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HisChildA
-          HchildBlockPropsA HdisjointA HwellFormedBlockA HnoDupA HtreeA HpartIsolationA HisBuilt HpartIsNewLast
-          HpdAddrIsPart HlookupPdAddrA HlookupPdAddrEq HlookupParts0 HlookupParentA HlookupParents0 Hpdparent
-          HpartNotRoot HlookupBlocks0 HlookupBlocks1 HPFlag Hstart Hend HblockMapped Hblock'Mapped HPFlagBlockA
-          HstartBlockA HendBlockA HcheckChildA Hs1 HpropsOr).
+          HchildBlockPropsA HdisjointA HwellFormedBlockA HnoDupTreeA HnoDupA HtreeA HpartIsolationA HisBuilt
+          HpartIsNewLast HpdAddrIsPart HlookupPdAddrA HlookupPdAddrEq HlookupParts0 HlookupParentA HlookupParents0
+          Hpdparent HpartNotRoot HlookupBlocks0 HlookupBlocks1 HPFlag Hstart Hend HblockMapped Hblock'Mapped
+          HPFlagBlockA HstartBlockA HendBlockA HcheckChildA Hs1 HpropsOr).
         assumption.
   }
   rewrite HgetMappedBlocksEq in Hblock'Mapped.
@@ -14840,6 +15083,7 @@ parentOfPartitionIsPartition sInit
 -> childsBlocksPropsInParentLight sInit
 -> DisjointKSEntries sInit
 -> wellFormedBlock sInit
+-> noDupPartitionTree sInit
 -> noDupMappedPaddrList sInit
 -> partitionTreeIsTree sInit
 -> partitionsIsolation sInit
@@ -14897,7 +15141,7 @@ Proof.
 revert blockBase. revert pdbasepartition. revert pdentryBase. revert parentsList. revert sInit.
 induction statesList.
 - (* statesList = [] *)
-  simpl. intros sInit parentsList pdentryBase pdbasepartition blockBase _ _ _ _ _ _ _ _ _ _ _ _ _ HisBuilt
+  simpl. intros sInit parentsList pdentryBase pdbasepartition blockBase _ _ _ _ _ _ _ _ _ _ _ _ _ _ HisBuilt
       HpartIsLast HbaseIsPart HlookupBasesInit HlookupBases0
       HlookupParts0 HlookupParentsInit HlookupParents0 Hpdparent HpartNotRoot HlookupBlocks0 HlookupBlocks1
       HPFlag Hstart Hend HblockMapped _ _ _ _ _ Hs1 HpropsOr.
@@ -14935,7 +15179,7 @@ induction statesList.
   intuition.
 - (* statesList = a::l *)
   intros sInit parentsList pdentryBase pdbasepartition blockBase HparentOfPart HnullExists HmultPDT HPDTIfPDFlag
-      HwellFormedShadow Hstruct HisChild HchildBlockProps Hdisjoint HwellFormed HnoDup Htree HpartIsolation
+      HwellFormedShadow Hstruct HisChild HchildBlockProps Hdisjoint HwellFormed HnoDupTree HnoDup Htree HpartIsolation
       HisBuilt HpartIsLast HbaseIsPart HlookupBasesInit HlookupBases0 HlookupParts0 HlookupParentsInit
       HlookupParents0 Hpdparent HpartNotRoot HlookupBlocks0 HlookupBlocks1 HPFlag Hstart Hend HblockMapped
       HblockBaseMapped HPFlagBase HstartBase HendBase HnoPDFlagBase Hs1 HpropsOr.
@@ -14944,7 +15188,7 @@ induction statesList.
   simpl in HisBuilt. simpl.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU' & (pdentryBase' & (pdentryPdAddr &
                          (blockInParentPartitionAddr' & (bentry' & (newBentry' & (s' & (Hs' & HpropsOr' &
-                          (*HlistEmpty &*) HnewB' & HlookupBlocksInit' & HlookupBlocks' & HPFlag' & Hstart' &
+                          HnewB' & HlookupBlocksInit' & HlookupBlocks' & HPFlag' & Hstart' &
                            Hend' & Hblock'Mapped & HlookupBasesInit' & HlookupBases' & HlookupPdAddrsInit &
                             HlookupPdAddrs' & HpdAddr & HbaseNotRoot & HisBuilt))))))))))].
   assert(HcurrPartsEq: currentPartition sInit = currentPartition s').
@@ -15230,6 +15474,7 @@ induction statesList.
         rewrite HlookupBlocksInit' in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr' as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -15239,8 +15484,11 @@ induction statesList.
         bentry' (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr' realMPU') flag; intuition.
       apply PDTIfPDFlagPreservedIsBuilt with s' sInit pdAddr pdentryPdAddr blockInParentPartitionAddr'
         bentry' (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr' realMPU') flag; intuition.
+      unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HpdAddrIsPart.
+  rewrite <-HgetPartEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   assert(HnullExistsA: nullAddrExists a).
   {
     assert(HnullExistss1: nullAddrExists s').
@@ -15317,10 +15565,10 @@ induction statesList.
       }
       specialize(IHstatesList s' newPdEntriesList pdentryPdAddr pdAddr blockInParentPartitionAddr' HparentOfPartA
         HnullExistsA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HisChildA HchildBlockPropsA HdisjointA
-        HwellFormedBlockA HnoDupA HtreeA HpartIsolationA HisBuilt HpartIsNewLast HpdAddrIsPart HlookupPdAddrs'
-        HlookupPdAddrs0 HlookupParts0 HlookupParents' HlookupParents0 Hpdparent HpartNotRoot HlookupBlocks0
-        HlookupBlocks1 HPFlag Hstart Hend HblockMapped Hblock'Mapped HPFlagBlockA HstartBlockA HendBlockA
-        HcheckChildA Hs1 HpropsOr).
+        HwellFormedBlockA HnoDupTreeA HnoDupA HtreeA HpartIsolationA HisBuilt HpartIsNewLast HpdAddrIsPart
+        HlookupPdAddrs' HlookupPdAddrs0 HlookupParts0 HlookupParents' HlookupParents0 Hpdparent HpartNotRoot
+        HlookupBlocks0 HlookupBlocks1 HPFlag Hstart Hend HblockMapped Hblock'Mapped HPFlagBlockA HstartBlockA
+        HendBlockA HcheckChildA Hs1 HpropsOr).
       assumption.
     + destruct Ha as [Ha HMPU].
       assert(HlookupPdAddrEq: lookup pdAddr (memory s0) beqAddr = lookup pdAddr (memory a) beqAddr).
@@ -15367,7 +15615,7 @@ induction statesList.
         rewrite HpdentriesEq2 in *.
         specialize(IHstatesList a newPdEntriesList pdentryPdAddr pdparent blockInParentPartitionAddr'
               HparentOfPartA HnullExistsA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HisChildA
-              HchildBlockPropsA HdisjointA HwellFormedBlockA HnoDupA HtreeA HpartIsolationA HisBuilt
+              HchildBlockPropsA HdisjointA HwellFormedBlockA HnoDupTreeA HnoDupA HtreeA HpartIsolationA HisBuilt
               HpartIsNewLast HpdAddrIsPart HlookupPdAddrA HlookupPdAddrEq HlookupParts0 HlookupPdAddrA
               HlookupPdAddrEq Hpdparent HpartNotRoot HlookupBlocks0 HlookupBlocks1 HPFlag Hstart Hend
               HblockMapped Hblock'Mapped HPFlagBlockA HstartBlockA HendBlockA HcheckChildA Hs1 HpropsOr).
@@ -15379,10 +15627,10 @@ induction statesList.
         }
         specialize(IHstatesList a newPdEntriesList pdentryPdAddrA pdAddr blockInParentPartitionAddr'
           HparentOfPartA HnullExistsA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HisChildA
-          HchildBlockPropsA HdisjointA HwellFormedBlockA HnoDupA HtreeA HpartIsolationA HisBuilt HpartIsNewLast
-          HpdAddrIsPart HlookupPdAddrA HlookupPdAddrEq HlookupParts0 HlookupParentA HlookupParents0 Hpdparent
-          HpartNotRoot HlookupBlocks0 HlookupBlocks1 HPFlag Hstart Hend HblockMapped Hblock'Mapped HPFlagBlockA
-          HstartBlockA HendBlockA HcheckChildA Hs1 HpropsOr).
+          HchildBlockPropsA HdisjointA HwellFormedBlockA HnoDupTreeA HnoDupA HtreeA HpartIsolationA HisBuilt
+          HpartIsNewLast HpdAddrIsPart HlookupPdAddrA HlookupPdAddrEq HlookupParts0 HlookupParentA HlookupParents0
+          Hpdparent HpartNotRoot HlookupBlocks0 HlookupBlocks1 HPFlag Hstart Hend HblockMapped Hblock'Mapped
+          HPFlagBlockA HstartBlockA HendBlockA HcheckChildA Hs1 HpropsOr).
         assumption.
   }
   rewrite HgetMappedBlocksEq in Hblock'Mapped.
@@ -15398,12 +15646,13 @@ wellFormedFstShadowIfBlockEntry s0
 -> PDTIfPDFlag s0
 -> multiplexerIsPDT s0
 -> parentOfPartitionIsPartition s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> isBuiltFromWriteAccessibleRec s0 s statesList parentsList buildPart startaddr endaddr false
 -> getPartitions multiplexer s = getPartitions multiplexer s0.
 Proof.
-intros HwellFormedShadow Hstruct HPDTIfPDFlag HmultIsPDT HparentIsPart HbuildPartIsPart HisBuilt.
-revert HisBuilt. revert HbuildPartIsPart.
+intros HwellFormedShadow Hstruct HPDTIfPDFlag HmultIsPDT HparentIsPart HnoDupTree HbuildPartIsPart HisBuilt.
+revert HisBuilt. revert HbuildPartIsPart. revert HnoDupTree.
 revert HparentIsPart. revert HmultIsPDT. revert HPDTIfPDFlag. revert Hstruct.
 revert HwellFormedShadow.
 revert buildPart. revert parentsList. revert s0. induction statesList.
@@ -15536,13 +15785,16 @@ revert buildPart. revert parentsList. revert s0. induction statesList.
         rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
-    - destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentry1; try(assumption).
-      simpl. reflexivity.
+    - destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentry1; trivial.
+      + unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HparentIsPartMult.
+  rewrite <-HgetPartEq in HparentIsPartMult. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   assert(HPFlagA: bentryPFlag blockInParentPartitionAddr true a).
   {
     unfold bentryPFlag in *. rewrite HlookupBlockA. rewrite HlookupBlocks0 in HPFlag. rewrite HnewB.
@@ -15563,7 +15815,7 @@ revert buildPart. revert parentsList. revert s0. induction statesList.
     simpl. assumption.
   }
   specialize(IHstatesList a newPdEntriesList pdAddr HwellFormedShadowA HstructA HPDTIfPDFlagA HmultIsPDTA
-                HparentIsPartA HparentIsPartMult HisBuilt).
+                HparentIsPartA HnoDupTreeA HparentIsPartMult HisBuilt).
   rewrite IHstatesList. assumption.
 Qed.
 
@@ -15582,6 +15834,7 @@ wellFormedFstShadowIfBlockEntry s0
 -> isChild s0
 -> parentOfPartitionIsPartition s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
@@ -15593,7 +15846,7 @@ wellFormedFstShadowIfBlockEntry s0
 -> getPartitions multiplexer s = getPartitions multiplexer s0.
 Proof.
 intros HwellFormedShadow Hstruct HPDTIfPDFlag HmultIsPDT HPartIsolation HparentBlockProps Hdisjoint HnoDup
-       HwellFormed HaccessNoPD HisChild HparentIsPart Hnull HbuildPartIsPart HlookupBlockBase HPFlagBase
+       HwellFormed HaccessNoPD HisChild HparentIsPart Hnull HnoDupTree HbuildPartIsPart HlookupBlockBase HPFlagBase
        HAFlagBase HblockBaseMapped HstartBase HendBase HisBuilt.
 assert(HcheckChildBlockBase: false = checkChild blockBase s0 (CPaddr (blockBase + sh1offset))).
 {
@@ -15607,7 +15860,8 @@ assert(HcheckChildBlockBase: false = checkChild blockBase s0 (CPaddr (blockBase 
   destruct v; try(exfalso; congruence). assumption.
 }
 clear HAFlagBase. revert HcheckChildBlockBase. revert HisBuilt. revert HendBase. revert HstartBase.
-revert HblockBaseMapped. revert HPFlagBase. revert HlookupBlockBase. revert HbuildPartIsPart. revert Hnull.
+revert HblockBaseMapped. revert HPFlagBase. revert HlookupBlockBase. revert HbuildPartIsPart. revert HnoDupTree.
+revert Hnull.
 revert HparentIsPart. revert HisChild. revert HaccessNoPD. revert HwellFormed. revert HnoDup. revert Hdisjoint.
 revert HparentBlockProps. revert HPartIsolation. revert HmultIsPDT. revert HPDTIfPDFlag. revert Hstruct.
 revert HwellFormedShadow.
@@ -15615,9 +15869,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
 - (* statesList = [] *)
   intros. simpl in *. assert(s = s0) by intuition. subst s. reflexivity.
 - (* statesList = a::l *)
-  intros. (*s0 parentsList buildPart blockBase bentryBase HwellFormedShadow Hstruct HPDTIfPDFlag HmultIsPDT
-      HPartIsolation HparentBlockProps Hdisjoint HnoDup HwellFormed HaccessNoPD HisChild HparentIsPart
-      HbuildPartIsPart HlookupBlockBase HPFlagBase HAFlagBase HblockBaseMapped HstartBase HendBase HisBuilt.*)
+  intros.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec s0 s (a :: statesList) parentsList buildPart startaddr
                           endaddr flag) by assumption.
   simpl in HisBuilt.
@@ -15625,7 +15877,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
                       (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
   assert(HcurPart: currentPartition s0 = currentPartition s1) by (rewrite Hs1; simpl; reflexivity).
   rewrite HcurPart in HpropsOr.
@@ -15911,13 +16163,16 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
         rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
-    - destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentry1; try(assumption).
-      simpl. reflexivity.
+    - destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentry1; trivial.
+      + unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HparentIsPartMult.
+  rewrite <-HgetPartEq in HparentIsPartMult. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   assert(HPFlagA: bentryPFlag blockInParentPartitionAddr true a).
   {
     unfold bentryPFlag in *. rewrite HlookupBlockA. rewrite HlookupBlocks0 in HPFlag. rewrite HnewB.
@@ -15939,8 +16194,8 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HwellFormedShadowA
               HstructA HPDTIfPDFlagA HmultIsPDTA HPartIsolationA HparentBlockPropsA HdisjointA HnoDupA
-              HwellFormedA HaccessNoPDA HisChildA HparentIsPartA HnullA HparentIsPartMult HlookupBlockA HPFlagA
-              HblockIsMapped HblockStartA HblockEndA HisBuilt HcheckChildBlockA).
+              HwellFormedA HaccessNoPDA HisChildA HparentIsPartA HnullA HnoDupTreeA HparentIsPartMult HlookupBlockA
+              HPFlagA HblockIsMapped HblockStartA HblockEndA HisBuilt HcheckChildBlockA).
   rewrite IHstatesList. assumption.
 Qed.
 
@@ -15959,6 +16214,7 @@ wellFormedFstShadowIfBlockEntry s0
 -> isChild s0
 -> parentOfPartitionIsPartition s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
@@ -15970,7 +16226,7 @@ wellFormedFstShadowIfBlockEntry s0
 -> getPartitions multiplexer s = getPartitions multiplexer s0.
 Proof.
 intros HwellFormedShadow Hstruct HPDTIfPDFlag HmultIsPDT HPartIsolation HparentBlockProps Hdisjoint HnoDup
-       HwellFormed HaccessNoPD HisChild HparentIsPart Hnull HbuildPartIsPart HlookupBlockBase HPFlagBase
+       HwellFormed HaccessNoPD HisChild HparentIsPart Hnull HnoDupTree HbuildPartIsPart HlookupBlockBase HPFlagBase
        HAFlagBase HblockBaseMapped HstartBase HendBase HisBuilt.
 assert(HcheckChildBlockBase: false = checkChild blockBase s0 (CPaddr (blockBase + sh1offset))).
 {
@@ -15984,7 +16240,8 @@ assert(HcheckChildBlockBase: false = checkChild blockBase s0 (CPaddr (blockBase 
   destruct v; try(exfalso; congruence). assumption.
 }
 clear HAFlagBase. revert HcheckChildBlockBase. revert HisBuilt. revert HendBase. revert HstartBase.
-revert HblockBaseMapped. revert HPFlagBase. revert HlookupBlockBase. revert HbuildPartIsPart. revert Hnull.
+revert HblockBaseMapped. revert HPFlagBase. revert HlookupBlockBase. revert HbuildPartIsPart. revert HnoDupTree.
+revert Hnull.
 revert HparentIsPart. revert HisChild. revert HaccessNoPD. revert HwellFormed. revert HnoDup. revert Hdisjoint.
 revert HparentBlockProps. revert HPartIsolation. revert HmultIsPDT. revert HPDTIfPDFlag. revert Hstruct.
 revert HwellFormedShadow.
@@ -15992,9 +16249,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
 - (* statesList = [] *)
   intros. simpl in *. assert(s = s0) by intuition. subst s. reflexivity.
 - (* statesList = a::l *)
-  intros. (*s0 parentsList buildPart blockBase bentryBase HwellFormedShadow Hstruct HPDTIfPDFlag HmultIsPDT
-      HPartIsolation HparentBlockProps Hdisjoint HnoDup HwellFormed HaccessNoPD HisChild HparentIsPart
-      HbuildPartIsPart HlookupBlockBase HPFlagBase HAFlagBase HblockBaseMapped HstartBase HendBase HisBuilt.*)
+  intros.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec s0 s (a :: statesList) parentsList buildPart startaddr
                           endaddr flag) by assumption.
   simpl in HisBuilt.
@@ -16287,13 +16542,16 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
         rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
-    - destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentry1; try(assumption).
-      simpl. reflexivity.
+    - destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentry1; trivial.
+      + unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HparentIsPartMult.
+  rewrite <-HgetPartEq in HparentIsPartMult. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   assert(HPFlagA: bentryPFlag blockInParentPartitionAddr true a).
   {
     unfold bentryPFlag in *. rewrite HlookupBlockA. rewrite HlookupBlocks0 in HPFlag. rewrite HnewB.
@@ -16315,8 +16573,8 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HwellFormedShadowA
               HstructA HPDTIfPDFlagA HmultIsPDTA HPartIsolationA HparentBlockPropsA HdisjointA HnoDupA
-              HwellFormedA HaccessNoPDA HisChildA HparentIsPartA HnullA HparentIsPartMult HlookupBlockA HPFlagA
-              HblockIsMapped HblockStartA HblockEndA HisBuilt HcheckChildBlockA).
+              HwellFormedA HaccessNoPDA HisChildA HparentIsPartA HnullA HnoDupTreeA HparentIsPartMult HlookupBlockA
+              HPFlagA HblockIsMapped HblockStartA HblockEndA HisBuilt HcheckChildBlockA).
   rewrite IHstatesList. assumption.
 Qed.
 
@@ -16335,6 +16593,7 @@ wellFormedFstShadowIfBlockEntry s0
 -> isChild s0
 -> parentOfPartitionIsPartition s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
@@ -16346,10 +16605,11 @@ wellFormedFstShadowIfBlockEntry s0
 -> getPartitions multiplexer s = getPartitions multiplexer s0.
 Proof.
 intros HwellFormedShadow Hstruct HPDTIfPDFlag HmultIsPDT HPartIsolation HparentBlockProps Hdisjoint HnoDup
-       HwellFormed HaccessNoPD HisChild HparentIsPart Hnull HbuildPartIsPart HlookupBlockBase HPFlagBase
+       HwellFormed HaccessNoPD HisChild HparentIsPart Hnull HnoDupTree HbuildPartIsPart HlookupBlockBase HPFlagBase
        HcheckChildBlockBase HblockBaseMapped HstartBase HendBase HisBuilt.
 revert HcheckChildBlockBase. revert HisBuilt. revert HendBase. revert HstartBase.
-revert HblockBaseMapped. revert HPFlagBase. revert HlookupBlockBase. revert HbuildPartIsPart. revert Hnull.
+revert HblockBaseMapped. revert HPFlagBase. revert HlookupBlockBase. revert HbuildPartIsPart. revert HnoDupTree.
+revert Hnull.
 revert HparentIsPart. revert HisChild. revert HaccessNoPD. revert HwellFormed. revert HnoDup. revert Hdisjoint.
 revert HparentBlockProps. revert HPartIsolation. revert HmultIsPDT. revert HPDTIfPDFlag. revert Hstruct.
 revert HwellFormedShadow.
@@ -16357,9 +16617,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
 - (* statesList = [] *)
   intros. simpl in *. assert(s = s0) by intuition. subst s. reflexivity.
 - (* statesList = a::l *)
-  intros. (*s0 parentsList buildPart blockBase bentryBase HwellFormedShadow Hstruct HPDTIfPDFlag HmultIsPDT
-      HPartIsolation HparentBlockProps Hdisjoint HnoDup HwellFormed HaccessNoPD HisChild HparentIsPart
-      HbuildPartIsPart HlookupBlockBase HPFlagBase HAFlagBase HblockBaseMapped HstartBase HendBase HisBuilt.*)
+  intros.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec s0 s (a :: statesList) parentsList buildPart startaddr
                           endaddr flag) by assumption.
   simpl in HisBuilt.
@@ -16653,13 +16911,16 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
         rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
-    - destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentry1; try(assumption).
-      simpl. reflexivity.
+    - destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentry1; trivial.
+      + unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HparentIsPartMult.
+  rewrite <-HgetPartEq in HparentIsPartMult. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   assert(HPFlagA: bentryPFlag blockInParentPartitionAddr true a).
   {
     unfold bentryPFlag in *. rewrite HlookupBlockA. rewrite HlookupBlocks0 in HPFlag. rewrite HnewB.
@@ -16681,8 +16942,8 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HwellFormedShadowA
               HstructA HPDTIfPDFlagA HmultIsPDTA HPartIsolationA HparentBlockPropsA HdisjointA HnoDupA
-              HwellFormedA HaccessNoPDA HisChildA HparentIsPartA HnullA HparentIsPartMult HlookupBlockA HPFlagA
-              HblockIsMapped HblockStartA HblockEndA HisBuilt HcheckChildBlockA).
+              HwellFormedA HaccessNoPDA HisChildA HparentIsPartA HnullA HnoDupTreeA HparentIsPartMult HlookupBlockA
+              HPFlagA HblockIsMapped HblockStartA HblockEndA HisBuilt HcheckChildBlockA).
   rewrite IHstatesList. assumption.
 Qed.
 
@@ -16701,6 +16962,7 @@ wellFormedFstShadowIfBlockEntry s0
 -> isChild s0
 -> parentOfPartitionIsPartition s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
@@ -16711,10 +16973,11 @@ wellFormedFstShadowIfBlockEntry s0
 -> getPartitions multiplexer s = getPartitions multiplexer s0.
 Proof.
 intros HwellFormedShadow Hstruct HPDTIfPDFlag HmultIsPDT HPartIsolation HparentBlockProps Hdisjoint HnoDup
-       HwellFormed HaccessNoPD HisChild HparentIsPart Hnull HbuildPartIsPart HlookupBlockBase HPFlagBase
+       HwellFormed HaccessNoPD HisChild HparentIsPart Hnull HnoDupTree HbuildPartIsPart HlookupBlockBase HPFlagBase
        HblockBaseMapped HstartBase HendBase HisBuilt.
 revert HisBuilt. revert HendBase. revert HstartBase.
-revert HblockBaseMapped. revert HPFlagBase. revert HlookupBlockBase. revert HbuildPartIsPart. revert Hnull.
+revert HblockBaseMapped. revert HPFlagBase. revert HlookupBlockBase. revert HbuildPartIsPart. revert HnoDupTree.
+revert Hnull.
 revert HparentIsPart. revert HisChild. revert HaccessNoPD. revert HwellFormed. revert HnoDup. revert Hdisjoint.
 revert HparentBlockProps. revert HPartIsolation. revert HmultIsPDT. revert HPDTIfPDFlag. revert Hstruct.
 revert HwellFormedShadow.
@@ -16980,13 +17243,16 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
         rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
-    - destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentry1; try(assumption).
-      simpl. reflexivity.
+    - destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentry1; trivial.
+      + unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HparentIsPartMult.
+  rewrite <-HgetPartEq in HparentIsPartMult. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   assert(HPFlagA: bentryPFlag blockInParentPartitionAddr true a).
   {
     unfold bentryPFlag in *. rewrite HlookupBlockA. rewrite HlookupBlocks0 in HPFlag. rewrite HnewB.
@@ -17008,8 +17274,8 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HwellFormedShadowA
               HstructA HPDTIfPDFlagA HmultIsPDTA HPartIsolationA HparentBlockPropsA HdisjointA HnoDupA
-              HwellFormedA HaccessNoPDA HisChildA HparentIsPartA HnullA HparentIsPartMult HlookupBlockA HPFlagA
-              HblockIsMapped HblockStartA HblockEndA HisBuilt).
+              HwellFormedA HaccessNoPDA HisChildA HparentIsPartA HnullA HnoDupTreeA HparentIsPartMult HlookupBlockA
+              HPFlagA HblockIsMapped HblockStartA HblockEndA HisBuilt).
   rewrite IHstatesList. assumption.
 Qed.
 
@@ -17028,6 +17294,7 @@ wellFormedFstShadowIfBlockEntry s0
 -> isChild s0
 -> parentOfPartitionIsPartition s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
@@ -17039,10 +17306,11 @@ wellFormedFstShadowIfBlockEntry s0
 -> getPartitions multiplexer s = getPartitions multiplexer s0.
 Proof.
 intros HwellFormedShadow Hstruct HPDTIfPDFlag HmultIsPDT HPartIsolation HparentBlockProps Hdisjoint HnoDup
-       HwellFormed HaccessNoPD HisChild HparentIsPart Hnull HbuildPartIsPart HlookupBlockBase HPFlagBase
+       HwellFormed HaccessNoPD HisChild HparentIsPart Hnull HnoDupTree HbuildPartIsPart HlookupBlockBase HPFlagBase
        HcheckChildBlockBase HblockBaseMapped HstartBase HendBase HisBuilt.
 revert HcheckChildBlockBase. revert HisBuilt. revert HendBase. revert HstartBase.
-revert HblockBaseMapped. revert HPFlagBase. revert HlookupBlockBase. revert HbuildPartIsPart. revert Hnull.
+revert HblockBaseMapped. revert HPFlagBase. revert HlookupBlockBase. revert HbuildPartIsPart. revert HnoDupTree.
+revert Hnull.
 revert HparentIsPart. revert HisChild. revert HaccessNoPD. revert HwellFormed. revert HnoDup. revert Hdisjoint.
 revert HparentBlockProps. revert HPartIsolation. revert HmultIsPDT. revert HPDTIfPDFlag. revert Hstruct.
 revert HwellFormedShadow.
@@ -17050,9 +17318,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
 - (* statesList = [] *)
   intros. simpl in *. assert(s = s0) by intuition. subst s. reflexivity.
 - (* statesList = a::l *)
-  intros. (*s0 parentsList buildPart blockBase bentryBase HwellFormedShadow Hstruct HPDTIfPDFlag HmultIsPDT
-      HPartIsolation HparentBlockProps Hdisjoint HnoDup HwellFormed HaccessNoPD HisChild HparentIsPart
-      HbuildPartIsPart HlookupBlockBase HPFlagBase HAFlagBase HblockBaseMapped HstartBase HendBase HisBuilt.*)
+  intros.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec s0 s (a :: statesList) parentsList buildPart startaddr
                           endaddr flag) by assumption.
   simpl in HisBuilt.
@@ -17345,11 +17611,13 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
         rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
-    - destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentry1; try(assumption).
-      simpl. reflexivity.
+    - destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentry1; trivial.
+      + unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
   rewrite <-HgetPartEq in HparentIsPartMult.
   assert(HPFlagA: bentryPFlag blockInParentPartitionAddr true a).
@@ -17358,7 +17626,8 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
     unfold CBlockEntry. destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia).
     simpl. assumption.
   }
-  rewrite <-HgetMappedEq in HblockIsMapped.
+  rewrite <-HgetMappedEq in HblockIsMapped. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   assert(HblockStartA: bentryStartAddr blockInParentPartitionAddr startaddr a).
   {
     unfold bentryStartAddr in *. rewrite HlookupBlockA. rewrite HlookupBlocks0 in HblockStart. rewrite HnewB.
@@ -17373,8 +17642,8 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HwellFormedShadowA
               HstructA HPDTIfPDFlagA HmultIsPDTA HPartIsolationA HparentBlockPropsA HdisjointA HnoDupA
-              HwellFormedA HaccessNoPDA HisChildA HparentIsPartA HnullA HparentIsPartMult HlookupBlockA HPFlagA
-              HblockIsMapped HblockStartA HblockEndA HisBuilt HcheckChildBlockA).
+              HwellFormedA HaccessNoPDA HisChildA HparentIsPartA HnullA HnoDupTreeA HparentIsPartMult HlookupBlockA
+              HPFlagA HblockIsMapped HblockStartA HblockEndA HisBuilt HcheckChildBlockA).
   rewrite IHstatesList. assumption.
 Qed.
 
@@ -17393,8 +17662,8 @@ DisjointKSEntries s0
 -> AccessibleNoPDFlag s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> isPDT pdbasepartition s0
-(*-> buildPart <> constantRootPartM*)
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
@@ -17408,19 +17677,19 @@ Proof.
 revert bentryBase. revert blockBase. revert buildPart. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
   intros s0 parentsList buildPart _ _ Hdisjoint Hstruct Hparent HmultPDT HPDTIfPDFlag HwellFormedShadow
-      HchildBlockProps _ _ _ _ _ _ HbaseIsPDT _ _ _ _ _ _ _ HisBuilt.
+      HchildBlockProps _ _ _ _ _ _ _ HbaseIsPDT _ _ _ _ _ _ _ HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList Hss0Eq]. subst s. reflexivity.
 - (* statesList = a::l *)
   intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct Hparent HmultPDT HPDTIfPDFlag
-      HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HpartIsolation Hnull
+      HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HpartIsolation Hnull HnoDupTree
       HbaseIsPDT HbuildIsPart HlookupBlockBase HPFlagBase HnoPDFlagBase HblockBaseMapped HstartBase HendBase
       HisBuilt.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
-                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr (*& (HlastCase*)
+                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
   assert(HcurPart: currentPartition s0 = currentPartition s1) by (rewrite Hs1; simpl; reflexivity).
   rewrite HcurPart in HpropsOr.
@@ -17701,6 +17970,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -17708,8 +17978,11 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartsEq in HpdAddrIsPart.
+  rewrite <-HgetPartsEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartsEq. assumption. }
   assert(HlookupParentA: exists pdentry2, lookup pdAddr (memory a) beqAddr = Some (PDT pdentry2)).
   {
     destruct HpropsOr as [Has1Eq | Ha].
@@ -17747,7 +18020,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HdisjointA HstructA
               HparentA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HchildBlockPropsA HisChildA HwellFormedBlockA
-              HnoDupA HaccessNoPDA HpartIsolationA HnullA HbaseIsPDTA HpdAddrIsPart HlookupBlockA HPFlagA
+              HnoDupA HaccessNoPDA HpartIsolationA HnullA HnoDupTreeA HbaseIsPDTA HpdAddrIsPart HlookupBlockA HPFlagA
               HcheckChildBlockA HblockIsMapped HblockStartA HblockEndA HisBuilt).
   rewrite IHstatesList.
   assert(HgetKSEqs1: getKSEntries pdbasepartition s1 = getKSEntries pdbasepartition s0).
@@ -17775,8 +18048,8 @@ DisjointKSEntries s0
 -> AccessibleNoPDFlag s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> isPDT pdbasepartition s0
-(*-> buildPart <> constantRootPartM*)
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
@@ -17790,19 +18063,19 @@ Proof.
 revert bentryBase. revert blockBase. revert buildPart. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
   intros s0 parentsList buildPart _ _ Hdisjoint Hstruct Hparent HmultPDT HPDTIfPDFlag HwellFormedShadow
-      HchildBlockProps _ _ _ _ _ _ HbaseIsPDT _ _ _ _ _ _ _ HisBuilt.
+      HchildBlockProps _ _ _ _ _ _ _ HbaseIsPDT _ _ _ _ _ _ _ HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList Hss0Eq]. subst s. reflexivity.
 - (* statesList = a::l *)
   intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct Hparent HmultPDT HPDTIfPDFlag
-      HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HpartIsolation Hnull
+      HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HpartIsolation Hnull HnoDupTree
       HbaseIsPDT HbuildIsPart HlookupBlockBase HPFlagBase HnoPDFlagBase HblockBaseMapped HstartBase HendBase
       HisBuilt.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
-                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr (*& (HlastCase*)
+                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
   assert(HcurPart: currentPartition s0 = currentPartition s1) by (rewrite Hs1; simpl; reflexivity).
   rewrite HcurPart in HpropsOr.
@@ -18083,6 +18356,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -18090,8 +18364,11 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartsEq in HpdAddrIsPart.
+  rewrite <-HgetPartsEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartsEq. assumption. }
   assert(HlookupParentA: exists pdentry2, lookup pdAddr (memory a) beqAddr = Some (PDT pdentry2)).
   {
     destruct HpropsOr as [Has1Eq | Ha].
@@ -18129,7 +18406,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HdisjointA HstructA
               HparentA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HchildBlockPropsA HisChildA HwellFormedBlockA
-              HnoDupA HaccessNoPDA HpartIsolationA HnullA HbaseIsPDTA HpdAddrIsPart HlookupBlockA HPFlagA
+              HnoDupA HaccessNoPDA HpartIsolationA HnullA HnoDupTreeA HbaseIsPDTA HpdAddrIsPart HlookupBlockA HPFlagA
               HcheckChildBlockA HblockIsMapped HblockStartA HblockEndA HisBuilt).
   rewrite IHstatesList.
   assert(HgetMappedEqs1: getMappedBlocks pdbasepartition s1 = getMappedBlocks pdbasepartition s0).
@@ -18161,6 +18438,7 @@ DisjointKSEntries s0
 -> AccessibleNoPDFlag s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> isPDT pdbasepartition s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
@@ -18174,11 +18452,11 @@ Proof.
 revert bentryBase. revert blockBase. revert buildPart. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
   intros s0 parentsList buildPart _ _ Hdisjoint Hstruct Hparent HmultPDT HPDTIfPDFlag HwellFormedShadow
-      HchildBlockProps _ _ _ _ _ _ _ _ _ _ _ _ _ HisBuilt.
+      HchildBlockProps _ _ _ _ _ _ _ _ _ _ _ _ _ _ HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList Hss0Eq]. subst s. reflexivity.
 - (* statesList = a::l *)
   intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct Hparent HmultPDT HPDTIfPDFlag
-      HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HpartIsolation Hnull
+      HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HpartIsolation Hnull HnoDupTree
       HbaseIsPDT HbuildIsPart HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase
       HisBuilt.
   simpl in HisBuilt.
@@ -18232,15 +18510,6 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   {
     unfold isPDT. rewrite HlookupParentsInit. trivial.
   }
-  (*assert(HnoPDFlag: false = checkChild blockInParentPartitionAddr s0
-                                (CPaddr (blockInParentPartitionAddr + sh1offset))).
-  {
-    assert(HstartTriv: startaddr <= startaddr) by lia.
-    assert(HendTriv: endaddr >= endaddr) by lia.
-    specialize(HchildBlockProps buildPart pdAddr blockBase startaddr endaddr blockInParentPartitionAddr
-               startaddr endaddr HpdAddrIsPart HbuildPartIsChild HblockBaseMapped HstartBase HendBase
-               HPFlagBase HblockIsMapped HblockStart HblockEnd HPFlag HstartTriv HendTriv). intuition.
-  }*)
   assert(HparentA: parentOfPartitionIsPartition a).
   {
     apply parentOfPartitionIsPartitionPreservedIsBuiltFalse with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr
@@ -18437,6 +18706,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -18444,8 +18714,11 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuiltFalse with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartsEq in HpdAddrIsPart.
+  rewrite <-HgetPartsEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartsEq. assumption. }
   assert(HlookupParentA: exists pdentry2, lookup pdAddr (memory a) beqAddr = Some (PDT pdentry2)).
   {
     destruct HpropsOr as [Has1Eq | Ha].
@@ -18483,7 +18756,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HdisjointA HstructA
               HparentA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HchildBlockPropsA HisChildA HwellFormedBlockA
-              HnoDupA HaccessNoPDA HpartIsolationA HnullA HbaseIsPDTA HpdAddrIsPart HlookupBlockA HPFlagA
+              HnoDupA HaccessNoPDA HpartIsolationA HnullA HnoDupTreeA HbaseIsPDTA HpdAddrIsPart HlookupBlockA HPFlagA
               HblockIsMapped HblockStartA HblockEndA HisBuilt).
   rewrite IHstatesList.
   assert(HgetMappedEqs1: getMappedBlocks pdbasepartition s1 = getMappedBlocks pdbasepartition s0).
@@ -18515,8 +18788,8 @@ DisjointKSEntries s0
 -> AccessibleNoPDFlag s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> isPDT pdbasepartition s0
-(*-> buildPart <> constantRootPartM*)
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
@@ -18530,19 +18803,19 @@ Proof.
 revert bentryBase. revert blockBase. revert buildPart. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
   intros s0 parentsList buildPart _ _ Hdisjoint Hstruct Hparent HmultPDT HPDTIfPDFlag HwellFormedShadow
-      HchildBlockProps _ _ _ _ _ _ HbaseIsPDT _ _ _ _ _ _ _ HisBuilt.
+      HchildBlockProps _ _ _ _ _ _ _ HbaseIsPDT _ _ _ _ _ _ _ HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList Hss0Eq]. subst s. reflexivity.
 - (* statesList = a::l *)
   intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct Hparent HmultPDT HPDTIfPDFlag
-      HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HpartIsolation Hnull
+      HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HpartIsolation Hnull HnoDupTree
       HbaseIsPDT HbuildIsPart HlookupBlockBase HPFlagBase HnoPDFlagBase HblockBaseMapped HstartBase HendBase
       HisBuilt.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
-                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr (*& (HlastCase*)
+                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
   assert(HcurPart: currentPartition s0 = currentPartition s1) by (rewrite Hs1; simpl; reflexivity).
   rewrite HcurPart in HpropsOr.
@@ -18823,6 +19096,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -18830,8 +19104,11 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartsEq in HpdAddrIsPart.
+  rewrite <-HgetPartsEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartsEq. assumption. }
   assert(HlookupParentA: exists pdentry2, lookup pdAddr (memory a) beqAddr = Some (PDT pdentry2)).
   {
     destruct HpropsOr as [Has1Eq | Ha].
@@ -18869,7 +19146,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HdisjointA HstructA
               HparentA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HchildBlockPropsA HisChildA HwellFormedBlockA
-              HnoDupA HaccessNoPDA HpartIsolationA HnullA HbaseIsPDTA HpdAddrIsPart HlookupBlockA HPFlagA
+              HnoDupA HaccessNoPDA HpartIsolationA HnullA HnoDupTreeA HbaseIsPDTA HpdAddrIsPart HlookupBlockA HPFlagA
               HcheckChildBlockA HblockIsMapped HblockStartA HblockEndA HisBuilt).
   rewrite IHstatesList.
   assert(HgetMappedEqs1: getMappedBlocks pdbasepartition s1 = getMappedBlocks pdbasepartition s0).
@@ -18900,6 +19177,7 @@ noDupMappedPaddrList s0
 -> isChild s0
 -> childsBlocksPropsInParent s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> AccessibleNoPDFlag s0
 -> partitionsIsolation s0
 -> isBuiltFromWriteAccessibleRec s0 s statesList parentsList pdbasepartition startaddr endaddr flag
@@ -18913,19 +19191,18 @@ noDupMappedPaddrList s0
 -> bentryEndAddr blockBase endaddr s0
 -> In blockaddr (getMappedBlocks pdparent s)
 -> bentryStartAddr blockaddr startaddr s
-(*-> bentryEndAddr blockaddr endaddr s*)
 -> bentryPFlag blockaddr true s
 -> bentryAFlag blockaddr flag s.
 Proof.
 revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList pdbasepartition _ _ HnoDup HwellFormed Hdisjoint Hstruct Hparent Htree _ _ _ _ _ _ _ _
+  intros s0 parentsList pdbasepartition _ _ HnoDup HwellFormed Hdisjoint Hstruct Hparent Htree _ _ _ _ _ _ _ _ _
         HisBuilt HparentInList _ _ _ _ _ _ _ HblockMapped Hstart HPFlag.
   simpl in HisBuilt. destruct HisBuilt as [HparentsListEmpty Hss0Eq]. subst parentsList. simpl in HparentInList.
   exfalso; congruence.
 - (* statesList = a::l *)
   intros s0 parentsList pdbasepartition blockBase bentryBase HnoDup HwellFormed Hdisjoint Hstruct Hparent Htree
-        HmultPDT HPDTIfPDFlag HwellFormedShadow HisChild HchildBlockProps HnullExists Haccess HPI HisBuilt
+        HmultPDT HPDTIfPDFlag HwellFormedShadow HisChild HchildBlockProps HnullExists HnoDupTree Haccess HPI HisBuilt
         HparentInList HbaseIsPart HlookupBlockBases0 HPFlagBases0 HnoPDFlagBases0 HblockBaseMapped
         HstartBases0 HendBases0 HblockMapped Hstart HPFlag.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec s0 s (a :: statesList) parentsList pdbasepartition
@@ -18933,7 +19210,6 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentryBase & (pdentryPdAddr &
                         (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & HpropsOr &
-                        (*HbaseCase &*)
                         HnewB & HlookupBlocks0 & HlookupBlocks1 & HPFlagBlock & HstartBlock & HendBlock &
                         HblockMappedPdAddr & HlookupBases0 & HlookupBases1 & HlookupPdAddrs0 & HlookupPdAddrs1 &
                         HpdAddr & HbaseNotRoot & HisBuilt))))))))))].
@@ -18998,7 +19274,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
   }
   pose proof (baseBlockAccessibleImpliesNoPDWithIsBuilt s0 a [a] [pdAddr] startaddr endaddr
         pdbasepartition flag blockBase bentryBase pdentryBase HchildBlockProps Hdisjoint Hstruct
-        HwellFormedShadow HnoDup HwellFormed Haccess HPDTIfPDFlag HmultPDT HisChild Hparent HPI HnullExists
+        HwellFormedShadow HnoDup HwellFormed Haccess HPDTIfPDFlag HmultPDT HisChild HnoDupTree Hparent HPI HnullExists
         HbaseIsPart HlookupBases0 HlookupBlockBases0 HPFlagBases0 HnoPDFlagBases0 HblockBaseMapped HstartBases0
         HendBases0 HisBuiltFirst) as HcheckChild.
   destruct HcheckChild as [part (Hpart & HcheckChild)]. simpl in Hpart. subst part.
@@ -19023,7 +19299,6 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
           startaddr endaddr pdbasepartition flag blockBase bentryBase; try(assumption).
     unfold isPDT. rewrite HlookupPdAddrs0. trivial.
   }
-  (*rewrite HgetMappedEqA in HblockMapped.*)
   assert(HstartBlockA: bentryStartAddr blockInParentPartitionAddr startaddr a).
   {
     unfold bentryStartAddr in *. rewrite HlookupBlockA. rewrite HlookupBlocks0 in HstartBlock.
@@ -19303,6 +19578,39 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
       intuition.
     }
     specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry).
+    assert(HgetPartsEqA: getPartitions multiplexer a = getPartitions multiplexer s0).
+    {
+      assert(HgetPartMultEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s0).
+      {
+        rewrite Hs1. unfold multiplexerIsPDT in HmultPDT.
+        apply getPartitionsEqBEPDflagNoChangePresentNoChangeStartNoChange
+             with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
+           try(assumption);
+           try(unfold CBlockEntry;
+               destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia);
+               simpl; reflexivity).
+        { unfold sh1entryAddr. rewrite HlookupBlocks0. reflexivity. }
+        simpl.
+        destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset)))
+            eqn:HbeqBlockBlockSh1.
+        {
+          specialize(HwellFormedShadow blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormedShadow.
+          rewrite <-DTL.beqAddrTrue in HbeqBlockBlockSh1. rewrite <-HbeqBlockBlockSh1 in *.
+          rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
+        }
+        rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+        unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+      }
+      rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
+      { subst a. reflexivity. }
+      destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentryPdAddr; trivial.
+      apply StructurePointerIsKSPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr bentry
+          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr bentry
+          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+    }
     apply IHstatesList; try(assumption).
     apply partitionTreeIsTreePreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr
           bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag startaddr endaddr;
@@ -19327,37 +19635,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
       rewrite HlookupPdAddrs1 in HnullExistss1. congruence.
     }
     rewrite <-beqAddrFalse in HbeqParentNull. rewrite removeDupIdentity; intuition.
-    assert(HgetPartsEqA: getPartitions multiplexer a = getPartitions multiplexer s0).
-    {
-      assert(HgetPartMultEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s0).
-      {
-        rewrite Hs1. unfold multiplexerIsPDT in HmultPDT.
-        apply getPartitionsEqBEPDflagNoChangePresentNoChangeStartNoChange
-             with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
-           try(assumption);
-           try(unfold CBlockEntry;
-               destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia);
-               simpl; reflexivity).
-        { unfold sh1entryAddr. rewrite HlookupBlocks0. reflexivity. }
-        simpl.
-        destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset)))
-            eqn:HbeqBlockBlockSh1.
-        {
-          specialize(HwellFormedShadow blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormedShadow.
-          rewrite <-DTL.beqAddrTrue in HbeqBlockBlockSh1. rewrite <-HbeqBlockBlockSh1 in *.
-          rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
-        }
-        rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
-      }
-      rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
-      { subst a. reflexivity. }
-      destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentryPdAddr; try(assumption).
-      simpl. reflexivity.
-      apply StructurePointerIsKSPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr bentry
-          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
-      apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr bentry
-          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
-    }
+    unfold noDupPartitionTree. rewrite HgetPartsEqA. assumption.
     rewrite HgetPartsEqA. assumption.
     unfold checkChild in *. rewrite HlookupBlockA. rewrite HlookupBlocks0 in HnoPDFlagBlocks0.
     specialize(HwellFormedShadow blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormedShadow.
@@ -19403,6 +19681,7 @@ noDupMappedPaddrList s0
 -> isChild s0
 -> childsBlocksPropsInParent s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> AccessibleNoPDFlag s0
 -> partitionsIsolation s0
 -> isBuiltFromWriteAccessibleRec s0 s statesList parentsList pdbasepartition startaddr endaddr false
@@ -19410,7 +19689,6 @@ noDupMappedPaddrList s0
 -> In pdbasepartition (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
-(*-> false = checkChild blockBase s0 (CPaddr (blockBase + sh1offset))*)
 -> In blockBase (getMappedBlocks pdbasepartition s0)
 -> bentryStartAddr blockBase startaddr s0
 -> bentryEndAddr blockBase endaddr s0
@@ -19421,21 +19699,20 @@ noDupMappedPaddrList s0
 Proof.
 revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList pdbasepartition _ _ HnoDup HwellFormed Hdisjoint Hstruct Hparent Htree _ _ _ _ _ _ _ _
+  intros s0 parentsList pdbasepartition _ _ HnoDup HwellFormed Hdisjoint Hstruct Hparent Htree _ _ _ _ _ _ _ _ _
         HisBuilt HparentInList _ _ _ _ _ _ _ _ _.
   simpl in HisBuilt. destruct HisBuilt as [HparentsListEmpty Hss0Eq]. subst parentsList. simpl in HparentInList.
   exfalso; congruence.
 - (* statesList = a::l *)
   intros s0 parentsList pdbasepartition blockBase bentryBase HnoDup HwellFormed Hdisjoint Hstruct Hparent Htree
-        HmultPDT HPDTIfPDFlag HwellFormedShadow HisChild HchildBlockProps HnullExists Haccess HPI HisBuilt
-        HparentInList HbaseIsPart HlookupBlockBases0 HPFlagBases0 (*HnoPDFlagBases0*) HblockBaseMapped
+        HmultPDT HPDTIfPDFlag HwellFormedShadow HisChild HchildBlockProps HnullExists HnoDupTree Haccess HPI HisBuilt
+        HparentInList HbaseIsPart HlookupBlockBases0 HPFlagBases0 HblockBaseMapped
         HstartBases0 HendBases0 HblockMapped Hstart HPFlag.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec s0 s (a :: statesList) parentsList pdbasepartition
              startaddr endaddr false) by assumption.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentryBase & (pdentryPdAddr &
                         (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & HpropsOr &
-                        (*HbaseCase &*)
                         HnewB & HlookupBlocks0 & HlookupBlocks1 & HPFlagBlock & HstartBlock & HendBlock &
                         HblockMappedPdAddr & HlookupBases0 & HlookupBases1 & HlookupPdAddrs0 & HlookupPdAddrs1 &
                         HpdAddr & HbaseNotRoot & HisBuilt))))))))))].
@@ -19760,6 +20037,40 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
       intuition.
     }
     specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry).
+    assert(HgetPartsEqA: getPartitions multiplexer a = getPartitions multiplexer s0).
+    {
+      assert(HgetPartMultEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s0).
+      {
+        rewrite Hs1. unfold multiplexerIsPDT in HmultPDT.
+        apply getPartitionsEqBEPDflagNoChangePresentNoChangeStartNoChange
+             with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
+           try(assumption);
+           try(unfold CBlockEntry;
+               destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia);
+               simpl; reflexivity).
+        { unfold sh1entryAddr. rewrite HlookupBlocks0. reflexivity. }
+        simpl.
+        destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset)))
+            eqn:HbeqBlockBlockSh1.
+        {
+          specialize(HwellFormedShadow blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormedShadow.
+          rewrite <-DTL.beqAddrTrue in HbeqBlockBlockSh1. rewrite <-HbeqBlockBlockSh1 in *.
+          rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
+        }
+        rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+        unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+      }
+      rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
+      { subst a. reflexivity. }
+      destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentryPdAddr; try(assumption).
+      simpl. reflexivity.
+      apply StructurePointerIsKSPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr bentry
+          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; intuition.
+      apply PDTIfPDFlagPreservedIsBuiltFalse with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr bentry
+          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+    }
     apply IHstatesList; try(assumption).
     apply partitionTreeIsTreePreservedIsBuiltFalse with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr
           bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) startaddr endaddr;
@@ -19784,37 +20095,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
       rewrite HlookupPdAddrs1 in HnullExistss1. congruence.
     }
     rewrite <-beqAddrFalse in HbeqParentNull. rewrite removeDupIdentity; intuition.
-    assert(HgetPartsEqA: getPartitions multiplexer a = getPartitions multiplexer s0).
-    {
-      assert(HgetPartMultEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s0).
-      {
-        rewrite Hs1. unfold multiplexerIsPDT in HmultPDT.
-        apply getPartitionsEqBEPDflagNoChangePresentNoChangeStartNoChange
-             with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
-           try(assumption);
-           try(unfold CBlockEntry;
-               destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia);
-               simpl; reflexivity).
-        { unfold sh1entryAddr. rewrite HlookupBlocks0. reflexivity. }
-        simpl.
-        destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset)))
-            eqn:HbeqBlockBlockSh1.
-        {
-          specialize(HwellFormedShadow blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormedShadow.
-          rewrite <-DTL.beqAddrTrue in HbeqBlockBlockSh1. rewrite <-HbeqBlockBlockSh1 in *.
-          rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
-        }
-        rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
-      }
-      rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
-      { subst a. reflexivity. }
-      destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentryPdAddr; try(assumption).
-      simpl. reflexivity.
-      apply StructurePointerIsKSPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr bentry
-          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; intuition.
-      apply PDTIfPDFlagPreservedIsBuiltFalse with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr bentry
-          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); intuition.
-    }
+    unfold noDupPartitionTree. rewrite HgetPartsEqA. assumption.
     rewrite HgetPartsEqA. assumption.
     rewrite <-HgetMappedEqA. rewrite HgetMappedEq. assumption.
 Qed.
@@ -19833,6 +20114,7 @@ noDupMappedPaddrList s0
 -> isChild s0
 -> childsBlocksPropsInParentLight s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> AccessibleNoPDFlag s0
 -> partitionsIsolation s0
 -> isBuiltFromWriteAccessibleRec s0 s statesList parentsList pdbasepartition startaddr endaddr flag
@@ -19846,19 +20128,18 @@ noDupMappedPaddrList s0
 -> bentryEndAddr blockBase endaddr s0
 -> In blockaddr (getMappedBlocks pdparent s)
 -> bentryStartAddr blockaddr startaddr s
-(*-> bentryEndAddr blockaddr endaddr s*)
 -> bentryPFlag blockaddr true s
 -> bentryAFlag blockaddr flag s.
 Proof.
 revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList pdbasepartition _ _ HnoDup HwellFormed Hdisjoint Hstruct Hparent Htree _ _ _ _ _ _ _ _
+  intros s0 parentsList pdbasepartition _ _ HnoDup HwellFormed Hdisjoint Hstruct Hparent Htree _ _ _ _ _ _ _ _ _
         HisBuilt HparentInList _ _ _ _ _ _ _ HblockMapped Hstart HPFlag.
   simpl in HisBuilt. destruct HisBuilt as [HparentsListEmpty Hss0Eq]. subst parentsList. simpl in HparentInList.
   exfalso; congruence.
 - (* statesList = a::l *)
   intros s0 parentsList pdbasepartition blockBase bentryBase HnoDup HwellFormed Hdisjoint Hstruct Hparent Htree
-        HmultPDT HPDTIfPDFlag HwellFormedShadow HisChild HchildBlockProps HnullExists Haccess HPI HisBuilt
+        HmultPDT HPDTIfPDFlag HwellFormedShadow HisChild HchildBlockProps HnullExists HnoDupTree Haccess HPI HisBuilt
         HparentInList HbaseIsPart HlookupBlockBases0 HPFlagBases0 HnoPDFlagBases0 HblockBaseMapped
         HstartBases0 HendBases0 HblockMapped Hstart HPFlag.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec s0 s (a :: statesList) parentsList pdbasepartition
@@ -19866,7 +20147,6 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentryBase & (pdentryPdAddr &
                         (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & HpropsOr &
-                        (*HbaseCase &*)
                         HnewB & HlookupBlocks0 & HlookupBlocks1 & HPFlagBlock & HstartBlock & HendBlock &
                         HblockMappedPdAddr & HlookupBases0 & HlookupBases1 & HlookupPdAddrs0 & HlookupPdAddrs1 &
                         HpdAddr & HbaseNotRoot & HisBuilt))))))))))].
@@ -19932,7 +20212,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
   }
   pose proof (baseBlockAccessibleImpliesNoPDWithIsBuiltLight s0 a [a] [pdAddr] startaddr endaddr
         pdbasepartition flag blockBase bentryBase pdentryBase HchildBlockProps Hdisjoint Hstruct
-        HwellFormedShadow HnoDup HwellFormed Haccess HPDTIfPDFlag HmultPDT HisChild Hparent HPI HnullExists
+        HwellFormedShadow HnoDup HwellFormed Haccess HPDTIfPDFlag HmultPDT HisChild Hparent HPI HnullExists HnoDupTree
         HbaseIsPart HlookupBases0 HlookupBlockBases0 HPFlagBases0 HnoPDFlagBases0 HblockBaseMapped HstartBases0
         HendBases0 HisBuiltFirst) as HcheckChild.
   destruct HcheckChild as [part (Hpart & HcheckChild)]. simpl in Hpart. subst part.
@@ -19957,7 +20237,6 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
           startaddr endaddr pdbasepartition flag blockBase bentryBase; try(assumption).
     unfold isPDT. rewrite HlookupPdAddrs0. trivial.
   }
-  (*rewrite HgetMappedEqA in HblockMapped.*)
   assert(HstartBlockA: bentryStartAddr blockInParentPartitionAddr startaddr a).
   {
     unfold bentryStartAddr in *. rewrite HlookupBlockA. rewrite HlookupBlocks0 in HstartBlock.
@@ -20237,6 +20516,40 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
       intuition.
     }
     specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry).
+    assert(HgetPartsEqA: getPartitions multiplexer a = getPartitions multiplexer s0).
+    {
+      assert(HgetPartMultEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s0).
+      {
+        rewrite Hs1. unfold multiplexerIsPDT in HmultPDT.
+        apply getPartitionsEqBEPDflagNoChangePresentNoChangeStartNoChange
+             with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
+           try(assumption);
+           try(unfold CBlockEntry;
+               destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia);
+               simpl; reflexivity).
+        { unfold sh1entryAddr. rewrite HlookupBlocks0. reflexivity. }
+        simpl.
+        destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset)))
+            eqn:HbeqBlockBlockSh1.
+        {
+          specialize(HwellFormedShadow blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormedShadow.
+          rewrite <-DTL.beqAddrTrue in HbeqBlockBlockSh1. rewrite <-HbeqBlockBlockSh1 in *.
+          rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
+        }
+        rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+        unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+      }
+      rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
+      { subst a. reflexivity. }
+      destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentryPdAddr; try(assumption).
+      simpl. reflexivity.
+      apply StructurePointerIsKSPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr bentry
+          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr bentry
+          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
+    }
     apply IHstatesList; try(assumption).
     apply partitionTreeIsTreePreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr
           bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag startaddr endaddr;
@@ -20261,37 +20574,7 @@ revert bentryBase. revert blockBase. revert pdbasepartition. revert parentsList.
       rewrite HlookupPdAddrs1 in HnullExistss1. congruence.
     }
     rewrite <-beqAddrFalse in HbeqParentNull. rewrite removeDupIdentity; intuition.
-    assert(HgetPartsEqA: getPartitions multiplexer a = getPartitions multiplexer s0).
-    {
-      assert(HgetPartMultEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s0).
-      {
-        rewrite Hs1. unfold multiplexerIsPDT in HmultPDT.
-        apply getPartitionsEqBEPDflagNoChangePresentNoChangeStartNoChange
-             with bentry (CPaddr (blockInParentPartitionAddr + sh1offset));
-           try(assumption);
-           try(unfold CBlockEntry;
-               destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia);
-               simpl; reflexivity).
-        { unfold sh1entryAddr. rewrite HlookupBlocks0. reflexivity. }
-        simpl.
-        destruct (beqAddr blockInParentPartitionAddr (CPaddr (blockInParentPartitionAddr + sh1offset)))
-            eqn:HbeqBlockBlockSh1.
-        {
-          specialize(HwellFormedShadow blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormedShadow.
-          rewrite <-DTL.beqAddrTrue in HbeqBlockBlockSh1. rewrite <-HbeqBlockBlockSh1 in *.
-          rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
-        }
-        rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
-      }
-      rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
-      { subst a. reflexivity. }
-      destruct Ha as [Ha _]. rewrite Ha. apply getPartitionsEqPDT with pdentryPdAddr; try(assumption).
-      simpl. reflexivity.
-      apply StructurePointerIsKSPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr bentry
-          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
-      apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr bentry
-          (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
-    }
+    unfold noDupPartitionTree. rewrite HgetPartsEqA. assumption.
     rewrite HgetPartsEqA. assumption.
     unfold checkChild in *. rewrite HlookupBlockA. rewrite HlookupBlocks0 in HnoPDFlagBlocks0.
     specialize(HwellFormedShadow blockInParentPartitionAddr HblockIsBE). unfold isSHE in HwellFormedShadow.
@@ -20338,6 +20621,7 @@ DisjointKSEntries s0
 -> AccessibleNoPDFlag s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> isPDT pdbasepartition s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
@@ -20351,19 +20635,19 @@ Proof.
 revert bentryBase. revert blockBase. revert buildPart. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
   intros s0 parentsList buildPart _ _ Hdisjoint Hstruct Hparent HmultPDT HPDTIfPDFlag HwellFormedShadow
-      HchildBlockProps _ _ _ _ _ _ HbaseIsPDT _ _ _ _ _ _ HisBuilt.
+      HchildBlockProps _ _ _ _ _ _ _ HbaseIsPDT _ _ _ _ _ _ HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList Hss0Eq]. subst s. reflexivity.
 - (* statesList = a::l *)
   intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct Hparent HmultPDT HPDTIfPDFlag
-      HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HpartIsolation Hnull
+      HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HpartIsolation Hnull HnoDupTree
       HbaseIsPDT HbuildIsPart HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase
       HisBuilt.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
-                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr (*& (HlastCase*)
+                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
   assert(HcurPart: currentPartition s0 = currentPartition s1) by (rewrite Hs1; simpl; reflexivity).
   rewrite HcurPart in HpropsOr.
@@ -20644,6 +20928,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -20651,8 +20936,11 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartsEq in HpdAddrIsPart.
+  rewrite <-HgetPartsEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartsEq. assumption. }
   assert(HlookupParentA: exists pdentry2, lookup pdAddr (memory a) beqAddr = Some (PDT pdentry2)).
   {
     destruct HpropsOr as [Has1Eq | Ha].
@@ -20690,7 +20978,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HdisjointA HstructA
               HparentA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HchildBlockPropsA HisChildA HwellFormedBlockA
-              HnoDupA HaccessNoPDA HpartIsolationA HnullA HbaseIsPDTA HpdAddrIsPart HlookupBlockA HPFlagA
+              HnoDupA HaccessNoPDA HpartIsolationA HnullA HnoDupTreeA HbaseIsPDTA HpdAddrIsPart HlookupBlockA HPFlagA
               HblockIsMapped HblockStartA HblockEndA HisBuilt).
   rewrite IHstatesList.
   assert(HgetMappedEqs1: getMappedPaddr pdbasepartition s1 = getMappedPaddr pdbasepartition s0).
@@ -20723,6 +21011,7 @@ DisjointKSEntries s0
 -> AccessibleNoPDFlag s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> isPDT pdbasepartition s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
@@ -20736,19 +21025,19 @@ Proof.
 revert bentryBase. revert blockBase. revert buildPart. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
   intros s0 parentsList buildPart _ _ Hdisjoint Hstruct Hparent HmultPDT HPDTIfPDFlag HwellFormedShadow
-      HchildBlockProps _ _ _ _ _ _ HbaseIsPDT _ _ _ _ _ _ HisBuilt.
+      HchildBlockProps _ _ _ _ _ _ _ HbaseIsPDT _ _ _ _ _ _ HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList Hss0Eq]. subst s. reflexivity.
 - (* statesList = a::l *)
   intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct Hparent HmultPDT HPDTIfPDFlag
-      HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HpartIsolation Hnull
+      HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HpartIsolation Hnull HnoDupTree
       HbaseIsPDT HbuildIsPart HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase
       HisBuilt.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
-                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr (*& (HlastCase*)
+                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
   assert(HcurPart: currentPartition s0 = currentPartition s1) by (rewrite Hs1; simpl; reflexivity).
   rewrite HcurPart in HpropsOr.
@@ -21029,6 +21318,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -21036,8 +21326,11 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartsEq in HpdAddrIsPart.
+  rewrite <-HgetPartsEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartsEq. assumption. }
   assert(HlookupParentA: exists pdentry2, lookup pdAddr (memory a) beqAddr = Some (PDT pdentry2)).
   {
     destruct HpropsOr as [Has1Eq | Ha].
@@ -21075,7 +21368,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HdisjointA HstructA
               HparentA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HchildBlockPropsA HisChildA HwellFormedBlockA
-              HnoDupA HaccessNoPDA HpartIsolationA HnullA HbaseIsPDTA HpdAddrIsPart HlookupBlockA HPFlagA
+              HnoDupA HaccessNoPDA HpartIsolationA HnullA HnoDupTreeA HbaseIsPDTA HpdAddrIsPart HlookupBlockA HPFlagA
               HblockIsMapped HblockStartA HblockEndA HisBuilt).
   rewrite IHstatesList.
   assert(HgetMappedEqs1: getMappedPaddr pdbasepartition s1 = getMappedPaddr pdbasepartition s0).
@@ -21108,6 +21401,7 @@ DisjointKSEntries s0
 -> AccessibleNoPDFlag s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> isPDT pdbasepartition s0
 -> bentryAFlag block flag s0
 -> bentryStartAddr block startaddr s0
@@ -21126,22 +21420,22 @@ DisjointKSEntries s0
 Proof.
 revert bentryBuild. revert blockBuild. revert buildPart. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList buildPart _ _ Hdisjoint Hstruct Hparent HnoDup HwellFormed _ _ _ _ _ _ _ _ HbaseIsPDT
+  intros s0 parentsList buildPart _ _ Hdisjoint Hstruct Hparent HnoDup HwellFormed _ _ _ _ _ _ _ _ _ HbaseIsPDT
         HAFlag Hstart Hend HPFlag HblockMapped _ _ _ _ _ _ _ HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList Hss0Eq]. subst s. reflexivity.
 - (* statesList = a::l *)
   intros s0 parentsList buildPart blockBuild bentryBuild Hdisjoint Hstruct Hparent HnoDup HwellFormed HmultPDT
-        HPDTIfPDFlag HwellFormedShadow HchildBlockProps HisChild HaccessNoPD HPI Hnull HbaseIsPDT HAFlagBlock
-        HstartBlock HendBlock HPFlagBlock HblockMapped HbuildIsPart HstartBuild HendBuild HPFlagBuild
+        HPDTIfPDFlag HwellFormedShadow HchildBlockProps HisChild HaccessNoPD HPI Hnull HnoDupTee HbaseIsPDT
+        HAFlagBlock HstartBlock HendBlock HPFlagBlock HblockMapped HbuildIsPart HstartBuild HendBuild HPFlagBuild
         HlookupBlockBuild HblockBuildMapped HnoPDFlagBuild HisBuilt.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec s0 s (a::statesList) parentsList buildPart startaddr endaddr
                             flag) by assumption.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
-                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr (*& (HlastCase*)
+                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
   assert(HcurPart: currentPartition s0 = currentPartition s1) by (rewrite Hs1; simpl; reflexivity).
   rewrite HcurPart in HpropsOr.
@@ -21537,6 +21831,7 @@ revert bentryBuild. revert blockBuild. revert buildPart. revert parentsList. rev
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -21544,8 +21839,11 @@ revert bentryBuild. revert blockBuild. revert buildPart. revert parentsList. rev
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartsEq in HpdAddrIsPart.
+  rewrite <-HgetPartsEq in HpdAddrIsPart. assert(HnoDupTeeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartsEq. assumption. }
   assert(HlookupParentA: exists pdentry2, lookup pdAddr (memory a) beqAddr = Some (PDT pdentry2)).
   {
     destruct HpropsOr as [Has1Eq | Ha].
@@ -21583,8 +21881,8 @@ revert bentryBuild. revert blockBuild. revert buildPart. revert parentsList. rev
   }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HdisjointA HstructA
               HparentA HnoDupA HwellFormedA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HchildBlockPropsA
-              HisChildA HaccessNoPDA HPIA HnullA HbaseIsPDTA HAFlagBlockA HstartBlockA HendBlockA HPFlagBlockA
-              HblockMapped HpdAddrIsPart HblockStartA HblockEndA HPFlagA HlookupBlockA HblockIsMapped
+              HisChildA HaccessNoPDA HPIA HnullA HnoDupTeeA HbaseIsPDTA HAFlagBlockA HstartBlockA HendBlockA
+              HPFlagBlockA HblockMapped HpdAddrIsPart HblockStartA HblockEndA HPFlagA HlookupBlockA HblockIsMapped
               HcheckChildBlockA HisBuilt).
   rewrite IHstatesList.
   assert(HgetAccMappedEqs1: getAccessibleMappedBlocks pdbasepartition s1
@@ -21629,6 +21927,7 @@ DisjointKSEntries s0
 -> AccessibleNoPDFlag s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
@@ -21642,20 +21941,20 @@ DisjointKSEntries s0
 Proof.
 revert bentryBase. revert blockBase. revert buildPart. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart _ _ _ _ _ _ _ _ _ _ _ _
+  intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart _ _ _ _ _ _ _ _ _ _ _ _ _
         _ _ _ _ HbaseIsPDT HbaseNotInList HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList Hss0Eq]. subst s. reflexivity.
 - (* statesList = a::l *)
   intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart HmultPDT HPDTIfPDFlag
-        HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HPI Hnull HbuildIsPart
-        HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase HbaseIsPDT HbaseNotInList
+        HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HPI Hnull HnoDupTree
+        HbuildIsPart HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase HbaseIsPDT HbaseNotInList
         HisBuilt.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
-                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr (*& (HlastCase*)
+                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
   assert(HcurPart: currentPartition s0 = currentPartition s1) by (rewrite Hs1; simpl; reflexivity).
   rewrite HcurPart in HpropsOr.
@@ -21953,6 +22252,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -21960,8 +22260,11 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartsEq in HpdAddrIsPart.
+  rewrite <-HgetPartsEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartsEq. assumption. }
   assert(HlookupParentA: exists pdentry2, lookup pdAddr (memory a) beqAddr = Some (PDT pdentry2)).
   {
     destruct HpropsOr as [Has1Eq | Ha].
@@ -22001,7 +22304,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   destruct HbaseNotInList as [HbeqPdAddrBase HbaseNotInListRec]. apply not_eq_sym in HbeqPdAddrBase.
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HdisjointA HstructA
               HparentA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HchildBlockPropsA HisChildA HwellFormedA
-              HnoDupA HaccessNoPDA HPIA HnullA HpdAddrIsPart HlookupBlockA HPFlagA
+              HnoDupA HaccessNoPDA HPIA HnullA HnoDupTreeA HpdAddrIsPart HlookupBlockA HPFlagA
               HblockIsMapped HblockStartA HblockEndA HbaseIsPDTA HbaseNotInListRec HisBuilt).
   rewrite IHstatesList.
   assert(HgetAccMappedEqs1: getAccessibleMappedPaddr pdbasepartition s1
@@ -22037,6 +22340,7 @@ DisjointKSEntries s0
 -> AccessibleNoPDFlag s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
@@ -22050,20 +22354,20 @@ DisjointKSEntries s0
 Proof.
 revert bentryBase. revert blockBase. revert buildPart. revert parentsList. revert s0. induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart _ _ _ _ _ _ _ _ _ _ _ _
+  intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart _ _ _ _ _ _ _ _ _ _ _ _ _
         _ _ _ _ HbaseIsPDT HbaseNotInList HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList Hss0Eq]. subst s. reflexivity.
 - (* statesList = a::l *)
   intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart HmultPDT HPDTIfPDFlag
-        HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HPI Hnull HbuildIsPart
-        HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase HbaseIsPDT HbaseNotInList
+        HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HPI Hnull HnoDupTree
+        HbuildIsPart HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase HbaseIsPDT HbaseNotInList
         HisBuilt.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
-                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr (*& (HlastCase*)
+                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
   assert(HcurPart: currentPartition s0 = currentPartition s1) by (rewrite Hs1; simpl; reflexivity).
   rewrite HcurPart in HpropsOr.
@@ -22361,6 +22665,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -22368,8 +22673,11 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartsEq in HpdAddrIsPart.
+  rewrite <-HgetPartsEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartsEq. assumption. }
   assert(HlookupParentA: exists pdentry2, lookup pdAddr (memory a) beqAddr = Some (PDT pdentry2)).
   {
     destruct HpropsOr as [Has1Eq | Ha].
@@ -22409,7 +22717,7 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
   destruct HbaseNotInList as [HbeqPdAddrBase HbaseNotInListRec]. apply not_eq_sym in HbeqPdAddrBase.
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HdisjointA HstructA
               HparentA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HchildBlockPropsA HisChildA HwellFormedA
-              HnoDupA HaccessNoPDA HPIA HnullA HpdAddrIsPart HlookupBlockA HPFlagA
+              HnoDupA HaccessNoPDA HPIA HnullA HnoDupTreeA HpdAddrIsPart HlookupBlockA HPFlagA
               HblockIsMapped HblockStartA HblockEndA HbaseIsPDTA HbaseNotInListRec HisBuilt).
   rewrite IHstatesList.
   assert(HgetAccMappedEqs1: getAccessibleMappedPaddr pdbasepartition s1
@@ -22430,7 +22738,6 @@ revert bentryBase. revert blockBase. revert buildPart. revert parentsList. rever
     destruct Ha as [Ha _]. rewrite Ha. apply getAccessibleMappedPaddrEqPDT with pdentry1; intuition.
 Qed.
 
-(*TODO we could probably get rid of the block in the conclusion here*)
 Lemma getAccessibleMappedPaddrEqBuiltWithWriteAccFlagFalse s0 s statesList parentsList pdbasepartition
 startaddr endaddr buildPart blockBase bentryBase addr:
 In addr (getAccessibleMappedPaddr pdbasepartition s)
@@ -22447,10 +22754,10 @@ In addr (getAccessibleMappedPaddr pdbasepartition s)
 -> AccessibleNoPDFlag s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
-(*-> false = checkChild blockBase s0 (CPaddr (blockBase + sh1offset))*)
 -> In blockBase (getMappedBlocks buildPart s0)
 -> bentryStartAddr blockBase startaddr s0
 -> bentryEndAddr blockBase endaddr s0
@@ -22461,19 +22768,19 @@ Proof.
 intro HaddrAccMappeds. revert bentryBase. revert blockBase. revert buildPart. revert parentsList. revert s0.
 induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart _ _ _ _ _ _ _ _ _ _ _ _
+  intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart _ _ _ _ _ _ _ _ _ _ _ _ _
         _ _ _ _ HbaseIsPDT HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList Hss0Eq]. subst s. apply in_or_app. right. assumption.
 - (* statesList = a::l *)
   intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart HmultPDT HPDTIfPDFlag
-        HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HPI Hnull HbuildIsPart
-        HlookupBlockBase HPFlagBase (*HnoPDFlagBase*) HblockBaseMapped HstartBase HendBase HbaseIsPDT HisBuilt.
+        HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HPI Hnull HnoDupTree
+        HbuildIsPart HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase HbaseIsPDT HisBuilt.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
-                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr (*& (HlastCase*)
+                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
   assert(HcurPart: currentPartition s0 = currentPartition s1) by (rewrite Hs1; simpl; reflexivity).
   rewrite HcurPart in HpropsOr.
@@ -22771,6 +23078,7 @@ induction statesList.
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -22778,8 +23086,11 @@ induction statesList.
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartsEq in HpdAddrIsPart.
+  rewrite <-HgetPartsEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartsEq. assumption. }
   assert(HlookupParentA: exists pdentry2, lookup pdAddr (memory a) beqAddr = Some (PDT pdentry2)).
   {
     destruct HpropsOr as [Has1Eq | Ha].
@@ -22817,7 +23128,7 @@ induction statesList.
   }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HdisjointA HstructA
               HparentA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HchildBlockPropsA HisChildA HwellFormedA
-              HnoDupA HaccessNoPDA HPIA HnullA HpdAddrIsPart HlookupBlockA HPFlagA
+              HnoDupA HaccessNoPDA HPIA HnullA HnoDupTreeA HpdAddrIsPart HlookupBlockA HPFlagA
               HblockIsMapped HblockStartA HblockEndA HbaseIsPDTA HisBuilt).
   apply in_app_or in IHstatesList. apply in_or_app.
   destruct IHstatesList as [HaddrInBlock | HaddrAccessA]; try(left; assumption).
@@ -22853,10 +23164,10 @@ In addr (getAccessibleMappedPaddr pdbasepartition s)
 -> AccessibleNoPDFlag s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
-(*-> false = checkChild blockBase s0 (CPaddr (blockBase + sh1offset))*)
 -> In blockBase (getMappedBlocks buildPart s0)
 -> bentryStartAddr blockBase startaddr s0
 -> bentryEndAddr blockBase endaddr s0
@@ -22867,19 +23178,19 @@ Proof.
 intro HaddrAccMappeds. revert bentryBase. revert blockBase. revert buildPart. revert parentsList. revert s0.
 induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart _ _ _ _ _ _ _ _ _ _ _ _
+  intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart _ _ _ _ _ _ _ _ _ _ _ _ _
         _ _ _ _ HbaseIsPDT HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList Hss0Eq]. subst s. apply in_or_app. right. assumption.
 - (* statesList = a::l *)
   intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart HmultPDT HPDTIfPDFlag
-        HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HPI Hnull HbuildIsPart
-        HlookupBlockBase HPFlagBase (*HnoPDFlagBase*) HblockBaseMapped HstartBase HendBase HbaseIsPDT HisBuilt.
+        HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HPI Hnull HnoDupTree
+        HbuildIsPart HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase HbaseIsPDT HisBuilt.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
-                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr (*& (HlastCase*)
+                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
   assert(HcurPart: currentPartition s0 = currentPartition s1) by (rewrite Hs1; simpl; reflexivity).
   rewrite HcurPart in HpropsOr.
@@ -23177,6 +23488,7 @@ induction statesList.
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -23184,8 +23496,11 @@ induction statesList.
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartsEq in HpdAddrIsPart.
+  rewrite <-HgetPartsEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartsEq. assumption. }
   assert(HlookupParentA: exists pdentry2, lookup pdAddr (memory a) beqAddr = Some (PDT pdentry2)).
   {
     destruct HpropsOr as [Has1Eq | Ha].
@@ -23223,7 +23538,7 @@ induction statesList.
   }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HdisjointA HstructA
               HparentA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HchildBlockPropsA HisChildA HwellFormedA
-              HnoDupA HaccessNoPDA HPIA HnullA HpdAddrIsPart HlookupBlockA HPFlagA
+              HnoDupA HaccessNoPDA HPIA HnullA HnoDupTreeA HpdAddrIsPart HlookupBlockA HPFlagA
               HblockIsMapped HblockStartA HblockEndA HbaseIsPDTA HisBuilt).
   apply in_app_or in IHstatesList. apply in_or_app.
   destruct IHstatesList as [HaddrInBlock | HaddrAccessA]; try(left; assumption).
@@ -23259,6 +23574,7 @@ In addr (getAccessibleMappedPaddr pdbasepartition s0)
 -> AccessibleNoPDFlag s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
@@ -23272,20 +23588,20 @@ Proof.
 revert bentryBase. revert blockBase. revert buildPart. revert parentsList. revert s0.
 induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList buildPart blockBase bentryBase HaddrAccMappeds0 Hdisjoint Hstruct HparentOfPart _ _ _ _ _
+  intros s0 parentsList buildPart blockBase bentryBase HaddrAccMappeds0 Hdisjoint Hstruct HparentOfPart _ _ _ _ _ _
         _ _ _ _ _ _ _ _ _ _ _ HbaseIsPDT HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList Hss0Eq]. subst s. apply in_or_app. right. assumption.
 - (* statesList = a::l *)
   intros s0 parentsList buildPart blockBase bentryBase HaddrAccMappeds0 Hdisjoint Hstruct HparentOfPart HmultPDT
         HPDTIfPDFlag HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HaccessNoPD HPI Hnull
-        HbuildIsPart HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase HbaseIsPDT
+        HnoDupTree HbuildIsPart HlookupBlockBase HPFlagBase HblockBaseMapped HstartBase HendBase HbaseIsPDT
         HisBuilt.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
-                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr (*& (HlastCase*)
+                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
   assert(HcurPart: currentPartition s0 = currentPartition s1) by (rewrite Hs1; simpl; reflexivity).
   rewrite HcurPart in HpropsOr.
@@ -23583,6 +23899,7 @@ induction statesList.
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -23590,8 +23907,11 @@ induction statesList.
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartsEq in HpdAddrIsPart.
+  rewrite <-HgetPartsEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartsEq. assumption. }
   assert(HlookupParentA: exists pdentry2, lookup pdAddr (memory a) beqAddr = Some (PDT pdentry2)).
   {
     destruct HpropsOr as [Has1Eq | Ha].
@@ -23683,8 +24003,8 @@ induction statesList.
   + apply in_or_app. left. assumption.
   + specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HaddrAccMappedA
                 HdisjointA HstructA HparentA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HchildBlockPropsA
-                HisChildA HwellFormedA HnoDupA HaccessNoPDA HPIA HnullA HpdAddrIsPart HlookupBlockA HPFlagA
-                HblockIsMapped HblockStartA HblockEndA HbaseIsPDTA HisBuilt).
+                HisChildA HwellFormedA HnoDupA HaccessNoPDA HPIA HnullA HnoDupTreeA HpdAddrIsPart HlookupBlockA
+                HPFlagA HblockIsMapped HblockStartA HblockEndA HbaseIsPDTA HisBuilt).
   assumption.
 Qed.
 
@@ -23705,6 +24025,7 @@ In addr (getAccessibleMappedPaddr pdbasepartition s)
 -> AccessibleNoPDFlag s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
@@ -23719,20 +24040,20 @@ Proof.
 intro HaddrAccMappeds. revert bentryBase. revert blockBase. revert buildPart. revert parentsList. revert s0.
 induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart _ _ _ _ _ _ _ _ _ _ _ _ _
+  intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart _ _ _ _ _ _ _ _ _ _ _ _ _ _
         _ _ _ _ _ HbaseIsPDT HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList Hss0Eq]. subst s. apply in_or_app. right. assumption.
 - (* statesList = a::l *)
   intros s0 parentsList buildPart blockBase bentryBase Hdisjoint Hstruct HparentOfPart HmultPDT HPDTIfPDFlag
         HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HnoDupMapped HaccessNoPD HPI Hnull
-        HbuildIsPart HlookupBlockBase HPFlagBase HnoPDFlagBase HblockBaseMapped HstartBase HendBase HbaseIsPDT
-        HisBuilt.
+        HnoDupTree HbuildIsPart HlookupBlockBase HPFlagBase HnoPDFlagBase HblockBaseMapped HstartBase HendBase
+        HbaseIsPDT HisBuilt.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
-                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr (*& (HlastCase*)
+                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
   assert(HcurPart: currentPartition s0 = currentPartition s1) by (rewrite Hs1; simpl; reflexivity).
   rewrite HcurPart in HpropsOr.
@@ -24035,6 +24356,7 @@ induction statesList.
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -24042,8 +24364,11 @@ induction statesList.
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) true; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartsEq in HpdAddrIsPart.
+  rewrite <-HgetPartsEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartsEq. assumption. }
   assert(HlookupParentA: exists pdentry2, lookup pdAddr (memory a) beqAddr = Some (PDT pdentry2)).
   {
     destruct HpropsOr as [Has1Eq | Ha].
@@ -24081,8 +24406,9 @@ induction statesList.
   }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HdisjointA HstructA
               HparentA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HchildBlockPropsA HisChildA HwellFormedA
-              HnoDupA HnoDupMappedA HaccessNoPDA HPIA HnullA HpdAddrIsPart HlookupBlockA HPFlagA HcheckChildBlockA
-              HblockIsMapped HblockStartA HblockEndA HbaseIsPDTA HisBuilt). apply in_app_or in IHstatesList.
+              HnoDupA HnoDupMappedA HaccessNoPDA HPIA HnullA HnoDupTreeA HpdAddrIsPart HlookupBlockA HPFlagA
+              HcheckChildBlockA HblockIsMapped HblockStartA HblockEndA HbaseIsPDTA HisBuilt).
+  apply in_app_or in IHstatesList.
   apply in_or_app. destruct IHstatesList as [HaddrInBlock | HaddrAccessA]; try(left; assumption).
   assert(HgetAccMappedEq: getAccessibleMappedPaddr pdbasepartition a
                             = getAccessibleMappedPaddr pdbasepartition s1).
@@ -24150,6 +24476,7 @@ In addr (getAccessibleMappedPaddr pdbasepartition s0)
 -> AccessibleNoPDFlag s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
@@ -24164,20 +24491,20 @@ Proof.
 revert bentryBase. revert blockBase. revert buildPart. revert parentsList. revert s0.
 induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList buildPart blockBase bentryBase HaddrAccMappeds0 Hdisjoint Hstruct HparentOfPart _ _ _ _ _
+  intros s0 parentsList buildPart blockBase bentryBase HaddrAccMappeds0 Hdisjoint Hstruct HparentOfPart _ _ _ _ _ _
         _ _ _ _ _ _ _ _ _ _ _ _ _ HbaseIsPDT HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList Hss0Eq]. subst s. assumption.
 - (* statesList = a::l *)
   intros s0 parentsList buildPart blockBase bentryBase HaddrAccMappeds0 Hdisjoint Hstruct HparentOfPart HmultPDT
         HPDTIfPDFlag HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HnoDupMapped HaccessNoPD
-        HPI Hnull HbuildIsPart HlookupBlockBase HPFlagBase HnoPDFlagBase HblockBaseMapped HstartBase HendBase
-        HbaseIsPDT HisBuilt.
+        HPI Hnull HnoDupTree HbuildIsPart HlookupBlockBase HPFlagBase HnoPDFlagBase HblockBaseMapped HstartBase
+        HendBase HbaseIsPDT HisBuilt.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
-                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr (*& (HlastCase*)
+                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
   assert(HcurPart: currentPartition s0 = currentPartition s1) by (rewrite Hs1; simpl; reflexivity).
   rewrite HcurPart in HpropsOr.
@@ -24480,6 +24807,7 @@ induction statesList.
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -24487,8 +24815,11 @@ induction statesList.
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) true; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartsEq in HpdAddrIsPart.
+  rewrite <-HgetPartsEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartsEq. assumption. }
   assert(HlookupParentA: exists pdentry2, lookup pdAddr (memory a) beqAddr = Some (PDT pdentry2)).
   {
     destruct HpropsOr as [Has1Eq | Ha].
@@ -24570,8 +24901,8 @@ induction statesList.
   }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HaddrAccMappedA
               HdisjointA HstructA HparentA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HchildBlockPropsA HisChildA
-              HwellFormedA HnoDupA HnoDupMappedA HaccessNoPDA HPIA HnullA HpdAddrIsPart HlookupBlockA HPFlagA
-              HcheckChildBlockA HblockIsMapped HblockStartA HblockEndA HbaseIsPDTA HisBuilt).
+              HwellFormedA HnoDupA HnoDupMappedA HaccessNoPDA HPIA HnullA HnoDupTreeA HpdAddrIsPart HlookupBlockA
+              HPFlagA HcheckChildBlockA HblockIsMapped HblockStartA HblockEndA HbaseIsPDTA HisBuilt).
   assumption.
 Qed.
 
@@ -24592,6 +24923,7 @@ In addr (getAccessibleMappedPaddr pdbasepartition s0)
 -> AccessibleNoPDFlag s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBase (memory s0) beqAddr = Some (BE bentryBase)
 -> bentryPFlag blockBase true s0
@@ -24606,20 +24938,20 @@ Proof.
 revert bentryBase. revert blockBase. revert buildPart. revert parentsList. revert s0.
 induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList buildPart blockBase bentryBase HaddrAccMappeds0 Hdisjoint Hstruct HparentOfPart _ _ _ _ _
+  intros s0 parentsList buildPart blockBase bentryBase HaddrAccMappeds0 Hdisjoint Hstruct HparentOfPart _ _ _ _ _ _
         _ _ _ _ _ _ _ _ _ _ _ _ _ HbaseIsPDT HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [HparentsList Hss0Eq]. subst s. assumption.
 - (* statesList = a::l *)
   intros s0 parentsList buildPart blockBase bentryBase HaddrAccMappeds0 Hdisjoint Hstruct HparentOfPart HmultPDT
         HPDTIfPDFlag HwellFormedShadow HchildBlockProps HisChild HwellFormedBlock HnoDup HnoDupMapped HaccessNoPD
-        HPI Hnull HbuildIsPart HlookupBlockBase HPFlagBase HnoPDFlagBase HblockBaseMapped HstartBase HendBase
-        HbaseIsPDT HisBuilt.
+        HPI Hnull HnoDupTree HbuildIsPart HlookupBlockBase HPFlagBase HnoPDFlagBase HblockBaseMapped HstartBase
+        HendBase HbaseIsPDT HisBuilt.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentry0 & pdentry1 &
-                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr (*& (HlastCase*)
+                      (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & (HpropsOr
                        & (HnewB & (HlookupBlocks0 & HlookupBlocks1 & HPFlag & HblockStart & HblockEnd &
                         HblockIsMapped & HlookupParentsInit & HlookupParents1 & HlookupAncestorsInit &
-                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))(*)*)].
+                         HlookupAncestors1 & Hancestor & HbaseNotRoot & HisBuilt))))))))))))].
   assert(HlowerThanMax: blockindex bentry < kernelStructureEntriesNb) by (apply Hidx).
   assert(HcurPart: currentPartition s0 = currentPartition s1) by (rewrite Hs1; simpl; reflexivity).
   rewrite HcurPart in HpropsOr.
@@ -24922,6 +25254,7 @@ induction statesList.
           rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
         }
         rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartMultEqs1. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -24929,8 +25262,11 @@ induction statesList.
       simpl. reflexivity.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentry1 blockInParentPartitionAddr bentry
           (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) true; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartMultEqs1. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartsEq in HpdAddrIsPart.
+  rewrite <-HgetPartsEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartsEq. assumption. }
   assert(HlookupParentA: exists pdentry2, lookup pdAddr (memory a) beqAddr = Some (PDT pdentry2)).
   {
     destruct HpropsOr as [Has1Eq | Ha].
@@ -25012,8 +25348,8 @@ induction statesList.
   }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HaddrAccMappedA
               HdisjointA HstructA HparentA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HchildBlockPropsA HisChildA
-              HwellFormedA HnoDupA HnoDupMappedA HaccessNoPDA HPIA HnullA HpdAddrIsPart HlookupBlockA HPFlagA
-              HcheckChildBlockA HblockIsMapped HblockStartA HblockEndA HbaseIsPDTA HisBuilt).
+              HwellFormedA HnoDupA HnoDupMappedA HaccessNoPDA HPIA HnullA HnoDupTreeA HpdAddrIsPart HlookupBlockA
+              HPFlagA HcheckChildBlockA HblockIsMapped HblockStartA HblockEndA HbaseIsPDTA HisBuilt).
   assumption.
 Qed.
 
@@ -25033,6 +25369,7 @@ AccessibleNoPDFlag s0
 -> noDupMappedPaddrList s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBuild (memory s0) beqAddr = Some (BE bentryBuild)
 -> bentryPFlag blockBuild true s0
@@ -25046,19 +25383,19 @@ Proof.
 revert bentryBuild. revert blockBuild. revert buildPart. revert parentsList. revert s0.
 induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList buildPart blockBuild bentryBuild HaccessNoPD _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  intros s0 parentsList buildPart blockBuild bentryBuild HaccessNoPD _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
         HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [_ HparentsList]. subst s. assumption.
 - (* statesList = a::l *)
   intros s0 parentsList buildPart blockBuild bentryBuild HaccessNoPD HparentOfPart HmultPDT HPDTIfPDFlag
       HwellFormedShadow Hstruct HisChild HchildBlockProps Hdisjoint HwellFormedBlock HnoDup HpartIsolation Hnull
-      HbaseIsPart HlookupBlockBuild HPFlagBuild HnoPDFlagBuild HblockBuildMapped HstartBuild HendBuild HisBuilt.
+      HnoDupTree HbaseIsPart HlookupBlockBuild HPFlagBuild HnoPDFlagBuild HblockBuildMapped HstartBuild HendBuild
+      HisBuilt.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec s0 s (a :: statesList) parentsList buildPart
              startaddr endaddr flag) by assumption.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentryBuild & (pdentryPdAddr &
                         (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & HpropsOr &
-                        (*HbaseCase &*)
                         HnewB & HlookupBlocks0 & HlookupBlocks1 & HPFlagBlock & HstartBlock & HendBlock &
                         HblockMappedPdAddr & HlookupBuilds0 & HlookupBuilds1 & HlookupPdAddrs0 & HlookupPdAddrs1 &
                         HpdAddr & HbaseNotRoot & HisBuilt))))))))))].
@@ -25351,6 +25688,7 @@ induction statesList.
         rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -25360,12 +25698,15 @@ induction statesList.
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HpdAddrIsPart.
+  rewrite <-HgetPartEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HaccessNoPDA
              HparentOfPartA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HisChildA HchildBlockPropsA
-             HdisjointA HwellFormedBlockA HnoDupA HpartIsolationA HnullA HpdAddrIsPart HlookupBlockA HPFlagBlockA
-             HcheckChildA HblockMappedPdAddr HstartBlockA HendBlockA HisBuilt).
+             HdisjointA HwellFormedBlockA HnoDupA HpartIsolationA HnullA HnoDupTreeA HpdAddrIsPart HlookupBlockA
+             HPFlagBlockA HcheckChildA HblockMappedPdAddr HstartBlockA HendBlockA HisBuilt).
   assumption.
 Qed.
 
@@ -25383,6 +25724,7 @@ isChild s0
 -> noDupMappedPaddrList s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBuild (memory s0) beqAddr = Some (BE bentryBuild)
 -> bentryPFlag blockBuild true s0
@@ -25396,19 +25738,19 @@ Proof.
 revert bentryBuild. revert blockBuild. revert buildPart. revert parentsList. revert s0.
 induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList buildPart blockBuild bentryBuild HisChild _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  intros s0 parentsList buildPart blockBuild bentryBuild HisChild _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
         HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [_ HparentsList]. subst s. assumption.
 - (* statesList = a::l *)
   intros s0 parentsList buildPart blockBuild bentryBuild HisChild HparentOfPart HmultPDT HPDTIfPDFlag
       HwellFormedShadow Hstruct HchildBlockProps Hdisjoint HwellFormedBlock HnoDup HpartIsolation Hnull
-      HbaseIsPart HlookupBlockBuild HPFlagBuild HnoPDFlagBuild HblockBuildMapped HstartBuild HendBuild HisBuilt.
+      HnoDupTree HbaseIsPart HlookupBlockBuild HPFlagBuild HnoPDFlagBuild HblockBuildMapped HstartBuild HendBuild
+      HisBuilt.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec s0 s (a :: statesList) parentsList buildPart
              startaddr endaddr flag) by assumption.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentryBuild & (pdentryPdAddr &
                         (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & HpropsOr &
-                        (*HbaseCase &*)
                         HnewB & HlookupBlocks0 & HlookupBlocks1 & HPFlagBlock & HstartBlock & HendBlock &
                         HblockMappedPdAddr & HlookupBuilds0 & HlookupBuilds1 & HlookupPdAddrs0 & HlookupPdAddrs1 &
                         HpdAddr & HbaseNotRoot & HisBuilt))))))))))].
@@ -25696,6 +26038,7 @@ induction statesList.
         rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -25705,12 +26048,15 @@ induction statesList.
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HpdAddrIsPart.
+  rewrite <-HgetPartEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HisChildA
              HparentOfPartA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HchildBlockPropsA
-             HdisjointA HwellFormedBlockA HnoDupA HpartIsolationA HnullA HpdAddrIsPart HlookupBlockA HPFlagBlockA
-             HcheckChildA HblockMappedPdAddr HstartBlockA HendBlockA HisBuilt).
+             HdisjointA HwellFormedBlockA HnoDupA HpartIsolationA HnullA HnoDupTreeA HpdAddrIsPart HlookupBlockA
+             HPFlagBlockA HcheckChildA HblockMappedPdAddr HstartBlockA HendBlockA HisBuilt).
   assumption.
 Qed.
 
@@ -25728,6 +26074,7 @@ childsBlocksPropsInParent s0
 -> noDupMappedPaddrList s0
 -> partitionsIsolation s0
 -> nullAddrExists s0
+-> noDupPartitionTree s0
 -> In buildPart (getPartitions multiplexer s0)
 -> lookup blockBuild (memory s0) beqAddr = Some (BE bentryBuild)
 -> bentryPFlag blockBuild true s0
@@ -25741,19 +26088,18 @@ Proof.
 revert bentryBuild. revert blockBuild. revert buildPart. revert parentsList. revert s0.
 induction statesList.
 - (* statesList = [] *)
-  intros s0 parentsList buildPart blockBuild bentryBuild HchildBlockProps _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  intros s0 parentsList buildPart blockBuild bentryBuild HchildBlockProps _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
         HisBuilt.
   simpl in HisBuilt. destruct HisBuilt as [_ HparentsList]. subst s. assumption.
 - (* statesList = a::l *)
   intros s0 parentsList buildPart blockBuild bentryBuild HchildBlockProps HparentOfPart HmultPDT HPDTIfPDFlag
-      HwellFormedShadow Hstruct HisChild Hdisjoint HwellFormedBlock HnoDup HpartIsolation Hnull
+      HwellFormedShadow Hstruct HisChild Hdisjoint HwellFormedBlock HnoDup HpartIsolation Hnull HnoDupTree
       HbaseIsPart HlookupBlockBuild HPFlagBuild HnoPDFlagBuild HblockBuildMapped HstartBuild HendBuild HisBuilt.
   assert(HisBuiltCopy: isBuiltFromWriteAccessibleRec s0 s (a :: statesList) parentsList buildPart
              startaddr endaddr flag) by assumption.
   simpl in HisBuilt.
   destruct HisBuilt as [pdAddr (newPdEntriesList & (HparentsList & (realMPU & (pdentryBuild & (pdentryPdAddr &
                         (blockInParentPartitionAddr & (bentry & (newBentry & (s1 & (Hs1 & HpropsOr &
-                        (*HbaseCase &*)
                         HnewB & HlookupBlocks0 & HlookupBlocks1 & HPFlagBlock & HstartBlock & HendBlock &
                         HblockMappedPdAddr & HlookupBuilds0 & HlookupBuilds1 & HlookupPdAddrs0 & HlookupPdAddrs1 &
                         HpdAddr & HbaseNotRoot & HisBuilt))))))))))].
@@ -26041,6 +26387,7 @@ induction statesList.
         rewrite HlookupBlocks0 in HwellFormedShadow. exfalso; congruence.
       }
       rewrite <-beqAddrFalse in HbeqBlockBlockSh1. rewrite removeDupIdentity; intuition.
+      unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
     }
     rewrite <-HgetPartEq. destruct HpropsOr as [Has1Eq | Ha].
     - subst a. reflexivity.
@@ -26050,11 +26397,14 @@ induction statesList.
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
       apply PDTIfPDFlagPreservedIsBuilt with s1 s0 pdAddr pdentryPdAddr blockInParentPartitionAddr
         bentry (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; intuition.
+      + unfold noDupPartitionTree. rewrite HgetPartEq. assumption.
+      + unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
   }
-  rewrite <-HgetPartEq in HpdAddrIsPart.
+  rewrite <-HgetPartEq in HpdAddrIsPart. assert(HnoDupTreeA: noDupPartitionTree a).
+  { unfold noDupPartitionTree. rewrite HgetPartEq. assumption. }
   specialize(IHstatesList a newPdEntriesList pdAddr blockInParentPartitionAddr newBentry HchildBlockPropsA
              HparentOfPartA HmultPDTA HPDTIfPDFlagA HwellFormedShadowA HstructA HisChildA
-             HdisjointA HwellFormedBlockA HnoDupA HpartIsolationA HnullA HpdAddrIsPart HlookupBlockA HPFlagBlockA
-             HcheckChildA HblockMappedPdAddr HstartBlockA HendBlockA HisBuilt).
+             HdisjointA HwellFormedBlockA HnoDupA HpartIsolationA HnullA HnoDupTreeA HpdAddrIsPart HlookupBlockA
+             HPFlagBlockA HcheckChildA HblockMappedPdAddr HstartBlockA HendBlockA HisBuilt).
   assumption.
 Qed.
