@@ -60,6 +60,13 @@ Open Scope mpu_state_scope.
 
     <<idBlock>>  The block to become the child Partition Descriptor
 								(id = local id)
+
+    Conditions for the call to succeed:
+    - <idBlock> must be an accessible block in the current partition
+    - the address range referenced by <idBlock> must be within the RAM
+    - the size of the address range referenced by <idBlock> must be superior
+      to Constants.minBlockSize (currently 32)
+    - <idBlock> must not have been shared with a child partition
 *)
 Definition createPartition (idBlock: paddr) : LLI bool :=
     (** Get the current partition (Partition Descriptor) *)
@@ -85,6 +92,7 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
 		perform isBlockTooSmall1 := Index.ltb blockSize minBlockSize in
 		if isBlockTooSmall1 then (* smaller than minimum MPU size *) ret false else
 
+    (* PDStructureTotalLength < minBlockSize, we could remove that test *)
 		perform PDStructureTotalLength := getPDStructureTotalLength in
 		perform isBlockTooSmall2 := Index.ltb blockSize PDStructureTotalLength in
 		if isBlockTooSmall2 then (* too small to become a PD *) ret false else
@@ -131,14 +139,23 @@ Definition createPartition (idBlock: paddr) : LLI bool :=
 		at <cutAddress> which creates a new subbblock at that address.
 		The new subblock is placed in the physical MPU region of the current partition
 		if the <MPURegionNb> is a valid region number.
-		Returns the new created subblock's id:OK/NULL:NOK
+		Returns the new created subblock's local id:OK/NULL:NOK
 
     <<idBlockToCut>>		the block to cut
 												(id = local id)
 		<<cutAddress>>			the address where to cut the <idBlockToCut> block,
-												becomes the id of the created block
+												becomes the global id of the created block
     <<MPURegionNb>>			the region number of the physical MPU where to place the
 												created subblock
+
+    Conditions for the call to succeed:
+    - <idBlockToCut> must be an accessible block in the current partition
+    - the current partition must have a free slot in a kernel structure to host the
+      second half of the cut block
+    - <idBlockToCut> must not have been shared with a child partition
+    - the two halves of the cut block must be of size superior to
+      Constants.minBlockSize (currently 32)
+    - <cutAddr> must be a multiple of 32
 *)
 Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) (MPURegionNb : index)
 																																: LLI paddr :=
@@ -249,6 +266,16 @@ Definition cutMemoryBlock (idBlockToCut cutAddr : paddr) (MPURegionNb : index)
 												(id = local id)
 	  <<MPURegionNb>>			the region number of the physical MPU where to place
 												the merged block
+
+    Conditions for the call to succeed:
+    - both <idBlockToMerge1> and <idBlockToMerge2> must be accessible blocks in the
+      current partition
+    - neither of the blocks to be merged should be shared with a child partition
+    - <idBlockToMerge1> and <idBlockToMerge2> must be adjacent (the end address of
+      <idBlockToMerge1> is equal to the start address of <idBlockToMerge2>) and have
+      been cut from one block inside the current partition. Notably, it is impossible
+      to merge two blocks if they come from two separate blocks in the parent
+      of the current partition
 *)
 Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr)
 														(MPURegionNb : index) : 							LLI paddr :=
@@ -322,21 +349,27 @@ Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr)
 (** ** The prepare PIP MPU service
 
     The [prepare] system call prepares the partition <idPD> (current partition
-		or child) to receive <projectedSlotsNb> of blocks and use the
-		<idRequisitionedBlock> as a metadata structure, e.g. this will prepare
-		<idRequisitionedBlock> to be a kernel structure added to the kernel structure
-		list of the partition <idPD>
-        - if enough free slots to receive <projectedSlotsNb> then won't do anything
-				- if not enough free slots then prepare the block
-        - if <projectedSlotsNb> == -1 then prepare the block whatever the nb of
-					free slots
+		or child) to use <idRequisitionedBlock> as a metadata structure,
+		e.g. prepare <idRequisitionedBlock> to be a kernel structure added
+		to the kernel structure list of the partition <idPD>
 		Returns true:OK/false:NOK
 
-    <<idPD>>									the block to prepare (current partition or a child,
-															resp. id = current partition or local id)
-		<<projectedSlotsNb>>			the number of requested slots, -1 if forced prepare
-		<<idRequisitionedBlock>>	the block used as the new kernel structure
-*) (*TODO update the doc*)
+    <<idPD>>									the Partition Descriptor for which to prepare
+                              a kernel structure (current partition or a child,
+															either way local id)
+		<<idRequisitionedBlock>>	the block used as the new kernel structure (local id)
+
+    Conditions for the call to succeed:
+    - <idPD> must be either the current partition or a block in the current partition that
+      hosts the partition descriptor of one of its children
+    - <idRequisitionedBlock> must be an accessible block in <idPD>
+    - the current partition must have a number of kernel structures inferior to the
+      max (currently 9)
+    - the address range referenced by <idRequisitionedBlock> must be within the RAM
+    - the size of the address range referenced by <idRequisitionedBlock> must be
+      superior to Constants.kernelStructureTotalLength (currently 25)
+    - <idRequisitionedBlock> must not have been shared with a child partition of <idPD>
+*)
 Definition prepare (idPD : paddr)
 									(idRequisitionedBlock : paddr) : LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
@@ -355,24 +388,7 @@ Definition prepare (idPD : paddr)
 		perform maxnbprepare := getMaxNbPrepare in
 		perform isMaxPrepare := Index.leb maxnbprepare nbPrepare in
 		if isMaxPrepare then (* reached max prepare, stop*) ret false else
-
-		(* Check that there is a need for a prepare: nb of free slots not enough
-				to hold the projected slots or forced prepare) *)
-		(*perform currentFreeSlotsNb := readPDNbFreeSlots globalIdPD in
-		perform isEnoughFreeSlots := Index.leb projectedSlotsNb currentFreeSlotsNb in
-		perform zero := Index.zero in
-		perform isForcedPrepare := Index.ltb projectedSlotsNb zero in
-		if isEnoughFreeSlots && negb isForcedPrepare
-		then (* no need for a prepare, stop*) ret false
-		else*)
-
-		(* Check that the nb of projected slots aren't superior to the max entries
-				that a prepare can offer (max kernel entries) in case not forced prepare*)
 		perform kernelentriesnb := getKernelStructureEntriesNb in
-		(*perform isOutsideBound := Index.ltb kernelentriesnb projectedSlotsNb in
-		if negb isForcedPrepare && isOutsideBound
-		then (* bad arguments, stop*) ret false
-		else*)
 
 		(** The requisioned block becomes a kernel structure*)
 
@@ -398,6 +414,8 @@ Definition prepare (idPD : paddr)
 		perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr
 																	requisitionedBlockInCurrPartAddr in
 		if negb addrIsAccessible then (* block is inaccessible *) ret false else
+    (* we could remove that test, we have a consistency property saying that an accessible
+       block is present *)
 		perform addrIsPresent := readBlockPresentFromBlockEntryAddr
 																	requisitionedBlockInCurrPartAddr in
 		if negb addrIsPresent then (** block is not present *) ret false else
@@ -416,6 +434,7 @@ Definition prepare (idPD : paddr)
 																						requisitionedBlockInCurrPartAddr in
 		perform isStructureInitialised := initStructure requisitionedBlockStart
 																										requisitionedBlockEnd in
+    (* with all the tests done before, isStructureInitialised is guaranteed to be true *)
 		if negb isStructureInitialised then (** error during init *) ret false else
 
 		perform newKStructurePointer := getAddr requisitionedBlockStart in
@@ -464,7 +483,6 @@ Definition prepare (idPD : paddr)
 			writeSh1PDChildFromBlockEntryAddr requisitionedBlockInCurrPartAddr globalIdPD ;;
 			ret true
 		else
-      (*writeBlockPresentFromBlockEntryAddr requisitionedBlockInCurrPartAddr false*)
 			ret true.
 
 (** ** The addMemoryBlock PIP MPU service
@@ -472,13 +490,25 @@ Definition prepare (idPD : paddr)
     The [addMemoryBlock] system call adds a block to a child partition.
 		The block is still accessible from the current partition (shared memory).
 
-		Returns the shared block's id in the child:OK/NULL:NOK
+		Returns the shared block's local id in the child:OK/NULL:NOK
 
     <<idPDchild>>			the child partition to share with
 											(id = local id)
 		<idBlockToShare>>	the block entry address where the block <idBlocktoShare> lies
-											(id = local id)
-		<<r w e >>				the rights to apply in the child partition
+											(id = local id in the current partition)
+		<<r w e >>				the rights to apply to the block in the child partition
+
+    Conditions for the call to succeed:
+    - <idPDchild> must be a block in the current partition that hosts the partition
+      descriptor of one of the current partition's children
+    - <idBlockToShare> must be an accessible block in the current partition, with rights
+      at least as permissive as <r>, <w> and <e>
+    - <idPDchild> must have a free slot in a kernel structure to host the new block
+    - <idBlockToShare> must not have been shared with a child partition
+    - <idBlockToShare> must not contain the VIDT of <idPDchild>
+      (TODO there aren't many times where we verify that, should we do something in the other
+      services (like removeMemoryBlock)? What about the VIDT of the current partition?
+      Maybe this is a bug)
 *)
 Definition addMemoryBlock (idPDchild idBlockToShare: paddr) (r w e : bool)
 																																: LLI paddr :=
@@ -521,6 +551,7 @@ Definition addMemoryBlock (idPDchild idBlockToShare: paddr) (r w e : bool)
 		perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr
 																	blockToShareInCurrPartAddr in
 		if negb addrIsAccessible then (* block not accessible *) ret nullAddr else
+    (* we could remove that test *)
 		perform addrIsPresent := readBlockPresentFromBlockEntryAddr
 																	blockToShareInCurrPartAddr in
 		if negb addrIsPresent then (** block is not present *) ret nullAddr else
@@ -564,11 +595,25 @@ Definition addMemoryBlock (idPDchild idBlockToShare: paddr) (r w e : bool)
 		in particular in such cases:
         - The block can't be removed if the child or its descendants used it
 					(or part of it) as a kernel structure
+        - The block can't be removed if it has become a Partition Descriptor
         - The block can't be removed if the child's descendants cut the block
 
 		Returns true:OK/false:NOK
 
 		<<idBlockToRemove>>	the block entry address where the block <idBlockToRemove> lies
+											(id = local id in the current partition)
+
+    Conditions for the call to succeed:
+    - <idBlockToRemove> must be a block present in the current partition and shared with
+      one of its children
+    - <idBlockToRemove> must not host any Partition Descriptor
+    - <idBlockToRemove> must not contain the VIDT of the current partition
+    - if the block corresponding to <idBlockToRemove> in the child partition has not been
+      cut in the child, then it must be accessible (which implies that it has not been cut
+      in any descendant partition)
+    - if the block corresponding to <idBlockToRemove> in the child partition has been cut,
+      then each sub-block must be accessible, not be shared with a descendant, and not host
+      any Partition Descriptor
 *)
 Definition removeMemoryBlock (idBlockToRemove: paddr) : LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
@@ -614,12 +659,17 @@ Definition removeMemoryBlock (idBlockToRemove: paddr) : LLI bool :=
     The [deletePartition] system call deletes the partition <idPDchildToDelete>
 		which is a child of the current partition, e.g. prunes the partition tree by
 		removing all references of the child and its respective blocks from the
-		current partition
+		current partition (which includes all the partitions that are descendants
+    of <idPDchildToDelete>)
 
 		Returns true:OK/false:NOK
 
     <<idPDchildToDelete>>	the child partition to delete
 													(id = local id)
+
+    Conditions for the call to succeed:
+    - <idPDchildToDelete> must be a block in the current partition that hosts the partition
+      descriptor of one of the current partition's children
 *)
 Definition deletePartition (idPDchildToDelete: paddr) : LLI bool :=
 		(** Get the current partition (Partition Descriptor) *)
@@ -646,9 +696,10 @@ Definition deletePartition (idPDchildToDelete: paddr) : LLI bool :=
 
 		(** Remove all shared blocks references in current partition (except PD child)*)
 		perform currKernelStructureStart := readPDStructurePointer currentPart in
-		perform globalIdPDChildToDelete := readBlockStartFromBlockEntryAddr idPDchildToDelete in
-		perform endPDChildToDelete := readBlockEndFromBlockEntryAddr idPDchildToDelete in
-		deleteSharedBlocksRec currentPart currKernelStructureStart globalIdPDChildToDelete ;;
+		(*Removed because it is redundant
+    perform globalIdPDChildToDelete := readBlockStartFromBlockEntryAddr idPDchildToDelete in
+		perform endPDChildToDelete := readBlockEndFromBlockEntryAddr idPDchildToDelete in*)
+		deleteSharedBlocksRec currentPart currKernelStructureStart blockStartAddr ;;
 
 		(** Erase PD child entry: remove sharing and set accessible for current partition *)
 		writeBlockAccessibleFromBlockEntryAddr blockToDeleteInCurrPartAddr true ;;
@@ -660,7 +711,7 @@ Definition deletePartition (idPDchildToDelete: paddr) : LLI bool :=
 					ret true
 		else (* if the PD child block to remove isn't cut, set it accessible to
 							parent and ancestors *)
-					writeAccessibleRec currentPart globalIdPDChildToDelete endPDChildToDelete true ;;
+					writeAccessibleRec currentPart blockStartAddr blockEndAddr true ;;
 					ret true.
 
 (** ** The collect PIP MPU service
@@ -673,6 +724,16 @@ Definition deletePartition (idPDchildToDelete: paddr) : LLI bool :=
 
     <<idPD>>	the current partition or a child
 							(resp. id = current partition or local id)
+
+    Conditions for the call to succeed (i.e. not return NULL):
+    - <idPD> must be either the current partition or a block in the current partition that
+      hosts the partition descriptor of one of its children
+    - if the partition <idPD> is the current partition, then it must have at least two
+      kernel structures
+    - the partition <idPD> must have a kernel structure that is empty (i.e. none of the
+      blocks inside are present)
+TODO there may be a bug, why does the line 'writeBlockAccessibleFromBlockEntryAddr blockToCollectAddr true' exist?
+Also, I need to begin the proof to really get what's behind that service and complete the doc
 *)
 Definition collect (idPD: paddr) : LLI paddr :=
 		(** Get the current partition (Partition Descriptor) *)
@@ -703,7 +764,6 @@ Definition collect (idPD: paddr) : LLI paddr :=
 																(* location of the pointer, not the content *)
 		collectStructureRec currentPart globalIdPD predStructureAddr currStructureAddr.
 
-
 (** ** The mapMPU PIP MPU service
 
     The [mapMPU] system call maps the <idBlockToEnable> block owned by
@@ -714,9 +774,19 @@ Definition collect (idPD: paddr) : LLI paddr :=
 
 		Returns true:OK/false:NOK
 
-    <<idPD>>	the current partition or a child (resp. id = global id or local id)
-    <<idBlockToEnable>>	the block to map
+    <<idPD>>	the current partition or a child (resp. id = current partition or local id)
+    <<idBlockToEnable>>	the block to map (local id)
     <<MPURegionNb>>	the physical MPU region number
+
+    Conditions for the call to succeed:
+    - <idPD> must be either the current partition or a block in the current partition that
+      hosts the partition descriptor of one of its children
+    - <idBlockToEnable> must either be NULL or be a block accessible in the partition <idPD>
+    - <MPURegionNb> must be a valid MPU region number (lower or equal to MPURegionsNb, which
+      does not have a fixed value in the Rocq code)
+    - if <MPURegionNb> is zero, then the size of <idBlockToEnable> must be a multiple of 32,
+      and the address <idBlockToEnable> must be a multiple of the block's size
+      (Greg help, is that correct ?)
 *)
 Definition mapMPU 	(idPD: paddr)
 									(idBlockToEnable : paddr)
@@ -749,6 +819,7 @@ Definition mapMPU 	(idPD: paddr)
 			perform addrIsAccessible := readBlockAccessibleFromBlockEntryAddr
 																		blockToEnableAddr in
 			if negb addrIsAccessible then (* block is not accessible *) ret false else
+      (* we could remove that test *)
 			perform addrIsPresent := readBlockPresentFromBlockEntryAddr
 																		blockToEnableAddr in
 			if negb addrIsPresent then (** block is not present *) ret false else
@@ -770,10 +841,16 @@ Definition mapMPU 	(idPD: paddr)
 		the partition <idPD> (current partition or a child) at the <MPURegionNb> MPU
 		region.
 
-		Returns block's id if exists, NULL or error otherwise
+		Returns block's local id if exists, NULL or error otherwise
 
     <<idPD>>	the current partition or a child (resp. id = global id or local id)
     <<MPURegionNb>>	the physical MPU region number
+
+    Conditions for the call to succeed:
+    - <idPD> must be either the current partition or a block in the current partition that
+      hosts the partition descriptor of one of its children
+    - <MPURegionNb> must be a valid MPU region number (lower or equal to MPURegionsNb, which
+      does not have a fixed value in the Rocq code) that has a block mapped in
 *)
 Definition readMPU (idPD: paddr) (MPURegionNb : index) : LLI paddr :=
 		(** Get the current partition (Partition Descriptor) *)
@@ -800,14 +877,23 @@ Definition readMPU (idPD: paddr) (MPURegionNb : index) : LLI paddr :=
 
 (** ** The findBlock PIP MPU service
 
-    The [findBlock] system call finds the block of the provided <addrInBlock> by
-		searching in the blocks list of the partition <idPD>.
+    The [findBlock] system call finds, by searching in the blocks list of the
+    partition <idPD>, the block (if it exists) containing the address <addrInBlock>,
+		and copies it in blockResult.
 
-		Returns the block and its attributes if exists, error otherwise
+		Returns true:OK/false:NOK
 
-    <<idPD>>	the current partition or a child (resp. id = global id or local id)
-    <<addrInBlock>>	the address stemming from the block to find
-	<<blockResult>> the block id were to write the attributes of the found block (if any)
+    <<idPD>>	the current partition or a child (resp. id = current partition or local id)
+    <<addrInBlock>>	the address used to find the block to copy
+	  <<blockResult>> the block id were to write the attributes of the found block (if any)
+
+    Conditions for the call to succeed:
+    - <idPD> must be either the current partition or a block in the current partition that
+      hosts the partition descriptor of one of its children
+    - the address <addrInBlock> must belong to a block present in the partition <idPD>
+    - the address <blockResult> must belong to a block present in the partition <idPD>,
+      with the read and write rights
+    - the address <blockResult> must belong to a block accessible in the current partition
 
 	TODO: distinguish argument errors from block not found
 *)
@@ -853,17 +939,27 @@ Definition findBlock (idPD: paddr) (addrInBlock : paddr) (blockResult: paddr) : 
  * The setVIDT PIP MPU service.
  *
  * The [setVIDT] system call sets the VIDT address in the partition
- * descriptor structure of the current partition or one of its child.
+ * descriptor structure of the current partition or one of its children.
  *
  * It returns true if the VIDT block has been added to the partition
- * descriptor structure, false otherwise.
+ * descriptor structure successfully, false otherwise.
  *
  * <<pd>>       The ID of the block containing the partition
  *              descriptor structure of the current partition or
- *              one of its childs.
+ *              one of its children (local id).
  *
- * <<vidtAddr>> The address of the VIDT or NULL to reset the VIDT
+ * <<vidtAddr>> The block in <pd> (local id) that is to become the VIDT
+                of <pd>, or NULL to reset the VIDT
  *              address to NULL in the partition descriptor.
+
+    Conditions for the call to succeed:
+    - <pd> must be either the current partition or a block in the current partition that
+      hosts the partition descriptor of one of its children
+    - <pd> must have a set VIDT (the corresponding field must not be NULL)
+    - <vidtAddr> must belong to a block accessible in <pd> that is not shared with a child
+      of <pd>, and the interval between <vidtAddr> and the end address of that block must
+      be of size superior to the minimum size of a VIDT
+      (Constants.vidtSize, currently equal to 224)
  *)
 Definition setVIDT (pd vidtAddr : paddr) : LLI bool :=
   (* Check 1: Partition descriptor is not null *)
@@ -895,7 +991,7 @@ Definition setVIDT (pd vidtAddr : paddr) : LLI bool :=
 
   (* Check 6: VIDT block does not overlap *)
   perform vidtSize := getVidtSize in
-  perform vidtPotEndAddr := paddrAddIdx vidtAddr vidtSize in (*TODO HERE temporarily changed here*)
+  perform vidtPotEndAddr := paddrAddIdx vidtAddr vidtSize in
   if (beqAddr vidtPotEndAddr nullAddr) then
     ret false
   else
@@ -916,7 +1012,7 @@ Definition setVIDT (pd vidtAddr : paddr) : LLI bool :=
     ret true
 
   else
-    (* The current partition is setting the VIDT of one of its child. *)
+    (* The current partition is setting the VIDT of one of its children. *)
 
     (* Check 9: VIDT block is not shared in a child *)
     perform vidtBlockChild := readSh1InChildLocationFromBlockEntryAddr vidtBlock in
