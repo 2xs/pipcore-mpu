@@ -510,7 +510,7 @@ proofs: $(ROCQ_PROOF_FILES:.v=.vo)
 
 ####################### Documentation targets ######################
 
-doc: doc-c doc-rocq gettingstarted
+doc: doc-c doc-rocq gettingstarted developer-guide
 
 doc-c: | $(C_DOC_DIR)
 	cd doc && doxygen doxygen.conf
@@ -525,6 +525,11 @@ gettingstarted:
         pdflatex getting-started.tex &&\
         pdflatex getting-started.tex
 
+developer-guide:
+	cd doc/developer-guide/ &&\
+        pdflatex developer-guide.tex &&\
+        pdflatex developer-guide.tex
+
 ####################################################################
 
 $(GENERATED_FILES_DIR) $(C_DOC_DIR) $(ROCQ_DOC_DIR):
@@ -537,6 +542,11 @@ realclean: clean
               $(DOC_DIR)/getting-started/getting-started.toc\
               $(DOC_DIR)/getting-started/getting-started.log\
               $(DOC_DIR)/getting-started/getting-started.pdf
+	rm -f $(DOC_DIR)/developer-guide/developer-guide.aux\
+              $(DOC_DIR)/developer-guide/developer-guide.out\
+              $(DOC_DIR)/developer-guide/developer-guide.toc\
+              $(DOC_DIR)/developer-guide/developer-guide.log\
+              $(DOC_DIR)/developer-guide/developer-guide.pdf
 
 clean:
 	rm -f .lia.cache $(ROCQ_DEPENDENCY_FILES)
