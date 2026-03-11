@@ -191,12 +191,17 @@ uint32_t getMaxNbPrepare(void)
 
 /*!
  * \fn uint32_t getMPURegionsNb(void)
- * \brief Returns the maximum number of regions in the physical MPU.
- * \return The maximum number of physical MPU regions.
+ * \brief Returns the maximum number of available regions in the physical MPU.
+ * \warning Given the MPU region update policy on a partially mapped memory block,
+ * the last two MPU regions MUST NOT be set by users, otherwise these settings would be
+ * overwritten by the policy slot choice.
+ * \see src/arch/dwm1001/boot/exception_handlers.c:MemManage_Handler_C
+ * \see src/arch/dwm1001/boot/exception_handlers.c:findMpuIndex
+ * \return The maximum number of available physical MPU regions.
  */
 uint32_t getMPURegionsNb(void)
 {
-	return MPU_REGIONS_NB;
+	return MPU_REGIONS_NB - 2;
 }
 
 

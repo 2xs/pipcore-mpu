@@ -535,6 +535,10 @@ isMappedInPhysicalMpu(void *addr, size_t idx)
  *        index found.
  *
  * \return 1 if the function succeed, 0 otherwise.
+ * \warning the last two MPU regions are reserved for the MPU region update policy
+ * implemented in MemManage_Handler_C.
+ * \see src/arch/dwm1001/MAL/malinternal.c
+ * \see MemManage_Handler_C
  */
 static inline int
 findMpuIndex(void *addr, size_t *idx)
@@ -587,6 +591,10 @@ reconfigureMpu(void *addr, size_t vidx, size_t pidx)
  *        entry point.
  *
  * \see The calling code is in the exception_entry.S file.
+ *
+ * \warning the last two MPU regions are reserved for the MPU region update policy.
+ * \see src/arch/dwm1001/MAL/malinternal.c
+ * \see findMpuIndex
  */
 extern void
 MemManage_Handler_C(stackedContext_t *ctx)
