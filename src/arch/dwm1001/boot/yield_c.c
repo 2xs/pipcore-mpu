@@ -638,7 +638,7 @@ static yield_return_code_t saveSourcePartCtxCont(
 	 * is aligned. */
 	if (isCallerContextMisaligned)
 	{
-		return CALLEE_CONTEXT_MISALIGNED;
+		return CALLER_CONTEXT_MISALIGNED;
 	}
 
 	paddr callerContextBlockEndAddress =
