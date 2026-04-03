@@ -3104,28 +3104,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END partitionTreeIsTree *)
          }
 
-         assert(kernelEntriesAreValid s1).
-         { (* BEGIN kernelEntriesAreValid s1 *)
-           assert(Hcons0: kernelEntriesAreValid s0) by (unfold consistency in *; unfold consistency1 in *;
-                intuition).
-           intros kernel index HKS HidxBounded.
-           assert(HKSs0: isKS kernel s0).
-           {
-             unfold isKS in *. rewrite Hs1 in HKS. simpl in HKS.
-             destruct (beqAddr blockInParentPartitionAddr kernel) eqn:HbeqBlockKern.
-             - rewrite <-DTL.beqAddrTrue in HbeqBlockKern. subst kernel. rewrite HlookupBlocks0.
-               unfold CBlockEntry in HKS.
-               destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia).
-               simpl in HKS. assumption.
-             - rewrite <-beqAddrFalse in HbeqBlockKern. rewrite removeDupIdentity in HKS; intuition.
-           }
-           specialize(Hcons0 kernel index HKSs0 HidxBounded). unfold isBE. unfold isBE in Hcons0.
-           rewrite Hs1. simpl.
-           destruct (beqAddr blockInParentPartitionAddr (CPaddr (kernel + index))) eqn:HbeqBlockKernIdx;
-                try(trivial). rewrite <-beqAddrFalse in HbeqBlockKernIdx. rewrite removeDupIdentity; intuition.
-           (* END kernelEntriesAreValid *)
-         }
-
          assert(nextKernelIsValid s1).
          { (* BEGIN nextKernelIsValid s1 *)
            assert(Hcons0: nextKernelIsValid s0) by (unfold consistency in *; unfold consistency1 in *;
@@ -3642,6 +3620,70 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                 intuition.
            (* END childLocHasSameStart *)
          } *)
+
+         assert(sharedBlockIsPresent s1).
+         { (* BEGIN sharedBlockIsPresent s1 *)
+           apply sharedBlockIsPresentPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END sharedBlockIsPresent *)
+         }
+
+         assert(sharedBlockNoPDflagNoLocIsKern s1).
+         { (* BEGIN sharedBlockNoPDflagNoLocIsKern s1 *)
+           apply sharedBlockNoPDflagNoLocIsKernPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END sharedBlockNoPDflagNoLocIsKern *)
+         }
+
+         assert(partitionNotAutoMapped s1).
+         { (* BEGIN partitionNotAutoMapped s1 *)
+           apply partitionNotAutoMappedPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END partitionNotAutoMapped *)
+         }
+
+         assert(configAddrNotMappedInChild s1).
+         { (* BEGIN configAddrNotMappedInChild s1 *)
+           apply configAddrNotMappedInChildPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END configAddrNotMappedInChild *)
+         }
+
+         (* assert(configNotMappedRoot s1).
+         { (* BEGIN configNotMappedRoot s1 *)
+           apply configNotMappedRootPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END configNotMappedRoot *)
+         } *)
+
+         assert(fullKernelIsInOneBlock s1).
+         { (* BEGIN fullKernelIsInOneBlock s1 *)
+           apply fullKernelIsInOneBlockPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END fullKernelIsInOneBlock *)
+         }
+
+         assert(sharedBlocksAdressesAreAllMappedInChild s1).
+         { (* BEGIN sharedBlocksAdressesAreAllMappedInChild s1 *)
+           apply sharedBlocksAdressesAreAllMappedInChildPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END sharedBlocksAdressesAreAllMappedInChild *)
+         }
+
          unfold consistency1. intuition.
        }
 
@@ -4980,27 +5022,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                (* END partitionTreeIsTree *)
              }
 
-             assert(kernelEntriesAreValid s).
-             { (* BEGIN kernelEntriesAreValid s *)
-               assert(Hcons0: kernelEntriesAreValid s1) by (unfold consistency1 in *; intuition).
-               intros kernel index HKS HidxBounded.
-               assert(HKSs0: isKS kernel s1).
-               {
-                 unfold isKS in *. rewrite Hs in HKS. simpl in HKS.
-                 destruct (beqAddr pdparent kernel) eqn:HbeqParentKern; try(exfalso; congruence).
-                 rewrite <-beqAddrFalse in HbeqParentKern. rewrite removeDupIdentity in HKS; intuition.
-               }
-               specialize(Hcons0 kernel index HKSs0 HidxBounded). unfold isBE. unfold isBE in Hcons0.
-               rewrite Hs. simpl.
-               destruct (beqAddr pdparent (CPaddr (kernel + index))) eqn:HbeqParentKernIdx.
-               {
-                 rewrite <-DTL.beqAddrTrue in HbeqParentKernIdx. rewrite <-HbeqParentKernIdx in Hcons0.
-                 rewrite HlookupParent in Hcons0. congruence.
-               }
-               rewrite <-beqAddrFalse in HbeqParentKernIdx. rewrite removeDupIdentity; intuition.
-               (* END kernelEntriesAreValid *)
-             }
-
              assert(nextKernelIsValid s).
              { (* BEGIN nextKernelIsValid s *)
                assert(Hcons0: nextKernelIsValid s1) by (unfold consistency1 in *; intuition).
@@ -5476,6 +5497,69 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                     (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
                     intuition.
                (* END accessibleBlocksArePresent *)
+             }
+
+             assert(sharedBlockIsPresent s).
+             { (* BEGIN sharedBlockIsPresent s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply sharedBlockIsPresentPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END sharedBlockIsPresent *)
+             }
+
+             assert(sharedBlockNoPDflagNoLocIsKern s).
+             { (* BEGIN sharedBlockNoPDflagNoLocIsKern s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply sharedBlockNoPDflagNoLocIsKernPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END sharedBlockNoPDflagNoLocIsKern *)
+             }
+
+             assert(partitionNotAutoMapped s).
+             { (* BEGIN partitionNotAutoMapped s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply partitionNotAutoMappedPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END partitionNotAutoMapped *)
+             }
+
+             assert(configAddrNotMappedInChild s).
+             { (* BEGIN configAddrNotMappedInChild s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply configAddrNotMappedInChildPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END configAddrNotMappedInChild *)
+             }
+
+             (* assert(configNotMappedRoot s).
+             { (* BEGIN configNotMappedRoot s *)
+               revert Hs1.
+               apply configNotMappedRootPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END configNotMappedRoot *)
+             } *)
+
+             assert(fullKernelIsInOneBlock s).
+             { (* BEGIN fullKernelIsInOneBlock s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply fullKernelIsInOneBlockPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END fullKernelIsInOneBlock *)
+             }
+
+             assert(sharedBlocksAdressesAreAllMappedInChild s).
+             { (* BEGIN sharedBlocksAdressesAreAllMappedInChild s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply sharedBlocksAdressesAreAllMappedInChildPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END sharedBlocksAdressesAreAllMappedInChild *)
              }
 
              unfold consistency1. intuition.
@@ -9305,28 +9389,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END partitionTreeIsTree *)
          }
 
-         assert(kernelEntriesAreValid s1).
-         { (* BEGIN kernelEntriesAreValid s1 *)
-           assert(Hcons0: kernelEntriesAreValid s0) by (unfold consistency in *; unfold consistency1 in *;
-                intuition).
-           intros kernel index HKS HidxBounded.
-           assert(HKSs0: isKS kernel s0).
-           {
-             unfold isKS in *. rewrite Hs1 in HKS. simpl in HKS.
-             destruct (beqAddr blockInParentPartitionAddr kernel) eqn:HbeqBlockKern.
-             - rewrite <-DTL.beqAddrTrue in HbeqBlockKern. subst kernel. rewrite HlookupBlocks0.
-               unfold CBlockEntry in HKS.
-               destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia).
-               simpl in HKS. assumption.
-             - rewrite <-beqAddrFalse in HbeqBlockKern. rewrite removeDupIdentity in HKS; intuition.
-           }
-           specialize(Hcons0 kernel index HKSs0 HidxBounded). unfold isBE. unfold isBE in Hcons0.
-           rewrite Hs1. simpl.
-           destruct (beqAddr blockInParentPartitionAddr (CPaddr (kernel + index))) eqn:HbeqBlockKernIdx;
-                try(trivial). rewrite <-beqAddrFalse in HbeqBlockKernIdx. rewrite removeDupIdentity; intuition.
-           (* END kernelEntriesAreValid *)
-         }
-
          assert(nextKernelIsValid s1).
          { (* BEGIN nextKernelIsValid s1 *)
            assert(Hcons0: nextKernelIsValid s0) by (unfold consistency in *; unfold consistency1 in *;
@@ -9836,6 +9898,33 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END accessibleBlocksArePresent *)
          }
 
+         assert(sharedBlockIsPresent s1).
+         { (* BEGIN sharedBlockIsPresent s1 *)
+           apply sharedBlockIsPresentPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END sharedBlockIsPresent *)
+         }
+
+         assert(sharedBlockNoPDflagNoLocIsKern s1).
+         { (* BEGIN sharedBlockNoPDflagNoLocIsKern s1 *)
+           apply sharedBlockNoPDflagNoLocIsKernPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END sharedBlockNoPDflagNoLocIsKern *)
+         }
+
+         assert(partitionNotAutoMapped s1).
+         { (* BEGIN partitionNotAutoMapped s1 *)
+           apply partitionNotAutoMappedPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END partitionNotAutoMapped *)
+         }
+
          (* assert(childLocHasSameStart s1).
          { (* BEGIN childLocHasSameStart s1 *)
            apply childLocHasSameStartPreservedIsBuilt with s1 s0 pdparent pdentryParent
@@ -9844,6 +9933,42 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                 intuition.
            (* END childLocHasSameStart *)
          } *)
+
+         assert(configAddrNotMappedInChild s1).
+         { (* BEGIN configAddrNotMappedInChild s1 *)
+           apply configAddrNotMappedInChildPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END configAddrNotMappedInChild *)
+         }
+
+         (* assert(configNotMappedRoot s1).
+         { (* BEGIN configNotMappedRoot s1 *)
+           apply configNotMappedRootPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END configNotMappedRoot *)
+         } *)
+
+         assert(fullKernelIsInOneBlock s1).
+         { (* BEGIN fullKernelIsInOneBlock s1 *)
+           apply fullKernelIsInOneBlockPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END fullKernelIsInOneBlock *)
+         }
+
+         assert(sharedBlocksAdressesAreAllMappedInChild s1).
+         { (* BEGIN sharedBlocksAdressesAreAllMappedInChild s1 *)
+           apply sharedBlocksAdressesAreAllMappedInChildPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END sharedBlocksAdressesAreAllMappedInChild *)
+         }
          unfold consistency1. intuition.
        }
 
@@ -11057,27 +11182,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                (* END partitionTreeIsTree *)
              }
 
-             assert(kernelEntriesAreValid s).
-             { (* BEGIN kernelEntriesAreValid s *)
-               assert(Hcons0: kernelEntriesAreValid s1) by (unfold consistency1 in *; intuition).
-               intros kernel index HKS HidxBounded.
-               assert(HKSs0: isKS kernel s1).
-               {
-                 unfold isKS in *. rewrite Hs in HKS. simpl in HKS.
-                 destruct (beqAddr pdparent kernel) eqn:HbeqParentKern; try(exfalso; congruence).
-                 rewrite <-beqAddrFalse in HbeqParentKern. rewrite removeDupIdentity in HKS; intuition.
-               }
-               specialize(Hcons0 kernel index HKSs0 HidxBounded). unfold isBE. unfold isBE in Hcons0.
-               rewrite Hs. simpl.
-               destruct (beqAddr pdparent (CPaddr (kernel + index))) eqn:HbeqParentKernIdx.
-               {
-                 rewrite <-DTL.beqAddrTrue in HbeqParentKernIdx. rewrite <-HbeqParentKernIdx in Hcons0.
-                 rewrite HlookupParent in Hcons0. congruence.
-               }
-               rewrite <-beqAddrFalse in HbeqParentKernIdx. rewrite removeDupIdentity; intuition.
-               (* END kernelEntriesAreValid *)
-             }
-
              assert(nextKernelIsValid s).
              { (* BEGIN nextKernelIsValid s *)
                assert(Hcons0: nextKernelIsValid s1) by (unfold consistency1 in *; intuition).
@@ -11563,6 +11667,69 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                     intuition.
                (* END childLocHasSameStart *)
              } *)
+
+             assert(sharedBlockIsPresent s).
+             { (* BEGIN sharedBlockIsPresent s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply sharedBlockIsPresentPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END sharedBlockIsPresent *)
+             }
+
+             assert(sharedBlockNoPDflagNoLocIsKern s).
+             { (* BEGIN sharedBlockNoPDflagNoLocIsKern s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply sharedBlockNoPDflagNoLocIsKernPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END sharedBlockNoPDflagNoLocIsKern *)
+             }
+
+             assert(partitionNotAutoMapped s).
+             { (* BEGIN partitionNotAutoMapped s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply partitionNotAutoMappedPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END partitionNotAutoMapped *)
+             }
+
+             assert(configAddrNotMappedInChild s).
+             { (* BEGIN configAddrNotMappedInChild s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply configAddrNotMappedInChildPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END configAddrNotMappedInChild *)
+             }
+
+             (* assert(configNotMappedRoot s).
+             { (* BEGIN configNotMappedRoot s *)
+               revert Hs1.
+               apply configNotMappedRootPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END configNotMappedRoot *)
+             } *)
+
+             assert(fullKernelIsInOneBlock s).
+             { (* BEGIN fullKernelIsInOneBlock s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply fullKernelIsInOneBlockPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END fullKernelIsInOneBlock *)
+             }
+
+             assert(sharedBlocksAdressesAreAllMappedInChild s).
+             { (* BEGIN sharedBlocksAdressesAreAllMappedInChild s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply sharedBlocksAdressesAreAllMappedInChildPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END sharedBlocksAdressesAreAllMappedInChild *)
+             }
 
              unfold consistency1. intuition.
        ++ split.
@@ -15423,28 +15590,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END partitionTreeIsTree *)
          }
 
-         assert(kernelEntriesAreValid s1).
-         { (* BEGIN kernelEntriesAreValid s1 *)
-           assert(Hcons0: kernelEntriesAreValid s0) by (unfold consistency in *; unfold consistency1 in *;
-                intuition).
-           intros kernel index HKS HidxBounded.
-           assert(HKSs0: isKS kernel s0).
-           {
-             unfold isKS in *. rewrite Hs1 in HKS. simpl in HKS.
-             destruct (beqAddr blockInParentPartitionAddr kernel) eqn:HbeqBlockKern.
-             - rewrite <-DTL.beqAddrTrue in HbeqBlockKern. subst kernel. rewrite HlookupBlocks0.
-               unfold CBlockEntry in HKS.
-               destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia).
-               simpl in HKS. assumption.
-             - rewrite <-beqAddrFalse in HbeqBlockKern. rewrite removeDupIdentity in HKS; intuition.
-           }
-           specialize(Hcons0 kernel index HKSs0 HidxBounded). unfold isBE. unfold isBE in Hcons0.
-           rewrite Hs1. simpl.
-           destruct (beqAddr blockInParentPartitionAddr (CPaddr (kernel + index))) eqn:HbeqBlockKernIdx;
-                try(trivial). rewrite <-beqAddrFalse in HbeqBlockKernIdx. rewrite removeDupIdentity; intuition.
-           (* END kernelEntriesAreValid *)
-         }
-
          assert(nextKernelIsValid s1).
          { (* BEGIN nextKernelIsValid s1 *)
            assert(Hcons0: nextKernelIsValid s0) by (unfold consistency in *; unfold consistency1 in *;
@@ -15962,6 +16107,69 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                 unfold consistency1 in *; intuition.
            (* END childLocHasSameStart *)
          } *)
+
+         assert(sharedBlockIsPresent s1).
+         { (* BEGIN sharedBlockIsPresent s1 *)
+           apply sharedBlockIsPresentPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false;
+                unfold consistency1 in *; intuition.
+           (* END sharedBlockIsPresent *)
+         }
+
+         assert(sharedBlockNoPDflagNoLocIsKern s1).
+         { (* BEGIN sharedBlockNoPDflagNoLocIsKern s1 *)
+           apply sharedBlockNoPDflagNoLocIsKernPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false;
+                unfold consistency1 in *; intuition.
+           (* END sharedBlockNoPDflagNoLocIsKern *)
+         }
+
+         assert(partitionNotAutoMapped s1).
+         { (* BEGIN partitionNotAutoMapped s1 *)
+           apply partitionNotAutoMappedPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false;
+                unfold consistency1 in *; intuition.
+           (* END partitionNotAutoMapped *)
+         }
+
+         assert(configAddrNotMappedInChild s1).
+         { (* BEGIN configAddrNotMappedInChild s1 *)
+           apply configAddrNotMappedInChildPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false;
+                unfold consistency1 in *; intuition.
+           (* END configAddrNotMappedInChild *)
+         }
+
+         (* assert(configNotMappedRoot s1).
+         { (* BEGIN configNotMappedRoot s1 *)
+           apply configNotMappedRootPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false;
+                unfold consistency1 in *; intuition.
+           (* END configNotMappedRoot *)
+         } *)
+
+         assert(fullKernelIsInOneBlock s1).
+         { (* BEGIN fullKernelIsInOneBlock s1 *)
+           apply fullKernelIsInOneBlockPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false;
+                unfold consistency1 in *; intuition.
+           (* END fullKernelIsInOneBlock *)
+         }
+
+         assert(sharedBlocksAdressesAreAllMappedInChild s1).
+         { (* BEGIN sharedBlocksAdressesAreAllMappedInChild s1 *)
+           apply sharedBlocksAdressesAreAllMappedInChildPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false;
+                unfold consistency1 in *; intuition.
+           (* END sharedBlocksAdressesAreAllMappedInChild *)
+         }
 
          unfold consistency1. intuition.
        }
@@ -17215,27 +17423,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                (* END partitionTreeIsTree *)
              }
 
-             assert(kernelEntriesAreValid s).
-             { (* BEGIN kernelEntriesAreValid s *)
-               assert(Hcons0: kernelEntriesAreValid s1) by (unfold consistency1 in *; intuition).
-               intros kernel index HKS HidxBounded.
-               assert(HKSs0: isKS kernel s1).
-               {
-                 unfold isKS in *. rewrite Hs in HKS. simpl in HKS.
-                 destruct (beqAddr pdparent kernel) eqn:HbeqParentKern; try(exfalso; congruence).
-                 rewrite <-beqAddrFalse in HbeqParentKern. rewrite removeDupIdentity in HKS; intuition.
-               }
-               specialize(Hcons0 kernel index HKSs0 HidxBounded). unfold isBE. unfold isBE in Hcons0.
-               rewrite Hs. simpl.
-               destruct (beqAddr pdparent (CPaddr (kernel + index))) eqn:HbeqParentKernIdx.
-               {
-                 rewrite <-DTL.beqAddrTrue in HbeqParentKernIdx. rewrite <-HbeqParentKernIdx in Hcons0.
-                 rewrite HlookupParent in Hcons0. congruence.
-               }
-               rewrite <-beqAddrFalse in HbeqParentKernIdx. rewrite removeDupIdentity; intuition.
-               (* END kernelEntriesAreValid *)
-             }
-
              assert(nextKernelIsValid s).
              { (* BEGIN nextKernelIsValid s *)
                assert(Hcons0: nextKernelIsValid s1) by (unfold consistency1 in *; intuition).
@@ -17718,6 +17905,33 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                (* END accessibleBlocksArePresent *)
              }
 
+             assert(sharedBlockIsPresent s).
+             { (* BEGIN sharedBlockIsPresent s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply sharedBlockIsPresentPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END sharedBlockIsPresent *)
+             }
+
+             assert(sharedBlockNoPDflagNoLocIsKern s).
+             { (* BEGIN sharedBlockNoPDflagNoLocIsKern s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply sharedBlockNoPDflagNoLocIsKernPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END sharedBlockNoPDflagNoLocIsKern *)
+             }
+
+             assert(partitionNotAutoMapped s).
+             { (* BEGIN partitionNotAutoMapped s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply partitionNotAutoMappedPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END partitionNotAutoMapped *)
+             }
+
              (* assert(childLocHasSameStart s).
              { (* BEGIN childLocHasSameStart s *)
                revert Hs1 HnoPDFlagBlock.
@@ -17726,6 +17940,42 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                     intuition.
                (* END childLocHasSameStart *)
              } *)
+
+             assert(configAddrNotMappedInChild s).
+             { (* BEGIN configAddrNotMappedInChild s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply configAddrNotMappedInChildPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END configAddrNotMappedInChild *)
+             }
+
+             (* assert(configNotMappedRoot s).
+             { (* BEGIN configNotMappedRoot s *)
+               revert Hs1.
+               apply configNotMappedRootPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END configNotMappedRoot *)
+             } *)
+
+             assert(fullKernelIsInOneBlock s).
+             { (* BEGIN fullKernelIsInOneBlock s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply fullKernelIsInOneBlockPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END fullKernelIsInOneBlock *)
+             }
+
+             assert(sharedBlocksAdressesAreAllMappedInChild s).
+             { (* BEGIN sharedBlocksAdressesAreAllMappedInChild s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply sharedBlocksAdressesAreAllMappedInChildPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END sharedBlocksAdressesAreAllMappedInChild *)
+             }
 
              unfold consistency1. intuition.
        ++ split.
@@ -21938,28 +22188,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END partitionTreeIsTree *)
          }
 
-         assert(kernelEntriesAreValid s1).
-         { (* BEGIN kernelEntriesAreValid s1 *)
-           assert(Hcons0: kernelEntriesAreValid s0) by (unfold consistency in *; unfold consistency1 in *;
-                intuition).
-           intros kernel index HKS HidxBounded.
-           assert(HKSs0: isKS kernel s0).
-           {
-             unfold isKS in *. rewrite Hs1 in HKS. simpl in HKS.
-             destruct (beqAddr blockInParentPartitionAddr kernel) eqn:HbeqBlockKern.
-             - rewrite <-DTL.beqAddrTrue in HbeqBlockKern. subst kernel. rewrite HlookupBlocks0.
-               unfold CBlockEntry in HKS.
-               destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia).
-               simpl in HKS. assumption.
-             - rewrite <-beqAddrFalse in HbeqBlockKern. rewrite removeDupIdentity in HKS; intuition.
-           }
-           specialize(Hcons0 kernel index HKSs0 HidxBounded). unfold isBE. unfold isBE in Hcons0.
-           rewrite Hs1. simpl.
-           destruct (beqAddr blockInParentPartitionAddr (CPaddr (kernel + index))) eqn:HbeqBlockKernIdx;
-                try(trivial). rewrite <-beqAddrFalse in HbeqBlockKernIdx. rewrite removeDupIdentity; intuition.
-           (* END kernelEntriesAreValid *)
-         }
-
          assert(nextKernelIsValid s1).
          { (* BEGIN nextKernelIsValid s1 *)
            assert(Hcons0: nextKernelIsValid s0) by (unfold consistency in *; unfold consistency1 in *;
@@ -22477,6 +22705,69 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                 unfold consistency1 in *; intuition.
            (* END childLocHasSameStart *)
          }*)
+
+         assert(sharedBlockIsPresent s1).
+         { (* BEGIN sharedBlockIsPresent s1 *)
+           apply sharedBlockIsPresentPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false;
+                unfold consistency1 in *; intuition.
+           (* END sharedBlockIsPresent *)
+         }
+
+         assert(sharedBlockNoPDflagNoLocIsKern s1).
+         { (* BEGIN sharedBlockNoPDflagNoLocIsKern s1 *)
+           apply sharedBlockNoPDflagNoLocIsKernPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false;
+                unfold consistency1 in *; intuition.
+           (* END sharedBlockNoPDflagNoLocIsKern *)
+         }
+
+         assert(partitionNotAutoMapped s1).
+         { (* BEGIN partitionNotAutoMapped s1 *)
+           apply partitionNotAutoMappedPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false;
+                unfold consistency1 in *; intuition.
+           (* END partitionNotAutoMapped *)
+         }
+
+         assert(configAddrNotMappedInChild s1).
+         { (* BEGIN configAddrNotMappedInChild s1 *)
+           apply configAddrNotMappedInChildPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false;
+                unfold consistency1 in *; intuition.
+           (* END configAddrNotMappedInChild *)
+         }
+
+         (* assert(configNotMappedRoot s1).
+         { (* BEGIN configNotMappedRoot s1 *)
+           apply configNotMappedRootPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false;
+                unfold consistency1 in *; intuition.
+           (* END configNotMappedRoot *)
+         } *)
+
+         assert(fullKernelIsInOneBlock s1).
+         { (* BEGIN fullKernelIsInOneBlock s1 *)
+           apply fullKernelIsInOneBlockPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false;
+                unfold consistency1 in *; intuition.
+           (* END fullKernelIsInOneBlock *)
+         }
+
+         assert(sharedBlocksAdressesAreAllMappedInChild s1).
+         { (* BEGIN sharedBlocksAdressesAreAllMappedInChild s1 *)
+           apply sharedBlocksAdressesAreAllMappedInChildPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                blockInParentPartitionAddr bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false;
+                unfold consistency1 in *; intuition.
+           (* END sharedBlocksAdressesAreAllMappedInChild *)
+         }
 
          unfold consistency1. intuition.
        }
@@ -23793,27 +24084,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                (* END partitionTreeIsTree *)
              }
 
-             assert(kernelEntriesAreValid s).
-             { (* BEGIN kernelEntriesAreValid s *)
-               assert(Hcons0: kernelEntriesAreValid s1) by (unfold consistency1 in *; intuition).
-               intros kernel index HKS HidxBounded.
-               assert(HKSs0: isKS kernel s1).
-               {
-                 unfold isKS in *. rewrite Hs in HKS. simpl in HKS.
-                 destruct (beqAddr pdparent kernel) eqn:HbeqParentKern; try(exfalso; congruence).
-                 rewrite <-beqAddrFalse in HbeqParentKern. rewrite removeDupIdentity in HKS; intuition.
-               }
-               specialize(Hcons0 kernel index HKSs0 HidxBounded). unfold isBE. unfold isBE in Hcons0.
-               rewrite Hs. simpl.
-               destruct (beqAddr pdparent (CPaddr (kernel + index))) eqn:HbeqParentKernIdx.
-               {
-                 rewrite <-DTL.beqAddrTrue in HbeqParentKernIdx. rewrite <-HbeqParentKernIdx in Hcons0.
-                 rewrite HlookupParent in Hcons0. congruence.
-               }
-               rewrite <-beqAddrFalse in HbeqParentKernIdx. rewrite removeDupIdentity; intuition.
-               (* END kernelEntriesAreValid *)
-             }
-
              assert(nextKernelIsValid s).
              { (* BEGIN nextKernelIsValid s *)
                assert(Hcons0: nextKernelIsValid s1) by (unfold consistency1 in *; intuition).
@@ -24296,6 +24566,33 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                (* END accessibleBlocksArePresent *)
              }
 
+             assert(sharedBlockIsPresent s).
+             { (* BEGIN sharedBlockIsPresent s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply sharedBlockIsPresentPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END sharedBlockIsPresent *)
+             }
+
+             assert(sharedBlockNoPDflagNoLocIsKern s).
+             { (* BEGIN sharedBlockNoPDflagNoLocIsKern s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply sharedBlockNoPDflagNoLocIsKernPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END sharedBlockNoPDflagNoLocIsKern *)
+             }
+
+             assert(partitionNotAutoMapped s).
+             { (* BEGIN partitionNotAutoMapped s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply partitionNotAutoMappedPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END partitionNotAutoMapped *)
+             }
+
              (* assert(childLocHasSameStart s).
              { (* BEGIN childLocHasSameStart s *)
                revert Hs1 HnoPDFlagBlock.
@@ -24304,6 +24601,42 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                     intuition.
                (* END childLocHasSameStart *)
              } *)
+
+             assert(configAddrNotMappedInChild s).
+             { (* BEGIN configAddrNotMappedInChild s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply configAddrNotMappedInChildPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END configAddrNotMappedInChild *)
+             }
+
+             (* assert(configNotMappedRoot s).
+             { (* BEGIN configNotMappedRoot s *)
+               revert Hs1.
+               apply configNotMappedRootPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END configNotMappedRoot *)
+             } *)
+
+             assert(fullKernelIsInOneBlock s).
+             { (* BEGIN fullKernelIsInOneBlock s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply fullKernelIsInOneBlockPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END fullKernelIsInOneBlock *)
+             }
+
+             assert(sharedBlocksAdressesAreAllMappedInChild s).
+             { (* BEGIN sharedBlocksAdressesAreAllMappedInChild s *)
+               revert Hs1 HnoPDFlagBlock.
+               apply sharedBlocksAdressesAreAllMappedInChildPreservedIsBuilt with pdparent pdentryParent
+                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); unfold consistency1 in *;
+                    intuition.
+               (* END sharedBlocksAdressesAreAllMappedInChild *)
+             }
 
              unfold consistency1. intuition.
        ++ split.

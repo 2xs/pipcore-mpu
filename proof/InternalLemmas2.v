@@ -3650,7 +3650,8 @@ destruct v; try(simpl in *; exfalso; congruence).
 - destruct (Paddr.addPaddrIdx kernel nextoffset); try(simpl in *; exfalso; congruence).
   destruct (lookup p (memory s) beqAddr); try(simpl in *; exfalso; congruence).
   destruct v; try(simpl in *; exfalso; congruence).
-  destruct (Index.pred nbleft); try(simpl in *; exfalso; congruence). simpl in HblockInConfig.
+  destruct (Index.pred nbleft); simpl in *;
+    try(destruct HblockInConfig; try(exfalso; congruence); subst block; unfold isBE; rewrite HlookupKern; trivial).
   destruct HblockInConfig as [HblockIsKern | HblockInConfigRec]; try(revert HblockInConfigRec; apply IHn).
   subst block. unfold isBE. rewrite HlookupKern. trivial.
 - destruct (beqAddr p nullAddr); simpl in *; exfalso; congruence.
@@ -5595,6 +5596,7 @@ destruct (beqAddr (structure pdentry) nullAddr) eqn:HbeqStructNull.
     cbn -[kernelStructureEntriesNb]. lia.
 Qed.
 
+
 Lemma lenWellFormed l:
 wellFormedFreeSlotsList l <> False -> length l = length (filterOptionPaddr l).
 Proof.
@@ -5985,7 +5987,7 @@ rewrite HlookupPart. destruct (beqAddr (structure pdentry) nullAddr) eqn:HbeqStr
   assert(HstructIsKS: isKS (structure pdentry) s) by assumption.
   destruct (lookup (structure pdentry) (memory s) beqAddr); try(exfalso; congruence).
   destruct v; try(exfalso; congruence). rewrite Hstruct in *. unfold zero in *. rewrite indexEqRefl in *.
-  assert(HmaxPrepEq: maxNbPrepare = CIndex maxNbPrepare).
+  assert(HmaxPrepEq: maxNbPrepare = CIndex (maxNbPrepare)).
   {
     unfold CIndex. pose proof maxNbPrepareNbLessThanMaxIdx. destruct (le_dec maxNbPrepare maxIdx); try(lia).
     reflexivity.
@@ -6008,7 +6010,8 @@ destruct HnextValid as (HlebNextMax & [nextAddr (HlookupNext & Hnext)]). unfold 
 destruct (lookup currKern (memory s) beqAddr) eqn:HlookupCurr; try(exfalso; congruence).
 destruct v; try(exfalso; congruence). unfold Paddr.addPaddrIdx in *.
 destruct (le_dec (currKern + nextoffset) maxAddr); try(lia). rewrite HlookupNext in *.
-destruct (Index.pred nidx) eqn:Hpred; simpl in HkernInConf; try(exfalso; congruence).
+destruct (Index.pred nidx) eqn:Hpred; simpl in HkernInConf;
+  try(destruct HkernInConf; try(exfalso; congruence); subst kernel; unfold isKS; rewrite HlookupCurr; assumption).
 destruct HkernInConf as [HkernIsCurr | HkernInConfRec].
 - subst kernel. unfold isKS. rewrite HlookupCurr. assumption.
 - destruct Hnext as [HnextIsKS | HnextIsNull].

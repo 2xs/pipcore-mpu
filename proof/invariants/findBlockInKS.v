@@ -1271,7 +1271,7 @@ induction n.
                                   (CIndex ((CIndex (kernelStructureEntriesNb - 1))
                                             - (kernelStructureEntriesNb - (currentidx + 1)))))).
         {
-          assert(HkernelEntries: kernelEntriesAreValid s) by (unfold consistency1 in *; intuition).
+          assert(HkernelEntries: BlocksRangeFromKernelStartIsBE s) by (unfold consistency1 in *; intuition).
           assert(Hnull: nullAddrExists s) by (unfold consistency1 in *; intuition).
           unfold nullAddrExists in Hnull.
           assert(HeqNull: forall n Hhyp, {| p := 0; Hp := ADT.CPaddr_obligation_2 n Hhyp |} = nullAddr).
@@ -1280,16 +1280,26 @@ induction n.
             apply proof_irrelevance.
           }
           apply getKSEntriesInStructAuxRec; try(lia).
-          - assert(HtrivIdx: CIndex (kernelStructureEntriesNb - 1) <= CIndex (kernelStructureEntriesNb - 1))
-                  by lia.
+          - assert(HtrivIdx: CIndex (kernelStructureEntriesNb - 1) < kernelStructureEntriesNb).
+            { unfold CIndex. destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx); try(lia). cbn. lia. }
             specialize(HkernelEntries currentkernelstructure (CIndex (kernelStructureEntriesNb - 1)) HKS
                   HtrivIdx). unfold CPaddr in HkernelEntries.
             destruct (le_dec (currentkernelstructure + CIndex (kernelStructureEntriesNb - 1)) maxAddr);
                   try(lia). rewrite HeqNull in HkernelEntries. unfold isBE in HkernelEntries.
             unfold isPADDR in Hnull. destruct (lookup nullAddr (memory s) beqAddr); try(exfalso; congruence).
             destruct v; exfalso; congruence.
-          - intros idx Hi HidxValid. specialize(HkernelEntries currentkernelstructure idx HKS HidxValid).
-            unfold CPaddr in HkernelEntries.
+          - intros idx Hi HidxValid. assert(HvalIdx: i (CIndex idx) = idx).
+            {
+              rewrite <-maxIdxEqualMaxAddr in Hi. unfold CIndex. destruct (le_dec idx maxIdx); try(lia). reflexivity.
+            }
+            assert(HidxValidBis: CIndex idx < kernelStructureEntriesNb).
+            {
+              rewrite HvalIdx. unfold CIndex in HidxValid.
+              destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx); try(lia).
+              cbn -[kernelStructureEntriesNb] in HidxValid. lia.
+            }
+            specialize(HkernelEntries currentkernelstructure (CIndex idx) HKS HidxValidBis).
+            rewrite HvalIdx in HkernelEntries. unfold CPaddr in HkernelEntries.
             destruct (le_dec (currentkernelstructure + idx) maxAddr); try(lia).
             assert(HeqEntry:
                       {|
@@ -1373,13 +1383,8 @@ induction n.
           simpl. unfold Paddr.addPaddrIdx.
           destruct (le_dec (currentkernelstructure + currentidx) maxAddr); try(lia).
           rewrite <-Hentryaddr.
-          assert(HkernEntries: kernelEntriesAreValid s) by (unfold consistency1 in *; intuition).
-          assert(HidxBounded: currentidx <= CIndex (kernelStructureEntriesNb - 1)).
-          {
-            unfold CIndex. destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx); try(lia).
-            cbn -[kernelStructureEntriesNb]. lia.
-          }
-          specialize(HkernEntries currentkernelstructure currentidx HKS HidxBounded).
+          assert(HkernEntries: BlocksRangeFromKernelStartIsBE s) by (unfold consistency1 in *; intuition).
+          specialize(HkernEntries currentkernelstructure currentidx HKS HidxIsKern).
           unfold CPaddr in HkernEntries.
           destruct (le_dec (currentkernelstructure + currentidx) maxAddr); try(lia).
           rewrite <-Hentryaddr in HkernEntries. unfold isBE in HkernEntries.
@@ -1928,7 +1933,7 @@ revert currentkernelstructure idblock endblock P. induction n.
                         = filterOptionPaddr (getKSEntriesInStructAux kernelStructureEntriesNb
                              currentkernelstructure s (CIndex (kernelStructureEntriesNb - 1)))).
       {
-        assert(HkernelEntries: kernelEntriesAreValid s) by (unfold consistency1 in *; intuition).
+        assert(HkernelEntries: BlocksRangeFromKernelStartIsBE s) by (unfold consistency1 in *; intuition).
         assert(Hnull: nullAddrExists s) by (unfold consistency1 in *; intuition). unfold nullAddrExists in Hnull.
         assert(HeqNull: forall n Hhyp, {| p := 0; Hp := ADT.CPaddr_obligation_2 n Hhyp |} = nullAddr).
         {
@@ -1936,7 +1941,8 @@ revert currentkernelstructure idblock endblock P. induction n.
           apply proof_irrelevance.
         }
         apply getKSEntriesInStructAuxEqFuelSuffGen.
-        - assert(Htriv: CIndex (kernelStructureEntriesNb - 1) <= CIndex (kernelStructureEntriesNb - 1)) by lia.
+        - assert(Htriv: CIndex (kernelStructureEntriesNb - 1) < kernelStructureEntriesNb).
+          { unfold CIndex. destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx); try(lia). cbn. lia. }
           specialize(HkernelEntries currentkernelstructure (CIndex (kernelStructureEntriesNb - 1)) HKS Htriv).
           unfold CPaddr in HkernelEntries.
           destruct (le_dec (currentkernelstructure + CIndex (kernelStructureEntriesNb - 1)) maxAddr);
@@ -1946,7 +1952,18 @@ revert currentkernelstructure idblock endblock P. induction n.
         - lia.
         - unfold CIndex. destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx); try(lia).
           cbn -[kernelStructureEntriesNb]. lia.
-        - intros idx Hi HidxValid. specialize(HkernelEntries currentkernelstructure idx HKS HidxValid).
+        - intros idx Hi HidxValid. assert(HvalIdx: i (CIndex idx) = idx).
+          {
+            rewrite <-maxIdxEqualMaxAddr in Hi. unfold CIndex. destruct (le_dec idx maxIdx); try(lia). reflexivity.
+          }
+          assert(HidxValidBis: CIndex idx < kernelStructureEntriesNb).
+          {
+            rewrite HvalIdx. unfold CIndex in HidxValid.
+            destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx); try(lia).
+            cbn -[kernelStructureEntriesNb] in HidxValid. lia.
+          }
+          specialize(HkernelEntries currentkernelstructure (CIndex idx) HKS HidxValidBis).
+          rewrite HvalIdx in HkernelEntries.
           unfold CPaddr in HkernelEntries. destruct (le_dec (currentkernelstructure + idx) maxAddr);
               try(exfalso; congruence).
           assert(Heq: {|

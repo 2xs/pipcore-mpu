@@ -547,11 +547,12 @@ child <> constantRootPartM
 -> isParentsList s parentsList pdparent
 -> ~ In child parentsList.
 
-Definition kernelEntriesAreValid s :=
+(*TODO isn't that redundant with BlocksRangeFromKernelStartIsBE ? -> to be removed*)
+(* Definition kernelEntriesAreValid s :=
 forall kernel index,
 isKS kernel s
 -> index <= CIndex (kernelStructureEntriesNb - 1)
--> isBE (CPaddr (kernel + index)) s.
+-> isBE (CPaddr (kernel + index)) s. *)
 
 Definition nextKernelIsValid s :=
 forall kernel,
@@ -630,6 +631,7 @@ isBE block s
 -> sh1entryPDflag (CPaddr (block + sh1offset)) true s -> sh1entryPDchild (CPaddr (block + sh1offset)) nullAddr s.
 
 Definition nbPrepareIsNbKern s :=
+(*TODO HERE we may need partition to be in the tree*)
 forall partition pdentry,
 lookup partition (memory s) beqAddr = Some(PDT pdentry)
 -> length (completeListOfKernels (structure pdentry) s) = nbprepare pdentry.
@@ -691,6 +693,65 @@ forall block,
 bentryAFlag block true s
 -> bentryPFlag block true s.
 
+Definition sharedBlockIsPresent s :=
+forall part block child,
+In part (getPartitions multiplexer s)
+-> In block (filterOptionPaddr (getKSEntries part s))
+-> sh1entryPDchild (CPaddr (block+sh1offset)) child s
+-> child <> nullAddr
+-> bentryPFlag block true s.
+
+Definition sharedBlockNoPDflagNoLocIsKern s :=
+forall part block child startaddr,
+In part (getPartitions multiplexer s)
+-> In block (filterOptionPaddr (getKSEntries part s))
+-> sh1entryPDchild (CPaddr (block+sh1offset)) child s
+-> child <> nullAddr
+-> sh1entryPDflag (CPaddr (block+sh1offset)) false s
+-> sh1entryInChildLocationWeak (CPaddr (block+sh1offset)) nullAddr s
+-> bentryStartAddr block startaddr s
+-> In startaddr (getConfigBlocks child s).
+
+Definition partitionNotAutoMapped s :=
+forall part,
+In part (getPartitions multiplexer s)
+-> ~In part (getMappedPaddr part s).
+
+(*New*)
+Definition configAddrNotMappedInChild s :=
+forall part child addr,
+In part (getPartitions multiplexer s)
+-> In child (getChildren part s)
+-> In addr (getConfigPaddr part s)
+-> ~In addr (getMappedPaddr child s).
+
+(*False because of prepare*)
+(* Definition configNotMappedRoot s :=
+forall addr,
+In addr (getConfigPaddr multiplexer s)
+-> ~In addr (getMappedPaddr multiplexer s). *)
+
+(*New*)
+Definition fullKernelIsInOneBlock s :=
+forall part block kernel,
+In part (getPartitions multiplexer s)
+-> In block (getMappedBlocks part s)
+-> In kernel (getAllPaddrAux [block] s)
+-> isKS kernel s
+-> kernel+nextoffset <= maxAddr /\ In (CPaddr (kernel+nextoffset)) (getAllPaddrAux [block] s).
+
+(*New*)
+Definition sharedBlocksAdressesAreAllMappedInChild s :=
+forall partition block sh1entryaddr blockChild idchild,
+In partition (getPartitions multiplexer s)
+-> In block (getMappedBlocks partition s)
+-> sh1entryAddr block sh1entryaddr s
+-> sh1entryPDchild sh1entryaddr idchild s
+-> sh1entryInChildLocationWeak sh1entryaddr blockChild s
+-> idchild <> nullAddr
+-> blockChild <> nullAddr
+-> (forall addr, In addr (getAllPaddrAux [block] s)
+    -> In addr (getMappedPaddr idchild s)).
 
 (** ** First batch of consistency properties *)
 Definition consistency1 s :=
@@ -719,13 +780,12 @@ isChild s /\
 noDupKSEntriesList s /\
 noDupMappedBlocksList s /\
 wellFormedBlock s /\
-(*MPUFromAccessibleBlocks s /\*)
 parentOfPartitionIsPartition s /\
 NbFreeSlotsISNbFreeSlotsInList s /\
 maxNbPrepareIsMaxNbKernels s /\
 blockInChildHasAtLeastEquivalentBlockInParent s /\
 partitionTreeIsTree s /\
-kernelEntriesAreValid s /\
+(* kernelEntriesAreValid s /\ *)
 nextKernelIsValid s /\
 noDupListOfKerns s /\
 MPUsizeIsBelowMax s /\
@@ -734,12 +794,18 @@ nextImpliesBlockWasCut s /\
 blocksAddressesTypes s /\
 notPDTIfNotPDflag s /\
 nextKernAddrIsInSameBlock s /\
-(*blockBelongsToAPart s /\*)
 PDflagMeansNoChild s /\
 nbPrepareIsNbKern s
 /\ pdchildIsPDT s
 /\ childBlockNullIfChildNull s
-/\ accessibleBlocksArePresent s.
+/\ accessibleBlocksArePresent s
+/\ sharedBlockIsPresent s
+/\ sharedBlockNoPDflagNoLocIsKern s
+/\ partitionNotAutoMapped s
+/\ configAddrNotMappedInChild s
+(* /\ configNotMappedRoot s *)
+/\ fullKernelIsInOneBlock s
+/\ sharedBlocksAdressesAreAllMappedInChild s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=

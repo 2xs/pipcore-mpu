@@ -17203,15 +17203,18 @@ induction i0.
                       = StateLib.Paddr.addPaddrIdx_obligation_1 kernelstructure {| i := S i; Hi := Hi |} l0)
       by apply proof_irrelevance. rewrite HiEq'' in *. rewrite Hlookup' in *. congruence.
 
-    assert(HKSvalid: kernelEntriesAreValid s) by (unfold consistency1 in *; intuition). simpl.
-    assert(HindexValid: S i <= CIndex (kernelStructureEntriesNb - 1)).
+    assert(HKSvalid: BlocksRangeFromKernelStartIsBE s) by (unfold consistency1 in *; intuition). simpl.
+    assert(HindexValid: CIndex (S i) < kernelStructureEntriesNb).
     {
-      unfold CIndex. assert(kernelStructureEntriesNb < maxIdx - 1) by (apply KSEntriesNbLessThanMaxIdx).
-      destruct (le_dec (kernelStructureEntriesNb - 1) maxIdx); try(lia). cbn -[kernelStructureEntriesNb]. lia.
+      unfold CIndex. destruct (le_dec (S i) maxIdx); try(lia). simpl. lia.
     }
-    specialize(HKSvalid kernelstructure (S i) H0 HindexValid). unfold Paddr.addPaddrIdx in HaddPaddrIdx'.
+    specialize(HKSvalid kernelstructure (CIndex (S i)) H0 HindexValid). unfold Paddr.addPaddrIdx in HaddPaddrIdx'.
     unfold CPaddr in HKSvalid. simpl in HaddPaddrIdx'.
-    destruct (le_dec (p kernelstructure + S i) maxAddr); try(congruence).
+    assert(Hindex: ADT.i (CIndex (S i)) = S i).
+    {
+      unfold CIndex. destruct (le_dec (S i) maxIdx); try(lia). reflexivity.
+    }
+    rewrite Hindex in HKSvalid. destruct (le_dec (p kernelstructure + S i) maxAddr); try(congruence).
     assert(HnullEq: {| p := 0; Hp := ADT.CPaddr_obligation_2 (p kernelstructure + S i) n0 |} = nullAddr).
     {
       unfold nullAddr. unfold CPaddr. destruct (le_dec 0 maxAddr); try(lia). f_equal.
@@ -19432,38 +19435,6 @@ destruct (beqAddr newPart partition) eqn:HbeqNewPart.
   1,2: unfold isPADDR; unfold isBE; destruct HlookupNew as [HlookupNew | [pdentry (HlookupNew & _)]];
         rewrite HlookupNew; intro; congruence.
 Qed.
-
-
-(*Lemma KSEntriesAuxConfigBlocksAuxEqAux :
-n >= maxNbPrepare
--> filterOptionPaddr (getConfigBlocksAux (S n) (structure p) s (CIndex maxNbPrepare))
-   = filterOptionPaddr (getKSEntriesAux maxNbPrepare (structure p) s).
-Proof.
-
-Qed.
-
-Lemma KSEntriesAuxConfigBlocksAuxEq :
-n >= maxNbPrepare
--> filterOptionPaddr (getConfigBlocksAux (S n) (structure p) s (CIndex maxNbPrepare))
-   = filterOptionPaddr (getKSEntriesAux maxNbPrepare (structure p) s).
-Proof.
-
-Qed.
-
-Lemma KSEntriesConfigBlocksEq part s:
-consistency1 s
--> getConfigBlocks part s = filterOptionPaddr (getKSEntries part s).
-Proof.
-intro Hconsist. unfold getConfigBlocks. unfold getKSEntries.
-destruct (lookup part (memory s) beqAddr) eqn:HlookupPart; try(simpl; reflexivity).
-destruct v; try(simpl; reflexivity). rewrite MaxIdxNextEq.
-destruct (beqAddr (structure p) nullAddr) eqn:HbeqStructNull.
-- rewrite <-DTL.beqAddrTrue in HbeqStructNull. rewrite HbeqStructNull. simpl.
-  apply getConfigBlocksAuxFromNull. unfold consistency1 in *; intuition.
-- assert(maxNbPrepare < maxIdx - 1) by (apply maxNbPrepareNbLessThanMaxIdx).
-  (*TODO HERE needs the lemma above*)
-Qed.*)
-
 
 (*
 Lemma NotInPartEqPDT partition addr' newEntry pdentry0 s0 s:
