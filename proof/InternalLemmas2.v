@@ -7245,3 +7245,289 @@ induction (getChildren part s); simpl in *; try(congruence). apply in_or_app.
 destruct HchildIsChild as [Heq | HchildIsChild]; try(right; apply IHl; assumption). subst a. left.
 rewrite Nat.add_1_r. simpl. auto.
 Qed.
+
+Lemma getKSgetConfigBAuxEq n addr nbleft kernel s:
+isPADDR nullAddr s
+-> nextKernelIsValid s
+-> BlocksRangeFromKernelStartIsBE s
+-> nbleft < n
+-> n <= maxIdx+1
+-> isKS kernel s
+-> In addr (filterOptionPaddr (getKSEntriesAux (nbleft+1) kernel s))
+-> In addr (getAllPaddrConfigAux (filterOptionPaddr (getConfigBlocksAux n kernel s (CIndex nbleft))) s).
+Proof.
+intros Hnull Hnext HblocksFromKern. revert nbleft kernel.
+induction n; simpl; intros nbleft kernel HltLeftN HlebNMax HkernIsKS.
+- assert(HlenEq: length (filterOptionPaddr (getKSEntriesAux (nbleft+1) kernel s)) = 0) by lia.
+  destruct (filterOptionPaddr (getKSEntriesAux (nbleft+1) kernel s)); try(simpl in *; lia).
+- assert(HnextCopy: nextKernelIsValid s) by assumption. rewrite Nat.add_1_r in *. simpl in *.
+  specialize(Hnext kernel HkernIsKS). destruct Hnext as (HlebNextOffMax & [nextAddr (HlookupNextOff & Hnext)]).
+  unfold isKS in *. destruct (lookup kernel (memory s) beqAddr) eqn:HlookupKern; try(exfalso; congruence).
+  destruct v; try(exfalso; congruence). unfold Paddr.addPaddrIdx in *.
+  destruct (le_dec (kernel + nextoffset) maxAddr) eqn:HleNextMax; try(lia).
+  set(hp := StateLib.Paddr.addPaddrIdx_obligation_1 kernel nextoffset l). specialize(HlookupNextOff hp).
+  rewrite HlookupNextOff in *.
+  assert(Hincl: forall addrB,
+    In addrB (filterOptionPaddr (getKSEntriesInStructAux (maxIdx + 1) kernel s (CIndex 7)))
+    -> In addrB (getAllPaddrBlockAux 0 kernel Constants.kernelStructureTotalLength)).
+  {
+    intros addrB HaddrBIn. apply getKSEntriesInStructAuxToIndexAux in HaddrBIn.
+    - destruct HaddrBIn as [kernIdx (HlebIdxNbKern & HaddrB)]. pose proof nextoffsetVal as HnextOff.
+      cbn in HnextOff. rewrite HnextOff in *. assert(HlebIdxNbKernI: ADT.i kernIdx <= kernelStructureEntriesNb-1).
+      {
+        cbn. unfold CIndex in HlebIdxNbKern. pose proof maxIdxBiggerThanNbOfKernels as Hmax. cbn in Hmax.
+        destruct (le_dec 7 maxIdx); try(lia). simpl in HlebIdxNbKern. assumption.
+      }
+      rewrite HaddrB. unfold CPaddr.
+      destruct (le_dec (kernel + kernIdx) maxAddr); try(cbn in HlebIdxNbKernI; lia). apply getAllPaddrBlockAuxIncl.
+      + simpl. lia.
+      + simpl p. rewrite kernelStructureTotalLengthVal. lia.
+    - unfold CIndex. pose proof maxIdxBiggerThanNbOfKernels as Hmax. cbn in Hmax.
+      destruct (le_dec 7 maxIdx); try(lia). simpl. lia.
+  }
+  destruct (Index.pred (CIndex nbleft)) eqn:Hpred.
+  + simpl. rewrite HlookupKern. assert(HnbPred: exists nbleftPred, nbleft = S nbleftPred).
+    {
+      unfold CIndex in Hpred. destruct (le_dec nbleft maxIdx); try(lia). unfold Index.pred in *. simpl in Hpred.
+      destruct (gt_dec nbleft 0); try(exfalso; congruence). exists (nbleft-1). lia.
+    }
+    destruct HnbPred as [nbleftPred HnbPred]. subst nbleft.
+    destruct (beqAddr nextAddr nullAddr) eqn:HbeqNextNull.
+    * rewrite <-DTL.beqAddrTrue in HbeqNextNull. subst nextAddr. unfold isPADDR in *.
+      destruct (lookup nullAddr (memory s) beqAddr); try(exfalso; congruence). destruct v; try(exfalso; congruence).
+      intro HaddrInStructAux. apply in_or_app. left. apply Hincl; assumption.
+    * rewrite <-beqAddrFalse in *. destruct Hnext as [HnextIsKS | Hcontra]; try(exfalso; congruence).
+      assert(HnextIsKSCopy: isKS nextAddr s) by assumption.
+      destruct (lookup nextAddr (memory s) beqAddr); try(exfalso; congruence). destruct v; try(exfalso; congruence).
+      assert(HltLastKernMax: CIndex 7 < kernelStructureEntriesNb).
+      {
+        cbn. unfold CIndex. pose proof maxIdxBiggerThanNbOfKernels as Hmax. cbn in Hmax.
+        destruct (le_dec 7 maxIdx); try(lia). simpl. lia.
+      }
+      assert(HltLeftPN: nbleftPred < n) by lia. assert(HlebNSMax: n <= S maxIdx) by lia.
+      specialize(IHn nbleftPred nextAddr HltLeftPN HlebNSMax HnextIsKSCopy).
+      assert(HeqI: i = CIndex nbleftPred).
+      {
+        replace nbleftPred with (nbleftPred-0); try(lia). unfold CIndex in *.
+        destruct (le_dec (nbleftPred-0) maxIdx); try(lia).
+        destruct (le_dec (S nbleftPred) maxIdx); try(lia). unfold Index.pred in *. simpl in Hpred.
+        injection Hpred as Hpred. subst i. f_equal. apply proof_irrelevance.
+      }
+      subst i. intro HaddrIn. rewrite filterOptionPaddrSplit in HaddrIn. apply in_app_or in HaddrIn. apply in_or_app.
+      rewrite Nat.add_1_r in IHn. destruct HaddrIn; auto.
+  + assert(HleftIsZero: nbleft = 0).
+    {
+      unfold Index.pred in *. unfold CIndex in Hpred. destruct (le_dec nbleft maxIdx); try(lia). simpl in Hpred.
+      destruct (gt_dec nbleft 0); try(exfalso; congruence). lia.
+    }
+    subst nbleft. simpl getKSEntriesAux. destruct (beqAddr nextAddr nullAddr) eqn:HbeqNextNull.
+    * rewrite <-DTL.beqAddrTrue in HbeqNextNull. subst nextAddr. unfold isPADDR in *.
+      destruct (lookup nullAddr (memory s) beqAddr); try(exfalso; congruence). destruct v; try(exfalso; congruence).
+      intro HaddrInStructAux. simpl. rewrite HlookupKern. apply in_or_app. left. apply Hincl; assumption.
+    * rewrite <-beqAddrFalse in *. destruct Hnext as [HnextIsKS | Hcontra]; try(exfalso; congruence).
+      destruct (lookup nextAddr (memory s) beqAddr); try(exfalso; congruence). destruct v; try(exfalso; congruence).
+      rewrite filterOptionPaddrSplit. simpl. rewrite HlookupKern. intro HaddrIn. apply in_app_or in HaddrIn.
+      apply in_or_app. left. simpl in HaddrIn. destruct HaddrIn; try(exfalso; congruence). auto.
+Qed.
+
+Lemma inclKSEntriesConfig addr part s:
+isPADDR nullAddr s
+-> StructurePointerIsKS s
+-> nextKernelIsValid s
+-> BlocksRangeFromKernelStartIsBE s
+-> In addr (filterOptionPaddr (getKSEntries part s))
+-> In addr (getConfigPaddr part s).
+Proof.
+intros Hnull Hstruct HnextProps HidxAreBE HaddrIsKSEntry.
+unfold getConfigPaddr. apply in_or_app. right. unfold getKSEntries in *. unfold getConfigBlocks.
+destruct (lookup part (memory s) beqAddr) eqn:HlookupPart; try(simpl in *; congruence).
+destruct v; try(simpl in *; congruence).
+destruct (beqAddr (structure p) nullAddr) eqn:HbeqStartNull; try(simpl in *; exfalso; congruence).
+rewrite <-beqAddrFalse in *. specialize(Hstruct part p HlookupPart HbeqStartNull).
+revert HaddrIsKSEntry. apply getKSgetConfigBAuxEq; trivial.
+pose proof maxNbPrepareNbLessThanMaxIdx. lia.
+Qed.
+
+Lemma multImplLeb a b c:
+a*b <= c
+-> a > 0
+-> b <= c.
+Proof.
+induction a; intros; lia.
+Qed.
+
+Lemma KSEntryAddrIsConfigAddr n m kernel s addr:
+isPADDR nullAddr s
+-> nextKernelIsValid s
+-> BlocksRangeFromKernelStartIsBE s
+-> m > 0
+-> n < Constants.kernelStructureTotalLength
+-> length (filterOptionPaddr (getKSEntriesAux (S n) kernel s)) <= n*kernelStructureEntriesNb
+-> isKS kernel s
+-> In addr (filterOptionPaddr (getKSEntriesAux (S n) kernel s))
+-> In (CPaddr (addr + sh1offset))
+    (getAllPaddrConfigAux (filterOptionPaddr (getConfigBlocksAux (n+m) kernel s (CIndex n))) s).
+Proof.
+intros Hnull HnextProps HblkidxAreBE HgtMZero. revert kernel.
+induction n; intros kernel HltNKernLen Hlen HkernIsKS HaddrInKS.
+{
+  simpl in HaddrInKS. simpl in Hlen. exfalso.
+  destruct (Paddr.addPaddrIdx kernel nextoffset); try(simpl in HaddrInKS; congruence).
+  destruct (lookup p (memory s) beqAddr); try(simpl in HaddrInKS; congruence).
+  destruct v; try(simpl in HaddrInKS; congruence).
+  destruct (lookup p0 (memory s) beqAddr); try(simpl in HaddrInKS; congruence).
+  assert(length (filterOptionPaddr (getKSEntriesInStructAux (maxIdx + 1) kernel s (CIndex 7))) > 0).
+  {
+    assert(HltIdxMax: CIndex 7 < kernelStructureEntriesNb).
+    {
+      unfold CIndex. pose proof Constants.maxIdxBiggerThanMinBlock. destruct (le_dec 7 maxIdx); try(lia). cbn. lia.
+    }
+    rewrite MaxIdxNextEq. simpl. specialize(HblkidxAreBE kernel (CIndex 7) HkernIsKS HltIdxMax). unfold isBE in *.
+    unfold Paddr.addPaddrIdx. unfold CPaddr in HblkidxAreBE. destruct (le_dec (kernel + CIndex 7) maxAddr).
+    - change {| p := kernel + CIndex 7; Hp := StateLib.Paddr.addPaddrIdx_obligation_1 kernel (CIndex 7) l |}
+        with {| p := kernel + CIndex 7; Hp := ADT.CPaddr_obligation_1 (kernel + CIndex 7) l |}.
+      destruct (lookup {| p:=kernel+CIndex 7; Hp:=ADT.CPaddr_obligation_1 (kernel+CIndex 7) l |} (memory s) beqAddr);
+        try(exfalso; congruence). destruct v0; try(exfalso; congruence).
+      destruct (indexEq (CIndex 7) zero); simpl; try(lia).
+      assert(Hpred: exists pred, Index.pred (CIndex 7) = Some pred).
+      {
+        unfold CIndex. pose proof Constants.maxIdxBiggerThanMinBlock. destruct (le_dec 7 maxIdx); try(lia).
+        unfold Index.pred. simpl.
+        exists {|
+                 i := 6;
+                 Hi :=
+                   StateLib.Index.pred_obligation_1 {| i := 7; Hi := ADT.CIndex_obligation_1 7 l0 |}
+                     (match Nat.succ_le_mono 0 6 with
+                      | conj H0 _ => H0
+                      end (Nat.le_0_l 6))
+               |}. reflexivity.
+      }
+      destruct Hpred as [pred Hpred]. rewrite Hpred. simpl. lia.
+    - replace {| p := 0; Hp := ADT.CPaddr_obligation_2 (kernel + CIndex 7) n |} with nullAddr in *;
+        try(cbn; f_equal; apply proof_irrelevance). unfold isPADDR in *. exfalso.
+      destruct (lookup nullAddr (memory s) beqAddr); try(congruence). destruct v0; congruence.
+  }
+  destruct v; try(simpl in HaddrInKS; congruence).
+  - rewrite filterOptionPaddrSplit in *. simpl in *. rewrite app_nil_r in *. lia.
+  - destruct (beqAddr p0 nullAddr); try(simpl in HaddrInKS; congruence). lia.
+}
+set(succ := S n). fold succ in HaddrInKS. fold succ in Hlen. unfold succ. fold succ in IHn.
+cbn -[succ nullAddr kernelStructureEntriesNb] in *.
+specialize(HnextProps kernel HkernIsKS). unfold Paddr.addPaddrIdx in *.
+destruct HnextProps as (HlebNextMax & [nextAddr (HlookupNextAddr & HnextProps)]).
+destruct (le_dec (kernel + nextoffset) maxAddr); try(lia). rewrite HlookupNextAddr in *. unfold isKS in *.
+destruct (lookup kernel (memory s) beqAddr) eqn:HlookupKern; try(exfalso; congruence).
+destruct v; try(exfalso; congruence). assert(Hpred: Index.pred (CIndex (S n)) = Some (CIndex n)).
+{
+  pose proof maxNbFreeSlotsLessThanMaxIdx. assert(S n <= maxIdx).
+  {
+    pose proof maxNbPrepareNotZero.
+    assert(maxNbPrepare * S n <= maxNbPrepare*Constants.kernelStructureTotalLength) by (apply Nat.mul_le_mono_l; lia).
+    apply multImplLeb with maxNbPrepare; lia.
+  }
+  pose proof (Nat.sub_0_r n) as Hmin. rewrite <-Hmin at 2.
+  unfold CIndex. destruct (le_dec (S n) maxIdx); try(lia). destruct (le_dec (n-0) maxIdx); try(lia).
+  unfold Index.pred. simpl. f_equal. f_equal. apply proof_irrelevance.
+}
+rewrite Hpred. simpl. rewrite HlookupKern. apply in_or_app.
+assert(In addr (filterOptionPaddr
+    (getKSEntriesInStructAux (maxIdx+1) kernel s (CIndex (kernelStructureEntriesNb-1))))
+  -> In (CPaddr (addr + sh1offset)) (getAllPaddrBlockAux 0 kernel Constants.kernelStructureTotalLength)).
+{
+  rewrite kernelStructureTotalLengthVal. intro HaddrIn. assert(CIndex (kernelStructureEntriesNb - 1) < maxIdx + 1).
+  {
+    pose proof KSEntriesNbLessThanMaxIdx. unfold CIndex.
+    destruct (le_dec (kernelStructureEntriesNb-1) maxIdx); try(lia). cbn -[kernelStructureEntriesNb]. lia.
+  }
+  apply getKSEntriesInStructAuxToIndexAux in HaddrIn; trivial. destruct HaddrIn as [kernIdx (HlebIdxs & Haddr)].
+  unfold CIndex in HlebIdxs. pose proof KSEntriesNbLessThanMaxIdx.
+  destruct (le_dec (kernelStructureEntriesNb-1) maxIdx); try(lia). cbn -[kernelStructureEntriesNb] in HlebIdxs.
+  rewrite Haddr. unfold CPaddr. rewrite nextoffsetVal in *. destruct (le_dec (kernel + kernIdx) maxAddr); try(lia).
+  simpl p. rewrite sh1offsetVal. destruct (le_dec (kernel + kernIdx + kernelStructureEntriesNb) maxAddr); try(lia).
+  apply getAllPaddrBlockAuxIncl; simpl p; lia.
+}
+destruct (beqAddr nextAddr nullAddr) eqn:HbeqNextNull.
+- rewrite <-DTL.beqAddrTrue in HbeqNextNull. subst nextAddr. unfold isPADDR in *.
+  destruct (lookup nullAddr (memory s) beqAddr); try(exfalso; congruence). destruct v; try(exfalso; congruence).
+  auto.
+- rewrite <-beqAddrFalse in *. assert(HltNKernLenRec: n < Constants.kernelStructureTotalLength) by lia.
+  destruct HnextProps as [HnextIsKS | Hcontra]; try(exfalso; congruence).
+  assert(HnextIsKSCopy: isKS nextAddr s) by assumption.
+  destruct (lookup nextAddr (memory s) beqAddr); try(exfalso; congruence). destruct v; try(exfalso; congruence).
+  rewrite filterOptionPaddrSplit in *. apply in_app_or in HaddrInKS. rewrite length_app in Hlen.
+  destruct HaddrInKS as [HaddrInStruct | HaddrInKSRec]; auto. right. apply IHn; trivial.
+  assert(HlenStruct:
+    length (filterOptionPaddr (getKSEntriesInStructAux (maxIdx+1) kernel s (CIndex (kernelStructureEntriesNb - 1))))
+      = kernelStructureEntriesNb).
+  {
+    cbn. pose proof Constants.maxIdxBiggerThanMinBlock. assert(Hi7: i (CIndex 7) = 7).
+    { unfold CIndex. destruct (le_dec 7 maxIdx); simpl; lia. }
+    rewrite nbKernInStructEq; trivial; try(lia).
+    - unfold isKS. rewrite HlookupKern. assumption.
+    - cbn. lia.
+  }
+  lia.
+Qed.
+
+Lemma configBlocksAreEntries part block s:
+isPADDR nullAddr s
+-> StructurePointerIsKS s
+-> nextKernelIsValid s
+-> BlocksRangeFromKernelStartIsBE s
+-> wellFormedFstShadowIfBlockEntry s
+-> In block (getConfigBlocks part s)
+-> In block (filterOptionPaddr (getKSEntries part s)).
+Proof.
+unfold getConfigBlocks. intros Hnull HstructIsKS HnextKern HblocksFromKern HwellSh1 HblockIsConfig.
+unfold getKSEntries. destruct (lookup part (memory s) beqAddr) eqn:HlookupPart; try(simpl in *; congruence).
+destruct v; try(simpl in *; congruence).
+destruct (beqAddr (structure p) nullAddr) eqn:HbeqStructNull.
+{
+  rewrite <-DTL.beqAddrTrue in HbeqStructNull. rewrite HbeqStructNull in *. rewrite MaxIdxNextEq in *. simpl in *.
+  unfold isPADDR in *. destruct (lookup nullAddr (memory s) beqAddr); try(congruence).
+  destruct v; try(congruence). destruct (beqAddr p0 nullAddr); simpl in *; congruence.
+}
+rewrite <-beqAddrFalse in *. specialize(HstructIsKS part p HlookupPart HbeqStructNull).
+assert(HltNbPrepMax: maxNbPrepare < maxIdx+1) by (pose proof maxNbPrepareNbLessThanMaxIdx; lia).
+assert(HlebNbPrepMax: maxNbPrepare <= maxIdx) by (pose proof maxNbPrepareNbLessThanMaxIdx; lia).
+revert HltNbPrepMax HlebNbPrepMax HstructIsKS HblockIsConfig. generalize maxNbPrepare as nbleft.
+generalize (structure p) as kernel. induction (maxIdx+1); intros; try(lia). rewrite Nat.add_1_r. simpl in *.
+specialize(HnextKern kernel HstructIsKS). destruct HnextKern as (_ & [nextAddr (HlookupNextA & Hnext)]).
+destruct (lookup kernel (memory s) beqAddr); try(simpl in *; exfalso; congruence).
+destruct v; try(try(destruct (beqAddr p0 nullAddr)); simpl in *; exfalso; congruence). unfold Paddr.addPaddrIdx in *.
+destruct (le_dec (kernel + nextoffset) maxAddr); try(simpl in *; congruence). rewrite HlookupNextA in *.
+assert(In kernel (filterOptionPaddr (getKSEntriesInStructAux (maxIdx + 1) kernel s (CIndex 7)))).
+{
+  rewrite nextoffsetVal in l. cbn in l. pose proof Constants.maxIdxBiggerThanMinBlock.
+  apply blockInRangeInStructLight; trivial.
+  + apply KSIsBE; assumption.
+  + unfold CIndex. destruct (le_dec 7 maxIdx); try(lia). simpl. lia.
+  + unfold CIndex. destruct (le_dec 7 maxIdx); try(lia). cbn. lia.
+  + lia.
+}
+destruct (beqAddr nextAddr nullAddr) eqn:HbeqNextNull.
+- rewrite <-DTL.beqAddrTrue in HbeqNextNull. subst nextAddr. unfold isPADDR in *.
+  destruct (lookup nullAddr (memory s) beqAddr) eqn:HlookupNull; try(exfalso; congruence).
+  destruct v; try(exfalso; congruence). assert(block = kernel).
+  {
+    destruct (Index.pred (CIndex nbleft)).
+    - simpl in *. destruct HblockIsConfig as [Hres | Hcontra]; auto. exfalso.
+      destruct n; simpl in Hcontra; try(congruence). rewrite HlookupNull in *.
+      destruct (beqAddr p0 nullAddr); simpl in Hcontra; congruence.
+    - simpl in *. destruct HblockIsConfig; try(exfalso; congruence). auto.
+  }
+  subst block. assumption.
+- rewrite <-beqAddrFalse in *. destruct Hnext as [HnextIsKS | Hcontra]; try(exfalso; congruence). unfold isKS in *.
+  assert(HnextIsKSCopy: isKS nextAddr s) by assumption.
+  destruct (lookup nextAddr (memory s) beqAddr); try(simpl; congruence). destruct v; try(simpl; congruence).
+  rewrite filterOptionPaddrSplit. apply in_or_app. destruct (Index.pred (CIndex nbleft)) eqn:Hpred.
+  + simpl in HblockIsConfig. destruct HblockIsConfig as [Heq | HblockIsConfig]; try(subst block; left; assumption).
+    right. assert(HeqPred: nbleft = i+1).
+    {
+      unfold Index.pred in *. unfold CIndex in Hpred. destruct (le_dec nbleft maxIdx); try(lia). simpl in Hpred.
+      destruct (gt_dec nbleft 0); try(exfalso; congruence). injection Hpred as Hpred. rewrite <-Hpred. simpl. lia.
+    }
+    rewrite HeqPred in *. apply IHn; trivial; try(lia). rewrite indexEqId. assumption.
+  + simpl in HblockIsConfig. destruct HblockIsConfig as [Heq | Hcontra]; try(exfalso; congruence). subst block.
+    left. assumption.
+Qed.

@@ -1486,12 +1486,12 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
     assert(blocksAddressesTypes s).
     { (* BEGIN blocksAddressesTypes s *)
       assert(Hcons0: blocksAddressesTypes s0) by intuition.
-      intros block startaddr endaddr part HpartIsPart HblockMapped Hstart Hend HPDchild.
+      intros block startaddr endaddr part HpartIsPart HblockMapped Hstart Hend Hloc.
       rewrite getPartitionsEqLookup with multiplexer s s0 in HpartIsPart; try(assumption).
       rewrite getMappedBlocksEqLookup with part s s0 in HblockMapped; try(assumption).
       unfold bentryStartAddr in *. unfold bentryEndAddr in *. unfold isKS in *. unfold isPDT in *.
-      unfold sh1entryPDchild in *. rewrite HlookupsEq in *.
-      specialize(Hcons0 block startaddr endaddr part HpartIsPart HblockMapped Hstart Hend HPDchild).
+      unfold sh1entryInChildLocationWeak in *. rewrite HlookupsEq in *.
+      specialize(Hcons0 block startaddr endaddr part HpartIsPart HblockMapped Hstart Hend Hloc).
       destruct Hcons0 as [HKS | [HPDT | HnoneBis]].
       - left. split. apply HKS. intro addr. unfold isBE. unfold isSHE. unfold isSCE. unfold isPADDR.
         rewrite HlookupsEq. apply HKS.
@@ -1772,13 +1772,16 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
     assert(sharedBlockNoPDflagNoLocIsKern s).
     { (* BEGIN sharedBlockNoPDflagNoLocIsKern s *)
       assert(Hcons0: sharedBlockNoPDflagNoLocIsKern s0) by intuition.
-      intros part block child startaddr HpartIsPart HblockIsEntry HPDchild HbeqChildNull HPDflag Hloc Hstart.
+      intros part block child startaddr HpartIsPart HblockMapped HPDchild HbeqChildNull HPDflag Hloc Hstart.
       unfold sh1entryPDchild in *. unfold sh1entryInChildLocationWeak in *. unfold bentryStartAddr in *.
-      unfold sh1entryPDflag in *. rewrite HlookupsEq in *.
+      unfold sh1entryPDflag in *. simpl. rewrite HlookupsEq in *.
       rewrite getPartitionsEqLookup with (s0 := s0) in HpartIsPart; trivial.
-      rewrite getKSEntriesEqLookup with (s0 := s0) in HblockIsEntry; trivial.
-      specialize(Hcons0 part block child startaddr HpartIsPart HblockIsEntry HPDchild HbeqChildNull HPDflag Hloc
+      rewrite getMappedBlocksEqLookup with (s0 := s0) in HblockMapped; trivial.
+      specialize(Hcons0 part block child startaddr HpartIsPart HblockMapped HPDchild HbeqChildNull HPDflag Hloc
         Hstart). rewrite getConfigBlocksEqLookup with (s0 := s0); trivial.
+      rewrite getChildrenEqLookup with (s0 := s0); trivial. destruct Hcons0 as (HstartIsConfig & HrangeNotShared).
+      split; trivial. intros addr child2. specialize(HrangeNotShared addr child2).
+      rewrite getMappedPaddrEqLookup with (s0 := s0); trivial.
       (* END sharedBlockNoPDflagNoLocIsKern *)
     }
     assert(partitionNotAutoMapped s).
@@ -3771,7 +3774,7 @@ assert(HunchangedAddresses: forall addr, ~ In addr (getAllPaddrBlock kernStart k
 assert(blocksAddressesTypes s).
 { (* BEGIN blocksAddressesTypes s *)
   assert(Hcons0: blocksAddressesTypes s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-  intros block startaddr endaddr part HpartIsPart HblockMapped HstartBlock HendBlock HPDchild.
+  intros block startaddr endaddr part HpartIsPart HblockMapped HstartBlock HendBlock Hloc.
   rewrite HgetPartsEq in *. assert(isPDT part s0).
   { apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition. }
   assert(HlookupBlockEqss1: lookup block (memory s) beqAddr = lookup block (memory s1) beqAddr).
@@ -3808,8 +3811,8 @@ assert(blocksAddressesTypes s).
     destruct (lookup (CPaddr (block + sh1offset)) (memory s0) beqAddr); try(exfalso; congruence). exists v.
     reflexivity.
   }
-  unfold sh1entryPDchild in HPDchild. rewrite HlookupSh1Eq in *. specialize(Hcons0 block startaddr endaddr part
-    HpartIsPart HblockMapped HstartBlock HendBlock HPDchild).
+  unfold sh1entryInChildLocationWeak in *. rewrite HlookupSh1Eq in *. specialize(Hcons0 block startaddr endaddr part
+    HpartIsPart HblockMapped HstartBlock HendBlock Hloc).
   destruct Hcons0 as [(HKS & Hrange) | [(HPDT & Hrange) | Hrange]].
   - left. split.
     + unfold isKS in *. rewrite HlookupSomeEq; try(destruct (lookup startaddr (memory s0) beqAddr);
@@ -3851,10 +3854,91 @@ assert(blocksAddressesTypes s).
             apply addressesBloodlineIfNotShared with addr blockKern; try(assumption); unfold consistency in *;
               unfold consistency1 in *; unfold consistency2 in *; intuition.
           }
+          assert(HPDchild: exists child, sh1entryPDchild (CPaddr (block+sh1offset)) child s0).
+          {
+            unfold sh1entryPDchild.
+            destruct (lookup (CPaddr (block+sh1offset)) (memory s0) beqAddr); try(exfalso; congruence).
+            destruct v; try(exfalso; congruence). exists (PDchild s4). reflexivity.
+          }
+          destruct HPDchild as [child HPDchild].
           assert(Hincl2: In partition (part :: filterOptionPaddr (completeParentsList part s0))).
           {
-            apply addressesBloodlineIfNotShared with addr block; try(assumption); unfold consistency in *;
-              unfold consistency1 in *; unfold consistency2 in *; intuition.
+            destruct (beqAddr child nullAddr) eqn:HbeqChildNull.
+            - rewrite <-DTL.beqAddrTrue in HbeqChildNull. subst child.
+              apply addressesBloodlineIfNotShared with addr block; try(assumption); unfold consistency in *;
+                unfold consistency1 in *; unfold consistency2 in *; intuition.
+            - rewrite <-DTL.beqAddrFalse in *. assert(HstartIsConfig: sharedBlockNoPDflagNoLocIsKern s0)
+                by (unfold consistency in *; unfold consistency1 in *; intuition).
+              assert(HPDflag: sh1entryPDflag (CPaddr (block+sh1offset)) false s0).
+              {
+                unfold sh1entryPDflag.
+                destruct (lookup (CPaddr (block+sh1offset)) (memory s0) beqAddr) eqn:HlookupSh1; try(congruence).
+                destruct v; try(congruence). destruct (PDflag s4) eqn:HPDflag; trivial. exfalso.
+                assert(HPDTIfPDflag: PDTIfPDFlag s0)
+                  by (unfold consistency in *; unfold consistency1 in *; intuition).
+                assert(HcheckChild: true = checkChild block s0 (CPaddr (block+sh1offset))
+                  /\ sh1entryAddr block (CPaddr (block+sh1offset)) s0).
+                {
+                  unfold checkChild. unfold sh1entryAddr.
+                  destruct (lookup block (memory s0) beqAddr); try(exfalso; congruence).
+                  destruct v; try(exfalso; congruence). rewrite HlookupSh1. auto.
+                }
+                specialize(HPDTIfPDflag block (CPaddr (block+sh1offset)) part HpartIsPart HblockMapped HcheckChild).
+                destruct HPDTIfPDflag as (_ & _ & [startBis (HstartBis & HstartIsPDT)]). unfold bentryStartAddr in *.
+                unfold entryPDT in *. destruct (lookup block (memory s0) beqAddr); try(congruence).
+                destruct v; try(congruence). rewrite <-HstartBlock in *. subst startBis. unfold isKS in *.
+                destruct (lookup startaddr (memory s0) beqAddr); try(congruence). destruct v; congruence.
+              }
+              specialize(HstartIsConfig part block child startaddr HpartIsPart HblockMapped HPDchild HbeqChildNull
+                HPDflag Hloc HstartBlock). destruct HstartIsConfig as (HstartIsConfig & HrangeNotShared).
+              assert(HpropsOr: In part (filterOptionPaddr (completeParentsList partition s0)) \/ part = partition
+                \/ In partition (filterOptionPaddr (completeParentsList part s0))).
+              {
+                apply addressesBloodline with addr; trivial; unfold consistency in *; unfold consistency1 in *;
+                  unfold consistency2 in *; intuition.
+              }
+              simpl. destruct HpropsOr as [HcontraAnc | Hres]; trivial. exfalso.
+              assert(HaddrInChildB: exists childB, In childB (getChildren part s0)
+                /\ In addr (getMappedPaddr childB s0)).
+              {
+                assert(HchildB: exists childB, pdentryParent childB part s0
+                  /\ In childB (getPartitions multiplexer s0)
+                  /\ In childB (partition::filterOptionPaddr (completeParentsList partition s0))).
+                {
+                  apply completeParentsListChild; trivial; unfold consistency in *; unfold consistency1 in *;
+                    intuition.
+                }
+                destruct HchildB as [childB (HparentB & HchildBIsPart & HchildBIsAnc)]. exists childB.
+                assert(HisChild: isChild s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+                assert(HbeqChildBRoot: childB <> constantRootPartM).
+                {
+                  assert(HparentOfPart: parentOfPartitionIsPartition s0)
+                    by (unfold consistency in *; unfold consistency1 in *; intuition).
+                  assert(HlookupChildB: exists pdentryC, lookup childB (memory s0) beqAddr = Some(PDT pdentryC)).
+                  {
+                    apply isPDTLookupEq. apply partitionsArePDT; trivial; unfold consistency in *;
+                      unfold consistency1 in *; intuition.
+                  }
+                  destruct HlookupChildB as [pdentryC HlookupChildB]. unfold pdentryParent in *.
+                  rewrite HlookupChildB in *. specialize(HparentOfPart childB pdentryC HlookupChildB).
+                  destruct HparentOfPart as (_ & HparentOfRoot & _). rewrite <-HparentB in *. intro HcontraRoot.
+                  specialize(HparentOfRoot HcontraRoot). rewrite HparentOfRoot in *. unfold isPDT in *.
+                  assert(isPADDR nullAddr s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+                  unfold isPADDR in *. destruct (lookup nullAddr (memory s0) beqAddr); try(congruence).
+                  destruct v; congruence.
+                }
+                specialize(HisChild childB part HchildBIsPart HparentB HbeqChildBRoot). split; trivial.
+                simpl in HchildBIsAnc. destruct HchildBIsAnc as [Heq | HchildBIsAnc].
+                - subst childB. assumption.
+                - revert HchildBIsAnc HaddrMappedKern. assert(childPaddrIsIntoParent s0).
+                  {
+                    apply blockInclImpliesAddrIncl; unfold consistency in *; unfold consistency1 in *; intuition.
+                  }
+                  apply addrBelongToAncestors; trivial; unfold consistency in *; unfold consistency1 in *;
+                    intuition.
+              }
+              destruct HaddrInChildB as [childB (HchildBIsChild & HaddrMappedChildB)].
+              specialize(HrangeNotShared addr childB HaddrInBlock HchildBIsChild). congruence.
           }
           destruct (beqAddr part partition) eqn:HbeqParts.
           - rewrite <-DTL.beqAddrTrue in HbeqParts. subst part.
@@ -3917,10 +4001,88 @@ assert(blocksAddressesTypes s).
           apply addressesBloodlineIfNotShared with addr blockKern; try(assumption); unfold consistency in *;
             unfold consistency1 in *; unfold consistency2 in *; intuition.
         }
+        assert(HPDchild: exists child, sh1entryPDchild (CPaddr (block+sh1offset)) child s0).
+        {
+          unfold sh1entryPDchild.
+          destruct (lookup (CPaddr (block+sh1offset)) (memory s0) beqAddr); try(exfalso; congruence).
+          destruct v; try(exfalso; congruence). exists (PDchild s4). reflexivity.
+        }
+        destruct HPDchild as [child HPDchild].
         assert(Hincl2: In partition (part :: filterOptionPaddr (completeParentsList part s0))).
         {
-          apply addressesBloodlineIfNotShared with addr block; try(assumption); unfold consistency in *;
-            unfold consistency1 in *; unfold consistency2 in *; intuition.
+          destruct (beqAddr child nullAddr) eqn:HbeqChildNull.
+          - rewrite <-DTL.beqAddrTrue in HbeqChildNull. subst child.
+            apply addressesBloodlineIfNotShared with addr block; try(assumption); unfold consistency in *;
+              unfold consistency1 in *; unfold consistency2 in *; intuition.
+          - rewrite <-DTL.beqAddrFalse in *. assert(HstartIsConfig: sharedBlockNoPDflagNoLocIsKern s0)
+              by (unfold consistency in *; unfold consistency1 in *; intuition).
+            assert(HPDflag: sh1entryPDflag (CPaddr (block+sh1offset)) false s0).
+            {
+              unfold sh1entryPDflag.
+              destruct (lookup (CPaddr (block+sh1offset)) (memory s0) beqAddr) eqn:HlookupSh1; try(congruence).
+              destruct v; try(congruence). destruct (PDflag s4) eqn:HPDflag; trivial. exfalso.
+              assert(HPDTIsNoChild: PDflagMeansNoChild s0)
+                by (unfold consistency in *; unfold consistency1 in *; intuition).
+              assert(HPDflagB: sh1entryPDflag (CPaddr (block+sh1offset)) true s0).
+              { unfold sh1entryPDflag. rewrite HlookupSh1. auto. }
+              assert(HblockIsBE: isBE block s0).
+              {
+                unfold isBE. destruct (lookup block (memory s0) beqAddr); try(congruence).
+                destruct v; try(congruence). trivial.
+              }
+              specialize(HPDTIsNoChild block HblockIsBE HPDflagB). unfold sh1entryPDchild in *.
+              rewrite HlookupSh1 in *.  rewrite <-HPDTIsNoChild in *. congruence.
+            }
+            specialize(HstartIsConfig part block child startaddr HpartIsPart HblockMapped HPDchild HbeqChildNull
+              HPDflag Hloc HstartBlock). destruct HstartIsConfig as (HstartIsConfig & HrangeNotShared).
+            assert(HpropsOr: In part (filterOptionPaddr (completeParentsList partition s0)) \/ part = partition
+              \/ In partition (filterOptionPaddr (completeParentsList part s0))).
+            {
+              apply addressesBloodline with addr; trivial; unfold consistency in *; unfold consistency1 in *;
+                unfold consistency2 in *; intuition.
+            }
+            simpl. destruct HpropsOr as [HcontraAnc | Hres]; trivial. exfalso.
+            assert(HaddrInChildB: exists childB, In childB (getChildren part s0)
+              /\ In addr (getMappedPaddr childB s0)).
+            {
+              assert(HchildB: exists childB, pdentryParent childB part s0
+                /\ In childB (getPartitions multiplexer s0)
+                /\ In childB (partition::filterOptionPaddr (completeParentsList partition s0))).
+              {
+                apply completeParentsListChild; trivial; unfold consistency in *; unfold consistency1 in *;
+                  intuition.
+              }
+              destruct HchildB as [childB (HparentB & HchildBIsPart & HchildBIsAnc)]. exists childB.
+              assert(HisChild: isChild s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+              assert(HbeqChildBRoot: childB <> constantRootPartM).
+              {
+                assert(HparentOfPart: parentOfPartitionIsPartition s0)
+                  by (unfold consistency in *; unfold consistency1 in *; intuition).
+                assert(HlookupChildB: exists pdentryC, lookup childB (memory s0) beqAddr = Some(PDT pdentryC)).
+                {
+                  apply isPDTLookupEq. apply partitionsArePDT; trivial; unfold consistency in *;
+                    unfold consistency1 in *; intuition.
+                }
+                destruct HlookupChildB as [pdentryC HlookupChildB]. unfold pdentryParent in *.
+                rewrite HlookupChildB in *. specialize(HparentOfPart childB pdentryC HlookupChildB).
+                destruct HparentOfPart as (_ & HparentOfRoot & _). rewrite <-HparentB in *. intro HcontraRoot.
+                specialize(HparentOfRoot HcontraRoot). rewrite HparentOfRoot in *. unfold isPDT in *.
+                assert(isPADDR nullAddr s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+                unfold isPADDR in *. destruct (lookup nullAddr (memory s0) beqAddr); try(congruence).
+                destruct v; congruence.
+              }
+              specialize(HisChild childB part HchildBIsPart HparentB HbeqChildBRoot). split; trivial.
+              simpl in HchildBIsAnc. destruct HchildBIsAnc as [Heq | HchildBIsAnc].
+              - subst childB. assumption.
+              - revert HchildBIsAnc HaddrMappedKern. assert(childPaddrIsIntoParent s0).
+                {
+                  apply blockInclImpliesAddrIncl; unfold consistency in *; unfold consistency1 in *; intuition.
+                }
+                apply addrBelongToAncestors; trivial; unfold consistency in *; unfold consistency1 in *;
+                  intuition.
+            }
+            destruct HaddrInChildB as [childB (HchildBIsChild & HaddrMappedChildB)].
+            specialize(HrangeNotShared addr childB HaddrInBlock HchildBIsChild). congruence.
         }
         destruct (beqAddr part partition) eqn:HbeqParts.
         - rewrite <-DTL.beqAddrTrue in HbeqParts. subst part.
@@ -4130,10 +4292,88 @@ assert(blocksAddressesTypes s).
           apply addressesBloodlineIfNotShared with addr blockKern; try(assumption); unfold consistency in *;
             unfold consistency1 in *; unfold consistency2 in *; intuition.
         }
+        assert(HPDchild: exists child, sh1entryPDchild (CPaddr (block+sh1offset)) child s0).
+        {
+          unfold sh1entryPDchild.
+          destruct (lookup (CPaddr (block+sh1offset)) (memory s0) beqAddr); try(exfalso; congruence).
+          destruct v; try(exfalso; congruence). exists (PDchild s4). reflexivity.
+        }
+        destruct HPDchild as [child HPDchild].
         assert(Hincl2: In partition (part :: filterOptionPaddr (completeParentsList part s0))).
         {
-          apply addressesBloodlineIfNotShared with addr block; try(assumption); unfold consistency in *;
-            unfold consistency1 in *; unfold consistency2 in *; intuition.
+          destruct (beqAddr child nullAddr) eqn:HbeqChildNull.
+          - rewrite <-DTL.beqAddrTrue in HbeqChildNull. subst child.
+            apply addressesBloodlineIfNotShared with addr block; try(assumption); unfold consistency in *;
+              unfold consistency1 in *; unfold consistency2 in *; intuition.
+          - rewrite <-DTL.beqAddrFalse in *. assert(HstartIsConfig: sharedBlockNoPDflagNoLocIsKern s0)
+              by (unfold consistency in *; unfold consistency1 in *; intuition).
+            assert(HPDflag: sh1entryPDflag (CPaddr (block+sh1offset)) false s0).
+            {
+              unfold sh1entryPDflag.
+              destruct (lookup (CPaddr (block+sh1offset)) (memory s0) beqAddr) eqn:HlookupSh1; try(congruence).
+              destruct v; try(congruence). destruct (PDflag s4) eqn:HPDflag; trivial. exfalso.
+              assert(HPDTIsNoChild: PDflagMeansNoChild s0)
+                by (unfold consistency in *; unfold consistency1 in *; intuition).
+              assert(HPDflagB: sh1entryPDflag (CPaddr (block+sh1offset)) true s0).
+              { unfold sh1entryPDflag. rewrite HlookupSh1. auto. }
+              assert(HblockIsBE: isBE block s0).
+              {
+                unfold isBE. destruct (lookup block (memory s0) beqAddr); try(congruence).
+                destruct v; try(congruence). trivial.
+              }
+              specialize(HPDTIsNoChild block HblockIsBE HPDflagB). unfold sh1entryPDchild in *.
+              rewrite HlookupSh1 in *.  rewrite <-HPDTIsNoChild in *. congruence.
+            }
+            specialize(HstartIsConfig part block child startaddr HpartIsPart HblockMapped HPDchild HbeqChildNull
+              HPDflag Hloc HstartBlock). destruct HstartIsConfig as (HstartIsConfig & HrangeNotShared).
+            assert(HpropsOr: In part (filterOptionPaddr (completeParentsList partition s0)) \/ part = partition
+              \/ In partition (filterOptionPaddr (completeParentsList part s0))).
+            {
+              apply addressesBloodline with addr; trivial; unfold consistency in *; unfold consistency1 in *;
+                unfold consistency2 in *; intuition.
+            }
+            simpl. destruct HpropsOr as [HcontraAnc | Hres]; trivial. exfalso.
+            assert(HaddrInChildB: exists childB, In childB (getChildren part s0)
+              /\ In addr (getMappedPaddr childB s0)).
+            {
+              assert(HchildB: exists childB, pdentryParent childB part s0
+                /\ In childB (getPartitions multiplexer s0)
+                /\ In childB (partition::filterOptionPaddr (completeParentsList partition s0))).
+              {
+                apply completeParentsListChild; trivial; unfold consistency in *; unfold consistency1 in *;
+                  intuition.
+              }
+              destruct HchildB as [childB (HparentB & HchildBIsPart & HchildBIsAnc)]. exists childB.
+              assert(HisChild: isChild s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+              assert(HbeqChildBRoot: childB <> constantRootPartM).
+              {
+                assert(HparentOfPart: parentOfPartitionIsPartition s0)
+                  by (unfold consistency in *; unfold consistency1 in *; intuition).
+                assert(HlookupChildB: exists pdentryC, lookup childB (memory s0) beqAddr = Some(PDT pdentryC)).
+                {
+                  apply isPDTLookupEq. apply partitionsArePDT; trivial; unfold consistency in *;
+                    unfold consistency1 in *; intuition.
+                }
+                destruct HlookupChildB as [pdentryC HlookupChildB]. unfold pdentryParent in *.
+                rewrite HlookupChildB in *. specialize(HparentOfPart childB pdentryC HlookupChildB).
+                destruct HparentOfPart as (_ & HparentOfRoot & _). rewrite <-HparentB in *. intro HcontraRoot.
+                specialize(HparentOfRoot HcontraRoot). rewrite HparentOfRoot in *. unfold isPDT in *.
+                assert(isPADDR nullAddr s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+                unfold isPADDR in *. destruct (lookup nullAddr (memory s0) beqAddr); try(congruence).
+                destruct v; congruence.
+              }
+              specialize(HisChild childB part HchildBIsPart HparentB HbeqChildBRoot). split; trivial.
+              simpl in HchildBIsAnc. destruct HchildBIsAnc as [Heq | HchildBIsAnc].
+              - subst childB. assumption.
+              - revert HchildBIsAnc HaddrMappedKern. assert(childPaddrIsIntoParent s0).
+                {
+                  apply blockInclImpliesAddrIncl; unfold consistency in *; unfold consistency1 in *; intuition.
+                }
+                apply addrBelongToAncestors; trivial; unfold consistency in *; unfold consistency1 in *;
+                  intuition.
+            }
+            destruct HaddrInChildB as [childB (HchildBIsChild & HaddrMappedChildB)].
+            specialize(HrangeNotShared addr childB HaddrInBlock HchildBIsChild). congruence.
         }
         destruct (beqAddr part partition) eqn:HbeqParts.
         - rewrite <-DTL.beqAddrTrue in HbeqParts. subst part.
@@ -4704,11 +4944,14 @@ assert(sharedBlockIsPresent s).
 assert(sharedBlockNoPDflagNoLocIsKern s).
 { (* BEGIN sharedBlockNoPDflagNoLocIsKern s *)
   assert(Hcons0: sharedBlockNoPDflagNoLocIsKern s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-  intros part block child startaddr HpartIsPart HblockIsEntry HPDchild HbeqChildNull HPDflag Hloc Hstart.
+  intros part block child startaddr HpartIsPart HblockMapped HPDchild HbeqChildNull HPDflag Hloc Hstart.
   rewrite HgetPartsEq in *. assert(isPDT part s0).
   { apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition. }
-  rewrite HgetKSEq in HblockIsEntry; trivial. assert(HblockIsBE: isBE block s0).
-  { apply KSentriesAreBE with part; assumption. }
+  rewrite HgetMappedEq in HblockMapped; trivial. assert(HblockIsBE: isBE block s0).
+  {
+    apply mappedBlockIsBE in HblockMapped. destruct HblockMapped as [bentry (Hlookup & _)]. unfold isBE.
+    rewrite Hlookup. trivial.
+  }
   assert(HlookupsEq: lookup (CPaddr (block+sh1offset)) (memory s) beqAddr
     = lookup (CPaddr (block+sh1offset)) (memory s0) beqAddr).
   {
@@ -4718,15 +4961,24 @@ assert(sharedBlockNoPDflagNoLocIsKern s).
     exists (SHE sh1entry). assumption.
   }
   unfold sh1entryPDchild in *. unfold sh1entryPDflag in *. unfold sh1entryInChildLocationWeak in *.
-  rewrite HlookupsEq in *. assert(Hstarts0: bentryStartAddr block startaddr s0).
+  rewrite HlookupsEq in *. assert(HlookupBlockEq: lookup block (memory s) beqAddr = lookup block (memory s0) beqAddr).
   {
-    unfold bentryStartAddr. rewrite <-HlookupSomeEq; trivial. unfold isBE in *.
+    apply HlookupSomeEq. unfold isBE in *.
     destruct (lookup block (memory s0) beqAddr); try(exfalso; congruence). exists v. reflexivity.
   }
-  specialize(Hcons0 part block child startaddr HpartIsPart HblockIsEntry HPDchild HbeqChildNull HPDflag Hloc
-    Hstarts0). rewrite HgetConfigBEq; trivial. unfold getConfigBlocks in *. unfold isPDT.
-  destruct (lookup child (memory s0) beqAddr); try(simpl in Hcons0; congruence).
-  destruct v; try(simpl in Hcons0; congruence). trivial.
+  unfold bentryStartAddr in *. simpl. rewrite HlookupBlockEq in *.
+  specialize(Hcons0 part block child startaddr HpartIsPart HblockMapped HPDchild HbeqChildNull HPDflag Hloc
+    Hstart). destruct Hcons0 as (HstartIsConfig & HrangeNotShared). assert(isPDT child s0).
+  {
+    unfold getConfigBlocks in *. unfold isPDT.
+    destruct (lookup child (memory s0) beqAddr); try(simpl in HstartIsConfig; congruence).
+    destruct v; try(simpl in HstartIsConfig; congruence). trivial.
+  }
+  rewrite HgetConfigBEq; trivial. rewrite HgetChildrenEq; trivial. split; trivial.
+  intros addr child2 HaddrInChild2 Hchild2IsChild.
+  specialize(HrangeNotShared addr child2 HaddrInChild2 Hchild2IsChild).
+  rewrite HgetMappedPaddrEq; trivial. apply childrenArePDT with part; trivial; unfold consistency in *;
+    unfold consistency1 in *; intuition.
   (* END sharedBlockNoPDflagNoLocIsKern *)
 }
 assert(partitionNotAutoMapped s).

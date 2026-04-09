@@ -577,8 +577,7 @@ In part (getPartitions multiplexer s)
 -> In block (getMappedBlocks part s)
 -> bentryStartAddr block startaddr s
 -> bentryEndAddr block endaddr s
-(*-> bentryPFlag block true s*)
--> sh1entryPDchild (CPaddr (block + sh1offset)) nullAddr s
+-> sh1entryInChildLocationWeak (CPaddr (block + sh1offset)) nullAddr s
 -> (isKS startaddr s
       /\ (forall addr, In addr (getAllPaddrBlock startaddr endaddr)
           -> (isBE addr s \/ isSHE addr s \/ isSCE addr s \/ isPADDR addr s \/ lookup addr (memory s) beqAddr = None))
@@ -704,13 +703,15 @@ In part (getPartitions multiplexer s)
 Definition sharedBlockNoPDflagNoLocIsKern s :=
 forall part block child startaddr,
 In part (getPartitions multiplexer s)
--> In block (filterOptionPaddr (getKSEntries part s))
+-> In block (getMappedBlocks part s)
 -> sh1entryPDchild (CPaddr (block+sh1offset)) child s
 -> child <> nullAddr
 -> sh1entryPDflag (CPaddr (block+sh1offset)) false s
 -> sh1entryInChildLocationWeak (CPaddr (block+sh1offset)) nullAddr s
 -> bentryStartAddr block startaddr s
--> In startaddr (getConfigBlocks child s).
+-> In startaddr (getConfigBlocks child s)
+    /\ (forall addr child2, In addr (getAllPaddrAux [block] s)
+          -> In child2 (getChildren part s) -> ~In addr (getMappedPaddr child2 s)).
 
 Definition partitionNotAutoMapped s :=
 forall part,

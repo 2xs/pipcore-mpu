@@ -237,7 +237,7 @@ match bound with
 														match lookup p s.(memory) beqAddr with
 														| Some (PADDR addr) => 	match Index.pred maxStructNbleft with
 																				|Some p => [SomePaddr currKernelStructure]++(getConfigBlocksAux bound1 addr s p)
-																				|None => [NonePaddr]
+																				|None => [SomePaddr currKernelStructure]
 																				end
 
 														|	_ => (* NOK *) [NonePaddr]
