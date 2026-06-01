@@ -363,11 +363,12 @@ Definition mergeMemoryBlocks (idBlockToMerge1 idBlockToMerge2 : paddr)
     - <idPD> must be either the current partition or a block in the current partition that
       hosts the partition descriptor of one of its children
     - <idRequisitionedBlock> must be an accessible block in <idPD>
-    - the current partition must have a number of kernel structures inferior to the
+    - <idPD> must have a number of kernel structures inferior to the
       max (currently 9)
     - the address range referenced by <idRequisitionedBlock> must be within the RAM
     - the size of the address range referenced by <idRequisitionedBlock> must be
-      superior to Constants.kernelStructureTotalLength (currently 25)
+      superior to Constants.kernelStructureTotalLength (currently 25, so always true
+      by virtue of the consistency properties)
     - <idRequisitionedBlock> must not have been shared with a child partition of <idPD>
 *)
 Definition prepare (idPD : paddr)
@@ -955,7 +956,6 @@ Definition findBlock (idPD: paddr) (addrInBlock : paddr) (blockResult: paddr) : 
     Conditions for the call to succeed:
     - <pd> must be either the current partition or a block in the current partition that
       hosts the partition descriptor of one of its children
-    - <pd> must have a set VIDT (the corresponding field must not be NULL)
     - <vidtAddr> must belong to a block accessible in <pd> that is not shared with a child
       of <pd>, and the interval between <vidtAddr> and the end address of that block must
       be of size superior to the minimum size of a VIDT

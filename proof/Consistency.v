@@ -390,7 +390,6 @@ In partition (getPartitions multiplexer s)
     /\ endaddr < endParent
     /\ (forall addr, In addr (getAllPaddrAux [block] s) -> In addr (getAllPaddrAux [blockParent] s)).
 
-(* New *)
 (** ** For any block mapped in a partition, if there is a next block, then the latter's starting address is the
         former's ending address ** **)
 Definition blockAndNextAreSideBySide s :=
@@ -644,14 +643,6 @@ In partition (getPartitions multiplexer s)
 -> idchild <> nullAddr
 -> In idchild (getChildren partition s).
 
-(*Definition isInChildIfPDchild s :=
-forall block partition child,
-In partition (getPartitions multiplexer s)
--> In block (getMappedBlocks partition s)
--> sh1entryPDchild (CPaddr (block + sh1offset)) child s
--> child <> nullAddr
--> In child (getChildren partition s) /\ incl (getAllPaddrAux [block] s) (getMappedPaddr child s).*)
-
 Definition childLocMappedInChild s :=
 forall partition block sh1entryaddr blockChild idchild startaddr,
 In partition (getPartitions multiplexer s)
@@ -711,7 +702,13 @@ In part (getPartitions multiplexer s)
 -> bentryStartAddr block startaddr s
 -> In startaddr (getConfigBlocks child s)
     /\ (forall addr child2, In addr (getAllPaddrAux [block] s)
-          -> In child2 (getChildren part s) -> ~In addr (getMappedPaddr child2 s)).
+          -> In child2 (getChildren part s) -> ~In addr (getMappedPaddr child2 s))
+    (* TODO add and propagate that prop about dead addresses
+    /\ (forall (addr:paddr) endaddr part2, bentryEndAddr block endaddr s
+          -> In part2 (getPartitions multiplexer s)
+          -> startaddr+Constants.kernelStructureTotalLength <= addr
+          -> addr < endaddr
+          -> ~In addr (getConfigPaddr part2 s)) *).
 
 Definition partitionNotAutoMapped s :=
 forall part,
@@ -724,13 +721,8 @@ forall part child addr,
 In part (getPartitions multiplexer s)
 -> In child (getChildren part s)
 -> In addr (getConfigPaddr part s)
--> ~In addr (getMappedPaddr child s).
-
-(*False because of prepare*)
-(* Definition configNotMappedRoot s :=
-forall addr,
-In addr (getConfigPaddr multiplexer s)
--> ~In addr (getMappedPaddr multiplexer s). *)
+-> ~In addr (getMappedPaddr child s)
+(* TODO replace the last line with this one and propagate -> ~In addr (getUsedPaddr child s) *).
 
 (*New*)
 Definition fullKernelIsInOneBlock s :=
@@ -753,6 +745,27 @@ In partition (getPartitions multiplexer s)
 -> blockChild <> nullAddr
 -> (forall addr, In addr (getAllPaddrAux [block] s)
     -> In addr (getMappedPaddr idchild s)).
+
+(*TODO HERE add to consistency1 and propagate*)
+Definition kernInSameBlock s :=
+forall parentBlock part idx block,
+In part (getPartitions multiplexer s)
+-> In parentBlock (getMappedBlocks part s)
+-> In block (getAllPaddrAux [parentBlock] s)
+-> bentryBlockIndex block idx s
+-> In (CPaddr (block-idx)) (getAllPaddrAux [parentBlock] s).
+
+(*TODO HERE add to consistency1 and propagate*)
+Definition blockAndSh1InSameBlock s :=
+forall (block:paddr) parentBlock,
+In (CPaddr (block+sh1offset)) (getAllPaddrAux [parentBlock] s)
+-> In block (getAllPaddrAux [parentBlock] s).
+
+(*TODO HERE add to consistency1 and propagate*)
+Definition blockAndSceInSameBlock s :=
+forall (block:paddr) parentBlock,
+In (CPaddr (block+scoffset)) (getAllPaddrAux [parentBlock] s)
+-> In block (getAllPaddrAux [parentBlock] s).
 
 (** ** First batch of consistency properties *)
 Definition consistency1 s :=

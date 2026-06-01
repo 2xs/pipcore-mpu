@@ -933,7 +933,7 @@ Fixpoint deleteSharedBlocksInStructRecAux 	(timeout : nat)
 														(* Set block accessible in current partition *)
 														writeBlockAccessibleFromBlockEntryAddr currBlockEntryAddr
 																																true ;;
-														writeSh1EntryFromBlockEntryAddr currBlockEntryAddr nullAddr false nullAddr ;;
+														writeSh1EntryFromBlockEntryAddrLight currBlockEntryAddr nullAddr false nullAddr ;;
                             (* forget the types inside the block, since it does not belong to the tree now *)
                             forgetBlock blockID endBlock ;;
 													(* 	whatever the accessibility of the block that could
