@@ -158,7 +158,7 @@ These tools are needed for cross-compiling bare-metal C for ARM Cortex-M chips.
 \texttt{arm-none-eabi-gcc} is the only C compiler known to compile Pip-MPU correctly.
 \texttt{clang}, for example, is not supported. To that end, you need a version of GCC capable of producing 32bits ELF binaries.
 
-The last known working version is v14.2.0.
+The last known working version is v16.1.0.
 
 \index{gdb-multiarch} \marginlabel{GNU Debugger multiarch:}
 The GNU Debugger allows you to debug a partition while it is executed on the
@@ -168,7 +168,7 @@ reason why GDB is not mandatory but highly recommended.
 \index{rocq}\marginlabel{The Rocq Prover:}
 Pip-MPU's source code and formal proof of its memory isolation properties are written
 using the Rocq Prover. In order to compile Rocq files and
-generate the required intermediate files for the kernel to build, you will need the 9.0.0 version of Rocq.
+generate the required intermediate files for the kernel to build, you will need the 9.1 version of Rocq.
 
 \index{opam} \marginlabel{OCaml Package Manager:}
 Opam is the package manager for the OCaml programming language, the language in
@@ -178,7 +178,7 @@ Prover to a specific version.
 \index{gnu}\marginlabel{GNU Toolchain:}
 GNU Sed and GNU Make are required to perform the compilation.
 
-The last working versions of \texttt{sed} is v4.9 and of \texttt{make} is v4.4.1.
+The last working versions of \texttt{sed} is v4.10 and of \texttt{make} is v4.4.1.
 
 \index{doxygen}\marginlabel{Doxygen:}
 Pip-MPU's documentation is generated through \texttt{rocq doc} (included with Rocq) for the Rocq parts, and Doxygen for the C parts.
@@ -190,7 +190,7 @@ The last working version of doxygen is v1.16.1.
 Pip-MPU's compilation chain targets an intermediate representation of C code from the CompCert project, to be able to prove the preservation of the semantic from Rocq's code down to the generated assembly.
 The tool achieving this compilation is called $\partial x$, and relies on Rocq-Elpi and the CompCert project.
 
-The last working version of $\partial x$ is compatible with CompCert 3.16 and Rocq-Elpi 3.2.0.
+The last working version of $\partial x$ is compatible with CompCert 3.17 and Rocq-Elpi 3.3.1.
 
 
 \index{stack}\marginlabel{Haskell Stack (unmaintained):}
@@ -250,12 +250,12 @@ of that project details the necessary steps to compile it, but here is an abridg
 \begin{lstlisting}[style=BashStyle]
 > git clone https://gitlab.univ-lille.fr/2xs/dx
 > cd dx
-> git switch rocq9.0
-> opam switch create pip 4.14.2
+> git switch compcert3.17
+> opam switch create pip-compcert3.17 4.14.3
 > eval $(opam env)
 > opam repository add coq-released https://coq.inria.fr/opam/released
-> opam install coq=9.0.0 coq-elpi=3.2.0 menhir=20250912
-> opam install -b coq-compcert=3.16
+> opam install rocq-core=9.1.1 rocq-elpi=3.3.1 menhir=20260209
+> opam install -b coq-compcert=3.17
 > opam pin .
 \end{lstlisting}
 
@@ -316,7 +316,7 @@ $\partial x$ was installed.
 If it was installed using opam, the path should be of the form
 
 \begin{lstlisting}[style=BashStyle]
-/home/<user>/.opam/pip/lib/dx
+/home/<user>/.opam/pip-compcert3.17/lib/dx
 \end{lstlisting}
 
 where $<$user$>$ is the username used on your computer.
