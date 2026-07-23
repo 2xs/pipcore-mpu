@@ -1,0 +1,41 @@
+image: "fvanhems/pip-mpu:1.0.0"
+
+variables:
+  DX_BRANCH: main
+
+build pip-mpu with dx:
+  stage: build
+  script:
+    - opam config list
+    - opam list
+    - LIB=$(opam var lib)
+
+    # get dx from latest CI artifacts
+    - echo "Download dx artifact from https://gitlab.univ-lille.fr/2xs/dx/-/jobs/artifacts/$DX_BRANCH/download?job=test"
+    - curl -L "https://gitlab.univ-lille.fr/2xs/dx/-/jobs/artifacts/$DX_BRANCH/download?job=test" -o dx.zip
+    - unzip -oq dx.zip
+    - rsync -rpt dx-and-deps/* $LIB
+
+    - rocq --version
+
+    # retrieve and build latest fae_format
+    - rm -rf $CI_BUILDS_DIR/fae_format
+    - git clone https://github.com/2xs/fae_format.git $CI_BUILDS_DIR/fae_format
+    - make -C $CI_BUILDS_DIR/fae_format
+
+    # fill toolchain infos
+    - ./configure.sh --architecture=dwm1001 --fae-directory=$CI_BUILDS_DIR/fae_format --dx=$LIB/dx --debugging-mode=semihosting --boot-sequence=default --no-command-check
+
+    # build pipmpu
+    - make
+
+    # build partition crt0
+    - make -C src/partition_crt0
+
+  artifacts:
+    paths:
+      - pip.elf
+      - pip.bin
+      - src/partition_crt0/build/crt0.elf
+      - src/partition_crt0/build/crt0.fae
+    expire_in: 1 hour
