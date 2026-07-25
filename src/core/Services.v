@@ -700,6 +700,7 @@ Definition deletePartition (idPDchildToDelete: paddr) : LLI bool :=
 		(*Removed because it is redundant
     perform globalIdPDChildToDelete := readBlockStartFromBlockEntryAddr idPDchildToDelete in
 		perform endPDChildToDelete := readBlockEndFromBlockEntryAddr idPDchildToDelete in*)
+
 		deleteSharedBlocksRec currentPart currKernelStructureStart blockStartAddr ;;
 
 		(** Erase PD child entry: remove sharing and set accessible for current partition *)

@@ -552,14 +552,17 @@ unfold sh1entryPDchild.
 rewrite H;trivial.
 Qed.
 
-Lemma lookupSh1EntryInChildLocation paddr s :
-forall entry , lookup paddr (memory s) beqAddr = Some (SHE entry) ->
+Lemma lookupSh1EntryInChildLocation part block paddr s :
+In part (getPartitions multiplexer s)
+-> In block (getMappedBlocks part s)
+-> paddr = CPaddr (block + sh1offset)
+-> forall entry , lookup paddr (memory s) beqAddr = Some (SHE entry) ->
 sh1InChildLocationIsBE s ->
 sh1entryInChildLocation paddr (inChildLocation entry) s.
 Proof.
-intros.
+intros HpartIsPart HblockMapped Hsh1 sh1entry HlookupPaddr HlocIsBE.
 unfold sh1entryInChildLocation.
-rewrite H;trivial.
+rewrite HlookupPaddr;trivial.
 intuition.
 unfold sh1InChildLocationIsBE in *.
 eauto.
@@ -1414,14 +1417,15 @@ eapply WP.bindRev.
 	intuition.
 Qed.
 
-(* DUP with deeper changes because of lookupSh1EntryInChildLocation *)
 Lemma readSh1InChildLocationFromBlockEntryAddr  (blockentryaddr : paddr) (Q : state -> Prop)  :
 {{fun s  =>  Q s /\ wellFormedFstShadowIfBlockEntry s /\ KernelStructureStartFromBlockEntryAddrIsKS s
     /\ BlocksRangeFromKernelStartIsBE s /\ nullAddrExists s /\ sh1InChildLocationIsBE s
+    /\ (exists part, In part (getPartitions multiplexer s) /\ In blockentryaddr (getMappedBlocks part s))
     /\ exists entry : BlockEntry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)}}
 MAL.readSh1InChildLocationFromBlockEntryAddr blockentryaddr
-{{fun inchildlocation s => Q s (*/\ consistency s*) (*/\ exists entry, lookup blockentryaddr s.(memory) beqAddr = Some (BE entry)*)
-										/\ exists sh1entry : Sh1Entry, exists sh1entryaddr : paddr, lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry)
+{{fun inchildlocation s => Q s
+										/\ exists sh1entry, exists sh1entryaddr,
+                          lookup sh1entryaddr s.(memory) beqAddr = Some (SHE sh1entry)
                     /\ sh1entryAddr blockentryaddr sh1entryaddr s
 										/\ sh1entryInChildLocation sh1entryaddr inchildlocation s}}.
 Proof.
@@ -1433,10 +1437,12 @@ eapply WP.bindRev.
 	eapply bind.
 	intros. apply ret.
 	eapply weaken. apply getSh1RecordField.
-	intros. simpl. destruct H. destruct H0. exists x.
-	split. intuition. split. apply H.
-	exists x. exists sh1entryaddr. split. apply H0. split; try(apply H0).
-	apply lookupSh1EntryInChildLocation. apply H0. intuition.
+	intros s Hprops. simpl. destruct Hprops as ((HQ & _ & _ & _ & _ & HlocIsBE & [part (HpartIsPart &
+    HblockMapped)] & [bentry HlookupBlock]) & [sh1entry (HlookupSh1 & Hsh1)]). exists sh1entry.
+	split; trivial. split; trivial.
+	exists sh1entry. exists sh1entryaddr. split; trivial. split; trivial. unfold sh1entryAddr in *.
+  rewrite HlookupBlock in *.
+	apply lookupSh1EntryInChildLocation with part blockentryaddr; assumption.
 Qed.
 
 Lemma getSCEntryAddrFromBlockEntryAddrLight  (blockentryaddr : paddr) (P : state -> Prop) :

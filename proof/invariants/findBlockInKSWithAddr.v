@@ -515,7 +515,7 @@ Qed.
 
 
 Lemma findBlockInKSWithAddr (idPD blockEntryAddr: paddr) (P : state -> Prop) :
-{{ fun s => P s /\ consistency s /\ isPDT idPD s}}
+{{ fun s => P s /\ consistency s /\ isPDT idPD s /\ In idPD (getPartitions multiplexer s)}}
 Internal.findBlockInKSWithAddr idPD blockEntryAddr 
 {{fun (blockaddr : paddr) (s : state) => P s /\ consistency s /\
 										(blockaddr = nullAddr \/
@@ -550,14 +550,13 @@ case_eq kernelstructureisnull.
 	eapply strengthen. eapply weaken. apply findBlockInKSWithAddrAux ; intuition.
 	intros. simpl in *. split. apply H. intuition.
 	rewrite <- beqAddrFalse in *. intuition.
-	assert(HPDT : isPDT idPD s)
-		by assumption.
+	assert(HPDT : isPDT idPD s) by assumption.
 	apply isPDTLookupEq in HPDT. destruct HPDT as [pdentry Hlookuppd].
 
 	assert(HStructurePointerIsKS : StructurePointerIsKS s)
 		by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-	unfold StructurePointerIsKS in *.
-	specialize (HStructurePointerIsKS idPD pdentry Hlookuppd).
+	unfold StructurePointerIsKS in *. assert(HpartIsPart: In idPD (getPartitions multiplexer s)) by assumption.
+	specialize (HStructurePointerIsKS idPD pdentry HpartIsPart Hlookuppd).
 	unfold pdentryStructurePointer in *.
 	rewrite Hlookuppd in *. subst. intuition.
 
@@ -566,7 +565,7 @@ case_eq kernelstructureisnull.
 	right.
 	rewrite <- beqAddrFalse in *.
 	intuition.
-	destruct H5 as [bentry Hbentry]. (* exists entry : BlockEntry,
+	destruct H6 as [bentry Hbentry]. (* exists entry : BlockEntry,
 										lookup a (memory s) beqAddr = Some (BE entry)... *)
 	exists bentry. intuition.
 	subst a.
@@ -590,7 +589,7 @@ case_eq kernelstructureisnull.
 				subst blockEntryAddr.
 				rewrite H3. (* lookup a ... *)
 				unfold bentryPFlag in *. rewrite H3 in *.
-				rewrite <- H5 in *. (* true = present bentry *)
+				rewrite <- H6 in *. (* true = present bentry *)
 				simpl. left. reflexivity.
 			--- destruct (lookup a (memory s) beqAddr) ; intuition.
 				destruct v ; intuition.

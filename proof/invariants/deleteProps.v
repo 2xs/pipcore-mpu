@@ -268,6 +268,85 @@ Proof.
 unfold getPartitions. apply getPartitionsAuxImplRemoveAddrRev.
 Qed.
 
+Lemma flatGetPartitionsAuxExt n m part l s :
+In part (flat_map (fun partBase => getPartitionsAux n partBase s) l)
+-> In part (flat_map (fun partBase => getPartitionsAux (n+m) partBase s) l).
+Proof.
+induction l; simpl; intro HpartIn; only 1: congruence. apply in_app_or in HpartIn. apply in_or_app.
+destruct HpartIn as [HpartInA | HpartInL]; auto. left. apply getPartitionsAuxExt; assumption.
+Qed.
+
+Lemma flatGetPartitionsAuxExtWithMidpoint n m part midPart l s:
+In part (getPartitionsAux m midPart s)
+-> In midPart (flat_map (fun partBase => getPartitionsAux n partBase s) l)
+-> In part (flat_map (fun partBase => getPartitionsAux (n+m) partBase s) l).
+Proof.
+intro HpartIsPartMid. induction l; simpl; intro HmidIn; only 1: congruence. apply in_app_or in HmidIn.
+apply in_or_app. destruct HmidIn as [HmidIsPartA | HmidInL]; auto. left.
+apply getPartitionsAuxExtWithMidpoint with midPart; assumption.
+Qed.
+
+
+Lemma oldPartsRemoveAddrAux n m part partBase s0 s removedAddr:
+(forall addr, addr <> removedAddr -> lookup addr (memory s) beqAddr = lookup addr (memory s0) beqAddr)
+-> lookup removedAddr (memory s) beqAddr = None
+-> isPDT removedAddr s0
+-> part <> removedAddr
+-> NoDup (getPartitionsAux (n+m) partBase s0)
+-> In removedAddr (getPartitionsAux n partBase s0)
+-> In part (getPartitionsAux m removedAddr s0)
+-> ~In part (getPartitionsAux (n+m) partBase s).
+Proof.
+intros HlookupsEq HlookupRemoved HremIsPDT HbeqPartRem. revert partBase.
+induction n; simpl; intros partBase HnoDup HremIsPartB HpartIsPartRem; only 1: (exfalso; congruence).
+apply NoDup_cons_iff in HnoDup. destruct HnoDup as (HpartBNotIn & HnoDup). apply and_not_or.
+destruct HremIsPartB as [Heq | HremIsPartB].
+- subst partBase. split; auto. unfold getChildren. rewrite HlookupRemoved. simpl. auto.
+- assert(partBase <> part).
+  {
+    contradict HpartBNotIn. subst part. clear HnoDup.
+    induction (getChildren partBase s0); simpl in *; only 1: congruence. apply in_app_or in HremIsPartB.
+    apply in_or_app. destruct HremIsPartB as [HremIsPartA | HremIsPartB]; auto. left.
+    apply getPartitionsAuxExtWithMidpoint with removedAddr; trivial.
+  }
+  split; trivial. clear HpartBNotIn. destruct (beqAddr partBase removedAddr) eqn:HbeqPartBRem.
+  + rewrite <-DTL.beqAddrTrue in HbeqPartBRem. subst partBase. unfold getChildren. rewrite HlookupRemoved. simpl.
+    auto.
+  + rewrite <-beqAddrFalse in *. rewrite getChildrenEqRemoveAddr with (s0:=s0) (removedAddr:=removedAddr); trivial.
+    induction (getChildren partBase s0); simpl in *; only 1: congruence. apply Lib.NoDupSplitInclIff in HnoDup.
+    destruct HnoDup as ((HnoDupA & HnoDup) & Hdisjoint). apply Lib.in_or_app_neg. apply in_app_or in HremIsPartB.
+    destruct HremIsPartB as [HremIsPartA | HremIsPartB]; split; auto.
+    * assert(HpartIsPartAExt: In part (getPartitionsAux (n+m) a s0)).
+      { apply getPartitionsAuxExtWithMidpoint with removedAddr; assumption. }
+      specialize(Hdisjoint part HpartIsPartAExt). clear HnoDup. clear IHl. contradict Hdisjoint.
+      induction l; simpl in *; only 1: congruence. apply in_or_app. apply in_app_or in Hdisjoint.
+      destruct Hdisjoint as [HpartIsPartA0 | HpartIsPartL]; auto. left.
+      apply getPartitionsImplRemoveAddrAux with s removedAddr; trivial.
+    * assert(HpartInL: In part (flat_map (fun p : paddr => getPartitionsAux (n + m) p s0) l)).
+      { apply flatGetPartitionsAuxExtWithMidpoint with removedAddr; trivial. }
+      apply Lib.disjointPermut in Hdisjoint. specialize(Hdisjoint part HpartInL). contradict Hdisjoint.
+      apply getPartitionsImplRemoveAddrAux with s removedAddr; trivial.
+Qed.
+
+Lemma oldPartsRemoveAddr part partBase s0 s removedAddr:
+(forall addr, addr <> removedAddr -> lookup addr (memory s) beqAddr = lookup addr (memory s0) beqAddr)
+-> lookup removedAddr (memory s) beqAddr = None
+-> isPDT removedAddr s0
+-> part <> removedAddr
+-> NoDup (getPartitions partBase s0)
+-> In removedAddr (getPartitions partBase s0)
+-> In part (getPartitions removedAddr s0)
+-> ~In part (getPartitions partBase s).
+Proof.
+unfold getPartitions. intros HlookupsEq HlookupRemoved HremIsPDT HbeqPartRem HnoDup HremIsPartB HpartIsPartRem.
+assert(Heq: getPartitionsAux (maxAddr+2 + (maxAddr+2)) partBase s0 = getPartitionsAux (maxAddr+2) partBase s0).
+{ apply lengthNoDupPartitions in HnoDup. apply getPartitionsEndAny; lia. }
+rewrite <-Heq in HnoDup.
+pose proof (oldPartsRemoveAddrAux (maxAddr+2) (maxAddr+2) part partBase s0 s removedAddr HlookupsEq HlookupRemoved
+  HremIsPDT HbeqPartRem HnoDup HremIsPartB HpartIsPartRem) as Hres. contradict Hres.
+apply getPartitionsAuxExt; assumption.
+Qed.
+
 Lemma getAccessibleMappedBlocksEqRemoveAddr part s0 s removedAddr:
 (forall addr, addr <> removedAddr -> lookup addr (memory s) beqAddr = lookup addr (memory s0) beqAddr)
 -> lookup removedAddr (memory s) beqAddr = None

@@ -180,6 +180,7 @@ Lemma firstFreeSlotPointerIsFirstFree (pd:paddr) (s:state) (pdentry:PDTable) (sl
                                       (nbfreeslots:index):
 slotListPd = getFreeSlotsList pd s
 /\ lookup pd (memory s) beqAddr = Some (PDT pdentry)
+/\ In pd (getPartitions multiplexer s)
 /\ firstfreeslot pdentry <> nullAddr
 /\ length (getFreeSlotsList pd s) = nbfreeslots
 /\ pdentryNbFreeSlots pd nbfreeslots s
@@ -191,7 +192,7 @@ slotListPd = getFreeSlotsList pd s
     /\ remainsSlotsList = getFreeSlotsListRec maxIdx (endAddr (blockrange b)) s newNbFree.
 Proof.
 intro Hprops.
-destruct Hprops as [HgetFreeSlotsList (HlookupPd & (HfirstFreeNotNull & (HnbfreeIsLength & 
+destruct Hprops as [HgetFreeSlotsList (HlookupPd & HpdIsPart & (HfirstFreeNotNull & (HnbfreeIsLength & 
 (HnbfreeIsNbFreeSlots & Hconsistency))))].
 assert(Hsucc: maxIdx + 1 = S maxIdx) by lia.
 destruct (getFreeSlotsList pd s) as [ | firstSlotPd slotList] eqn:HfreeSlotsListsPd;
@@ -214,7 +215,7 @@ assert(HnbfreeIsPos: StateLib.Index.ltb (ADT.nbfreeslots pdentry) zero = false).
 rewrite HnbfreeIsPos in HfreeSlotsListsPd.
 assert(HfirstFreeBE: FirstFreeSlotPointerIsBEAndFreeSlot s) by (unfold consistency1 in *; intuition).
 rewrite <-beqAddrFalse in HfirstFreeNotNull.
-specialize(HfirstFreeBE pd pdentry HlookupPd HfirstFreeNotNull).
+specialize(HfirstFreeBE pd pdentry HlookupPd HpdIsPart HfirstFreeNotNull).
 destruct HfirstFreeBE as [HfirstPisBE HfirstPisFree]. unfold isBE in HfirstPisBE.
 destruct (lookup (firstfreeslot pdentry) (memory s) beqAddr) eqn:HlookupFirstFreeP; try(exfalso; congruence).
 destruct v; try(exfalso; congruence). unfold pdentryNbFreeSlots in HnbfreeIsNbFreeSlots.
@@ -237,11 +238,12 @@ Qed.
 Lemma addrInAccessibleMappedIsAccessible partition block addr s:
 noDupMappedPaddrList s ->
 In addr (getAllPaddrAux [block] s) ->
-In block (getMappedBlocks partition s) -> (* by block found *)
+In partition (getPartitions multiplexer s)
+-> In block (getMappedBlocks partition s) -> (* by block found *)
 In addr (getAccessibleMappedPaddr partition s) ->
 bentryAFlag block true s.
 Proof.
-intros HnoDupMapped HInBlock HBlockInMapped HinAccMapped.
+intros HnoDupMapped HInBlock HpartIsPart HBlockInMapped HinAccMapped.
 unfold getAccessibleMappedPaddr in HinAccMapped.
 unfold getAccessibleMappedBlocks in HinAccMapped.
 assert(HPDT : isPDT partition s).
@@ -251,7 +253,7 @@ assert(HPDT : isPDT partition s).
 	destruct (lookup partition (memory s) beqAddr) ; intuition.
 	destruct v ; intuition.
 }
-specialize(HnoDupMapped partition HPDT). unfold getMappedPaddr in HnoDupMapped.
+specialize(HnoDupMapped partition HpartIsPart). unfold getMappedPaddr in HnoDupMapped.
 apply isPDTLookupEq in HPDT. destruct HPDT as [pdentry Hlookupd].
 rewrite Hlookupd in HinAccMapped.
 induction (getMappedBlocks partition s).
@@ -8458,26 +8460,27 @@ Qed.
 
 Lemma newFirstPDNotEq newBlockEntryAddr newFirstFreeSlotAddr pdinsertion x s :
 lookup pdinsertion (memory s) beqAddr = Some (PDT x) ->
-bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s ->
+In pdinsertion (getPartitions multiplexer s)
+-> bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s ->
 pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s ->
 (exists firstfreepointer, pdentryFirstFreeSlot pdinsertion firstfreepointer s /\
 		firstfreepointer <> nullAddr) ->
 consistency s ->
 newFirstFreeSlotAddr <> pdinsertion.
 Proof.
-intros HPDTs HbentryEnd Hfirstfree HfirstNotNull Hcons.
+intros HPDTs HpdIsPart HbentryEnd Hfirstfree HfirstNotNull Hcons.
 intro HnewFirstPDEq. (* pdinsertion would be in the free slots list so it would loop -> contradiction *)
 assert(HfirstIsBE : FirstFreeSlotPointerIsBEAndFreeSlot s)
 							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
-specialize(HfirstIsBE pdinsertion x HPDTs).
+specialize(HfirstIsBE pdinsertion x HPDTs HpdIsPart).
 destruct HfirstNotNull. unfold pdentryFirstFreeSlot in *.
 rewrite HPDTs in *. intuition. subst.
 specialize(HfirstIsBE H1). destruct (HfirstIsBE) as [_ HfreeNewFirst].
 assert(HNoDupInFreeSlotsList : NoDupInFreeSlotsList s)
 	by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 unfold NoDupInFreeSlotsList in *.
-specialize(HNoDupInFreeSlotsList pdinsertion x HPDTs).
+specialize(HNoDupInFreeSlotsList pdinsertion HpdIsPart).
 destruct HNoDupInFreeSlotsList.
 unfold getFreeSlotsList in *. rewrite HPDTs in *.
 destruct (beqAddr (firstfreeslot x) nullAddr) eqn:Hf.
@@ -8513,25 +8516,26 @@ Qed.
 (* DUP of newFirstPDNotEq *)
 Lemma firstBlockPDNotEq firstFreeAddr pdinsertion x s :
 lookup pdinsertion (memory s) beqAddr = Some (PDT x) ->
-pdentryFirstFreeSlot pdinsertion firstFreeAddr s ->
+In pdinsertion (getPartitions multiplexer s)
+-> pdentryFirstFreeSlot pdinsertion firstFreeAddr s ->
 (exists firstfreepointer, pdentryFirstFreeSlot pdinsertion firstfreepointer s /\
 		firstfreepointer <> nullAddr) ->
 consistency1 s ->
 firstFreeAddr <> pdinsertion.
 Proof.
-intros HPDTs Hfirstfree HfirstNotNull Hcons.
+intros HPDTs HpdIsPart Hfirstfree HfirstNotNull Hcons.
 intro HnewFirstPDEq. (* pdinsertion would be in the free slots list so it would loop -> contradiction *)
 assert(HfirstIsBE : FirstFreeSlotPointerIsBEAndFreeSlot s)
 							by (unfold consistency1 in * ; intuition).
 unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
-specialize(HfirstIsBE pdinsertion x HPDTs).
+specialize(HfirstIsBE pdinsertion x HPDTs HpdIsPart).
 destruct HfirstNotNull. unfold pdentryFirstFreeSlot in *.
 rewrite HPDTs in *. intuition. subst x0. subst firstFreeAddr.
 specialize(HfirstIsBE H1). destruct (HfirstIsBE) as [_ HfreeNewFirst].
 assert(HNoDupInFreeSlotsList : NoDupInFreeSlotsList s)
 	by (unfold consistency1 in * ; intuition).
 unfold NoDupInFreeSlotsList in *.
-specialize(HNoDupInFreeSlotsList pdinsertion x HPDTs).
+specialize(HNoDupInFreeSlotsList pdinsertion HpdIsPart).
 destruct HNoDupInFreeSlotsList.
 unfold getFreeSlotsList in *. rewrite HPDTs in *.
 destruct (beqAddr (firstfreeslot x) nullAddr) eqn:Hf.
@@ -8550,7 +8554,8 @@ Qed.
 
 Lemma newFirstSCENotEq scentryaddr scentry newBlockEntryAddr newFirstFreeSlotAddr pdinsertion x s :
 lookup pdinsertion (memory s) beqAddr = Some (PDT x) ->
-lookup scentryaddr (memory s) beqAddr = Some (SCE scentry) ->
+In pdinsertion (getPartitions multiplexer s)
+-> lookup scentryaddr (memory s) beqAddr = Some (SCE scentry) ->
 bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s ->
 pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s ->
 (exists firstfreepointer, pdentryFirstFreeSlot pdinsertion firstfreepointer s /\
@@ -8558,19 +8563,19 @@ pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s ->
 consistency s ->
 newFirstFreeSlotAddr <> scentryaddr.
 Proof.
-intros HPDTs Hscentrys HbentryEnd Hfirstfree HfirstNotNull Hcons.
+intros HPDTs HpdIsPart Hscentrys HbentryEnd Hfirstfree HfirstNotNull Hcons.
 intro HnewFirstSCEEq. (* sceaddr would be in the free slots list so SCE and BE at the same time -> contradiction *)
 assert(HfirstIsBE : FirstFreeSlotPointerIsBEAndFreeSlot s)
 							by (unfold consistency in * ; unfold consistency1 in *; intuition).
 unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
-specialize(HfirstIsBE pdinsertion x HPDTs).
+specialize(HfirstIsBE pdinsertion x HPDTs HpdIsPart).
 destruct HfirstNotNull. unfold pdentryFirstFreeSlot in *.
 rewrite HPDTs in *. intuition. subst x0.
 specialize(HfirstIsBE H1). destruct (HfirstIsBE) as [_ HfreeNewFirst].
 assert(HNoDupInFreeSlotsList : NoDupInFreeSlotsList s)
 	by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 unfold NoDupInFreeSlotsList in *.
-specialize(HNoDupInFreeSlotsList pdinsertion x HPDTs).
+specialize(HNoDupInFreeSlotsList pdinsertion HpdIsPart).
 destruct HNoDupInFreeSlotsList.
 assert(Hcontra : wellFormedFreeSlotsList x0 <> False) by intuition.
 contradict Hcontra.
@@ -8604,7 +8609,8 @@ Qed.
 
 Lemma newFirstSHENotEq sh1entryaddr sh1entry newBlockEntryAddr newFirstFreeSlotAddr pdinsertion x s :
 lookup pdinsertion (memory s) beqAddr = Some (PDT x) ->
-lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
+In pdinsertion (getPartitions multiplexer s)
+-> lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
 bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s ->
 pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s ->
 (exists firstfreepointer, pdentryFirstFreeSlot pdinsertion firstfreepointer s /\
@@ -8612,19 +8618,19 @@ pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s ->
 consistency s ->
 newFirstFreeSlotAddr <> sh1entryaddr.
 Proof.
-intros HPDTs Hsh1entrys HbentryEnd Hfirstfree HfirstNotNull Hcons.
+intros HPDTs HpdIsPart Hsh1entrys HbentryEnd Hfirstfree HfirstNotNull Hcons.
 intro HnewFirstSHEEq. (* sh1addr would be in the free slots list so SHE and BE at the same time -> contradiction *)
 assert(HfirstIsBE : FirstFreeSlotPointerIsBEAndFreeSlot s)
 							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
-specialize(HfirstIsBE pdinsertion x HPDTs).
+specialize(HfirstIsBE pdinsertion x HPDTs HpdIsPart).
 destruct HfirstNotNull. unfold pdentryFirstFreeSlot in *.
 rewrite HPDTs in *. intuition. subst x0.
 specialize(HfirstIsBE H1). destruct (HfirstIsBE) as [_ HfreeNewFirst].
 assert(HNoDupInFreeSlotsList : NoDupInFreeSlotsList s)
 	by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 unfold NoDupInFreeSlotsList in *.
-specialize(HNoDupInFreeSlotsList pdinsertion x HPDTs).
+specialize(HNoDupInFreeSlotsList pdinsertion HpdIsPart).
 destruct HNoDupInFreeSlotsList.
 assert(Hcontra : wellFormedFreeSlotsList x0 <> False) by intuition.
 contradict Hcontra.
@@ -8658,7 +8664,8 @@ Qed.
 
 Lemma newFirstnewBlockNotEq newFirstFreeSlotAddr newBlockEntryAddr bentry pdinsertion x s :
 lookup pdinsertion (memory s) beqAddr = Some (PDT x) ->
-lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) ->
+In pdinsertion (getPartitions multiplexer s)
+-> lookup newBlockEntryAddr (memory s) beqAddr = Some (BE bentry) ->
 bentryEndAddr newBlockEntryAddr newFirstFreeSlotAddr s ->
 pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s ->
 (exists firstfreepointer, pdentryFirstFreeSlot pdinsertion firstfreepointer s /\
@@ -8666,18 +8673,18 @@ pdentryFirstFreeSlot pdinsertion newBlockEntryAddr s ->
 consistency s ->
 newFirstFreeSlotAddr <> newBlockEntryAddr.
 Proof.
-intros HPDTs HNewBs HbentryEnd Hfirstfree HfirstNotNull Hcons.
+intros HPDTs HpdIsPart HNewBs HbentryEnd Hfirstfree HfirstNotNull Hcons.
 assert(HfirstIsBE : FirstFreeSlotPointerIsBEAndFreeSlot s)
 							by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 specialize(HfirstIsBE pdinsertion x HPDTs).
-destruct HfirstNotNull. unfold pdentryFirstFreeSlot in *.
-rewrite HPDTs in *. intuition. subst.
-specialize(HfirstIsBE H2). destruct (HfirstIsBE) as [_ HfreeNewFirst].
+destruct HfirstNotNull as [firstFree (HfirstFree & HbeqFirstFreeNull)]. unfold pdentryFirstFreeSlot in *.
+rewrite HPDTs in *. subst.
+specialize(HfirstIsBE HpdIsPart HbeqFirstFreeNull). destruct (HfirstIsBE) as [_ HfreeNewFirst]. intuition.
 assert(HNoDup: NoDupInFreeSlotsList s)
 	by (unfold consistency in * ; unfold consistency1 in * ; intuition).
 unfold NoDupInFreeSlotsList in *.
-specialize(HNoDup pdinsertion x HPDTs).
+specialize(HNoDup pdinsertion HpdIsPart).
 destruct HNoDup.
 unfold getFreeSlotsList in *.
 rewrite HPDTs in *.
@@ -8695,12 +8702,12 @@ induction succMaxIdx.
 	simpl ; lia.
 * (* N>0 *)
 	clear IHsuccMaxIdx.
-	destruct (Index.ltb nbfreeslots zero) eqn:Hf; intro; try(destruct H; subst x0; simpl in *; destruct H0;
+	destruct (Index.ltb nbfreeslots zero) eqn:Hf; intro; try(destruct H2; subst x0; simpl in *; destruct H3;
     congruence).
 	unfold bentryEndAddr in *.
 	rewrite HNewBs in *.
-	rewrite HbentryEnd in *. destruct H.
-	destruct (Index.pred nbfreeslots) eqn:Hff ; (subst ; cbn in * ; intuition).
+	rewrite HbentryEnd in *. destruct H. destruct H2.
+	destruct (Index.pred nbfreeslots) eqn:Hff; (subst; cbn in *; intuition; try(congruence)).
 	(* Show cycle *)
 	rewrite FreeSlotsListRec_unroll in*.
 	unfold getFreeSlotsListAux in *.
@@ -8712,8 +8719,7 @@ induction succMaxIdx.
 		rewrite HNewBs in *.
 		destruct (Index.ltb i zero) eqn:Hfff ; try(simpl in *; congruence).
 		destruct (Index.pred i) eqn:Hffff ; try(simpl in *; congruence).
-		subst. cbn in *.
-		contradict H4.
+		subst. cbn in *. contradict H3.
 		rewrite NoDup_cons_iff. intro Hcontra. apply Hcontra. simpl. left. reflexivity.
 Qed.
 
@@ -9026,7 +9032,6 @@ destruct i. f_equal. apply proof_irrelevance.
 Qed.
 
 Lemma getKSEntriesInStructAuxEqPDT structure addr' newEntry s0 n entriesleft:
-structure <> addr' ->
 ~ isBE addr' s0 ->
 getKSEntriesInStructAux n structure {|
 currentPartition := currentPartition s0;
@@ -9038,43 +9043,23 @@ revert n structure entriesleft.
 set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
-induction n.
-- intros.
-	unfold getKSEntriesInStructAux in *.
-	intuition.
-- intros.
-	unfold getKSEntriesInStructAux.
-	fold getKSEntriesInStructAux.
-	destruct (Index.ltb entriesleft zero) eqn:Hltbzero ; intuition.
-	destruct (Paddr.addPaddrIdx structure entriesleft) eqn:Hentry ; intuition.
-	destruct (beqAddr addr' p) eqn:Haddr'Eq ; try(exfalso ; congruence).
-	rewrite <- DTL.beqAddrTrue in Haddr'Eq.
-	subst p.
-	unfold isBE in *. unfold s' at 1. simpl. rewrite beqAddrTrue.
-	destruct (lookup addr' (memory s0) beqAddr) ; try(reflexivity).
-	destruct v ; try(reflexivity). exfalso; intuition.
-
-	assert(HlookupEq : lookup p (memory s') beqAddr = lookup p (memory s0) beqAddr).
-	{ unfold s'. simpl.
-		rewrite Haddr'Eq.
-		rewrite <- beqAddrFalse in *.
-	 	repeat rewrite removeDupIdentity ; intuition.
-	}
-	rewrite HlookupEq.
-
-	destruct (lookup p (memory s0) beqAddr) eqn:Hoffset' ; intuition.
-	destruct v ; try(exfalso ; congruence) ; intuition.
-
-	destruct (beqIdx entriesleft zero) eqn:Hiszero ; intuition.
-	destruct (Index.pred entriesleft) eqn:Hpredentry ; intuition.
-	f_equal.
-	specialize (IHn structure i).
-	destruct IHn ; intuition.
+induction n; intros; simpl; trivial.
+destruct (Paddr.addPaddrIdx structure entriesleft) eqn:Hentry ; trivial.
+destruct (beqAddr addr' p) eqn:Haddr'Eq.
+- rewrite <- DTL.beqAddrTrue in Haddr'Eq. subst p.
+  unfold isBE in *. destruct (lookup addr' (memory s0) beqAddr) ; trivial.
+  destruct v ; trivial. exfalso; intuition.
+- rewrite <- beqAddrFalse in *. rewrite removeDupIdentity ; auto.
+  destruct (lookup p (memory s0) beqAddr) eqn:Hoffset' ; trivial.
+  destruct v ; trivial.
+  destruct (beqIdx entriesleft zero) eqn:Hiszero ; trivial.
+  destruct (Index.pred entriesleft) eqn:Hpredentry ; trivial.
+  f_equal. specialize (IHn structure i).
+  destruct IHn ; intuition.
 Qed.
 
 
 Lemma getKSEntriesAuxEqPDT structure addr' newEntry s0 n:
-structure <> addr' ->
 ~ isPADDR addr' s0 ->
 ~ isBE addr' s0 ->
 getKSEntriesAux n structure {|
@@ -9087,65 +9072,36 @@ revert n structure.
 set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
-induction n.
-- intros.
-	unfold getKSEntriesAux in *.
-	intuition.
-- intros.
-	unfold getKSEntriesAux.
-	fold getKSEntriesAux.
-	destruct (Paddr.addPaddrIdx structure nextoffset) eqn:Hoffset ; intuition.
-	destruct (beqAddr addr' p) eqn:Haddr'Eq ; try(exfalso ; congruence).
-	+ rewrite <- DTL.beqAddrTrue in Haddr'Eq.
-	  subst p. simpl. rewrite beqAddrTrue.
-	  unfold isPADDR in *.
-	  destruct (lookup addr' (memory s0) beqAddr) ; try(reflexivity).
-	  destruct v ; try(reflexivity). exfalso; intuition.
-  +
-	  assert(HlookupEq : lookup p (memory s') beqAddr = lookup p (memory s0) beqAddr).
-	  { unfold s'. simpl.
-		  rewrite Haddr'Eq.
-		  rewrite <- beqAddrFalse in *.
-	   	repeat rewrite removeDupIdentity ; intuition.
-	  }
-	  rewrite HlookupEq.
-
-	  destruct (lookup p (memory s0) beqAddr) eqn:Hoffset' ; intuition.
-	  destruct v ; try(exfalso ; congruence) ; intuition.
-
-	  destruct (beqAddr addr' p0) eqn:Haddr'Eq0 ; try(exfalso ; congruence).
-	  rewrite <- DTL.beqAddrTrue in Haddr'Eq0.
-	  subst p0. simpl. rewrite beqAddrTrue.
-	  unfold isPADDR in *. unfold isBE in *.
-	  destruct (lookup addr' (memory s0) beqAddr) ; try(reflexivity).
-	  destruct v ; try(reflexivity). exfalso; intuition. exfalso; intuition.
-
-	  assert(HlookupEq' : lookup p0 (memory s') beqAddr = lookup p0 (memory s0) beqAddr).
-	  { unfold s'. cbn.
-		  rewrite Haddr'Eq0.
-		  rewrite <- beqAddrFalse in *.
-	   	repeat rewrite removeDupIdentity ; intuition.
-	  }
-	  rewrite HlookupEq'.
-
-	  destruct (lookup p0 (memory s0) beqAddr) eqn:Hoffset'' ; try(reflexivity).
-	  destruct v ; try(exfalso ; congruence) ; intuition.
-	  f_equal.
-	  apply getKSEntriesInStructAuxEqPDT ; intuition.
-    specialize (IHn p0).
-	  destruct IHn ; intuition.
-	  subst p0. unfold isBE in *.
-	  destruct (lookup addr' (memory s0) beqAddr) ; try(exfalso ; congruence).
-	  destruct v ; try(exfalso ; congruence). intuition.
-	  destruct (beqAddr p0 nullAddr) eqn:Hp0Null ; intuition.
-	  apply getKSEntriesInStructAuxEqPDT ; intuition.
+induction n; intros; simpl; trivial.
+destruct (Paddr.addPaddrIdx structure nextoffset) eqn:Hoffset ; intuition.
+destruct (beqAddr addr' p) eqn:Haddr'Eq.
++ rewrite <- DTL.beqAddrTrue in Haddr'Eq.
+  subst p. unfold isPADDR in *.
+  destruct (lookup addr' (memory s0) beqAddr) ; trivial.
+  destruct v ; trivial. exfalso; intuition.
++ rewrite <- beqAddrFalse in *. rewrite removeDupIdentity ; auto.
+  destruct (lookup p (memory s0) beqAddr) eqn:Hoffset' ; trivial.
+  destruct v; trivial.
+  destruct (beqAddr addr' p0) eqn:Haddr'Eq0.
+  * rewrite <- DTL.beqAddrTrue in Haddr'Eq0. subst p0.
+    unfold isPADDR in *. unfold isBE in *.
+    destruct (lookup addr' (memory s0) beqAddr) ; trivial.
+    destruct v ; trivial; exfalso; intuition.
+  * rewrite <- beqAddrFalse in *. rewrite removeDupIdentity ; auto.
+    destruct (lookup p0 (memory s0) beqAddr) eqn:Hoffset'' ; trivial.
+    destruct v ; trivial.
+    --- f_equal.
+        apply getKSEntriesInStructAuxEqPDT ; trivial.
+        specialize (IHn p0).
+        apply IHn ; trivial.
+    --- destruct (beqAddr p0 nullAddr) eqn:Hp0Null ; trivial.
+        apply getKSEntriesInStructAuxEqPDT ; intuition.
 Qed.
 
 Lemma getKSEntriesEqPDT partition addr' newEntry s0 pdentry0:
 lookup addr' (memory s0) beqAddr = Some (PDT pdentry0) ->
-StructurePointerIsKS s0 ->
-(structure newEntry) = (structure pdentry0) ->
-getKSEntries partition {|
+(structure newEntry) = (structure pdentry0)
+-> getKSEntries partition {|
 						currentPartition := currentPartition s0;
 						memory := add addr' (PDT newEntry)
             (memory s0) beqAddr |} =
@@ -9154,7 +9110,7 @@ Proof.
 set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
-intros Hlookuppds0 HstructKS HstructEq.
+intros Hlookuppds0 HstructEq.
 assert(HPDTs0 : isPDT addr' s0) by (unfold isPDT ; rewrite Hlookuppds0 ; trivial).
 unfold getKSEntries.
 unfold s' at 1. simpl lookup.
@@ -9167,15 +9123,8 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 	destruct (beqAddr (structure pdentry0) nullAddr) eqn:structNull ; intuition.
 	assert(HEq :  (getKSEntriesAux (maxNbPrepare+1) (structure pdentry0) s') =
   (getKSEntriesAux (maxNbPrepare+1) (structure pdentry0) s0)).
-	{ apply getKSEntriesAuxEqPDT.
-		- intro Hcontra. unfold StructurePointerIsKS in *.
-		  specialize (HstructKS partition pdentry0 Hlookuppds0).
-		  unfold isKS in *.
-		  subst partition.
-		  destruct (lookup (structure pdentry0) (memory s0) beqAddr) ; try(exfalso ; congruence).
-		  destruct v ; try(exfalso ; congruence).
-      rewrite <- beqAddrFalse in *.
-      intuition.
+	{
+    apply getKSEntriesAuxEqPDT.
     - unfold isPADDR. unfold isPDT in *.
       destruct (lookup partition (memory s0) beqAddr); try(exfalso; congruence).
       destruct v; try(exfalso; congruence). intro Hres. congruence.
@@ -9187,40 +9136,24 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 	intuition.
 - (* addr' <> partition *)
 	rewrite <- beqAddrFalse in *.
-	repeat rewrite removeDupIdentity ; intuition.
-	destruct (lookup partition (memory s0) beqAddr) eqn:Hlookupparts0 ; intuition.
-	destruct v ; intuition.
-	destruct (beqAddr (structure p) nullAddr) eqn:structNull ; intuition.
-	assert(HEq :  (getKSEntriesAux (maxNbPrepare+1) (structure p) s') =
-  (getKSEntriesAux (maxNbPrepare+1) (structure p) s0)).
-	{
-		apply getKSEntriesAuxEqPDT.
-		- intro Hcontra. unfold StructurePointerIsKS in *.
-		  specialize (HstructKS partition p Hlookupparts0).
-		  unfold isKS in *.
-		  subst addr'.
-		  unfold isPDT in *.
-		  destruct (lookup (structure p) (memory s0) beqAddr) ; try(exfalso ; congruence).
-		  destruct v ; try(exfalso ; congruence).
-      rewrite <- beqAddrFalse in *.
-      intuition.
-    - unfold isPADDR. unfold isPDT in *.
-      destruct (lookup addr' (memory s0) beqAddr); try(exfalso; congruence).
-      destruct v; try(exfalso; congruence). intro Hres. congruence.
-    - unfold isBE. unfold isPDT in *.
-      destruct (lookup addr' (memory s0) beqAddr); try(exfalso; congruence).
-      destruct v; try(exfalso; congruence). intro Hres. congruence.
-	}
-	rewrite HEq.
-	intuition.
+	repeat rewrite removeDupIdentity ; auto.
+	destruct (lookup partition (memory s0) beqAddr) eqn:Hlookupparts0 ; trivial.
+	destruct v ; trivial.
+	destruct (beqAddr (structure p) nullAddr) eqn:structNull ; trivial.
+	apply getKSEntriesAuxEqPDT.
+  + unfold isPADDR. unfold isPDT in *.
+    destruct (lookup addr' (memory s0) beqAddr); try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). intro Hres. congruence.
+  + unfold isBE. unfold isPDT in *.
+    destruct (lookup addr' (memory s0) beqAddr); try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). intro Hres. congruence.
 Qed.
 
 Lemma getKSEntriesEqPDTNotInPart partition addr' newEntry s0:
 ~ isPADDR addr' s0 ->
 ~ isBE addr' s0 ->
-partition <> addr' ->
-StructurePointerIsKS s0 ->
-getKSEntries partition {|
+partition <> addr'
+-> getKSEntries partition {|
 						currentPartition := currentPartition s0;
 						memory := add addr' (PDT newEntry)
             (memory s0) beqAddr |} =
@@ -9229,7 +9162,7 @@ Proof.
 set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
-intros Haddr'NotPADDRs0 Haddr'NotBEs0 HpartNotEq HstructKS.
+intros Haddr'NotPADDRs0 Haddr'NotBEs0 HpartNotEq.
 unfold getKSEntries.
 unfold s' at 1. simpl lookup.
 destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
@@ -9247,15 +9180,7 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 	assert(HEq :  (getKSEntriesAux (maxNbPrepare+1) (structure p) s') =
   (getKSEntriesAux (maxNbPrepare+1) (structure p) s0)).
 	{
-		apply getKSEntriesAuxEqPDT ; intuition.
-		unfold StructurePointerIsKS in *.
-		specialize (HstructKS partition p Hlookupparts0).
-		unfold isKS in *.
-		subst addr'.
-		unfold isBE in *.
-    rewrite <- beqAddrFalse in *. specialize(HstructKS structNull).
-		destruct (lookup (structure p) (memory s0) beqAddr) ; try(intuition ; congruence).
-		destruct v ; intuition.
+		apply getKSEntriesAuxEqPDT; intuition.
 	}
 	rewrite HEq.
 	intuition.
@@ -11356,9 +11281,8 @@ Qed.
 
 Lemma getMappedBlocksEqPDT partition addr' newEntry s0 pdentry0:
 lookup addr' (memory s0) beqAddr = Some (PDT pdentry0) ->
-StructurePointerIsKS s0 ->
-(structure newEntry) = (structure pdentry0) ->
-getMappedBlocks partition {|
+(structure newEntry) = (structure pdentry0)
+-> getMappedBlocks partition {|
 						currentPartition := currentPartition s0;
 						memory := add addr' (PDT newEntry)
             (memory s0) beqAddr |} =
@@ -11367,7 +11291,7 @@ Proof.
 set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
-intros Hlookuppds0 HstructPtIsKS HstructEq.
+intros Hlookuppds0 HstructPtIsKS.
 assert(HPDTs0 : isPDT addr' s0) by (unfold isPDT ; rewrite Hlookuppds0 ; trivial).
 unfold getMappedBlocks.
 	assert(HEq :  getKSEntries partition s' = getKSEntries partition s0).
@@ -11380,9 +11304,8 @@ Qed.
 
 Lemma getMappedBlocksEqPDTNotInPart partition addr' newEntry s0:
 isPDT addr' s0 ->
-partition <> addr' ->
-StructurePointerIsKS s0 ->
-getMappedBlocks partition {|
+partition <> addr'
+-> getMappedBlocks partition {|
 						currentPartition := currentPartition s0;
 						memory := add addr' (PDT newEntry)
             (memory s0) beqAddr |} =
@@ -11391,7 +11314,7 @@ Proof.
 set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
-intros Hlookupaddr's0 HpartNotEq HstructEq.
+intros Hlookupaddr's0 HpartNotEq.
 unfold getMappedBlocks.
 	assert(HEq :  getKSEntries partition s' = getKSEntries partition s0).
 	{ apply getKSEntriesEqPDTNotInPart; unfold isPDT in *; intuition.
@@ -11429,7 +11352,7 @@ eapply filterPresentEqBENoChange with bentry0; intuition.
 Qed.
 
 Lemma getMappedBlocksInclBEPresentTrue block partition addr newEntry s0 bentry0:
-isPDT partition s0 ->
+In partition (getPartitions multiplexer s0) ->
 lookup addr (memory s0) beqAddr = Some (BE bentry0) ->
 present newEntry <> present bentry0 ->
 (present newEntry) = true ->
@@ -11460,7 +11383,7 @@ rewrite HgetKSEq. apply filterPresentEqBEChangePresentTrueEquivalence with bentr
 Qed.
 
 Lemma getMappedBlocksEqBEPresentChange block partition addr' newEntry s0 bentry0:
-isPDT partition s0 ->
+In partition (getPartitions multiplexer s0) ->
 lookup addr' (memory s0) beqAddr = Some (BE bentry0) ->
 (present newEntry) <> (present bentry0) ->
 (present newEntry) = true ->
@@ -11567,7 +11490,7 @@ destruct (beqAddr addr' a) eqn:beqaddr'a ; try (exfalso ; congruence).
 Qed.
 
 Lemma getMappedBlocksEqBEPresentChangeEquivalence block partition addr' newEntry s0 bentry0:
-isPDT partition s0 ->
+In partition (getPartitions multiplexer s0) ->
 lookup addr' (memory s0) beqAddr = Some (BE bentry0) ->
 (present newEntry) <> (present bentry0) ->
 (present newEntry) = true ->
@@ -11813,9 +11736,8 @@ Qed.
 
 Lemma getAccessibleMappedBlocksEqPDT partition addr' newEntry s0 pdentry0:
 lookup addr' (memory s0) beqAddr = Some (PDT pdentry0) ->
-StructurePointerIsKS s0 ->
-(structure newEntry) = (structure pdentry0) ->
-getAccessibleMappedBlocks partition {|
+(structure newEntry) = (structure pdentry0)
+-> getAccessibleMappedBlocks partition {|
 						currentPartition := currentPartition s0;
 						memory := add addr' (PDT newEntry)
             (memory s0) beqAddr |} =
@@ -11824,7 +11746,7 @@ Proof.
 set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
-intros Hlookuppds0 HstructPtIsKS HstructEq.
+intros Hlookuppds0 HstructPtIsKS.
 assert(HPDTs0 : isPDT addr' s0) by (unfold isPDT ; rewrite Hlookuppds0 ; trivial).
 
 unfold getAccessibleMappedBlocks.
@@ -11853,9 +11775,8 @@ Qed.
 
 Lemma getAccessibleMappedBlocksEqPDTNotInPart partition addr' newEntry s0:
 isPDT addr' s0 ->
-partition <> addr' ->
-StructurePointerIsKS s0 ->
-getAccessibleMappedBlocks partition {|
+partition <> addr'
+-> getAccessibleMappedBlocks partition {|
 						currentPartition := currentPartition s0;
 						memory := add addr' (PDT newEntry)
             (memory s0) beqAddr |} =
@@ -11864,7 +11785,7 @@ Proof.
 set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
-intros Hlookupaddr's0 HpartNotEq HstructEq.
+intros Hlookupaddr's0 HpartNotEq.
 unfold getAccessibleMappedBlocks.
 
 assert(HlookuppdEq : lookup partition (memory s') beqAddr = lookup partition (memory s0) beqAddr).
@@ -12176,7 +12097,7 @@ Qed.
 
 (* DUP *)
 Lemma getAccessibleMappedBlocksEqBEPresentTrueNoChangeAccessibleTrueChangeEquivalence partition block addr' newEntry bentry0 s0:
-isPDT partition s0 ->
+In partition (getPartitions multiplexer s0) ->
 lookup addr' (memory s0) beqAddr = Some (BE bentry0) ->
 (present newEntry) = (present bentry0) ->
 (present newEntry) = true ->
@@ -12197,7 +12118,12 @@ currentPartition := currentPartition s0;
 memory := _ |}).
 intros HPDTs0 Hlookupaddr's0 HpresentEq Hpresenttrue HacccessibleNotEq Haccessibletrue.
 intros HNoDupMappedBlocks HaddrInKSentriess0.
-assert(HPDTs0' : isPDT partition s0) by intuition.
+assert(HPDTs0' : isPDT partition s0).
+{
+  unfold getKSEntries in *. unfold isPDT.
+  destruct (lookup partition (memory s0) beqAddr); try(simpl in *; congruence).
+  destruct v; try(simpl in *; congruence). trivial.
+}
 apply isPDTLookupEq in HPDTs0'. destruct HPDTs0' as [pdentry0 Hlookuppds0].
 
 assert(Haddr'NotMapped : ~In addr' (getAccessibleMappedBlocks partition s0)).
@@ -12985,9 +12911,8 @@ Qed.
 
 Lemma getChildrenEqPDT partition addr' newEntry s0 pdentry0:
 lookup addr' (memory s0) beqAddr = Some (PDT pdentry0) ->
-(structure newEntry) = (structure pdentry0) ->
-StructurePointerIsKS s0 ->
-getChildren partition {|
+(structure newEntry) = (structure pdentry0)
+-> getChildren partition {|
 						currentPartition := currentPartition s0;
 						memory := add addr' (PDT newEntry)
             (memory s0) beqAddr |} =
@@ -12996,7 +12921,7 @@ Proof.
 set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
-intros Hlookuppds0 HstructEq HStructPtIsKS.
+intros Hlookuppds0 HstructEq.
 unfold getChildren.
 unfold s'. simpl.
 
@@ -13029,10 +12954,9 @@ Qed.
 
 
 Lemma getChildrenEqPDTNotInPart partition addr' newEntry s0 pdentry0:
-StructurePointerIsKS s0 ->
 lookup addr' (memory s0) beqAddr = Some (PDT pdentry0) ->
-partition <> addr' ->
-getChildren partition {|
+partition <> addr'
+-> getChildren partition {|
 						currentPartition := currentPartition s0;
 						memory := add addr' (PDT newEntry)
             (memory s0) beqAddr |} =
@@ -13041,7 +12965,7 @@ Proof.
 set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
-intros HStructPtIsKSs0 Hlookupaddr's0 Haddr'partNotEq.
+intros Hlookupaddr's0 Haddr'partNotEq.
 unfold getChildren.
 unfold s'. simpl.
 
@@ -13182,7 +13106,7 @@ Qed.
 (* if the content of the BE entry changed, but its pdflag was not set, then
 		it doesn't participate in the children list and thus the list remains unchanged *)
 Lemma getChildrenEqBEPDflagFalsePresentTrueChange partition addr' newEntry bentry0 sh1entryaddr s0:
-isPDT partition s0 ->
+In partition (getPartitions multiplexer s0) ->
 lookup addr' (memory s0) beqAddr = Some (BE bentry0) ->
 In addr' (filterOptionPaddr (getKSEntries partition s0)) ->
 sh1entryAddr addr' sh1entryaddr s0 ->
@@ -13208,10 +13132,7 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 - (* addr' = partition *)
 	rewrite <- DTL.beqAddrTrue in beqpartaddr.
 	fold s'.
-	subst addr'.
-	unfold isPDT in *. unfold isBE in *.
-	destruct (lookup partition (memory s0) beqAddr) ; try(exfalso ; congruence).
-	destruct v ; try(exfalso ; congruence).
+	subst addr'. rewrite HBEs0. reflexivity.
 
 - (* addr' <> partition *)
 	rewrite <- beqAddrFalse in *.
@@ -14399,9 +14320,8 @@ Qed.
 (* DUP *)
 Lemma getMappedPaddrEqPDT partition addr' newEntry pdentry0 s0:
 lookup addr' (memory s0) beqAddr = Some (PDT pdentry0) ->
-(structure newEntry) = (structure pdentry0) ->
-StructurePointerIsKS s0 ->
-getMappedPaddr partition {|
+(structure newEntry) = (structure pdentry0)
+-> getMappedPaddr partition {|
 						currentPartition := currentPartition s0;
 						memory := add addr' (PDT newEntry)
             (memory s0) beqAddr |} =
@@ -14410,7 +14330,7 @@ Proof.
 set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
-intros Hlookuppds0 HstructEq HKSPtnIsKS.
+intros Hlookuppds0 HKSPtnIsKS.
 unfold getMappedPaddr.
 unfold s'. simpl.
 
@@ -14440,9 +14360,8 @@ Qed.
 
 Lemma getMappedPaddrEqPDTNotInPart partition addr' newEntry s0:
 isPDT addr' s0 ->
-partition <> addr' ->
-StructurePointerIsKS s0 ->
-getMappedPaddr partition {|
+partition <> addr'
+-> getMappedPaddr partition {|
 						currentPartition := currentPartition s0;
 						memory := add addr' (PDT newEntry)
             (memory s0) beqAddr |} =
@@ -14451,7 +14370,7 @@ Proof.
 set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
-intros Hlookupaddr's0 HpartNotEq HstructEq.
+intros Hlookupaddr's0 HpartNotEq.
 unfold getMappedPaddr.
 unfold s'. simpl.
 
@@ -14523,7 +14442,7 @@ Qed.
 
 (* DUP *)
 Lemma getMappedPaddrEqBEPresentTrueChange partition block addr newEntry bentry0 s0:
-isPDT partition s0 ->
+In partition (getPartitions multiplexer s0) ->
 lookup block (memory s0) beqAddr = Some (BE bentry0) ->
 (present newEntry) <> (present bentry0) ->
 (present newEntry) = true ->
@@ -14693,7 +14612,7 @@ Qed.
 
 (* DUP *)
 Lemma getMappedPaddrEqBEPresentTrueChangeEquivalence partition block addr newEntry bentry0 s0:
-isPDT partition s0 ->
+In partition (getPartitions multiplexer s0) ->
 lookup block (memory s0) beqAddr = Some (BE bentry0) ->
 (present newEntry) <> (present bentry0) ->
 (present newEntry) = true ->
@@ -14874,7 +14793,7 @@ Qed.
 
 
 Lemma getMappedPaddrEqBEPresentTrueChangeLengthEquality partition block newEntry bentry0 s0:
-isPDT partition s0 ->
+In partition (getPartitions multiplexer s0) ->
 lookup block (memory s0) beqAddr = Some (BE bentry0) ->
 (present newEntry) <> (present bentry0) ->
 (present newEntry) = true ->
@@ -15146,9 +15065,8 @@ Qed.
 
 Lemma getAccessibleMappedPaddrEqPDTNotInPart partition addr' newEntry s0:
 isPDT addr' s0 ->
-partition <> addr' ->
-StructurePointerIsKS s0 ->
-getAccessibleMappedPaddr partition {|
+partition <> addr'
+-> getAccessibleMappedPaddr partition {|
 						currentPartition := currentPartition s0;
 						memory := add addr' (PDT newEntry)
             (memory s0) beqAddr |} =
@@ -15157,7 +15075,7 @@ Proof.
 set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
-intros Hlookupaddr's0 HpartNotEq HstructEq.
+intros Hlookupaddr's0 HpartNotEq.
 unfold getAccessibleMappedPaddr.
 unfold s'. simpl.
 
@@ -15224,9 +15142,8 @@ Qed.
 (* DUP *)
 Lemma getAccessibleMappedPaddrEqPDT partition addr' newEntry pdentry0 s0:
 lookup addr' (memory s0) beqAddr = Some (PDT pdentry0) ->
-(structure newEntry) = (structure pdentry0) ->
-StructurePointerIsKS s0 ->
-getAccessibleMappedPaddr partition {|
+(structure newEntry) = (structure pdentry0)
+-> getAccessibleMappedPaddr partition {|
 						currentPartition := currentPartition s0;
 						memory := add addr' (PDT newEntry)
             (memory s0) beqAddr |} =
@@ -15235,7 +15152,7 @@ Proof.
 set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
-intros Hlookuppds0 HstructEq HKSPtnIsKS.
+intros Hlookuppds0 HKSPtnIsKS.
 unfold getAccessibleMappedPaddr.
 unfold s'. simpl.
 
@@ -15325,8 +15242,9 @@ destruct (beqAddr addr' partition) eqn:beqpartaddr ; try(exfalso ; congruence).
 Qed.
 
 (* DUP *)
-Lemma getAccessibleMappedPaddrEqBEPresentTrueNoChangeAccessibleTrueChangeEquivalence partition block addr newEntry bentry0 s0:
-isPDT partition s0 ->
+Lemma getAccessibleMappedPaddrEqBEPresentTrueNoChangeAccessibleTrueChangeEquivalence partition block addr newEntry
+  bentry0 s0:
+In partition (getPartitions multiplexer s0) ->
 lookup block (memory s0) beqAddr = Some (BE bentry0) ->
 (present newEntry) = (present bentry0) ->
 (present newEntry) = true ->
@@ -15350,7 +15268,12 @@ currentPartition := currentPartition s0;
 memory := _ |}).
 intros HPDTs0 Hlookupaddr's0 HpresentEq Hpresenttrue HacccessibleNotEq Haccessibletrue HstartEq HendEq.
 intros HNoDupMappedBlocks HaddrInKSentriess0.
-assert(HPDTs0' : isPDT partition s0) by intuition.
+assert(HPDTs0': isPDT partition s0).
+{
+  unfold getKSEntries in *. unfold isPDT.
+  destruct (lookup partition (memory s0) beqAddr); try(simpl in *; congruence).
+  destruct v; try(simpl in *; congruence). trivial.
+}
 apply isPDTLookupEq in HPDTs0'. destruct HPDTs0' as [pdentry0 Hlookuppds0].
 
 assert(Haddr'NotMapped : ~In block (getAccessibleMappedBlocks partition s0)).
@@ -16461,7 +16384,6 @@ Qed.
 Lemma getPartitionsAuxEqPDT partition addr' newEntry pdentry0 s0 n:
 lookup addr' (memory s0) beqAddr = Some (PDT pdentry0) ->
 structure newEntry = structure pdentry0 ->
-StructurePointerIsKS s0 ->
 PDTIfPDFlag s0 ->
 noDupPartitionTree s0
 -> In partition (getPartitions multiplexer s0)
@@ -16479,7 +16401,7 @@ induction n.
 - intros.
 	unfold getPartitionsAux in *.
 	intuition.
-- intros partition Hlookupds0 HstructEq HStructPtnIsKSs0 HPDTIfPDflags0 HnoDupTree HpartIsPart.
+- intros partition Hlookupds0 HStructPtnIsKSs0 HPDTIfPDflags0 HnoDupTree HpartIsPart.
 	unfold getPartitionsAux.
 	fold getPartitionsAux.
 	f_equal.
@@ -16511,7 +16433,6 @@ Qed.
 Lemma getPartitionsEqPDT partition addr' newEntry pdentry0 s0 :
 lookup addr' (memory s0) beqAddr = Some (PDT pdentry0) ->
 (structure newEntry) = (structure pdentry0) ->
-StructurePointerIsKS s0 ->
 PDTIfPDFlag s0 ->
 noDupPartitionTree s0
 -> In partition (getPartitions multiplexer s0)
@@ -16524,7 +16445,7 @@ Proof.
 set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
-intros Hlookuppds0 HstructEq HstructKSs0 HPDTIfPDflags0 HnoDupTree HpartIsPart.
+intros Hlookuppds0 HstructKSs0 HPDTIfPDflags0 HnoDupTree HpartIsPart.
 unfold getPartitions.
 assert(HPartitionsEq : (getPartitionsAux (maxAddr + 2) partition s') =
 													(getPartitionsAux (maxAddr + 2) partition s0)).
@@ -17027,9 +16948,8 @@ Qed.
 (* no getPartitionsEq *)
 Lemma NotInPartEqPDT_WO_getPartitions partition addr' newEntry pdentry0 s0 s:
 lookup addr' (memory s0) beqAddr = Some (PDT pdentry0) ->
-partition <> addr' ->
-StructurePointerIsKS s0 ->
-s = {|
+partition <> addr'
+-> s = {|
 						currentPartition := currentPartition s0;
 						memory := add addr' (PDT newEntry)
             (memory s0) beqAddr |} ->
@@ -17044,7 +16964,7 @@ Proof.
 set (s' :=   {|
 currentPartition := currentPartition s0;
 memory := _ |}).
-intros Haddr'lookups0 Haddr'partNotEq HStructPointerIsKSs0 HsEq.
+intros Haddr'lookups0 Haddr'partNotEq HsEq.
 subst s.
 assert(HPDTaddr's0 : isPDT addr' s0)
 	by (unfold isPDT ; rewrite Haddr'lookups0 ; trivial).
@@ -17779,7 +17699,7 @@ destruct HnoDup as (HaNotInListRec & HnoDupRec). destruct HblockInList as [HaIsB
 Qed.
 
 Lemma getMappedPaddrEqBEEndLower partition block blockBis addr newEntry newEnd bentry0 bentry0Bis s0:
-isPDT partition s0 ->
+In partition (getPartitions multiplexer s0) ->
 lookup block (memory s0) beqAddr = Some (BE bentry0) ->
 lookup blockBis (memory s0) beqAddr = Some (BE bentry0Bis) ->
 (present newEntry) = (present bentry0) ->
@@ -17803,8 +17723,8 @@ Proof.
 set (s := {|
             currentPartition := currentPartition s0;
             memory := _ |}).
-intros HpartIsPDT HlookupBlocks0 HlookupBlockBiss0 HpresentEq HstartEq HnewEnd HnewEndIsLower HbeqBlocks HnoDup
-    HaddrRedund HblockMapped HblockBisMapped. specialize(HnoDup partition HpartIsPDT). unfold getMappedPaddr.
+intros HpartIsPart HlookupBlocks0 HlookupBlockBiss0 HpresentEq HstartEq HnewEnd HnewEndIsLower HbeqBlocks HnoDup
+    HaddrRedund HblockMapped HblockBisMapped. specialize(HnoDup partition HpartIsPart). unfold getMappedPaddr.
 assert(HgetMappedEq: getMappedBlocks partition s = getMappedBlocks partition s0).
 {
   unfold s. apply getMappedBlocksEqBENoChange with bentry0; assumption.
@@ -17863,7 +17783,7 @@ destruct HnoDup as (HaNotInList & HnoDupRec). destruct HblockMapped as [HaIsBloc
 Qed.
 
 Lemma getAccessibleMappedPaddrEqBEEndLower partition block blockBis addr newEntry newEnd bentry0 bentry0Bis s0:
-isPDT partition s0 ->
+In partition (getPartitions multiplexer s0) ->
 lookup block (memory s0) beqAddr = Some (BE bentry0) ->
 lookup blockBis (memory s0) beqAddr = Some (BE bentry0Bis) ->
 accessible newEntry = accessible bentry0 ->
@@ -17890,9 +17810,9 @@ Proof.
 set (s := {|
             currentPartition := currentPartition s0;
             memory := _ |}).
-intros HpartIsPDT HlookupBlocks0 HlookupBlockBiss0 Haccess HaccessBis HaccessEq HpresentEq HstartEq HnewEnd
+intros HpartIsPart HlookupBlocks0 HlookupBlockBiss0 Haccess HaccessBis HaccessEq HpresentEq HstartEq HnewEnd
     HnewEndIsLower HbeqBlocks HnoDup HaddrRedund HblockMapped HblockBisAccMapped.
-specialize(HnoDup partition HpartIsPDT). unfold getAccessibleMappedPaddr.
+specialize(HnoDup partition HpartIsPart). unfold getAccessibleMappedPaddr.
 assert(HgetAccMappedEq: getAccessibleMappedBlocks partition s = getAccessibleMappedBlocks partition s0).
 {
   unfold s. apply getAccessibleMappedBlocksEqBEAccessiblePresentNoChange with bentry0; assumption.
@@ -17976,7 +17896,7 @@ destruct HnoDup as (HaNotInList & HnoDupRec). destruct HblockMapped as [HaIsBloc
 Qed.
 
 Lemma getAccessibleMappedPaddrEqBEEndLowerLax partition block blockBis addr newEntry newEnd bentry0 bentry0Bis s0:
-isPDT partition s0 ->
+In partition (getPartitions multiplexer s0) ->
 lookup block (memory s0) beqAddr = Some (BE bentry0) ->
 lookup blockBis (memory s0) beqAddr = Some (BE bentry0Bis) ->
 accessible newEntry = accessible bentry0 ->
@@ -18003,9 +17923,9 @@ Proof.
 set (s := {|
             currentPartition := currentPartition s0;
             memory := _ |}).
-intros HpartIsPDT HlookupBlocks0 HlookupBlockBiss0 HaccessBis HaccessEq HpresentEq HstartEq HnewEnd
+intros HpartIsPart HlookupBlocks0 HlookupBlockBiss0 HaccessBis HaccessEq HpresentEq HstartEq HnewEnd
     HnewEndIsLower HbeqBlocks HnoDup HaddrRedund HblockMapped HblockBisAccMapped.
-specialize(HnoDup partition HpartIsPDT). unfold getAccessibleMappedPaddr.
+specialize(HnoDup partition HpartIsPart). unfold getAccessibleMappedPaddr.
 assert(HgetAccMappedEq: getAccessibleMappedBlocks partition s = getAccessibleMappedBlocks partition s0).
 {
   unfold s. apply getAccessibleMappedBlocksEqBEAccessiblePresentNoChange with bentry0; assumption.
@@ -18240,7 +18160,7 @@ Qed.
 Lemma mappedBlocksEqStartEq block1 block2 partition start s:
 noDupMappedPaddrList s
 -> wellFormedBlock s
--> isPDT partition s
+-> In partition (getPartitions multiplexer s)
 -> In block1 (getMappedBlocks partition s)
 -> bentryStartAddr block1 start s
 -> bentryPFlag block1 true s
@@ -18249,10 +18169,10 @@ noDupMappedPaddrList s
 -> bentryPFlag block2 true s
 -> block1 = block2.
 Proof.
-intros HnoDup HwellFormed HpartIsPDT Hblock1Mapped Hstart1 HPFlag1 Hblock2Mapped Hstart2 HPFlag2.
+intros HnoDup HwellFormed HpartIsPart Hblock1Mapped Hstart1 HPFlag1 Hblock2Mapped Hstart2 HPFlag2.
 destruct (beqAddr block1 block2) eqn:HbeqBlocks.
 { rewrite <-DTL.beqAddrTrue in HbeqBlocks. assumption. }
-exfalso. rewrite <-beqAddrFalse in HbeqBlocks. specialize(HnoDup partition HpartIsPDT).
+exfalso. rewrite <-beqAddrFalse in HbeqBlocks. specialize(HnoDup partition HpartIsPart).
 unfold getMappedPaddr in HnoDup. induction (getMappedBlocks partition s).
 { simpl in Hblock1Mapped; congruence. }
 simpl in *. destruct Hblock1Mapped as [HaIsBlock | Hblock1Rec].
@@ -18366,15 +18286,15 @@ Qed.
 
 Lemma addrInBlockNotAccIsNotAcc addr block bentry partition s:
 noDupMappedPaddrList s
--> isPDT partition s
+-> In partition (getPartitions multiplexer s)
 -> In addr (getAllPaddrAux [block] s)
 -> lookup block (memory s) beqAddr = Some(BE bentry)
 -> accessible bentry = false
 -> In block (getMappedBlocks partition s)
 -> ~In addr (getAccessibleMappedPaddr partition s).
 Proof.
-intros HnoDup HpartIsPDT HaddrInBlock HlookupBlock HblockNotAcc HblockMapped HaddrAcc.
-specialize(HnoDup partition HpartIsPDT). unfold getMappedPaddr in HnoDup.
+intros HnoDup HpartIsPart HaddrInBlock HlookupBlock HblockNotAcc HblockMapped HaddrAcc.
+specialize(HnoDup partition HpartIsPart). unfold getMappedPaddr in HnoDup.
 unfold getAccessibleMappedPaddr in HaddrAcc. unfold getAccessibleMappedBlocks in HaddrAcc.
 destruct (lookup partition (memory s) beqAddr); try(simpl in HaddrAcc; congruence).
 destruct v; try(simpl in HaddrAcc; congruence).
@@ -18761,7 +18681,7 @@ intros HpartTree HparentOfPart. revert pdbasepartition. induction parentsList.
     * intuition.
     * simpl. apply and_not_or. assert(HparentOfPartCopy: parentOfPartitionIsPartition s) by assumption.
       specialize(HparentOfPart a p HlookupA).
-      destruct HparentOfPart as (HparentIsPart & HparentOfRoot & HparentNotA).
+      destruct HparentOfPart as (_ & _ & HparentNotA).
       simpl in Hrec. destruct (lookup p0 (memory s) beqAddr); try(exfalso; congruence).
       destruct v; try(exfalso; congruence).
       destruct Hrec as (HaNotRoot & [pdentryA (HlookupABis & Hparent)] & Hrec). subst p0.
@@ -19062,129 +18982,6 @@ induction parentsList.
   specialize(IHparentsList (parent pdentry0) HparentIsPDT HparentsLists1). assumption.
 Qed.
 
-Lemma getKSEntriesAuxRemoveExtraFuel block kern len s:
-nullAddrExists s
--> nextKernelIsValid s
--> isKS kern s
--> In block (filterOptionPaddr (getKSEntriesAux (S len) kern s))
--> (forall kernList, isListOfKernelsAux kernList kern s -> length kernList < len)
--> In block (filterOptionPaddr (getKSEntriesAux len kern s)).
-Proof.
-intros Hnull HnextValid. revert kern. induction len.
-- intros kern _ HblockIn Hprop. assert(HkernList: isListOfKernelsAux [] kern s) by (simpl; trivial).
-  specialize(Hprop [] HkernList). simpl in Hprop. lia.
-- intros kern HkernIsKS HblockIn Hprop. cbn -[kernelStructureEntriesNb]. set(succ:= S len). fold succ in HblockIn.
-  cbn -[succ kernelStructureEntriesNb] in HblockIn.
-  destruct (Paddr.addPaddrIdx kern nextoffset) eqn:Hadd; try(simpl in HblockIn; exfalso; congruence).
-  destruct (lookup p (memory s) beqAddr) eqn:HlookupNextAddr; try(simpl in HblockIn; exfalso; congruence).
-  destruct v; try(simpl in HblockIn; exfalso; congruence).
-  destruct (lookup p0 (memory s) beqAddr) eqn:HlookupNextKS; try(simpl in HblockIn; exfalso; congruence).
-  assert(Hnext: nextKernelIsValid s) by assumption.
-  specialize(Hnext kern HkernIsKS). destruct Hnext as (Hle & Hnext).
-  destruct v; try(simpl in HblockIn; exfalso; congruence).
-  + rewrite filterOptionPaddrSplit in *. apply in_app_or in HblockIn. apply in_or_app.
-    destruct HblockIn as [Himmediate | HblockInRec]; try(left; assumption). right. subst succ.
-    assert(HpropRec: forall kernList, isListOfKernelsAux kernList p0 s -> length kernList < len).
-    {
-      intros kernList HkernList. assert(HkernListExt: isListOfKernelsAux (p0::kernList) kern s).
-      {
-        simpl. assert(Hp: p = CPaddr (kern + nextoffset)).
-        {
-          unfold Paddr.addPaddrIdx in Hadd. unfold CPaddr.
-          destruct (le_dec (kern + nextoffset) maxAddr); try(exfalso; congruence). injection Hadd as Hres.
-          subst p. f_equal.
-        }
-        rewrite <-Hp. split. assumption. split. assumption. split; try(assumption). intro Hcontra. subst p0.
-        unfold nullAddrExists in Hnull. unfold isPADDR in Hnull. rewrite HlookupNextKS in Hnull. congruence.
-      }
-      assert(HresExt: length (p0::kernList) < S len) by (apply Hprop; assumption).
-      simpl in HresExt. lia.
-    }
-    assert(isKS p0 s).
-    {
-      destruct Hnext as [nextAddr (HlookupNext & HnextType)]. unfold Paddr.addPaddrIdx in Hadd.
-      destruct (le_dec (kern + nextoffset) maxAddr); try(lia). injection Hadd as Hp.
-      specialize(HlookupNext (StateLib.Paddr.addPaddrIdx_obligation_1 kern nextoffset l)).
-      rewrite Hp in HlookupNext. rewrite HlookupNextAddr in HlookupNext. injection HlookupNext as Heq.
-      subst p0. destruct HnextType as [Hres | Hcontra]; try(assumption). exfalso. unfold nullAddrExists in Hnull.
-      unfold isPADDR in Hnull. subst nextAddr. rewrite HlookupNextKS in Hnull. congruence.
-    }
-    apply IHlen; assumption.
-  + destruct (beqAddr p0 {| p := 0; Hp := ADT.CPaddr_obligation_1 0 (PeanoNat.Nat.le_0_l maxAddr) |});
-        try(simpl in HblockIn; exfalso; congruence). assumption.
-Qed.
-
-Lemma blockInGetKSEntriesAuxIncl block (kernel: paddr) currKern kernList s:
-nextKernelIsValid s
--> nullAddrExists s
--> NextKSIsKS s
--> isKS kernel s
--> In block (filterOptionPaddr (getKSEntriesInStructAux (maxIdx+1) currKern s
-              (CIndex (kernelStructureEntriesNb-1))))
--> isListOfKernelsAux kernList kernel s
--> (forall kernList, isListOfKernelsAux kernList kernel s -> length kernList < maxNbPrepare+1)
--> currKern = last kernList kernel
--> In block (filterOptionPaddr (getKSEntriesAux (maxNbPrepare+1) kernel s)).
-Proof.
-intros HnextKernValid Hnull Hnext. unfold nullAddrExists in Hnull.
-replace (maxNbPrepare+1) with (S maxNbPrepare); try(lia). revert kernel. induction kernList.
-- cbn -[kernelStructureEntriesNb maxNbPrepare]. intros kernel HKS HblockIn HkernList Hlength HcurrKern.
-  subst currKern. specialize(HnextKernValid kernel HKS).
-  destruct HnextKernValid as (HleNext & [nextAddr (HlookupNext & HnextType)]). unfold Paddr.addPaddrIdx.
-  destruct (le_dec (kernel + nextoffset) maxAddr); try(lia). rewrite HlookupNext.
-  destruct HnextType as [HnextIsKS | HnextIsNull].
-  + unfold isKS in HnextIsKS. destruct (lookup nextAddr (memory s) beqAddr); try(exfalso; congruence).
-    destruct v; try(exfalso; congruence). rewrite filterOptionPaddrSplit. apply in_or_app. left. assumption.
-  + subst nextAddr. unfold isPADDR in Hnull.
-    destruct (lookup nullAddr (memory s) beqAddr); try(exfalso; congruence).
-    destruct v; try(exfalso; congruence).
-    assert(HeqNull: nullAddr = {| p := 0; Hp := ADT.CPaddr_obligation_1 0 (PeanoNat.Nat.le_0_l maxAddr) |}).
-    {
-      unfold nullAddr. unfold CPaddr. destruct (le_dec 0 maxAddr); try(lia). f_equal. apply proof_irrelevance.
-    }
-    rewrite DTL.beqAddrTrue in HeqNull. rewrite HeqNull. assumption.
-- intros kernel HKS HblockIn HkernList Hlength HcurrKern.
-  simpl in HkernList. destruct HkernList as (HlookupNext & Hle & HaNotNull & HkernListRec).
-  assert(HKSa: isKS a s).
-  {
-    unfold NextKSIsKS in Hnext. apply Hnext with kernel (CPaddr (kernel + nextoffset)); try(assumption).
-    - unfold nextKSAddr. unfold isKS in HKS. destruct (lookup kernel (memory s) beqAddr); try(congruence).
-      destruct v; try(congruence).
-    - unfold nextKSentry. rewrite HlookupNext. reflexivity.
-  }
-  assert(Hrec: In block (filterOptionPaddr (getKSEntriesAux (S maxNbPrepare) a s))).
-  {
-    apply IHkernList; try(assumption). simpl in Hlength.
-    - intros kernListBis HkernListBis.
-      assert(HkernListBisExt: isListOfKernelsAux (a::kernListBis) kernel s).
-      { simpl. intuition. }
-      specialize(Hlength (a::kernListBis) HkernListBisExt). simpl in Hlength. lia.
-    - apply lastRec with kernel. assumption.
-  }
-  assert(In block (filterOptionPaddr (getKSEntriesAux maxNbPrepare a s))).
-  {
-    apply getKSEntriesAuxRemoveExtraFuel; try(assumption). intros kernListBis HkernListBis.
-    assert(HkernListBisExt: isListOfKernelsAux (a::kernListBis) kernel s).
-    { simpl. intuition. }
-    specialize(Hlength (a::kernListBis) HkernListBisExt). simpl in Hlength. lia.
-  }
-  cbn -[kernelStructureEntriesNb maxNbPrepare]. unfold Paddr.addPaddrIdx. unfold CPaddr in HlookupNext.
-  destruct (le_dec (kernel + nextoffset) maxAddr) eqn:HleBis; try(lia).
-  assert(Heq: {| p := kernel + nextoffset; Hp := ADT.CPaddr_obligation_1 (kernel + nextoffset) l |}
-            = {| p := kernel + nextoffset; Hp := StateLib.Paddr.addPaddrIdx_obligation_1 kernel nextoffset l |}).
-  { f_equal. }
-  assert(HKSaCopy: isKS a s) by assumption.
-  rewrite Heq in HlookupNext. rewrite HlookupNext. unfold isKS in HKSa.
-  destruct (lookup a (memory s) beqAddr); try(exfalso; congruence). destruct v; try(exfalso; congruence).
-  rewrite filterOptionPaddrSplit. apply in_or_app. right. apply getKSEntriesAuxRemoveExtraFuel; try(assumption).
-  intros kernListBis HkernListBis.
-  assert(HkernListBisExt: isListOfKernelsAux (a::kernListBis) kernel s).
-  {
-    simpl. unfold CPaddr. rewrite HleBis. rewrite Heq. intuition.
-  }
-  specialize(Hlength (a::kernListBis) HkernListBisExt). simpl in Hlength. lia.
-Qed.
-
 Lemma kernListsEq (kernel: paddr) kernList1 kernList2 s lastKern:
 (forall kernList, isListOfKernelsAux kernList kernel s -> NoDup (kernel::kernList))
 -> isListOfKernelsAux kernList1 kernel s
@@ -19342,7 +19139,7 @@ Qed.
 
 
 Lemma getMappedPaddrEqBEEndLowerChangeLengthEquality partition block newEntry newEnd bentry0 s0:
-isPDT partition s0 ->
+In partition (getPartitions multiplexer s0) ->
 lookup block (memory s0) beqAddr = Some (BE bentry0) ->
 present newEntry = present bentry0 ->
 (*present newEntry = true ->*)
@@ -19408,14 +19205,13 @@ Lemma getKSEntriesEqPDTNewEmptyPart partition newPart newPDEntry s0:
 (lookup newPart (memory s0) beqAddr = None
   \/ exists pdentry, lookup newPart (memory s0) beqAddr = Some(PDT pdentry) /\ structure pdentry = nullAddr)
 -> structure newPDEntry = nullAddr
--> StructurePointerIsKS s0
 -> getKSEntries partition
          {|
            currentPartition := currentPartition s0;
            memory := add newPart (PDT newPDEntry) (memory s0) beqAddr
          |} = getKSEntries partition s0.
 Proof.
-intros HlookupNew HbeqStructNull HstructIsKS.
+intros HlookupNew HbeqStructNull.
 destruct (beqAddr newPart partition) eqn:HbeqNewPart.
 - unfold getKSEntries. rewrite <-DTL.beqAddrTrue in HbeqNewPart. subst partition.
   set(s1:= {|
@@ -21492,3 +21288,14 @@ destruct  Hances as [ Hances | Hances].
            right. trivial. }
 Qed.
  *)
+
+Lemma noDupKSMappedImpl s: noDupKSEntriesList s -> noDupMappedBlocksList s.
+Proof.
+unfold noDupKSEntriesList. unfold noDupMappedBlocksList. intros HnoDupKS part HpartIsPart.
+specialize(HnoDupKS part HpartIsPart). unfold getMappedBlocks. apply NoDupListNoDupFilterPresent. assumption.
+Qed.
+
+Lemma indexEqRefl idx: indexEq idx idx = true.
+Proof.
+apply beqIdxTrue. reflexivity.
+Qed.

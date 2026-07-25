@@ -220,17 +220,17 @@ unfold sh1entryPDchild.
 rewrite H;trivial.
 Qed.
 
-Lemma lookupSh1EntryInChildLocation paddr s :
-forall entry , lookup paddr (memory s) beqAddr = Some (SHE entry) ->
-consistency s ->
+Lemma lookupSh1EntryInChildLocation part block paddr s :
+In part (getPartitions multiplexer s)
+-> In block (getMappedBlocks part s)
+-> paddr = CPaddr (block+sh1offset)
+-> forall entry , lookup paddr (memory s) beqAddr = Some (SHE entry) ->
+sh1InChildLocationIsBE s ->
 sh1entryInChildLocation paddr (inChildLocation entry) s.
 Proof.
-intros.
+intros HpartIsPart HblockMapped Hpaddr entry HlookupPaddr HlocIsBE.
 unfold sh1entryInChildLocation.
-rewrite H;trivial.
-intuition.
-unfold consistency in *.
-unfold consistency1 in *.
+rewrite HlookupPaddr. intuition.
 unfold sh1InChildLocationIsBE in *. intuition.
 eauto. (* specialize (H10 paddr entry H H1). trivial. *)
 Qed.
@@ -1429,7 +1429,7 @@ Qed.
 
 Lemma DisjointPaddrInPart partition block1 block2 addr s :
 noDupMappedPaddrList s ->
-isPDT partition s ->
+In partition (getPartitions multiplexer s) ->
 In block1 (getMappedBlocks partition s) ->
 In block2 (getMappedBlocks partition s) ->
 block1 <> block2 ->
@@ -1503,7 +1503,7 @@ Qed.
 Lemma uniqueBlockMapped block1 block2 addr partition s:
 noDupMappedPaddrList s
 -> wellFormedBlock s
--> isPDT partition s
+-> In partition (getPartitions multiplexer s)
 -> In block1 (getMappedBlocks partition s)
 -> In block2 (getMappedBlocks partition s)
 -> bentryStartAddr block1 addr s
@@ -1512,8 +1512,8 @@ noDupMappedPaddrList s
 -> bentryPFlag block2 true s
 -> block1 = block2.
 Proof.
-intros HnoDup HwellFormed HpartIsPDT Hblock1Mapped Hblock2Mapped Hstart1 HPFlag1 Hstart2 HPFlag2.
-specialize(HnoDup partition HpartIsPDT). unfold getMappedPaddr in HnoDup. induction (getMappedBlocks partition s).
+intros HnoDup HwellFormed HpartIsPart Hblock1Mapped Hblock2Mapped Hstart1 HPFlag1 Hstart2 HPFlag2.
+specialize(HnoDup partition HpartIsPart). unfold getMappedPaddr in HnoDup. induction (getMappedBlocks partition s).
 - (* getMappedBlocks partition s = [] *)
   simpl in *. exfalso; congruence.
 - (* getMappedBlocks partition s = a::l *)

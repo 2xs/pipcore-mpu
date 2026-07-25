@@ -96,14 +96,15 @@ isPADDR nullAddr s.
 Definition FirstFreeSlotPointerIsBEAndFreeSlot s :=
 forall pdentryaddr pdentry,
 lookup pdentryaddr (memory s) beqAddr = Some (PDT pdentry) ->
-pdentry.(firstfreeslot) <> nullAddr ->
+In pdentryaddr (getPartitions multiplexer s)
+-> pdentry.(firstfreeslot) <> nullAddr ->
 isBE pdentry.(firstfreeslot) s /\
 isFreeSlot pdentry.(firstfreeslot) s.
 
 (* TODO : when removing the unecessary check in addMemoryBlock if this holds *)
 Definition NbFreeSlotsISNbFreeSlotsInList s :=
 forall pd nbfreeslots,
-isPDT pd s ->
+In pd (getPartitions multiplexer s) ->
 pdentryNbFreeSlots pd nbfreeslots s ->
 exists optionfreeslotslist, optionfreeslotslist = getFreeSlotsList pd s /\
 wellFormedFreeSlotsList optionfreeslotslist <> False /\ (* to get rid of false induction bound constraints *)
@@ -112,8 +113,8 @@ nbfreeslots.(i) (* nat *) = length (*(filterOption*) (optionfreeslotslist).
 (** **  Given all partitions of a partition tree, all free slots lists are disjoint. **)
 Definition DisjointFreeSlotsLists s :=
 forall pd1 pd2,
-isPDT pd1 s ->
-isPDT pd2 s ->
+In pd1 (getPartitions multiplexer s) ->
+In pd2 (getPartitions multiplexer s) ->
 pd1 <> pd2 ->
 exists optionfreeslotslist1 optionfreeslotslist2,
 optionfreeslotslist1 = getFreeSlotsList pd1 s /\
@@ -124,8 +125,8 @@ disjoint (filterOptionPaddr (optionfreeslotslist1))(filterOptionPaddr (optionfre
 
 (** **  Each element of a free slots list is unique. **)
 Definition NoDupInFreeSlotsList s :=
-forall pd pdentry,
-lookup pd (memory s) beqAddr = Some (PDT pdentry) ->
+forall pd,
+In pd (getPartitions multiplexer s) ->
 exists optionfreeslotslist, optionfreeslotslist = getFreeSlotsList pd s /\
 wellFormedFreeSlotsList optionfreeslotslist <> False /\ (* to get rid of false induction bound constraints *)
 NoDup (filterOptionPaddr (optionfreeslotslist)).
@@ -133,7 +134,8 @@ NoDup (filterOptionPaddr (optionfreeslotslist)).
 (** **  The reference to the first superstructure is the start of a superstructure. **)
 Definition StructurePointerIsKS s :=
 forall entryaddr entry,
-lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
+In entryaddr (getPartitions multiplexer s)
+-> lookup entryaddr (memory s) beqAddr = Some (PDT entry) ->
 entry.(structure) <> nullAddr ->
 isKS entry.(structure) s.
 
@@ -178,8 +180,11 @@ isKS (CPaddr (blockentryaddr - blockidx)) s.
 
 (** **  The reference to a block’s location in the child partition has the type BE. **)
 Definition sh1InChildLocationIsBE s :=
-forall sh1entryaddr sh1entry,
-lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
+forall part block sh1entryaddr sh1entry,
+In part (getPartitions multiplexer s)
+-> In block (getMappedBlocks part s)
+-> sh1entryaddr = CPaddr (block+sh1offset)
+-> lookup sh1entryaddr (memory s) beqAddr = Some (SHE sh1entry) ->
 sh1entry.(inChildLocation) <> nullAddr ->
 isBE sh1entry.(inChildLocation) s.
 
@@ -187,7 +192,8 @@ isBE sh1entry.(inChildLocation) s.
 Definition freeSlotsListIsFreeSlot s :=
 forall pd freeslotaddr optionfreeslotslist freeslotslist,
 isPDT pd s ->
-optionfreeslotslist = getFreeSlotsList pd s /\
+In pd (getPartitions multiplexer s)
+-> optionfreeslotslist = getFreeSlotsList pd s /\
 wellFormedFreeSlotsList optionfreeslotslist <> False -> (* to get rid of false induction bound constraints *)
 freeslotslist = filterOptionPaddr(optionfreeslotslist) /\
 In freeslotaddr freeslotslist ->
@@ -197,14 +203,14 @@ isFreeSlot freeslotaddr s.
 (** **  The free slots list is included in the Blocks structure. **)
 Definition inclFreeSlotsBlockEntries s :=
 forall pd,
-isPDT pd s ->
+In pd (getPartitions multiplexer s) ->
 incl (getFreeSlotsList pd s) (getKSEntries pd s).
 
 (** **  Given all partitions in a partition tree, all slots are unique. **)
 Definition DisjointKSEntries s :=
 forall pd1 pd2,
-isPDT pd1 s ->
-isPDT pd2 s ->
+In pd1 (getPartitions multiplexer s) ->
+In pd2 (getPartitions multiplexer s) ->
 pd1 <> pd2 ->
 exists optionentrieslist1 optionentrieslist2,
 optionentrieslist1 = getKSEntries pd1 s /\
@@ -214,16 +220,15 @@ disjoint (filterOptionPaddr (optionentrieslist1))(filterOptionPaddr (optionentri
 (* Prove DisjointKSEntries -> DisjointFreeSlotsList because of inclusion *)
 
 (** ** All partitions pointing to the same parent are children of this parent. **)
-Definition isChild  s :=
+Definition isChild s :=
 forall partition parent : paddr,
 In partition (getPartitions multiplexer s) ->
 pdentryParent partition parent s ->
 partition <> constantRootPartM ->
 In partition (getChildren parent s).
 
-
 (** **  All children of a parent partition points to this unique parent. **)
-Definition isParent  s :=
+Definition isParent s :=
 forall partition parent : paddr,
 In parent (getPartitions multiplexer s) ->
 In partition (getChildren parent s) ->
@@ -233,20 +238,20 @@ pdentryParent partition parent s.
 (** **  In a given partition, each mapped block is unique. **)
 Definition noDupMappedBlocksList s :=
 forall (partition : paddr),
-isPDT partition s ->
+In partition (getPartitions multiplexer s) ->
 NoDup (getMappedBlocks partition s).
 
 (** **  In a given partition, each slot is unique. **)
 Definition noDupKSEntriesList s :=
 forall (partition : paddr),
-isPDT partition s ->
+In partition (getPartitions multiplexer s) ->
 NoDup (filterOptionPaddr (getKSEntries partition s)).
 
 (** **  In a given partition, no block overlaps another
     (the sets of addresses they contain are disjoint). **)
 Definition noDupMappedPaddrList s :=
 forall (partition : paddr),
-isPDT partition s ->
+In partition (getPartitions multiplexer s) ->
 NoDup (getMappedPaddr partition s).
 
 (** **  All partitions belonging to the partition tree are unique. **)
@@ -287,9 +292,9 @@ In child (getChildren parent s) ->
 In addr (getAccessibleMappedPaddr child s) ->
 In addr (getAccessibleMappedPaddr parent s).*)
 
-(** ** All accessible addresses
-in a partition (union of all addresses contained in the accessible mapped blocks) are
-mapped and accessible in their parent. **)
+(** ** All accessible addresses in a partition
+(union of all addresses contained in the accessible mapped blocks) that are mapped in a child are
+accessible in that child. **)
 Definition accessibleParentPaddrIsAccessibleIntoChild s :=
  forall parent child addr,
 In parent (getPartitions multiplexer s) ->
@@ -546,20 +551,17 @@ child <> constantRootPartM
 -> isParentsList s parentsList pdparent
 -> ~ In child parentsList.
 
-(*TODO isn't that redundant with BlocksRangeFromKernelStartIsBE ? -> to be removed*)
-(* Definition kernelEntriesAreValid s :=
-forall kernel index,
-isKS kernel s
--> index <= CIndex (kernelStructureEntriesNb - 1)
--> isBE (CPaddr (kernel + index)) s. *)
-
+(*Note for self: use configBlocksAreKS along with this*)
 Definition nextKernelIsValid s :=
-forall kernel,
-isKS kernel s
+forall part pdentry kernel,
+In part (getPartitions multiplexer s)
+-> lookup part (memory s) beqAddr = Some (PDT pdentry)
+-> In kernel (completeListOfKernels (structure pdentry) s)
+-> isKS kernel s
 -> kernel + nextoffset <= maxAddr
     /\ exists nextAddr, (forall Hp,
           lookup {| p:= kernel+nextoffset; Hp:= Hp |} (memory s) beqAddr = Some(PADDR nextAddr))
-          /\ (isKS nextAddr s \/ nextAddr = nullAddr).
+          /\ ((isKS nextAddr s /\ In nextAddr (completeListOfKernels (structure pdentry) s)) \/ nextAddr = nullAddr).
 
 Definition noDupListOfKerns s :=
 forall partition kernList,
@@ -612,7 +614,6 @@ In part (getPartitions multiplexer s)
 -> In block (getMappedBlocks part s)
 -> bentryStartAddr block startaddr s
 -> bentryEndAddr block endaddr s
-(*-> bentryPFlag block true s*)
 -> sh1entryPDchild (CPaddr (block+sh1offset)) nullAddr s
 -> isKS kernel s
 -> In (CPaddr (kernel + nextoffset)) (getAllPaddrBlock startaddr endaddr)
@@ -629,9 +630,9 @@ isBE block s
 -> sh1entryPDflag (CPaddr (block + sh1offset)) true s -> sh1entryPDchild (CPaddr (block + sh1offset)) nullAddr s.
 
 Definition nbPrepareIsNbKern s :=
-(*TODO HERE we may need partition to be in the tree*)
 forall partition pdentry,
-lookup partition (memory s) beqAddr = Some(PDT pdentry)
+In partition (getPartitions multiplexer s)
+-> lookup partition (memory s) beqAddr = Some(PDT pdentry)
 -> length (completeListOfKernels (structure pdentry) s) = nbprepare pdentry.
 
 Definition pdchildIsPDT s :=
@@ -703,12 +704,11 @@ In part (getPartitions multiplexer s)
 -> In startaddr (getConfigBlocks child s)
     /\ (forall addr child2, In addr (getAllPaddrAux [block] s)
           -> In child2 (getChildren part s) -> ~In addr (getMappedPaddr child2 s))
-    (* TODO add and propagate that prop about dead addresses
     /\ (forall (addr:paddr) endaddr part2, bentryEndAddr block endaddr s
           -> In part2 (getPartitions multiplexer s)
           -> startaddr+Constants.kernelStructureTotalLength <= addr
           -> addr < endaddr
-          -> ~In addr (getConfigPaddr part2 s)) *).
+          -> ~In addr (getConfigPaddr part2 s)).
 
 Definition partitionNotAutoMapped s :=
 forall part,
@@ -721,8 +721,7 @@ forall part child addr,
 In part (getPartitions multiplexer s)
 -> In child (getChildren part s)
 -> In addr (getConfigPaddr part s)
--> ~In addr (getMappedPaddr child s)
-(* TODO replace the last line with this one and propagate -> ~In addr (getUsedPaddr child s) *).
+-> ~In addr (getUsedPaddr child s).
 
 (*New*)
 Definition fullKernelIsInOneBlock s :=
@@ -746,7 +745,7 @@ In partition (getPartitions multiplexer s)
 -> (forall addr, In addr (getAllPaddrAux [block] s)
     -> In addr (getMappedPaddr idchild s)).
 
-(*TODO HERE add to consistency1 and propagate*)
+(*New*)
 Definition kernInSameBlock s :=
 forall parentBlock part idx block,
 In part (getPartitions multiplexer s)
@@ -755,17 +754,38 @@ In part (getPartitions multiplexer s)
 -> bentryBlockIndex block idx s
 -> In (CPaddr (block-idx)) (getAllPaddrAux [parentBlock] s).
 
-(*TODO HERE add to consistency1 and propagate*)
+(*New*)
 Definition blockAndSh1InSameBlock s :=
-forall (block:paddr) parentBlock,
-In (CPaddr (block+sh1offset)) (getAllPaddrAux [parentBlock] s)
+forall part (block:paddr) parentBlock,
+In part (getPartitions multiplexer s)
+-> In parentBlock (getMappedBlocks part s)
+-> isBE block s
+-> In (CPaddr (block+sh1offset)) (getAllPaddrAux [parentBlock] s)
 -> In block (getAllPaddrAux [parentBlock] s).
 
-(*TODO HERE add to consistency1 and propagate*)
+(*New*)
 Definition blockAndSceInSameBlock s :=
-forall (block:paddr) parentBlock,
-In (CPaddr (block+scoffset)) (getAllPaddrAux [parentBlock] s)
+forall part (block:paddr) parentBlock,
+In part (getPartitions multiplexer s)
+-> In parentBlock (getMappedBlocks part s)
+-> isBE block s
+-> In (CPaddr (block+scoffset)) (getAllPaddrAux [parentBlock] s)
 -> In block (getAllPaddrAux [parentBlock] s).
+
+(*TODO add that to the consistency props*)
+Definition indexIsDistFromKern s :=
+forall kernel (idx:index),
+isKS kernel s
+-> bentryBlockIndex (CPaddr (kernel+idx)) idx s.
+
+(*TODO add that to the consistency props*)
+Definition blockAndNextInSameBlock s :=
+forall part (kernel:paddr) parentBlock,
+In part (getPartitions multiplexer s)
+-> In parentBlock (getMappedBlocks part s)
+-> isKS kernel s
+-> In (CPaddr (kernel+nextoffset)) (getAllPaddrAux [parentBlock] s)
+-> In kernel (getAllPaddrAux [parentBlock] s).
 
 (** ** First batch of consistency properties *)
 Definition consistency1 s :=
@@ -792,7 +812,7 @@ noDupPartitionTree s /\
 isParent s /\
 isChild s /\
 noDupKSEntriesList s /\
-noDupMappedBlocksList s /\
+(* noDupMappedBlocksList s /\ *)
 wellFormedBlock s /\
 parentOfPartitionIsPartition s /\
 NbFreeSlotsISNbFreeSlotsInList s /\
@@ -819,7 +839,10 @@ nbPrepareIsNbKern s
 /\ configAddrNotMappedInChild s
 (* /\ configNotMappedRoot s *)
 /\ fullKernelIsInOneBlock s
-/\ sharedBlocksAdressesAreAllMappedInChild s.
+/\ sharedBlocksAdressesAreAllMappedInChild s
+/\ kernInSameBlock s
+/\ blockAndSh1InSameBlock s
+/\ blockAndSceInSameBlock s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=

@@ -44,7 +44,9 @@ From Stdlib Require Import List.
 Import List.ListNotations.
 
 Lemma checkChildOfCurrPart (currentPartition idPDchild : paddr) P :
-{{ fun s => P s /\ consistency s /\ isPDT currentPartition s}}
+{{ fun s => P s /\ consistency s /\ isPDT currentPartition s
+  /\ In currentPartition (getPartitions multiplexer s)
+}}
 Internal.checkChildOfCurrPart  currentPartition idPDchild
 {{fun isChild s => P s
 /\ (isChild = true -> exists sh1entryaddr, isChild = StateLib.checkChild idPDchild s sh1entryaddr
@@ -87,7 +89,7 @@ case_eq addrIsNull0.
 		intros. simpl.
 		(* prove blockInParentPartAddr can't be NULL and not NULL at the same time *)
 		apply beqAddrFalse in H2. exfalso ; congruence.
-		destruct H4. exists x. apply H4.
+		destruct H6. exists x. apply H5.
 	}
 		intro isChild. simpl.
 		case_eq isChild.
@@ -100,12 +102,12 @@ case_eq addrIsNull0.
 				apply beqAddrFalse in H3. exfalso ; congruence.
 				destruct H2. destruct H2. exists x0.
 				assert(HcheckChilds : true = checkChild idPDchild s x0).
-				{ unfold checkChild. destruct H5. intuition. subst. 
-						rewrite H2. rewrite H8.
-						unfold sh1entryPDflag in *. rewrite -> H8 in *. assumption.
+				{ unfold checkChild. destruct H7. intuition. subst. 
+						rewrite H2. rewrite H9.
+						unfold sh1entryPDflag in *. rewrite -> H9 in *. assumption.
 				}
 				split. intuition.
-				destruct H5.
+				destruct H7.
 				split. exists x1. intuition. subst. assumption.
 				split.
 				exists x. intuition.
@@ -116,7 +118,7 @@ case_eq addrIsNull0.
 				assert (exists x : Sh1Entry, lookup x0 (memory s) beqAddr = Some (SHE x)) as Hsh1.
 				exists x. assumption.
 				apply isSHELookupEq in Hsh1.
-				unfold sh1entryAddr in H11. rewrite H2 in H11. assumption.
+				unfold sh1entryAddr in *. rewrite H2 in *. assumption.
 				intuition. subst idPDchild. assumption.
 			}
 	 	+ (* ischild = false : sh1entry exists but PDflag = 0 *)
