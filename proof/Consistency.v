@@ -234,7 +234,7 @@ In parent (getPartitions multiplexer s) ->
 In partition (getChildren parent s) ->
 pdentryParent partition parent s.
 
-(* TODO: remove, consequence of noDupKSEntriesList*)
+(* removed, consequence of noDupKSEntriesList*)
 (** **  In a given partition, each mapped block is unique. **)
 Definition noDupMappedBlocksList s :=
 forall (partition : paddr),
@@ -335,7 +335,9 @@ end.
 (** ** The number of kernels is bounded by the variable maxNbPrepare **)
 Definition maxNbPrepareIsMaxNbKernels s :=
 forall (partition : paddr) (kernList: list paddr),
-isListOfKernels kernList partition s -> length kernList <= maxNbPrepare.
+In partition (getPartitions multiplexer s)
+-> isListOfKernels kernList partition s
+-> length kernList <= maxNbPrepare.
 
 (** ** In any partition that is not the root, for any block whose field origin is equal to its start address and
 whose field next is null, we have a block in the parent partition with the same start and end addresses **)
@@ -565,7 +567,8 @@ In part (getPartitions multiplexer s)
 
 Definition noDupListOfKerns s :=
 forall partition kernList,
-isListOfKernels kernList partition s -> NoDup kernList.
+In partition (getPartitions multiplexer s)
+-> isListOfKernels kernList partition s -> NoDup kernList.
 
 Definition MPUsizeIsBelowMax s :=
 forall partition MPUlist,
@@ -787,6 +790,69 @@ In part (getPartitions multiplexer s)
 -> In (CPaddr (kernel+nextoffset)) (getAllPaddrAux [parentBlock] s)
 -> In kernel (getAllPaddrAux [parentBlock] s).
 
+(*21/08/2026: nextKernAddrIsInSameBlock broken in removeBockInChildAndDescendants because nextKernelIsValid
+  changed. Afraid of changing nextKernAddrIsInSameBlock because it would probably break more properties, so
+  creating a new prop*)
+Definition kernelIsSomePartsConfig s :=
+forall kernel,
+isKS kernel s
+-> exists part pdentry, In part (getPartitions multiplexer s)
+    /\ lookup part (memory s) beqAddr = Some (PDT pdentry)
+    /\ In kernel (completeListOfKernels (structure pdentry) s).
+
+Definition consInitStruct s :=
+nullAddrExists s
+/\ wellFormedFstShadowIfBlockEntry s
+/\ PDTIfPDFlag s
+/\ AccessibleNoPDFlag s
+/\ FirstFreeSlotPointerIsBEAndFreeSlot s
+/\ multiplexerIsPDT s
+/\ currentPartitionInPartitionsList s
+/\ wellFormedShadowCutIfBlockEntry s
+/\ BlocksRangeFromKernelStartIsBE s
+/\ KernelStructureStartFromBlockEntryAddrIsKS s
+/\ sh1InChildLocationIsBE s
+/\ StructurePointerIsKS s
+/\ NextKSIsKS s
+/\ NextKSOffsetIsPADDR s
+/\ NoDupInFreeSlotsList s
+/\ freeSlotsListIsFreeSlot s
+/\ DisjointFreeSlotsLists s
+/\ inclFreeSlotsBlockEntries s
+/\ DisjointKSEntries s
+/\ noDupPartitionTree s
+/\ isParent s
+/\ isChild s
+/\ noDupKSEntriesList s
+/\ wellFormedBlock s
+/\ parentOfPartitionIsPartition s
+/\ NbFreeSlotsISNbFreeSlotsInList s
+/\ maxNbPrepareIsMaxNbKernels s
+/\ blockInChildHasAtLeastEquivalentBlockInParent s
+/\ partitionTreeIsTree s
+/\ nextKernelIsValid s
+/\ noDupListOfKerns s
+/\ MPUsizeIsBelowMax s
+/\ originIsParentBlocksStart s
+/\ nextImpliesBlockWasCut s
+/\ blocksAddressesTypes s
+/\ notPDTIfNotPDflag s
+/\ nextKernAddrIsInSameBlock s
+/\ PDflagMeansNoChild s
+/\ nbPrepareIsNbKern s
+/\ pdchildIsPDT s
+/\ childBlockNullIfChildNull s
+/\ accessibleBlocksArePresent s
+/\ sharedBlockIsPresent s
+/\ sharedBlockNoPDflagNoLocIsKern s
+/\ partitionNotAutoMapped s
+/\ configAddrNotMappedInChild s
+/\ fullKernelIsInOneBlock s
+/\ sharedBlocksAdressesAreAllMappedInChild s
+/\ kernInSameBlock s
+/\ blockAndSh1InSameBlock s
+/\ blockAndSceInSameBlock s.
+
 (** ** First batch of consistency properties *)
 Definition consistency1 s :=
 nullAddrExists s /\
@@ -842,7 +908,8 @@ nbPrepareIsNbKern s
 /\ sharedBlocksAdressesAreAllMappedInChild s
 /\ kernInSameBlock s
 /\ blockAndSh1InSameBlock s
-/\ blockAndSceInSameBlock s.
+/\ blockAndSceInSameBlock s
+/\ kernelIsSomePartsConfig s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=

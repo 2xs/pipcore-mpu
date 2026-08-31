@@ -8520,21 +8520,17 @@ In pdinsertion (getPartitions multiplexer s)
 -> pdentryFirstFreeSlot pdinsertion firstFreeAddr s ->
 (exists firstfreepointer, pdentryFirstFreeSlot pdinsertion firstfreepointer s /\
 		firstfreepointer <> nullAddr) ->
-consistency1 s ->
-firstFreeAddr <> pdinsertion.
+FirstFreeSlotPointerIsBEAndFreeSlot s
+-> NoDupInFreeSlotsList s
+(* consistency1 s -> *)
+-> firstFreeAddr <> pdinsertion.
 Proof.
-intros HPDTs HpdIsPart Hfirstfree HfirstNotNull Hcons.
+intros HPDTs HpdIsPart Hfirstfree HfirstNotNull HfirstIsBE HNoDupInFreeSlotsList (* Hcons *).
 intro HnewFirstPDEq. (* pdinsertion would be in the free slots list so it would loop -> contradiction *)
-assert(HfirstIsBE : FirstFreeSlotPointerIsBEAndFreeSlot s)
-							by (unfold consistency1 in * ; intuition).
-unfold FirstFreeSlotPointerIsBEAndFreeSlot in *.
 specialize(HfirstIsBE pdinsertion x HPDTs HpdIsPart).
 destruct HfirstNotNull. unfold pdentryFirstFreeSlot in *.
 rewrite HPDTs in *. intuition. subst x0. subst firstFreeAddr.
 specialize(HfirstIsBE H1). destruct (HfirstIsBE) as [_ HfreeNewFirst].
-assert(HNoDupInFreeSlotsList : NoDupInFreeSlotsList s)
-	by (unfold consistency1 in * ; intuition).
-unfold NoDupInFreeSlotsList in *.
 specialize(HNoDupInFreeSlotsList pdinsertion HpdIsPart).
 destruct HNoDupInFreeSlotsList.
 unfold getFreeSlotsList in *. rewrite HPDTs in *.
@@ -9234,7 +9230,6 @@ revert first default. induction list.
   { apply IHlist with first. assumption. }
   simpl. simpl in Hres. intuition.
 Qed.
-
 
 Lemma isListOfKernelsAuxRec kernList (initKern: paddr) kernel newKern s:
 newKern <> nullAddr
@@ -16983,7 +16978,8 @@ eapply getAccessibleMappedPaddrEqPDTNotInPart; intuition.
 Qed.
 
 Lemma getKSEntriesInStructAuxInside n m p block kernelstructure idx s:
-consistency1 s ->
+BlocksRangeFromKernelStartIsBE s ->
+nullAddrExists s ->
 isKS kernelstructure s ->
 i idx <= i p ->
 i p < n ->
@@ -16998,7 +16994,7 @@ In block
 Proof.
 intros.
 destruct p. destruct idx. simpl in *.
-revert i0 i m Hi Hi0 H1 H2 H3 H4 H5.
+revert i0 i m Hi Hi0 H2 H3 H4 H5 H6.
 induction n ; simpl in * ; intuition.
 revert i m Hi H1 H2 H3 H4 H5.
 induction i0.
@@ -17023,7 +17019,7 @@ induction i0.
 	(* impossible because range OK *)
 	1,2,3,4,5, 6: 
 	assert(HconsBlocksRanges : BlocksRangeFromKernelStartIsBE s)
-		by (unfold consistency1 in *  ; intuition) ;
+		by intuition;
 	unfold BlocksRangeFromKernelStartIsBE in * ;
 	assert(HisKScurr : isKS kernelstructure s) by intuition ;
 	assert(HInRange : S i < kernelStructureEntriesNb) by intuition ;
@@ -17031,8 +17027,7 @@ induction i0.
 									{| i := S i; Hi := Hi |}
 									HisKScurr HInRange);
 	unfold isBE in * ;
-	assert(HnullAddrs : nullAddrExists s)
-		by (unfold consistency1 in * ; intuition) ;
+	assert(HnullAddrs : nullAddrExists s) by intuition;
 	unfold nullAddrExists in * ; unfold isPADDR in * ;
 	unfold nullAddr in * ; unfold CPaddr in * ;
 	(destruct (le_dec 0 maxAddr) ; try(lia) );
@@ -17067,7 +17062,7 @@ induction i0.
 	destruct (lookup p (memory s) beqAddr) eqn:Hlookup; simpl in * ; intuition.
 	destruct v ; simpl in * ; intuition.
 	-- 	subst p.
-		revert m H1 H2 H3.
+		revert m H2 H3 H4.
 		induction i ; simpl in * ; intuition ; try lia.
 		induction m ; simpl in * ; intuition ; try lia.
 		assert(Hconj : S i0 = S i \/ S i0 < S i) by lia.
@@ -17080,7 +17075,7 @@ induction i0.
 			apply proof_irrelevance. }
 			rewrite HidxEq in *.
 			rewrite HaddPaddrIdx. rewrite Hlookup. simpl. intuition.
-		* clear H1.
+		* clear H2.
 		destruct (Paddr.addPaddrIdx kernelstructure {| i := S i; Hi := Hi |}) eqn:HaddPaddrIdx' ; intuition.
 		destruct (lookup p (memory s) beqAddr) eqn:Hlookup'; intuition.
 		destruct v ; intuition.
@@ -17090,9 +17085,8 @@ induction i0.
 		eapply IHn with (i := i-0)(i0:=i)(Hi0:=Hi') ; try lia.
 		(* DUP *)
 		(* impossible because range OK *)
-		1,2,3,4,5, 6: 
-		assert(HconsBlocksRanges : BlocksRangeFromKernelStartIsBE s)
-			by (unfold consistency1 in *  ; intuition) ;
+		1,2,3,4,5,6:
+		assert(HconsBlocksRanges : BlocksRangeFromKernelStartIsBE s) by intuition;
 		unfold BlocksRangeFromKernelStartIsBE in * ;
 		assert(HisKScurr : isKS kernelstructure s) by intuition ;
 		assert(HInRange : S i < kernelStructureEntriesNb) by intuition ;
@@ -17100,8 +17094,7 @@ induction i0.
 										{| i := S i; Hi := Hi |}
 										HisKScurr HInRange);
 		unfold isBE in * ;
-		assert(HnullAddrs : nullAddrExists s)
-			by (unfold consistency1 in * ; intuition) ;
+		assert(HnullAddrs : nullAddrExists s) by intuition;
 		unfold nullAddrExists in * ; unfold isPADDR in * ;
 		unfold nullAddr in * ; unfold CPaddr in * ;
 		(destruct (le_dec 0 maxAddr) ; try(lia) );
@@ -17123,12 +17116,12 @@ induction i0.
                       = StateLib.Paddr.addPaddrIdx_obligation_1 kernelstructure {| i := S i; Hi := Hi |} l0)
       by apply proof_irrelevance. rewrite HiEq'' in *. rewrite Hlookup' in *. congruence.
 
-    assert(HKSvalid: BlocksRangeFromKernelStartIsBE s) by (unfold consistency1 in *; intuition). simpl.
+    assert(HKSvalid: BlocksRangeFromKernelStartIsBE s) by intuition. simpl.
     assert(HindexValid: CIndex (S i) < kernelStructureEntriesNb).
     {
       unfold CIndex. destruct (le_dec (S i) maxIdx); try(lia). simpl. lia.
     }
-    specialize(HKSvalid kernelstructure (CIndex (S i)) H0 HindexValid). unfold Paddr.addPaddrIdx in HaddPaddrIdx'.
+    specialize(HKSvalid kernelstructure (CIndex (S i)) H1 HindexValid). unfold Paddr.addPaddrIdx in HaddPaddrIdx'.
     unfold CPaddr in HKSvalid. simpl in HaddPaddrIdx'.
     assert(Hindex: ADT.i (CIndex (S i)) = S i).
     {
@@ -17140,7 +17133,7 @@ induction i0.
       unfold nullAddr. unfold CPaddr. destruct (le_dec 0 maxAddr); try(lia). f_equal.
       apply proof_irrelevance.
     }
-    rewrite HnullEq in HKSvalid. assert(Hnull: nullAddrExists s) by (unfold consistency1 in *; intuition).
+    rewrite HnullEq in HKSvalid. assert(Hnull: nullAddrExists s) by intuition.
     unfold nullAddrExists in Hnull. unfold CPaddr in Hnull. unfold isBE in HKSvalid. unfold isPADDR in Hnull.
     destruct (lookup nullAddr (memory s) beqAddr); try(congruence). destruct v; congruence.
 
@@ -17163,7 +17156,7 @@ induction i0.
 				apply proof_irrelevance.
 			}
 			rewrite HidxEq in *.
-			assumption.
+			assumption. assumption.
 Qed.
 
 Lemma getKSEntriesInStructAuxEqFuelSuff n (kernel: paddr) s (idx: index):

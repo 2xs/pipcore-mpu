@@ -60,7 +60,7 @@ eapply bindRev.
 intro currentPart.
 eapply bindRev.
 { (** Internal.getGlobalIdPDCurrentOrChild **)
-	eapply weaken. apply getGlobalIdPDCurrentOrChild.
+	eapply weaken. apply getGlobalIdPDCurrentOrChildPrecise.
 	intros s Hprops. simpl. split. apply Hprops. split. intuition. destruct Hprops as (Hprops & Hcurr).
   split; subst currentPart.
   - unfold consistency in *; unfold consistency1 in *; intuition.
@@ -85,8 +85,25 @@ case_eq addrIsNull.
 	eapply bindRev.
 	{ (** Internal.findBelongingBlock *)
 		eapply weaken. apply findBlockInKS.findBelongingBlock.
-		intros. simpl. split. apply H0. unfold consistency in H0; intuition.
-		apply H5. intros. apply beqAddrFalse in H2. congruence.
+		intros s Hprops. simpl.
+		destruct Hprops as ((((HPI & HKDI & HVS & Hconsist) & Hcurr) & _ & HpropsOr) & HbeqNullGlob).
+    rewrite <-beqAddrFalse in HbeqNullGlob. apply not_eq_sym in HbeqNullGlob. specialize(HpropsOr HbeqNullGlob).
+    destruct HpropsOr as (HglobIsPDT & HpropsOr).
+    assert(List.In globalIdPD (getPartitions multiplexer s)).
+    {
+      assert(List.In currentPart (getPartitions multiplexer s)).
+      {
+        subst currentPart. unfold consistency in *; unfold consistency1 in *; intuition.
+      }
+      destruct HpropsOr as [Heq | HglobIsChild]; try(subst globalIdPD; assumption).
+      apply childrenPartitionInPartitionList with currentPart; trivial; unfold consistency in *;
+        unfold consistency1 in *; intuition.
+    }
+    instantiate(1 := fun s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s
+      /\ consistency s /\ currentPart = currentPartition s /\ isPDT globalIdPD s
+      /\ (currentPart = globalIdPD \/ List.In globalIdPD (getChildren currentPart s))
+      /\ globalIdPD <> nullAddr /\ List.In globalIdPD (getPartitions multiplexer s)).
+    unfold consistency in *; intuition. 
 	}
 	intro blockAddr.
 	eapply bindRev.
@@ -124,7 +141,7 @@ case_eq addrIsNull.
 			  intros. simpl. split. apply H1.
         assert(Hcurr: currentPart = currentPartition s) by intuition.
 			  subst currentPart. split. intuition. unfold consistency in * ; unfold consistency1 in *.
-			  eapply currentPartIsPDT ; intuition.
+			  split; only 1: eapply currentPartIsPDT; intuition.
 		  }
 		  intro blockToShareInCurrPartAddr.
 		  eapply WP.bindRev.
@@ -145,9 +162,9 @@ case_eq addrIsNull.
 			  eapply bindRev.
 			  { (** readBlockAccessibleFromBlockEntryAddr *)
 				  eapply weaken. apply readBlockAccessibleFromBlockEntryAddr.
-				  intros. simpl. split. apply H2.
+				  intros s Hprops. simpl. split. apply Hprops.
 				  repeat rewrite <- beqAddrFalse in *.
-          destruct H2 as ((_ & (_ & Hres)) & HbeqNullBlock).
+          destruct Hprops as ((_ & (_ & Hres)) & HbeqNullBlock).
           destruct Hres as [Hcontra | Hres]; try(exfalso; congruence).
           destruct Hres as [bentry (Hlookup & _ & _)]. unfold isBE.
           rewrite Hlookup. trivial.

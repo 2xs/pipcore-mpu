@@ -996,12 +996,12 @@ eapply bindRev.
 
       assert(Hsh1InChildLocationIsBEs : sh1InChildLocationIsBE s).
       { (* BEGIN sh1InChildLocationIsBE s *)
-        unfold sh1InChildLocationIsBE.
-        intros sh1entryaddr sh1entry Hlookup Hsh1entryNotNull.
-
+        intros part block sh1entryaddr sh1entry HpartIsPart HblockMapped Hsh1 Hlookup Hsh1entryNotNull.
+        rewrite HgetPartsEq in *. assert(isPDT part s0).
+        { apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition. }
+        rewrite HgetMappedBEq in *; trivial.
         assert(Hcons0 : sh1InChildLocationIsBE s0)
                    by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-        unfold sh1InChildLocationIsBE in Hcons0.
 
       (* check all possible values for sh1entryaddr in the modified state s
 	       -> no entry modifications correspond to SH1Entry type
@@ -1023,7 +1023,7 @@ eapply bindRev.
         }
         assert(Hlookupsh1 : lookup sh1entryaddr (memory s0) beqAddr = Some (SHE sh1entry))
                 by (rewrite HSHEEq in * ; intuition).
-        specialize(Hcons0 sh1entryaddr sh1entry Hlookupsh1 Hsh1entryNotNull).
+        specialize(Hcons0 part block sh1entryaddr sh1entry HpartIsPart HblockMapped Hsh1 Hlookupsh1 Hsh1entryNotNull).
         (* Check all values *)
 			  destruct (beqAddr globalIdPD (inChildLocation sh1entry)) eqn:HbeqGlobSh1; try(exfalso ; congruence).
 				+ (* globalIdPD = (inChildLocation sh1entry) *)
@@ -1035,18 +1035,16 @@ eapply bindRev.
           destruct v ; try(exfalso ; congruence).
 			  + (* globalIdPD <> (inChildLocation sh1entry) *)
 					unfold isBE. rewrite <-HsEq. cbn. rewrite HbeqGlobSh1.
-					rewrite <- beqAddrFalse in *. rewrite removeDupIdentity ; intuition.
+					rewrite <- beqAddrFalse in *. rewrite removeDupIdentity ; auto.
         (* END sh1InChildLocationIsBE *)
       }
 
       assert(HStructurePointerIsKSs : StructurePointerIsKS s).
       { (* BEGIN StructurePointerIsKS s *)
-        unfold StructurePointerIsKS.
-        intros pdentryaddr pdentry' Hlookup HstructureNotNull.
+        intros pdentryaddr pdentry' HpartIsPart Hlookup HstructureNotNull. rewrite HgetPartsEq in *.
 
         assert(Hcons0 : StructurePointerIsKS s0)
                by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-        unfold StructurePointerIsKS in Hcons0.
         (* check all possible values for pdentryaddr in the modified state s
 	         -> only possible is globalIdPD
          1) if pdentryaddr == globalIdPD :
@@ -1066,7 +1064,7 @@ eapply bindRev.
 			    assert(HstructureEq : (structure newpdentry) = (structure pdentry)).
 			    { subst newpdentry. simpl. trivial. }
 			    rewrite HstructureEq in *.
-			    specialize(Hcons0 globalIdPD pdentry Hlookups0 HstructureNotNull).
+			    specialize(Hcons0 globalIdPD pdentry HpartIsPart Hlookups0 HstructureNotNull).
 			    (* Check all values for structure pdentry *)
 			    destruct (beqAddr globalIdPD (structure pdentry)) eqn:HbeqGlobPtn; try(exfalso ; congruence).
 				  + (* globalIdPD = (structure pdentry) *)
@@ -1087,7 +1085,7 @@ eapply bindRev.
 				  }
 				  assert(Hlookuppd : lookup pdentryaddr (memory s0) beqAddr = Some (PDT pdentry'))
 					       by (rewrite HPDEq in * ; intuition).
-				  specialize(Hcons0 pdentryaddr pdentry' Hlookuppd HstructureNotNull).
+				  specialize(Hcons0 pdentryaddr pdentry' HpartIsPart Hlookuppd HstructureNotNull).
 				  (* Check all values *)
 				  destruct (beqAddr globalIdPD (structure pdentry')) eqn:HbeqGlobPtn ; try(exfalso ; congruence).
 					+ (* globalIdPD = (inChildLocation sh1entry) *)
@@ -1099,16 +1097,14 @@ eapply bindRev.
             destruct v ; try(exfalso ; congruence).
 				 + (* globalIdPD <> (structure pdentry') *)
 					 unfold isKS. rewrite <-HsEq. cbn. rewrite HbeqGlobPtn.
-					 rewrite <- beqAddrFalse in *. rewrite removeDupIdentity ; intuition.
+					 rewrite <- beqAddrFalse in *. rewrite removeDupIdentity ; auto.
         (* END StructurePointerIsKS *)
       }
 
       assert(HNextKSIsKSs : NextKSIsKS s).
       { (* NextKSIsKS s *)
-        unfold NextKSIsKS.
         intros ksaddr nextksaddr next HKS Hnextksaddr Hnext HnextNotNull.
         assert(Hcons0 : NextKSIsKS s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-        unfold NextKSIsKS in Hcons0.
         (* check all possible values for ksaddr in the modified state s
 	         -> nextks and nextksaddr never modified
 	         -> leads to s0, even if nextksaddr == newB -> OK
@@ -1181,11 +1177,9 @@ eapply bindRev.
 
       assert(HNextKSOffsetIsPADDRs: NextKSOffsetIsPADDR s).
       { (* BEGIN NextKSOffsetIsPADDR s *)
-        unfold NextKSOffsetIsPADDR.
         intros ksaddr nextksaddr HKS Hnextksaddr.
         assert(Hcons0 : NextKSOffsetIsPADDR s0)
                      by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-        unfold NextKSOffsetIsPADDR in Hcons0.
         (* check all possible values for ksaddr in the modified state s
 	         -> nextks and nextksaddr never modified
 	         -> values for nextksaddr leads to s0 cause nothing matches -> OK
@@ -1285,7 +1279,7 @@ eapply bindRev.
               by (apply lookupPDEntryFirstFreeSlot; intuition).
           rewrite <-HsEq. apply eq_sym.
           apply getFreeSlotsListRecEqPDT.
-          apply firstBlockPDNotEq with pdentry s0; unfold consistency in *; intuition.
+          apply firstBlockPDNotEq with pdentry s0; unfold consistency in *; unfold consistency1 in *; intuition.
           exists (firstfreeslot pdentry). rewrite <-beqAddrFalse in *. intuition.
           unfold isBE. rewrite Hlookups0. intuition.
           unfold isPADDR. rewrite Hlookups0. intuition.
@@ -1954,201 +1948,25 @@ eapply bindRev.
         (* END inclFreeSlotsBlockEntries *)
       }
 
+      assert(HgetKSEq: forall part, isPDT part s0 -> getKSEntries part s = getKSEntries part s0).
+      {
+        intros part HpartIsPDT. destruct (beqAddr part globalIdPD) eqn:HbeqParts.
+        - rewrite <-beqAddrTrue in HbeqParts. subst part. rewrite <-HsEq.
+          apply getKSEntriesEqPDT with pdentry; intuition.
+        - rewrite <-beqAddrFalse in *. intuition.
+      }
+
       assert(HDisjointKSEntriess : DisjointKSEntries s).
       { (* BEGIN DisjointKSEntries s *)
-        unfold DisjointKSEntries.
-        intros pd1 pd2 HPDTpd1 HPDTpd2 Hpd1pd2NotEq.
+        intros pd1 pd2 HPDTpd1 HPDTpd2 Hpd1pd2NotEq. rewrite HgetPartsEq in *.
         assert(Hcons0 : DisjointKSEntries s0)
                        by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-        unfold DisjointKSEntries in Hcons0.
-        (* we must show all KSEntries lists are disjoint
-         check all possible values for pd1 AND pd2 in the modified state s
-	         -> only possible is globalIdPD
-		         1) - if pd1 = globalIdPD:
-				         -> show the pd1's new free slots list is equal to the initial free slots list
-						         and that pd2's free slots list is identical at s and s0,
-					         -> if they were disjoint at s0, they are still disjoint at s -> OK
-		         2) - if pd1 <> globalIdPD, it is another pd, but pd2 could be globalIdPD
-				         3) - if pd2 = globalIdPD:
-						         same proof as with pd1
-				         4) - if pd2 <> globalIdPD: prove pd1's free slots list and pd2's free slot list
-						         have NOT changed in the modified state, so they are still disjoint
-							         -> compute the list at each modified state and check not changed from s0 -> OK
-        *)
-        (* Check all values for pd1 and pd2 *)
-        destruct (beqAddr globalIdPD pd1) eqn:HbeqGlobPd1; try(exfalso ; congruence).
-				- (* 1) globalIdPD = pd1 *)
-          rewrite <- DependentTypeLemmas.beqAddrTrue in HbeqGlobPd1.
-          rewrite <- HbeqGlobPd1 in *.
-          destruct (beqAddr globalIdPD pd2) eqn:HbeqGlobPd2; try(exfalso ; congruence).
-          rewrite <- DependentTypeLemmas.beqAddrTrue in HbeqGlobPd2. congruence.
-          (* DUP *)
-          assert(Hlookuppd2Eq : lookup pd2 (memory s) beqAddr = lookup pd2 (memory s0) beqAddr).
-          {
-            rewrite <-HsEq. unfold isPDT.
-            cbn. rewrite HbeqGlobPd2.
-            rewrite <- beqAddrFalse in *. rewrite removeDupIdentity ; intuition.
-          }
-          assert(HPDTpd2Eq : isPDT pd2 s = isPDT pd2 s0).
-          { unfold isPDT. rewrite Hlookuppd2Eq. intuition. }
-          assert(HPDTpd2s0 : isPDT pd2 s0) by (rewrite HPDTpd2Eq in * ; assumption).
-				  specialize(Hcons0 globalIdPD pd2 H0 HPDTpd2s0 Hpd1pd2NotEq).
-				  destruct Hcons0 as [optionentrieslist1 (optionentrieslist2 & (Hoptionlist1s0
-                                                                 & (Hoptionlist2s0 & HDisjoints0)))].
-				  (* Show equality for pd2's free slot list
-						 so between listoption2 at s and listoption2 at s0 *)
-				  unfold getKSEntries in Hoptionlist2s0.
-				  apply isPDTLookupEq in HPDTpd2s0. destruct HPDTpd2s0 as [pd2entry Hlookuppd2s0].
-				  rewrite Hlookuppd2s0 in *.
-          destruct (beqAddr (structure pd2entry) nullAddr) eqn:Hpd2Null ; try(exfalso ; congruence).
-					+ (* listoption2 = NIL *)
-            exists optionentrieslist1. exists optionentrieslist2.
-            assert(Hlistoption2s : getKSEntries pd2 s = nil).
-            { unfold getKSEntries. rewrite Hlookuppd2Eq. rewrite Hpd2Null. reflexivity. }
-            rewrite Hlistoption2s in *.
-            intuition. rewrite Hoptionlist2s0 in *.
-            rewrite Hoptionlist1s0. apply eq_sym. rewrite <-HsEq.
-            apply getKSEntriesEqPDT with pdentry; intuition.
-          + (* listoption2 <> NIL *)
-            (* show equality between listoption2 at s and s0 
-	             + if listoption2 has NOT changed, listoption1 at s is
-	             just a subset of listoption1 at s0 so they are
-	             still disjoint *)
-            exists optionentrieslist1. exists optionentrieslist2. intuition.
-            * rewrite Hoptionlist1s0. apply eq_sym. rewrite <-HsEq.
-              apply getKSEntriesEqPDT with pdentry; intuition.
-            * rewrite Hoptionlist2s0. unfold getKSEntries. rewrite Hlookuppd2Eq.
-              rewrite Hpd2Null. apply eq_sym. rewrite <-HsEq. apply getKSEntriesAuxEqPDT.
-              -- intro HeqStructGlob.
-                 assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
-			                  by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-		             unfold StructurePointerIsKS in *.
-		             specialize (HStructurePointerIsKSs0 pd2 pd2entry Hlookuppd2s0).
-		             rewrite <- beqAddrFalse in Hpd2Null.
-		             unfold isKS in *. rewrite HeqStructGlob in *.
-		             rewrite Hlookups0 in *. intuition.
-              -- unfold isPADDR. rewrite Hlookups0. intro Hcontra. contradict Hcontra.
-              -- unfold isBE. rewrite Hlookups0. intro Hcontra. contradict Hcontra.
-				- (* 2) globalIdPD <> pd1 *)
-          (* similarly, we must prove optionfreeslotslist1 is strictly
-	           the same at s than at s0 by recomputing each
-	           intermediate steps and check at that time *)
-          assert(Hlookuppd1Eq : lookup pd1 (memory s) beqAddr = lookup pd1 (memory s0) beqAddr).
-          {
-            rewrite <-HsEq. cbn. rewrite HbeqGlobPd1.
-            rewrite <- beqAddrFalse in *. rewrite removeDupIdentity ; intuition.
-          }
-          assert(HPDTpd1Eq : isPDT pd1 s = isPDT pd1 s0).
-          { unfold isPDT. rewrite Hlookuppd1Eq. intuition. }
-          assert(HPDTpd1s0 : isPDT pd1 s0) by (rewrite HPDTpd1Eq in * ; assumption).
-           (* DUP of previous steps to show strict equality of listoption2
-	           at s and s0 *)
-          destruct (beqAddr globalIdPD pd2) eqn:HbeqGlobPd2; try(exfalso ; congruence).
-          + (* 2) 1. globalIdPD = pd2 *)
-            rewrite <- DependentTypeLemmas.beqAddrTrue in HbeqGlobPd2.
-            rewrite <- HbeqGlobPd2 in *.
-						(* DUP with pd1 instead of pd2 *)
-					  assert(Hpd1pd2NotEq': globalIdPD <> pd1 ) by intuition.
-            assert(HPDTpd2Eq : isPDT pd1 s = isPDT pd1 s0).
-            { unfold isPDT. rewrite Hlookuppd1Eq. intuition. }
-				    specialize(Hcons0 globalIdPD pd1 H0 HPDTpd1s0 Hpd1pd2NotEq').
-				    destruct Hcons0 as [optionentrieslist1 (optionentrieslist2 & (Hoptionlist1s0
-                                                                 & (Hoptionlist2s0 & HDisjoints0)))].
-				    (* Show equality between listoption1 at s and listoption1 at s0 *)
-            exists optionentrieslist2.
-            exists optionentrieslist1.
-					  unfold getKSEntries at 1.
-					  rewrite Hlookuppd1Eq.
-					  unfold getKSEntries in Hoptionlist2s0.
-					  apply isPDTLookupEq in HPDTpd1s0. destruct HPDTpd1s0 as [pd1entry Hlookuppd1s0].
-					  rewrite Hlookuppd1s0 in *.
-            destruct (beqAddr (structure pd1entry) nullAddr) eqn:Hpd1Null ; try(exfalso ; congruence).
-            * (* listoption2 = NIL *)
-						  rewrite Hoptionlist2s0 in *.
-						  intuition.
-						  rewrite Hoptionlist1s0. apply eq_sym. rewrite <-HsEq.
-              apply getKSEntriesEqPDT with pdentry; intuition.
-						  apply Lib.disjointPermut. intuition.
-            * (* listoption2 <> NIL *)
-              (* show equality between listoption2 at s and s0 
-	               + if listoption2 has NOT changed, listoption1 at s is
-	               just a subset of listoption1 at s0 so they are
-	               still disjoint *)
-              (* listoption2 didn't change *)
-						  assert(HKSEntries : getKSEntries globalIdPD s0 = getKSEntries globalIdPD s).
-						  { apply eq_sym. rewrite <-HsEq. apply getKSEntriesEqPDT with pdentry; intuition. }
-              subst optionentrieslist1.
-						  intuition.
-              rewrite Hoptionlist2s0. apply eq_sym. rewrite <-HsEq. apply getKSEntriesAuxEqPDT.
-              -- intro HeqStructGlob.
-                 assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
-			                  by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-		             unfold StructurePointerIsKS in *.
-		             specialize (HStructurePointerIsKSs0 pd1 pd1entry Hlookuppd1s0).
-		             rewrite <- beqAddrFalse in Hpd1Null.
-		             unfold isKS in *. rewrite HeqStructGlob in *.
-		             rewrite Hlookups0 in *. intuition.
-              -- unfold isPADDR. rewrite Hlookups0. intro Hcontra. contradict Hcontra.
-              -- unfold isBE. rewrite Hlookups0. intro Hcontra. contradict Hcontra.
-              -- apply Lib.disjointPermut. intuition.
-          + (* 2) 2. globalIdPD <> pd2 *)
-					  (* show strict equality of listoption1 at s and s0
-							 and listoption2 at s and s0 because no list changed 
-								 as only pdinsertion's free slots list changed *)
-					  (* DUP *)
-					  (* show list equality between s0 and s*)
-					  (* similarly, we must prove optionfreeslotslist1 
-						  and optionfreeslotslist2 are strictly
-						  the same at s than at s0 by recomputing each
-						  intermediate steps and check at that time *)
-					  assert(Hlookuppd2Eq : lookup pd2 (memory s) beqAddr = lookup pd2 (memory s0) beqAddr).
-					  {
-              rewrite <-HsEq. cbn. rewrite HbeqGlobPd2.
-              rewrite <- beqAddrFalse in *. rewrite removeDupIdentity ; intuition.
-					  }
-					  assert(HPDTpd2Eq : isPDT pd2 s = isPDT pd2 s0).
-					  { unfold isPDT. rewrite Hlookuppd2Eq. intuition. }
-					  assert(HPDTpd2s0 : isPDT pd2 s0) by (rewrite HPDTpd2Eq in * ; assumption).
-						 (* DUP of previous steps to show strict equality of listoption2
-							 at s and s0 *)
-					  specialize (Hcons0 pd1 pd2 HPDTpd1s0 HPDTpd2s0 Hpd1pd2NotEq).
-					  destruct Hcons0 as [optionentrieslist1 (optionentrieslist2 & (Hoptionlist1s0
-                                                                & (Hoptionlist2s0 & HDisjoints0)))].
-					  assert(Hpdpd1NotEq : globalIdPD <> pd1) by (rewrite <- beqAddrFalse in * ; intuition).
-					  assert(Hpdpd2NotEq : globalIdPD <> pd2) by (rewrite <- beqAddrFalse in * ; intuition).
-            exists optionentrieslist1.
-					  exists optionentrieslist2.
-					  (* Show equality between listoption1 at s and listoption1 at s0 *)
-					  unfold getKSEntries at 1.
-					  rewrite Hlookuppd1Eq. unfold getKSEntries in Hoptionlist1s0.
-            unfold isPDT in HPDTpd1s0.
-            destruct (lookup pd1 (memory s0) beqAddr) eqn:HlookupPd1s0; try(exfalso ; congruence).
-            destruct v; try(exfalso ; congruence).
-					  destruct (beqAddr (structure p) nullAddr) eqn:Hpd1Null ; try(exfalso ; congruence).
-					  * (* listoption1 = NIL *)
-              intuition.
-						  subst optionentrieslist2. apply eq_sym. rewrite <-HsEq.
-              apply getKSEntriesEqPDT with pdentry; intuition.
-					  * (* listoption1 <> NIL *)
-						  (* show equality beween listoption1 at s0 and at s
-								 -> if equality, then show listoption2 has not changed either
-										 -> if listoption1 and listoption2 stayed the same
-												 and they were disjoint at s0, then they
-												 are still disjoint at s*)
-              (* specialize disjoint for pd1 and pd2 at s0 *)
-              intuition.
-              -- subst optionentrieslist1. apply eq_sym. rewrite <-HsEq. apply getKSEntriesAuxEqPDT;
-                     try(unfold isPADDR; unfold isBE; rewrite Hlookups0; intro Hcontra; contradict Hcontra).
-                 intuition.
-                 assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
-			                  by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-		             unfold StructurePointerIsKS in *.
-		             specialize (HStructurePointerIsKSs0 pd1 p HlookupPd1s0).
-		             rewrite <- beqAddrFalse in Hpd1Null.
-		             unfold isKS in *. rewrite H21 in *.
-		             rewrite Hlookups0 in *. intuition.
-              -- subst optionentrieslist2. apply eq_sym. rewrite <-HsEq.
-                 apply getKSEntriesEqPDT with pdentry; intuition.
+			  specialize(Hcons0 pd1 pd2 HPDTpd1 HPDTpd2 Hpd1pd2NotEq).
+        assert(HPDTpd1s0 : isPDT pd1 s0).
+        { apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition. }
+        assert(HPDTpd2s0 : isPDT pd2 s0).
+        { apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition. }
+        rewrite HgetKSEq; trivial. rewrite HgetKSEq; assumption.
         (* END DisjointKSEntries *)
       }
 
@@ -2392,8 +2210,7 @@ eapply bindRev.
       { (* BEGIN noDupKSEntriesList s *)
         assert(Hcons0 : noDupKSEntriesList s0)
 	         by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-        unfold noDupKSEntriesList.
-        intros part HPDTpds.
+        intros part HPDTpds. rewrite HgetPartitionspdEq in *. specialize (Hcons0 part HPDTpds).
 	      destruct (beqAddr globalIdPD part) eqn:HbeqGlobPart ; try(exfalso ; congruence).
 	      - (* globalIdPD =  part *)
 		      rewrite <- DependentTypeLemmas.beqAddrTrue in HbeqGlobPart.
@@ -2402,18 +2219,8 @@ eapply bindRev.
 		      {
 			      rewrite <-HsEq. apply getKSEntriesEqPDT with pdentry; intuition.
 		      }
-		      rewrite HKSEntriesEq.
-		      unfold noDupKSEntriesList in *.
-		      assert(HPDTpdinsertions0 : isPDT globalIdPD s0) by intuition.
-		      specialize (Hcons0 globalIdPD HPDTpdinsertions0).
-		      assumption.
+		      rewrite HKSEntriesEq. assumption.
 	      - (* globalIdPD <> part *)
-		      assert(HPDTEq : isPDT part s = isPDT part s0).
-		      {
-		        unfold isPDT in *. simpl.
-			      rewrite <-HsEq. simpl. rewrite HbeqGlobPart.
-			      rewrite <- beqAddrFalse in *. rewrite removeDupIdentity ; intuition.
-		      }
 		      assert(HKSEntriesEq : (getKSEntries part s) = (getKSEntries part s0)).
 		      {
 			      assert(HKSEntriesEqNotInPart : forall partition : paddr,
@@ -2423,15 +2230,10 @@ eapply bindRev.
 				            by intuition.
 			      rewrite beqAddrSym in HbeqGlobPart.
 			      rewrite <- beqAddrFalse in HbeqGlobPart.
-			      rewrite HPDTEq in HPDTpds.
-			      specialize (HKSEntriesEqNotInPart part HbeqGlobPart HPDTpds).
-			      assumption.
+			      specialize (HKSEntriesEqNotInPart part HbeqGlobPart). apply HKSEntriesEqNotInPart.
+			      apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition.
 		      }
-		      rewrite HKSEntriesEq.
-		      unfold noDupKSEntriesList in *.
-		      rewrite HPDTEq in HPDTpds.
-		      specialize (Hcons0 part HPDTpds).
-		      assumption.
+		      rewrite HKSEntriesEq. assumption.
         (* END noDupKSEntriesList *)
       }
 
@@ -2569,24 +2371,7 @@ eapply bindRev.
       { (* BEGIN noDupMappedPaddrList s *)
 		    assert(Hcons0 : noDupMappedPaddrList s0)
 			        by (unfold consistency in * ; unfold consistency2 in * ; intuition).
-		    unfold noDupMappedPaddrList.
-		    intros part HPDTpds.
-		    unfold getUsedPaddr.
-		    assert(HPDTEq : isPDT part s = isPDT part s0).
-		    {
-			    unfold isPDT in *. simpl.
-			    rewrite <-HsEq. simpl.
-					destruct (beqAddr globalIdPD part) eqn:HbeqGlobPart ; try(exfalso ; congruence).
-					- (* globalIdPD = part *)
-						rewrite <- DependentTypeLemmas.beqAddrTrue in HbeqGlobPart.
-						rewrite HbeqGlobPart in *.
-						rewrite Hlookups0 in *.
-						trivial.
-					- (* globalIdPD <> part *)
-							rewrite <- beqAddrFalse in *. rewrite removeDupIdentity ; intuition.
-        }
-		    unfold noDupMappedPaddrList in *.
-		    rewrite HPDTEq in *.
+		    intros part HPDTpds. unfold getUsedPaddr. rewrite HgetPartsEq in *.
 		    specialize (Hcons0 part HPDTpds).
 		    assert(Hcons0' : noDupMappedPaddrList s0)
 			          by (unfold consistency in * ; unfold consistency2 in * ; intuition).
@@ -2605,8 +2390,11 @@ eapply bindRev.
 							     getMappedPaddr partition s = getMappedPaddr partition s0))
 				    by intuition.
           assert(HmappedPaddrEq: getMappedPaddr part s = getMappedPaddr part s0).
-          { eapply HconfigmappedEq ; intuition. }
-			    rewrite HmappedPaddrEq. intuition.
+          {
+            apply HconfigmappedEq ; auto.
+            apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition.
+          }
+			    rewrite HmappedPaddrEq. assumption.
         (* END noDupMappedPaddrList *)
       }
 
@@ -3152,7 +2940,7 @@ eapply bindRev.
       { (* BEGIN maxNbPrepareIsMaxNbKernels s *)
         assert(Hcons0: maxNbPrepareIsMaxNbKernels s0)
                 by (unfold consistency in *; unfold consistency1 in *; intuition).
-        unfold maxNbPrepareIsMaxNbKernels in *. intros partition kernList HkernListIsListOfKern.
+        intros partition kernList HpartIsPart HkernListIsListOfKern. rewrite HgetPartsEq in *.
         assert(HkernListIsListOfKerns0: isListOfKernels kernList partition s0).
         {
           rewrite <-HsEq in HkernListIsListOfKern.
@@ -3170,7 +2958,7 @@ eapply bindRev.
                                              |}) pdentry; try(assumption).
           simpl. reflexivity.
         }
-        specialize(Hcons0 partition kernList HkernListIsListOfKerns0). assumption.
+        specialize(Hcons0 partition kernList HpartIsPart HkernListIsListOfKerns0). assumption.
         (* END maxNbPrepareIsMaxNbKernels *)
       }
 
@@ -3473,14 +3261,29 @@ eapply bindRev.
       assert(nextKernelIsValid s).
       { (* BEGIN nextKernelIsValid s *)
         assert(Hcons0: nextKernelIsValid s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-        unfold nextKernelIsValid in *. intros kernel HkernelIsKS.
-        assert(HkernelIsKSs0: isKS kernel s0).
+        intros part pdentryB kernel HpartIsPart HlookupPart HkernIsConfig HkernelIsKS.
+        rewrite HgetPartitionspdEq in *.
+        assert(HlookupParts0: exists pdentry1, lookup part (memory s0) beqAddr = Some (PDT pdentry1)
+                                 /\ structure pdentry1 = structure pdentryB).
+        {
+          rewrite <-HsEq in HlookupPart. simpl in HlookupPart.
+          destruct (beqAddr globalIdPD part) eqn:HbeqGlobPart.
+          - rewrite <-DTL.beqAddrTrue in HbeqGlobPart. subst part.
+            injection HlookupPart as Hpdentries. subst pdentryB. simpl. exists pdentry. split.
+            assumption. reflexivity.
+          - rewrite <-beqAddrFalse in HbeqGlobPart. exists pdentryB.
+            rewrite removeDupIdentity in HlookupPart; auto.
+        }
+        destruct HlookupParts0 as [pdentry1 (HlookupParts0 & HstructEq)]. rewrite <-HstructEq in *.
+        assert(Heq: completeListOfKernels (structure pdentry1) s = completeListOfKernels (structure pdentry1) s0).
+        { rewrite <-HsEq. apply completeListOfKernelsEqPDT; assumption. }
+        rewrite Heq in *. assert(HkernelIsKSs0: isKS kernel s0).
         {
           unfold isKS in HkernelIsKS. rewrite <-HsEq in HkernelIsKS. simpl in HkernelIsKS.
           destruct (beqAddr globalIdPD kernel) eqn:HbeqGlobKern; try(exfalso; congruence).
           rewrite <-beqAddrFalse in HbeqGlobKern. rewrite removeDupIdentity in HkernelIsKS; intuition.
         }
-        specialize(Hcons0 kernel HkernelIsKSs0).
+        specialize(Hcons0 part pdentry1 kernel HpartIsPart HlookupParts0 HkernIsConfig HkernelIsKSs0).
         destruct Hcons0 as (HnextAddrValid & [nextAddr (HlookupNext & HnextType)]). split. assumption.
         exists nextAddr. split.
         - intro Hp. specialize(HlookupNext Hp). rewrite <-HsEq. simpl.
@@ -3490,20 +3293,21 @@ eapply bindRev.
             exfalso; congruence.
           }
           rewrite <-beqAddrFalse in HbeqGlobNext. rewrite removeDupIdentity; intuition.
-        - destruct HnextType as [HKS | Hnull]; try(right; assumption). left. unfold isKS. rewrite <-HsEq. simpl.
+        - destruct HnextType as [(HKS & HnextIsConfig) | Hnull]; try(right; assumption). left. split; trivial.
+          unfold isKS. rewrite <-HsEq. simpl.
           destruct (beqAddr globalIdPD nextAddr) eqn:HbeqGlobNext.
           {
             rewrite <-DTL.beqAddrTrue in HbeqGlobNext. subst globalIdPD. unfold isKS in HKS.
             rewrite Hlookups0 in HKS. exfalso; congruence.
           }
-          rewrite <-beqAddrFalse in HbeqGlobNext. rewrite removeDupIdentity; intuition.
+          rewrite <-beqAddrFalse in HbeqGlobNext. rewrite removeDupIdentity; auto.
         (* END nextKernelIsValid *)
       }
 
       assert(noDupListOfKerns s).
       { (* BEGIN noDupListOfKerns s *)
         assert(Hcons0: noDupListOfKerns s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-        unfold noDupListOfKerns in *. intros part kernList HkernList.
+        intros part kernList HpartIsPart HkernList. rewrite HgetPartitionspdEq in *.
         assert(HkernLists0: isListOfKernels kernList part s0).
         {
           rewrite <-HsEq in HkernList. apply isListOfKernelsEqPDT with globalIdPD
@@ -3517,7 +3321,7 @@ eapply bindRev.
                       vidtAddr := vidtAddr pdentry
                     |} pdentry; try(assumption). simpl. reflexivity.
         }
-        specialize(Hcons0 part kernList HkernLists0). assumption.
+        specialize(Hcons0 part kernList HpartIsPart HkernLists0). assumption.
         (* END noDupListOfKerns *)
       }
 
@@ -3914,7 +3718,7 @@ eapply bindRev.
       assert(nbPrepareIsNbKern s).
       { (* BEGIN nbPrepareIsNbKern s *)
         assert(Hcons0: nbPrepareIsNbKern s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-        intros partition pdentryPart HlookupPart.
+        intros partition pdentryPart HpartIsPart HlookupPart. rewrite HgetPartitionspdEq in *.
         assert(HlookupParts0: exists pdentry1, lookup partition (memory s0) beqAddr = Some (PDT pdentry1)
                                  /\ structure pdentry1 = structure pdentryPart
                                  /\ nbprepare pdentry1 = nbprepare pdentryPart).
@@ -3927,7 +3731,7 @@ eapply bindRev.
             rewrite removeDupIdentity in HlookupPart; intuition.
         }
         destruct HlookupParts0 as [pdentry1 (HlookupParts0 & HstructEq & HnbPrepEq)]. rewrite <-HstructEq.
-        rewrite <-HnbPrepEq. specialize(Hcons0 partition pdentry1 HlookupParts0).
+        rewrite <-HnbPrepEq. specialize(Hcons0 partition pdentry1 HpartIsPart HlookupParts0).
         rewrite <-HsEq. rewrite completeListOfKernelsEqPDT; trivial.
        (* END nbPrepareIsNbKern *)
       }
@@ -4139,14 +3943,6 @@ eapply bindRev.
         (* END accessibleBlocksArePresent *)
       }
 
-      assert(HgetKSEq: forall part, isPDT part s0 -> getKSEntries part s = getKSEntries part s0).
-      {
-        intros part HpartIsPDT. destruct (beqAddr part globalIdPD) eqn:HbeqParts.
-        - rewrite <-beqAddrTrue in HbeqParts. subst part. rewrite <-HsEq.
-          apply getKSEntriesEqPDT with pdentry; intuition.
-        - rewrite <-beqAddrFalse in *. intuition.
-      }
-
       assert(sharedBlockIsPresent s).
       { (* BEGIN sharedBlockIsPresent s *)
         assert(Hcons0: sharedBlockIsPresent s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
@@ -4333,6 +4129,35 @@ eapply bindRev.
         rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
         specialize(Hcons0 part block parentBlock HpartIsPart HPBMapped HblockIsBE HsceInRange). assumption.
         (* END blockAndSceInSameBlock *)
+      }
+
+      assert(kernelIsSomePartsConfig s).
+      { (* BEGIN kernelIsSomePartsConfig s *)
+        assert(Hcons0: kernelIsSomePartsConfig s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        intros kern HkernIsKS. rewrite HgetPartsEq. unfold isKS in *. rewrite <-HsEq in HkernIsKS. simpl in *.
+        destruct (beqAddr globalIdPD kern) eqn:HbeqGlobKern; try(exfalso; congruence).
+        rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. specialize(Hcons0 kern HkernIsKS).
+        destruct Hcons0 as [part [pdentryB (HpartIsPart & HlookupPart & HkernIConfig)]]. exists part.
+        assert(HlookupParts: exists pdentryBs, lookup part (memory s) beqAddr = Some (PDT pdentryBs)
+          /\ structure pdentryB = structure pdentryBs).
+        {
+          rewrite <-HsEq. simpl. destruct (beqAddr globalIdPD part) eqn:HbeqParts.
+          - rewrite <-DTL.beqAddrTrue in HbeqParts. subst part. rewrite Hlookups0 in *.
+            injection HlookupPart as HpdentriesEq. subst pdentryB.
+            exists {|
+                     structure := structure pdentry;
+                     firstfreeslot := firstfreeslot pdentry;
+                     nbfreeslots := nbfreeslots pdentry;
+                     nbprepare := nbprepare pdentry;
+                     parent := parent pdentry;
+                     MPU := addElementAt MPURegionNb blockToEnableAddr (MPU pdentry) nullAddr;
+                     vidtAddr := vidtAddr pdentry
+                   |}. auto.
+          - exists pdentryB. rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; auto.
+        }
+        destruct HlookupParts as [pdentryBs (HlookupParts & HstructEq)]. rewrite HstructEq in *. exists pdentryBs.
+        rewrite <-HsEq at 2. rewrite completeListOfKernelsEqPDT; auto.
+        (* END kernelIsSomePartsConfig s *)
       }
 
       intuition.
@@ -5245,12 +5070,13 @@ eapply bindRev.
 
       assert(Hsh1InChildLocationIsBEs : sh1InChildLocationIsBE s).
       { (* BEGIN sh1InChildLocationIsBE s *)
-        unfold sh1InChildLocationIsBE.
-        intros sh1entryaddr sh1entry Hlookup Hsh1entryNotNull.
+        intros part block sh1entryaddr sh1entry HpartIsPart HblockMapped Hsh1 Hlookup Hsh1entryNotNull.
+        rewrite HgetPartsEq in *. assert(isPDT part s0).
+        { apply partitionsArePDT; trivial; unfold consistency1 in *; intuition. }
+        rewrite HgetMappedBEq in *; trivial.
 
         assert(Hcons0 : sh1InChildLocationIsBE s0)
                    by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-        unfold sh1InChildLocationIsBE in Hcons0.
 
       (* check all possible values for sh1entryaddr in the modified state s
 	       -> no entry modifications correspond to SH1Entry type
@@ -5272,7 +5098,7 @@ eapply bindRev.
         }
         assert(Hlookupsh1 : lookup sh1entryaddr (memory s0) beqAddr = Some (SHE sh1entry))
                 by (rewrite HSHEEq in * ; intuition).
-        specialize(Hcons0 sh1entryaddr sh1entry Hlookupsh1 Hsh1entryNotNull).
+        specialize(Hcons0 part block sh1entryaddr sh1entry HpartIsPart HblockMapped Hsh1 Hlookupsh1 Hsh1entryNotNull).
         (* Check all values *)
 			  destruct (beqAddr globalIdPD (inChildLocation sh1entry)) eqn:HbeqGlobSh1; try(exfalso ; congruence).
 				+ (* globalIdPD = (inChildLocation sh1entry) *)
@@ -5290,12 +5116,10 @@ eapply bindRev.
 
       assert(HStructurePointerIsKSs : StructurePointerIsKS s).
       { (* BEGIN StructurePointerIsKS s *)
-        unfold StructurePointerIsKS.
-        intros pdentryaddr pdentry' Hlookup HstructureNotNull.
+        intros pdentryaddr pdentry' HpartIsPart Hlookup HstructureNotNull. rewrite HgetPartsEq in *.
 
         assert(Hcons0 : StructurePointerIsKS s0)
                by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-        unfold StructurePointerIsKS in Hcons0.
         (* check all possible values for pdentryaddr in the modified state s
 	         -> only possible is globalIdPD
          1) if pdentryaddr == globalIdPD :
@@ -5315,7 +5139,7 @@ eapply bindRev.
 			    assert(HstructureEq : (structure newpdentry) = (structure pdentry)).
 			    { subst newpdentry. simpl. trivial. }
 			    rewrite HstructureEq in *.
-			    specialize(Hcons0 globalIdPD pdentry Hlookups0 HstructureNotNull).
+			    specialize(Hcons0 globalIdPD pdentry HpartIsPart Hlookups0 HstructureNotNull).
 			    (* Check all values for structure pdentry *)
 			    destruct (beqAddr globalIdPD (structure pdentry)) eqn:HbeqGlobPtn; try(exfalso ; congruence).
 				  + (* globalIdPD = (structure pdentry) *)
@@ -5336,7 +5160,7 @@ eapply bindRev.
 				  }
 				  assert(Hlookuppd : lookup pdentryaddr (memory s0) beqAddr = Some (PDT pdentry'))
 					       by (rewrite HPDEq in * ; intuition).
-				  specialize(Hcons0 pdentryaddr pdentry' Hlookuppd HstructureNotNull).
+				  specialize(Hcons0 pdentryaddr pdentry' HpartIsPart Hlookuppd HstructureNotNull).
 				  (* Check all values *)
 				  destruct (beqAddr globalIdPD (structure pdentry')) eqn:HbeqGlobPtn ; try(exfalso ; congruence).
 					+ (* globalIdPD = (inChildLocation sh1entry) *)
@@ -5536,7 +5360,7 @@ eapply bindRev.
                 by (apply lookupPDEntryFirstFreeSlot; intuition).
             rewrite <-HsEq. apply eq_sym.
             apply getFreeSlotsListRecEqPDT.
-            apply firstBlockPDNotEq with pdentry s0; unfold consistency in *; intuition.
+            apply firstBlockPDNotEq with pdentry s0; unfold consistency in *; unfold consistency1 in *; intuition.
             exists (firstfreeslot pdentry). rewrite <-beqAddrFalse in *. intuition.
             unfold isBE. rewrite Hlookups0. intuition.
             unfold isPADDR. rewrite Hlookups0. intuition.
@@ -6121,7 +5945,6 @@ eapply bindRev.
 
       assert(HinclFreeSlotsBlockEntriess : inclFreeSlotsBlockEntries s).
       { (* BEGIN inclFreeSlotsBlockEntries s *)
-        unfold inclFreeSlotsBlockEntries.
         intros pd HpdIsPart. assert(HPDT: isPDT pd s) by (apply partitionsArePDT; trivial). rewrite HgetPartsEq in *.
         assert(Hcons0 : inclFreeSlotsBlockEntries s0) 
             by (unfold consistency in * ; unfold consistency1 in * ; intuition).
@@ -6212,201 +6035,25 @@ eapply bindRev.
         (* END inclFreeSlotsBlockEntries *)
       }
 
+      assert(HgetKSEq: forall part, isPDT part s0 -> getKSEntries part s = getKSEntries part s0).
+      {
+        intros part HpartIsPDT. destruct (beqAddr part globalIdPD) eqn:HbeqParts.
+        - rewrite <-beqAddrTrue in HbeqParts. subst part. rewrite <-HsEq.
+          apply getKSEntriesEqPDT with pdentry; intuition.
+        - rewrite <-beqAddrFalse in *. intuition.
+      }
+
       assert(HDisjointKSEntriess : DisjointKSEntries s).
       { (* BEGIN DisjointKSEntries s *)
-        unfold DisjointKSEntries.
-        intros pd1 pd2 HPDTpd1 HPDTpd2 Hpd1pd2NotEq.
+        intros pd1 pd2 HPDTpd1 HPDTpd2 Hpd1pd2NotEq. rewrite HgetPartsEq in *.
         assert(Hcons0 : DisjointKSEntries s0)
                        by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-        unfold DisjointKSEntries in Hcons0.
-        (* we must show all KSEntries lists are disjoint
-         check all possible values for pd1 AND pd2 in the modified state s
-	         -> only possible is globalIdPD
-		         1) - if pd1 = globalIdPD:
-				         -> show the pd1's new free slots list is equal to the initial free slots list
-						         and that pd2's free slots list is identical at s and s0,
-					         -> if they were disjoint at s0, they are still disjoint at s -> OK
-		         2) - if pd1 <> globalIdPD, it is another pd, but pd2 could be globalIdPD
-				         3) - if pd2 = globalIdPD:
-						         same proof as with pd1
-				         4) - if pd2 <> globalIdPD: prove pd1's free slots list and pd2's free slot list
-						         have NOT changed in the modified state, so they are still disjoint
-							         -> compute the list at each modified state and check not changed from s0 -> OK
-        *)
-        (* Check all values for pd1 and pd2 *)
-        destruct (beqAddr globalIdPD pd1) eqn:HbeqGlobPd1; try(exfalso ; congruence).
-				- (* 1) globalIdPD = pd1 *)
-          rewrite <- DependentTypeLemmas.beqAddrTrue in HbeqGlobPd1.
-          rewrite <- HbeqGlobPd1 in *.
-          destruct (beqAddr globalIdPD pd2) eqn:HbeqGlobPd2; try(exfalso ; congruence).
-          rewrite <- DependentTypeLemmas.beqAddrTrue in HbeqGlobPd2. congruence.
-          (* DUP *)
-          assert(Hlookuppd2Eq : lookup pd2 (memory s) beqAddr = lookup pd2 (memory s0) beqAddr).
-          {
-            rewrite <-HsEq. unfold isPDT.
-            cbn. rewrite HbeqGlobPd2.
-            rewrite <- beqAddrFalse in *. rewrite removeDupIdentity ; intuition.
-          }
-          assert(HPDTpd2Eq : isPDT pd2 s = isPDT pd2 s0).
-          { unfold isPDT. rewrite Hlookuppd2Eq. intuition. }
-          assert(HPDTpd2s0 : isPDT pd2 s0) by (rewrite HPDTpd2Eq in * ; assumption).
-				  specialize(Hcons0 globalIdPD pd2 H0 HPDTpd2s0 Hpd1pd2NotEq).
-				  destruct Hcons0 as [optionentrieslist1 (optionentrieslist2 & (Hoptionlist1s0
-                                                                 & (Hoptionlist2s0 & HDisjoints0)))].
-				  (* Show equality for pd2's free slot list
-						 so between listoption2 at s and listoption2 at s0 *)
-				  unfold getKSEntries in Hoptionlist2s0.
-				  apply isPDTLookupEq in HPDTpd2s0. destruct HPDTpd2s0 as [pd2entry Hlookuppd2s0].
-				  rewrite Hlookuppd2s0 in *.
-          destruct (beqAddr (structure pd2entry) nullAddr) eqn:Hpd2Null ; try(exfalso ; congruence).
-					+ (* listoption2 = NIL *)
-            exists optionentrieslist1. exists optionentrieslist2.
-            assert(Hlistoption2s : getKSEntries pd2 s = nil).
-            { unfold getKSEntries. rewrite Hlookuppd2Eq. rewrite Hpd2Null. reflexivity. }
-            rewrite Hlistoption2s in *.
-            intuition. rewrite Hoptionlist2s0 in *.
-            rewrite Hoptionlist1s0. apply eq_sym. rewrite <-HsEq.
-            apply getKSEntriesEqPDT with pdentry; intuition.
-          + (* listoption2 <> NIL *)
-            (* show equality between listoption2 at s and s0 
-	             + if listoption2 has NOT changed, listoption1 at s is
-	             just a subset of listoption1 at s0 so they are
-	             still disjoint *)
-            exists optionentrieslist1. exists optionentrieslist2. intuition.
-            * rewrite Hoptionlist1s0. apply eq_sym. rewrite <-HsEq.
-              apply getKSEntriesEqPDT with pdentry; intuition.
-            * rewrite Hoptionlist2s0. unfold getKSEntries. rewrite Hlookuppd2Eq.
-              rewrite Hpd2Null. apply eq_sym. rewrite <-HsEq. apply getKSEntriesAuxEqPDT.
-              -- intro HeqStructGlob.
-                 assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
-			                  by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-		             unfold StructurePointerIsKS in *.
-		             specialize (HStructurePointerIsKSs0 pd2 pd2entry Hlookuppd2s0).
-		             rewrite <- beqAddrFalse in Hpd2Null.
-		             unfold isKS in *. rewrite HeqStructGlob in *.
-		             rewrite Hlookups0 in *. intuition.
-              -- intro Hcontra. unfold isPADDR in *. rewrite Hlookups0 in *. congruence.
-              -- intro Hcontra. unfold isBE in *. rewrite Hlookups0 in *. congruence.
-				- (* 2) globalIdPD <> pd1 *)
-          (* similarly, we must prove optionfreeslotslist1 is strictly
-	           the same at s than at s0 by recomputing each
-	           intermediate steps and check at that time *)
-          assert(Hlookuppd1Eq : lookup pd1 (memory s) beqAddr = lookup pd1 (memory s0) beqAddr).
-          {
-            rewrite <-HsEq. cbn. rewrite HbeqGlobPd1.
-            rewrite <- beqAddrFalse in *. rewrite removeDupIdentity ; intuition.
-          }
-          assert(HPDTpd1Eq : isPDT pd1 s = isPDT pd1 s0).
-          { unfold isPDT. rewrite Hlookuppd1Eq. intuition. }
-          assert(HPDTpd1s0 : isPDT pd1 s0) by (rewrite HPDTpd1Eq in * ; assumption).
-           (* DUP of previous steps to show strict equality of listoption2
-	           at s and s0 *)
-          destruct (beqAddr globalIdPD pd2) eqn:HbeqGlobPd2; try(exfalso ; congruence).
-          + (* 2) 1. globalIdPD = pd2 *)
-            rewrite <- DependentTypeLemmas.beqAddrTrue in HbeqGlobPd2.
-            rewrite <- HbeqGlobPd2 in *.
-						(* DUP with pd1 instead of pd2 *)
-					  assert(Hpd1pd2NotEq': globalIdPD <> pd1 ) by intuition.
-            assert(HPDTpd2Eq : isPDT pd1 s = isPDT pd1 s0).
-            { unfold isPDT. rewrite Hlookuppd1Eq. intuition. }
-				    specialize(Hcons0 globalIdPD pd1 H0 HPDTpd1s0 Hpd1pd2NotEq').
-				    destruct Hcons0 as [optionentrieslist1 (optionentrieslist2 & (Hoptionlist1s0
-                                                                 & (Hoptionlist2s0 & HDisjoints0)))].
-				    (* Show equality between listoption1 at s and listoption1 at s0 *)
-            exists optionentrieslist2.
-            exists optionentrieslist1.
-					  unfold getKSEntries at 1.
-					  rewrite Hlookuppd1Eq.
-					  unfold getKSEntries in Hoptionlist2s0.
-					  apply isPDTLookupEq in HPDTpd1s0. destruct HPDTpd1s0 as [pd1entry Hlookuppd1s0].
-					  rewrite Hlookuppd1s0 in *.
-            destruct (beqAddr (structure pd1entry) nullAddr) eqn:Hpd1Null ; try(exfalso ; congruence).
-            * (* listoption2 = NIL *)
-						  rewrite Hoptionlist2s0 in *.
-						  intuition.
-						  rewrite Hoptionlist1s0. apply eq_sym. rewrite <-HsEq.
-              apply getKSEntriesEqPDT with pdentry; intuition.
-						  apply Lib.disjointPermut. intuition.
-            * (* listoption2 <> NIL *)
-              (* show equality between listoption2 at s and s0 
-	               + if listoption2 has NOT changed, listoption1 at s is
-	               just a subset of listoption1 at s0 so they are
-	               still disjoint *)
-              (* listoption2 didn't change *)
-						  assert(HKSEntries : getKSEntries globalIdPD s0 = getKSEntries globalIdPD s).
-						  { apply eq_sym. rewrite <-HsEq. apply getKSEntriesEqPDT with pdentry; intuition. }
-              subst optionentrieslist1.
-						  intuition.
-              rewrite Hoptionlist2s0. apply eq_sym. rewrite <-HsEq. apply getKSEntriesAuxEqPDT.
-              -- intro HeqStructGlob.
-                 assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
-			                  by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-		             unfold StructurePointerIsKS in *.
-		             specialize (HStructurePointerIsKSs0 pd1 pd1entry Hlookuppd1s0).
-		             rewrite <- beqAddrFalse in Hpd1Null.
-		             unfold isKS in *. rewrite HeqStructGlob in *.
-		             rewrite Hlookups0 in *. intuition.
-              -- intro Hcontra. unfold isPADDR in *. rewrite Hlookups0 in *. congruence.
-              -- intro Hcontra. unfold isBE in *. rewrite Hlookups0 in *. congruence.
-              -- apply Lib.disjointPermut. intuition.
-          + (* 2) 2. globalIdPD <> pd2 *)
-					  (* show strict equality of listoption1 at s and s0
-							 and listoption2 at s and s0 because no list changed 
-								 as only pdinsertion's free slots list changed *)
-					  (* DUP *)
-					  (* show list equality between s0 and s*)
-					  (* similarly, we must prove optionfreeslotslist1 
-						  and optionfreeslotslist2 are strictly
-						  the same at s than at s0 by recomputing each
-						  intermediate steps and check at that time *)
-					  assert(Hlookuppd2Eq : lookup pd2 (memory s) beqAddr = lookup pd2 (memory s0) beqAddr).
-					  {
-              rewrite <-HsEq. cbn. rewrite HbeqGlobPd2.
-              rewrite <- beqAddrFalse in *. rewrite removeDupIdentity ; intuition.
-					  }
-					  assert(HPDTpd2Eq : isPDT pd2 s = isPDT pd2 s0).
-					  { unfold isPDT. rewrite Hlookuppd2Eq. intuition. }
-					  assert(HPDTpd2s0 : isPDT pd2 s0) by (rewrite HPDTpd2Eq in * ; assumption).
-						 (* DUP of previous steps to show strict equality of listoption2
-							 at s and s0 *)
-					  specialize (Hcons0 pd1 pd2 HPDTpd1s0 HPDTpd2s0 Hpd1pd2NotEq).
-					  destruct Hcons0 as [optionentrieslist1 (optionentrieslist2 & (Hoptionlist1s0
-                                                                & (Hoptionlist2s0 & HDisjoints0)))].
-					  assert(Hpdpd1NotEq : globalIdPD <> pd1) by (rewrite <- beqAddrFalse in * ; intuition).
-					  assert(Hpdpd2NotEq : globalIdPD <> pd2) by (rewrite <- beqAddrFalse in * ; intuition).
-            exists optionentrieslist1.
-					  exists optionentrieslist2.
-					  (* Show equality between listoption1 at s and listoption1 at s0 *)
-					  unfold getKSEntries at 1.
-					  rewrite Hlookuppd1Eq. unfold getKSEntries in Hoptionlist1s0.
-            unfold isPDT in HPDTpd1s0.
-            destruct (lookup pd1 (memory s0) beqAddr) eqn:HlookupPd1s0; try(exfalso ; congruence).
-            destruct v; try(exfalso ; congruence).
-					  destruct (beqAddr (structure p) nullAddr) eqn:Hpd1Null ; try(exfalso ; congruence).
-					  * (* listoption1 = NIL *)
-              intuition.
-						  subst optionentrieslist2. apply eq_sym. rewrite <-HsEq.
-              apply getKSEntriesEqPDT with pdentry; intuition.
-					  * (* listoption1 <> NIL *)
-						  (* show equality beween listoption1 at s0 and at s
-								 -> if equality, then show listoption2 has not changed either
-										 -> if listoption1 and listoption2 stayed the same
-												 and they were disjoint at s0, then they
-												 are still disjoint at s*)
-              (* specialize disjoint for pd1 and pd2 at s0 *)
-              intuition.
-              -- subst optionentrieslist1. apply eq_sym. rewrite <-HsEq. apply getKSEntriesAuxEqPDT; intuition.
-                 assert(HStructurePointerIsKSs0 : StructurePointerIsKS s0)
-			                  by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-		             unfold StructurePointerIsKS in *.
-		             specialize (HStructurePointerIsKSs0 pd1 p HlookupPd1s0).
-		             rewrite <- beqAddrFalse in Hpd1Null.
-		             unfold isKS in *. rewrite H21 in *.
-		             rewrite Hlookups0 in *. intuition.
-                 unfold isPADDR in *. rewrite Hlookups0 in *. congruence.
-                 unfold isBE in *. rewrite Hlookups0 in *. congruence.
-              -- subst optionentrieslist2. apply eq_sym. rewrite <-HsEq.
-                 apply getKSEntriesEqPDT with pdentry; intuition.
+			  specialize (Hcons0 pd1 pd2 HPDTpd1 HPDTpd2 Hpd1pd2NotEq).
+        assert(isPDT pd1 s0).
+        { apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition. }
+        assert(isPDT pd2 s0).
+        { apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition. }
+        rewrite HgetKSEq; trivial. rewrite HgetKSEq; assumption.
         (* END DisjointKSEntries *)
       }
 
@@ -6649,62 +6296,15 @@ eapply bindRev.
       { (* BEGIN noDupKSEntriesList s *)
         assert(Hcons0 : noDupKSEntriesList s0)
 	         by (unfold consistency in * ; unfold consistency1 in * ; intuition).
-        unfold noDupKSEntriesList.
-        intros part HPDTpds.
-	      destruct (beqAddr globalIdPD part) eqn:HbeqGlobPart ; try(exfalso ; congruence).
-	      - (* globalIdPD =  part *)
-		      rewrite <- DependentTypeLemmas.beqAddrTrue in HbeqGlobPart.
-		      rewrite <- HbeqGlobPart in *.
-		      assert(HKSEntriesEq : (getKSEntries globalIdPD s) = (getKSEntries globalIdPD s0)).
-		      {
-			      rewrite <-HsEq. apply getKSEntriesEqPDT with pdentry; intuition.
-		      }
-		      rewrite HKSEntriesEq.
-		      unfold noDupKSEntriesList in *.
-		      assert(HPDTpdinsertions0 : isPDT globalIdPD s0) by intuition.
-		      specialize (Hcons0 globalIdPD HPDTpdinsertions0).
-		      assumption.
-	      - (* globalIdPD <> part *)
-		      assert(HPDTEq : isPDT part s = isPDT part s0).
-		      {
-		        unfold isPDT in *. simpl.
-			      rewrite <-HsEq. simpl. rewrite HbeqGlobPart.
-			      rewrite <- beqAddrFalse in *. rewrite removeDupIdentity ; intuition.
-		      }
-		      assert(HKSEntriesEq : (getKSEntries part s) = (getKSEntries part s0)).
-		      {
-			      assert(HKSEntriesEqNotInPart : forall partition : paddr,
-																		       (partition = globalIdPD -> False) ->
-																		       isPDT partition s0 ->
-																		       getKSEntries partition s = getKSEntries partition s0)
-				            by intuition.
-			      rewrite beqAddrSym in HbeqGlobPart.
-			      rewrite <- beqAddrFalse in HbeqGlobPart.
-			      rewrite HPDTEq in HPDTpds.
-			      specialize (HKSEntriesEqNotInPart part HbeqGlobPart HPDTpds).
-			      assumption.
-		      }
-		      rewrite HKSEntriesEq.
-		      unfold noDupKSEntriesList in *.
-		      rewrite HPDTEq in HPDTpds.
-		      specialize (Hcons0 part HPDTpds).
-		      assumption.
+        intros part HPDTpds. rewrite HgetPartsEq in *. specialize (Hcons0 part HPDTpds).
+        assert(isPDT part s0).
+        { apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition. }
+        rewrite HgetKSEq; assumption.
         (* END noDupKSEntriesList *)
-      }
-
-      assert(HnoDupMappedBlocksLists : noDupMappedBlocksList s).
-      { (* BEGIN noDupMappedBlocksList s *)
-        (* DUP *)
-        unfold noDupMappedBlocksList.
-        unfold getMappedBlocks.
-        intros part HPDTparts.
-        eapply NoDupListNoDupFilterPresent ; intuition.
-        (* END noDupMappedBlocksList *)
       }
 
       assert(HwellFormedBlock : wellFormedBlock s).
       { (* BEGIN wellFormedBlock s*)
-        unfold wellFormedBlock.
         intros block blockstart blockend HPflags HStarts Hends.
         (* Check all possible values for block
            -> only possible is newBlockEntryAddr
@@ -6829,7 +6429,7 @@ eapply bindRev.
       { (* BEGIN parentOfPartitionIsPartition s *)
         assert(Hcons0: parentOfPartitionIsPartition s0)
                 by (unfold consistency in *; unfold consistency1 in *; intuition).
-        unfold parentOfPartitionIsPartition in *. intros partition entry Hlookup.
+        intros partition entry Hlookup.
         destruct (beqAddr globalIdPD partition) eqn:HbeqGlobPart.
         - (* globalIdPD = partition *)
           rewrite <-beqAddrTrue in HbeqGlobPart. rewrite HbeqGlobPart in *.
@@ -6882,7 +6482,7 @@ eapply bindRev.
       { (* BEGIN maxNbPrepareIsMaxNbKernels s *)
         assert(Hcons0: maxNbPrepareIsMaxNbKernels s0)
                 by (unfold consistency in *; unfold consistency1 in *; intuition).
-        unfold maxNbPrepareIsMaxNbKernels in *. intros partition kernList HkernListIsListOfKern.
+        intros partition kernList HpartIsPart HkernListIsListOfKern. rewrite HgetPartsEq in *.
         assert(HkernListIsListOfKerns0: isListOfKernels kernList partition s0).
         {
           rewrite <-HsEq in HkernListIsListOfKern.
@@ -6900,7 +6500,7 @@ eapply bindRev.
                                              |}) pdentry; try(assumption).
           simpl. reflexivity.
         }
-        specialize(Hcons0 partition kernList HkernListIsListOfKerns0). assumption.
+        specialize(Hcons0 partition kernList HpartIsPart HkernListIsListOfKerns0). assumption.
         (* END maxNbPrepareIsMaxNbKernels *)
       }
 
@@ -7036,14 +6636,25 @@ eapply bindRev.
       assert(nextKernelIsValid s).
       { (* BEGIN nextKernelIsValid s *)
         assert(Hcons0: nextKernelIsValid s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-        unfold nextKernelIsValid in *. intros kernel HkernelIsKS.
-        assert(HkernelIsKSs0: isKS kernel s0).
+        intros part pdentryB kernel HpartIsPart HlookupPart HkernIsConfig HkernelIsKS. rewrite HgetPartsEq in *.
+        assert(HlookupParts0: exists pdentryB0, lookup part (memory s0) beqAddr = Some (PDT pdentryB0)
+          /\ structure pdentryB = structure pdentryB0).
+        {
+          rewrite <-HsEq in HlookupPart. simpl in *. destruct (beqAddr globalIdPD part) eqn:HbeqParts.
+          - rewrite <-DTL.beqAddrTrue in HbeqParts. subst part. injection HlookupPart as HpdentriesEq.
+            subst pdentryB. exists pdentry. auto.
+          - rewrite <-beqAddrFalse in *. exists pdentryB. rewrite removeDupIdentity in *; auto.
+        }
+        destruct HlookupParts0 as [pdentryB0 (HlookupParts0 & HstructEq)]. rewrite HstructEq in *.
+        assert(Heq: completeListOfKernels (structure pdentryB0) s = completeListOfKernels (structure pdentryB0) s0).
+        { rewrite <-HsEq. apply completeListOfKernelsEqPDT; assumption. }
+        rewrite Heq in *. assert(HkernelIsKSs0: isKS kernel s0).
         {
           unfold isKS in HkernelIsKS. rewrite <-HsEq in HkernelIsKS. simpl in HkernelIsKS.
           destruct (beqAddr globalIdPD kernel) eqn:HbeqGlobKern; try(exfalso; congruence).
           rewrite <-beqAddrFalse in HbeqGlobKern. rewrite removeDupIdentity in HkernelIsKS; intuition.
         }
-        specialize(Hcons0 kernel HkernelIsKSs0).
+        specialize(Hcons0 part pdentryB0 kernel HpartIsPart HlookupParts0 HkernIsConfig HkernelIsKSs0).
         destruct Hcons0 as (HnextAddrValid & [nextAddr (HlookupNext & HnextType)]). split. assumption.
         exists nextAddr. split.
         - intro Hp. specialize(HlookupNext Hp). rewrite <-HsEq. simpl.
@@ -7053,7 +6664,8 @@ eapply bindRev.
             exfalso; congruence.
           }
           rewrite <-beqAddrFalse in HbeqGlobNext. rewrite removeDupIdentity; intuition.
-        - destruct HnextType as [HKS | Hnull]; try(right; assumption). left. unfold isKS. rewrite <-HsEq. simpl.
+        - destruct HnextType as [(HKS & HnextIsConfig) | Hnull]; try(right; assumption). left. split; trivial.
+          unfold isKS. rewrite <-HsEq. simpl.
           destruct (beqAddr globalIdPD nextAddr) eqn:HbeqGlobNext.
           {
             rewrite <-DTL.beqAddrTrue in HbeqGlobNext. subst globalIdPD. unfold isKS in HKS.
@@ -7066,7 +6678,7 @@ eapply bindRev.
       assert(noDupListOfKerns s).
       { (* BEGIN noDupListOfKerns s *)
         assert(Hcons0: noDupListOfKerns s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-        unfold noDupListOfKerns in *. intros part kernList HkernList.
+        intros part kernList HpartIsPart HkernList. rewrite HgetPartsEq in *.
         assert(HkernLists0: isListOfKernels kernList part s0).
         {
           rewrite <-HsEq in HkernList. apply isListOfKernelsEqPDT with globalIdPD
@@ -7080,7 +6692,7 @@ eapply bindRev.
                       vidtAddr := vidtAddr pdentry
                     |} pdentry; try(assumption). simpl. reflexivity.
         }
-        specialize(Hcons0 part kernList HkernLists0). assumption.
+        specialize(Hcons0 part kernList HpartIsPart HkernLists0). assumption.
         (* END noDupListOfKerns *)
       }
 
@@ -7383,7 +6995,7 @@ eapply bindRev.
       assert(nbPrepareIsNbKern s).
       { (* BEGIN nbPrepareIsNbKern s *)
         assert(Hcons0: nbPrepareIsNbKern s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
-        intros partition pdentryPart HlookupPart.
+        intros partition pdentryPart HpartIsPart HlookupPart. rewrite HgetPartsEq in *.
         assert(HlookupParts0: exists pdentry1, lookup partition (memory s0) beqAddr = Some (PDT pdentry1)
                                  /\ structure pdentry1 = structure pdentryPart
                                  /\ nbprepare pdentry1 = nbprepare pdentryPart).
@@ -7396,7 +7008,7 @@ eapply bindRev.
             rewrite removeDupIdentity in HlookupPart; intuition.
         }
         destruct HlookupParts0 as [pdentry1 (HlookupParts0 & HstructEq & HnbPrepEq)]. rewrite <-HstructEq.
-        rewrite <-HnbPrepEq. specialize(Hcons0 partition pdentry1 HlookupParts0).
+        rewrite <-HnbPrepEq. specialize(Hcons0 partition pdentry1 HpartIsPart HlookupParts0).
         rewrite <-HsEq. rewrite completeListOfKernelsEqPDT; trivial.
        (* END nbPrepareIsNbKern *)
       }
@@ -7452,14 +7064,6 @@ eapply bindRev.
         rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; try(apply not_eq_sym); trivial.
         apply Hcons0; assumption.
         (* END accessibleBlocksArePresent *)
-      }
-
-      assert(HgetKSEq: forall part, isPDT part s0 -> getKSEntries part s = getKSEntries part s0).
-      {
-        intros part HpartIsPDT. destruct (beqAddr part globalIdPD) eqn:HbeqParts.
-        - rewrite <-beqAddrTrue in HbeqParts. subst part. rewrite <-HsEq.
-          apply getKSEntriesEqPDT with pdentry; intuition.
-        - rewrite <-beqAddrFalse in *. intuition.
       }
 
       assert(sharedBlockIsPresent s).
@@ -7640,6 +7244,35 @@ eapply bindRev.
         rewrite removeDupIdentity in *; auto.
         specialize(Hcons0 part block parentBlock HpartIsPart HPBMapped HblockIsBE HsceInRange). assumption.
         (* END blockAndSceInSameBlock *)
+      }
+
+      assert(kernelIsSomePartsConfig s).
+      { (* BEGIN kernelIsSomePartsConfig s *)
+        assert(Hcons0: kernelIsSomePartsConfig s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        intros kern HkernIsKS. rewrite HgetPartsEq. unfold isKS in *. rewrite <-HsEq in HkernIsKS. simpl in *.
+        destruct (beqAddr globalIdPD kern) eqn:HbeqGlobKern; try(exfalso; congruence).
+        rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. specialize(Hcons0 kern HkernIsKS).
+        destruct Hcons0 as [part [pdentryB (HpartIsPart & HlookupPart & HkernIConfig)]]. exists part.
+        assert(HlookupParts: exists pdentryBs, lookup part (memory s) beqAddr = Some (PDT pdentryBs)
+          /\ structure pdentryB = structure pdentryBs).
+        {
+          rewrite <-HsEq. simpl. destruct (beqAddr globalIdPD part) eqn:HbeqParts.
+          - rewrite <-DTL.beqAddrTrue in HbeqParts. subst part. rewrite Hlookups0 in *.
+            injection HlookupPart as HpdentriesEq. subst pdentryB.
+            exists {|
+                     structure := structure pdentry;
+                     firstfreeslot := firstfreeslot pdentry;
+                     nbfreeslots := nbfreeslots pdentry;
+                     nbprepare := nbprepare pdentry;
+                     parent := parent pdentry;
+                     MPU := addElementAt MPURegionNb blockToEnableAddr (MPU pdentry) nullAddr;
+                     vidtAddr := vidtAddr pdentry
+                   |}. auto.
+          - exists pdentryB. rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; auto.
+        }
+        destruct HlookupParts as [pdentryBs (HlookupParts & HstructEq)]. rewrite HstructEq in *. exists pdentryBs.
+        rewrite <-HsEq at 2. rewrite completeListOfKernelsEqPDT; auto.
+        (* END kernelIsSomePartsConfig s *)
       }
 
       intuition.

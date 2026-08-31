@@ -138,7 +138,24 @@ case_eq addrIsNull.
 		eapply WP.bindRev.
 		{ (** findBlockInKSWithAddr **)
 			eapply weaken. apply findBlockInKSWithAddr.findBlockInKSWithAddr.
-			intros. simpl. split. apply H1. intuition.
+			intros s Hprops. destruct Hprops as ((((((Hprops & Hcurr) & _ & Hglob) & _) & HbeqGlobNull) & HglobIsPDT) &
+        HbeqNullBlock). specialize(Hglob HbeqGlobNull). destruct Hglob as (_ & HpropsOr).
+      assert(In globalIdPD (getPartitions multiplexer s)).
+      {
+        assert(In currentPart (getPartitions multiplexer s)).
+        { subst currentPart. unfold consistency in *; unfold consistency1 in *; intuition. }
+        destruct HpropsOr as [Heq | HglobIsChild]; try(subst globalIdPD; assumption).
+        apply childrenPartitionInPartitionList with currentPart; trivial; unfold consistency in *;
+          unfold consistency1 in *; intuition.
+      }
+      instantiate(1 := fun s => partitionsIsolation s /\ kernelDataIsolation s /\ verticalSharing s /\ consistency s
+        /\ currentPart = currentPartition s
+        /\ (currentPart = globalIdPD \/ In globalIdPD (getChildren currentPart s))
+        /\ globalIdPD <> nullAddr
+        /\ isPDT globalIdPD s
+        /\ beqAddr nullAddr idBlockToEnable = false
+        /\ In globalIdPD (getPartitions multiplexer s)).
+      intuition.
 		}
 		intro blockToEnableAddr.
 		eapply WP.bindRev.
@@ -282,7 +299,7 @@ case_eq addrIsNull.
           intuition.
         }
         eapply weaken. apply removeBlockFromPhysicalMPUIfAlreadyMapped.
-        intros s Hprops. apply Hweak. intuition.
+        intros s Hprops. apply Hweak. rewrite <-beqAddrFalse. intuition.
       }
       { (** Internal.enableBlockInMPU **)
         intros. simpl.

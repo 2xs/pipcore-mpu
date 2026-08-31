@@ -1258,7 +1258,7 @@ assert(HremovedAddrsNotKS: forall addr, In addr (getMappedBlocks part s0)
       {
         pose proof (completeKernListIsListOfKern part p s0 Hnull HnextProps HlookupPart HpartIsParts0)
           as HkernList.
-        specialize(HmaxPrepIsLen part (completeListOfKernels (structure p) s0) HkernList). assumption.
+        specialize(HmaxPrepIsLen part (completeListOfKernels (structure p) s0) HpartIsParts0 HkernList). assumption.
       }
       apply Nat.mul_le_mono_r; lia.
     + unfold completeListOfKernels. unfold isKS in *.
@@ -3991,6 +3991,84 @@ destruct HequivParent as [blockParent [startParent [endParent (HblockParentMappe
   HstartParent HendParent HblockParentMapped). destruct IHn as [blockAnc [startAnc [endAnc (HblockAncMapped &
   HstartAnc & HendAnc & HlebStartBis & HgebEndBis)]]]. exists blockAnc. exists startAnc. exists endAnc. split.
 assumption. split. assumption. split. assumption. split; lia.
+Qed.
+
+Lemma kernListInclCompleteAux n kern kernList baseKern s:
+In kern kernList
+-> n > length kernList
+-> isListOfKernelsAux kernList baseKern s
+-> In kern (completeListOfKernelsAux n baseKern s).
+Proof.
+revert n baseKern. induction kernList; simpl; intros n baseKern HkernIn HgtNLen HkernList; try(exfalso; congruence).
+assert(HminOne: exists m, n = S m).
+{ destruct n; try(lia). exists n. reflexivity. }
+destruct HminOne as [m HeqN]. subst n. assert(HgtMLen: m > length kernList) by lia. simpl.
+destruct HkernList as (HlookupNext & HlebNextMax & HbeqANull & HkernList). rewrite HlookupNext.
+rewrite beqAddrFalse in HbeqANull. rewrite HbeqANull. simpl. destruct HkernIn as [Heq | HkernIn]; auto.
+Qed.
+
+Lemma kernListInclComplete kern kernList part pdentry s:
+maxNbPrepareIsMaxNbKernels s
+-> StructurePointerIsKS s
+-> In part (getPartitions multiplexer s)
+-> lookup part (memory s) beqAddr = Some (PDT pdentry)
+-> In kern kernList
+-> isListOfKernels kernList part s
+-> In kern (completeListOfKernels (structure pdentry) s).
+Proof.
+intros HmaxNbPrep Hstruct HpartIsPart HlookupPart HkernIn HkernList.
+specialize(HmaxNbPrep part kernList HpartIsPart HkernList). specialize(Hstruct part pdentry HpartIsPart HlookupPart).
+destruct kernList; simpl in *; try(exfalso; congruence). unfold completeListOfKernels.
+destruct HkernList as [pdentryB (HlookupPartB & HbeqStructNull & Heq & HkernList)].
+rewrite HlookupPart in *. injection HlookupPartB as HpdentriesEq. subst pdentryB. subst p.
+specialize(Hstruct HbeqStructNull). unfold isKS in *.
+destruct (lookup (structure pdentry) (memory s) beqAddr); try(exfalso; congruence).
+destruct v; try(exfalso; congruence). rewrite Hstruct. unfold zero. rewrite indexEqRefl. cbn -[maxNbPrepare].
+destruct HkernIn as [Heq | HkernIn]; auto. right. apply kernListInclCompleteAux with kernList; trivial.
+Qed.
+
+Lemma isListOfKernelsAuxRecFull kernList1 kernList2 initKern kernel s:
+isListOfKernelsAux kernList1 initKern s
+-> kernel = last kernList1 initKern
+-> isListOfKernelsAux kernList2 kernel s
+-> isListOfKernelsAux (kernList1 ++ kernList2) initKern s.
+Proof.
+revert kernList1 kernel.
+induction kernList2 as [ | nextKern kernList2]; simpl; intros kernList1 kernel HkernList1 Hlast1 HkernList2.
+- rewrite app_nil_r. assumption.
+- destruct HkernList2 as (HlookupNext & HlebNextMax & HbeqNextNull & HkernList2).
+  assert(Heq: kernList1++nextKern::kernList2 = (kernList1++[nextKern]) ++ kernList2).
+  { rewrite <-app_assoc. f_equal. }
+  rewrite Heq. apply IHkernList2 with nextKern; trivial.
+  + apply isListOfKernelsAuxRec with kernel; trivial.
+  + apply eq_sym. apply last_last.
+Qed.
+
+Lemma inCompleteKernListIsKernListLast n part pdentry kernel initKern s:
+nextKernelIsValid s
+-> In part (getPartitions multiplexer s)
+-> lookup part (memory s) beqAddr = Some (PDT pdentry)
+-> In initKern (completeListOfKernels (structure pdentry) s)
+-> isKS initKern s
+-> In kernel (completeListOfKernelsAux n initKern s)
+-> exists kernList, isListOfKernelsAux kernList initKern s
+      /\ kernel = last kernList initKern.
+Proof.
+intros HnextIsConfig HpartIsPart HlookupPart. specialize(HnextIsConfig part pdentry).
+revert initKern. induction n; simpl; intros initKern HinitIsConfig HinitIsKS HkernIsConfig; try(exfalso; congruence).
+specialize(HnextIsConfig initKern HpartIsPart HlookupPart HinitIsConfig HinitIsKS).
+destruct HnextIsConfig as (HlebNextAMax & [nextAddr (HlookupNextA & Hnext)]).
+assert(HlookupNextABis: lookup (CPaddr (initKern+nextoffset)) (memory s) beqAddr = Some (PADDR nextAddr)).
+{
+  unfold CPaddr. destruct (le_dec (initKern + nextoffset) maxAddr); try(lia). apply HlookupNextA.
+}
+rewrite HlookupNextABis in *.
+destruct (beqAddr nextAddr nullAddr) eqn: HbeqNextANull; simpl in HkernIsConfig; try(exfalso; congruence).
+rewrite <-beqAddrFalse in *. destruct Hnext as [(HnextIsKS & HnextIsConfig) | Hcontra]; try(exfalso; congruence).
+destruct HkernIsConfig as [Heq | HkernIsConfig].
+- subst nextAddr. exists [kernel]. simpl isListOfKernelsAux. auto.
+- apply IHn in HkernIsConfig; trivial. destruct HkernIsConfig as [kernList (HkernList & Hlast)].
+  exists (nextAddr::kernList). simpl isListOfKernelsAux. split; auto. apply lastRecInc. assumption.
 Qed.
 
 (* Lemma addressesBloodlinePartial addr part1 part2 s exceptionBlock blockStart:

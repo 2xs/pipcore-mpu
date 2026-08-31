@@ -115,27 +115,27 @@ assert(HgetPartsEq: getPartitions multiplexer newS = getPartitions multiplexer s
 assert(HgetKSEq: forall partition, In partition (getPartitions multiplexer s)
   -> getKSEntries partition newS = getKSEntries partition s).
 {
-  intros partition HpartIsPart. apply getKSEntriesEqPDT with p; trivial. intuition.
+  intros partition HpartIsPart. apply getKSEntriesEqPDT with p; trivial.
 }
 assert(HgetMappedBEq: forall partition, In partition (getPartitions multiplexer s)
   -> getMappedBlocks partition newS = getMappedBlocks partition s).
 {
-  intros partition HpartIsPart. apply getMappedBlocksEqPDT with p; trivial. intuition.
+  intros partition HpartIsPart. apply getMappedBlocksEqPDT with p; trivial.
 }
 assert(HgetMappedPEq: forall partition, In partition (getPartitions multiplexer s)
   -> getMappedPaddr partition newS = getMappedPaddr partition s).
 {
-  intros partition HpartIsPart. apply getMappedPaddrEqPDT with p; trivial. intuition.
+  intros partition HpartIsPart. apply getMappedPaddrEqPDT with p; trivial.
 }
 assert(HgetAccMappedBEq: forall partition, In partition (getPartitions multiplexer s)
   -> getAccessibleMappedBlocks partition newS = getAccessibleMappedBlocks partition s).
 {
-  intros partition HpartIsPart. apply getAccessibleMappedBlocksEqPDT with p; trivial. intuition.
+  intros partition HpartIsPart. apply getAccessibleMappedBlocksEqPDT with p; trivial.
 }
 assert(HgetAccMappedPEq: forall partition, In partition (getPartitions multiplexer s)
   -> getAccessibleMappedPaddr partition newS = getAccessibleMappedPaddr partition s).
 {
-  intros partition HpartIsPart. apply getAccessibleMappedPaddrEqPDT with p; trivial. intuition.
+  intros partition HpartIsPart. apply getAccessibleMappedPaddrEqPDT with p; trivial.
 }
 assert(HgetConfigBEq: forall partition, isPDT partition s
   -> getConfigBlocks partition newS = getConfigBlocks partition s).
@@ -150,7 +150,7 @@ assert(HgetConfigPEq: forall partition, isPDT partition s
 assert(HgetChildrenEq: forall partition, In partition (getPartitions multiplexer s)
   -> getChildren partition newS = getChildren partition s).
 {
-  intros partition HpartIsPart. apply getChildrenEqPDT with p; trivial. intuition.
+  intros partition HpartIsPart. apply getChildrenEqPDT with p; trivial.
 }
 
 assert(nullAddrExists newS).
@@ -599,7 +599,8 @@ assert(NbFreeSlotsISNbFreeSlotsInList newS).
 
 assert(maxNbPrepareIsMaxNbKernels newS).
 { (* BEGIN maxNbPrepareIsMaxNbKernels newS *)
-  assert(Hcons0: maxNbPrepareIsMaxNbKernels s) by intuition. intros partition kernList HlistOfKerns.
+  assert(Hcons0: maxNbPrepareIsMaxNbKernels s) by intuition. intros partition kernList HpartIsPart HlistOfKerns.
+  rewrite HgetPartsEq in *.
   apply isListOfKernelsEqPDT with partition pdpart {|
                                                      structure := structure p;
                                                      firstfreeslot := firstfreeslot p;
@@ -609,7 +610,7 @@ assert(maxNbPrepareIsMaxNbKernels newS).
                                                      MPU := MPU p;
                                                      vidtAddr := vidtaddr
                                                    |} kernList p s in HlistOfKerns; trivial.
-  specialize(Hcons0 partition kernList HlistOfKerns). assumption.
+  specialize(Hcons0 partition kernList HpartIsPart HlistOfKerns). assumption.
   (* END maxNbPrepareIsMaxNbKernels *)
 }
 
@@ -730,8 +731,8 @@ assert(nextKernelIsValid newS).
 
 assert(noDupListOfKerns newS).
 { (* BEGIN noDupListOfKerns newS *)
-  assert(Hcons0: noDupListOfKerns s) by intuition. intros partition kernList HlistOfKerns.
-  apply isListOfKernelsEqPDT with partition pdpart {|
+  assert(Hcons0: noDupListOfKerns s) by intuition. intros partition kernList HpartIsPart HlistOfKerns.
+  rewrite HgetPartsEq in *. apply isListOfKernelsEqPDT with partition pdpart {|
                                                      structure := structure p;
                                                      firstfreeslot := firstfreeslot p;
                                                      nbfreeslots := nbfreeslots p;
@@ -740,7 +741,7 @@ assert(noDupListOfKerns newS).
                                                      MPU := MPU p;
                                                      vidtAddr := vidtaddr
                                                    |} kernList p s in HlistOfKerns; trivial.
-  specialize(Hcons0 partition kernList HlistOfKerns). assumption.
+  specialize(Hcons0 partition kernList HpartIsPart HlistOfKerns). assumption.
   (* END noDupListOfKerns *)
 }
 
@@ -1151,6 +1152,33 @@ assert(blockAndSceInSameBlock newS).
   rewrite removeDupIdentity in *; auto.
   specialize(Hcons0 part block parentBlock HpartIsPart HPBMapped HblockIsBE HsceInRange). assumption.
   (* END blockAndSceInSameBlock *)
+}
+
+assert(kernelIsSomePartsConfig newS).
+{ (* BEGIN kernelIsSomePartsConfig newS *)
+  assert(Hcons0: kernelIsSomePartsConfig s) by intuition. intros kern HkernIsKS. rewrite HgetPartsEq.
+  unfold isKS in *. simpl in HkernIsKS. destruct (beqAddr pdpart kern) eqn:HbeqPdKern; try(exfalso; congruence).
+  rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. specialize(Hcons0 kern HkernIsKS).
+  destruct Hcons0 as [part [pdentry (HpartIsPart & HlookupPartB & HkernIsConfig)]]. exists part.
+  assert(HlookupPartBNew: exists pdentryNew, lookup part (memory newS) beqAddr = Some (PDT pdentryNew)
+    /\ structure pdentry = structure pdentryNew).
+  {
+    simpl. destruct (beqAddr pdpart part) eqn:HbeqParts.
+    - rewrite <-DTL.beqAddrTrue in HbeqParts. subst part. rewrite HlookupPart in *.
+      exists {|
+               structure := structure p;
+               firstfreeslot := firstfreeslot p;
+               nbfreeslots := nbfreeslots p;
+               nbprepare := nbprepare p;
+               parent := parent p;
+               MPU := MPU p;
+               vidtAddr := vidtaddr
+             |}. injection HlookupPartB as HpdentriesEq. subst pdentry. auto.
+    - exists pdentry. rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; auto.
+  }
+  destruct HlookupPartBNew as [pdentryNew (HlookupPartNew & HstructEq)]. exists pdentryNew. rewrite HstructEq in *.
+  unfold newS at 2. rewrite completeListOfKernelsEqPDT; auto. unfold isPDT. rewrite HlookupPart. trivial.
+  (* END kernelIsSomePartsConfig s *)
 }
 
 assert(noDupMappedPaddrList newS).

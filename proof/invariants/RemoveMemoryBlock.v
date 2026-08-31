@@ -65,8 +65,8 @@ intro currentPart. eapply bindRev.
 { (** findBlockInKSWithAddr **)
   eapply weaken. apply findBlockInKSWithAddr.
   intros s Hprops. simpl. split. apply Hprops. split. intuition.
-  destruct Hprops as (Hprops & Hcurr). rewrite Hcurr.
-  apply IL.partitionsArePDT; unfold consistency in *; unfold consistency1 in *; intuition.
+  destruct Hprops as (Hprops & Hcurr). rewrite Hcurr. split; only 1:
+    apply IL.partitionsArePDT; unfold consistency in *; unfold consistency1 in *; intuition.
 }
 intro blockToRemoveInCurrPartAddr. eapply bindRev.
 { (** compareAddrToNull **)
@@ -114,8 +114,10 @@ eapply bindRev.
     /\ beqAddr nullAddr idPDchild = false
     /\ (exists sh1entryaddr, sh1entryPDchild sh1entryaddr idPDchild s
           /\ sh1entryAddr blockToRemoveInCurrPartAddr sh1entryaddr s)).
-  intuition. 2,3,4,5,6: unfold consistency in *; unfold consistency1 in *; intuition.
+  intuition. 2-6: unfold consistency in *; unfold consistency1 in *; intuition.
   - exists sh1entryaddr. intuition.
+  - exists currentPart. split; trivial. subst currentPart.
+    unfold consistency in *; unfold consistency1 in *; intuition.
   - unfold bentryPFlag in *.
     destruct (lookup blockToRemoveInCurrPartAddr (memory s) beqAddr); try(exfalso; congruence).
     destruct v; try(exfalso; congruence). exists b. reflexivity.

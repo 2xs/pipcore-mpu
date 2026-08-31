@@ -680,39 +680,39 @@ firstfreeslot pdentry1 = newFirstFreeSlotAddr
 				 	(
 							forall partition : paddr,
 								partition <> globalIdPDChild ->
-								isPDT partition s0 ->
+								In partition (getPartitions multiplexer s0) ->
 								 getMappedPaddr partition s = getMappedPaddr partition s0
 					) /\
 					(
 							forall partition : paddr,
 							partition <> globalIdPDChild ->
-							isPDT partition s0 ->
+							In partition (getPartitions multiplexer s0) ->
 							getConfigPaddr partition s = getConfigPaddr partition s0
 
 					) /\
 					(
 							forall partition : paddr,
 							partition <> globalIdPDChild ->
-							isPDT partition s0 ->
+							In partition (getPartitions multiplexer s0) ->
 							getUsedPaddr partition s = getUsedPaddr partition s0
 					) /\
 					(
 
 							forall partition : paddr,
 							partition <> globalIdPDChild ->
-							isPDT partition s0 ->
+							In partition (getPartitions multiplexer s0) ->
 							getChildren partition s = getChildren partition s0
 					) /\
 					(
 							forall partition : paddr,
 							partition <> globalIdPDChild ->
-							isPDT partition s0 ->
+							In partition (getPartitions multiplexer s0) ->
 							(getMappedBlocks partition s) = getMappedBlocks partition s0
 					) /\
 					(
 							forall partition : paddr,
 							partition <> globalIdPDChild ->
-							isPDT partition s0 ->
+							In partition (getPartitions multiplexer s0) ->
 							(getAccessibleMappedPaddr partition s) = getAccessibleMappedPaddr partition s0
 					)
 	)
@@ -934,15 +934,14 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 						by (unfold consistency in * ; unfold consistency1 in * ; intuition). (* consistency s*)
 				assert(HglobalChildNotEq : globalIdPDChild <> child).
 				{ eapply childparentNotEq with s ; try (rewrite HparentEq in *) ; intuition. }
+				rewrite HpdchildrenEq in *.
 
 				assert(HusedchildEq : getUsedPaddr child s = getUsedPaddr child s0).
-				{ eapply HUsedPaddrEqNotInParts0 ; intuition.
-					eapply childrenArePDT with globalIdPDChild ; intuition.
+				{ eapply HUsedPaddrEqNotInParts0 ; auto.
+					eapply childrenPartitionInPartitionList with globalIdPDChild ; trivial.
 					unfold consistency in * ; unfold consistency1 in * ; intuition.
-					rewrite HpdchildrenEq in *. intuition.
 				}
 				rewrite HusedchildEq in *.
-				rewrite HpdchildrenEq in *.
 					specialize (HVs0 globalIdPDChild child HparentPartTree HchildIsChild addr HnAddrInUsedChild).
 
 					specialize (Hidpdchildmapped addr).
@@ -956,20 +955,19 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 
 				assert(HchildrenparentEq : getChildren parent s = getChildren parent s0).
 				{ apply HChildrenEqNotInParts0 ; intuition. }
-				assert(Hchild : isPDT child s0).
-				{ eapply childrenArePDT with parent ; intuition.
+				rewrite HchildrenparentEq in*.
+				assert(Hchild : In child (getPartitions multiplexer s0)).
+				{ eapply childrenPartitionInPartitionList with parent ; auto.
 					unfold consistency in * ; unfold consistency1 in * ; intuition.
-					rewrite HchildrenparentEq in * ; intuition.
 				}
 				assert(HusedchildEq : getUsedPaddr child s = getUsedPaddr child s0).
-				{ apply HUsedPaddrEqNotInParts0 ; intuition.
+				{ apply HUsedPaddrEqNotInParts0 ; auto.
 				}
 
 				assert(HmappedparentEq : getMappedPaddr parent s = getMappedPaddr parent s0)
 					by (apply HMappedPaddrEqNotInParts0 ; intuition).
 
 				rewrite HusedchildEq in *. rewrite HmappedparentEq in *.
-				rewrite HchildrenparentEq in*.
 				specialize (HVs0 parent child HparentPartTree HchildIsChild addr HnAddrInUsedChild).
 				assumption.
 }
@@ -1482,6 +1480,10 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 			{ eapply childrenArePDT with parent ; intuition.
 				unfold consistency in * ; unfold consistency1 in * ; intuition.
 			}
+			assert(Hchild2IsPart: In child2 (getPartitions multiplexer s0)).
+			{ eapply childrenPartitionInPartitionList with parent ; intuition.
+				unfold consistency in * ; unfold consistency1 in * ; intuition.
+			}
 			assert(Husedchild2Eq : getUsedPaddr child2 s = getUsedPaddr child2 s0).
 			{ apply HUsedPaddrEqNotInParts0 ; intuition.
 			}
@@ -1619,6 +1621,10 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 			rewrite HchildrenparentEq in *.
 			assert(Hchild2 : isPDT child1 s0).
 			{ eapply childrenArePDT with parent ; intuition.
+				unfold consistency in * ; unfold consistency1 in * ; intuition.
+			}
+			assert(Hchild1IsPart: In child1 (getPartitions multiplexer s0)).
+			{ eapply childrenPartitionInPartitionList with parent ; intuition.
 				unfold consistency in * ; unfold consistency1 in * ; intuition.
 			}
 			assert(Husedchild1Eq : getUsedPaddr child1 s = getUsedPaddr child1 s0).
@@ -1760,7 +1766,13 @@ HChildrenEqNotInParts0 & (HMappedBlocksEqNotInParts0 & HAccessibleMappedPaddrEqN
 		{ eapply childparentNotEq with s ; try (rewrite HparentEq in *) ; intuition. }
 		assert(HglobalChildNotEq2 : parent <> child2).
 		{ eapply childparentNotEq with s ; try (rewrite HparentEq in *) ; intuition. }
-
+	  rewrite <-HparentEq in *. assert(In child1 (getPartitions multiplexer s)).
+		{ eapply childrenPartitionInPartitionList with parent ; intuition.
+		}
+		assert(In child2 (getPartitions multiplexer s)).
+		{ eapply childrenPartitionInPartitionList with parent ; intuition.
+		}
+    rewrite HparentEq in *.
 		destruct (beqAddr globalIdPDChild parent) eqn:beqparentidpd; try(exfalso ; congruence).
 		---- (* globalIdPDChild = parent *)
 					rewrite <- DependentTypeLemmas.beqAddrTrue in beqparentidpd.

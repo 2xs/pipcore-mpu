@@ -4369,8 +4369,8 @@ Proof.
 intros Hnull HnextValid Hstruct HmaxPrep HpartIsPart HlookupPart.
 assert(HcomplIsKlist: isListOfKernels (completeListOfKernels (structure pdentry) s) part s).
 { apply completeKernListIsListOfKern; assumption. }
-specialize(HmaxPrep part (completeListOfKernels (structure pdentry) s) HcomplIsKlist). clear HcomplIsKlist.
-unfold getConfigBlocks. unfold completeListOfKernels in *.
+specialize(HmaxPrep part (completeListOfKernels (structure pdentry) s) HpartIsPart HcomplIsKlist).
+clear HcomplIsKlist. unfold getConfigBlocks. unfold completeListOfKernels in *.
 rewrite HlookupPart. destruct (beqAddr (structure pdentry) nullAddr) eqn:HbeqStructNull.
 - rewrite <-DTL.beqAddrTrue in HbeqStructNull. rewrite HbeqStructNull. rewrite MaxIdxNextEq.
   unfold nullAddrExists in *. unfold isPADDR in *. simpl.
@@ -4421,7 +4421,7 @@ destruct (beqAddr (structure pdentry) nullAddr) eqn:HbeqStructNull.
       auto.
     - pose proof (completeKernListIsListOfKern partition pdentry s Hnull HnextValid HlookupPart HpartIsPart)
         as HisListOfKern.
-      specialize(HmaxNb partition (completeListOfKernels (structure pdentry) s) HisListOfKern).
+      specialize(HmaxNb partition (completeListOfKernels (structure pdentry) s) HpartIsPart HisListOfKern).
       unfold completeListOfKernels in HmaxNb. unfold isKS in *.
       destruct (lookup (structure pdentry) (memory s) beqAddr); try(exfalso; congruence).
       destruct v; try(exfalso; congruence). assert(HidxIsZero: indexEq (blockindex b) (CIndex 0) = true).
@@ -4436,7 +4436,8 @@ destruct (beqAddr (structure pdentry) nullAddr) eqn:HbeqStructNull.
   {
     unfold completeListOfKernels. unfold isKS in *.
     destruct (lookup (structure pdentry) (memory s) beqAddr); try(exfalso; congruence).
-    destruct v; try(exfalso; congruence). rewrite Hstruct. unfold zero. rewrite indexEqRefl. cbn -[maxNbPrepare]. auto.
+    destruct v; try(exfalso; congruence). rewrite Hstruct. unfold zero. rewrite indexEqRefl. cbn -[maxNbPrepare].
+    auto.
   }
   specialize(HnextValid partition pdentry (structure pdentry) HpartIsPart HlookupPart HstructIsConfig Hstruct).
   unfold completeListOfKernels. assert(HstructIsKS: isKS (structure pdentry) s) by assumption.
@@ -4456,7 +4457,8 @@ nullAddrExists s0
 -> addr + nextoffset <= maxAddr
 (*-> isKS newEntry s0*)
 -> lookup (CPaddr (addr+nextoffset)) (memory s0) beqAddr = Some(PADDR nullAddr)
--> (forall part kernList, isListOfKernels kernList part s0 -> ~In addr kernList)
+-> (forall part kernList, In part (getPartitions multiplexer s0) -> isListOfKernels kernList part s0
+      -> ~In addr kernList)
 -> lookup partition (memory s0) beqAddr = Some (PDT pdentry)
 -> In partition (getPartitions multiplexer s0)
 -> getPartitionsAux n partition {|
@@ -4480,8 +4482,9 @@ f_equal. assert(HChildrenEq: (getChildren partition s) = (getChildren partition 
   assert(HlistOfKerns: isListOfKernels (completeListOfKernels (structure pdentry) s0) partition s0).
   { apply completeKernListIsListOfKern; trivial. }
   split.
-  - apply HkernList with partition. trivial.
-  - specialize(HnoDupKern partition (completeListOfKernels (structure pdentry) s0) HlistOfKerns). assumption.
+  - apply HkernList with partition; trivial.
+  - specialize(HnoDupKern partition (completeListOfKernels (structure pdentry) s0) HpartIsPart HlistOfKerns).
+    assumption.
 }
 rewrite HChildrenEq. rewrite flat_map_concat_map. rewrite flat_map_concat_map. f_equal. clear HChildrenEq.
 assert(HchildrenArePDT : forall child, In child (getChildren partition s0) -> isPDT child s0).
@@ -4509,7 +4512,8 @@ nullAddrExists s0
 -> addr + nextoffset <= maxAddr
 (*-> isKS newEntry s0*)
 -> lookup (CPaddr (addr+nextoffset)) (memory s0) beqAddr = Some(PADDR nullAddr)
--> (forall part kernList, isListOfKernels kernList part s0 -> ~In addr kernList)
+-> (forall part kernList, In part (getPartitions multiplexer s0) -> isListOfKernels kernList part s0
+    -> ~In addr kernList)
 -> isPDT partition s0
 -> In partition (getPartitions multiplexer s0)
 -> getPartitions partition {|
@@ -4533,7 +4537,8 @@ nullAddrExists s
 -> (forall kernList, isListOfKernelsAux kernList kern s -> length kernList < len)
 -> getKSEntriesAux (S len) kern s = getKSEntriesAux len kern s.
 Proof.
-intros Hnull HnextValid HpartIsPart HlookupPart. revert kern. induction len; intros kern HkernIsKS HkernIsConfig Hprop.
+intros Hnull HnextValid HpartIsPart HlookupPart. revert kern.
+induction len; intros kern HkernIsKS HkernIsConfig Hprop.
 - assert(HkernList: isListOfKernelsAux [] kern s) by (simpl; trivial).
   specialize(Hprop [] HkernList). simpl in Hprop. lia.
 - apply eq_sym. set(succ:= S len). unfold succ at 1. cbn -[succ].
@@ -4541,8 +4546,9 @@ intros Hnull HnextValid HpartIsPart HlookupPart. revert kern. induction len; int
   destruct (lookup p (memory s) beqAddr) eqn:HlookupNextAddr; trivial. destruct v; trivial.
   destruct (lookup p0 (memory s) beqAddr) eqn:HlookupNextKS; trivial.
   assert(Hnext: nextKernelIsValid s) by assumption.
-  specialize(Hnext part pdentry kern HpartIsPart HlookupPart HkernIsConfig HkernIsKS). destruct Hnext as (Hle & Hnext).
-  destruct v; trivial. f_equal. subst succ. apply eq_sym. destruct Hnext as [nextAddr (HlookupNext & HnextType)].
+  specialize(Hnext part pdentry kern HpartIsPart HlookupPart HkernIsConfig HkernIsKS).
+  destruct Hnext as (Hle & Hnext). destruct v; trivial. f_equal. subst succ. apply eq_sym.
+  destruct Hnext as [nextAddr (HlookupNext & HnextType)].
   unfold Paddr.addPaddrIdx in Hadd. destruct (le_dec (kern+nextoffset) maxAddr) eqn:HleNextMax; try(lia).
   injection Hadd as Hp. specialize(HlookupNext (StateLib.Paddr.addPaddrIdx_obligation_1 kern nextoffset l)).
   rewrite Hp in HlookupNext.
@@ -4696,7 +4702,7 @@ destruct (beqAddr (structure pdentry) nullAddr) eqn:HbeqStructNull.
       auto.
     - intros kernList HkernList. assert(HkernListBis: isListOfKernels ((structure pdentry)::kernList) currentPart s0).
       { simpl. exists pdentry. auto. }
-      specialize(HmaxPrep ((structure pdentry)::kernList) HkernListBis). simpl in HmaxPrep. lia.
+      specialize(HmaxPrep ((structure pdentry)::kernList) HcurrIsPart HkernListBis). simpl in HmaxPrep. lia.
   }
   cbn -[maxNbPrepare nullAddr] in Heq. unfold CPaddr in HlookupNext. unfold Paddr.addPaddrIdx in *.
   destruct (le_dec (kernel + nextoffset) maxAddr); try(lia).
@@ -4735,8 +4741,8 @@ intros HcurrIsPart HlookupNews0 HnewStruct HkernIsKS HlebNextAMax HnextIsStruct 
   HmaxPrep Hlen HnewBlocksAreNotPres. unfold getMappedBlocks.
 destruct (beqAddr partition currentPart) eqn:HbeqPartCurr.
 - rewrite <-DTL.beqAddrTrue in HbeqPartCurr. subst partition. pose proof (getKSEntriesEqPDTNewEmptyStruct currentPart
-    pdentry newPDEntry kernel s0 HcurrIsPart HlookupNews0 HnewStruct HkernIsKS HlebNextAMax HnextIsStruct Hstruct Hnull
-    HnextValid HmaxPrep Hlen) as HgetKSEq. fold s in HgetKSEq. rewrite HgetKSEq. rewrite filterOptionPaddrSplit.
+    pdentry newPDEntry kernel s0 HcurrIsPart HlookupNews0 HnewStruct HkernIsKS HlebNextAMax HnextIsStruct Hstruct
+    Hnull HnextValid HmaxPrep Hlen) as HgetKSEq. fold s in HgetKSEq. rewrite HgetKSEq. rewrite filterOptionPaddrSplit.
   rewrite filterPresentSplit. replace (filterPresent (filterOptionPaddr (getKSEntries currentPart s0)) s) with
     (filterPresent (filterOptionPaddr (getKSEntries currentPart s0)) s0); try(apply eq_sym; apply filterPresentEqPDT;
     unfold isPDT; rewrite HlookupNews0; trivial).
@@ -5479,7 +5485,8 @@ destruct (lookup nextAddr (memory s) beqAddr) eqn:HlookupNextKS; trivial. destru
   destruct Hnext as [(HnextIsKS & HnextIsConfig) | Hcontra]; try(exfalso; congruence).
   specialize(IHn nextAddr HnextIsKS HnextIsConfig). rewrite IHn. rewrite HeqStruct. f_equal.
 - unfold isKS in Hnext. rewrite HlookupNextKS in *.
-  destruct Hnext as [(Hcontra & _) | Hnext]; try(exfalso; congruence). subst nextAddr. rewrite beqAddrTrue. assumption.
+  destruct Hnext as [(Hcontra & _) | Hnext]; try(exfalso; congruence). subst nextAddr. rewrite beqAddrTrue.
+  assumption.
 Qed.
 
 Lemma getKSEntriesEqPDTNewStructNotInPart partition pdentry changedPart newPDentry s:
@@ -5678,7 +5685,8 @@ Proof.
 intros Hstruct HfirstIsBE Hnull HnextValid HblockRange HmaxNbPrep HpartIsPart HlookupPart.
 pose proof (completeKernListIsListOfKern partition pdentry s Hnull HnextValid HlookupPart HpartIsPart)
   as HcompleteIsKernList. assert(HmaxNbPrepCopy: maxNbPrepareIsMaxNbKernels s) by assumption.
-specialize(HmaxNbPrep partition (completeListOfKernels (structure pdentry) s) HcompleteIsKernList) as Hlen.
+specialize(HmaxNbPrep partition (completeListOfKernels (structure pdentry) s) HpartIsPart HcompleteIsKernList)
+  as Hlen.
 unfold getKSEntries. rewrite HlookupPart. unfold nullAddrExists in *. unfold isPADDR in *.
 destruct (beqAddr (structure pdentry) nullAddr) eqn:HbeqStructNull.
 - simpl. rewrite <-DTL.beqAddrTrue in HbeqStructNull. rewrite HbeqStructNull. unfold completeListOfKernels.
@@ -5691,7 +5699,8 @@ destruct (beqAddr (structure pdentry) nullAddr) eqn:HbeqStructNull.
   {
     unfold completeListOfKernels. unfold isKS in *.
     destruct (lookup (structure pdentry) (memory s) beqAddr); try(exfalso; congruence).
-    destruct v; try(exfalso; congruence). rewrite Hstruct. unfold zero. rewrite indexEqRefl. cbn -[maxNbPrepare]. auto.
+    destruct v; try(exfalso; congruence). rewrite Hstruct. unfold zero. rewrite indexEqRefl. cbn -[maxNbPrepare].
+    auto.
   }
   specialize(HnextValid partition pdentry (structure pdentry) HpartIsPart HlookupPart HstructIsConfig Hstruct).
   destruct HnextValid as (HlebNextMax & [nextAddr (HlookupNext & Hnext)]). unfold Paddr.addPaddrIdx in *.
@@ -5738,7 +5747,7 @@ destruct (beqAddr (structure pdentry) nullAddr) eqn:HbeqStructNull.
         simpl. exists pdentry. rewrite <-beqAddrFalse in *. intuition. unfold CPaddr.
         destruct (le_dec (structure pdentry + nextoffset) maxAddr); try(lia). apply HlookupNext.
       }
-      specialize(HmaxNbPrepCopy partition ((structure pdentry)::(nextAddr::kernList)) HkernListFull).
+      specialize(HmaxNbPrepCopy partition ((structure pdentry)::(nextAddr::kernList)) HpartIsPart HkernListFull).
       simpl in HmaxNbPrepCopy. lia.
     }
     rewrite HeqListNext. rewrite Hres. lia.
