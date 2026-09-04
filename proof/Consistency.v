@@ -800,6 +800,21 @@ isKS kernel s
     /\ lookup part (memory s) beqAddr = Some (PDT pdentry)
     /\ In kernel (completeListOfKernels (structure pdentry) s).
 
+(*01/09/2026: in deletePartition, need to prove that the set of kernels does not change when erasing the PDT.
+  Need this property to do so. Note that we cannot use getConfigPaddr since part of that list is composed of the
+  addresses in the PDT*)
+Definition PDTisNoConfigInChild s :=
+forall pdparent child pdentry block sh1entryaddr addr,
+In pdparent (getPartitions multiplexer s)
+-> In child (getChildren pdparent s)
+-> lookup child (memory s) beqAddr = Some (PDT pdentry)
+-> In block (getMappedBlocks pdparent s)
+-> sh1entryAddr block sh1entryaddr s
+-> sh1entryPDflag sh1entryaddr true s
+-> In addr (getAllPaddrAux [block] s)
+-> ~In addr (getAllPaddrConfigAux (filterOptionPaddr
+      (getConfigBlocksAux (maxIdx+1) (structure pdentry) s (CIndex maxNbPrepare))) s).
+
 Definition consInitStruct s :=
 nullAddrExists s
 /\ wellFormedFstShadowIfBlockEntry s
@@ -851,7 +866,8 @@ nullAddrExists s
 /\ sharedBlocksAdressesAreAllMappedInChild s
 /\ kernInSameBlock s
 /\ blockAndSh1InSameBlock s
-/\ blockAndSceInSameBlock s.
+/\ blockAndSceInSameBlock s
+/\ PDTisNoConfigInChild s.
 
 (** ** First batch of consistency properties *)
 Definition consistency1 s :=
@@ -909,7 +925,8 @@ nbPrepareIsNbKern s
 /\ kernInSameBlock s
 /\ blockAndSh1InSameBlock s
 /\ blockAndSceInSameBlock s
-/\ kernelIsSomePartsConfig s.
+/\ kernelIsSomePartsConfig s
+/\ PDTisNoConfigInChild s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=

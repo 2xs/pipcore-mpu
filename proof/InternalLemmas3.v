@@ -2271,6 +2271,62 @@ destruct (beqAddr part2 constantRootPartM) eqn:HbeqPart2Root.
     apply addrBelongToAncestors; trivial. apply blockInclImpliesAddrIncl; trivial.
 Qed.
 
+Lemma configAddrMappedInAncestor part1 part2 addr s:
+multiplexerIsPDT s
+-> parentOfPartitionIsPartition s
+-> partitionTreeIsTree s
+-> isParent s
+-> isChild s
+-> noDupPartitionTree s
+-> PDTIfPDFlag s
+-> nullAddrExists s
+-> wellFormedBlock s
+-> blockInChildHasAtLeastEquivalentBlockInParent s
+-> verticalSharing s
+-> In part1 (getPartitions multiplexer s)
+-> In part2 (getPartitions multiplexer s)
+-> In addr (getConfigPaddr part2 s)
+-> In part1 (filterOptionPaddr (completeParentsList part2 s))
+-> In addr (getMappedPaddr part1 s).
+Proof.
+intros HmultIsPDT HparentOfPart Htree HisParent HisChild HnoDupTree HPDTIfPDFlag Hnull Hwell HequivParent HVS
+  Hpart1IsPart Hpart2IsPart HaddrIsConfig1 Hpart1IsAnc.
+assert(HbeqPart2Root: part2 <> constantRootPartM).
+{
+  intro. subst part2. apply completeParentsListOrientation in Hpart1IsAnc as Hpart2NotAnc; trivial.
+  assert(HnoDup: NoDup (constantRootPartM::(filterOptionPaddr (completeParentsList constantRootPartM s)))).
+  {
+    apply parentOfPartNotInParentsLists with s; trivial. apply completeParentsListIsParentsList; trivial.
+  }
+  apply NoDup_cons_iff in HnoDup. destruct HnoDup as (HrootNotIn & _).
+  assert(HbeqPart1Root: constantRootPartM <> part1).
+  { intro. subst part1. congruence. }
+  contradict Hpart2NotAnc. apply getPartitionsGivesAncestor with (maxAddr+2); trivial.
+  apply partitionsArePDT; trivial.
+}
+assert(Hlookup2: exists pdentry2, lookup part2 (memory s) beqAddr = Some(PDT pdentry2)).
+{ apply isPDTLookupEq. apply partitionsArePDT; trivial. }
+destruct Hlookup2 as [pdentry2 Hlookup2]. assert(HparentOfPartCopy: parentOfPartitionIsPartition s) by assumption.
+specialize(HparentOfPartCopy part2 pdentry2 Hlookup2).
+destruct HparentOfPartCopy as (HparentIsPart & _ & HbeqParentPart2). specialize(HparentIsPart HbeqPart2Root).
+destruct HparentIsPart as ([parentEntry HlookupParent] & HparentIsPart).
+assert(Hparent: pdentryParent part2 (parent pdentry2) s) by (unfold pdentryParent; rewrite Hlookup2; reflexivity).
+assert(Hpart2IsChild: isChild s) by assumption.
+specialize(Hpart2IsChild part2 (parent pdentry2) Hpart2IsPart Hparent HbeqPart2Root).
+assert(HaddrUsedParent: In addr (getUsedPaddr part2 s)).
+{ unfold getUsedPaddr. apply in_or_app. auto. }
+assert(HVSCopy: verticalSharing s) by assumption.
+specialize(HVS (parent pdentry2) part2 HparentIsPart Hpart2IsChild addr HaddrUsedParent).
+assert(childPaddrIsIntoParent s) by (apply blockInclImpliesAddrIncl; assumption).
+destruct (beqAddr part1 (parent pdentry2)) eqn:HbeqPart1Parent2.
+- rewrite <-DTL.beqAddrTrue in HbeqPart1Parent2. subst part1. assumption.
+- apply addrBelongToAncestors with (parent pdentry2); trivial. unfold completeParentsList in *.
+  set (succ:=S maxAddr). fold succ in Hpart1IsAnc. cbn -[succ] in Hpart1IsAnc. rewrite Hlookup2 in *.
+  rewrite beqAddrFalse in HbeqPart2Root. rewrite HbeqPart2Root in *. cbn -[succ] in Hpart1IsAnc.
+  rewrite <-beqAddrFalse in *. destruct Hpart1IsAnc as [Hcontra | Hpart1IsAnc]; try(exfalso; congruence).
+  apply completeParentsListRecN with succ; trivial; lia.
+Qed.
+
 Lemma addrInKernIsConfig addr (kernel: paddr) l s:
 In kernel l
 -> isBE kernel s

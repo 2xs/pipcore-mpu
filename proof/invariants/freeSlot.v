@@ -111,7 +111,8 @@ nullAddrExists s
 /\ kernInSameBlock s
 /\ blockAndSh1InSameBlock s
 /\ blockAndSceInSameBlock s
-/\ kernelIsSomePartsConfig s.
+/\ kernelIsSomePartsConfig s
+/\ PDTisNoConfigInChild s.
 
 
 Lemma freeSlot (pd blockToFree: paddr) (P : state -> Prop) :
@@ -5029,6 +5030,7 @@ split.
   (* END blockAndSceInSameBlock *)
 }
 
+split.
 { (* BEGIN kernelIsSomePartsConfig s *)
   assert(Hcons0: kernelIsSomePartsConfig s0) by (unfold cons1Free in *; intuition).
   intros kern HkernIsKS. assert(HkernIsKSs0: isKS kern s0).
@@ -5075,5 +5077,100 @@ split.
   destruct HlookupPartBs as [pdentryBs (HlookupPartBs & HstructEq)]. rewrite HstructEq in *. exists pdentryBs.
   rewrite HlistOfKernsEq. auto.
   (* END kernelIsSomePartsConfig s *)
+}
+
+{ (* BEGIN PDTisNoConfigInChild s *)
+  assert(Hcons0: PDTisNoConfigInChild s0) by (unfold cons1Free in *; intuition).
+  intros pdparent child pdentryB block sh1entryaddr addr HparentIsPart HchildIsChild HlookupChild HblockMapped
+    Hsh1 HPDflag HaddrInBlock. rewrite HgetPartsEqs in *. rewrite HgetChildrenEq in *; trivial.
+  assert(HblockMappeds0: In block (getMappedBlocks pdparent s0)).
+  {
+    destruct (beqAddr pd pdparent) eqn:HbeqParts.
+    - rewrite <-DTL.beqAddrTrue in HbeqParts. subst pdparent. specialize(HgetMappedBPdss0 block).
+      destruct HgetMappedBPdss0 as (_ & Hres & _). apply Hres; assumption.
+    - rewrite <-beqAddrFalse in *. rewrite <-HgetMappedBEqss0; trivial.
+  }
+  assert(HlookupChilds0: exists pdentryB0, lookup child (memory s0) beqAddr = Some (PDT pdentryB0)
+    /\ structure pdentryB = structure pdentryB0).
+  {
+    rewrite Hs in HlookupChild. rewrite Hs6 in HlookupChild. simpl in *. rewrite beqAddrTrue in *.
+    destruct (beqAddr pd child) eqn:HbeqParts.
+    - rewrite <-DTL.beqAddrTrue in HbeqParts. subst child. exists pdentry. rewrite HlookupParts0 in *.
+      injection HlookupChild as HpdentriesEq. subst pdentryB. rewrite Hpdentry3. simpl.
+      rewrite Hpdentry2. simpl. rewrite Hpdentry1. auto.
+    - exists pdentryB. rewrite <-beqAddrFalse in *. do 2 (rewrite removeDupIdentity in *; auto).
+      rewrite Hs5 in HlookupChild. simpl in *.
+      destruct (beqAddr blockToFree child) eqn:HbeqBTFChild; try(exfalso; congruence).
+      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs4 in HlookupChild. simpl in *.
+      destruct (beqAddr (CPaddr (blockToFree+scoffset)) child) eqn:HbeqSceChild; try (exfalso; congruence).
+      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs3 in HlookupChild. simpl in *.
+      destruct (beqAddr (CPaddr (blockToFree+sh1offset)) child) eqn:HbeqSh1Child; try(exfalso; congruence).
+      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs2 in HlookupChild. simpl in *.
+      rewrite beqAddrFalse in *. rewrite HbeqBTFChild in *. rewrite <-beqAddrFalse in *.
+      rewrite removeDupIdentity in *; auto. rewrite Hs1 in HlookupChild. simpl in *.
+      rewrite beqAddrFalse in *. rewrite HbeqParts in *. rewrite <-beqAddrFalse in *.
+      rewrite removeDupIdentity in *; auto.
+  }
+  destruct HlookupChilds0 as [pdentryB0 (HlookupChilds0 & HstructEq)]. rewrite HstructEq.
+  assert(HbeqBTFBlock: beqAddr blockToFree block = false).
+  {
+    rewrite <-beqAddrFalse. intro. subst block. apply mappedBlockIsBE in HblockMapped.
+    destruct HblockMapped as [bentry (Hlookup & Hpres)]. rewrite HlookupBlockEqss5 in *. rewrite Hs5 in Hlookup.
+    simpl in *. rewrite beqAddrTrue in *. injection Hlookup as HpdentriesEq. rewrite HnewB2 in HpdentriesEq.
+    subst bentry. simpl in Hpres. rewrite HnewB in Hpres. simpl in Hpres. congruence.
+  }
+  unfold sh1entryAddr in *. simpl in HaddrInBlock. unfold sh1entryPDflag in *.
+  assert(HlookupBlockEq: lookup block (memory s) beqAddr = lookup block (memory s0) beqAddr).
+  {
+    rewrite Hs in Hsh1. rewrite Hs. rewrite Hs6 in Hsh1. rewrite Hs6. simpl in *. rewrite beqAddrTrue in *.
+    destruct (beqAddr pd block) eqn:HbeqPdBlock; try(exfalso; congruence). rewrite <-beqAddrFalse in *.
+    do 2 (rewrite removeDupIdentity in *; auto). rewrite Hs5 in Hsh1. rewrite Hs5. simpl in *.
+    rewrite beqAddrFalse in HbeqBTFBlock. rewrite HbeqBTFBlock in *. rewrite <-beqAddrFalse in *.
+    rewrite removeDupIdentity in *; auto. rewrite Hs4 in Hsh1. rewrite Hs4. simpl in *.
+    destruct (beqAddr (CPaddr (blockToFree + scoffset)) block) eqn:HbeqSceBlockB; try(exfalso; congruence).
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs3 in Hsh1. rewrite Hs3. simpl in *.
+    destruct (beqAddr (CPaddr (blockToFree + sh1offset)) block) eqn:HbeqSh1BlockB; try(exfalso; congruence).
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs2. simpl.
+    rewrite beqAddrFalse in HbeqBTFBlock. rewrite HbeqBTFBlock. rewrite <-beqAddrFalse in *.
+    rewrite removeDupIdentity; auto. rewrite Hs1. simpl. rewrite beqAddrFalse in HbeqPdBlock.
+    rewrite HbeqPdBlock. rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; auto.
+  }
+  rewrite HlookupBlockEq in *. rewrite Hs in HPDflag. rewrite Hs6 in HPDflag. simpl in *. rewrite beqAddrTrue in *.
+  destruct (beqAddr pd sh1entryaddr) eqn:HbeqPdSh1; try(exfalso; congruence). rewrite <-beqAddrFalse in *.
+  do 2 (rewrite removeDupIdentity in *; auto). rewrite Hs5 in HPDflag. simpl in *.
+  destruct (beqAddr blockToFree sh1entryaddr) eqn:HbeqBTFSh1; try(exfalso; congruence). rewrite <-beqAddrFalse in *.
+  rewrite removeDupIdentity in *; auto. rewrite Hs4 in HPDflag. simpl in *.
+  destruct (beqAddr (CPaddr (blockToFree + scoffset)) sh1entryaddr) eqn:HbeqSceSh1B; try(exfalso; congruence).
+  rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs3 in HPDflag. simpl in *.
+  destruct (beqAddr (CPaddr (blockToFree + sh1offset)) sh1entryaddr) eqn:HbeqSh1s.
+  {
+    exfalso. destruct (lookup block (memory s0) beqAddr); try(congruence). destruct v; try(congruence).
+    subst sh1entryaddr. rewrite <-DTL.beqAddrTrue in HbeqSh1s. apply CPaddrAddEq in HbeqSh1s; trivial. congruence.
+  }
+  rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs2 in HPDflag. simpl in *.
+  rewrite beqAddrFalse in HbeqBTFSh1. rewrite HbeqBTFSh1 in *. rewrite <-beqAddrFalse in *.
+  rewrite removeDupIdentity in *; auto. rewrite Hs1 in HPDflag. simpl in *. rewrite beqAddrFalse in HbeqPdSh1.
+  rewrite HbeqPdSh1 in *. rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
+  specialize(Hcons0 pdparent child pdentryB0 block sh1entryaddr addr HparentIsPart HchildIsChild HlookupChilds0
+    HblockMappeds0 Hsh1 HPDflag HaddrInBlock).
+  assert(isPDT pd s6) by (unfold isPDT; rewrite HlookupParts6; trivial).
+  assert(isPDT pd s5) by (unfold isPDT; rewrite HlookupParts5; trivial).
+  assert(isBE blockToFree s4) by (unfold isBE; rewrite HlookupBlocks4; trivial).
+  assert(isSCE (CPaddr (blockToFree + scoffset)) s3) by (unfold isSCE; rewrite HlookupSceEqs3s0; assumption).
+  assert(isSHE (CPaddr (blockToFree + sh1offset)) s2) by (unfold isSHE; rewrite HlookupSh1Eqs2s0; assumption).
+  assert(isBE blockToFree s1) by (unfold isBE; rewrite HlookupBlockEqs1s0; assumption).
+  assert(HconfigEq: getConfigBlocksAux (maxIdx + 1) (structure pdentryB0) s (CIndex maxNbPrepare)
+    = getConfigBlocksAux (maxIdx + 1) (structure pdentryB0) s0 (CIndex maxNbPrepare)).
+  {
+    rewrite Hs. rewrite getConfigBlocksAuxEqPDT; trivial. rewrite Hs6. rewrite getConfigBlocksAuxEqPDT; trivial.
+    rewrite Hs5. rewrite getConfigBlocksAuxEqBE; trivial. rewrite Hs4. rewrite getConfigBlocksAuxEqSCE; trivial.
+    rewrite Hs3. rewrite getConfigBlocksAuxEqSHE; trivial. rewrite Hs2. rewrite getConfigBlocksAuxEqBE; trivial.
+    rewrite Hs1. rewrite getConfigBlocksAuxEqPDT; trivial.
+  }
+  rewrite HconfigEq. rewrite Hs. rewrite getAllPaddrConfigAuxEqPDT; trivial. rewrite Hs6.
+  rewrite getAllPaddrConfigAuxEqPDT; trivial. rewrite Hs5. rewrite getAllPaddrConfigAuxEqBE; trivial. rewrite Hs4.
+  rewrite getAllPaddrConfigAuxEqSCE; trivial. rewrite Hs3. rewrite getAllPaddrConfigAuxEqSHE; trivial. rewrite Hs2.
+  rewrite getAllPaddrConfigAuxEqBE; trivial. rewrite Hs1. rewrite getAllPaddrConfigAuxEqPDT; trivial.
+  (* END PDTisNoConfigInChild s *)
 }
 Qed.

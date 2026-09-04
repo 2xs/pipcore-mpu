@@ -13358,6 +13358,34 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
     (* END kernelIsSomePartsConfig s *)
   }
 
+  assert(PDTisNoConfigInChild s).
+  { (* BEGIN PDTisNoConfigInChild s *)
+    assert(Hcons0: PDTisNoConfigInChild s10) by (unfold consistency1 in *; intuition).
+    intros pdparent child pdentryB block sh1entryaddr addr HparentIsPart HchildIsChild HlookupChild HblockMapped
+      Hsh1 HPDflag HaddrInBlock. rewrite HgetPartsEqs10 in *.
+    assert(isPDT pdparent s10) by (apply partitionsArePDT; trivial; unfold consistency1 in *; intuition).
+    rewrite HgetChildrenEq in HchildIsChild; trivial. rewrite HgetMappedBEq in HblockMapped; trivial.
+    rewrite HsEq in HlookupChild. unfold sh1entryAddr in *. rewrite HsEq in Hsh1. rewrite HsEq in HaddrInBlock.
+    simpl in *. rewrite beqAddrTrue in *.
+    destruct (beqAddr sh1eaddr child) eqn:HbeqSh1Child; try(exfalso; congruence).
+    destruct (beqAddr sh1eaddr block) eqn:HbeqSh1Block; try(exfalso; congruence). rewrite <-beqAddrFalse in *.
+    do 2 (rewrite removeDupIdentity in *; auto).
+    assert(HPDflags10: sh1entryPDflag sh1entryaddr true s10).
+    {
+      unfold sh1entryPDflag in *. rewrite HsEq in HPDflag. simpl in *. rewrite beqAddrTrue in *.
+      destruct (beqAddr sh1eaddr sh1entryaddr) eqn:HbeqSh1s.
+      - rewrite <-DTL.beqAddrTrue in HbeqSh1s. subst sh1entryaddr. rewrite HlookupSh1s0. simpl in HPDflag.
+        rewrite Hsh1entry0 in HPDflag. auto.
+      - rewrite <-beqAddrFalse in *. do 2 (rewrite removeDupIdentity in *; auto).
+    }
+    specialize(Hcons0 pdparent child pdentryB block sh1entryaddr addr HparentIsPart HchildIsChild HlookupChild
+      HblockMapped Hsh1 HPDflags10 HaddrInBlock). rewrite HsEq11.
+    assert(isSHE sh1eaddr s11) by (unfold isSHE; rewrite HlookupSh1s11; trivial).
+    rewrite getConfigBlocksAuxEqSHE; trivial. rewrite getAllPaddrConfigAuxEqSHE; trivial. rewrite Hs11.
+    rewrite getConfigBlocksAuxEqSHE; trivial. rewrite getAllPaddrConfigAuxEqSHE; assumption.
+    (* END PDTisNoConfigInChild s *)
+  }
+
   assert(childLocMappedInChild s).
   { (* BEGIN childLocMappedInChild s *)
     assert(Hbentry6 : bentry6 =
