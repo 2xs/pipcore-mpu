@@ -3627,6 +3627,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END PDTisNoConfigInChild s *)
          }
 
+         assert(PDTisNoConfigInPart s1).
+         { (* BEGIN PDTisNoConfigInPart s1 *)
+           apply PDTisNoConfigInPartPreservedIsBuilt with s1 s0 pdparent pdentryParent blockInParentPartitionAddr
+                bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END PDTisNoConfigInPart s *)
+         }
+
          unfold consistency1. intuition.
        }
 
@@ -5387,6 +5396,14 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); trivial;
                    unfold consistency1 in *; intuition.
                (* END PDTisNoConfigInChild s *)
+             }
+
+             assert(PDTisNoConfigInPart s).
+             { (* BEGIN PDTisNoConfigInPart s *)
+               revert Hs1. apply PDTisNoConfigInPartPreservedIsBuilt with pdparent pdentryParent
+                   (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); trivial;
+                   unfold consistency1 in *; intuition.
+               (* END PDTisNoConfigInPart s *)
              }
 
              unfold consistency1. intuition.
@@ -9695,6 +9712,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                 intuition.
            (* END PDTisNoConfigInChild s *)
          }
+
+         assert(PDTisNoConfigInPart s1).
+         { (* BEGIN PDTisNoConfigInPart s1 *)
+           apply PDTisNoConfigInPartPreservedIsBuilt with s1 s0 pdparent pdentryParent blockInParentPartitionAddr
+                bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END PDTisNoConfigInPart s *)
+         }
          unfold consistency1. intuition.
        }
 
@@ -11431,6 +11457,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                   (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; trivial;
                   unfold consistency1 in *; intuition.
                (* END PDTisNoConfigInChild s *)
+             }
+
+             assert(PDTisNoConfigInPart s).
+             { (* BEGIN PDTisNoConfigInPart s *)
+               apply PDTisNoConfigInPartPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                  blockInParentPartitionAddr bentry
+                  (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; trivial;
+                  unfold consistency1 in *; intuition.
+               (* END PDTisNoConfigInPart s *)
              }
 
              unfold consistency1. intuition.
@@ -15887,6 +15922,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END PDTisNoConfigInChild s *)
          }
 
+         assert(PDTisNoConfigInPart s1).
+         { (* BEGIN PDTisNoConfigInPart s1 *)
+           apply PDTisNoConfigInPartPreservedIsBuilt with s1 s0 pdparent pdentryParent blockInParentPartitionAddr
+            bentry
+            (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; unfold consInitStruct in *;
+            intuition.
+           (* END PDTisNoConfigInPart s *)
+         }
+
          unfold consInitStruct. intuition.
        }
 
@@ -17719,6 +17763,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                   (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; trivial;
                   unfold consInitStruct in *; intuition.
                (* END PDTisNoConfigInChild s *)
+             }
+
+             assert(PDTisNoConfigInPart s).
+             { (* BEGIN PDTisNoConfigInPart s *)
+               apply PDTisNoConfigInPartPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                  blockInParentPartitionAddr bentry
+                  (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; trivial;
+                  unfold consInitStruct in *; intuition.
+               (* END PDTisNoConfigInPart s *)
              }
 
              unfold consInitStruct. intuition.
@@ -22467,6 +22520,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END PDTisNoConfigInChild s *)
          }
 
+         assert(PDTisNoConfigInPart s1).
+         { (* BEGIN PDTisNoConfigInPart s1 *)
+           apply PDTisNoConfigInPartPreservedIsBuilt with s1 s0 pdparent pdentryParent blockInParentPartitionAddr
+              bentry
+              (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; unfold consistency1 in *;
+              intuition.
+           (* END PDTisNoConfigInPart s *)
+         }
+
          unfold consistency1. intuition.
        }
 
@@ -24303,6 +24365,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                   (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; trivial;
                   unfold consistency1 in *; intuition.
                (* END PDTisNoConfigInChild s *)
+             }
+
+             assert(PDTisNoConfigInPart s).
+             { (* BEGIN PDTisNoConfigInPart s *)
+               apply PDTisNoConfigInPartPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                  blockInParentPartitionAddr bentry
+                  (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; trivial;
+                  unfold consistency1 in *; intuition.
+               (* END PDTisNoConfigInPart s *)
              }
 
              unfold consistency1. intuition.

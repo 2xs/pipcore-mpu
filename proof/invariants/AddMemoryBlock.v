@@ -13386,6 +13386,29 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
     (* END PDTisNoConfigInChild s *)
   }
 
+  assert(PDTisNoConfigInPart s).
+  { (* BEGIN PDTisNoConfigInPart s *)
+    assert(Hcons0: PDTisNoConfigInPart s10) by (unfold consistency1 in *; intuition).
+    intros pdparent block sh1entryaddr addr HparentIsPart HblockMapped Hsh1 HPDflag HaddrInBlock.
+    rewrite HgetPartsEqs10 in *.
+    assert(isPDT pdparent s10) by (apply partitionsArePDT; trivial; unfold consistency1 in *; intuition).
+    rewrite HgetMappedBEq in HblockMapped; trivial. unfold sh1entryAddr in *. rewrite HsEq in Hsh1.
+    rewrite HsEq in HaddrInBlock. simpl in *. rewrite beqAddrTrue in *.
+    destruct (beqAddr sh1eaddr block) eqn:HbeqSh1Block; try(exfalso; congruence). rewrite <-beqAddrFalse in *.
+    do 2 (rewrite removeDupIdentity in *; auto).
+    assert(HPDflags10: sh1entryPDflag sh1entryaddr true s10).
+    {
+      unfold sh1entryPDflag in *. rewrite HsEq in HPDflag. simpl in *. rewrite beqAddrTrue in *.
+      destruct (beqAddr sh1eaddr sh1entryaddr) eqn:HbeqSh1s.
+      - rewrite <-DTL.beqAddrTrue in HbeqSh1s. subst sh1entryaddr. rewrite HlookupSh1s0. simpl in HPDflag.
+        rewrite Hsh1entry0 in HPDflag. auto.
+      - rewrite <-beqAddrFalse in *. do 2 (rewrite removeDupIdentity in *; auto).
+    }
+    specialize(Hcons0 pdparent block sh1entryaddr addr HparentIsPart HblockMapped Hsh1 HPDflags10 HaddrInBlock).
+    rewrite HgetConfigEq; assumption.
+    (* END PDTisNoConfigInPart s *)
+  }
+
   assert(childLocMappedInChild s).
   { (* BEGIN childLocMappedInChild s *)
     assert(Hbentry6 : bentry6 =

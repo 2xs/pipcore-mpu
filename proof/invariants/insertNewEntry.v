@@ -30424,8 +30424,8 @@ assert(PDTisNoConfigInChild s).
   }
   rewrite Hs in Hsh1. rewrite Hs in HaddrInBlock. unfold sh1entryPDflag in *. rewrite Hs in HPDflag. simpl in *.
   rewrite beqAddrTrue in *. destruct (beqAddr sceaddr block) eqn:HbeqSceBlock; try(exfalso; congruence).
-  destruct (beqAddr sceaddr sh1entryaddr) eqn:HbeqSceSh1; try(exfalso; congruence). rewrite beqnewBsce in *. simpl in *.
-  rewrite beqpdnewB in *. rewrite HbeqBlocks in *.
+  destruct (beqAddr sceaddr sh1entryaddr) eqn:HbeqSceSh1; try(exfalso; congruence). rewrite beqnewBsce in *.
+  simpl in *. rewrite beqpdnewB in *. rewrite HbeqBlocks in *.
   destruct (beqAddr newBlockEntryAddr sh1entryaddr) eqn:HbeqNewSh1; try(exfalso; congruence).
   rewrite <-beqAddrFalse in *. do 7 (rewrite removeDupIdentity in *; auto). simpl in *.
   destruct (beqAddr pdinsertion block) eqn:HbeqPdBlock; try(exfalso; congruence).
@@ -30435,6 +30435,34 @@ assert(PDTisNoConfigInChild s).
   specialize(Hcons0 pdparent child pdentryB0 block sh1entryaddr addr HparentIsPart HchildIsChild HlookupChilds0
     HblockMapped Hsh1 HPDflag HaddrInBlock). rewrite HconfigEq. rewrite HallPaddrEq. assumption.
   (* END PDTisNoConfigInChild s *)
+}
+
+assert(PDTisNoConfigInPart s).
+{ (* BEGIN PDTisNoConfigInPart s *)
+  assert(Hcons0: PDTisNoConfigInPart s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+  intros pdparent block sh1entryaddr addr HparentIsPart HblockMapped Hsh1 HPDflag HaddrInBlock.
+  rewrite HgetPartitionspdEq in *. clear HlookupSces9.
+  apply HgetMappedImpl in HblockMapped; trivial. unfold sh1entryAddr in *.
+  destruct (beqAddr newBlockEntryAddr block) eqn:HbeqBlocks.
+  {
+    rewrite <-DTL.beqAddrTrue in HbeqBlocks. subst block. exfalso. rewrite HlookupnewBs in *.
+    subst sh1entryaddr. unfold sh1entryPDflag in *.
+    destruct (lookup (CPaddr (newBlockEntryAddr+sh1offset)) (memory s) beqAddr); try(congruence).
+    destruct v; congruence.
+  }
+  rewrite Hs in Hsh1. rewrite Hs in HaddrInBlock. unfold sh1entryPDflag in *. rewrite Hs in HPDflag. simpl in *.
+  rewrite beqAddrTrue in *. destruct (beqAddr sceaddr block) eqn:HbeqSceBlock; try(exfalso; congruence).
+  destruct (beqAddr sceaddr sh1entryaddr) eqn:HbeqSceSh1; try(exfalso; congruence). rewrite beqnewBsce in *.
+  simpl in *. rewrite beqpdnewB in *. rewrite HbeqBlocks in *.
+  destruct (beqAddr newBlockEntryAddr sh1entryaddr) eqn:HbeqNewSh1; try(exfalso; congruence).
+  rewrite <-beqAddrFalse in *. do 7 (rewrite removeDupIdentity in *; auto). simpl in *.
+  destruct (beqAddr pdinsertion block) eqn:HbeqPdBlock; try(exfalso; congruence).
+  destruct (beqAddr pdinsertion sh1entryaddr) eqn:HbeqPdSh1; try(exfalso; congruence). rewrite beqAddrTrue in *.
+  rewrite <-beqAddrFalse in *. do 3 (rewrite removeDupIdentity in *; auto).
+  destruct HblockMapped as [Hcontra | HblockMapped]; try(exfalso; congruence).
+  specialize(Hcons0 pdparent block sh1entryaddr addr HparentIsPart HblockMapped Hsh1 HPDflag HaddrInBlock).
+  rewrite HgetConfigEq; assumption.
+  (* END PDTisNoConfigInPart s *)
 }
 
 intuition.

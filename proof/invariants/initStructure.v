@@ -1602,6 +1602,18 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
       (* END PDTisNoConfigInChild s *)
     }
 
+    assert(PDTisNoConfigInPart s).
+    { (* BEGIN PDTisNoConfigInPart s *)
+      assert(Hcons0: PDTisNoConfigInPart s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+      intros pdparent block sh1entryaddr addr HparentIsPart HblockMapped Hsh1 HPDflag HaddrInBlock.
+      rewrite getPartitionsEqLookup with (s0:=s0) in *; trivial.
+      rewrite getMappedBlocksEqLookup with (s0:=s0) in *; trivial. unfold sh1entryAddr in *. simpl in HaddrInBlock.
+      unfold sh1entryPDflag in *. rewrite HlookupsEq in *.
+      specialize(Hcons0 pdparent block sh1entryaddr addr HparentIsPart HblockMapped Hsh1 HPDflag HaddrInBlock).
+      rewrite getConfigPaddrEqLookup with (s0:=s0); assumption.
+      (* END PDTisNoConfigInPart s *)
+    }
+
     assert(noDupMappedPaddrList s).
     { (* BEGIN noDupMappedPaddrList s *)
       assert(Hcons0: noDupMappedPaddrList s0) by intuition. intros partition HpartIsPart.
@@ -5733,6 +5745,36 @@ assert(PDTisNoConfigInChild s).
   rewrite HconfigEq. rewrite getAllPaddrConfigAuxEqPrepare with (s0:=s0); trivial. intro.
   apply configBlocksAreBEAux.
   (* END PDTisNoConfigInChild s *)
+}
+
+assert(PDTisNoConfigInPart s).
+{ (* BEGIN PDTisNoConfigInPart s *)
+  assert(Hcons0: PDTisNoConfigInPart s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+  intros pdparent block sh1entryaddr addr HparentIsPart HblockMapped Hsh1 HPDflag HaddrInBlock.
+  rewrite HgetPartsEq in *. rewrite HgetMappedEq in *; trivial. unfold sh1entryAddr in *.
+  assert(HblockIsBE: isBE block s0).
+  {
+    apply mappedBlockIsBE in HblockMapped. destruct HblockMapped as [bentry (Hlookup & _)]. unfold isBE.
+    rewrite Hlookup. trivial.
+  }
+  assert(HlookupBlockEq: lookup block (memory s) beqAddr = lookup block (memory s0) beqAddr).
+  {
+    apply HlookupSomeEq. unfold isBE in *. destruct (lookup block (memory s0) beqAddr); try(exfalso; congruence).
+    exists v. reflexivity.
+  }
+  simpl in HaddrInBlock. rewrite HlookupBlockEq in *. unfold sh1entryPDflag in *.
+  assert(HlookupSh1Eq: lookup sh1entryaddr (memory s) beqAddr = lookup sh1entryaddr (memory s0) beqAddr).
+  {
+    apply HlookupSomeEq. assert(Hsh1IsSHE: wellFormedFstShadowIfBlockEntry s0)
+      by (unfold consistency in *; unfold consistency1 in *; intuition). specialize(Hsh1IsSHE block HblockIsBE).
+    unfold isSHE in *. destruct (lookup block (memory s0) beqAddr); try(exfalso; congruence).
+    destruct v; try(exfalso; congruence). rewrite <-Hsh1 in *.
+    destruct (lookup sh1entryaddr (memory s0) beqAddr); try(exfalso; congruence).
+    exists v. reflexivity.
+  }
+  rewrite HlookupSh1Eq in *. specialize(Hcons0 pdparent block sh1entryaddr addr HparentIsPart HblockMapped Hsh1
+    HPDflag HaddrInBlock). rewrite HgetConfigPEq; assumption.
+  (* END PDTisNoConfigInPart s *)
 }
 
 assert(childLocHasSameStart s).

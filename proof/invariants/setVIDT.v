@@ -1205,6 +1205,20 @@ assert(PDTisNoConfigInChild newS).
   (* END PDTisNoConfigInChild s *)
 }
 
+assert(PDTisNoConfigInPart newS).
+{ (* BEGIN PDTisNoConfigInPart newS *)
+  assert(Hcons0: PDTisNoConfigInPart s) by intuition.
+  intros pdparent block sh1entryaddr addr HparentIsPart HblockMapped Hsh1 HPDflag HaddrInBlock.
+  rewrite HgetPartsEq in *. rewrite HgetMappedBEq in *; trivial. unfold sh1entryAddr in *.
+  assert(isPDT pdparent s) by (apply partitionsArePDT; trivial; intuition). unfold sh1entryPDflag in *. simpl in *.
+  destruct (beqAddr pdpart block) eqn:HbeqPdBlock; try(exfalso; congruence).
+  destruct (beqAddr pdpart sh1entryaddr) eqn:HbeqPdSh1; try(exfalso; congruence). rewrite <-beqAddrFalse in *.
+  rewrite removeDupIdentity in *; auto.
+  specialize(Hcons0 pdparent block sh1entryaddr addr HparentIsPart HblockMapped Hsh1 HPDflag HaddrInBlock).
+  rewrite HgetConfigPEq; assumption.
+  (* END PDTisNoConfigInChild newS *)
+}
+
 assert(noDupMappedPaddrList newS).
 { (* BEGIN noDupMappedPaddrList newS *)
   assert(Hcons0: noDupMappedPaddrList s) by intuition. intros partition HpartIsPart. rewrite HgetPartsEq in *.

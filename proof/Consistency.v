@@ -815,6 +815,16 @@ In pdparent (getPartitions multiplexer s)
 -> ~In addr (getAllPaddrConfigAux (filterOptionPaddr
       (getConfigBlocksAux (maxIdx+1) (structure pdentry) s (CIndex maxNbPrepare))) s).
 
+(*04/09/2026: same as PDTisNoConfigInChild*)
+Definition PDTisNoConfigInPart s :=
+forall part block sh1entryaddr addr,
+In part (getPartitions multiplexer s)
+-> In block (getMappedBlocks part s)
+-> sh1entryAddr block sh1entryaddr s
+-> sh1entryPDflag sh1entryaddr true s
+-> In addr (getAllPaddrAux [block] s)
+-> ~In addr (getConfigPaddr part s).
+
 Definition consInitStruct s :=
 nullAddrExists s
 /\ wellFormedFstShadowIfBlockEntry s
@@ -867,7 +877,8 @@ nullAddrExists s
 /\ kernInSameBlock s
 /\ blockAndSh1InSameBlock s
 /\ blockAndSceInSameBlock s
-/\ PDTisNoConfigInChild s.
+/\ PDTisNoConfigInChild s
+/\ PDTisNoConfigInPart s.
 
 (** ** First batch of consistency properties *)
 Definition consistency1 s :=
@@ -926,7 +937,8 @@ nbPrepareIsNbKern s
 /\ blockAndSh1InSameBlock s
 /\ blockAndSceInSameBlock s
 /\ kernelIsSomePartsConfig s
-/\ PDTisNoConfigInChild s.
+/\ PDTisNoConfigInChild s
+/\ PDTisNoConfigInPart s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=
