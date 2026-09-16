@@ -812,8 +812,7 @@ In pdparent (getPartitions multiplexer s)
 -> sh1entryAddr block sh1entryaddr s
 -> sh1entryPDflag sh1entryaddr true s
 -> In addr (getAllPaddrAux [block] s)
--> ~In addr (getAllPaddrConfigAux (filterOptionPaddr
-      (getConfigBlocksAux (maxIdx+1) (structure pdentry) s (CIndex maxNbPrepare))) s).
+-> ~In addr (getAllPaddrConfigAux (getConfigBlocks child s) s).
 
 (*04/09/2026: same as PDTisNoConfigInChild*)
 Definition PDTisNoConfigInPart s :=
@@ -824,6 +823,17 @@ In part (getPartitions multiplexer s)
 -> sh1entryPDflag sh1entryaddr true s
 -> In addr (getAllPaddrAux [block] s)
 -> ~In addr (getConfigPaddr part s).
+
+(*08/09/2026: needed in deletePartition to prove a partial kernelIsSomePartsConfig before the recursive call*)
+Definition usedPaddrAreShared s :=
+forall child pdparent block addr,
+In pdparent (getPartitions multiplexer s)
+-> In child (getChildren pdparent s)
+-> In addr (getAllPaddrConfigAux (getConfigBlocks child s) s ++ getMappedPaddr child s)
+-> In block (getMappedBlocks pdparent s)
+-> In addr (getAllPaddrAux [block] s)
+-> sh1entryPDchild (CPaddr (block+sh1offset)) child s.
+(*11/09/2026: I suspect I'll need one about sh1entryInChildLocation as well*)
 
 Definition consInitStruct s :=
 nullAddrExists s
@@ -878,7 +888,8 @@ nullAddrExists s
 /\ blockAndSh1InSameBlock s
 /\ blockAndSceInSameBlock s
 /\ PDTisNoConfigInChild s
-/\ PDTisNoConfigInPart s.
+/\ PDTisNoConfigInPart s
+/\ usedPaddrAreShared s.
 
 (** ** First batch of consistency properties *)
 Definition consistency1 s :=
@@ -938,7 +949,8 @@ nbPrepareIsNbKern s
 /\ blockAndSceInSameBlock s
 /\ kernelIsSomePartsConfig s
 /\ PDTisNoConfigInChild s
-/\ PDTisNoConfigInPart s.
+/\ PDTisNoConfigInPart s
+/\ usedPaddrAreShared s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=

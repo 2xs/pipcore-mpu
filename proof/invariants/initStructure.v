@@ -1595,7 +1595,7 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
         Hsh1 HPDflag HaddrInBlock. rewrite getPartitionsEqLookup with (s0:=s0) in *; trivial.
       rewrite getMappedBlocksEqLookup with (s0:=s0) in *; trivial. unfold sh1entryAddr in *. simpl in HaddrInBlock.
       rewrite getChildrenEqLookup with (s0:=s0) in *; trivial. unfold sh1entryPDflag in *.
-      rewrite getConfigBlocksAuxEqLookup with (s0:=s0); trivial. rewrite HlookupsEq in *.
+      rewrite getConfigBlocksEqLookup with (s0:=s0); trivial. rewrite HlookupsEq in *.
       specialize(Hcons0 pdparent child pdentry block sh1entryaddr addr HparentIsPart HchildIsChild HlookupChild
         HblockMapped Hsh1 HPDflag HaddrInBlock).
       rewrite getAllPaddrConfigAuxEqLookup with (s0:=s0); trivial.
@@ -1612,6 +1612,21 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
       specialize(Hcons0 pdparent block sh1entryaddr addr HparentIsPart HblockMapped Hsh1 HPDflag HaddrInBlock).
       rewrite getConfigPaddrEqLookup with (s0:=s0); assumption.
       (* END PDTisNoConfigInPart s *)
+    }
+
+    assert(usedPaddrAreShared s).
+    { (* BEGIN usedPaddrAreShared s *)
+      assert(Hcons0: usedPaddrAreShared s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+      intros child pdparent block addr HparentIsPart HchildIsChild HaddrUsedC HblockMapped HaddrInBlock.
+      rewrite getPartitionsEqLookup with (s0:=s0) in *; trivial. unfold sh1entryPDchild.
+      rewrite getChildrenEqLookup with (s0:=s0) in *; trivial.
+      rewrite getConfigBlocksEqLookup with (s0:=s0) in *; trivial.
+      rewrite getAllPaddrConfigAuxEqLookup with (s0:=s0) in *; trivial.
+      rewrite getMappedPaddrEqLookup with (s0:=s0) in *; trivial.
+      rewrite getMappedBlocksEqLookup with (s0:=s0) in *; trivial. simpl in HaddrInBlock. rewrite HlookupsEq in *.
+      specialize(Hcons0 child pdparent block addr HparentIsPart HchildIsChild HaddrUsedC HblockMapped HaddrInBlock).
+      assumption.
+      (* END usedPaddrAreShared s *)
     }
 
     assert(noDupMappedPaddrList s).
@@ -5702,8 +5717,9 @@ assert(PDTisNoConfigInChild s).
 { (* BEGIN PDTisNoConfigInChild s *)
   assert(Hcons0: PDTisNoConfigInChild s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
   intros pdparent child pdentry block sh1entryaddr addr HparentIsPart HchildIsChild HlookupChild HblockMapped
-    Hsh1 HPDflag HaddrInBlock. rewrite HgetPartsEq in *. rewrite HgetChildrenEq in *; trivial.
-  rewrite HgetMappedEq in *; trivial. unfold sh1entryAddr in *. assert(HblockIsBE: isBE block s0).
+    Hsh1 HPDflag HaddrInBlock. unfold getConfigBlocks. rewrite HlookupChild. rewrite HgetPartsEq in *.
+  rewrite HgetChildrenEq in *; trivial. rewrite HgetMappedEq in *; trivial. unfold sh1entryAddr in *.
+  assert(HblockIsBE: isBE block s0).
   {
     apply mappedBlockIsBE in HblockMapped. destruct HblockMapped as [bentry (Hlookup & _)]. unfold isBE.
     rewrite Hlookup. trivial.
@@ -5725,7 +5741,8 @@ assert(PDTisNoConfigInChild s).
     exists v. reflexivity.
   }
   rewrite HlookupSh1Eq in *. specialize(Hcons0 pdparent child pdentry block sh1entryaddr addr HparentIsPart
-    HchildIsChild HlookupChild HblockMapped Hsh1 HPDflag HaddrInBlock).
+    HchildIsChild HlookupChild HblockMapped Hsh1 HPDflag HaddrInBlock). unfold getConfigBlocks in *.
+  rewrite HlookupChild in *.
   assert(HstructIsKS: StructurePointerIsKS s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
   assert(HchildIsPart: In child (getPartitions multiplexer s0)).
   {
@@ -5775,6 +5792,40 @@ assert(PDTisNoConfigInPart s).
   rewrite HlookupSh1Eq in *. specialize(Hcons0 pdparent block sh1entryaddr addr HparentIsPart HblockMapped Hsh1
     HPDflag HaddrInBlock). rewrite HgetConfigPEq; assumption.
   (* END PDTisNoConfigInPart s *)
+}
+
+assert(HpaddrConfigEq: forall l, (forall kern : paddr, In kern l -> isBE kern s0)
+  -> getAllPaddrConfigAux l s = getAllPaddrConfigAux l s0).
+{
+  intros. apply getAllPaddrConfigAuxEqPrepare; trivial.
+}
+
+assert(usedPaddrAreShared s).
+{ (* BEGIN usedPaddrAreShared s *)
+  assert(Hcons0: usedPaddrAreShared s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+  intros child pdparent block addr HparentIsPart HchildIsChild HaddrUsedC HblockMapped HaddrInBlock.
+  rewrite HgetPartsEq in *. rewrite HgetMappedEq in *; trivial. rewrite HgetChildrenEq in *; trivial.
+  assert(HchildIsPart: In child (getPartitions multiplexer s0)).
+  {
+    apply childrenPartitionInPartitionList with pdparent; trivial; unfold consistency in *; unfold consistency1 in *;
+      intuition.
+  }
+  rewrite HgetConfigBEq in *; trivial. rewrite HgetMappedPaddrEq in *; trivial. simpl in HaddrInBlock.
+  assert(HblockIsBE: isBE block s0).
+  {
+    apply mappedBlockIsBE in HblockMapped. destruct HblockMapped as [bentry (Hlookup & _)]. unfold isBE.
+    rewrite Hlookup. trivial.
+  }
+  assert(HlookupBlockEq: lookup block (memory s) beqAddr = lookup block (memory s0) beqAddr).
+  {
+    apply HlookupSomeEq. unfold isBE in *. destruct (lookup block (memory s0) beqAddr); try(exfalso; congruence).
+    exists v. reflexivity.
+  }
+  rewrite HlookupBlockEq in *. rewrite HpaddrConfigEq in *; try(intro; apply configBlocksAreBE).
+  specialize(Hcons0 child pdparent block addr HparentIsPart HchildIsChild HaddrUsedC HblockMapped HaddrInBlock).
+  unfold sh1entryPDchild in *. rewrite HlookupSomeEq; trivial.
+  destruct (lookup (CPaddr (block + sh1offset)) (memory s0) beqAddr); try(exfalso; congruence). exists v. reflexivity.
+  (* END usedPaddrAreShared s *)
 }
 
 assert(childLocHasSameStart s).
