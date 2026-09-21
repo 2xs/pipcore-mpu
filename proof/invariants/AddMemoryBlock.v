@@ -13589,6 +13589,33 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
     (* END usedPaddrAreShared s *)
   }
 
+  assert(indexIsDistFromKern s).
+  { (* BEGIN indexIsDistFromKern s *)
+    assert(Hcons0: indexIsDistFromKern s10) by (unfold insertConsist in *; intuition).
+    intros kern idx HkernIsKS HltIdxNbKern. unfold isKS in *. rewrite HsEq in HkernIsKS. simpl in *.
+    rewrite beqAddrTrue in *. destruct (beqAddr sh1eaddr kern) eqn:HbeqSh1Kern; try(exfalso; congruence).
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite removeDupIdentity in *; auto.
+    specialize(Hcons0 kern idx HkernIsKS HltIdxNbKern). unfold bentryBlockIndex in *. rewrite HsEq. simpl.
+    rewrite beqAddrTrue. destruct (beqAddr sh1eaddr (CPaddr (kern+idx))) eqn:HbeqSh1Block.
+    { rewrite <-DTL.beqAddrTrue in HbeqSh1Block. rewrite HbeqSh1Block in *. rewrite HlookupSh1s0 in *. congruence. }
+    rewrite <-beqAddrFalse in *. do 2 (rewrite removeDupIdentity; auto).
+    (* END indexIsDistFromKern *)
+  }
+
+  assert(blockAndNextInSameBlock s).
+  { (* BEGIN blockAndNextInSameBlock s *)
+    assert(Hcons0: blockAndNextInSameBlock s10) by (unfold insertConsist in *; intuition).
+    intros part kern parentBlock HparentIsPart HblockPMapped HkernIsKS HnextInBlockP. rewrite HgetPartsEqs10 in *.
+    assert(isPDT part s10) by (apply partitionsArePDT; trivial; unfold insertConsist in *; intuition).
+    rewrite HgetMappedBEq in HblockPMapped; trivial. unfold isKS in *. rewrite HsEq in HkernIsKS. rewrite HsEq.
+    rewrite HsEq in HnextInBlockP. simpl in *.
+    rewrite beqAddrTrue in *. destruct (beqAddr sh1eaddr kern) eqn:HbeqSh1Kern; try(exfalso; congruence).
+    destruct (beqAddr sh1eaddr parentBlock) eqn:HbeqSh1PB; try(simpl in HnextInBlockP; exfalso; congruence).
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite removeDupIdentity in *; auto.
+    specialize(Hcons0 part kern parentBlock HparentIsPart HblockPMapped HkernIsKS HnextInBlockP). assumption.
+    (* END blockAndNextInSameBlock *)
+  }
+
   assert(childLocMappedInChild s).
   { (* BEGIN childLocMappedInChild s *)
     assert(Hbentry6 : bentry6 =

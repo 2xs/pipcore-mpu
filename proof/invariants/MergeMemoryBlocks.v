@@ -1363,6 +1363,33 @@ intro block2Next. eapply bindRev.
       (* END usedPaddrAreShared newS *)
     }
 
+    assert(indexIsDistFromKern newS).
+    { (* BEGIN indexIsDistFromKern newS *)
+      assert(Hcons0: indexIsDistFromKern s) by intuition. intros kern idx HkernIsKS HltIdxNbKern.
+      unfold isKS in *. simpl in *.
+      destruct (beqAddr (CPaddr (block1InCurrPartAddr+scoffset)) kern) eqn:HbeqSceKern; try(exfalso; congruence).
+      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
+      specialize(Hcons0 kern idx HkernIsKS HltIdxNbKern). unfold bentryBlockIndex in *. simpl.
+      destruct (beqAddr (CPaddr (block1InCurrPartAddr + scoffset)) (CPaddr (kern + idx))) eqn:HbeqSceBlock.
+      { rewrite <-DTL.beqAddrTrue in HbeqSceBlock. rewrite HbeqSceBlock in *. rewrite HlookupSCE1 in *. congruence. }
+      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; auto.
+      (* END indexIsDistFromKern *)
+    }
+
+    assert(blockAndNextInSameBlock newS).
+    { (* BEGIN blockAndNextInSameBlock newS *)
+      assert(Hcons0: blockAndNextInSameBlock s) by intuition.
+      intros part kern parentBlock HparentIsPart HblockPMapped HkernIsKS HnextInBlockP.
+      rewrite HgetPartsEq in *. assert(isPDT part s) by (apply partitionsArePDT; trivial; intuition).
+      rewrite HgetMappedBEq in *; trivial. unfold isKS in *. simpl in *.
+      destruct (beqAddr (CPaddr (block1InCurrPartAddr+scoffset)) kern) eqn:HbeqSceKern; try(exfalso; congruence).
+      destruct (beqAddr (CPaddr (block1InCurrPartAddr + scoffset)) parentBlock) eqn:HbeqScePB;
+        try(simpl in HnextInBlockP; exfalso; congruence).
+      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
+      specialize(Hcons0 part kern parentBlock HparentIsPart HblockPMapped HkernIsKS HnextInBlockP). assumption.
+      (* END blockAndNextInSameBlock *)
+    }
+
     unfold consistency1. intuition.
   }
 
@@ -3813,6 +3840,7 @@ intro block2End. eapply bindRev.
   assert(HpaddrConfigEq: forall l, getAllPaddrConfigAux l newS = getAllPaddrConfigAux l s).
   { intro. apply getAllPaddrConfigAuxEqBE. unfold isBE. rewrite HlookupBlock1. trivial. }
 
+  split.
   { (* BEGIN usedPaddrAreShared newS *)
     assert(Hcons0: usedPaddrAreShared s) by (unfold consistency1 in *; intuition).
     intros child pdparent block addr HparentIsPart HchildIsChild HaddrUsedC HblockMapped HaddrInBlock.
@@ -3878,6 +3906,64 @@ intro block2End. eapply bindRev.
     }
     rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; auto.
     (* END usedPaddrAreShared newS *)
+  }
+
+  split.
+  { (* BEGIN indexIsDistFromKern newS *)
+    assert(Hcons0: indexIsDistFromKern s) by (unfold consistency1 in *; intuition).
+    intros kern idx HkernIsKS HltIdxNbKern. assert(HkernIsKSs: isKS kern s).
+    {
+      unfold isKS in *. simpl in *. destruct (beqAddr block1InCurrPartAddr kern) eqn:HbeqBlock1Kern.
+      - rewrite <-DTL.beqAddrTrue in HbeqBlock1Kern. subst kern. rewrite HlookupBlock1. rewrite HnewB in HkernIsKS.
+        auto.
+      - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in HkernIsKS; auto.
+    }
+    specialize(Hcons0 kern idx HkernIsKSs HltIdxNbKern). unfold bentryBlockIndex in *. simpl.
+    destruct (beqAddr block1InCurrPartAddr (CPaddr (kern + idx))) eqn:HbeqBlocks.
+    - rewrite <-DTL.beqAddrTrue in HbeqBlocks. rewrite HbeqBlocks in *. rewrite HlookupBlock1 in *. rewrite HnewB.
+      auto.
+    - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; auto.
+    (* END indexIsDistFromKern *)
+  }
+
+  { (* BEGIN blockAndNextInSameBlock newS *)
+    assert(Hcons0: blockAndNextInSameBlock s) by (unfold consistency1 in *; intuition).
+    intros part kern parentBlock HparentIsPart HblockPMapped HkernIsKS HnextInBlockP. assert(HkernIsKSs: isKS kern s).
+    {
+      unfold isKS in *. simpl in *. destruct (beqAddr block1InCurrPartAddr kern) eqn:HbeqBlock1Kern.
+      - rewrite <-DTL.beqAddrTrue in HbeqBlock1Kern. subst kern. rewrite HlookupBlock1. rewrite HnewB in HkernIsKS.
+        auto.
+      - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in HkernIsKS; auto.
+    }
+    rewrite HgetPartsEq in *. rewrite HgetMappedBEq in *. simpl in HnextInBlockP. simpl.
+    destruct (beqAddr block1InCurrPartAddr parentBlock) eqn:HbeqBlock1PB.
+    - rewrite <-DTL.beqAddrTrue in HbeqBlock1PB. subst parentBlock. rewrite HnewB in *. simpl in HnextInBlockP. simpl.
+      rewrite app_nil_r in *. apply getAllPaddrBlockInclRev in HnextInBlockP.
+      destruct HnextInBlockP as (HlebStart1Next & HltNextEnd2 & _).
+      destruct (Nat.ltb (CPaddr (kern+nextoffset)) (endAddr (blockrange bentry1))) eqn:HltNextEnd1.
+      + apply PeanoNat.Nat.ltb_lt in HltNextEnd1.
+        assert(HnextInBlock1s: In (CPaddr (kern+nextoffset)) (getAllPaddrAux [block1InCurrPartAddr] s)).
+        { simpl. rewrite HlookupBlock1. rewrite app_nil_r. apply getAllPaddrBlockIncl; lia. }
+        specialize(Hcons0 part kern block1InCurrPartAddr HparentIsPart HblockPMapped HkernIsKSs HnextInBlock1s).
+        simpl in Hcons0. rewrite HlookupBlock1 in *. rewrite app_nil_r in *. apply getAllPaddrBlockInclRev in Hcons0.
+        destruct Hcons0 as (HlebStart1Kern & HltKernEnd1 & _). apply getAllPaddrBlockIncl; lia.
+      + apply PeanoNat.Nat.ltb_ge in HltNextEnd1.
+        assert(HnextInBlock2s: In (CPaddr (kern+nextoffset)) (getAllPaddrAux [block2InCurrPartAddr] s)).
+        {
+          simpl. unfold bentryStartAddr in *. unfold bentryEndAddr in *.
+          destruct (lookup block2InCurrPartAddr (memory s) beqAddr); try(exfalso; congruence).
+          destruct v; try(exfalso; congruence). rewrite <-HstartBlock2. rewrite <-HendBlock2.
+          rewrite app_nil_r. apply getAllPaddrBlockIncl; lia.
+        }
+        specialize(Hcons0 currentPart kern block2InCurrPartAddr HcurrIsParts0 Hblock2Mapped HkernIsKSs
+          HnextInBlock2s). simpl in Hcons0. unfold bentryStartAddr in *. unfold bentryEndAddr in *.
+        destruct (lookup block2InCurrPartAddr (memory s) beqAddr); try(exfalso; congruence).
+        destruct v; try(exfalso; congruence). rewrite <-HstartBlock2 in *. rewrite <-HendBlock2 in *.
+        rewrite app_nil_r in *. apply getAllPaddrBlockInclRev in Hcons0.
+        destruct Hcons0 as (HlebStart2Kern & HltKernEnd2 & _). apply getAllPaddrBlockIncl; lia.
+    - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
+      specialize(Hcons0 part kern parentBlock HparentIsPart HblockPMapped HkernIsKSs HnextInBlockP). assumption.
+    (* END blockAndNextInSameBlock *)
   }
 }
 intro. eapply bindRev.
@@ -10991,6 +11077,36 @@ intro. eapply bindRev.
       }
       rewrite <-beqAddrFalse in *. do 2 (rewrite removeDupIdentity; auto).
       (* END usedPaddrAreShared s *)
+    }
+
+    assert(indexIsDistFromKern s).
+    { (* BEGIN indexIsDistFromKern s *)
+      assert(Hcons0: indexIsDistFromKern s1) by (unfold consistency1 in *; intuition).
+      intros kern idx HkernIsKS HltIdxNbKern. unfold isKS in *. rewrite Hs in HkernIsKS. rewrite Hs2 in HkernIsKS.
+      simpl in *. rewrite beqAddrTrue in *.
+      destruct (beqAddr currentPart kern) eqn:HbeqCurrKern; try(exfalso; congruence).
+      rewrite <-beqAddrFalse in *. do 2 (rewrite removeDupIdentity in *; auto).
+      specialize(Hcons0 kern idx HkernIsKS HltIdxNbKern). unfold bentryBlockIndex in *. rewrite Hs. rewrite Hs2.
+      simpl. rewrite beqAddrTrue. destruct (beqAddr currentPart (CPaddr (kern+idx))) eqn:HbeqCurrBlock.
+      {
+        rewrite <-DTL.beqAddrTrue in HbeqCurrBlock. rewrite HbeqCurrBlock in *. rewrite HlookupCurrs1 in *.
+        congruence.
+      }
+      rewrite <-beqAddrFalse in *. do 2 (rewrite removeDupIdentity; auto).
+      (* END indexIsDistFromKern *)
+    }
+
+    assert(blockAndNextInSameBlock s).
+    { (* BEGIN blockAndNextInSameBlock s *)
+      assert(Hcons0: blockAndNextInSameBlock s1) by (unfold consistency1 in *; intuition).
+      intros part kern parentBlock HparentIsPart HblockPMapped HkernIsKS HnextInBlockP. rewrite HgetPartsEqss1 in *.
+      rewrite HgetMappedBEq in *. unfold isKS in *. rewrite Hs in HkernIsKS. rewrite Hs2 in HkernIsKS. rewrite Hs.
+      rewrite Hs2. rewrite Hs in HnextInBlockP. rewrite Hs2 in HnextInBlockP. simpl in *.
+      rewrite beqAddrTrue in *. destruct (beqAddr currentPart kern) eqn:HbeqCurrKern; try(exfalso; congruence).
+      destruct (beqAddr currentPart parentBlock) eqn:HbeqCurrPB; try(simpl in HnextInBlockP; exfalso; congruence).
+      rewrite <-beqAddrFalse in *. do 2 (rewrite removeDupIdentity in *; auto).
+      specialize(Hcons0 part kern parentBlock HparentIsPart HblockPMapped HkernIsKS HnextInBlockP). assumption.
+      (* END blockAndNextInSameBlock *)
     }
 
     unfold consistency1. intuition.

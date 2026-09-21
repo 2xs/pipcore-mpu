@@ -4238,6 +4238,36 @@ eapply bindRev.
         (* END usedPaddrAreShared s *)
       }
 
+      assert(indexIsDistFromKern s).
+      { (* BEGIN indexIsDistFromKern s *)
+        assert(Hcons0: indexIsDistFromKern s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        intros kern idx HkernIsKS HltIdxNbKern. unfold isKS in *. rewrite <-HsEq in HkernIsKS. simpl in *.
+        destruct (beqAddr globalIdPD kern) eqn:HbeqGlobKern; try(exfalso; congruence).
+        rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
+        specialize(Hcons0 kern idx HkernIsKS HltIdxNbKern). unfold bentryBlockIndex in *. rewrite <-HsEq. simpl.
+        destruct (beqAddr globalIdPD (CPaddr (kern + idx))) eqn:HbeqGlobBlock.
+        {
+          rewrite <-beqAddrTrue in HbeqGlobBlock. rewrite <-HbeqGlobBlock in *. rewrite Hlookups0 in *. congruence.
+        }
+        rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; auto.
+        (* END indexIsDistFromKern *)
+      }
+
+      assert(blockAndNextInSameBlock s).
+      { (* BEGIN blockAndNextInSameBlock s *)
+        assert(Hcons0: blockAndNextInSameBlock s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        intros part kern parentBlock HparentIsPart HblockPMapped HkernIsKS HnextInBlockP. rewrite HgetPartsEq in *.
+        assert(isPDT part s0).
+        { apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition. }
+        rewrite HgetMappedBEq in *; trivial. unfold isKS in *. rewrite <-HsEq in HkernIsKS. rewrite <-HsEq.
+        rewrite <-HsEq in HnextInBlockP. simpl in *.
+        destruct (beqAddr globalIdPD kern) eqn:HbeqGlobKern; try(exfalso; congruence).
+        destruct (beqAddr globalIdPD parentBlock) eqn:HbeqGlobPB; try(simpl in HnextInBlockP; exfalso; congruence).
+        rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
+        specialize(Hcons0 part kern parentBlock HparentIsPart HblockPMapped HkernIsKS HnextInBlockP). assumption.
+        (* END blockAndNextInSameBlock *)
+      }
+
       intuition.
 
     * (* Final state *)
@@ -7430,6 +7460,36 @@ eapply bindRev.
         }
         rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; auto.
         (* END usedPaddrAreShared s *)
+      }
+
+      assert(indexIsDistFromKern s).
+      { (* BEGIN indexIsDistFromKern s *)
+        assert(Hcons0: indexIsDistFromKern s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        intros kern idx HkernIsKS HltIdxNbKern. unfold isKS in *. rewrite <-HsEq in HkernIsKS. simpl in *.
+        destruct (beqAddr globalIdPD kern) eqn:HbeqGlobKern; try(exfalso; congruence).
+        rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
+        specialize(Hcons0 kern idx HkernIsKS HltIdxNbKern). unfold bentryBlockIndex in *. rewrite <-HsEq. simpl.
+        destruct (beqAddr globalIdPD (CPaddr (kern + idx))) eqn:HbeqGlobBlock.
+        {
+          rewrite <-beqAddrTrue in HbeqGlobBlock. rewrite <-HbeqGlobBlock in *. rewrite Hlookups0 in *. congruence.
+        }
+        rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; auto.
+        (* END indexIsDistFromKern *)
+      }
+
+      assert(blockAndNextInSameBlock s).
+      { (* BEGIN blockAndNextInSameBlock s *)
+        assert(Hcons0: blockAndNextInSameBlock s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        intros part kern parentBlock HparentIsPart HblockPMapped HkernIsKS HnextInBlockP. rewrite HgetPartsEq in *.
+        assert(isPDT part s0).
+        { apply partitionsArePDT; trivial; unfold consistency in *; unfold consistency1 in *; intuition. }
+        rewrite HgetMappedBEq in *; trivial. unfold isKS in *. rewrite <-HsEq in HkernIsKS. rewrite <-HsEq.
+        rewrite <-HsEq in HnextInBlockP. simpl in *.
+        destruct (beqAddr globalIdPD kern) eqn:HbeqGlobKern; try(exfalso; congruence).
+        destruct (beqAddr globalIdPD parentBlock) eqn:HbeqGlobPB; try(simpl in HnextInBlockP; exfalso; congruence).
+        rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
+        specialize(Hcons0 part kern parentBlock HparentIsPart HblockPMapped HkernIsKS HnextInBlockP). assumption.
+        (* END blockAndNextInSameBlock *)
       }
 
       intuition.

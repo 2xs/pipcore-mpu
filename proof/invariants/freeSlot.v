@@ -114,7 +114,9 @@ nullAddrExists s
 /\ kernelIsSomePartsConfig s
 /\ PDTisNoConfigInChild s
 /\ PDTisNoConfigInPart s
-/\ usedPaddrAreShared s.
+/\ usedPaddrAreShared s
+/\ indexIsDistFromKern s
+/\ blockAndNextInSameBlock s.
 
 
 Lemma freeSlot (pd blockToFree: paddr) (P : state -> Prop) :
@@ -5242,6 +5244,7 @@ assert(HpaddrConfigEq: forall l, getAllPaddrConfigAux l s = getAllPaddrConfigAux
   rewrite Hs2. rewrite getAllPaddrConfigAuxEqBE; trivial. rewrite Hs1. apply getAllPaddrConfigAuxEqPDT; assumption.
 }
 
+split.
 { (* BEGIN usedPaddrAreShared s *)
   assert(Hcons0: usedPaddrAreShared s0) by (unfold cons1Free in *; intuition).
   intros child pdparent block addr HparentIsPart HchildIsChild HaddrUsedC HblockMapped HaddrInBlock.
@@ -5309,5 +5312,110 @@ assert(HpaddrConfigEq: forall l, getAllPaddrConfigAux l s = getAllPaddrConfigAux
   rewrite removeDupIdentity; auto. rewrite Hs1. simpl. rewrite beqAddrFalse in HbeqPdSh1. rewrite HbeqPdSh1.
   rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; auto.
   (* END usedPaddrAreShared s *)
+}
+
+split.
+{ (* BEGIN indexIsDistFromKern s *)
+  assert(Hcons0: indexIsDistFromKern s0) by (unfold cons1Free in *; intuition).
+  intros kern idx HkernIsKS HltIdxNbKern. assert(HkernIsKSs0: isKS kern s0).
+  {
+    unfold isKS in *. rewrite Hs in HkernIsKS. rewrite Hs6 in HkernIsKS. simpl in *. rewrite beqAddrTrue in *.
+    destruct (beqAddr pd kern) eqn:HbeqPartKern; try(exfalso; congruence). rewrite <-beqAddrFalse in *.
+    rewrite removeDupIdentity in *; auto. rewrite removeDupIdentity in *; auto. rewrite Hs5 in HkernIsKS. simpl in *.
+    destruct (beqAddr blockToFree kern) eqn:HbeqBTFKern.
+    - rewrite <-DTL.beqAddrTrue in HbeqBTFKern. subst kern. rewrite HnewB2 in HkernIsKS. simpl in HkernIsKS.
+      rewrite HnewB in HkernIsKS. simpl in HkernIsKS. subst blockToFreeIdx. unfold bentryBlockIndex in *.
+      rewrite HlookupBlockEqs1s0 in *. rewrite HlookupBlockToF in *. auto.
+    - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs4 in HkernIsKS. simpl in *.
+      destruct (beqAddr (CPaddr (blockToFree + scoffset)) kern) eqn:HbeqSceKern; try(exfalso; congruence).
+      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs3 in HkernIsKS. simpl in *.
+      destruct (beqAddr (CPaddr (blockToFree + sh1offset)) kern) eqn:HbeqSh1Kern; try(exfalso; congruence).
+      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs2 in HkernIsKS. simpl in *.
+      rewrite beqAddrFalse in HbeqBTFKern. rewrite HbeqBTFKern in *. rewrite <-beqAddrFalse in *.
+      rewrite removeDupIdentity in *; auto. rewrite Hs1 in HkernIsKS. simpl in *.
+      rewrite beqAddrFalse in HbeqPartKern. rewrite HbeqPartKern in *. rewrite <-beqAddrFalse in *.
+      rewrite removeDupIdentity in *; auto.
+  }
+  specialize(Hcons0 kern idx HkernIsKSs0 HltIdxNbKern). unfold bentryBlockIndex in *. rewrite Hs. rewrite Hs6. simpl.
+  rewrite beqAddrTrue. destruct (beqAddr pd (CPaddr (kern + idx))) eqn:HbeqPdBlock.
+  { rewrite <-DTL.beqAddrTrue in HbeqPdBlock. subst pd. rewrite HlookupParts0 in *. congruence. }
+  rewrite <-beqAddrFalse in *. do 2 (rewrite removeDupIdentity; auto). rewrite Hs5. simpl.
+  destruct (beqAddr blockToFree (CPaddr (kern + idx))) eqn:HbeqBTFBlock.
+  - rewrite <-DTL.beqAddrTrue in HbeqBTFBlock. subst blockToFree. rewrite HlookupBlockToF in *. rewrite HnewB2.
+    simpl. rewrite HnewB. rewrite HlookupBlockEqs1s0 in *. rewrite Hblkidxs1. auto.
+  - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; auto. rewrite Hs4. simpl.
+    destruct (beqAddr (CPaddr (blockToFree + scoffset)) (CPaddr (kern + idx))) eqn:HbeqSceBlockB.
+    {
+      rewrite <-DTL.beqAddrTrue in HbeqSceBlockB. rewrite HbeqSceBlockB in *.
+      destruct (lookup (CPaddr (kern + idx)) (memory s0) beqAddr); try(congruence). destruct v; congruence.
+    }
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; auto. rewrite Hs3. simpl.
+    destruct (beqAddr (CPaddr (blockToFree + sh1offset)) (CPaddr (kern + idx))) eqn:HbeqSh1BlockB.
+    {
+      rewrite <-DTL.beqAddrTrue in HbeqSh1BlockB. rewrite HbeqSh1BlockB in *.
+      destruct (lookup (CPaddr (kern + idx)) (memory s0) beqAddr); try(congruence). destruct v; congruence.
+    }
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; auto. rewrite Hs2. simpl.
+    rewrite beqAddrFalse in HbeqBTFBlock. rewrite HbeqBTFBlock. rewrite <-beqAddrFalse in *.
+    rewrite removeDupIdentity; auto. rewrite Hs1. simpl. rewrite beqAddrFalse in HbeqPdBlock. rewrite HbeqPdBlock.
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; auto.
+  (* END indexIsDistFromKern *)
+}
+
+{ (* BEGIN blockAndNextInSameBlock s *)
+  assert(Hcons0: blockAndNextInSameBlock s0) by (unfold cons1Free in *; intuition).
+  intros part kern parentBlock HparentIsPart HblockPMapped HkernIsKS HnextInBlockP. assert(HkernIsKSs0: isKS kern s0).
+  {
+    unfold isKS in *. rewrite Hs in HkernIsKS. rewrite Hs6 in HkernIsKS. simpl in *. rewrite beqAddrTrue in *.
+    destruct (beqAddr pd kern) eqn:HbeqPartKern; try(exfalso; congruence). rewrite <-beqAddrFalse in *.
+    rewrite removeDupIdentity in *; auto. rewrite removeDupIdentity in *; auto. rewrite Hs5 in HkernIsKS. simpl in *.
+    destruct (beqAddr blockToFree kern) eqn:HbeqBTFKern.
+    - rewrite <-DTL.beqAddrTrue in HbeqBTFKern. subst kern. rewrite HnewB2 in HkernIsKS. simpl in HkernIsKS.
+      rewrite HnewB in HkernIsKS. simpl in HkernIsKS. subst blockToFreeIdx. unfold bentryBlockIndex in *.
+      rewrite HlookupBlockEqs1s0 in *. rewrite HlookupBlockToF in *. auto.
+    - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs4 in HkernIsKS. simpl in *.
+      destruct (beqAddr (CPaddr (blockToFree + scoffset)) kern) eqn:HbeqSceKern; try(exfalso; congruence).
+      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs3 in HkernIsKS. simpl in *.
+      destruct (beqAddr (CPaddr (blockToFree + sh1offset)) kern) eqn:HbeqSh1Kern; try(exfalso; congruence).
+      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs2 in HkernIsKS. simpl in *.
+      rewrite beqAddrFalse in HbeqBTFKern. rewrite HbeqBTFKern in *. rewrite <-beqAddrFalse in *.
+      rewrite removeDupIdentity in *; auto. rewrite Hs1 in HkernIsKS. simpl in *.
+      rewrite beqAddrFalse in HbeqPartKern. rewrite HbeqPartKern in *. rewrite <-beqAddrFalse in *.
+      rewrite removeDupIdentity in *; auto.
+  }
+  rewrite HgetPartsEqs in *. assert(HblockPMappeds0: In parentBlock (getMappedBlocks part s0)).
+  {
+    destruct (beqAddr pd part) eqn:HbeqParts.
+    - rewrite <-DTL.beqAddrTrue in HbeqParts. subst part. specialize(HgetMappedBPdss0 parentBlock).
+      destruct HgetMappedBPdss0 as (_ & Hres & _). apply Hres; assumption.
+    - rewrite <-beqAddrFalse in *. rewrite <-HgetMappedBEqss0; trivial.
+  }
+  assert(HrangesEq: getAllPaddrAux [parentBlock] s = getAllPaddrAux [parentBlock] s0).
+  {
+    rewrite Hs. rewrite Hs6. rewrite Hs in HnextInBlockP. rewrite Hs6 in HnextInBlockP. simpl in *.
+    rewrite beqAddrTrue in *.
+    destruct (beqAddr pd parentBlock) eqn:HbeqPdPB; try(simpl in HnextInBlockP; exfalso; congruence).
+    rewrite <-beqAddrFalse in *. do 2 (rewrite removeDupIdentity in *; auto). rewrite Hs5 in HnextInBlockP.
+    rewrite Hs5. simpl in *. destruct (beqAddr blockToFree parentBlock) eqn:HbeqBTFPB.
+    {
+      rewrite <-DTL.beqAddrTrue in HbeqBTFPB. subst parentBlock. apply mappedBlockIsBE in HblockPMapped.
+      destruct HblockPMapped as [bentry (Hlookup & Hpres)]. rewrite HlookupBlockEqss5 in *. rewrite Hs5 in Hlookup.
+      simpl in Hlookup. rewrite beqAddrTrue in *. injection Hlookup as HbentriesEq. subst bentry.
+      rewrite HnewB2 in Hpres. simpl in Hpres. rewrite HnewB in Hpres. simpl in Hpres. exfalso; congruence.
+    }
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs4. rewrite Hs4 in HnextInBlockP.
+    simpl in *. destruct (beqAddr (CPaddr (blockToFree+scoffset)) parentBlock) eqn:HbeqScePB;
+      try(simpl in HnextInBlockP; exfalso; congruence).
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs3. rewrite Hs3 in HnextInBlockP.
+    simpl in *. destruct (beqAddr (CPaddr (blockToFree+sh1offset)) parentBlock) eqn:HbeqSh1PB;
+      try(simpl in HnextInBlockP; exfalso; congruence).
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs2. simpl.
+    rewrite beqAddrFalse in HbeqBTFPB. rewrite HbeqBTFPB. rewrite <-beqAddrFalse in *.
+    rewrite removeDupIdentity; auto. rewrite Hs1. simpl. rewrite beqAddrFalse in HbeqPdPB. rewrite HbeqPdPB.
+    rewrite <-beqAddrFalse in *. rewrite removeDupIdentity; auto.
+  }
+  rewrite HrangesEq in *.
+  specialize(Hcons0 part kern parentBlock HparentIsPart HblockPMappeds0 HkernIsKSs0 HnextInBlockP). assumption.
+  (* END blockAndNextInSameBlock *)
 }
 Qed.

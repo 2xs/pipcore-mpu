@@ -3645,6 +3645,24 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END usedPaddrAreShared s *)
          }
 
+         assert(indexIsDistFromKern s1).
+         { (* BEGIN indexIsDistFromKern s1 *)
+           apply indexIsDistFromKernPreservedIsBuilt with s1 s0 pdparent pdentryParent blockInParentPartitionAddr
+                bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END indexIsDistFromKern s *)
+         }
+
+         assert(blockAndNextInSameBlock s1).
+         { (* BEGIN blockAndNextInSameBlock s1 *)
+           apply blockAndNextInSameBlockPreservedIsBuilt with s1 s0 pdparent pdentryParent blockInParentPartitionAddr
+                bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END blockAndNextInSameBlock s *)
+         }
+
          unfold consistency1. intuition.
        }
 
@@ -5421,6 +5439,22 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                    (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); trivial;
                    unfold consistency1 in *; intuition.
                (* END usedPaddrAreShared s *)
+             }
+
+             assert(indexIsDistFromKern s).
+             { (* BEGIN indexIsDistFromKern s *)
+               revert Hs1. apply indexIsDistFromKernPreservedIsBuilt with pdparent pdentryParent
+                   (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); trivial;
+                   unfold consistency1 in *; intuition.
+               (* END indexIsDistFromKern s *)
+             }
+
+             assert(blockAndNextInSameBlock s).
+             { (* BEGIN blockAndNextInSameBlock s *)
+               revert Hs1. apply blockAndNextInSameBlockPreservedIsBuilt with pdparent pdentryParent
+                   (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); trivial;
+                   unfold consistency1 in *; intuition.
+               (* END blockAndNextInSameBlock s *)
              }
 
              unfold consistency1. intuition.
@@ -9747,6 +9781,24 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                 intuition.
            (* END usedPaddrAreShared s *)
          }
+
+         assert(indexIsDistFromKern s1).
+         { (* BEGIN indexIsDistFromKern s1 *)
+           apply indexIsDistFromKernPreservedIsBuilt with s1 s0 pdparent pdentryParent blockInParentPartitionAddr
+                bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END indexIsDistFromKern s *)
+         }
+
+         assert(blockAndNextInSameBlock s1).
+         { (* BEGIN blockAndNextInSameBlock s1 *)
+           apply blockAndNextInSameBlockPreservedIsBuilt with s1 s0 pdparent pdentryParent blockInParentPartitionAddr
+                bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END blockAndNextInSameBlock s *)
+         }
          unfold consistency1. intuition.
        }
 
@@ -11501,6 +11553,24 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                   (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; trivial;
                   unfold consistency1 in *; intuition.
                (* END usedPaddrAreShared s *)
+             }
+
+             assert(indexIsDistFromKern s).
+             { (* BEGIN indexIsDistFromKern s *)
+               apply indexIsDistFromKernPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                  blockInParentPartitionAddr bentry
+                  (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; trivial;
+                  unfold consistency1 in *; intuition.
+               (* END indexIsDistFromKern s *)
+             }
+
+             assert(blockAndNextInSameBlock s).
+             { (* BEGIN blockAndNextInSameBlock s *)
+               apply blockAndNextInSameBlockPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                  blockInParentPartitionAddr bentry
+                  (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; trivial;
+                  unfold consistency1 in *; intuition.
+               (* END blockAndNextInSameBlock s *)
              }
 
              unfold consistency1. intuition.
@@ -15975,6 +16045,24 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END usedPaddrAreShared s *)
          }
 
+         assert(indexIsDistFromKern s1).
+         { (* BEGIN indexIsDistFromKern s1 *)
+           apply indexIsDistFromKernPreservedIsBuilt with s1 s0 pdparent pdentryParent blockInParentPartitionAddr
+            bentry
+            (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; unfold consInitStruct in *;
+            intuition.
+           (* END indexIsDistFromKern s *)
+         }
+
+         assert(blockAndNextInSameBlock s1).
+         { (* BEGIN blockAndNextInSameBlock s1 *)
+           apply blockAndNextInSameBlockPreservedIsBuilt with s1 s0 pdparent pdentryParent blockInParentPartitionAddr
+            bentry
+            (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; unfold consInitStruct in *;
+            intuition.
+           (* END blockAndNextInSameBlock s *)
+         }
+
          unfold consInitStruct. intuition.
        }
 
@@ -17825,6 +17913,24 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                   (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; trivial;
                   unfold consInitStruct in *; intuition.
                (* END usedPaddrAreShared s *)
+             }
+
+             assert(indexIsDistFromKern s).
+             { (* BEGIN indexIsDistFromKern s *)
+               apply indexIsDistFromKernPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                  blockInParentPartitionAddr bentry
+                  (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; trivial;
+                  unfold consInitStruct in *; intuition.
+               (* END indexIsDistFromKern s *)
+             }
+
+             assert(blockAndNextInSameBlock s).
+             { (* BEGIN blockAndNextInSameBlock s *)
+               apply blockAndNextInSameBlockPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                  blockInParentPartitionAddr bentry
+                  (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; trivial;
+                  unfold consInitStruct in *; intuition.
+               (* END blockAndNextInSameBlock s *)
              }
 
              unfold consInitStruct. intuition.
@@ -22591,6 +22697,24 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END usedPaddrAreShared s *)
          }
 
+         assert(indexIsDistFromKern s1).
+         { (* BEGIN indexIsDistFromKern s1 *)
+           apply indexIsDistFromKernPreservedIsBuilt with s1 s0 pdparent pdentryParent blockInParentPartitionAddr
+              bentry
+              (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; unfold consistency1 in *;
+              intuition.
+           (* END indexIsDistFromKern s *)
+         }
+
+         assert(blockAndNextInSameBlock s1).
+         { (* BEGIN blockAndNextInSameBlock s1 *)
+           apply blockAndNextInSameBlockPreservedIsBuilt with s1 s0 pdparent pdentryParent blockInParentPartitionAddr
+              bentry
+              (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; unfold consistency1 in *;
+              intuition.
+           (* END blockAndNextInSameBlock s *)
+         }
+
          unfold consistency1. intuition.
        }
 
@@ -24445,6 +24569,24 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                   (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; trivial;
                   unfold consistency1 in *; intuition.
                (* END usedPaddrAreShared s *)
+             }
+
+             assert(indexIsDistFromKern s).
+             { (* BEGIN indexIsDistFromKern s *)
+               apply indexIsDistFromKernPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                  blockInParentPartitionAddr bentry
+                  (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; trivial;
+                  unfold consistency1 in *; intuition.
+               (* END indexIsDistFromKern s *)
+             }
+
+             assert(blockAndNextInSameBlock s).
+             { (* BEGIN blockAndNextInSameBlock s *)
+               apply blockAndNextInSameBlockPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                  blockInParentPartitionAddr bentry
+                  (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; trivial;
+                  unfold consistency1 in *; intuition.
+               (* END blockAndNextInSameBlock s *)
              }
 
              unfold consistency1. intuition.

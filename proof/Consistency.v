@@ -718,7 +718,6 @@ forall part,
 In part (getPartitions multiplexer s)
 -> ~In part (getMappedPaddr part s).
 
-(*New*)
 Definition configAddrNotMappedInChild s :=
 forall part child addr,
 In part (getPartitions multiplexer s)
@@ -726,7 +725,6 @@ In part (getPartitions multiplexer s)
 -> In addr (getConfigPaddr part s)
 -> ~In addr (getUsedPaddr child s).
 
-(*New*)
 Definition fullKernelIsInOneBlock s :=
 forall part block kernel,
 In part (getPartitions multiplexer s)
@@ -735,7 +733,6 @@ In part (getPartitions multiplexer s)
 -> isKS kernel s
 -> kernel+nextoffset <= maxAddr /\ In (CPaddr (kernel+nextoffset)) (getAllPaddrAux [block] s).
 
-(*New*)
 Definition sharedBlocksAdressesAreAllMappedInChild s :=
 forall partition block sh1entryaddr blockChild idchild,
 In partition (getPartitions multiplexer s)
@@ -748,7 +745,6 @@ In partition (getPartitions multiplexer s)
 -> (forall addr, In addr (getAllPaddrAux [block] s)
     -> In addr (getMappedPaddr idchild s)).
 
-(*New*)
 Definition kernInSameBlock s :=
 forall parentBlock part idx block,
 In part (getPartitions multiplexer s)
@@ -757,7 +753,6 @@ In part (getPartitions multiplexer s)
 -> bentryBlockIndex block idx s
 -> In (CPaddr (block-idx)) (getAllPaddrAux [parentBlock] s).
 
-(*New*)
 Definition blockAndSh1InSameBlock s :=
 forall part (block:paddr) parentBlock,
 In part (getPartitions multiplexer s)
@@ -766,7 +761,6 @@ In part (getPartitions multiplexer s)
 -> In (CPaddr (block+sh1offset)) (getAllPaddrAux [parentBlock] s)
 -> In block (getAllPaddrAux [parentBlock] s).
 
-(*New*)
 Definition blockAndSceInSameBlock s :=
 forall part (block:paddr) parentBlock,
 In part (getPartitions multiplexer s)
@@ -775,13 +769,14 @@ In part (getPartitions multiplexer s)
 -> In (CPaddr (block+scoffset)) (getAllPaddrAux [parentBlock] s)
 -> In block (getAllPaddrAux [parentBlock] s).
 
-(*TODO add that to the consistency props*)
+(*New*)
 Definition indexIsDistFromKern s :=
 forall kernel (idx:index),
 isKS kernel s
+-> idx < kernelStructureEntriesNb
 -> bentryBlockIndex (CPaddr (kernel+idx)) idx s.
 
-(*TODO add that to the consistency props*)
+(*New*)
 Definition blockAndNextInSameBlock s :=
 forall part (kernel:paddr) parentBlock,
 In part (getPartitions multiplexer s)
@@ -889,7 +884,9 @@ nullAddrExists s
 /\ blockAndSceInSameBlock s
 /\ PDTisNoConfigInChild s
 /\ PDTisNoConfigInPart s
-/\ usedPaddrAreShared s.
+/\ usedPaddrAreShared s
+/\ indexIsDistFromKern s
+/\ blockAndNextInSameBlock s.
 
 (** ** First batch of consistency properties *)
 Definition consistency1 s :=
@@ -950,7 +947,9 @@ nbPrepareIsNbKern s
 /\ kernelIsSomePartsConfig s
 /\ PDTisNoConfigInChild s
 /\ PDTisNoConfigInPart s
-/\ usedPaddrAreShared s.
+/\ usedPaddrAreShared s
+/\ indexIsDistFromKern s
+/\ blockAndNextInSameBlock s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=
