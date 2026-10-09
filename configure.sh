@@ -194,7 +194,7 @@ ROCQ := $rocq
 # GNU C Compiler
 CC := $cc
 
-# Netwide assembler
+# GNU Assembler (invoked through GCC)
 AS := $as
 
 # GNU Linker
@@ -314,6 +314,8 @@ parse_arguments() {
 # Print message to the stderr
 # $1 The message to print
 print_error() {
+	# Shellcheck will whine about interpreting patterns, which is desired here
+	# shellcheck disable=SC2059
 	# Check if the "--quiet" argument is set
 	if [ -z "$quiet" ]
 	then
@@ -472,6 +474,8 @@ validate_command_path_version() {
 # $1 Command path or name
 # Return 0 if the function succeed, 1 otherwise
 validate_command_path_wrapper() {
+	# Shellcheck will whine about not being able to expand $PATH, which is fine
+	# shellcheck disable=SC2016
 	if ! validate_command_path "$1"
 	then
 		print_error 'The command "%s" could not be found in the environment ' "$1"
@@ -489,6 +493,8 @@ validate_command_path_wrapper() {
 # $3 Minimum required version of the command
 # Return 0 if the function succeed, 1 otherwise
 validate_command_path_version_wrapper() {
+	# Shellcheck will whine about not being able to expand $PATH, which is fine
+	# shellcheck disable=SC2016
 	if ! validate_command_path_version "$1" "$2" "$3"
 	then
 		print_error 'The command "%s" could not be found in the environment ' "$1"
