@@ -3,6 +3,15 @@ image: "fvanhems/pip-mpu:1.0.0"
 variables:
   DX_BRANCH: main
 
+run host unit tests:
+  stage: test
+  needs: []
+  script:
+    # The rp2350 target code that is pure computation: the PMP NAPOT
+    # encoding and the instruction decoder of the PMP refill handler. Needs
+    # only a host C compiler, so it runs independently of the dx build.
+    - make -C src/arch/rp2350/test check
+
 build pip-mpu with dx:
   stage: build
   script:
