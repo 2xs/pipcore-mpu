@@ -33,19 +33,21 @@
 include ../../toolchain.mk
 
 
-PREFIX  := arm-none-eabi-
+# The toolchain and the machine flags come from toolchain.mk, which
+# configure.sh generates for the selected target. Note that this invokes ld
+# directly rather than linking through GCC, hence TOOL_PREFIX rather than
+# toolchain.mk's LD. ARCH_CRT0_CFLAGS holds the machine flags only: the crt0
+# is a separate binary and must not inherit Pip's own definitions.
 
-CC      := $(PREFIX)gcc
-LD      := $(PREFIX)ld
-OBJCOPY := $(PREFIX)objcopy
+CC      := $(TOOL_PREFIX)gcc
+LD      := $(TOOL_PREFIX)ld
+OBJCOPY := $(TOOL_PREFIX)objcopy
 RM      := rm
 
 CFLAGS          = -Wall
 CFLAGS         += -Wextra
 CFLAGS         += -Werror
-CFLAGS         += -mthumb
-CFLAGS         += -mcpu=cortex-m4
-CFLAGS         += -ffreestanding
+CFLAGS         += $(ARCH_CRT0_CFLAGS)
 CFLAGS         += -I $(FAE_INCLUDE_DIRECTORY)
 ifdef DEBUG
 CFLAGS         += -Og
@@ -54,30 +56,31 @@ else
 CFLAGS         += -Os
 endif
 
-LDFLAGS         = -Tlink.ld
+LDFLAGS         = -T link.$(TARGET).ld
 
-OBJCOPYFLAGS    = --input-target=elf32-littlearm
-OBJCOPYFLAGS   += --output-target=binary
+OBJCOPYFLAGS    = $(ARCH_BIFLAGS)
 
-all: build/crt0.fae
+BUILD_DIR      := build/$(TARGET)
 
-build:
-	mkdir -p build
+all: $(BUILD_DIR)/crt0.fae
 
-build/crt0.fae: build/crt0.elf
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
+$(BUILD_DIR)/crt0.fae: $(BUILD_DIR)/crt0.elf
 	$(OBJCOPY) $(OBJCOPYFLAGS) $< $@
 	@chmod 644 $@
 
-build/crt0.elf: build/crt0.o link.ld
+$(BUILD_DIR)/crt0.elf: $(BUILD_DIR)/crt0.o link.$(TARGET).ld
 	$(LD) $(LDFLAGS) $< -o $@
 
-build/crt0.o: crt0.c | build
+$(BUILD_DIR)/crt0.o: crt0.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 realclean: clean
 	$(RM) -rf build
 
 clean:
-	$(RM) -f build/crt0.o
+	$(RM) -f $(BUILD_DIR)/crt0.o
 
 .PHONY: all realclean clean

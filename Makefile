@@ -111,17 +111,23 @@ C_TARGET_BOOT_INCLUDE_DIR=$(C_TARGET_BOOT_DIR)/include
 
 C_TARGET_THIRDPARTY_DIR=$(C_TARGET_BOOT_DIR)/thirdparty
 
-C_TARGET_CMSIS_DIR=$(C_TARGET_THIRDPARTY_DIR)/cmsis
-C_TARGET_CMSIS_INCLUDE_DIR=$(C_TARGET_CMSIS_DIR)/include
+# Per-target build fragment. It must define TARGET_THIRDPARTY_NAMES, the list
+# of vendored subdirectories under $(C_TARGET_THIRDPARTY_DIR), which may be
+# empty. The include is deliberately not a "-include": a target that forgot
+# its fragment would otherwise build and link silently without its vendor code.
+ifeq ("$(wildcard $(C_SRC_TARGET_DIR)/target.mk)","")
+    $(error Target '$(TARGET)' has no build fragment: $(C_SRC_TARGET_DIR)/target.mk)
+endif
+include $(C_SRC_TARGET_DIR)/target.mk
 
-C_TARGET_MDK_DIR=$(C_TARGET_THIRDPARTY_DIR)/mdk
-C_TARGET_MDK_INCLUDE_DIR=$(C_TARGET_MDK_DIR)/include
-
-C_TARGET_UART_DIR=$(C_TARGET_THIRDPARTY_DIR)/uart
-C_TARGET_UART_INCLUDE_DIR=$(C_TARGET_UART_DIR)/include
+C_TARGET_THIRDPARTY_DIRS=$(addprefix $(C_TARGET_THIRDPARTY_DIR)/,$(TARGET_THIRDPARTY_NAMES))
+C_TARGET_THIRDPARTY_INCLUDE_DIRS=$(addsuffix /include,$(C_TARGET_THIRDPARTY_DIRS))
 
 C_GENERATED_SRC_DIR=$(GENERATED_FILES_DIR)
 C_GENERATED_HEADERS_DIR=$(GENERATED_FILES_DIR)
+
+# Rocq generated C is target-independent, but objects compiled from it are not
+C_GENERATED_OBJ_DIR=$(GENERATED_FILES_DIR)/$(TARGET)
 
 #####################################################################
 ##                        Files variables                          ##
@@ -131,9 +137,7 @@ C_GENERATED_HEADERS_DIR=$(GENERATED_FILES_DIR)
 
 C_GENERATED_SRC=$(C_GENERATED_SRC_DIR)/Services.c $(C_GENERATED_SRC_DIR)/Internal.c
 C_TARGET_BOOT_SRC=$(wildcard $(C_TARGET_BOOT_DIR)/*.c)
-C_TARGET_CMSIS_SRC=$(wildcard $(C_TARGET_CMSIS_DIR)/*.c)
-C_TARGET_MDK_SRC=$(wildcard $(C_TARGET_MDK_DIR)/*.c)
-C_TARGET_UART_SRC=$(wildcard $(C_TARGET_UART_DIR)/*.c)
+C_TARGET_THIRDPARTY_SRC=$(foreach d,$(C_TARGET_THIRDPARTY_DIRS),$(wildcard $(d)/*.c))
 C_TARGET_MAL_SRC=$(wildcard $(C_TARGET_MAL_DIR)/*.c)
 AS_TARGET_BOOT_SRC=$(wildcard $(C_TARGET_BOOT_DIR)/*.s)
 GAS_TARGET_BOOT_SRC=$(wildcard $(C_TARGET_BOOT_DIR)/*.S)
@@ -142,18 +146,36 @@ C_GENERATED_HEADERS=$(C_GENERATED_HEADERS_DIR)/Internal.h $(C_GENERATED_HEADERS_
 C_MODEL_INTERFACE_HEADERS=$(wildcard $(C_MODEL_INTERFACE_INCLUDE_DIR)/*.h)
 C_TARGET_MAL_HEADERS=$(wildcard $(C_TARGET_MAL_INCLUDE_DIR)/*.h)
 C_TARGET_BOOT_HEADERS=$(wildcard $(C_TARGET_BOOT_INCLUDE_DIR)/*.h)
-C_TARGET_CMSIS_HEADERS=$(wildcard $(C_TARGET_CMSIS_INCLUDE_DIR)/*.h)
-C_TARGET_MDK_HEADERS=$(wildcard $(C_TARGET_MDK_INCLUDE_DIR)/*.h)
-C_TARGET_UART_HEADERS=$(wildcard $(C_TARGET_UART_INCLUDE_DIR)/*.h)
+C_TARGET_THIRDPARTY_HEADERS=$(foreach d,$(C_TARGET_THIRDPARTY_INCLUDE_DIRS),$(wildcard $(d)/*.h))
 
-C_GENERATED_OBJ=$(C_GENERATED_SRC:.c=.o)
+C_GENERATED_OBJ=$(addprefix $(C_GENERATED_OBJ_DIR)/,$(notdir $(C_GENERATED_SRC:.c=.o)))
 C_TARGET_BOOT_OBJ=$(C_TARGET_BOOT_SRC:.c=.o)
 C_TARGET_MAL_OBJ=$(C_TARGET_MAL_SRC:.c=.o)
 AS_TARGET_BOOT_OBJ=$(AS_TARGET_BOOT_SRC:.s=.o)
 GAS_TARGET_BOOT_OBJ=$(GAS_TARGET_BOOT_SRC:.S=.o)
-C_TARGET_CMSIS_OBJ=$(C_TARGET_CMSIS_SRC:.c=.o)
-C_TARGET_MDK_OBJ=$(C_TARGET_MDK_SRC:.c=.o)
-C_TARGET_UART_OBJ=$(C_TARGET_UART_SRC:.c=.o)
+C_TARGET_THIRDPARTY_OBJ=$(C_TARGET_THIRDPARTY_SRC:.c=.o)
+
+# Include path and header dependencies for the C translated from Rocq. That
+# code is architecture-independent: it reaches the hardware only through the
+# contract declared in $(C_MODEL_INTERFACE_INCLUDE_DIR), and deliberately does
+# not see the target's own headers. Keeping the two sets apart means a change
+# to an arch header does not rebuild the generated objects.
+C_GENERATED_INCLUDES=-I $(C_GENERATED_HEADERS_DIR)\
+                     -I $(C_MODEL_INTERFACE_INCLUDE_DIR)
+
+C_GENERATED_DEP_HEADERS=$(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)
+
+# Include path and header dependencies for the architecture-dependent C: the
+# MAL, the boot layer and the target's vendored third-party code. These do see
+# the generated headers, since the boot layer calls the services.
+C_TARGET_INCLUDES=$(C_GENERATED_INCLUDES)\
+                  -I $(C_TARGET_MAL_INCLUDE_DIR)\
+                  -I $(C_TARGET_BOOT_INCLUDE_DIR)\
+                  $(foreach d,$(C_TARGET_THIRDPARTY_INCLUDE_DIRS),-I $(d))
+
+C_TARGET_DEP_HEADERS=$(C_GENERATED_DEP_HEADERS)\
+                     $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
+                     $(C_TARGET_THIRDPARTY_HEADERS)
 
 ############################## Rocq files ##############################
 
@@ -201,12 +223,12 @@ ROCQ_GLOBFILES=$(ROCQ_VFILES:.v=.glob)
 # and thus need to be tracked and cleaned
 ROCQ_VOSFILES=$(ROCQ_VFILES:.v=.vos)
 ROCQ_VOKFILES=$(ROCQ_VFILES:.v=.vok)
-ROCQ_AUXFILES=$(ROCQ_VFILES:.v=.aux)
-# Prepends a '.' to .aux file names (dir/.name.aux)
-ROCQ_AUXFILES:=$(join\
-                   $(dir $(ROCQ_AUXFILES)),\
-                   $(addprefix ., $(notdir $(ROCQ_AUXFILES)))\
-                )
+
+# Rocq writes the aux file for d/f.v as d/.f.aux: the dot goes before the
+# basename, not before the path. $(1) is a single .v file.
+rocq_auxfile = $(dir $(1)).$(notdir $(1:.v=.aux))
+
+ROCQ_AUXFILES=$(foreach v,$(ROCQ_VFILES),$(call rocq_auxfile,$(v)))
 
 # Rocq extraction "compilation" files
 ROCQ_EXTR_DEPFILES=$(ROCQ_EXTRACTION_FILES:.v=.v.d)
@@ -214,8 +236,7 @@ ROCQ_EXTR_VOFILES=$(ROCQ_EXTRACTION_FILES:.v=.vo)
 ROCQ_EXTR_GLOBFILES=$(ROCQ_EXTRACTION_FILES:.v=.glob)
 ROCQ_EXTR_VOSFILES=$(ROCQ_EXTRACTION_FILES:.v=.vos)
 ROCQ_EXTR_VOKFILES=$(ROCQ_EXTRACTION_FILES:.v=.vok)
-ROCQ_EXTR_AUXFILES=$(ROCQ_EXTRACTION_FILES:.v=.aux)
-ROCQ_EXTR_AUXFILES:=$(addprefix $(dir $(ROCQ_EXTR_AUXFILES))., $(notdir $(ROCQ_EXTR_AUXFILES)))
+ROCQ_EXTR_AUXFILES=$(foreach v,$(ROCQ_EXTRACTION_FILES),$(call rocq_auxfile,$(v)))
 
 ROCQ_EXTR_COMPILED_FILES:=$(ROCQ_EXTR_VOFILES) $(ROCQ_EXTR_GLOBFILES)\
 	$(ROCQ_EXTR_VOSFILES) $(ROCQ_EXTR_VOKFILES) $(ROCQ_EXTR_AUXFILES)
@@ -223,14 +244,27 @@ ROCQ_EXTR_COMPILED_FILES:=$(ROCQ_EXTR_VOFILES) $(ROCQ_EXTR_GLOBFILES)\
 # Rocq dx files
 ROCQ_DX_VFILES=$(wildcard $(ROCQ_DX_DIR)/*.v)
 ROCQ_DX_DEPFILES=$(ROCQ_DX_VFILES:.v=.v.d)
-ROCQ_DX_GLOBFILES=$(ROCQ_DX_FILES:.v=.glob)
-ROCQ_DX_VOSFILES=$(ROCQ_DX_FILES:.v=.vos)
-ROCQ_DX_VOKFILES=$(ROCQ_DX_FILES:.v=.vok)
-ROCQ_DX_AUXFILES=$(ROCQ_DX_FILES:.v=.aux)
-ROCQ_DX_AUXFILES:=$(addprefix $(dir $(ROCQ_DX_AUXFILES))., $(notdir $(ROCQ_DX_AUXFILES)))
+ROCQ_DX_VOFILES=$(ROCQ_DX_VFILES:.v=.vo)
+ROCQ_DX_GLOBFILES=$(ROCQ_DX_VFILES:.v=.glob)
+ROCQ_DX_VOSFILES=$(ROCQ_DX_VFILES:.v=.vos)
+ROCQ_DX_VOKFILES=$(ROCQ_DX_VFILES:.v=.vok)
+ROCQ_DX_AUXFILES=$(foreach v,$(ROCQ_DX_VFILES),$(call rocq_auxfile,$(v)))
 
 ROCQ_DX_COMPILED_FILES:=$(ROCQ_DX_VOFILES) $(ROCQ_DX_GLOBFILES)\
 	$(ROCQ_DX_VOSFILES) $(ROCQ_DX_VOKFILES) $(ROCQ_DX_AUXFILES)
+
+# Files served by the generic rocq compile rule. This is every .v in the tree,
+# not just the ones $(ROCQ_VFILES) builds: a rule that is never invoked costs
+# nothing, whereas a missing one breaks a dependency pulled in by rocq dep.
+# src/dx/Extr.v is excluded because it has a dedicated rule below, which would
+# otherwise be reported as an overriding recipe.
+ROCQ_RULE_VFILES:=$(filter-out $(ROCQ_DX_DIR)/Extr.v,\
+                      $(wildcard $(ROCQ_CORE_DIR)/*.v)\
+                      $(wildcard $(ROCQ_MODEL_DIR)/*.v)\
+                      $(wildcard $(ROCQ_PROOF_DIR)/*.v)\
+                      $(wildcard $(ROCQ_INVARIANTS_DIR)/*.v)\
+                      $(wildcard $(ROCQ_DX_DIR)/*.v)\
+                  )
 
 # Group of Rocq files produced by the compilation process
 ROCQ_COMPILED_FILES=$(ROCQ_VOFILES) $(ROCQ_VOKFILES) $(ROCQ_VOSFILES)\
@@ -247,8 +281,7 @@ endif
 ######################## Miscellaneous files ########################
 
 OBJECT_FILES=$(C_TARGET_MAL_OBJ) $(C_TARGET_BOOT_OBJ)\
-             $(C_TARGET_CMSIS_OBJ) $(C_TARGET_MDK_OBJ)\
-             $(C_TARGET_UART_OBJ) $(C_GENERATED_OBJ)\
+             $(C_TARGET_THIRDPARTY_OBJ) $(C_GENERATED_OBJ)\
              $(AS_TARGET_BOOT_OBJ) $(GAS_TARGET_BOOT_OBJ)
 
 # Jsons (Rocq extracted AST)
@@ -324,16 +357,23 @@ generated/cprinter: generated/Main.cmx
 generated/compcert.ini: $(DXDIR)/compcertcprinter/compcert.ini
 	cp $< $@
 
+# One compile rule per .v file. A pattern rule cannot be used here because the
+# aux file is $(dir)/.$(notdir), and a pattern rule's stem spans the directory
+# too: ".%.aux" would ask for ".src/model/MAL.aux".
+# $(1) is the .v file, $(2) the target separator ("&:" when make supports
+# grouped targets, ":" otherwise).
+define rocq_compile_rule
+$(1:.v=.vo) $(1:.v=.vok) $(1:.v=.vos) $(1:.v=.glob) $(call rocq_auxfile,$(1)) $(2) $(1) $(1).d
+	$$(ROCQ) compile $$(ROCQ_COMPILER_FLAGS) $$<
+endef
+
 ifneq (,$(findstring grouped-target,$(.FEATURES)))
 $(JSONS) $(ROCQ_EXTR_COMPILED_FILES) &:\
 		$(ROCQ_EXTRACTION_FILES) $(ROCQ_EXTR_DEPFILES)\
 		| $(GENERATED_FILES_DIR)
 	cd $(GENERATED_FILES_DIR) && $(ROCQ) compile $(ROCQ_COMPILER_EXTR_FLAGS) ../$<
 
-# FIXME .aux files are difficult to match ; previous rule was wrong. Omit them for now
-# %.vo %.vok %.vos %.glob .%.aux &: %.v %.v.d
-%.vo %.vok %.vos %.glob &: %.v %.v.d
-	$(ROCQ) compile $(ROCQ_COMPILER_FLAGS) $<
+$(foreach v,$(ROCQ_RULE_VFILES),$(eval $(call rocq_compile_rule,$(v),&:)))
 
 $(GENERATED_FILES_DIR)/Main.ml $(GENERATED_FILES_DIR)/Main.mli src/dx/Extr.vo &: src/dx/Extr.v | $(GENERATED_FILES_DIR)
 	cd $(GENERATED_FILES_DIR) && $(ROCQ) compile $(ROCQ_COMPILER_EXTR_FLAGS) ../$<
@@ -354,10 +394,10 @@ else
 $(JSONS): src/extraction/Extraction.vo | $(GENERATED_FILES_DIR)
 	mv $(notdir $@) $(GENERATED_FILES_DIR)
 
-# FIXME .aux files are difficult to match ; previous rule was wrong. Omit them for now
-# %.vo %.vok %.vos %.glob .%.aux : %.v %.v.d
-%.vo %.vok %.vos %.glob : %.v %.v.d
-	$(ROCQ) compile $(ROCQ_COMPILER_FLAGS) $<
+# Unlike the grouped-target branch above, nothing else here builds the
+# extraction objects, so they need the generic rule too.
+$(foreach v,$(ROCQ_RULE_VFILES) $(ROCQ_EXTRACTION_FILES),\
+    $(eval $(call rocq_compile_rule,$(v),:)))
 
 $(GENERATED_FILES_DIR)/Main.ml $(GENERATED_FILES_DIR)/Main.mli src/dx/Extr.vo: src/dx/Extr.v src/dx/Main.vo | $(GENERATED_FILES_DIR)
 	cd $(GENERATED_FILES_DIR) && $(ROCQ) compile $(ROCQ_COMPILER_EXTR_FLAGS) ../$<
@@ -376,78 +416,25 @@ endif
 
 ########################### C object rules ##########################
 
-# Static pattern rule for constructing object files from generated C files
+# Static pattern rule for constructing object files from the generated C files.
+# These are the only objects whose source and object directories differ, hence
+# a rule of their own: see $(C_GENERATED_OBJ_DIR) above.
 $(C_GENERATED_OBJ):\
-    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
-              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
-              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_MDK_HEADERS)\
-              $(C_TARGET_UART_HEADERS)
-	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
-                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
-                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
-                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
-                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
-                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
-                        -I $(C_TARGET_UART_INCLUDE_DIR)\
-                        -c -o $@ $<
+    $(C_GENERATED_OBJ_DIR)/%.o : $(C_GENERATED_SRC_DIR)/%.c $(C_GENERATED_DEP_HEADERS)\
+                                 | $(C_GENERATED_OBJ_DIR)
+	$(CC) $(CFLAGS) $(C_GENERATED_INCLUDES) -c -o $@ $<
+
+# Static pattern rule for constructing object files from the target MAL and the
+# target's vendored third-party code. These two share one recipe; only the
+# target boot sources need an extra include directory.
+$(C_TARGET_MAL_OBJ) $(C_TARGET_THIRDPARTY_OBJ):\
+    %.o : %.c $(C_TARGET_DEP_HEADERS)
+	$(CC) $(CFLAGS) $(C_TARGET_INCLUDES) -c -o $@ $<
 
 # Static pattern rule for constructing object files from target boot C files
 $(C_TARGET_BOOT_OBJ):\
-    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
-              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
-              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_MDK_HEADERS)\
-              $(C_TARGET_UART_HEADERS)
-	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
-                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
-                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
-                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
-                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
-                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
-                        -I $(C_TARGET_UART_INCLUDE_DIR)\
-                        -I $(CRT0_DIR)\
-                        -c -o $@ $<
-
-$(C_TARGET_CMSIS_OBJ):\
-    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
-              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
-              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_MDK_HEADERS)\
-              $(C_TARGET_UART_HEADERS)
-	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
-                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
-                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
-                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
-                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
-                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
-                        -I $(C_TARGET_UART_INCLUDE_DIR)\
-                        -c -o $@ $<
-
-$(C_TARGET_MDK_OBJ):\
-    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
-              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
-              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_MDK_HEADERS)\
-              $(C_TARGET_UART_HEADERS)
-	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
-                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
-                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
-                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
-                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
-                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
-                        -I $(C_TARGET_UART_INCLUDE_DIR)\
-                        -c -o $@ $<
-
-$(C_TARGET_UART_OBJ):\
-    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
-              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
-              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_MDK_HEADERS)\
-              $(C_TARGET_UART_HEADERS)
-	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
-                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
-                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
-                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
-                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
-                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
-                        -I $(C_TARGET_UART_INCLUDE_DIR)\
-                        -c -o $@ $<
+    %.o : %.c $(C_TARGET_DEP_HEADERS)
+	$(CC) $(CFLAGS) $(C_TARGET_INCLUDES) -I $(CRT0_DIR) -c -o $@ $<
 
 # Static pattern rule for constructing object files from target boot assembly files
 $(AS_TARGET_BOOT_OBJ):\
@@ -457,21 +444,6 @@ $(AS_TARGET_BOOT_OBJ):\
 $(GAS_TARGET_BOOT_OBJ):\
     %.o : %.S
 	$(AS) $(ASFLAGS) -o $@ $<
-
-# Static pattern rule for constructing object files from target MAL C files
-$(C_TARGET_MAL_OBJ):\
-    %.o : %.c $(C_GENERATED_HEADERS) $(C_MODEL_INTERFACE_HEADERS)\
-              $(C_TARGET_MAL_HEADERS) $(C_TARGET_BOOT_HEADERS)\
-              $(C_TARGET_CMSIS_HEADERS) $(C_TARGET_MDK_HEADERS)\
-              $(C_TARGET_UART_HEADERS)
-	$(CC) $(CFLAGS) -I $(C_GENERATED_HEADERS_DIR)\
-                        -I $(C_MODEL_INTERFACE_INCLUDE_DIR)\
-                        -I $(C_TARGET_MAL_INCLUDE_DIR)\
-                        -I $(C_TARGET_BOOT_INCLUDE_DIR)\
-                        -I $(C_TARGET_CMSIS_INCLUDE_DIR)\
-                        -I $(C_TARGET_MDK_INCLUDE_DIR)\
-                        -I $(C_TARGET_UART_INCLUDE_DIR)\
-                        -c -o $@ $<
 
 ######################### Pip + Partition ELF #######################
 
@@ -486,13 +458,11 @@ pip.bin: pip.elf
 # $(AS_TARGET_BOOT_OBJ) must be the first object file arg to the linker
 pip.elf: $(C_SRC_TARGET_DIR)/link.ld\
          $(C_TARGET_BOOT_OBJ) $(AS_TARGET_BOOT_OBJ)\
-         $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
-         $(C_TARGET_MDK_OBJ) $(C_TARGET_UART_OBJ)\
+         $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_THIRDPARTY_OBJ)\
          $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)
 	$(LD)\
          $(C_TARGET_BOOT_OBJ) $(AS_TARGET_BOOT_OBJ)\
-         $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_CMSIS_OBJ)\
-         $(C_TARGET_MDK_OBJ) $(C_TARGET_UART_OBJ)\
+         $(GAS_TARGET_BOOT_OBJ) $(C_TARGET_THIRDPARTY_OBJ)\
          $(C_TARGET_MAL_OBJ) $(C_GENERATED_OBJ)\
          -T $< -o $@ $(LDFLAGS)
 
@@ -532,7 +502,7 @@ developer-guide:
 
 ####################################################################
 
-$(GENERATED_FILES_DIR) $(C_DOC_DIR) $(ROCQ_DOC_DIR):
+$(GENERATED_FILES_DIR) $(C_GENERATED_OBJ_DIR) $(C_DOC_DIR) $(ROCQ_DOC_DIR):
 	mkdir -p $@
 
 realclean: clean

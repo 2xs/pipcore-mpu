@@ -206,6 +206,10 @@ BI := $objcopy
 # GNU Debugger
 GDB := $gdb
 
+# Prefix of the binutils, for the components that invoke them
+# directly rather than through GCC (see src/partition_crt0)
+TOOL_PREFIX := $tool_prefix
+
 ################# Compilation options #################
 
 TARGET    = $target
@@ -219,6 +223,10 @@ FAE_INCLUDE_DIRECTORY_CFLAGS = $fae_include_directory_cflags
 ARCH_CFLAGS   = $arch_cflags
 ARCH_LDFLAGS  = $arch_ldflags
 ARCH_ASFLAGS  = $arch_asflags
+
+# Arch related options for the root partition's crt0, which is a
+# separate binary and does not inherit Pip's own definitions
+ARCH_CRT0_CFLAGS = $arch_crt0_cflags
 
 # Debug related options
 DEBUG_CFLAGS  = -g
@@ -423,6 +431,22 @@ validate_command_path() {
 	command -v "$1" >/dev/null 2>&1 || return 1
 }
 
+# Select the first of the given commands that can be found in $PATH
+# $@ Command names to try, in order of preference
+# Return the first command found, or the first argument if none was found, so
+# that the subsequent validation reports a sensible name
+first_available_command() {
+	for candidate in "$@"
+	do
+		if command -v "$candidate" >/dev/null 2>&1
+		then
+			printf '%s\n' "$candidate"
+			return 0
+		fi
+	done
+	printf '%s\n' "$1"
+}
+
 # Validate command version
 # $1 Command path or name
 # $2 Regular expression used to extract version number
@@ -506,6 +530,11 @@ configure_global_variables() {
 			doxygen=${doxygen:='doxygen'}
 			make=${make:='make'}
 
+			### Prefix of the binutils, for the components that
+			### invoke them directly rather than through GCC
+
+			tool_prefix='arm-none-eabi-'
+
 			### Regular expressions used to extract the version
 			### number from the "--version" output
 
@@ -570,6 +599,14 @@ configure_global_variables() {
 
 			padding_value='0xff'
 			padding_pow2='32'
+
+			### CFLAGS for the root partition's crt0. These are the
+			### machine flags only: the crt0 is a separate binary and
+			### must not inherit Pip's preprocessor definitions.
+
+			arch_crt0_cflags='-mthumb'
+			arch_crt0_cflags="$arch_crt0_cflags"' -mcpu=cortex-m4'
+			arch_crt0_cflags="$arch_crt0_cflags"' -ffreestanding'
 
 			;;
 		*)

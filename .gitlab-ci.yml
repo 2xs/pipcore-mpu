@@ -36,6 +36,6 @@ build pip-mpu with dx:
     paths:
       - pip.elf
       - pip.bin
-      - src/partition_crt0/build/crt0.elf
-      - src/partition_crt0/build/crt0.fae
+      - src/partition_crt0/build/*/crt0.elf
+      - src/partition_crt0/build/*/crt0.fae
     expire_in: 1 hour
