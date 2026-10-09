@@ -84,6 +84,7 @@ Usage: %s <MANDATORY ARGUMENTS> [OPTIONAL ARGUMENTS]
 
     --architecture=<x>        The target architecture name:
                                   - \"dwm1001\"
+                                  - \"rp2350\"
     --fae-directory=<x>       The FAE format include directory filepath such as
                               ../fae_format/src/include for example.
 
@@ -100,7 +101,9 @@ Usage: %s <MANDATORY ARGUMENTS> [OPTIONAL ARGUMENTS]
                               values: \"none\", \"semihosting\" or \"uart\". If
                               it is omitted, the default value is \"none\". Be
                               careful, not all architectures support all
-                              debugging modes.
+                              debugging modes. The \"rp2350\" accepts only
+                              \"none\" and \"uart\": semihosting is
+                              unimplemented for this target.
 
     --boot-sequence=<x>       The boot sequence to use for the target
                               architecture. This parameter can have two values:
@@ -612,6 +615,162 @@ configure_global_variables() {
 
 			arch_crt0_cflags='-mthumb'
 			arch_crt0_cflags="$arch_crt0_cflags"' -mcpu=cortex-m4'
+			arch_crt0_cflags="$arch_crt0_cflags"' -ffreestanding'
+
+			;;
+		rp2350)
+
+			### Directory name of the target
+
+			target='rp2350'
+
+			# Semihosting is unimplemented on this target, so UART is
+			# the debug backend for now.
+
+			if [ "$debugging_mode" = 'semihosting' ]
+			then
+				print_error 'Semihosting is unimplemented on the rp2350, use --debugging-mode=uart ...\n'
+				return 1
+			fi
+
+			# The boot sequence performing the unit tests of the
+			# rp2350 only works in uart mode
+
+			if  [ "$debugging_mode" != "uart" ] && [ "$boot_sequence" = "test" ]
+			then
+				print_error 'The unit tests of the rp2350 only works in uart mode ...\n'
+				return 1
+			fi
+
+			### Default names of the commands
+			#
+			# Several RISC-V bare-metal toolchain spellings are in
+			# circulation. Any of them works: -march and -mabi below
+			# pin rv32/ilp32 explicitly, so a toolchain defaulting to
+			# rv64 still produces the right code.
+
+			riscv_gcc=$(first_available_command 'riscv32-unknown-elf-gcc'\
+			                                   'riscv64-unknown-elf-gcc'\
+			                                   'riscv-none-elf-gcc'\
+			                                   'riscv64-elf-gcc')
+
+			cc=${cc:="$riscv_gcc"}
+			as=${as:="$riscv_gcc"}
+			ld=${ld:="$riscv_gcc"}
+			objcopy=${objcopy:="${riscv_gcc%gcc}objcopy"}
+			rocq=${rocq:='rocq'}
+			pdflatex=${pdflatex:='pdflatex'}
+			gdb=${gdb:=$(first_available_command "${riscv_gcc%gcc}gdb"\
+			                                    'gdb-multiarch')}
+			doxygen=${doxygen:='doxygen'}
+			make=${make:='make'}
+
+			### Prefix of the binutils, for the components that
+			### invoke them directly rather than through GCC
+
+			tool_prefix="${riscv_gcc%gcc}"
+
+			### Regular expressions used to extract the version
+			### number from the "--version" output
+
+			cc_regex='^.*gcc ([^)]\+) \([^ \n]\+\).*$'
+			as_regex='^.*gcc ([^)]\+) \([^ \n]\+\).*$'
+			ld_regex='^.*gcc ([^)]\+) \([^ \n]\+\).*$'
+			rocq_regex='^The Rocq Prover, version \([^ \n]\+\).*$'
+
+			### Minimum versions of the toolchain for the selected
+			### architecture
+			#
+			# GCC 11.1 is the first release that accepts the Zicsr
+			# and Zifencei extensions as explicit -march components.
+			# Before that they were implied by "i" and naming them is
+			# an error, so the -march string below needs 11.1 or later.
+
+			as_minimum_version='11.1.0'
+			cc_minimum_version='11.1.0'
+			ld_minimum_version='11.1.0'
+			rocq_minimum_version='9.0.0'
+
+			### CFLAGS for the selected architecture
+			#
+			# Three of these flags are load-bearing and must not be
+			# dropped as tidying:
+			#
+			# -mno-relax: with linker relaxation enabled, GCC reaches
+			#   globals through gp (x3). gp is a general-purpose
+			#   register that also appears in a partition's saved
+			#   context, so every access to a Pip global would depend
+			#   on gp holding Pip's value. Disabling relaxation
+			#   removes the question entirely. The trap stub also
+			#   carries an explicit ".option norelax".
+			#
+			# no _zcb/_zcmp: Hazard3 implements both, but a Zcmp
+			#   cm.push/cm.pop/cm.popret performs several memory
+			#   accesses per instruction, which the PMP refill handler
+			#   cannot satisfy from a single faulting effective
+			#   address. Excluding them keeps every instruction the
+			#   handler may meet single-access.
+			#
+			# -mcmodel=medany: matches the pico-sdk convention, and
+			#   accommodates .text in XIP flash with .data in SRAM.
+
+			arch_cflags='-march=rv32imac_zicsr_zifencei'
+			arch_cflags="$arch_cflags"' -mabi=ilp32'
+			arch_cflags="$arch_cflags"' -mcmodel=medany'
+			arch_cflags="$arch_cflags"' -mno-relax'
+			arch_cflags="$arch_cflags"' -ffreestanding'
+			case $debugging_mode in
+				uart)
+					arch_cflags="$arch_cflags"' -DUART_DEBUG'
+					;;
+			esac
+			case $boot_sequence in
+				test)
+					arch_cflags="$arch_cflags"' -DUNIT_TESTS'
+					;;
+			esac
+			arch_cflags="$arch_cflags"' -DDUMP'
+			arch_cflags="$arch_cflags"' -DRP2350'
+			arch_cflags="$arch_cflags"' -DPICO2'
+			# dx emits "unsigned int" for the index type: the
+			# generated code does not compile without this.
+			arch_cflags="$arch_cflags"' -U__UINT32_TYPE__ -D__UINT32_TYPE__=unsigned'
+
+			### LDFLAGS for the selected architecture
+
+			arch_ldflags='-nostartfiles'
+			arch_ldflags="$arch_ldflags"' -nodefaultlibs'
+			arch_ldflags="$arch_ldflags"' -nolibc'
+			arch_ldflags="$arch_ldflags"' -nostdlib'
+			arch_ldflags="$arch_ldflags"' -lgcc'
+			arch_ldflags="$arch_ldflags"' -march=rv32imac_zicsr_zifencei'
+			arch_ldflags="$arch_ldflags"' -mabi=ilp32'
+			arch_ldflags="$arch_ldflags"' -mno-relax'
+
+			### ASFLAGS for the selected architecture
+
+			arch_asflags="$arch_cflags"
+			arch_asflags="$arch_asflags"' -c'
+
+			### BIFLAGS for the selected architecture
+
+			arch_biflags='--input-target=elf32-littleriscv'
+			arch_biflags="$arch_biflags"' --output-target=binary'
+
+			# Unchanged from the dwm1001: this is the alignment the
+			# appended root partition FAE needs, not an Arm constraint.
+
+			padding_value='0xff'
+			padding_pow2='32'
+
+			### CFLAGS for the root partition's crt0. These are the
+			### machine flags only: the crt0 is a separate binary and
+			### must not inherit Pip's preprocessor definitions.
+
+			arch_crt0_cflags='-march=rv32imac_zicsr_zifencei'
+			arch_crt0_cflags="$arch_crt0_cflags"' -mabi=ilp32'
+			arch_crt0_cflags="$arch_crt0_cflags"' -mcmodel=medany'
+			arch_crt0_cflags="$arch_crt0_cflags"' -mno-relax'
 			arch_crt0_cflags="$arch_crt0_cflags"' -ffreestanding'
 
 			;;
