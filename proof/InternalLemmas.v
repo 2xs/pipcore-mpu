@@ -9935,6 +9935,47 @@ intro HisKernLists. destruct kernList.
   apply isListOfKernelsAuxEqSHE with addr' newEntry; assumption.
 Qed.
 
+Lemma isListOfKernelsAuxEqSHERev partition addr' newEntry kernList s0:
+isSHE addr' s0
+-> isListOfKernelsAux kernList partition s0
+-> isListOfKernelsAux kernList partition {|
+                                           currentPartition := currentPartition s0;
+                                           memory := add addr' (SHE newEntry)
+                                                       (memory s0) beqAddr
+                                         |}.
+Proof.
+intro HaddrIsSHE. revert partition. induction kernList; simpl; auto. intros partition HlistIsListOkKerns.
+destruct HlistIsListOkKerns as (HlookupNext & HlebNextMax & HbeqANull & HlistIsListOkKerns).
+destruct (beqAddr addr' (CPaddr (partition + nextoffset))) eqn:HbeqAddrNextOffset.
+{
+  rewrite <-DTL.beqAddrTrue in HbeqAddrNextOffset. rewrite <-HbeqAddrNextOffset in *. exfalso. unfold isSHE in *.
+  rewrite HlookupNext in *. congruence.
+}
+rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
+Qed.
+
+Lemma isListOfKernelsEqSHERev partition addr' newEntry kernList s0:
+isSHE addr' s0
+-> isListOfKernels kernList partition s0
+-> isListOfKernels kernList partition {|
+                                        currentPartition := currentPartition s0;
+                                        memory := add addr' (SHE newEntry)
+                                                    (memory s0) beqAddr
+                                      |}.
+Proof.
+intros HaddrIsSHE HisKernLists. destruct kernList.
+- intuition.
+- simpl in *. destruct HisKernLists as [pdentry HisKernLists]. exists pdentry.
+  destruct HisKernLists as (HlookupPart & HbeqStructNull & HeqStruct & HisKernLists).
+  destruct (beqAddr addr' partition) eqn:HbeqAddrPart.
+  {
+    rewrite <-DTL.beqAddrTrue in HbeqAddrPart. subst partition. exfalso. unfold isSHE in *.
+    rewrite HlookupPart in *. congruence.
+  }
+  rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; intuition.
+  apply isListOfKernelsAuxEqSHERev; assumption.
+Qed.
+
 Lemma isListOfKernelsAuxEqPDT partition addr' newEntry kernList s0:
 isListOfKernelsAux kernList partition {|
                                         currentPartition := currentPartition s0;

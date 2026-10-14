@@ -704,8 +704,8 @@ Definition deletePartition (idPDchildToDelete: paddr) : LLI bool :=
 		deleteSharedBlocksRec currentPart currKernelStructureStart blockStartAddr ;;
 
 		(** Erase PD child entry: remove sharing and set accessible for current partition *)
+		writeSh1EntryFromBlockEntryAddrLight blockToDeleteInCurrPartAddr nullAddr false nullAddr ;;
 		writeBlockAccessibleFromBlockEntryAddr blockToDeleteInCurrPartAddr true ;;
-		writeSh1EntryFromBlockEntryAddr blockToDeleteInCurrPartAddr nullAddr false nullAddr ;;
 		perform isCut := checkBlockCut blockToDeleteInCurrPartAddr in
 		if isCut
 		then	(* if the PD child block to remove is cut, remains not accessible in

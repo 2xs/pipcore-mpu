@@ -8027,7 +8027,7 @@ intro. eapply bindRev.
     - subst kernel. unfold completeListOfKernels. rewrite HlookupStruct.
       rewrite HbeqIdxZero. rewrite indexEqRefl. cbn -[maxNbPrepare]. auto.
     - assert(HkernList1: exists kernList1, isListOfKernelsAux kernList1 (structure pdentryB) s0
-        /\ kernel = last kernList1 (structure pdentryB)).
+        /\ kernel = last kernList1 (structure pdentryB) /\ kernList1 <> []).
       {
         apply inCompleteKernListIsKernListLast with maxNbPrepare part pdentryB; trivial.
         - unfold consInitStruct in *; intuition.
@@ -8035,7 +8035,7 @@ intro. eapply bindRev.
           cbn -[maxNbPrepare]. auto.
         - unfold isKS. rewrite HlookupStruct. assumption.
       }
-      destruct HkernList1 as [kernList1 (HkernList1 & Hlast1)].
+      destruct HkernList1 as [kernList1 (HkernList1 & Hlast1 & _)].
       set(kernList2 := completeListOfKernelsAux maxNbPrepare kernel s0). fold kernList2 in Hcontra.
       fold kernList2 in HlistOfKern.
       assert(HlistOfKernFull: isListOfKernels ((structure pdentryB)::kernList1 ++ kernList2) part s0).

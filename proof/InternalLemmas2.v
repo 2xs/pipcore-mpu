@@ -6338,6 +6338,21 @@ destruct (le_dec (addr1 + cst) maxAddr).
 - contradict HbeqAdd1Null. f_equal. apply proof_irrelevance.
 Qed.
 
+Lemma CPaddrAddEqRev (addr: paddr) (cst1 cst2: index):
+CPaddr (addr + cst1) <> nullAddr
+-> CPaddr (addr + cst1) = CPaddr (addr + cst2)
+-> cst1 = cst2.
+Proof.
+intros HbeqAdd1Null HbeqAdds. unfold nullAddr in *. unfold CPaddr in *. simpl in *.
+destruct (le_dec (addr + cst1) maxAddr).
+- destruct (le_dec (addr + cst2) maxAddr).
+  + injection HbeqAdds as HbeqAdds. rewrite Nat.add_comm in HbeqAdds. apply eq_sym in HbeqAdds.
+    rewrite Nat.add_comm in HbeqAdds. apply eq_sym in HbeqAdds. apply Nat.add_cancel_r in HbeqAdds.
+    apply index_eq_i; assumption.
+  + contradict HbeqAdd1Null. rewrite HbeqAdds. f_equal. apply proof_irrelevance.
+- contradict HbeqAdd1Null. f_equal. apply proof_irrelevance.
+Qed.
+
 Lemma getMappedBlocksEqBEPresentChangeFalse block part changedBlock newBentry s0 bentry:
 In part (getPartitions multiplexer s0)
 -> lookup changedBlock (memory s0) beqAddr = Some (BE bentry)
