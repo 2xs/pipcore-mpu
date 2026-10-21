@@ -56,7 +56,9 @@ typedef struct napotCase_s {
 } napotCase_t;
 
 static const napotCase_t napotCases[] = {
-	// The smallest size NAPOT can express at all.
+	// The smallest size the NAPOT encoding expresses. The silicon does not
+	// honour it -- pmpaddr[1:0] are unimplemented, so this is matched as a
+	// 32-byte region -- but the encoding is still what it should be.
 	{ "8 B at 0x20000008",   0x20000008, 3,  0x08000002 },
 	// Pip's minBlockSize, the smallest a partition-visible region can be.
 	{ "32 B at 0x20000000",  0x20000000, 5,  0x08000003 },

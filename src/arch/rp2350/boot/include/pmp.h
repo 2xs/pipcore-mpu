@@ -98,14 +98,34 @@
 #define PMPCFG_L        (UINT32_C(1) << 7)	/*!< Never set: see below. */
 
 /*!
- * \brief Smallest and largest region size expressible as NAPOT, as a log2.
+ * \brief Smallest and largest region size the NAPOT *encoding* expresses.
  *
  * NAPOT encodes a size of 2^n bytes as (n - 3) trailing one-bits in pmpaddr,
- * so it covers 8 bytes upwards; 4 bytes is NA4 instead. Pip's minBlockSize
- * is 32 bytes, so NA4 is never needed for a partition-visible region.
+ * so the format covers 8 bytes upwards. These are properties of the encoding
+ * and are what the decoding helpers below invert; what the silicon honours is
+ * PMP_NAPOT_HW_MIN_LOG2, which is larger.
  */
 #define PMP_NAPOT_MIN_LOG2 3
 #define PMP_NAPOT_MAX_LOG2 32
+
+/*!
+ * \brief The smallest NAPOT region this silicon actually honours, as a log2.
+ *
+ * Measured on the part, not taken from a datasheet: pmpaddr[1:0] are
+ * unimplemented and read as ones by the matcher, so the least-significant
+ * zero bit -- which is what sets the region size -- can never sit below bit
+ * 2. A region encoded as 2^3 or 2^4 is therefore *matched as 2^5*, and
+ * A=NA4 grants nothing at all. The Hazard3 manual's pmpaddr section states
+ * the matching rule this follows from; see KNOWLEDGE.md section 7.1 for the
+ * measurements.
+ *
+ * Asking pmp_napot() for less than this widens the region silently, which is
+ * the dangerous direction, so callers must not. Pip's minBlockSize is 32
+ * bytes and check32Aligned enforces the matching alignment, so the model
+ * already keeps every partition-visible region at or above this bound --
+ * on this target that constraint is load-bearing, not merely conservative.
+ */
+#define PMP_NAPOT_HW_MIN_LOG2 5
 
 /*!
  * \fn uint32_t pmp_napot(uint32_t base, uint32_t log2size)
@@ -116,8 +136,10 @@
  *
  * \param base The base address of the region, which must be aligned on
  *        2^log2size.
- * \param log2size The log2 of the region size, in [PMP_NAPOT_MIN_LOG2,
- *        PMP_NAPOT_MAX_LOG2].
+ * \param log2size The log2 of the region size, in [PMP_NAPOT_HW_MIN_LOG2,
+ *        PMP_NAPOT_MAX_LOG2]. Below PMP_NAPOT_HW_MIN_LOG2 the encoding is
+ *        still correct but the silicon matches a larger region than asked
+ *        for, so do not.
  * \return The value to write to pmpaddr<i>.
  */
 static inline uint32_t pmp_napot(uint32_t base, uint32_t log2size)
@@ -128,6 +150,14 @@ static inline uint32_t pmp_napot(uint32_t base, uint32_t log2size)
 /*!
  * \fn uint32_t pmp_napot_log2size(uint32_t pmpaddr)
  * \brief Recovers the region size from a NAPOT pmpaddr value.
+ *
+ * Only for a value pmp_napot() produced, never for one read back out of the
+ * CSR. On this silicon a pmpaddr written while A = NAPOT reads back with bits
+ * 1:0 cleared, at every size, so a readback carries two fewer trailing
+ * one-bits than it was given and decodes to a quarter of the real size.
+ * Matching uses the written value, so only the readback is affected. Measured
+ * at every size from 2^5 to 2^32; see KNOWLEDGE.md section 7.1.
+ *
  * \param pmpaddr A pmpaddr value encoded by pmp_napot().
  * \return The log2 of the region size.
  */
@@ -145,6 +175,10 @@ static inline uint32_t pmp_napot_log2size(uint32_t pmpaddr)
 /*!
  * \fn uint32_t pmp_napot_base(uint32_t pmpaddr)
  * \brief Recovers the base address of a region from a NAPOT pmpaddr value.
+ *
+ * Same restriction as pmp_napot_log2size(): a value read back out of the CSR
+ * is not a faithful encoding and must not be passed here.
+ *
  * \param pmpaddr A pmpaddr value encoded by pmp_napot().
  * \return The base address of the region.
  */
