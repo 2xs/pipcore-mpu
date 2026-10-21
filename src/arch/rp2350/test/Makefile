@@ -48,7 +48,10 @@ BOOT_DIR := $(HERE)../boot
 BUILD_DIR := $(HERE)build
 
 CC ?= cc
-CFLAGS := -std=c11 -O2 -Wall -Wextra -Werror -I $(BOOT_DIR)/include -I $(HERE)
+# The boot include directory goes in with -iquote, not -I: it holds the
+# target's own stdio.h, and on the <> search path that would shadow the host's.
+CFLAGS := -std=c11 -O2 -Wall -Wextra -Werror\
+          -iquote $(BOOT_DIR)/include -iquote $(HERE)
 
 # One test binary per source file, each with its own main().
 TESTS := test_pmp test_rv_decode
@@ -74,7 +77,17 @@ $(BUILD_DIR)/test_rv_decode: $(HERE)test_rv_decode.c $(HERE)test.h\
 $(BUILD_DIR):
 	mkdir -p $@
 
+# Checks the register and CSR constants transcribed into the two boot headers
+# against the pico-sdk they were taken from. Not part of "check": it needs a
+# pico-sdk checkout, which CI does not have.
+#
+#     make -C src/arch/rp2350/test sdkcheck PICO_SDK=<path>
+sdkcheck:
+	@test -n "$(PICO_SDK)" || { \
+		echo 'set PICO_SDK to a pico-sdk checkout' >&2; exit 2; }
+	$(HERE)check-sdk-regs.sh $(PICO_SDK)
+
 clean:
 	rm -rf $(BUILD_DIR)
 
-.PHONY: check clean
+.PHONY: check sdkcheck clean
