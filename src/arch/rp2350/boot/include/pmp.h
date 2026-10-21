@@ -170,4 +170,69 @@ static inline uint32_t pmp_napot_base(uint32_t pmpaddr)
 #define PMP_BACKGROUND_ADDR pmp_napot(0, PMP_NAPOT_MAX_LOG2)
 #define PMP_BACKGROUND_CFG  PMPCFG_A_NAPOT
 
+/*
+ * The driver, defined in pmp.c. These touch CSRs, so the host unit tests
+ * declare them without linking them.
+ */
+
+/*!
+ * \fn void pmpWriteRegion(uint32_t index, uint32_t pmpaddr, uint32_t pmpcfg)
+ * \brief Points region \p index at \p pmpaddr with configuration \p pmpcfg.
+ *
+ * The region is turned off while its address changes, so no intermediate
+ * state grants the old permissions over the new range.
+ *
+ * \param index A region index below PMP_WRITABLE_REGIONS_NB. A larger one is
+ *        ignored, since regions 8 and above are not writable.
+ * \param pmpaddr A value encoded by pmp_napot().
+ * \param pmpcfg A configuration byte built from the PMPCFG_* macros.
+ */
+void pmpWriteRegion(uint32_t index, uint32_t pmpaddr, uint32_t pmpcfg);
+
+/*!
+ * \fn void pmpWriteConfig(uint32_t index, uint32_t pmpcfg)
+ * \brief Replaces region \p index's configuration byte, leaving its address.
+ * \param index A region index below PMP_WRITABLE_REGIONS_NB.
+ * \param pmpcfg A configuration byte built from the PMPCFG_* macros.
+ */
+void pmpWriteConfig(uint32_t index, uint32_t pmpcfg);
+
+/*!
+ * \fn uint32_t pmpReadConfig(uint32_t index)
+ * \brief Reads region \p index's configuration byte.
+ * \param index A region index below PMP_WRITABLE_REGIONS_NB.
+ * \return The configuration byte, or zero if the index is out of range.
+ */
+uint32_t pmpReadConfig(uint32_t index);
+
+/*!
+ * \fn uint32_t pmpReadRegionAddress(uint32_t index)
+ * \brief Reads pmpaddr of region \p index.
+ * \param index A region index below PMP_WRITABLE_REGIONS_NB.
+ * \return The pmpaddr value, or zero if the index is out of range.
+ */
+uint32_t pmpReadRegionAddress(uint32_t index);
+
+/*!
+ * \fn void pmpInit(void)
+ * \brief Turns every writable region off and installs the deny-all background.
+ *
+ * Until this has run, the hardwired regions 8 to 10 grant U-mode full access
+ * to the boot ROM, every system peripheral and the core-local SIO.
+ */
+void pmpInit(void);
+
+/*!
+ * \fn int pmpCheck(void)
+ * \brief Checks that the PMP is the one this port assumes.
+ *
+ * Replaces the ARM target's compile-time MPU_NUM_REGIONS comparison with a
+ * runtime probe, since the region count is not the only assumption being
+ * made: regions 0 to 7 must accept a configuration byte, and region 8 must
+ * read back as the hardwired full-access window.
+ *
+ * \return 1 if the silicon matches, 0 otherwise.
+ */
+int pmpCheck(void);
+
 #endif /* PMP_H */

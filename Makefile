@@ -441,17 +441,31 @@ $(AS_TARGET_BOOT_OBJ):\
     %.o : %.s
 	$(AS) $(ASFLAGS) -o $@ $<
 
+# The .S sources go through the C preprocessor, so they can share the boot
+# layer's headers. They get only that include directory: assembly has no
+# business seeing the C translated from Rocq, and the generated headers are
+# not assembler-safe anyway.
 $(GAS_TARGET_BOOT_OBJ):\
-    %.o : %.S
-	$(AS) $(ASFLAGS) -o $@ $<
+    %.o : %.S $(C_TARGET_BOOT_HEADERS)
+	$(AS) $(ASFLAGS) -I $(C_TARGET_BOOT_INCLUDE_DIR) -o $@ $<
 
 ######################### Pip + Partition ELF #######################
 
 
+# Pad the image out to __root, the address link.ld aligns the root partition
+# binary to, so that "cat pip.bin root.fae" puts the root exactly where Pip's
+# own linker symbols say it is. objcopy's --pad-to takes an address, and
+# __root is one.
+#
+# This replaces an arithmetic that rounded the file size up to
+# $(PADDING_POW2). The two agree only when link.ld aligns __root to
+# PADDING_POW2 and the ROM starts at address zero, which holds for dwm1001
+# and not for rp2350, whose root region is 64K-aligned in flash at
+# 0x10000000. $(PADDING_POW2) remains the alignment the FAE concatenation
+# needs, now asserted by link.ld rather than imposed here.
 pip.bin: pip.elf
-	$(BI) $(BIFLAGS) $< $@
 	$(BI) $(BIFLAGS)\
-          --pad-to=$$((($$(wc -c < $@) + $(PADDING_POW2) - 1) & ~($(PADDING_POW2) - 1)))\
+          --pad-to=0x$$($(TOOL_PREFIX)nm $< | $(SED) -n 's/^\([0-9a-fA-F]*\) . __root$$/\1/p')\
           --gap-fill=$(PADDING_VALUE)\
         $< $@
 
