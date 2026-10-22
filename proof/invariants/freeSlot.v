@@ -116,7 +116,8 @@ nullAddrExists s
 /\ PDTisNoConfigInPart s
 /\ usedPaddrAreShared s
 /\ indexIsDistFromKern s
-/\ blockAndNextInSameBlock s.
+/\ blockAndNextInSameBlock s
+/\ PDTsAreParts s.
 
 
 Lemma freeSlot (pd blockToFree: paddr) (P : state -> Prop) :
@@ -1019,7 +1020,6 @@ assert(HgetPartsEqs1: getPartitions multiplexer s1 = getPartitions multiplexer s
 {
   rewrite Hs1. apply getPartitionsEqPDT with pdentry; trivial. rewrite Hpdentry1. reflexivity.
   1,2,3: unfold cons1Free in *; intuition.
-  unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
 assert(HlookupSh1Eqs1s0: lookup (CPaddr (blockToFree + sh1offset)) (memory s1) beqAddr
   = lookup (CPaddr (blockToFree + sh1offset)) (memory s0) beqAddr).
@@ -5362,6 +5362,7 @@ split.
   (* END indexIsDistFromKern *)
 }
 
+split.
 { (* BEGIN blockAndNextInSameBlock s *)
   assert(Hcons0: blockAndNextInSameBlock s0) by (unfold cons1Free in *; intuition).
   intros part kern parentBlock HparentIsPart HblockPMapped HkernIsKS HnextInBlockP. assert(HkernIsKSs0: isKS kern s0).
@@ -5417,5 +5418,27 @@ split.
   rewrite HrangesEq in *.
   specialize(Hcons0 part kern parentBlock HparentIsPart HblockPMappeds0 HkernIsKSs0 HnextInBlockP). assumption.
   (* END blockAndNextInSameBlock *)
+}
+
+{ (* BEGIN PDTsAreParts s *)
+  assert(Hcons0: PDTsAreParts s0) by (unfold cons1Free in *; intuition). intros part HpartIsPDT.
+  assert(HpartIsPDTs0: isPDT part s0).
+  {
+    unfold isPDT in *. rewrite Hs in HpartIsPDT. rewrite Hs6 in HpartIsPDT. simpl in *. rewrite beqAddrTrue in *.
+    destruct (beqAddr pd part) eqn:HbeqParts.
+    - rewrite <-DTL.beqAddrTrue in HbeqParts. subst part. assumption.
+    - rewrite <-beqAddrFalse in *. do 2 (rewrite removeDupIdentity in *; auto). rewrite Hs5 in HpartIsPDT.
+      simpl in *. destruct (beqAddr blockToFree part) eqn:HbeqBTFPart; try(exfalso; congruence).
+      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs4 in HpartIsPDT. simpl in *.
+      destruct (beqAddr (CPaddr (blockToFree + scoffset)) part) eqn:HbeqScePartB; try(exfalso; congruence).
+      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs3 in HpartIsPDT. simpl in *.
+      destruct (beqAddr (CPaddr (blockToFree + sh1offset)) part) eqn:HbeqSh1Part; try(exfalso; congruence).
+      rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs2 in HpartIsPDT. simpl in *.
+      rewrite beqAddrFalse in HbeqBTFPart. rewrite HbeqBTFPart in *. rewrite <-beqAddrFalse in *.
+      rewrite removeDupIdentity in *; auto. rewrite Hs1 in HpartIsPDT. simpl in *. rewrite beqAddrFalse in HbeqParts.
+      rewrite HbeqParts in *. rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
+  }
+  specialize(Hcons0 part HpartIsPDTs0). rewrite HgetPartsEqs. assumption.
+  (* END PDTsAreParts *)
 }
 Qed.

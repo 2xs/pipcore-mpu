@@ -863,7 +863,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
         - unfold CBlockEntry.
           destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia). simpl.
           reflexivity.
-        - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
       }
       assert(HparentsEq: pdparent = pdParent).
       { rewrite HpdparentIsParent. rewrite Hparent. reflexivity. }
@@ -3663,6 +3662,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END blockAndNextInSameBlock s *)
          }
 
+         assert(PDTsAreParts s1).
+         { (* BEGIN PDTsAreParts s1 *)
+           apply PDTsArePartsPreservedIsBuilt with s1 s0 pdparent pdentryParent blockInParentPartitionAddr
+                bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END PDTsAreParts s *)
+         }
+
          unfold consistency1. intuition.
        }
 
@@ -5457,6 +5465,14 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                (* END blockAndNextInSameBlock s *)
              }
 
+             assert(PDTsAreParts s).
+             { (* BEGIN PDTsAreParts s *)
+               revert Hs1. apply PDTsArePartsPreservedIsBuilt with pdparent pdentryParent
+                   (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU); trivial;
+                   unfold consistency1 in *; intuition.
+               (* END PDTsAreParts s *)
+             }
+
              unfold consistency1. intuition.
        ++ split.
           { (* noDupMappedPaddrList s *)
@@ -7021,7 +7037,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
         - unfold CBlockEntry.
           destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia). simpl.
           reflexivity.
-        - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
       }
       assert(HparentsEq: pdparent = pdParent).
       { rewrite HpdparentIsParent. rewrite Hparent. reflexivity. }
@@ -7646,10 +7661,10 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
               assert(HparentOfPart: parentOfPartitionIsPartition s) by (unfold consistency1 in *; intuition).
               specialize(HparentOfPart partition pdentry HlookupPart).
               destruct HparentOfPart as (HpdparentIsPart & _). specialize(HpdparentIsPart HpartNotRoot).
-              rewrite Hparent. intuition.
+              rewrite Hparent.
               assert(HisChilds: isChild s) by (unfold consistency1 in *; intuition).
               apply HisChilds; try(assumption). rewrite HgetPartEq. assumption.
-              unfold pdentryParent. rewrite HlookupPart. assumption.
+              unfold pdentryParent. rewrite HlookupPart. reflexivity.
             }
             congruence.
           }
@@ -9799,6 +9814,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                 intuition.
            (* END blockAndNextInSameBlock s *)
          }
+
+         assert(PDTsAreParts s1).
+         { (* BEGIN PDTsAreParts s1 *)
+           apply PDTsArePartsPreservedIsBuilt with s1 s0 pdparent pdentryParent blockInParentPartitionAddr
+                bentry
+                (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; unfold consistency1 in *;
+                intuition.
+           (* END PDTsAreParts s *)
+         }
          unfold consistency1. intuition.
        }
 
@@ -11571,6 +11595,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                   (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; trivial;
                   unfold consistency1 in *; intuition.
                (* END blockAndNextInSameBlock s *)
+             }
+
+             assert(PDTsAreParts s).
+             { (* BEGIN PDTsAreParts s *)
+               apply PDTsArePartsPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                  blockInParentPartitionAddr bentry
+                  (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) flag; trivial;
+                  unfold consistency1 in *; intuition.
+               (* END PDTsAreParts s *)
              }
 
              unfold consistency1. intuition.
@@ -13441,7 +13474,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
         - unfold CBlockEntry.
           destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia). simpl.
           reflexivity.
-        - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
       }
       assert(HparentsEq: pdparent = pdParent).
       { rewrite HpdparentIsParent. rewrite Hparent. reflexivity. }
@@ -16063,6 +16095,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END blockAndNextInSameBlock s *)
          }
 
+         assert(PDTsAreParts s1).
+         { (* BEGIN PDTsAreParts s1 *)
+           apply PDTsArePartsPreservedIsBuilt with s1 s0 pdparent pdentryParent blockInParentPartitionAddr
+            bentry
+            (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; unfold consInitStruct in *;
+            intuition.
+           (* END PDTsAreParts s *)
+         }
+
          unfold consInitStruct. intuition.
        }
 
@@ -16466,7 +16507,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
       {
         destruct HpropsOr as [Heq | Hs]; try(subst s; reflexivity).
         rewrite Hs. apply getPartitionsEqPDT with pdentryParent; try(unfold consInitStruct in *; intuition).
-        unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
       }
 
       assert(HkernIsSomeConfPartials: forall kernel, kernel <> exceptKern
@@ -17933,6 +17973,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                (* END blockAndNextInSameBlock s *)
              }
 
+             assert(PDTsAreParts s).
+             { (* BEGIN PDTsAreParts s *)
+               apply PDTsArePartsPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                  blockInParentPartitionAddr bentry
+                  (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; trivial;
+                  unfold consInitStruct in *; intuition.
+               (* END PDTsAreParts *)
+             }
+
              unfold consInitStruct. intuition.
        ++ split; trivial. split.
           { (* noDupMappedPaddrList s *)
@@ -17952,7 +18001,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
             {
               rewrite Hs.
               unfold consInitStruct in Hconss1; apply getPartitionsEqPDT with pdentryParent; simpl; intuition.
-              unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
             }
             assert(HgetChildrenEq: getChildren parent s = getChildren parent s1).
             {
@@ -18023,7 +18071,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
               unfold consInitStruct in *; intuition.
               unfold consInitStruct in *; intuition.
               unfold consInitStruct in *; intuition.
-              unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
             }
             rewrite HgetPartEqs in HpartBisIsPart.
             assert(HgetMappedPartEq: getMappedBlocks part s = getMappedBlocks part s1).
@@ -20042,7 +20089,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
         - unfold CBlockEntry.
           destruct (Compare_dec.lt_dec (blockindex bentry) kernelStructureEntriesNb); try(lia). simpl.
           reflexivity.
-        - unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
       }
       assert(HparentsEq: pdparent = pdParent).
       { rewrite HpdparentIsParent. rewrite Hparent. reflexivity. }
@@ -22715,6 +22761,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
            (* END blockAndNextInSameBlock s *)
          }
 
+         assert(PDTsAreParts s1).
+         { (* BEGIN PDTsAreParts s1 *)
+           apply PDTsArePartsPreservedIsBuilt with s1 s0 pdparent pdentryParent blockInParentPartitionAddr
+              bentry
+              (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; unfold consistency1 in *;
+              intuition.
+           (* END PDTsAreParts s *)
+         }
+
          unfold consistency1. intuition.
        }
 
@@ -23291,7 +23346,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
              assert(HgetPartitionsEq: getPartitions multiplexer s = getPartitions multiplexer s1).
              {
                rewrite Hs. apply getPartitionsEqPDT with pdentryParent; try(unfold consistency1 in *; intuition).
-               unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
              }
 
              assert(FirstFreeSlotPointerIsBEAndFreeSlot s).
@@ -24589,6 +24643,15 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
                (* END blockAndNextInSameBlock s *)
              }
 
+             assert(PDTsAreParts s).
+             { (* BEGIN PDTsAreParts s *)
+               apply PDTsArePartsPreservedIsBuilt with s1 s0 pdparent pdentryParent
+                  blockInParentPartitionAddr bentry
+                  (MAL.removeBlockFromPhysicalMPUAux blockInParentPartitionAddr realMPU) false; trivial;
+                  unfold consistency1 in *; intuition.
+               (* END PDTsAreParts s *)
+             }
+
              unfold consistency1. intuition.
        ++ split.
           { (* noDupMappedPaddrList s *)
@@ -24608,7 +24671,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
             {
               rewrite Hs.
               unfold consistency1 in Hconss1; apply getPartitionsEqPDT with pdentryParent; simpl; intuition.
-              unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
             }
             assert(HgetChildrenEq: getChildren parent s = getChildren parent s1).
             {
@@ -24679,7 +24741,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
               unfold consistency1 in *; intuition.
               unfold consistency1 in *; intuition.
               unfold consistency1 in *; intuition.
-              unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
             }
             rewrite HgetPartEqs in HpartBisIsPart.
             assert(HgetMappedPartEq: getMappedBlocks part s = getMappedBlocks part s1).
@@ -24894,7 +24955,6 @@ intros P partition. simpl. destruct (beqAddr partition constantRootPartM) eqn:Hb
           {
             destruct HpropsOr as [Hss1Eq | Hs]; try(subst s; reflexivity).
             rewrite Hs. apply getPartitionsEqPDT with pdentryParent; try(unfold consistency1 in *; intuition).
-            unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
           }
           assert(HgetBlocksEqs: forall part, getMappedBlocks part s = getMappedBlocks part s1).
           {

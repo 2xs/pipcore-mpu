@@ -1958,7 +1958,15 @@ apply Bool.negb_false_iff in HnegErased. eapply bindRev.
       specialize(Hcons0 part block parentBlock HpartIsPart HPBMapped HblockIsBE HsceInPB).
       assumption.
       (* END blockAndSceInSameBlock *)
-    } 
+    }
+
+    assert(PDTsAreParts s).
+    { (* BEGIN PDTsAreParts s *)
+      assert(Hcons0: PDTsAreParts s0) by intuition. intros part HpartIsPDT. unfold isPDT in *.
+      rewrite HlookupsEq in *. specialize(Hcons0 part HpartIsPDT).
+      rewrite getPartitionsEqLookup with (s0 := s0); assumption.
+      (* END PDTsAreParts *)
+    }
 
     intuition.
   }
@@ -2510,7 +2518,6 @@ assert(HgetChildrenEq: forall partition, In partition (getPartitions multiplexer
 assert(HgetPartsEq: getPartitions multiplexer s = getPartitions multiplexer s0).
 {
   apply getPartsEqPrepare; try(assumption); unfold consistency in *; unfold consistency1 in *; intuition.
-  unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
 assert(HgetConfigBEq: forall partition, In partition (getPartitions multiplexer s0)
   -> getConfigBlocks partition s = getConfigBlocks partition s0).
@@ -5668,6 +5675,14 @@ assert(blockAndSceInSameBlock s).
     rewrite Hlookups1s0Eq in HblockIsBE; trivial.
     specialize(Hcons0 part block parentBlock HpartIsPart HPBMapped HblockIsBE HsceInRange). assumption.
   (* END blockAndSceInSameBlock *)
+}
+
+assert(PDTsAreParts s).
+{ (* BEGIN PDTsAreParts s *)
+  assert(Hcons0: PDTsAreParts s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+  intros part HpartIsPDT. unfold isPDT in *. rewrite HpdsArePDT in HpartIsPDT; trivial.
+  specialize(Hcons0 part HpartIsPDT). rewrite HgetPartsEq. assumption.
+  (* END PDTsAreParts *)
 }
 
 assert(forall kernel, kernel <> kernStart

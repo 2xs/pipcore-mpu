@@ -13616,6 +13616,16 @@ getFreeSlotsListRec n1 (firstfreeslot pd2entry) s12 nbleft =
     (* END blockAndNextInSameBlock *)
   }
 
+  assert(PDTsAreParts s).
+  { (* BEGIN PDTsAreParts s *)
+    assert(Hcons0: PDTsAreParts s10) by (unfold insertConsist in *; intuition). intros part HpartIsPDT.
+    unfold isPDT in *. rewrite HsEq in HpartIsPDT. simpl in *. rewrite beqAddrTrue in *.
+    destruct (beqAddr sh1eaddr part) eqn:HbeqSh1Part; try(exfalso; congruence).
+    rewrite <-beqAddrFalse in *. do 2 (rewrite removeDupIdentity in *; auto). specialize(Hcons0 part HpartIsPDT).
+    rewrite HgetPartsEqs10. assumption.
+    (* END PDTsAreParts *)
+  }
+
   assert(childLocMappedInChild s).
   { (* BEGIN childLocMappedInChild s *)
     assert(Hbentry6 : bentry6 =

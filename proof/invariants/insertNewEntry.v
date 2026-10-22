@@ -107,7 +107,8 @@ nbPrepareIsNbKern s
       -> In addr (getAllPaddrAux [block] s)
       -> sh1entryPDchild (CPaddr (block + sh1offset)) child s)
 /\ indexIsDistFromKern s
-/\ blockAndNextInSameBlock s.
+/\ blockAndNextInSameBlock s
+/\ PDTsAreParts s.
 
 Lemma insertNewEntry 	(pdinsertion startaddr endaddr origin: paddr)
 									 (r w e : bool) (currnbfreeslots : index) (P : state -> Prop):
@@ -30714,6 +30715,23 @@ assert(blockAndNextInSameBlock s).
     destruct HblockPMapped as [Hcontra | HblockPMapped]; try(exfalso; congruence).
     specialize(Hcons0 part kern parentBlock HparentIsPart HblockPMapped HkernIsKSs0 HnextInBlockP). assumption.
   (* END blockAndNextInSameBlock *)
+}
+
+assert(PDTsAreParts s).
+{ (* BEGIN PDTsAreParts s *)
+  assert(Hcons0: PDTsAreParts s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+  intros part HpartIsPDT. assert(HpartIsPDTs0: isPDT part s0).
+  {
+    unfold isPDT in *. rewrite Hs in HpartIsPDT. simpl in HpartIsPDT. rewrite beqAddrTrue in *.
+    destruct (beqAddr sceaddr part) eqn:HbeqScePart; try(exfalso; congruence). rewrite beqnewBsce in *.
+    simpl in HpartIsPDT. destruct (beqAddr newBlockEntryAddr part) eqn:HbeqNewPart; try(exfalso; congruence).
+    rewrite beqpdnewB in *. rewrite <-beqAddrFalse in *. do 7 (rewrite removeDupIdentity in *; auto).
+    simpl in HpartIsPDT. rewrite beqAddrTrue in *. destruct (beqAddr pdinsertion part) eqn:HbeqParts.
+    - rewrite <-DTL.beqAddrTrue in HbeqParts. subst part. assumption.
+    - rewrite <-beqAddrFalse in *. do 3 (rewrite removeDupIdentity in *; auto).
+  }
+  specialize(Hcons0 part HpartIsPDTs0). rewrite HgetPartsEqs. assumption.
+  (* END PDTsAreParts *)
 }
 
 intuition.

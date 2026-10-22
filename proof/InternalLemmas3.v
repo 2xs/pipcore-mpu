@@ -5284,3 +5284,51 @@ clear Hlen. destruct HpartBIsPart as [Heq | HpartBIsPart].
   exists rightL. split; reflexivity.
 Qed.
 
+Lemma completeParentsListRecImplForget n ancPart desc s s0 forgottenAddrs:
+(forall addr, In addr forgottenAddrs -> lookup addr (memory s) beqAddr = None)
+-> (forall addr, ~In addr forgottenAddrs -> lookup addr (memory s) beqAddr = lookup addr (memory s0) beqAddr)
+-> In ancPart (filterOptionPaddr (completeParentsListRec n desc s))
+-> In ancPart (filterOptionPaddr (completeParentsListRec n desc s0)).
+Proof.
+intros HforgottenAddrs HkeptAddrs. revert desc. induction n; simpl; intros desc HancIsAnc; try(congruence).
+assert(~In desc forgottenAddrs).
+{ intro Hcontra. exfalso. rewrite HforgottenAddrs in HancIsAnc; assumption. }
+rewrite HkeptAddrs in HancIsAnc; trivial. destruct (lookup desc (memory s0) beqAddr); try(simpl in *; congruence).
+destruct v; try(simpl in *; congruence). destruct (beqAddr desc constantRootPartM); try(simpl in *; congruence).
+simpl in *. destruct HancIsAnc; auto.
+Qed.
+
+Lemma completeParentsListRecImplSHE n ancPart desc s0 s sh1entryaddr sh1entry:
+s = {|
+      currentPartition := currentPartition s0;
+      memory := add sh1entryaddr (SHE sh1entry) (memory s0) beqAddr
+    |}
+-> In ancPart (filterOptionPaddr (completeParentsListRec n desc s))
+-> In ancPart (filterOptionPaddr (completeParentsListRec n desc s0)).
+Proof.
+intro Hs. revert desc. induction n; simpl; intros desc HancIsAnc; try(congruence).
+rewrite Hs in HancIsAnc at 1. simpl in HancIsAnc.
+destruct (beqAddr sh1entryaddr desc) eqn:HbeqSh1Desc; try(simpl in *; exfalso; congruence).
+rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
+destruct (lookup desc (memory s0) beqAddr); try(simpl in *; congruence).
+destruct v; try(simpl in *; congruence). destruct (beqAddr desc constantRootPartM); try(simpl in *; congruence).
+simpl in *. destruct HancIsAnc; auto.
+Qed.
+
+Lemma completeParentsListRecImplBE n ancPart desc s0 s block bentry:
+s = {|
+      currentPartition := currentPartition s0;
+      memory := add block (BE bentry) (memory s0) beqAddr
+    |}
+-> In ancPart (filterOptionPaddr (completeParentsListRec n desc s))
+-> In ancPart (filterOptionPaddr (completeParentsListRec n desc s0)).
+Proof.
+intro Hs. revert desc. induction n; simpl; intros desc HancIsAnc; try(congruence).
+rewrite Hs in HancIsAnc at 1. simpl in HancIsAnc.
+destruct (beqAddr block desc) eqn:HbeqBlockDesc; try(simpl in *; exfalso; congruence).
+rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
+destruct (lookup desc (memory s0) beqAddr); try(simpl in *; congruence).
+destruct v; try(simpl in *; congruence). destruct (beqAddr desc constantRootPartM); try(simpl in *; congruence).
+simpl in *. destruct HancIsAnc; auto.
+Qed.
+

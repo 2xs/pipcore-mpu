@@ -23272,6 +23272,16 @@ intro isBlockCut. destruct isBlockCut.
           (* END blockAndNextInSameBlock *)
         }
 
+        assert(PDTsAreParts s).
+        { (* BEGIN PDTsAreParts s *)
+          assert(Hcons0: PDTsAreParts s1) by (unfold cons1Free in *; intuition). intros part HpartIsPDT.
+          unfold isPDT in *. rewrite Hs in HpartIsPDT. simpl in *.
+          destruct (beqAddr blockToRemoveInCurrPartAddr part) eqn:HbeqBTRPart; try(exfalso; congruence).
+          rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. specialize(Hcons0 part HpartIsPDT).
+          rewrite HgetPartsEq. assumption.
+          (* END PDTsAreParts *)
+        }
+
         assert(HuniqueLocs0: forall blockB sh1entryaddrB part,
           In part (getPartitions multiplexer s0)
           -> In blockB (getMappedBlocks part s0)
@@ -23476,7 +23486,7 @@ intro isBlockCut. destruct isBlockCut.
                     -> In addr (getMappedPaddr idchild s))
           /\ kernInSameBlock s /\ blockAndSh1InSameBlock s /\ blockAndSceInSameBlock s /\ kernelIsSomePartsConfig s
           /\ PDTisNoConfigInChild s /\ PDTisNoConfigInPart s /\ usedPaddrAreShared s /\ indexIsDistFromKern s
-          /\ blockAndNextInSameBlock s
+          /\ blockAndNextInSameBlock s /\ PDTsAreParts s
           /\ nextKernelIsValid s /\ kernelsAreNotAccessible s /\ MPUsizeIsBelowMax s /\ originIsParentBlocksStart s
           /\ noChildImpliesAddressesNotShared s /\ childsBlocksPropsInParent s
           /\ adressesRangePreservedIfOriginAndNextOk s
@@ -23552,7 +23562,7 @@ intro isBlockCut. destruct isBlockCut.
           & Htrees0 & HlocNullIfNotChilds0 & HaccArePress0 & HsharedIsPress0 & HsharedHasLocs0 &
           HnoAutoMaps0 & HnoConfigInChilds0 & HkernInOnes0 & HsharedInChilds0 & HkernInSameBs0 & Hsh1InSameBs0 &
           HsceInSameBs0 & HkernIsSomeConfigs0 & HPDTNotInConfigs0 & HPDTNotInConfigPs0 & HusedIsShareds0 &
-          HidxDists0 & HnextInSameBs0 &
+          HidxDists0 & HnextInSameBs0 & HPDTsArePartss0 &
           HnextKSIsValids0 & HkernNotAccs0 & HMPUsizes0 & HoriginIsStarts0 & HnoChilds0 &
           HchildBlocksPropss0 & Hranges0 & HendBTRs0 & HchildLocMappedInChildPartialss0 & HlocSameStarts0 &
           HremovedAddrsAreNones0 & HBTRPsAddsNotShareds0 & HBTRPsAddsNotUseds0 & HstartBTRs0 & HPDflagBTR &
@@ -25395,6 +25405,16 @@ intro isBlockCut. destruct isBlockCut.
             specialize(HnextInSameBs0 part kern parentBlock HparentIsPart HblockPMapped HkernIsKS HnextInBlockP).
             assumption.
             (* END blockAndNextInSameBlock *)
+          }
+
+          assert(PDTsAreParts s).
+          { (* BEGIN PDTsAreParts s *)
+            intros part HpartIsPDT. unfold isPDT in *. rewrite Hs in HpartIsPDT. simpl in *.
+            rewrite IL.beqAddrTrue in *. destruct (beqAddr (CPaddr (blockToRemoveInCurrPartAddr+sh1offset)) part)
+              eqn:HbeqSh1Part; try(exfalso; congruence). rewrite <-beqAddrFalse in *.
+            do 3 (rewrite removeDupIdentity in *; auto). specialize(HPDTsArePartss0 part HpartIsPDT).
+            rewrite HgetPartsEq. assumption.
+            (* END PDTsAreParts *)
           }
           unfold consistency1. intuition.
         }
@@ -28450,6 +28470,16 @@ intro isBlockCut. destruct isBlockCut.
           try(exfalso; congruence). rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
         specialize(Hcons0 part kern parentBlock HparentIsPart HblockPMapped HkernIsKS HnextInBlockP). assumption.
         (* END blockAndNextInSameBlock *)
+      }
+
+      assert(PDTsAreParts s).
+      { (* BEGIN PDTsAreParts s *)
+        assert(Hcons0: PDTsAreParts s1) by (unfold cons1Free in *; intuition). intros part HpartIsPDT.
+        unfold isPDT in *. rewrite Hs in HpartIsPDT. simpl in *.
+        destruct (beqAddr (CPaddr (blockToRemoveInCurrPartAddr+sh1offset)) part) eqn:HbeqSh1Part;
+          try(exfalso; congruence). rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
+        specialize(Hcons0 part HpartIsPDT). rewrite HgetPartsEq. assumption.
+        (* END PDTsAreParts *)
       }
 
       assert(sharedBlockPointsToChild s).

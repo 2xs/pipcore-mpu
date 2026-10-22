@@ -4268,6 +4268,20 @@ eapply bindRev.
         (* END blockAndNextInSameBlock *)
       }
 
+      assert(PDTsAreParts s).
+      { (* BEGIN PDTsAreParts s *)
+        assert(Hcons0: PDTsAreParts s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        intros part HpartIsPDT. assert(HpartIsPDTs0: isPDT part s0).
+        {
+          unfold isPDT in *. rewrite <-HsEq in HpartIsPDT. simpl in *.
+          destruct (beqAddr globalIdPD part) eqn:HbeqParts.
+          - rewrite <-beqAddrTrue in HbeqParts. subst part. assumption.
+          - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
+        }
+        specialize(Hcons0 part HpartIsPDTs0). rewrite HgetPartsEq. assumption.
+        (* END PDTsAreParts *)
+      }
+
       intuition.
 
     * (* Final state *)
@@ -7490,6 +7504,20 @@ eapply bindRev.
         rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
         specialize(Hcons0 part kern parentBlock HparentIsPart HblockPMapped HkernIsKS HnextInBlockP). assumption.
         (* END blockAndNextInSameBlock *)
+      }
+
+      assert(PDTsAreParts s).
+      { (* BEGIN PDTsAreParts s *)
+        assert(Hcons0: PDTsAreParts s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+        intros part HpartIsPDT. assert(HpartIsPDTs0: isPDT part s0).
+        {
+          unfold isPDT in *. rewrite <-HsEq in HpartIsPDT. simpl in *.
+          destruct (beqAddr globalIdPD part) eqn:HbeqParts.
+          - rewrite <-beqAddrTrue in HbeqParts. subst part. assumption.
+          - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
+        }
+        specialize(Hcons0 part HpartIsPDTs0). rewrite HgetPartsEq. assumption.
+        (* END PDTsAreParts *)
       }
 
       intuition.

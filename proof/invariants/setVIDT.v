@@ -110,7 +110,6 @@ set(newS := {|
 assert(HgetPartsEq: getPartitions multiplexer newS = getPartitions multiplexer s).
 {
   apply getPartitionsEqPDT with p; trivial; intuition.
-  unfold getPartitions. replace (maxAddr+2) with (S (maxAddr+1)); try(lia). simpl. auto.
 }
 assert(HgetKSEq: forall partition, In partition (getPartitions multiplexer s)
   -> getKSEntries partition newS = getKSEntries partition s).
@@ -1268,6 +1267,18 @@ assert(blockAndNextInSameBlock newS).
   rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite HgetMappedBEq in *; trivial.
   specialize(Hcons0 part kern parentBlock HparentIsPart HblockPMapped HkernIsKS HnextInBlockP). assumption.
   (* END blockAndNextInSameBlock *)
+}
+
+assert(PDTsAreParts newS).
+{ (* BEGIN PDTsAreParts newS *)
+  assert(Hcons0: PDTsAreParts s) by intuition. intros part HpartIsPDT. assert(HpartIsPDTs: isPDT part s).
+  {
+    unfold isPDT in *. simpl in HpartIsPDT. destruct (beqAddr pdpart part) eqn:HbeqParts.
+    - rewrite <-DTL.beqAddrTrue in HbeqParts. subst part. rewrite HlookupPart. trivial.
+    - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
+  }
+  specialize(Hcons0 part HpartIsPDTs). rewrite HgetPartsEq. assumption.
+  (* END PDTsAreParts *)
 }
 
 assert(noDupMappedPaddrList newS).

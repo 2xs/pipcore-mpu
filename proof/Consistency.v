@@ -830,6 +830,12 @@ In pdparent (getPartitions multiplexer s)
 -> sh1entryPDchild (CPaddr (block+sh1offset)) child s.
 (*11/09/2026: I suspect I'll need one about sh1entryInChildLocation as well*)
 
+(*20/10/2026: parentOfPartitionIsPartition poses problems in deletePartition, it seems that only two solutions
+  existed: change parentOfPartitionIsPartition, or add this property. The former solution necessitates a lot of
+  changes, as parentOfPartitionIsPartition is a core property, so adding this property.*)
+Definition PDTsAreParts s :=
+forall part, isPDT part s -> In part (getPartitions multiplexer s).
+
 Definition consInitStruct s :=
 nullAddrExists s
 /\ wellFormedFstShadowIfBlockEntry s
@@ -886,7 +892,8 @@ nullAddrExists s
 /\ PDTisNoConfigInPart s
 /\ usedPaddrAreShared s
 /\ indexIsDistFromKern s
-/\ blockAndNextInSameBlock s.
+/\ blockAndNextInSameBlock s
+/\ PDTsAreParts s.
 
 (** ** First batch of consistency properties *)
 Definition consistency1 s :=
@@ -949,7 +956,8 @@ nbPrepareIsNbKern s
 /\ PDTisNoConfigInPart s
 /\ usedPaddrAreShared s
 /\ indexIsDistFromKern s
-/\ blockAndNextInSameBlock s.
+/\ blockAndNextInSameBlock s
+/\ PDTsAreParts s.
 
 (** ** Second batch of consistency properties *)
 Definition consistency2 s :=

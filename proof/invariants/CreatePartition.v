@@ -1047,6 +1047,14 @@ intro. eapply bindRev.
       (* END blockAndNextInSameBlock *)
     }
 
+    assert(PDTsAreParts s).
+    { (* BEGIN PDTsAreParts s *)
+      assert(Hcons0: PDTsAreParts s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+      intros part HpartIsPDT. unfold isPDT in *. rewrite HlookupsEq in *. specialize(Hcons0 part HpartIsPDT).
+      rewrite getPartitionsEqLookup with (s0:=s0) in *; assumption.
+      (* END PDTsAreParts *)
+    }
+
     intuition.
   }
   split.
@@ -5829,6 +5837,23 @@ intro. eapply bindRev.
     (* END blockAndNextInSameBlock *)
   }
 
+  assert(forall part, newPDBlockStartAddr <> part -> isPDT part s -> In part (getPartitions multiplexer s)).
+  { (* BEGIN PDTsAreParts s *)
+    assert(Hcons0: PDTsAreParts s0) by (unfold consistency in *; unfold consistency1 in *; intuition).
+    intros part HbeqNewPart HpartIsPDT. assert(HpartIsPDTs0: isPDT part s0).
+    {
+      unfold isPDT in *. rewrite Hs in HpartIsPDT. simpl in *. destruct (beqAddr currentPart part) eqn:HbeqParts.
+      - rewrite <-DTL.beqAddrTrue in HbeqParts. subst part. assumption.
+      - rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto. rewrite Hs3 in HpartIsPDT. simpl in *.
+        destruct (beqAddr idBlock part) eqn:HbeqBlockPart; try(exfalso; congruence). rewrite <-beqAddrFalse in *.
+        rewrite removeDupIdentity in *; auto. rewrite Hs2 in HpartIsPDT. rewrite Hs1 in HpartIsPDT. simpl in *.
+        rewrite beqAddrTrue in *. rewrite beqAddrFalse in HbeqNewPart. rewrite HbeqNewPart in *.
+        rewrite <-beqAddrFalse in *. do 2 (rewrite removeDupIdentity in *; auto).
+    }
+    specialize(Hcons0 part HpartIsPDTs0). rewrite HgetPartsEq. assumption.
+    (* END PDTsAreParts *)
+  }
+
   assert(isBE blockInCurrentPartitionAddr s).
   {
     subst blockInCurrentPartitionAddr. unfold isBE. rewrite HlookupBlocks. trivial.
@@ -5914,6 +5939,7 @@ intro. eapply bindRev.
       /\ usedPaddrAreShared s
       /\ indexIsDistFromKern s
       /\ blockAndNextInSameBlock s
+      /\ (forall part, newPDBlockStartAddr <> part -> isPDT part s -> In part (getPartitions multiplexer s))
       /\ lookup currentPart (memory s) beqAddr = Some (PDT newPDCurr)
       /\ lookup newPDBlockStartAddr (memory s) beqAddr = Some (PDT newPDEntry)
       /\ lookup idBlock (memory s) beqAddr = Some (BE newBentry)
@@ -9545,6 +9571,21 @@ intro. eapply bindRev.
     specialize(Hcons0 part kern parentBlock HparentIsPart HblockPMapped HkernIsKS HnextInBlockP). assumption.
     (* END blockAndNextInSameBlock *)
   }
+
+  assert(PDTsAreParts s).
+  { (* BEGIN PDTsAreParts s *)
+    assert(Hcons0: forall part, newPDBlockStartAddr <> part -> isPDT part s4
+      -> In part (getPartitions multiplexer s4)) by intuition. intros part HpartIsPDT. rewrite HgetPartsEqs.
+    apply in_or_app. simpl. destruct (beqAddr newPDBlockStartAddr part) eqn:HbeqNewPart.
+    - rewrite <-DTL.beqAddrTrue in HbeqNewPart. subst part. auto.
+    - rewrite <-beqAddrFalse in *. unfold isPDT in *. rewrite Hs in HpartIsPDT. simpl in *.
+      destruct (beqAddr (CPaddr (blockInCurrentPartitionAddr+sh1offset)) part) eqn:HbeqSh1Part;
+        try(exfalso; congruence). rewrite <-beqAddrFalse in *. rewrite removeDupIdentity in *; auto.
+      specialize(Hcons0 part HbeqNewPart HpartIsPDT). rewrite HgetPartsEqs4 in Hcons0. apply in_app_or in Hcons0.
+      destruct Hcons0; auto.
+    (* END PDTsAreParts *)
+  }
+
   assert(partitionsIsolation s).
   { (* BEGIN partitionsIsolation s *)
     assert(Hcons0: partitionsIsolation s0) by intuition. intros pdparent child1 child2 HparentIsPart Hchild1IsChild
