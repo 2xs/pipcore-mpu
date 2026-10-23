@@ -343,7 +343,16 @@ $(ROCQ_DEPENDENCY_FILES):\
 	%.v.d : %.v
 	@$(ROCQ) dep $(ROCQFLAGS) $< > $@
 
+# Skipped when SKIP_ROCQ_DEPS is set, which the compile_commands.json target
+# does when it re-invokes make. These are *included* makefiles, and make
+# remakes those for real even under --dry-run -- being able to read them is
+# what tells make what to do, so -n cannot apply. Combined with
+# --always-make that regenerates every one of them, which leaves each .vo
+# looking out of date and costs a full Rocq rebuild on the next build. The
+# C compilation recipes the database is after do not depend on these at all.
+ifndef SKIP_ROCQ_DEPS
 -include $(ROCQ_DEPENDENCY_FILES)
+endif
 
 %.cmi: %.mli
 	$(OCAMLOPT) -args $(DXDIR)/cprinter-inc-args -c $<
@@ -532,6 +541,84 @@ realclean: clean
               $(DOC_DIR)/developer-guide/developer-guide.log\
               $(DOC_DIR)/developer-guide/developer-guide.pdf
 
+################################################################
+### Compilation database
+################################################################
+
+# The compilation database clang tooling reads: clangd, clang-tidy, and
+# anything else that needs to know a file's real compiler flags. Without it
+# an editor guesses, which on this tree means every arch header looks like a
+# missing include.
+COMPILE_DB=compile_commands.json
+
+# The target's self-contained builds, which the root Makefile deliberately
+# does not drive: the host unit tests and, while it exists, the bring-up
+# harness. Wildcarded, so a target that has neither contributes nothing.
+COMPILE_DB_SUBDIRS=$(wildcard $(C_SRC_TARGET_DIR)/test $(C_SRC_TARGET_DIR)/bringup)
+
+# Built from make's dry-run output rather than by intercepting a real build.
+# Nothing is compiled and no object is touched, so this costs a second and
+# works even while pip.elf does not link. --always-make is what makes make
+# print every recipe rather than only the out-of-date ones; without it an
+# up-to-date tree yields an empty database.
+#
+# The root build goes in first and the sub-builds append. That order is the
+# one that matters: the bring-up harness compiles the same boot sources
+# through ../boot/ paths, so each of them appears twice, and clang tooling
+# takes the first entry for a given file -- which should be the real build's.
+#
+# PHONY because it is cheap and because its true dependency is every recipe
+# in every one of these Makefiles, which make cannot express.
+$(COMPILE_DB):
+	@command -v bear > /dev/null || { \
+		echo 'bear is not installed: cannot build $(COMPILE_DB)' >&2; \
+		exit 2; }
+	@# The 'cd generated && ...' recipes, which build the dx printer, are
+	@# dropped before bear sees them. bear parse-sh reads its input as one
+	@# script and tracks every cd, whereas make runs each recipe line in
+	@# its own shell from here -- so those two lines would otherwise push
+	@# the recorded directory to generated/generated for every entry after
+	@# them, and the root build's include flags are relative to here.
+	@# Neither dropped line is a C compilation, which the entry count
+	@# below is what confirms.
+	$(MAKE) SKIP_ROCQ_DEPS=1 --always-make --keep-going --dry-run \
+	    | grep -v '^cd ' | bear parse-sh --output $@
+	for dir in $(COMPILE_DB_SUBDIRS) ; do \
+		$(MAKE) -C $$dir --always-make --keep-going --dry-run \
+		    | grep -v '^cd ' \
+		    | bear parse-sh --append --output $@ --directory $$dir ; \
+	done
+	@# Give every cross-compiled entry an explicit target triple. clangd
+	@# takes its target from the driver name and never passes --target
+	@# itself, so without this it rejects -mabi= and -march= outright and
+	@# falls back to guessed flags. The host entries, which are the unit
+	@# tests, are left alone: those really are host builds.
+	$(SED) -i 's|^\( *\)"$(CC)",$$|\1"$(CC)",\n\1"--target=$(TARGET_CLANG_TRIPLE)",|' $@
+	@# bear's layout is what the substitution above matches, so check it
+	@# landed rather than trusting it: a formatting change upstream would
+	@# otherwise leave a database that silently does not work.
+	@cross=`grep -c '"$(CC)",' $@` ; \
+	 tagged=`grep -c -- '"--target=$(TARGET_CLANG_TRIPLE)",' $@` ; \
+	 if [ "$$cross" -ne "$$tagged" ] || [ "$$tagged" -eq 0 ] ; then \
+		echo "$@: $$tagged of $$cross cross entries got a target triple" >&2 ; \
+		exit 2 ; \
+	 fi ; \
+	 echo "$@: $$tagged entries for $(TARGET_CLANG_TRIPLE), `grep -c '"cc",' $@` for the host"
+	@# Every recorded directory must exist, and every recorded file must be
+	@# in it. A wrong directory is the failure mode that does not announce
+	@# itself: the database parses, clangd loads it, and then resolves the
+	@# build's relative include flags against the wrong base.
+	@bad=`grep '"directory":' $@ | $(SED) 's|.*: "||; s|".*||' | sort -u \
+	      | while read -r d ; do [ -d "$$d" ] || echo "$$d" ; done` ; \
+	 if [ -n "$$bad" ] ; then \
+		echo "$@: recorded directory does not exist: $$bad" >&2 ; exit 2 ; \
+	 fi
+	@bad=`grep '"file":' $@ | $(SED) 's|.*: "||; s|".*||' \
+	      | while read -r f ; do [ -f "$$f" ] || echo "$$f" ; done` ; \
+	 if [ -n "$$bad" ] ; then \
+		echo "$@: recorded file does not exist: $$bad" >&2 ; exit 2 ; \
+	 fi
+
 clean:
 	rm -f .lia.cache $(ROCQ_DEPENDENCY_FILES)
 	rm -rf $(ROCQ_COMPILED_FILES)
@@ -539,4 +626,4 @@ clean:
 	rm -f $(OBJECT_FILES)
 	rm -f pip.elf pip.bin
 
-.PHONY: all doc doc-c doc-rocq gettingstarted realclean clean
+.PHONY: all doc doc-c doc-rocq gettingstarted realclean clean $(COMPILE_DB)

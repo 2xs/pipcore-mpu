@@ -135,6 +135,16 @@ src/arch/*/test/build
 src/arch/*/bringup/build
 
 ################################################################
+### Compilation database for clang tooling
+################################################################
+# compile_commands.json already matches the broad *.json rule above, which is
+# there for the digger ASTs. Named explicitly so that narrowing that rule
+# cannot start tracking a file full of absolute local paths.
+compile_commands.json
+# clangd's index, written next to the database.
+.cache/
+
+################################################################
 ### Toolchain configuration files
 ################################################################
 toolchain.mk*

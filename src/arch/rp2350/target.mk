@@ -40,3 +40,11 @@
 # under boot/include/ rather than a copy of the pico-sdk, so that erratum
 # RP2350-E6 (R and X transposed in each pmpcfg byte) is handled in one place.
 TARGET_THIRDPARTY_NAMES :=
+
+# The target triple for clang tooling, used only by the compile_commands.json
+# target. clangd infers its target from the driver name and never passes
+# --target itself, so without this every -march/-mabi flag in the database is
+# rejected with "unsupported option '-mabi=' for target 'x86_64-...'".
+# riscv32, not riscv64: the toolchain's default is 64-bit and the build pins
+# rv32/ilp32 through -march and -mabi.
+TARGET_CLANG_TRIPLE := riscv32-unknown-elf

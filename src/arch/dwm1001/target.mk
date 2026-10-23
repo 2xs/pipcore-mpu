@@ -38,3 +38,9 @@
 # Each listed directory contributes its *.c files to the build and its
 # include/ subdirectory to the include path, in the order given here.
 TARGET_THIRDPARTY_NAMES := cmsis mdk uart
+
+# The target triple for clang tooling, used only by the compile_commands.json
+# target. clangd infers its target from the driver name and never passes
+# --target itself, so without this the -mthumb/-mcpu/-mfloat-abi flags in the
+# database are rejected for the host target.
+TARGET_CLANG_TRIPLE := arm-none-eabi
