@@ -49,8 +49,6 @@
 #ifndef CONTEXT_H
 #define CONTEXT_H
 
-#include <stdint.h>
-
 /*! \brief Number of saved general-purpose registers: x1 to x31. */
 #define CONTEXT_REGS_NB 31
 
@@ -69,6 +67,32 @@
 #define RV_REG_A3 13
 #define RV_REG_A4 14
 #define RV_REG_A7 17
+
+/*
+ * Byte offsets into stackedContext_t, for trap_entry.S, which cannot see the
+ * struct. The layout check at the end of this header asserts that each one
+ * still matches what the compiler lays out, so the stub and the C code cannot
+ * drift apart silently.
+ */
+#define CONTEXT_OFFSET_IS_BASIC_FRAME 0
+#define CONTEXT_OFFSET_PIPFLAGS       4
+#define CONTEXT_OFFSET_REGS           8
+#define CONTEXT_OFFSET_MEPC           132
+#define CONTEXT_OFFSET_MSTATUS        136
+#define CONTEXT_SIZE                  140
+
+/*!
+ * \brief The byte offset of x<n> within a saved context, for n in [1, 31].
+ *
+ * Encodes the regs[n - 1] == x<n> correspondence in one place, so the trap
+ * stub can name registers numerically and stay auditable against it.
+ */
+#define CONTEXT_REG_OFFSET(n) (CONTEXT_OFFSET_REGS + ((n) - 1) * 4)
+
+#if !defined(__ASSEMBLER__)
+
+#include <stddef.h>
+#include <stdint.h>
 
 /*!
  * \struct stackedContext_s
@@ -106,5 +130,49 @@ static inline uint32_t contextReadRegister(const stackedContext_t *context,
 	}
 	return context->regs[reg - 1];
 }
+
+/*!
+ * \fn void contextWriteRegister(stackedContext_t *context, uint32_t reg, uint32_t value)
+ * \brief Writes register x<reg> of a saved context.
+ *
+ * Hides the same regs[n - 1] offset as contextReadRegister(). Writing x0 is
+ * silently dropped rather than corrupting regs[-1].
+ *
+ * \param context The saved context.
+ * \param reg A register number in [0, 31].
+ * \param value The value to store.
+ */
+static inline void contextWriteRegister(stackedContext_t *context,
+                                        uint32_t reg, uint32_t value)
+{
+	if (reg == 0) {
+		return;		// x0 is hardwired zero and is not stored
+	}
+	context->regs[reg - 1] = value;
+}
+
+/*
+ * The offsets above are what trap_entry.S indexes the frame with, so a change
+ * to the struct that did not reach them would corrupt every saved context.
+ * This turns that into a compile error. Spelled as a negative array bound
+ * rather than _Static_assert, which is C11: the kernel builds at -std=gnu99.
+ */
+typedef char contextLayoutCheck[
+	(CONTEXT_OFFSET_IS_BASIC_FRAME
+		== (int) offsetof(stackedContext_t, isBasicFrame)
+	 && CONTEXT_OFFSET_PIPFLAGS
+		== (int) offsetof(stackedContext_t, pipflags)
+	 && CONTEXT_OFFSET_REGS
+		== (int) offsetof(stackedContext_t, regs)
+	 && CONTEXT_OFFSET_MEPC
+		== (int) offsetof(stackedContext_t, mepc)
+	 && CONTEXT_OFFSET_MSTATUS
+		== (int) offsetof(stackedContext_t, mstatus)
+	 && CONTEXT_SIZE == (int) sizeof(stackedContext_t)
+	 && CONTEXT_REG_OFFSET(CONTEXT_REGS_NB)
+		== (int) offsetof(stackedContext_t, regs)
+		   + (CONTEXT_REGS_NB - 1) * 4) ? 1 : -1];
+
+#endif /* !__ASSEMBLER__ */
 
 #endif /* CONTEXT_H */

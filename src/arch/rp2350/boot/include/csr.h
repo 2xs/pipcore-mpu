@@ -81,6 +81,8 @@
 #define RVCSR_MSTATUS_MPIE_LSB  7
 #define RVCSR_MSTATUS_MPP_BITS  0x00001800
 #define RVCSR_MSTATUS_MPP_LSB   11
+#define RVCSR_MSTATUS_MPRV_BITS 0x00020000
+#define RVCSR_MSTATUS_MPRV_LSB  17
 
 /*!
  * \brief The two privilege modes mstatus.MPP can hold.

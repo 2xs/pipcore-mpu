@@ -87,9 +87,11 @@ OPENOCD_ARM    := $(OPENOCD_BASE) -f $(OPENOCD_TARGET)
 OPENOCD_RESCUE := $(OPENOCD_BASE) -c 'set RESCUE 1' -f $(OPENOCD_TARGET)\
                                   -c 'shutdown'
 
-# The boot sources the harness needs. Listed rather than wildcarded, so that
-# adding the real main.c and trap_entry.S to boot/ does not silently collide
-# with the harness's own.
+# The boot sources the harness needs, listed rather than wildcarded so that
+# the boot layer growing does not quietly pull new code in here. Note this
+# list is NOT what keeps the kernel's own main.c and trap_entry.S out of the
+# harness -- both directories have files of those names, so the collision is
+# between the pattern rules below, and their order is what resolves it.
 BOOT_SRC := initialize_hardware.c kernel.c pmp.c stdio.c string.c uart.c
 OBJ := $(addprefix $(BUILD_DIR)/,$(BOOT_SRC:.c=.o))
 OBJ += $(BUILD_DIR)/main.o $(BUILD_DIR)/trap.o
@@ -109,16 +111,26 @@ $(BUILD_DIR)/bringup.bin: $(BUILD_DIR)/bringup.elf
 $(BUILD_DIR)/bringup.uf2: $(BUILD_DIR)/bringup.elf
 	picotool uf2 convert --family rp2350-riscv $< $@
 
-$(BUILD_DIR)/%.o: $(BOOT_DIR)/%.c $(HEADERS) | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c -o $@ $<
-
+# The harness's own sources come first, and the order is what matters rather
+# than a nicety. The boot layer now has a main.c of its own, so both the
+# $(HERE) and the $(BOOT_DIR) rule match main.o with the same stem; make takes
+# the first that matches and whose prerequisite exists, so listing $(HERE)
+# first is what keeps the harness compiling its main.c and not the kernel's.
+# With the rules the other way round the harness silently built boot/main.c
+# and failed on an include it has no path for.
+#
+# The boot rules still apply to every other object, because bringup/ has no
+# file of that name for their stems to match.
 $(BUILD_DIR)/%.o: $(HERE)%.c $(HEADERS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(BUILD_DIR)/%.o: $(BOOT_DIR)/%.S $(HEADERS) | $(BUILD_DIR)
+$(BUILD_DIR)/%.o: $(HERE)%.S $(HEADERS) | $(BUILD_DIR)
 	$(AS) $(ASFLAGS) -o $@ $<
 
-$(BUILD_DIR)/%.o: $(HERE)%.S $(HEADERS) | $(BUILD_DIR)
+$(BUILD_DIR)/%.o: $(BOOT_DIR)/%.c $(HEADERS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BUILD_DIR)/%.o: $(BOOT_DIR)/%.S $(HEADERS) | $(BUILD_DIR)
 	$(AS) $(ASFLAGS) -o $@ $<
 
 $(BUILD_DIR):

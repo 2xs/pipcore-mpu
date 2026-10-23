@@ -48,6 +48,7 @@
  * exists at all.
  */
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "csr.h"
@@ -222,4 +223,56 @@ int pmpCheck(void)
 	}
 
 	return 1;
+}
+
+int pmp_configure_from_LUT(uint32_t *LUT)
+{
+	uint32_t index;
+	uint32_t cfg0;
+	uint32_t cfg1;
+
+	if (LUT == NULL) {
+		return -1;
+	}
+
+	/* Pack the per-region configuration bytes. pmpcfg0 holds regions 0 to
+	 * 3 and pmpcfg1 regions 4 to 7, low byte first. Region 7's byte comes
+	 * from PMP_BACKGROUND_CFG and never from the LUT: a partition must not
+	 * be able to displace the deny-all entry that shadows the hardwired
+	 * regions 8 to 10. */
+	cfg0 = (LUT[1] & PMPCFG_BYTE_MASK)
+	     | ((LUT[3] & PMPCFG_BYTE_MASK) << 8)
+	     | ((LUT[5] & PMPCFG_BYTE_MASK) << 16)
+	     | ((LUT[7] & PMPCFG_BYTE_MASK) << 24);
+	cfg1 = (LUT[9] & PMPCFG_BYTE_MASK)
+	     | ((LUT[11] & PMPCFG_BYTE_MASK) << 8)
+	     | ((LUT[13] & PMPCFG_BYTE_MASK) << 16)
+	     | ((PMP_BACKGROUND_CFG & PMPCFG_BYTE_MASK) << 24);
+
+	/* Turn every dynamic region off before touching any address, keeping
+	 * only the background. Writing addresses first would leave the
+	 * outgoing partition's permissions applied to the incoming
+	 * partition's address ranges for the duration of the update. PMP has
+	 * no global enable to bracket the update with, the way the ARM driver
+	 * disabled the MPU around it, so the configuration bytes are what has
+	 * to be cleared. */
+	CSR_WRITE(pmpcfg0, 0);
+	CSR_WRITE(pmpcfg1, (PMP_BACKGROUND_CFG & PMPCFG_BYTE_MASK) << 24);
+
+	/* pmpaddr7 is not written: pmpInit() sets it once and it stays. */
+	for (index = 0; index < PMP_IDX_BACKGROUND; index++) {
+		pmpWriteAddress(index, LUT[index * 2]);
+	}
+
+	/* Configurations last, so no intermediate state grants anything the
+	 * final one does not. */
+	CSR_WRITE(pmpcfg0, cfg0);
+	CSR_WRITE(pmpcfg1, cfg1);
+
+	/* A region change can alter execute permission, and Hazard3 has a
+	 * prefetch buffer, so the fetch path has to be flushed. The ARM
+	 * driver's ISB/DSB pair is not a substitute for this. */
+	fenceI();
+
+	return 0;
 }

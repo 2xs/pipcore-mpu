@@ -269,4 +269,23 @@ void pmpInit(void);
  */
 int pmpCheck(void);
 
+/*!
+ * \fn int pmp_configure_from_LUT(uint32_t *LUT)
+ * \brief Loads a partition's LUT into the PMP CSRs.
+ *
+ * The replacement for the ARM target's mpu_configure_from_LUT(). Per region
+ * i, LUT[2i] is a pmpaddr value and LUT[2i+1] a pmpcfg byte; the regions are
+ * written address-first and configuration-last, with every dynamic region
+ * turned off beforehand, so no intermediate state grants anything the final
+ * one does not.
+ *
+ * Region 7's configuration byte always comes from PMP_BACKGROUND_CFG and
+ * pmpaddr7 is never written, so a partition cannot displace the deny-all
+ * background that shadows the hardwired regions 8 to 10.
+ *
+ * \param LUT The MPU_REGIONS_NB*2 word LUT of the partition to activate.
+ * \return 0 on success, a negative value on failure.
+ */
+int pmp_configure_from_LUT(uint32_t *LUT);
+
 #endif /* PMP_H */
